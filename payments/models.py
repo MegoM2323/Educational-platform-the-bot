@@ -16,6 +16,11 @@ class Payment(models.Model):
     raw = models.JSONField(default=dict, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
+    
+    service_name = models.CharField(max_length=255, blank=True, default="")
+    customer_fio = models.CharField(max_length=255, blank=True, default="")
+    
+
 
     def __str__(self):
         return f"{self.label} {self.amount} {self.status}"

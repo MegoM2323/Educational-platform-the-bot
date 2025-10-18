@@ -7,8 +7,13 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-YOOMONEY_RECEIVER = os.getenv("YOOMONEY_RECEIVER", "")
-YOOMONEY_SECRET   = os.getenv("YOOMONEY_SECRET", "")
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+YOOMONEY_CLIENT_ID = os.getenv("YOOMONEY_CLIENT_ID")
+YOOMONEY_CLIENT_SECRET = os.getenv("YOOMONEY_CLIENT_SECRET")
+YOOMONEY_REDIRECT_URI = os.getenv("YOOMONEY_REDIRECT_URI")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/

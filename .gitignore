@@ -158,3 +158,8 @@ Thumbs.db
 *.tar.gz
 deploy_script.sh
 DEPLOYMENT_INSTRUCTIONS.md
+
+# Cursor IDE files
+main.mdc
+.cursor/
+rules/

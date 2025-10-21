@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 
 from .models import Payment
+from .telegram_service import TelegramNotificationService
 
 SUCCESS_URL = "/payments/success/"
 FAIL_URL = "/payments/fail/"
@@ -153,6 +154,14 @@ def yookassa_webhook(request):
         if data.get('type') == 'payment.succeeded':
             payment.status = Payment.Status.SUCCEEDED
             payment.paid_at = timezone.now()
+            
+            # Отправляем уведомление в Telegram
+            try:
+                telegram_service = TelegramNotificationService()
+                telegram_service.send_payment_notification(payment)
+            except Exception as e:
+                print(f"Error sending Telegram notification: {e}")
+                
         elif data.get('type') == 'payment.canceled':
             payment.status = Payment.Status.CANCELED
         

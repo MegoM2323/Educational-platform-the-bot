@@ -11,20 +11,22 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-YOOMONEY_CLIENT_ID = os.getenv("YOOMONEY_CLIENT_ID")
-YOOMONEY_CLIENT_SECRET = os.getenv("YOOMONEY_CLIENT_SECRET")
-YOOMONEY_REDIRECT_URI = os.getenv("YOOMONEY_REDIRECT_URI")
+# YooKasa settings
+YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
+YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
+YOOKASSA_WEBHOOK_URL = os.getenv("YOOKASSA_WEBHOOK_URL")
+ALLOWED_HOSTS = ['*']  # Для разработки разрешаем все хосты
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$)(ook8puua)!k3q_m&u-04_4a_iki!_!-7$^mh9yswy-f)m)-'
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-development-key-change-in-production")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+
 
 
 # Application definition
@@ -73,14 +75,10 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-  "default": {
-    "ENGINE": "django.db.backends.postgresql",
-    "NAME": "djdb",
-    "USER": "djuser",
-    "PASSWORD": "stfongpass",
-    "HOST": "127.0.0.1",
-    "PORT": "5432",
-  }
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
 

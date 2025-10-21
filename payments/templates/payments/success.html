@@ -155,6 +155,24 @@
                 <span class="detail-label">Статус:</span>
                 <span class="detail-value">Оплачено</span>
             </div>
+            {% if payment %}
+            <div class="detail-item">
+                <span class="detail-label">Сумма:</span>
+                <span class="detail-value">{{ payment.amount }} ₽</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Услуга:</span>
+                <span class="detail-value">{{ payment.service_name }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Плательщик:</span>
+                <span class="detail-value">{{ payment.customer_fio }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">ID платежа:</span>
+                <span class="detail-value">{{ payment.id }}</span>
+            </div>
+            {% endif %}
             <div class="detail-item">
                 <span class="detail-label">Дата:</span>
                 <span class="detail-value" id="current-date"></span>

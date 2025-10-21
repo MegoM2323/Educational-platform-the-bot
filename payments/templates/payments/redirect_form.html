@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Перенаправление на YooMoney</title>
+    <title>Перенаправление на ЮКассу</title>
     <style>
         * {
             margin: 0;
@@ -166,9 +166,9 @@
     <div class="redirect-container">
         <div class="loading-spinner"></div>
         
-        <h1 class="redirect-title">Перенаправление на YooMoney</h1>
+        <h1 class="redirect-title">Перенаправление на ЮКассу</h1>
         <p class="redirect-message">
-            Вы будете автоматически перенаправлены на страницу оплаты YooMoney.
+            Вы будете автоматически перенаправлены на страницу оплаты ЮКассы.
             Пожалуйста, не закрывайте эту страницу.
         </p>
         
@@ -178,40 +178,28 @@
                 <span class="info-value">{{ amount }} ₽</span>
             </div>
             <div class="info-item">
-                <span class="info-label">Назначение:</span>
-                <span class="info-value">{{ targets }}</span>
+                <span class="info-label">Описание:</span>
+                <span class="info-value">{{ description }}</span>
             </div>
         </div>
         
         <div class="manual-redirect">
             <h3>Не происходит автоматическое перенаправление?</h3>
             <p>Если автоматическое перенаправление не сработало, нажмите кнопку ниже:</p>
-            <button class="manual-btn" onclick="document.getElementById('yoomoney').submit();">
+            <button class="manual-btn" onclick="window.location.href='{{ confirmation_url }}'">
                 Перейти к оплате вручную
             </button>
         </div>
         
         <div class="security-note">
-            Безопасное соединение с YooMoney
+            Безопасное соединение с ЮКассой
         </div>
     </div>
-    
-    <form id="yoomoney" method="POST" action="https://yoomoney.ru/quickpay/confirm" style="display: none;">
-        <input type="hidden" name="receiver" value="{{ receiver }}">
-        <input type="hidden" name="quickpay-form" value="button">
-        <input type="hidden" name="label" value="{{ label }}">
-        <input type="hidden" name="sum" value="{{ amount }}" data-type="number">
-        <input type="hidden" name="targets" value="{{ targets }}">
-        <input type="hidden" name="comment" value="{{ comment }}">
-        <input type="hidden" name="paymentType" value="AC">
-        <input type="hidden" name="successURL" value="{{ success_url }}">
-        <input type="hidden" name="need-email" value="true">
-    </form>
     
     <script>
         // Автоматическое перенаправление через 2 секунды
         setTimeout(function() {
-            document.getElementById('yoomoney').submit();
+            window.location.href = '{{ confirmation_url }}';
         }, 2000);
     </script>
 </body>

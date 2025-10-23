@@ -10,47 +10,157 @@ from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentPr
 from .serializers import (
     UserRegistrationSerializer, UserLoginSerializer, UserSerializer,
     StudentProfileSerializer, TeacherProfileSerializer, TutorProfileSerializer,
-    ParentProfileSerializer, ChangePasswordSerializer,
-    SupabaseUserRegistrationSerializer, SupabaseUserLoginSerializer,
-    SupabaseUserProfileSerializer
+    ParentProfileSerializer, ChangePasswordSerializer
 )
+from .supabase_service import SupabaseAuthService
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
     """
-    Регистрация нового пользователя
+    Регистрация нового пользователя через Supabase
     """
-    serializer = UserRegistrationSerializer(data=request.data)
-    if serializer.is_valid():
-        user = serializer.save()
-        token, created = Token.objects.get_or_create(user=user)
+    try:
+        print("=== REGISTER REQUEST DATA ===")
+        print("Raw data:", request.data)
+        print("Content-Type:", request.content_type)
+        print("===============================")
+        
+        # Валидируем данные
+        serializer = UserRegistrationSerializer(data=request.data)
+        if not serializer.is_valid():
+            print("=== SERIALIZER ERRORS ===")
+            print(serializer.errors)
+            print("=========================")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Получаем валидированные данные
+        validated_data = serializer.validated_data
+        
+        # Создаем пользователя в Supabase
+        supabase_service = SupabaseAuthService()
+        
+        # Регистрируем пользователя в Supabase
+        result = supabase_service.sign_up(
+            email=validated_data['email'],
+            password=validated_data['password'],
+            user_data={
+                'full_name': f"{validated_data.get('first_name', '')} {validated_data.get('last_name', '')}".strip(),
+                'role': validated_data.get('role', 'student'),
+                'phone': validated_data.get('phone', '')
+            }
+        )
+        
+        if result['success']:
+            # Проверяем, существует ли пользователь с таким email
+            try:
+                user = User.objects.get(email=validated_data['email'])
+                # Если пользователь существует, обновляем его данные
+                user.first_name = validated_data.get('first_name', user.first_name)
+                user.last_name = validated_data.get('last_name', user.last_name)
+                user.phone = validated_data.get('phone', user.phone)
+                user.role = validated_data.get('role', user.role)
+                user.is_active = True
+                user.is_verified = True
+                user.save()
+            except User.DoesNotExist:
+                # Создаем нового пользователя
+                user = User.objects.create(
+                    email=validated_data['email'],
+                    username=validated_data['email'],  # username = email для совместимости
+                    first_name=validated_data.get('first_name', ''),
+                    last_name=validated_data.get('last_name', ''),
+                    phone=validated_data.get('phone', ''),
+                    role=validated_data.get('role', 'student'),
+                    is_active=True,
+                    is_verified=True  # Supabase подтверждает email
+                )
+                
+                # Создаем профиль в зависимости от роли
+                if validated_data.get('role') == 'student':
+                    StudentProfile.objects.create(user=user)
+                elif validated_data.get('role') == 'teacher':
+                    TeacherProfile.objects.create(user=user)
+                elif validated_data.get('role') == 'tutor':
+                    TutorProfile.objects.create(user=user)
+                elif validated_data.get('role') == 'parent':
+                    ParentProfile.objects.create(user=user)
+            
+            # Создаем токен для Django API
+            token, created = Token.objects.get_or_create(user=user)
+            
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data,
+                'message': 'Регистрация успешна',
+                'supabase_user': result.get('user')
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response({
+                'error': result.get('error', 'Ошибка регистрации в Supabase')
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
         return Response({
-            'token': token.key,
-            'user': UserSerializer(user).data,
-            'message': 'Регистрация успешна'
-        }, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            'error': f'Ошибка сервера: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
     """
-    Вход пользователя
+    Вход пользователя через Supabase
     """
-    serializer = UserLoginSerializer(data=request.data)
-    if serializer.is_valid():
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        login(request, user)
+    try:
+        # Валидируем данные
+        serializer = UserLoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
+        
+        # Проверяем аутентификацию через Supabase
+        supabase_service = SupabaseAuthService()
+        result = supabase_service.sign_in(email, password)
+        
+        if result['success']:
+            # Находим или создаем пользователя в Django
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                # Если пользователь не найден в Django, создаем его
+                user = User.objects.create(
+                    email=email,
+                    username=email,  # username = email для совместимости
+                    first_name=result.get('user', {}).get('user_metadata', {}).get('full_name', '').split(' ')[0] if result.get('user', {}).get('user_metadata', {}).get('full_name') else '',
+                    last_name=' '.join(result.get('user', {}).get('user_metadata', {}).get('full_name', '').split(' ')[1:]) if result.get('user', {}).get('user_metadata', {}).get('full_name') else '',
+                    phone=result.get('user', {}).get('user_metadata', {}).get('phone', ''),
+                    role=result.get('user', {}).get('user_metadata', {}).get('role', 'student'),
+                    is_active=True,
+                    is_verified=True
+                )
+            
+            # Создаем токен для Django API
+            token, created = Token.objects.get_or_create(user=user)
+            
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data,
+                'message': 'Вход выполнен успешно',
+                'supabase_session': result.get('session')
+            })
+        else:
+            return Response({
+                'error': result.get('error', 'Неверные учетные данные')
+            }, status=status.HTTP_401_UNAUTHORIZED)
+            
+    except Exception as e:
         return Response({
-            'token': token.key,
-            'user': UserSerializer(user).data,
-            'message': 'Вход выполнен успешно'
-        })
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            'error': f'Ошибка сервера: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -231,161 +341,3 @@ class ParentProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user.parent_profile
 
 
-# Представления для работы с Supabase
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def supabase_register(request):
-    """
-    Регистрация нового пользователя через Supabase
-    """
-    serializer = SupabaseUserRegistrationSerializer(data=request.data)
-    if serializer.is_valid():
-        result = serializer.save()
-        return Response({
-            'user': result['user'],
-            'session': result.get('session'),
-            'message': 'Регистрация успешна'
-        }, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def supabase_login(request):
-    """
-    Вход пользователя через Supabase
-    """
-    serializer = SupabaseUserLoginSerializer(data=request.data)
-    if serializer.is_valid():
-        supabase_user = serializer.validated_data['supabase_user']
-        supabase_session = serializer.validated_data['supabase_session']
-        
-        return Response({
-            'user': supabase_user,
-            'session': supabase_session,
-            'message': 'Вход выполнен успешно'
-        })
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def supabase_logout(request):
-    """
-    Выход пользователя через Supabase
-    """
-    from .supabase_service import supabase_auth_service
-    
-    result = supabase_auth_service.sign_out()
-    
-    if result['success']:
-        return Response({
-            'message': 'Выход выполнен успешно'
-        })
-    else:
-        return Response({
-            'error': result.get('error', 'Ошибка выхода')
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def supabase_profile(request):
-    """
-    Получение профиля пользователя из Supabase
-    """
-    from .supabase_service import supabase_auth_service
-    
-    # Получаем токен из заголовка Authorization
-    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-    if not auth_header.startswith('Bearer '):
-        return Response({
-            'error': 'Требуется токен авторизации'
-        }, status=status.HTTP_401_UNAUTHORIZED)
-    
-    token = auth_header.split(' ')[1]
-    
-    try:
-        # Устанавливаем токен в клиент
-        supabase_auth_service.client.auth.set_session(token)
-        
-        # Получаем текущего пользователя
-        user = supabase_auth_service.get_user()
-        
-        if user:
-            # Получаем профиль пользователя
-            profile = supabase_auth_service.get_user_profile(user['id'])
-            roles = supabase_auth_service.get_user_roles(user['id'])
-            
-            return Response({
-                'user': user,
-                'profile': profile,
-                'roles': roles
-            })
-        else:
-            return Response({
-                'error': 'Пользователь не найден'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-    except Exception as e:
-        return Response({
-            'error': f'Ошибка получения профиля: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['PUT', 'PATCH'])
-@permission_classes([AllowAny])
-def supabase_update_profile(request):
-    """
-    Обновление профиля пользователя в Supabase
-    """
-    from .supabase_service import supabase_auth_service
-    
-    # Получаем токен из заголовка Authorization
-    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-    if not auth_header.startswith('Bearer '):
-        return Response({
-            'error': 'Требуется токен авторизации'
-        }, status=status.HTTP_401_UNAUTHORIZED)
-    
-    token = auth_header.split(' ')[1]
-    
-    try:
-        # Устанавливаем токен в клиент
-        supabase_auth_service.client.auth.set_session(token)
-        
-        # Получаем текущего пользователя
-        user = supabase_auth_service.get_user()
-        
-        if user:
-            # Подготавливаем данные для обновления
-            profile_data = {}
-            
-            if 'full_name' in request.data:
-                profile_data['full_name'] = request.data['full_name']
-            if 'phone' in request.data:
-                profile_data['phone'] = request.data['phone']
-            if 'avatar_url' in request.data:
-                profile_data['avatar_url'] = request.data['avatar_url']
-            
-            # Обновляем профиль
-            result = supabase_auth_service.update_user_profile(user['id'], profile_data)
-            
-            if result['success']:
-                return Response({
-                    'message': 'Профиль обновлен успешно',
-                    'profile': result['data']
-                })
-            else:
-                return Response({
-                    'error': result.get('error', 'Ошибка обновления профиля')
-                }, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response({
-                'error': 'Пользователь не найден'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-    except Exception as e:
-        return Response({
-            'error': f'Ошибка обновления профиля: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

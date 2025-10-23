@@ -19,10 +19,23 @@ export const validatePassword = (password: string): { isValid: boolean; message?
   return { isValid: true };
 };
 
-export const validatePhone = (phone: string): boolean => {
-  // Простая валидация для российских номеров
-  const phoneRegex = /^(\+7|8)?[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
+export const validatePhone = (phone: string): { isValid: boolean; message?: string } => {
+  if (!phone) {
+    return { isValid: false, message: "Телефон обязателен" };
+  }
+  
+  // Валидация в соответствии с Django (RegexValidator: ^\+?1?\d{9,15}$)
+  const phoneRegex = /^\+?1?\d{9,15}$/;
+  const isValid = phoneRegex.test(phone);
+  
+  if (!isValid) {
+    return { 
+      isValid: false, 
+      message: "Номер телефона должен быть в формате: '+79991234567'. До 15 цифр." 
+    };
+  }
+  
+  return { isValid: true };
 };
 
 export const validateName = (name: string): { isValid: boolean; message?: string } => {

@@ -95,12 +95,26 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Используем Supabase как основную базу данных
+# Для разработки используем SQLite, для продакшена - Supabase PostgreSQL
+if DEBUG:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'postgres',
+            'USER': 'postgres.sobptsqfzgycmauglqzk',
+            'PASSWORD': os.getenv('SUPABASE_DB_PASSWORD', 'your-supabase-password'),
+            'HOST': 'aws-0-eu-central-1.pooler.supabase.com',
+            'PORT': '6543',
+        }
+    }
 
 
 # Password validation
@@ -160,7 +174,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True  # Для разработки
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Только для разработки
 
 # REST Framework settings
 REST_FRAMEWORK = {

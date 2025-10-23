@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BookOpen, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { validateEmail, validatePassword, validateName, getErrorMessage } from "@/utils/validation";
+import { apiClient } from "@/integrations/api/client";
+import { validateEmail, validatePassword, validateName, validatePhone, getErrorMessage } from "@/utils/validation";
 import { ValidationMessage } from "@/components/ValidationMessage";
 
 const Auth = () => {
@@ -38,36 +38,17 @@ const Auth = () => {
     }
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Вход через API клиент
+      const response = await apiClient.login({
         email: loginData.email,
-        password: loginData.password,
+        password: loginData.password
       });
 
-      if (error) {
-        console.error('Login error details:', error);
-        toast.error(getErrorMessage(error));
-        return;
-      }
-
-      if (data.user) {
+      if (response.data) {
         toast.success("Вход выполнен успешно!");
         
-        // Получаем профиль пользователя для определения роли
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        // Получаем роли пользователя
-        const { data: roles } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id);
-
-        const userRole = roles?.[0]?.role || 'student';
-        
         // Переадресация в зависимости от роли
+        const userRole = response.data.user.role;
         switch (userRole) {
           case 'student':
             navigate('/dashboard/student');
@@ -84,6 +65,9 @@ const Auth = () => {
           default:
             navigate('/dashboard/student');
         }
+      } else {
+        console.error('Login error details:', response);
+        toast.error(response.error || "Ошибка входа");
       }
     } catch (error) {
       toast.error("Произошла ошибка при входе");
@@ -109,6 +93,13 @@ const Auth = () => {
       return;
     }
     
+    // Валидация телефона
+    const phoneValidation = validatePhone(signupData.phone);
+    if (!phoneValidation.isValid) {
+      toast.error(phoneValidation.message!);
+      return;
+    }
+    
     // Валидация пароля
     const passwordValidation = validatePassword(signupData.password);
     if (!passwordValidation.isValid) {
@@ -129,31 +120,26 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      // Регистрация пользователя
-      const { data, error } = await supabase.auth.signUp({
+      // Регистрация через API клиент
+      const response = await apiClient.register({
         email: signupData.email,
         password: signupData.password,
-        options: {
-          data: {
-            full_name: signupData.name,
-            role: signupData.role,
-            phone: signupData.phone
-          }
-        }
+        password_confirm: signupData.confirmPassword,
+        first_name: signupData.name.split(' ')[0] || signupData.name,
+        last_name: signupData.name.split(' ').slice(1).join(' ') || '',
+        phone: signupData.phone,
+        role: signupData.role
       });
 
-      if (error) {
-        console.error('Signup error details:', error);
-        toast.error(getErrorMessage(error));
-        return;
-      }
-
-      if (data.user) {
-        toast.success("Регистрация успешна! Проверьте email для подтверждения.");
+      if (response.data) {
+        toast.success("Регистрация успешна!");
         
         // Переключаемся на вкладку входа
         setIsLogin(true);
         setLoginData({ email: signupData.email, password: "" });
+      } else {
+        console.error('Signup error details:', response);
+        toast.error(response.error || "Ошибка регистрации");
       }
     } catch (error) {
       toast.error("Произошла ошибка при регистрации");
@@ -304,9 +290,10 @@ const Auth = () => {
                     type="tel"
                     value={signupData.phone}
                     onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
-                    placeholder="+7 (999) 123-45-67"
+                    placeholder="+79991234567"
                     required
                   />
+                  <ValidationMessage type="phone" value={signupData.phone} />
                 </div>
 
                 <div className="space-y-2">

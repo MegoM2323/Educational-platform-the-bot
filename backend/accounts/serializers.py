@@ -25,23 +25,33 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        validated_data.pop('password_confirm')
+        # Удаляем password_confirm, так как он не нужен для модели
+        validated_data.pop('password_confirm', None)
         password = validated_data.pop('password')
-        # Добавляем username = email для совместимости с AbstractUser
-        validated_data['username'] = validated_data['email']
-        user = User.objects.create_user(**validated_data)
-        user.set_password(password)
-        user.save()
         
-        # Создаем соответствующий профиль
-        if user.role == User.Role.STUDENT:
-            StudentProfile.objects.create(user=user)
-        elif user.role == User.Role.TEACHER:
-            TeacherProfile.objects.create(user=user)
-        elif user.role == User.Role.TUTOR:
-            TutorProfile.objects.create(user=user)
-        elif user.role == User.Role.PARENT:
-            ParentProfile.objects.create(user=user)
+        email = validated_data['email']
+        
+        # Проверяем, существует ли пользователь с таким email
+        try:
+            user = User.objects.get(email=email)
+            # Если пользователь существует, обновляем его данные
+            for key, value in validated_data.items():
+                setattr(user, key, value)
+            user.save()
+        except User.DoesNotExist:
+            # Создаем нового пользователя
+            validated_data['username'] = email  # username = email для совместимости с AbstractUser
+            user = User.objects.create(**validated_data)
+            
+            # Создаем соответствующий профиль
+            if user.role == User.Role.STUDENT:
+                StudentProfile.objects.get_or_create(user=user)
+            elif user.role == User.Role.TEACHER:
+                TeacherProfile.objects.get_or_create(user=user)
+            elif user.role == User.Role.TUTOR:
+                TutorProfile.objects.get_or_create(user=user)
+            elif user.role == User.Role.PARENT:
+                ParentProfile.objects.get_or_create(user=user)
         
         return user
 
@@ -58,12 +68,10 @@ class UserLoginSerializer(serializers.Serializer):
         password = attrs.get('password')
         
         if email and password:
-            user = authenticate(username=email, password=password)
-            if not user:
-                raise serializers.ValidationError('Неверные учетные данные')
-            if not user.is_active:
-                raise serializers.ValidationError('Аккаунт деактивирован')
-            attrs['user'] = user
+            # Аутентификация происходит через Supabase, поэтому просто возвращаем данные
+            # Проверка будет происходить в view
+            attrs['email'] = email
+            attrs['password'] = password
         else:
             raise serializers.ValidationError('Необходимо указать email и пароль')
         
@@ -166,102 +174,3 @@ class ChangePasswordSerializer(serializers.Serializer):
         return value
 
 
-# Сериализаторы для работы с Supabase
-class SupabaseUserRegistrationSerializer(serializers.Serializer):
-    """
-    Сериализатор для регистрации пользователя через Supabase
-    """
-    email = serializers.EmailField()
-    password = serializers.CharField(min_length=8, write_only=True)
-    password_confirm = serializers.CharField(write_only=True)
-    first_name = serializers.CharField(max_length=150)
-    last_name = serializers.CharField(max_length=150)
-    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
-    role = serializers.ChoiceField(choices=[
-        ('student', 'Студент'),
-        ('teacher', 'Преподаватель'),
-        ('tutor', 'Тьютор'),
-        ('parent', 'Родитель'),
-    ])
-    
-    def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError("Пароли не совпадают")
-        return attrs
-    
-    def create(self, validated_data):
-        password_confirm = validated_data.pop('password_confirm')
-        password = validated_data.pop('password')
-        
-        # Подготавливаем данные для Supabase
-        user_data = {
-            'full_name': f"{validated_data['first_name']} {validated_data['last_name']}",
-            'role': validated_data['role']
-        }
-        
-        # Регистрация через Supabase
-        result = supabase_auth_service.sign_up(
-            email=validated_data['email'],
-            password=password,
-            user_data=user_data
-        )
-        
-        if result['success']:
-            return result
-        else:
-            raise serializers.ValidationError(result.get('error', 'Ошибка регистрации'))
-
-
-class SupabaseUserLoginSerializer(serializers.Serializer):
-    """
-    Сериализатор для входа пользователя через Supabase
-    """
-    email = serializers.EmailField()
-    password = serializers.CharField()
-    
-    def validate(self, attrs):
-        email = attrs.get('email')
-        password = attrs.get('password')
-        
-        # Вход через Supabase
-        result = supabase_auth_service.sign_in(email=email, password=password)
-        
-        if result['success']:
-            attrs['supabase_user'] = result['user']
-            attrs['supabase_session'] = result['session']
-        else:
-            raise serializers.ValidationError(result.get('error', 'Ошибка входа'))
-        
-        return attrs
-
-
-class SupabaseUserProfileSerializer(serializers.Serializer):
-    """
-    Сериализатор для профиля пользователя из Supabase
-    """
-    id = serializers.CharField(read_only=True)
-    email = serializers.EmailField(read_only=True)
-    full_name = serializers.CharField(read_only=True)
-    phone = serializers.CharField(read_only=True)
-    avatar_url = serializers.URLField(read_only=True)
-    roles = serializers.ListField(child=serializers.CharField(), read_only=True)
-    created_at = serializers.DateTimeField(read_only=True)
-    updated_at = serializers.DateTimeField(read_only=True)
-    
-    def to_representation(self, instance):
-        # Получаем профиль из Supabase
-        profile = supabase_auth_service.get_user_profile(instance['id'])
-        roles = supabase_auth_service.get_user_roles(instance['id'])
-        
-        if profile:
-            return {
-                'id': instance['id'],
-                'email': instance['email'],
-                'full_name': profile.get('full_name', ''),
-                'phone': profile.get('phone', ''),
-                'avatar_url': profile.get('avatar_url', ''),
-                'roles': roles,
-                'created_at': profile.get('created_at'),
-                'updated_at': profile.get('updated_at'),
-            }
-        return instance

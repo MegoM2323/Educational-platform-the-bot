@@ -13,8 +13,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const items = [
   { title: "Главная", url: "/dashboard/student", icon: Home },
@@ -25,13 +24,10 @@ const items = [
 
 export function StudentSidebar() {
   const { state } = useSidebar();
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const { signOut } = useAuth();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast({ title: "Вы вышли из системы" });
-    navigate("/auth");
+    await signOut();
   };
 
   return (

@@ -43,37 +43,47 @@ class SupabaseAuthService:
             Dict с информацией о пользователе
         """
         try:
-            # Подготовка данных для регистрации
-            signup_data = {
+            # Создаем пользователя напрямую через Admin API
+            import requests
+            
+            # Подготовка данных для создания пользователя
+            create_user_data = {
                 "email": email,
-                "password": password
+                "password": password,
+                "email_confirm": True,  # Подтверждаем email автоматически
+                "user_metadata": user_data or {}
             }
             
-            # Добавляем дополнительные данные если они есть
-            if user_data:
-                signup_data["data"] = user_data
+            # Создаем пользователя через Admin API
+            admin_url = f"{self.url}/auth/v1/admin/users"
+            headers = {
+                "apikey": self.service_key,
+                "Authorization": f"Bearer {self.service_key}",
+                "Content-Type": "application/json"
+            }
             
-            # Регистрация в Supabase
-            response = self.client.auth.sign_up(signup_data)
+            response = requests.post(admin_url, json=create_user_data, headers=headers)
             
-            if response.user:
-                # Если регистрация прошла успешно, создаем профиль
+            if response.status_code == 200:
+                user_info = response.json()
+                
+                # Создаем профиль пользователя
                 if user_data and 'role' in user_data:
-                    self._create_user_role(response.user.id, user_data['role'])
+                    self._create_user_role(user_info['id'], user_data['role'])
                 
                 return {
                     "success": True,
                     "user": {
-                        "id": response.user.id,
-                        "email": response.user.email,
-                        "created_at": response.user.created_at,
-                    },
-                    "session": response.session
+                        "id": user_info['id'],
+                        "email": user_info['email'],
+                        "created_at": user_info['created_at'],
+                    }
                 }
             else:
+                error_data = response.json() if response.content else {}
                 return {
                     "success": False,
-                    "error": "Не удалось создать пользователя"
+                    "error": error_data.get('msg', f"Ошибка создания пользователя: {response.status_code}")
                 }
                 
         except Exception as e:
@@ -94,7 +104,7 @@ class SupabaseAuthService:
             Dict с информацией о сессии
         """
         try:
-            response = self.client.auth.sign_in_with_password({
+            response = self.service_client.auth.sign_in_with_password({
                 "email": email,
                 "password": password
             })

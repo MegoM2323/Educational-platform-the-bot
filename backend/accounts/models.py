@@ -6,6 +6,7 @@ from django.core.validators import RegexValidator
 class User(AbstractUser):
     """
     Расширенная модель пользователя с ролями
+    Аутентификация происходит через Supabase
     """
     class Role(models.TextChoices):
         STUDENT = 'student', 'Студент'
@@ -13,6 +14,9 @@ class User(AbstractUser):
         TUTOR = 'tutor', 'Тьютор'
         PARENT = 'parent', 'Родитель'
 
+    # Делаем пароль необязательным, так как аутентификация через Supabase
+    password = models.CharField(max_length=128, blank=True, null=True)
+    
     role = models.CharField(
         max_length=20,
         choices=Role.choices,

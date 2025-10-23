@@ -2,19 +2,12 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Аутентификация (Django)
+    # Основные API endpoints для аутентификации
     path('register/', views.register, name='register'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     
-    # Аутентификация (Supabase)
-    path('supabase/register/', views.supabase_register, name='supabase_register'),
-    path('supabase/login/', views.supabase_login, name='supabase_login'),
-    path('supabase/logout/', views.supabase_logout, name='supabase_logout'),
-    path('supabase/profile/', views.supabase_profile, name='supabase_profile'),
-    path('supabase/profile/update/', views.supabase_update_profile, name='supabase_update_profile'),
-    
-    # Профиль пользователя (Django)
+    # Профиль пользователя
     path('profile/', views.profile, name='profile'),
     path('profile/update/', views.update_profile, name='update_profile'),
     path('change-password/', views.change_password, name='change_password'),

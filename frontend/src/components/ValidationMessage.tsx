@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { validateEmail, validatePassword, validateName } from '@/utils/validation';
+import { validateEmail, validatePassword, validateName, validatePhone } from '@/utils/validation';
 
 interface ValidationMessageProps {
-  type: 'email' | 'password' | 'name';
+  type: 'email' | 'password' | 'name' | 'phone';
   value: string;
   show?: boolean;
 }
@@ -22,13 +22,17 @@ export const ValidationMessage = ({ type, value, show = true }: ValidationMessag
 
     switch (type) {
       case 'email':
-        validation = { isValid: validateEmail(value), message: 'Некорректный email адрес' };
+        const emailValid = validateEmail(value);
+        validation = { isValid: emailValid, message: emailValid ? '' : 'Некорректный email адрес' };
         break;
       case 'password':
         validation = validatePassword(value);
         break;
       case 'name':
         validation = validateName(value);
+        break;
+      case 'phone':
+        validation = validatePhone(value);
         break;
     }
 

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { apiClient, User } from '@/integrations/api/client';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -9,60 +8,52 @@ export const useAuth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Получаем текущую сессию
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+    // Проверяем, есть ли токен в localStorage
+    const checkAuth = async () => {
+      const token = localStorage.getItem('authToken');
+      const userData = localStorage.getItem('userData');
+      
+      if (token && userData) {
+        try {
+          // Устанавливаем токен в API клиент
+          apiClient.setToken(token);
+          
+          // Проверяем, действителен ли токен
+          const response = await apiClient.getProfile();
+          
+          if (response.data) {
+            setUser(response.data.user);
+          } else {
+            // Токен недействителен, очищаем localStorage
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Auth check error:', error);
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userData');
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+      
       setLoading(false);
     };
 
-    getSession();
-
-    // Слушаем изменения аутентификации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
-
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Получаем роль пользователя для переадресации
-          const { data: roles } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id);
-
-          const userRole = roles?.[0]?.role || 'student';
-          
-          // Переадресация в зависимости от роли
-          switch (userRole) {
-            case 'student':
-              navigate('/dashboard/student');
-              break;
-            case 'teacher':
-              navigate('/dashboard/teacher');
-              break;
-            case 'tutor':
-              navigate('/dashboard/tutor');
-              break;
-            case 'parent':
-              navigate('/dashboard/parent');
-              break;
-            default:
-              navigate('/dashboard/student');
-          }
-        }
-
-        if (event === 'SIGNED_OUT') {
-          navigate('/auth');
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    checkAuth();
+  }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await apiClient.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
+    setUser(null);
+    navigate('/auth');
   };
 
   return {

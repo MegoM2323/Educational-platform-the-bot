@@ -238,6 +238,149 @@ class AnalyticsData(models.Model):
         return f"{self.student} - {self.metric_type}: {self.value}"
 
 
+class StudentReport(models.Model):
+    """
+    Отчеты о студентах от преподавателей
+    """
+    class ReportType(models.TextChoices):
+        PROGRESS = 'progress', 'Отчет о прогрессе'
+        BEHAVIOR = 'behavior', 'Отчет о поведении'
+        ACHIEVEMENT = 'achievement', 'Отчет о достижениях'
+        ATTENDANCE = 'attendance', 'Отчет о посещаемости'
+        PERFORMANCE = 'performance', 'Отчет об успеваемости'
+        CUSTOM = 'custom', 'Пользовательский отчет'
+    
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Черновик'
+        SENT = 'sent', 'Отправлен'
+        READ = 'read', 'Прочитан'
+        ARCHIVED = 'archived', 'Архив'
+    
+    # Основная информация
+    title = models.CharField(max_length=200, verbose_name='Название')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    
+    # Тип и статус отчета
+    report_type = models.CharField(
+        max_length=20,
+        choices=ReportType.choices,
+        default=ReportType.PROGRESS,
+        verbose_name='Тип отчета'
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name='Статус'
+    )
+    
+    # Участники отчета
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_student_reports',
+        verbose_name='Преподаватель'
+    )
+    
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='student_reports',
+        verbose_name='Студент'
+    )
+    
+    parent = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='child_reports',
+        null=True,
+        blank=True,
+        verbose_name='Родитель'
+    )
+    
+    # Период отчета
+    period_start = models.DateField(verbose_name='Начало периода')
+    period_end = models.DateField(verbose_name='Конец периода')
+    
+    # Содержание отчета
+    content = models.JSONField(
+        default=dict,
+        verbose_name='Содержание отчета'
+    )
+    
+    # Метрики и оценки
+    overall_grade = models.CharField(
+        max_length=10,
+        blank=True,
+        verbose_name='Общая оценка'
+    )
+    
+    progress_percentage = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Процент прогресса'
+    )
+    
+    attendance_percentage = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Процент посещаемости'
+    )
+    
+    behavior_rating = models.PositiveIntegerField(
+        default=5,
+        choices=[(i, f'Оценка {i}') for i in range(1, 11)],
+        verbose_name='Оценка поведения'
+    )
+    
+    # Дополнительные данные
+    recommendations = models.TextField(
+        blank=True,
+        verbose_name='Рекомендации'
+    )
+    
+    concerns = models.TextField(
+        blank=True,
+        verbose_name='Обеспокоенности'
+    )
+    
+    achievements = models.TextField(
+        blank=True,
+        verbose_name='Достижения'
+    )
+    
+    # Файлы
+    attachment = models.FileField(
+        upload_to='student_reports/',
+        blank=True,
+        null=True,
+        verbose_name='Приложение'
+    )
+    
+    # Временные метки
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        verbose_name = 'Отчет о студенте'
+        verbose_name_plural = 'Отчеты о студентах'
+        ordering = ['-created_at']
+        unique_together = ['teacher', 'student', 'period_start', 'period_end']
+    
+    def __str__(self):
+        return f"{self.title} - {self.student.get_full_name()}"
+    
+    def save(self, *args, **kwargs):
+        # Автоматически устанавливаем родителя, если не указан
+        if not self.parent and hasattr(self.student, 'student_profile'):
+            try:
+                self.parent = self.student.student_profile.parent
+            except:
+                pass
+        super().save(*args, **kwargs)
+
+
 class ReportSchedule(models.Model):
     """
     Расписание автоматической генерации отчетов

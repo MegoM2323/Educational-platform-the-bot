@@ -1,4 +1,4 @@
-import { Home, BookOpen, FileText, MessageCircle, CreditCard, LogOut, User } from "lucide-react";
+import { Home, Send, FileText, MessageSquare, LogOut, User } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -14,13 +14,13 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
 
 const items = [
   { title: "Главная", url: "/dashboard/teacher", icon: Home },
-  { title: "Материалы", url: "/dashboard/teacher/materials", icon: BookOpen },
+  { title: "Распределение материалов", url: "/dashboard/teacher/materials", icon: Send },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },
-  { title: "Чат", url: "/dashboard/teacher/chat", icon: MessageCircle },
-  { title: "Оплата", url: "/dashboard/teacher/payments", icon: CreditCard },
+  { title: "Общий чат", url: "/dashboard/teacher/general-chat", icon: MessageSquare },
 ];
 
 export function TeacherSidebar() {
@@ -43,7 +43,12 @@ export function TeacherSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} className={({ isActive }) => isActive ? "bg-sidebar-accent" : ""}>
                       <item.icon className="h-4 w-4" />
-                      {state === "expanded" && <span>{item.title}</span>}
+                      {state === "expanded" && (
+                        <div className="flex items-center justify-between w-full">
+                          <span>{item.title}</span>
+                          {item.title === "Общий чат" && <ChatNotificationBadge />}
+                        </div>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

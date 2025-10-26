@@ -267,12 +267,17 @@
             
             // Запрашиваем статус через API
             fetch(`/api/check-payment/?payment_id=${paymentId}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    if (data.status === 'succeeded') {
+                    if (data && data.status === 'succeeded') {
                         // Перенаправляем на страницу успеха
                         window.location.href = `/payments/success/?payment_id=${paymentId}`;
-                    } else if (data.status === 'canceled') {
+                    } else if (data && data.status === 'canceled') {
                         // Перенаправляем на страницу ошибки
                         window.location.href = `/payments/fail/?error=Платеж был отменен`;
                     } else {
@@ -285,6 +290,12 @@
                 .catch(error => {
                     console.error('Error checking payment status:', error);
                     statusElement.textContent = 'Ошибка проверки';
+                    // Показываем пользователю более информативное сообщение
+                    if (error.message.includes('JSON')) {
+                        statusElement.textContent = 'Ошибка обработки ответа сервера';
+                    } else {
+                        statusElement.textContent = 'Ошибка соединения с сервером';
+                    }
                 });
         }
         

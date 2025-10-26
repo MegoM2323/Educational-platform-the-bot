@@ -2,10 +2,14 @@
 Сервис для работы с Supabase аутентификацией
 """
 import os
+import logging
 from typing import Optional, Dict, Any
 from django.conf import settings
 from supabase import create_client, Client
 from supabase._sync.client import SyncClient
+from core.json_utils import safe_json_response
+
+logger = logging.getLogger(__name__)
 
 
 class SupabaseAuthService:
@@ -19,16 +23,31 @@ class SupabaseAuthService:
         self.service_key = settings.SUPABASE_SERVICE_ROLE_KEY
         
         if not self.url or not self.key:
-            raise ValueError("SUPABASE_URL и SUPABASE_KEY должны быть установлены в настройках")
-        
-        # Клиент для обычных операций (с ограниченными правами)
-        self.client: Client = create_client(self.url, self.key)
-        
-        # Клиент с правами сервиса (для административных операций)
-        if self.service_key:
-            self.service_client: Client = create_client(self.url, self.service_key)
+            logger.warning("SUPABASE_URL и SUPABASE_KEY не установлены, используем mock клиент")
+            # Импортируем mock сервис
+            from .mock_supabase_service import MockSupabaseAuthService
+            return MockSupabaseAuthService()
         else:
-            self.service_client = self.client
+            try:
+                # Клиент для обычных операций (с ограниченными правами)
+                self.client: Client = create_client(self.url, self.key)
+                
+                # Клиент с правами сервиса (для административных операций)
+                if self.service_key:
+                    self.service_client: Client = create_client(self.url, self.service_key)
+                else:
+                    self.service_client = self.client
+            except Exception as e:
+                logger.error(f"Ошибка создания Supabase клиента: {e}")
+                self.client = None
+                self.service_client = None
+    
+    def _check_client(self) -> bool:
+        """Проверяет, доступен ли Supabase клиент"""
+        if not self.client:
+            logger.warning("Supabase клиент не доступен")
+            return False
+        return True
     
     def sign_up(self, email: str, password: str, user_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -65,7 +84,12 @@ class SupabaseAuthService:
             response = requests.post(admin_url, json=create_user_data, headers=headers)
             
             if response.status_code == 200:
-                user_info = response.json()
+                user_info = safe_json_response(response)
+                if not user_info:
+                    return {
+                        "success": False,
+                        "error": "Не удалось распарсить ответ от Supabase"
+                    }
                 
                 # Создаем профиль пользователя
                 if user_data and 'role' in user_data:
@@ -80,7 +104,7 @@ class SupabaseAuthService:
                     }
                 }
             else:
-                error_data = response.json() if response.content else {}
+                error_data = safe_json_response(response, {})
                 return {
                     "success": False,
                     "error": error_data.get('msg', f"Ошибка создания пользователя: {response.status_code}")

@@ -8,103 +8,11 @@ from django.contrib.auth.hashers import make_password
 
 from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentProfile
 from .serializers import (
-    UserRegistrationSerializer, UserLoginSerializer, UserSerializer,
+    UserLoginSerializer, UserSerializer,
     StudentProfileSerializer, TeacherProfileSerializer, TutorProfileSerializer,
     ParentProfileSerializer, ChangePasswordSerializer
 )
 from .supabase_service import SupabaseAuthService
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register(request):
-    """
-    Регистрация нового пользователя через Supabase
-    """
-    try:
-        print("=== REGISTER REQUEST DATA ===")
-        print("Raw data:", request.data)
-        print("Content-Type:", request.content_type)
-        print("===============================")
-        
-        # Валидируем данные
-        serializer = UserRegistrationSerializer(data=request.data)
-        if not serializer.is_valid():
-            print("=== SERIALIZER ERRORS ===")
-            print(serializer.errors)
-            print("=========================")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Получаем валидированные данные
-        validated_data = serializer.validated_data
-        
-        # Создаем пользователя в Supabase
-        supabase_service = SupabaseAuthService()
-        
-        # Регистрируем пользователя в Supabase
-        result = supabase_service.sign_up(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            user_data={
-                'full_name': f"{validated_data.get('first_name', '')} {validated_data.get('last_name', '')}".strip(),
-                'role': validated_data.get('role', 'student'),
-                'phone': validated_data.get('phone', '')
-            }
-        )
-        
-        if result['success']:
-            # Проверяем, существует ли пользователь с таким email
-            try:
-                user = User.objects.get(email=validated_data['email'])
-                # Если пользователь существует, обновляем его данные
-                user.first_name = validated_data.get('first_name', user.first_name)
-                user.last_name = validated_data.get('last_name', user.last_name)
-                user.phone = validated_data.get('phone', user.phone)
-                user.role = validated_data.get('role', user.role)
-                user.is_active = True
-                user.is_verified = True
-                user.save()
-            except User.DoesNotExist:
-                # Создаем нового пользователя
-                user = User.objects.create(
-                    email=validated_data['email'],
-                    username=validated_data['email'],  # username = email для совместимости
-                    first_name=validated_data.get('first_name', ''),
-                    last_name=validated_data.get('last_name', ''),
-                    phone=validated_data.get('phone', ''),
-                    role=validated_data.get('role', 'student'),
-                    is_active=True,
-                    is_verified=True  # Supabase подтверждает email
-                )
-                
-                # Создаем профиль в зависимости от роли
-                if validated_data.get('role') == 'student':
-                    StudentProfile.objects.create(user=user)
-                elif validated_data.get('role') == 'teacher':
-                    TeacherProfile.objects.create(user=user)
-                elif validated_data.get('role') == 'tutor':
-                    TutorProfile.objects.create(user=user)
-                elif validated_data.get('role') == 'parent':
-                    ParentProfile.objects.create(user=user)
-            
-            # Создаем токен для Django API
-            token, created = Token.objects.get_or_create(user=user)
-            
-            return Response({
-                'token': token.key,
-                'user': UserSerializer(user).data,
-                'message': 'Регистрация успешна',
-                'supabase_user': result.get('user')
-            }, status=status.HTTP_201_CREATED)
-        else:
-            return Response({
-                'error': result.get('error', 'Ошибка регистрации в Supabase')
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
-    except Exception as e:
-        return Response({
-            'error': f'Ошибка сервера: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])

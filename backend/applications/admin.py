@@ -8,50 +8,58 @@ from .models import Application
 @admin.register(Application)
 class ApplicationAdmin(admin.ModelAdmin):
     """
-    Админка для управления заявками
+    Admin interface for managing applications
     """
     list_display = [
-        'id', 'student_name', 'parent_name', 'phone', 'email', 
-        'grade', 'status_badge', 'created_at', 'telegram_link'
+        'id', 'full_name', 'applicant_type', 'email', 'phone', 
+        'status_badge', 'created_at', 'telegram_link'
     ]
-    list_filter = ['status', 'grade', 'created_at']
-    search_fields = ['student_name', 'parent_name', 'phone', 'email']
-    readonly_fields = ['id', 'created_at', 'updated_at', 'processed_at', 'telegram_message_id']
+    list_filter = ['status', 'applicant_type', 'created_at']
+    search_fields = ['first_name', 'last_name', 'email', 'phone', 'parent_first_name', 'parent_last_name']
+    readonly_fields = [
+        'id', 'tracking_token', 'created_at', 'processed_at', 'processed_by',
+        'generated_username', 'generated_password', 'parent_username', 'parent_password',
+        'telegram_message_id'
+    ]
     
     fieldsets = (
-        ('Основная информация', {
-            'fields': ('student_name', 'parent_name', 'phone', 'email')
+        ('Personal Information', {
+            'fields': ('first_name', 'last_name', 'email', 'phone', 'telegram_id')
         }),
-        ('Образовательная информация', {
-            'fields': ('grade', 'goal', 'message')
+        ('Application Details', {
+            'fields': ('applicant_type', 'grade', 'subject', 'experience', 'motivation')
         }),
-        ('Статус и обработка', {
-            'fields': ('status', 'notes', 'processed_at')
+        ('Parent Information', {
+            'fields': ('parent_first_name', 'parent_last_name', 'parent_email', 'parent_phone', 'parent_telegram_id'),
+            'classes': ('collapse',)
         }),
-        ('Системная информация', {
-            'fields': ('id', 'created_at', 'updated_at', 'telegram_message_id'),
+        ('Status and Processing', {
+            'fields': ('status', 'notes', 'processed_at', 'processed_by')
+        }),
+        ('System Information', {
+            'fields': ('id', 'tracking_token', 'created_at', 'telegram_message_id'),
+            'classes': ('collapse',)
+        }),
+        ('Generated Credentials', {
+            'fields': ('generated_username', 'generated_password', 'parent_username', 'parent_password'),
             'classes': ('collapse',)
         }),
     )
     
     def status_badge(self, obj):
         """
-        Отображает статус с цветным бейджем
+        Display status with colored badge
         """
         colors = {
-            Application.Status.NEW: 'red',
-            Application.Status.PROCESSING: 'orange',
+            Application.Status.PENDING: 'orange',
             Application.Status.APPROVED: 'green',
-            Application.Status.REJECTED: 'red',
-            Application.Status.COMPLETED: 'blue'
+            Application.Status.REJECTED: 'red'
         }
         
         emojis = {
-            Application.Status.NEW: '🆕',
-            Application.Status.PROCESSING: '⏳',
+            Application.Status.PENDING: '⏳',
             Application.Status.APPROVED: '✅',
-            Application.Status.REJECTED: '❌',
-            Application.Status.COMPLETED: '🎉'
+            Application.Status.REJECTED: '❌'
         }
         
         color = colors.get(obj.status, 'gray')
@@ -62,11 +70,11 @@ class ApplicationAdmin(admin.ModelAdmin):
             color,
             f"{emoji} {obj.get_status_display()}"
         )
-    status_badge.short_description = 'Статус'
+    status_badge.short_description = 'Status'
     
     def telegram_link(self, obj):
         """
-        Ссылка на сообщение в Telegram
+        Link to Telegram message
         """
         if obj.telegram_message_id:
             return format_html(
@@ -79,47 +87,46 @@ class ApplicationAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         """
-        Оптимизированный запрос
+        Optimized query
         """
-        return super().get_queryset(request).select_related()
+        return super().get_queryset(request).select_related('processed_by')
     
     def save_model(self, request, obj, form, change):
         """
-        Автоматически обновляет processed_at при изменении статуса
+        Automatically update processed_at when status changes
         """
         if change and 'status' in form.changed_data:
             from django.utils import timezone
-            if obj.status != Application.Status.NEW and not obj.processed_at:
+            if obj.status != Application.Status.PENDING and not obj.processed_at:
                 obj.processed_at = timezone.now()
+                obj.processed_by = request.user
         
         super().save_model(request, obj, form, change)
     
-    actions = ['mark_as_processing', 'mark_as_approved', 'mark_as_rejected']
-    
-    def mark_as_processing(self, request, queryset):
-        """
-        Пометить заявки как "В обработке"
-        """
-        updated = queryset.filter(status=Application.Status.NEW).update(status=Application.Status.PROCESSING)
-        self.message_user(request, f'{updated} заявок помечено как "В обработке"')
-    mark_as_processing.short_description = 'Пометить как "В обработке"'
+    actions = ['mark_as_approved', 'mark_as_rejected']
     
     def mark_as_approved(self, request, queryset):
         """
-        Пометить заявки как "Одобрены"
+        Mark applications as approved
         """
-        updated = queryset.filter(status__in=[Application.Status.NEW, Application.Status.PROCESSING]).update(
-            status=Application.Status.APPROVED
+        from django.utils import timezone
+        updated = queryset.filter(status=Application.Status.PENDING).update(
+            status=Application.Status.APPROVED,
+            processed_at=timezone.now(),
+            processed_by=request.user
         )
-        self.message_user(request, f'{updated} заявок помечено как "Одобрены"')
-    mark_as_approved.short_description = 'Пометить как "Одобрены"'
+        self.message_user(request, f'{updated} applications marked as approved')
+    mark_as_approved.short_description = 'Mark as approved'
     
     def mark_as_rejected(self, request, queryset):
         """
-        Пометить заявки как "Отклонены"
+        Mark applications as rejected
         """
-        updated = queryset.filter(status__in=[Application.Status.NEW, Application.Status.PROCESSING]).update(
-            status=Application.Status.REJECTED
+        from django.utils import timezone
+        updated = queryset.filter(status=Application.Status.PENDING).update(
+            status=Application.Status.REJECTED,
+            processed_at=timezone.now(),
+            processed_by=request.user
         )
-        self.message_user(request, f'{updated} заявок помечено как "Отклонены"')
-    mark_as_rejected.short_description = 'Пометить как "Отклонены"'
+        self.message_user(request, f'{updated} applications marked as rejected')
+    mark_as_rejected.short_description = 'Mark as rejected'

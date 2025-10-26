@@ -1,4 +1,4 @@
-import { Home, Users, FileText, MessageCircle, CreditCard, LogOut, User } from "lucide-react";
+import { Home, Users, FileText, CreditCard, BarChart3, LogOut, User } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -18,9 +18,9 @@ import { useAuth } from "@/hooks/useAuth";
 const items = [
   { title: "Главная", url: "/dashboard/parent", icon: Home },
   { title: "Мои дети", url: "/dashboard/parent/children", icon: Users },
-  { title: "Отчёты", url: "/dashboard/parent/reports", icon: FileText },
-  { title: "Чат с тьютором", url: "/dashboard/parent/chat", icon: MessageCircle },
   { title: "Оплата", url: "/dashboard/parent/payments", icon: CreditCard },
+  { title: "Статистика", url: "/dashboard/parent/statistics", icon: BarChart3 },
+  { title: "Отчёты", url: "/dashboard/parent/reports", icon: FileText },
 ];
 
 export function ParentSidebar() {

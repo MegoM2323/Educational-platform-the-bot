@@ -13,6 +13,7 @@ class ChatRoom(models.Model):
         GROUP = 'group', 'Групповой чат'
         SUPPORT = 'support', 'Поддержка'
         CLASS = 'class', 'Класс'
+        GENERAL = 'general', 'Общий форум'
     
     name = models.CharField(max_length=200, verbose_name='Название')
     description = models.TextField(blank=True, verbose_name='Описание')
@@ -37,6 +38,13 @@ class ChatRoom(models.Model):
     )
     
     is_active = models.BooleanField(default=True, verbose_name='Активен')
+    
+    # Автоудаление сообщений
+    auto_delete_days = models.PositiveIntegerField(
+        default=7,
+        verbose_name='Дни до автоудаления сообщений',
+        help_text='Сообщения старше указанного количества дней будут автоматически удалены'
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -112,6 +120,16 @@ class Message(models.Model):
         verbose_name='Ответ на'
     )
     
+    # Связь с тредом для форумного стиля
+    thread = models.ForeignKey(
+        'MessageThread',
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name='messages',
+        verbose_name='Тред'
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -151,6 +169,48 @@ class MessageRead(models.Model):
     
     def __str__(self):
         return f"{self.user} прочитал {self.message}"
+
+
+class MessageThread(models.Model):
+    """
+    Треды сообщений для форумного стиля общения
+    """
+    room = models.ForeignKey(
+        ChatRoom,
+        on_delete=models.CASCADE,
+        related_name='threads',
+        verbose_name='Комната'
+    )
+    
+    title = models.CharField(max_length=200, verbose_name='Заголовок треда')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_threads',
+        verbose_name='Создатель'
+    )
+    
+    is_pinned = models.BooleanField(default=False, verbose_name='Закреплен')
+    is_locked = models.BooleanField(default=False, verbose_name='Заблокирован')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Тред сообщений'
+        verbose_name_plural = 'Треды сообщений'
+        ordering = ['-is_pinned', '-updated_at']
+    
+    def __str__(self):
+        return f"{self.title} в {self.room}"
+    
+    @property
+    def messages_count(self):
+        return self.messages.count()
+    
+    @property
+    def last_message(self):
+        return self.messages.last()
 
 
 class ChatParticipant(models.Model):

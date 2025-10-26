@@ -1,7 +1,10 @@
 import requests
 import logging
 from django.conf import settings
+from django.utils import timezone
 from typing import Optional, Dict, Any
+from .models import Application
+from core.json_utils import safe_json_response
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +47,13 @@ class TelegramService:
             response = requests.post(url, data=data, timeout=10)
             response.raise_for_status()
             
-            result = response.json()
-            if result.get('ok'):
+            result = safe_json_response(response)
+            if result and result.get('ok'):
                 logger.info(f"Сообщение успешно отправлено в Telegram. Message ID: {result['result']['message_id']}")
                 return result
             else:
-                logger.error(f"Ошибка отправки в Telegram: {result.get('description', 'Неизвестная ошибка')}")
+                error_msg = result.get('description', 'Неизвестная ошибка') if result else 'Не удалось распарсить ответ'
+                logger.error(f"Ошибка отправки в Telegram: {error_msg}")
                 return None
                 
         except requests.exceptions.RequestException as e:
@@ -87,23 +91,42 @@ class TelegramService:
         Returns:
             Отформатированное сообщение
         """
+        # Определяем тип заявки и форматируем сообщение соответственно
+        applicant_name = f"{application.first_name} {application.last_name}"
+        applicant_type_emoji = {
+            Application.ApplicantType.STUDENT: '🎓',
+            Application.ApplicantType.TEACHER: '👨‍🏫',
+            Application.ApplicantType.PARENT: '👨‍👩‍👧‍👦'
+        }
+        emoji = applicant_type_emoji.get(application.applicant_type, '👤')
+        
         message = f"""
-🎓 <b>Новая заявка на обучение</b>
+{emoji} <b>Новая заявка на обучение</b>
 
-👤 <b>Ученик:</b> {application.student_name}
-👨‍👩‍👧‍👦 <b>Родитель:</b> {application.parent_name}
+👤 <b>Заявитель:</b> {applicant_name}
+📋 <b>Тип:</b> {application.get_applicant_type_display()}
 📞 <b>Телефон:</b> {application.phone}
 📧 <b>Email:</b> {application.email}
-🎯 <b>Класс:</b> {application.grade}
-        
-📅 <b>Дата подачи:</b> {application.created_at.strftime('%d.%m.%Y в %H:%M')}
 """
         
-        if application.goal:
-            message += f"\n🎯 <b>Цель обучения:</b> {application.goal}"
+        # Добавляем специфичную информацию в зависимости от типа заявки
+        if application.applicant_type == Application.ApplicantType.STUDENT:
+            if application.grade:
+                message += f"🎯 <b>Класс:</b> {application.grade}\n"
+            if application.parent_first_name and application.parent_last_name:
+                message += f"👨‍👩‍👧‍👦 <b>Родитель:</b> {application.parent_first_name} {application.parent_last_name}\n"
         
-        if application.message:
-            message += f"\n💬 <b>Дополнительная информация:</b>\n{application.message}"
+        elif application.applicant_type == Application.ApplicantType.TEACHER:
+            if application.subject:
+                message += f"📚 <b>Предмет:</b> {application.subject}\n"
+        
+        message += f"\n📅 <b>Дата подачи:</b> {application.created_at.strftime('%d.%m.%Y в %H:%M')}"
+        
+        if application.motivation:
+            message += f"\n\n🎯 <b>Мотивация/Цель:</b>\n{application.motivation}"
+        
+        if application.experience:
+            message += f"\n\n💼 <b>Опыт:</b>\n{application.experience}"
         
         message += f"\n\n🆔 <b>ID заявки:</b> #{application.id}"
         
@@ -140,15 +163,18 @@ class TelegramService:
         emoji = status_emojis.get(new_status, '📝')
         status_name = status_names.get(new_status, new_status)
         
+        applicant_name = f"{application.first_name} {application.last_name}"
+        
         message = f"""
 {emoji} <b>Обновление статуса заявки</b>
 
-👤 <b>Ученик:</b> {application.student_name}
+👤 <b>Заявитель:</b> {applicant_name}
+📋 <b>Тип:</b> {application.get_applicant_type_display()}
 📞 <b>Телефон:</b> {application.phone}
 🆔 <b>ID заявки:</b> #{application.id}
 
 📊 <b>Статус изменен:</b> {status_name}
-⏰ <b>Время:</b> {application.updated_at.strftime('%d.%m.%Y в %H:%M')}
+⏰ <b>Время:</b> {timezone.now().strftime('%d.%m.%Y в %H:%M')}
 """
         
         if application.notes:
@@ -173,13 +199,14 @@ class TelegramService:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             
-            result = response.json()
-            if result.get('ok'):
+            result = safe_json_response(response)
+            if result and result.get('ok'):
                 bot_info = result['result']
                 logger.info(f"Telegram бот подключен: @{bot_info.get('username', 'Unknown')}")
                 return True
             else:
-                logger.error(f"Ошибка проверки Telegram бота: {result.get('description', 'Неизвестная ошибка')}")
+                error_msg = result.get('description', 'Неизвестная ошибка') if result else 'Не удалось распарсить ответ'
+                logger.error(f"Ошибка проверки Telegram бота: {error_msg}")
                 return False
                 
         except requests.exceptions.RequestException as e:

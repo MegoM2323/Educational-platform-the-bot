@@ -5,10 +5,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import Subject, Material, MaterialProgress, MaterialComment
+from .models import Subject, Material, MaterialProgress, MaterialComment, MaterialSubmission, MaterialFeedback
 from .serializers import (
     SubjectSerializer, MaterialListSerializer, MaterialDetailSerializer,
-    MaterialCreateSerializer, MaterialProgressSerializer, MaterialCommentSerializer
+    MaterialCreateSerializer, MaterialProgressSerializer, MaterialCommentSerializer,
+    MaterialSubmissionSerializer, MaterialFeedbackSerializer
 )
 
 
@@ -166,6 +167,113 @@ class MaterialViewSet(viewsets.ModelViewSet):
                 serializer.save(material=material)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'])
+    def student_materials(self, request):
+        """
+        Получить все материалы, назначенные студенту
+        """
+        if request.user.role != 'student':
+            return Response(
+                {'error': 'Доступно только для студентов'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Получаем материалы, назначенные студенту или публичные
+        materials = Material.objects.filter(
+            Q(assigned_to=request.user) | Q(is_public=True),
+            status=Material.Status.ACTIVE
+        ).distinct().select_related('author', 'subject').prefetch_related('progress')
+        
+        # Применяем фильтры
+        subject_id = request.query_params.get('subject_id')
+        material_type = request.query_params.get('type')
+        difficulty = request.query_params.get('difficulty')
+        
+        if subject_id:
+            materials = materials.filter(subject_id=subject_id)
+        if material_type:
+            materials = materials.filter(type=material_type)
+        if difficulty:
+            materials = materials.filter(difficulty_level=difficulty)
+        
+        # Сортируем по дате создания (новые сначала)
+        materials = materials.order_by('-created_at')
+        
+        serializer = MaterialListSerializer(materials, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def download_file(self, request, pk=None):
+        """
+        Скачать файл материала
+        """
+        material = self.get_object()
+        
+        # Проверяем права доступа
+        if not (material.is_public or material.assigned_to.filter(id=request.user.id).exists()):
+            return Response(
+                {'error': 'Нет доступа к этому материалу'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if not material.file:
+            return Response(
+                {'error': 'Файл не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Обновляем прогресс при скачивании
+        if request.user.role == 'student':
+            progress, created = MaterialProgress.objects.get_or_create(
+                student=request.user,
+                material=material
+            )
+            progress.last_accessed = timezone.now()
+            progress.save()
+        
+        from django.http import FileResponse
+        return FileResponse(
+            material.file,
+            as_attachment=True,
+            filename=material.file.name.split('/')[-1]
+        )
+    
+    @action(detail=False, methods=['get'])
+    def student_materials(self, request):
+        """
+        Получить материалы, назначенные студенту
+        """
+        if request.user.role != 'student':
+            return Response(
+                {'error': 'Доступно только для студентов'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        materials = Material.objects.filter(
+            Q(assigned_to=request.user) | Q(is_public=True)
+        ).distinct().order_by('-created_at')
+        
+        serializer = MaterialListSerializer(materials, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def submissions(self, request, pk=None):
+        """
+        Получить ответы студентов на материал
+        """
+        material = self.get_object()
+        
+        # Проверяем права доступа
+        if request.user.role not in ['teacher', 'tutor']:
+            return Response(
+                {'error': 'Доступно только для преподавателей'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        submissions = MaterialSubmission.objects.filter(material=material)
+        serializer = MaterialSubmissionSerializer(submissions, many=True, context={'request': request})
+        return Response(serializer.data)
 
 
 class MaterialProgressViewSet(viewsets.ReadOnlyModelViewSet):
@@ -200,3 +308,154 @@ class MaterialCommentViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+
+class MaterialSubmissionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet для ответов учеников на материалы
+    """
+    queryset = MaterialSubmission.objects.all()
+    serializer_class = MaterialSubmissionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['material', 'student', 'is_late']
+    ordering_fields = ['submitted_at']
+    ordering = ['-submitted_at']
+    
+    def get_queryset(self):
+        """
+        Фильтрация ответов в зависимости от роли пользователя
+        """
+        user = self.request.user
+        
+        if user.role == 'student':
+            # Студенты видят только свои ответы
+            return MaterialSubmission.objects.filter(student=user)
+        elif user.role in ['teacher', 'tutor']:
+            # Преподаватели видят все ответы
+            return MaterialSubmission.objects.all()
+        elif user.role == 'parent':
+            # Родители видят ответы своих детей
+            children = user.parent_profile.children.all()
+            return MaterialSubmission.objects.filter(student__in=children)
+        
+        return MaterialSubmission.objects.none()
+    
+    def perform_create(self, serializer):
+        serializer.save(student=self.request.user)
+    
+    @action(detail=False, methods=['post'])
+    def submit_answer(self, request):
+        """
+        Отправить ответ на материал
+        """
+        if request.user.role != 'student':
+            return Response(
+                {'error': 'Доступно только для студентов'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        material_id = request.data.get('material_id')
+        if not material_id:
+            return Response(
+                {'error': 'Необходимо указать material_id'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            material = Material.objects.get(id=material_id)
+        except Material.DoesNotExist:
+            return Response(
+                {'error': 'Материал не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Проверяем, назначен ли материал студенту
+        if not (material.is_public or material.assigned_to.filter(id=request.user.id).exists()):
+            return Response(
+                {'error': 'Материал не назначен вам'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Проверяем, не отправлял ли уже ответ
+        if MaterialSubmission.objects.filter(material=material, student=request.user).exists():
+            return Response(
+                {'error': 'Ответ уже отправлен'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = MaterialSubmissionSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            submission = serializer.save(material=material, student=request.user)
+            
+            # Обновляем статус материала на "проверено" если есть фидбэк
+            if hasattr(submission, 'feedback'):
+                submission.status = MaterialSubmission.Status.REVIEWED
+                submission.save()
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'])
+    def submit_feedback(self, request, pk=None):
+        """
+        Добавить фидбэк к ответу ученика
+        """
+        submission = self.get_object()
+        
+        if request.user.role not in ['teacher', 'tutor']:
+            return Response(
+                {'error': 'Только преподаватели могут оставлять фидбэк'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Проверяем, не существует ли уже фидбэк
+        if hasattr(submission, 'feedback'):
+            return Response(
+                {'error': 'Фидбэк уже существует'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = MaterialFeedbackSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            serializer.save(submission=submission)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MaterialFeedbackViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet для просмотра фидбэка по материалам
+    """
+    queryset = MaterialFeedback.objects.all()
+    serializer_class = MaterialFeedbackSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """
+        Фильтрация фидбэка в зависимости от роли пользователя
+        """
+        user = self.request.user
+        
+        if user.role == 'student':
+            # Студенты видят фидбэк по своим ответам
+            return MaterialFeedback.objects.filter(submission__student=user)
+        elif user.role in ['teacher', 'tutor']:
+            # Преподаватели видят весь фидбэк
+            return MaterialFeedback.objects.all()
+        elif user.role == 'parent':
+            # Родители видят фидбэк по ответам своих детей
+            children = user.parent_profile.children.all()
+            return MaterialFeedback.objects.filter(submission__student__in=children)
+        
+        return MaterialFeedback.objects.none()

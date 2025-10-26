@@ -1,4 +1,4 @@
-import { Home, BookOpen, MessageCircle, CreditCard, LogOut, User } from "lucide-react";
+import { Home, BookOpen, MessageSquare, LogOut, User } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -14,12 +14,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
 
 const items = [
   { title: "Главная", url: "/dashboard/student", icon: Home },
   { title: "Материалы", url: "/dashboard/student/materials", icon: BookOpen },
-  { title: "Чат", url: "/dashboard/student/chat", icon: MessageCircle },
-  { title: "Оплата", url: "/dashboard/student/payments", icon: CreditCard },
+  { title: "Общий чат", url: "/dashboard/student/general-chat", icon: MessageSquare },
 ];
 
 export function StudentSidebar() {
@@ -42,7 +42,12 @@ export function StudentSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} className={({ isActive }) => isActive ? "bg-sidebar-accent" : ""}>
                       <item.icon className="h-4 w-4" />
-                      {state === "expanded" && <span>{item.title}</span>}
+                      {state === "expanded" && (
+                        <div className="flex items-center justify-between w-full">
+                          <span>{item.title}</span>
+                          {item.title === "Общий чат" && <ChatNotificationBadge />}
+                        </div>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

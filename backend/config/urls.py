@@ -14,6 +14,8 @@ urlpatterns = [
     path("api/notifications/", include('notifications.urls')),
     path("api/payments/", include('payments.api_urls')),
     path("api/applications/", include('applications.urls')),
+    path("api/dashboard/", include('materials.urls')),  # Dashboard endpoints
+    path("api/system/", include('core.urls')),  # System monitoring and management
     
     # Legacy payment endpoints
     path("", pay_page, name="pay_page"),

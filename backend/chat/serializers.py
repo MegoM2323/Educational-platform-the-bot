@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import ChatRoom, Message, MessageRead, ChatParticipant
+from .models import ChatRoom, Message, MessageRead, ChatParticipant, MessageThread
 
 User = get_user_model()
 
@@ -96,13 +96,15 @@ class MessageSerializer(serializers.ModelSerializer):
     """
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
     sender_avatar = serializers.SerializerMethodField()
+    sender_role = serializers.CharField(source='sender.role', read_only=True)
     is_read = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
+    thread_title = serializers.CharField(source='thread.title', read_only=True)
     
     class Meta:
         model = Message
         fields = (
-            'id', 'room', 'sender', 'sender_name', 'sender_avatar',
+            'id', 'room', 'thread', 'thread_title', 'sender', 'sender_name', 'sender_avatar', 'sender_role',
             'content', 'message_type', 'file', 'image', 'is_edited',
             'reply_to', 'created_at', 'updated_at', 'is_read', 'replies_count'
         )
@@ -173,6 +175,49 @@ class ChatParticipantSerializer(serializers.ModelSerializer):
         if obj.user.avatar:
             return obj.user.avatar.url
         return None
+
+
+class MessageThreadSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для тредов сообщений
+    """
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    created_by_role = serializers.CharField(source='created_by.role', read_only=True)
+    messages_count = serializers.IntegerField(read_only=True)
+    last_message = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = MessageThread
+        fields = (
+            'id', 'room', 'title', 'created_by', 'created_by_name', 'created_by_role',
+            'is_pinned', 'is_locked', 'created_at', 'updated_at', 'messages_count', 'last_message'
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+    
+    def get_last_message(self, obj):
+        last_msg = obj.last_message
+        if last_msg:
+            return {
+                'id': last_msg.id,
+                'content': last_msg.content[:100],
+                'sender': last_msg.sender.get_full_name(),
+                'created_at': last_msg.created_at
+            }
+        return None
+
+
+class MessageThreadCreateSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для создания треда
+    """
+    class Meta:
+        model = MessageThread
+        fields = ('title',)
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        validated_data['room'] = self.context['room']
+        return super().create(validated_data)
 
 
 class ChatRoomStatsSerializer(serializers.Serializer):

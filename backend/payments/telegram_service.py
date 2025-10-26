@@ -1,6 +1,7 @@
 import requests
 import logging
 from django.conf import settings
+from core.json_utils import safe_json_response
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +67,8 @@ class TelegramNotificationService:
                 logger.info("Telegram notification sent successfully")
                 return True
             else:
-                response_data = response.json()
-                error_description = response_data.get('description', 'Unknown error')
+                response_data = safe_json_response(response, {})
+                error_description = response_data.get('description', 'Unknown error') if response_data else 'Не удалось распарсить ответ'
                 logger.error(f"Telegram API error: {response.status_code} - {error_description}")
                 
                 # Специальная обработка ошибок
@@ -100,8 +101,11 @@ class TelegramNotificationService:
             response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
-                bot_info = response.json()
-                return True, bot_info
+                bot_info = safe_json_response(response)
+                if bot_info:
+                    return True, bot_info
+                else:
+                    return False, "Не удалось распарсить ответ от Telegram API"
             else:
                 return False, f"API error: {response.status_code} - {response.text}"
                 

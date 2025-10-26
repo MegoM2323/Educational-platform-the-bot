@@ -1,6 +1,7 @@
 import requests
 import json
 import uuid
+import logging
 from decimal import Decimal
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
@@ -11,6 +12,15 @@ from django.utils import timezone
 
 from .models import Payment
 from .telegram_service import TelegramNotificationService
+from core.transaction_utils import (
+    TransactionType, 
+    transaction_manager, 
+    log_critical_operation,
+    DataIntegrityValidator
+)
+from core.json_utils import safe_json_parse, safe_json_response, safe_json_dumps
+
+logger = logging.getLogger(__name__)
 
 SUCCESS_URL = "/payments/success/"
 FAIL_URL = "/payments/fail/"
@@ -30,6 +40,16 @@ def pay_page(request):
         if not service_name or not customer_fio or amount <= 0:
             return HttpResponseBadRequest("Заполните все поля корректно")
 
+        # Validate payment data
+        payment_data = {
+            'amount': amount,
+            'service_name': service_name,
+            'customer_fio': customer_fio
+        }
+        validation_errors = DataIntegrityValidator.validate_payment_data(payment_data)
+        if validation_errors:
+            return HttpResponseBadRequest(f"Validation errors: {', '.join(validation_errors)}")
+
         # Создаем платеж в нашей системе
         payment = Payment.objects.create(
             amount=amount,
@@ -40,6 +60,19 @@ def pay_page(request):
                 "service_name": service_name,
                 "customer_fio": customer_fio,
             }
+        )
+        
+        # Log payment creation
+        log_critical_operation(
+            "payment_created",
+            user_id=None,
+            details={
+                'payment_id': payment.id,
+                'amount': str(amount),
+                'service_name': service_name,
+                'customer_fio': customer_fio
+            },
+            success=True
         )
 
         # Создаем платеж в ЮКассе
@@ -66,13 +99,23 @@ def pay_page(request):
     return render(request, "payments/pay.html")
 
 def create_yookassa_payment(payment, request):
-    """Создание платежа в ЮКассе"""
+    """Создание платежа в ЮКассе с улучшенной валидацией"""
+    # Проверяем наличие необходимых настроек
+    if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
+        logger.error("YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured")
+        return None
+    
     url = "https://api.yookassa.ru/v3/payments"
+    
+    # Валидация суммы
+    if payment.amount <= 0:
+        logger.error(f"Invalid payment amount: {payment.amount}")
+        return None
     
     # Подготовка данных для ЮКассы
     payment_data = {
         "amount": {
-            "value": str(payment.amount),
+            "value": f"{payment.amount:.2f}",
             "currency": "RUB"
         },
         "confirmation": {
@@ -80,7 +123,7 @@ def create_yookassa_payment(payment, request):
             "return_url": f"{request.build_absolute_uri(SUCCESS_URL)}?payment_id={payment.id}"
         },
         "capture": True,
-        "description": payment.description,
+        "description": payment.description or "Оплата услуги",
         "metadata": {
             "payment_id": str(payment.id),
             "service_name": payment.service_name,
@@ -97,22 +140,29 @@ def create_yookassa_payment(payment, request):
     auth = (settings.YOOKASSA_SHOP_ID, settings.YOOKASSA_SECRET_KEY)
     
     try:
+        logger.info(f"Creating YooKassa payment for payment {payment.id}")
         response = requests.post(
             url, 
             headers=headers, 
-            data=json.dumps(payment_data), 
+            data=safe_json_dumps(payment_data), 
             auth=auth,
             timeout=30
         )
         
         if response.status_code == 200:
-            return response.json()
+            data = safe_json_response(response)
+            if data:
+                logger.info(f"YooKassa payment created successfully: {data.get('id')}")
+                return data
+            else:
+                logger.error("Failed to parse YooKassa response")
+                return None
         else:
-            print(f"YooKassa API error: {response.status_code} - {response.text}")
+            logger.error(f"YooKassa API error: {response.status_code} - {response.text}")
             return None
             
     except requests.RequestException as e:
-        print(f"Request error: {e}")
+        logger.error(f"Request error creating YooKassa payment: {e}")
         return None
 
 def check_yookassa_payment_status(yookassa_payment_id):
@@ -130,10 +180,14 @@ def check_yookassa_payment_status(yookassa_payment_id):
         response = requests.get(url, headers=headers, auth=auth, timeout=30)
         
         if response.status_code == 200:
-            data = response.json()
-            return data.get('status')
+            data = safe_json_response(response)
+            if data:
+                return data.get('status')
+            else:
+                logger.error("Failed to parse YooKassa status response")
+                return None
         else:
-            print(f"YooKassa API error: {response.status_code} - {response.text}")
+            logger.error(f"YooKassa API error: {response.status_code} - {response.text}")
             return None
             
     except requests.RequestException as e:
@@ -207,15 +261,22 @@ def pay_fail(request):
 def yookassa_webhook(request):
     """Webhook от ЮКассы для обработки уведомлений о статусе платежа"""
     if request.method != "POST":
+        logger.warning("Webhook called with non-POST method")
         return HttpResponseBadRequest("POST only")
 
     try:
         # Получаем данные из webhook
-        data = json.loads(request.body)
+        data = safe_json_parse(request.body)
+        if not data:
+            logger.error("Invalid JSON in webhook request")
+            return HttpResponseBadRequest("Invalid JSON")
+        
+        logger.info(f"Webhook received: {data.get('type')}")
         
         # Проверяем тип события
         event_type = data.get('type')
         if event_type not in ['payment.succeeded', 'payment.canceled', 'payment.waiting_for_capture']:
+            logger.info(f"Ignoring webhook event type: {event_type}")
             return HttpResponse("OK")
         
         # Получаем объект платежа
@@ -223,42 +284,49 @@ def yookassa_webhook(request):
         yookassa_payment_id = payment_object.get('id')
         
         if not yookassa_payment_id:
+            logger.error("Webhook received without payment ID")
             return HttpResponseBadRequest("No payment ID")
         
         # Находим наш платеж
         try:
             payment = Payment.objects.get(yookassa_payment_id=yookassa_payment_id)
+            logger.info(f"Found payment: {payment.id}")
         except Payment.DoesNotExist:
+            logger.error(f"Payment not found for YooKassa ID: {yookassa_payment_id}")
             return HttpResponseBadRequest("Payment not found")
+        
+        # Сохраняем сырой ответ
+        payment.raw_response = data
         
         # Обновляем статус
         if event_type == 'payment.succeeded':
             payment.status = Payment.Status.SUCCEEDED
             payment.paid_at = timezone.now()
+            payment.save()
+            logger.info(f"Payment {payment.id} marked as succeeded")
             
             # Отправляем уведомление в Telegram
             try:
                 telegram_service = TelegramNotificationService()
                 telegram_service.send_payment_notification(payment)
+                logger.info("Telegram notification sent for payment")
             except Exception as e:
-                print(f"Error sending Telegram notification: {e}")
+                logger.error(f"Error sending Telegram notification: {e}")
                 
         elif event_type == 'payment.canceled':
             payment.status = Payment.Status.CANCELED
+            payment.save()
+            logger.info(f"Payment {payment.id} marked as canceled")
             
         elif event_type == 'payment.waiting_for_capture':
             payment.status = Payment.Status.WAITING_FOR_CAPTURE
-        
-        # Сохраняем сырой ответ
-        payment.raw_response = data
-        payment.save()
+            payment.save()
+            logger.info(f"Payment {payment.id} marked as waiting for capture")
         
         return HttpResponse("OK")
         
-    except json.JSONDecodeError:
-        return HttpResponseBadRequest("Invalid JSON")
     except Exception as e:
-        print(f"Webhook error: {e}")
+        logger.error(f"Webhook error: {e}", exc_info=True)
         return HttpResponseBadRequest("Error processing webhook")
 
 @csrf_exempt

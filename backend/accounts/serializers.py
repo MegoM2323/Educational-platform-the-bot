@@ -1,59 +1,6 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentProfile
-from .supabase_service import supabase_auth_service
-
-
-class UserRegistrationSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для регистрации пользователя
-    """
-    password = serializers.CharField(write_only=True, validators=[validate_password])
-    password_confirm = serializers.CharField(write_only=True)
-    
-    class Meta:
-        model = User
-        fields = (
-            'email', 'password', 'password_confirm', 'first_name', 'last_name',
-            'phone', 'role'
-        )
-    
-    def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError("Пароли не совпадают")
-        return attrs
-    
-    def create(self, validated_data):
-        # Удаляем password_confirm, так как он не нужен для модели
-        validated_data.pop('password_confirm', None)
-        password = validated_data.pop('password')
-        
-        email = validated_data['email']
-        
-        # Проверяем, существует ли пользователь с таким email
-        try:
-            user = User.objects.get(email=email)
-            # Если пользователь существует, обновляем его данные
-            for key, value in validated_data.items():
-                setattr(user, key, value)
-            user.save()
-        except User.DoesNotExist:
-            # Создаем нового пользователя
-            validated_data['username'] = email  # username = email для совместимости с AbstractUser
-            user = User.objects.create(**validated_data)
-            
-            # Создаем соответствующий профиль
-            if user.role == User.Role.STUDENT:
-                StudentProfile.objects.get_or_create(user=user)
-            elif user.role == User.Role.TEACHER:
-                TeacherProfile.objects.get_or_create(user=user)
-            elif user.role == User.Role.TUTOR:
-                TutorProfile.objects.get_or_create(user=user)
-            elif user.role == User.Role.PARENT:
-                ParentProfile.objects.get_or_create(user=user)
-        
-        return user
 
 
 class UserLoginSerializer(serializers.Serializer):

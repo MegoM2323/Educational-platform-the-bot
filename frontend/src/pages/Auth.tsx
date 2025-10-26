@@ -3,151 +3,59 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BookOpen, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { apiClient } from "@/integrations/api/client";
-import { validateEmail, validatePassword, validateName, validatePhone, getErrorMessage } from "@/utils/validation";
-import { ValidationMessage } from "@/components/ValidationMessage";
+import { useAuth } from "@/contexts/AuthContext";
+import { validateEmail } from "@/utils/validation";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const { login, isLoading } = useAuth();
   const [loginData, setLoginData] = useState({ email: "", password: "" });
-  const [signupData, setSignupData] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-    role: "",
-    name: "",
-    phone: ""
-  });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
 
     // Валидация email
     if (!validateEmail(loginData.email)) {
       toast.error("Пожалуйста, введите корректный email адрес");
-      setIsLoading(false);
       return;
     }
 
     try {
-      // Вход через API клиент
-      const response = await apiClient.login({
+      // Вход через AuthContext
+      const result = await login({
         email: loginData.email,
         password: loginData.password
       });
 
-      if (response.data) {
-        toast.success("Вход выполнен успешно!");
-        
-        // Переадресация в зависимости от роли
-        const userRole = response.data.user.role;
-        switch (userRole) {
-          case 'student':
-            navigate('/dashboard/student');
-            break;
-          case 'teacher':
-            navigate('/dashboard/teacher');
-            break;
-          case 'tutor':
-            navigate('/dashboard/tutor');
-            break;
-          case 'parent':
-            navigate('/dashboard/parent');
-            break;
-          default:
-            navigate('/dashboard/student');
-        }
-      } else {
-        console.error('Login error details:', response);
-        toast.error(response.error || "Ошибка входа");
+      toast.success("Вход выполнен успешно!");
+      
+      // Переадресация в зависимости от роли
+      const userRole = result.user.role;
+      switch (userRole) {
+        case 'student':
+          navigate('/dashboard/student');
+          break;
+        case 'teacher':
+          navigate('/dashboard/teacher');
+          break;
+        case 'tutor':
+          navigate('/dashboard/tutor');
+          break;
+        case 'parent':
+          navigate('/dashboard/parent');
+          break;
+        default:
+          navigate('/dashboard/student');
       }
     } catch (error) {
       toast.error("Произошла ошибка при входе");
       console.error('Login error:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Валидация email
-    if (!validateEmail(signupData.email)) {
-      toast.error("Пожалуйста, введите корректный email адрес");
-      return;
-    }
-    
-    // Валидация имени
-    const nameValidation = validateName(signupData.name);
-    if (!nameValidation.isValid) {
-      toast.error(nameValidation.message!);
-      return;
-    }
-    
-    // Валидация телефона
-    const phoneValidation = validatePhone(signupData.phone);
-    if (!phoneValidation.isValid) {
-      toast.error(phoneValidation.message!);
-      return;
-    }
-    
-    // Валидация пароля
-    const passwordValidation = validatePassword(signupData.password);
-    if (!passwordValidation.isValid) {
-      toast.error(passwordValidation.message!);
-      return;
-    }
-    
-    if (signupData.password !== signupData.confirmPassword) {
-      toast.error("Пароли не совпадают");
-      return;
-    }
-
-    if (!signupData.role) {
-      toast.error("Пожалуйста, выберите роль");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Регистрация через API клиент
-      const response = await apiClient.register({
-        email: signupData.email,
-        password: signupData.password,
-        password_confirm: signupData.confirmPassword,
-        first_name: signupData.name.split(' ')[0] || signupData.name,
-        last_name: signupData.name.split(' ').slice(1).join(' ') || '',
-        phone: signupData.phone,
-        role: signupData.role
-      });
-
-      if (response.data) {
-        toast.success("Регистрация успешна!");
-        
-        // Переключаемся на вкладку входа
-        setIsLogin(true);
-        setLoginData({ email: signupData.email, password: "" });
-      } else {
-        console.error('Signup error details:', response);
-        toast.error(response.error || "Ошибка регистрации");
-      }
-    } catch (error) {
-      toast.error("Произошла ошибка при регистрации");
-      console.error('Signup error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-muted/20 to-background">
@@ -170,17 +78,10 @@ const Auth = () => {
         <Card className="w-full max-w-md p-8 shadow-lg">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2">Добро пожаловать!</h1>
-            <p className="text-muted-foreground">Войдите или создайте новый аккаунт</p>
+            <p className="text-muted-foreground">Войдите в свой аккаунт</p>
           </div>
 
-          <Tabs value={isLogin ? "login" : "signup"} onValueChange={(value) => setIsLogin(value === "login")} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="login">Вход</TabsTrigger>
-              <TabsTrigger value="signup">Регистрация</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
                   <Input
@@ -190,7 +91,7 @@ const Auth = () => {
                     onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                     placeholder="example@mail.ru"
                     required
-                    pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                    pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}"
                   />
                 </div>
 
@@ -237,96 +138,7 @@ const Auth = () => {
                     Telegram
                   </Button>
                 </div>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-role">Роль *</Label>
-                  <Select value={signupData.role} onValueChange={(value) => setSignupData({ ...signupData, role: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите роль" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="student">Ученик</SelectItem>
-                      <SelectItem value="parent">Родитель</SelectItem>
-                      <SelectItem value="teacher">Преподаватель</SelectItem>
-                      <SelectItem value="tutor">Тьютор</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Имя *</Label>
-                  <Input
-                    id="signup-name"
-                    value={signupData.name}
-                    onChange={(e) => setSignupData({ ...signupData, name: e.target.value })}
-                    placeholder="Иван Иванов"
-                    required
-                  />
-                  <ValidationMessage type="name" value={signupData.name} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email *</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    value={signupData.email}
-                    onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
-                    placeholder="example@mail.ru"
-                    required
-                    pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
-                  />
-                  <ValidationMessage type="email" value={signupData.email} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-phone">Телефон *</Label>
-                  <Input
-                    id="signup-phone"
-                    type="tel"
-                    value={signupData.phone}
-                    onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
-                    placeholder="+79991234567"
-                    required
-                  />
-                  <ValidationMessage type="phone" value={signupData.phone} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Пароль *</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={signupData.password}
-                    onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
-                    placeholder="••••••••"
-                    required
-                  />
-                  <ValidationMessage type="password" value={signupData.password} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-confirm">Подтвердите пароль *</Label>
-                  <Input
-                    id="signup-confirm"
-                    type="password"
-                    value={signupData.confirmPassword}
-                    onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
-
-                <Button type="submit" className="w-full gradient-primary shadow-glow" disabled={isLoading}>
-                  {isLoading ? "Регистрация..." : "Зарегистрироваться"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+          </form>
         </Card>
       </div>
     </div>

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CreditCard, CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { djangoAPI, type Payment } from "@/integrations/django/client";
+import { unifiedAPI as djangoAPI, type Payment } from "@/integrations/api/unifiedClient";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Payments() {
@@ -52,8 +52,23 @@ export default function Payments() {
       return;
     }
 
+    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
+      toast({
+        title: "Ошибка",
+        description: "Введите корректную сумму",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setCreatingPayment(true);
+      
+      toast({
+        title: "Создание платежа",
+        description: "Пожалуйста, подождите...",
+      });
+
       const payment = await djangoAPI.createPayment({
         amount: paymentForm.amount,
         service_name: paymentForm.service_name,
@@ -63,18 +78,25 @@ export default function Payments() {
       });
 
       if (payment.confirmation_url) {
-        // Перенаправляем на страницу оплаты ЮКассы
-        window.open(payment.confirmation_url, '_blank');
         toast({
           title: "Платеж создан",
           description: "Откройте новую вкладку для оплаты",
         });
+        
+        // Перенаправляем на страницу оплаты ЮКассы
+        window.open(payment.confirmation_url, '_blank');
+        
+        // Перезагружаем список платежей
+        await loadPayments();
+      } else {
+        throw new Error('Не получена ссылка для оплаты');
       }
     } catch (error) {
       console.error('Ошибка создания платежа:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось создать платеж';
       toast({
-        title: "Ошибка",
-        description: "Не удалось создать платеж",
+        title: "Ошибка создания платежа",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

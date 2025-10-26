@@ -1,21 +1,18 @@
 from pathlib import Path
-import os 
-from pathlib import Path
+import os
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
 
-import os
-from dotenv import load_dotenv
-load_dotenv()
+# Загружаем переменные окружения из .env файла в корне проекта
+load_dotenv(BASE_DIR / ".env")
 
 # YooKasa settings
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 YOOKASSA_WEBHOOK_URL = os.getenv("YOOKASSA_WEBHOOK_URL")
-ALLOWED_HOSTS = ['*']  # Для разработки разрешаем все хосты
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '0.0.0.0']  # Для разработки разрешаем локальные хосты
 
 # Telegram Bot settings
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -41,6 +38,7 @@ DEBUG = True
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',  # ASGI server для WebSocket
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -51,6 +49,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'django_filters',
+    'channels',  # Django Channels для WebSocket
+    'core',
     'accounts',
     'materials',
     'assignments',
@@ -90,6 +90,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
 
 # Database
@@ -188,3 +189,95 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
 }
+
+# Cache settings
+# Настройки кэширования
+USE_REDIS_CACHE = os.getenv('USE_REDIS_CACHE', 'False').lower() == 'true'
+
+if USE_REDIS_CACHE:
+    # Используем Redis для кэширования
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
+        },
+        'dashboard': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/2'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
+        },
+        'chat': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/3'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
+        }
+    }
+else:
+    # Используем локальное кэширование в памяти (для разработки)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        },
+        'dashboard': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'dashboard-cache',
+        },
+        'chat': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'chat-cache',
+        }
+    }
+
+# Cache timeouts (in seconds)
+CACHE_TIMEOUTS = {
+    'dashboard_data': 300,  # 5 minutes
+    'student_materials': 600,  # 10 minutes
+    'teacher_students': 900,  # 15 minutes
+    'parent_children': 1200,  # 20 minutes
+    'chat_messages': 60,  # 1 minute
+    'progress_stats': 300,  # 5 minutes
+}
+
+# Backup settings
+BACKUP_DIR = os.getenv('BACKUP_DIR', '/tmp/backups')
+MAX_BACKUPS = int(os.getenv('MAX_BACKUPS', '30'))
+
+# System monitoring settings
+SYSTEM_MONITORING = {
+    'ENABLED': True,
+    'METRICS_CACHE_TIMEOUT': 60,  # 1 minute
+    'HEALTH_CHECK_TIMEOUT': 30,  # 30 seconds
+    'ALERT_THRESHOLDS': {
+        'CPU_WARNING': 80,
+        'CPU_CRITICAL': 95,
+        'MEMORY_WARNING': 80,
+        'MEMORY_CRITICAL': 90,
+        'DISK_WARNING': 80,
+        'DISK_CRITICAL': 90,
+        'DB_RESPONSE_WARNING': 1000,  # ms
+        'DB_RESPONSE_CRITICAL': 5000,  # ms
+    }
+}
+
+# Django Channels settings
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')],
+        },
+    },
+}
+
+# WebSocket settings
+WEBSOCKET_URL = os.getenv('WEBSOCKET_URL', 'ws://localhost:8000/ws/')
+WEBSOCKET_AUTHENTICATION_TIMEOUT = 30  # seconds
+WEBSOCKET_MESSAGE_MAX_LENGTH = 1024 * 1024  # 1MB

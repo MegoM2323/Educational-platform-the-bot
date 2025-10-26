@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BookOpen, Users, Target, MessageCircle, TrendingUp, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ApplicationForm } from "@/components/forms/ApplicationForm";
 
 const Landing = () => {
   return (
@@ -47,11 +46,11 @@ const Landing = () => {
             Персонализированное обучение с трекингом прогресса, прямой связью с преподавателями и тьюторами
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="#apply">
+            <Link to="/application">
               <Button size="lg" className="gradient-primary shadow-glow hover:opacity-90 transition-opacity">
-                Начать обучение
+                Подать заявку
               </Button>
-            </a>
+            </Link>
             <Link to="/auth">
               <Button size="lg" variant="outline">
                 Личный кабинет
@@ -108,15 +107,20 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Application Form Section */}
+      {/* Application CTA Section */}
       <section id="apply" className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="max-w-2xl mx-auto">
-            <h2 className="text-center mb-4">Подать заявку на обучение</h2>
-            <p className="text-center text-muted-foreground mb-8">
-              Заполните форму, и наши специалисты свяжутся с вами в ближайшее время
+          <div className="max-w-2xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-4">Подать заявку на обучение</h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              Заполните форму заявки, и наши специалисты свяжутся с вами в ближайшее время. 
+              После одобрения заявки вы получите данные для входа в систему через Telegram.
             </p>
-            <ApplicationForm />
+            <Link to="/application">
+              <Button size="lg" className="gradient-primary shadow-glow">
+                Подать заявку
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

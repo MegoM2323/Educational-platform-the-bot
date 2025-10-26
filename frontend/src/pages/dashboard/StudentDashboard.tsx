@@ -2,16 +2,114 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, MessageCircle, Target, Bell, CheckCircle, Clock, LogOut } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { BookOpen, MessageCircle, Target, Bell, CheckCircle, Clock, LogOut, ExternalLink, AlertCircle } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/layout/StudentSidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { unifiedAPI } from "@/integrations/api/unifiedClient";
+import { useToast } from "@/hooks/use-toast";
+import { useErrorNotification, useSuccessNotification } from "@/components/NotificationSystem";
+import { DashboardSkeleton, ErrorState, EmptyState, LoadingWithRetry } from "@/components/LoadingStates";
+import { useErrorReporter } from "@/components/ErrorHandlingProvider";
+import { useNetworkStatus } from "@/components/NetworkStatusHandler";
+import { FallbackUI, OfflineContent } from "@/components/FallbackUI";
+
+// Интерфейсы для данных
+interface Material {
+  id: number;
+  title: string;
+  description: string;
+  teacher_name: string;
+  subject: string;
+  status: 'new' | 'in_progress' | 'completed';
+  progress_percentage: number;
+  created_at: string;
+  file_url?: string;
+}
+
+interface DashboardData {
+  materials: Material[];
+  progress: {
+    overall_percentage: number;
+    completed_tasks: number;
+    total_tasks: number;
+    streak_days: number;
+    accuracy_percentage: number;
+  };
+  recent_assignments: Array<{
+    id: number;
+    title: string;
+    deadline: string;
+    status: 'pending' | 'completed' | 'overdue';
+  }>;
+}
 
 const StudentDashboard = () => {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const showError = useErrorNotification();
+  const showSuccess = useSuccessNotification();
+  const { reportError, reportNetworkError } = useErrorReporter();
+  const networkStatus = useNetworkStatus();
+  
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Загрузка данных дашборда с улучшенной обработкой ошибок
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await unifiedAPI.getStudentDashboard();
+      
+      if (response.success && response.data) {
+        setDashboardData(response.data);
+        showSuccess('Данные успешно загружены');
+      } else {
+        const errorMessage = response.error || 'Ошибка загрузки данных';
+        setError(errorMessage);
+        reportError(new Error(errorMessage), {
+          operation: 'fetchDashboardData',
+          component: 'StudentDashboard',
+          response,
+        });
+      }
+    } catch (err: any) {
+      const errorMessage = 'Произошла ошибка при загрузке данных';
+      setError(errorMessage);
+      reportNetworkError(err, {
+        operation: 'fetchDashboardData',
+        component: 'StudentDashboard',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleMaterialClick = (materialId: number) => {
+    navigate(`/dashboard/student/materials/${materialId}`);
+  };
+
+  const handleChatClick = () => {
+    navigate('/dashboard/chat');
+  };
+
+  const handleAssignmentClick = (assignmentId: number) => {
+    navigate(`/dashboard/student/assignments/${assignmentId}`);
   };
 
   return (
@@ -36,119 +134,217 @@ const StudentDashboard = () => {
           <main className="p-6">
             <div className="space-y-6">
               <div>
-                <h1 className="text-3xl font-bold">Привет, Иван! 👋</h1>
+                <h1 className="text-3xl font-bold">
+                  Привет, {user?.first_name || 'Студент'}! 👋
+                </h1>
                 <p className="text-muted-foreground">Продолжай двигаться к своей цели</p>
               </div>
 
-      {/* Progress Section */}
-      <Card className="p-6 gradient-primary text-primary-foreground shadow-glow">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-            <Target className="w-6 h-6" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-xl font-bold">Твой прогресс</h3>
-            <p className="text-primary-foreground/80">Цель: Подготовка к ЕГЭ по математике</p>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Выполнено заданий: 45 из 100</span>
-            <span className="font-bold">45%</span>
-          </div>
-          <Progress value={45} className="h-3 bg-primary-foreground/20" />
-        </div>
-        <div className="grid grid-cols-3 gap-4 mt-6">
-          <div className="text-center">
-            <div className="text-2xl font-bold">23</div>
-            <div className="text-sm text-primary-foreground/80">Дней подряд</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold">145</div>
-            <div className="text-sm text-primary-foreground/80">Баллов</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold">92%</div>
-            <div className="text-sm text-primary-foreground/80">Точность</div>
-          </div>
-        </div>
-      </Card>
+              {/* Обработка офлайн режима */}
+              {!networkStatus.isOnline && (
+                <OfflineContent 
+                  cachedData={dashboardData ? {
+                    materials: dashboardData.materials,
+                    reports: dashboardData.recent_assignments,
+                  } : undefined}
+                  onRetry={fetchDashboardData}
+                />
+              )}
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Current Materials */}
-        <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <BookOpen className="w-5 h-5 text-primary" />
-            <h3 className="text-xl font-bold">Текущие материалы</h3>
-          </div>
-          <div className="space-y-3">
-            {currentMaterials.map((material, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer">
-                <div className="flex-1">
-                  <div className="font-medium">{material.title}</div>
-                  <div className="text-sm text-muted-foreground">{material.teacher}</div>
-                </div>
-                <Badge variant={material.status === "new" ? "default" : "secondary"}>
-                  {material.status === "new" ? "Новое" : "В процессе"}
-                </Badge>
-              </div>
-            ))}
-          </div>
-          <Button variant="outline" className="w-full mt-4">
-            Смотреть все материалы
-          </Button>
-        </Card>
+              {/* Обработка ошибок и загрузки */}
+              <LoadingWithRetry
+                isLoading={loading}
+                error={error}
+                onRetry={fetchDashboardData}
+              >
+                {dashboardData && (
+                <>
 
-        {/* Homework */}
-        <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <CheckCircle className="w-5 h-5 text-primary" />
-            <h3 className="text-xl font-bold">Домашние задания</h3>
-          </div>
-          <div className="space-y-3">
-            {homeworks.map((hw, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div className="flex-1">
-                  <div className="font-medium">{hw.title}</div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                    <Clock className="w-3 h-3" />
-                    {hw.deadline}
+                  {/* Progress Section */}
+                  <Card className="p-6 gradient-primary text-primary-foreground shadow-glow">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center">
+                        <Target className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold">Твой прогресс</h3>
+                        <p className="text-primary-foreground/80">Продолжай двигаться к цели</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Выполнено заданий: {dashboardData.progress.completed_tasks} из {dashboardData.progress.total_tasks}</span>
+                        <span className="font-bold">{dashboardData.progress.overall_percentage}%</span>
+                      </div>
+                      <Progress value={dashboardData.progress.overall_percentage} className="h-3 bg-primary-foreground/20" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 mt-6">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">{dashboardData.progress.streak_days}</div>
+                        <div className="text-sm text-primary-foreground/80">Дней подряд</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">{dashboardData.progress.completed_tasks}</div>
+                        <div className="text-sm text-primary-foreground/80">Заданий</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">{dashboardData.progress.accuracy_percentage}%</div>
+                        <div className="text-sm text-primary-foreground/80">Точность</div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Current Materials */}
+                    <Card className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <BookOpen className="w-5 h-5 text-primary" />
+                        <h3 className="text-xl font-bold">Текущие материалы</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {dashboardData.materials.slice(0, 3).map((material) => (
+                          <div 
+                            key={material.id} 
+                            className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
+                            onClick={() => handleMaterialClick(material.id)}
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium">{material.title}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {material.teacher_name} • {material.subject}
+                              </div>
+                              {material.progress_percentage > 0 && (
+                                <div className="mt-1">
+                                  <Progress value={material.progress_percentage} className="h-2" />
+                                  <span className="text-xs text-muted-foreground">
+                                    {material.progress_percentage}% завершено
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {material.file_url && (
+                                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                              )}
+                              <Badge variant={
+                                material.status === "new" ? "default" : 
+                                material.status === "in_progress" ? "secondary" : 
+                                "outline"
+                              }>
+                                {material.status === "new" ? "Новое" : 
+                                 material.status === "in_progress" ? "В процессе" : 
+                                 "Завершено"}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                        {dashboardData.materials.length === 0 && (
+                          <EmptyState
+                            title="Нет доступных материалов"
+                            description="Пока нет материалов для изучения. Обратитесь к преподавателю."
+                            icon={<BookOpen className="w-8 h-8 text-muted-foreground" />}
+                          />
+                        )}
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        className="w-full mt-4"
+                        onClick={() => navigate('/dashboard/student/materials')}
+                      >
+                        Смотреть все материалы
+                      </Button>
+                    </Card>
+
+                    {/* Recent Assignments */}
+                    <Card className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <CheckCircle className="w-5 h-5 text-primary" />
+                        <h3 className="text-xl font-bold">Последние задания</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {dashboardData.recent_assignments.slice(0, 3).map((assignment) => (
+                          <div 
+                            key={assignment.id} 
+                            className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
+                            onClick={() => handleAssignmentClick(assignment.id)}
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium">{assignment.title}</div>
+                              <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                                <Clock className="w-3 h-3" />
+                                {assignment.deadline}
+                              </div>
+                            </div>
+                            <Badge variant={
+                              assignment.status === "completed" ? "default" : 
+                              assignment.status === "overdue" ? "destructive" : 
+                              "outline"
+                            }>
+                              {assignment.status === "completed" ? "Выполнено" : 
+                               assignment.status === "overdue" ? "Просрочено" : 
+                               "В процессе"}
+                            </Badge>
+                          </div>
+                        ))}
+                        {dashboardData.recent_assignments.length === 0 && (
+                          <EmptyState
+                            title="Нет активных заданий"
+                            description="Пока нет заданий для выполнения. Ожидайте новых заданий от преподавателя."
+                            icon={<CheckCircle className="w-8 h-8 text-muted-foreground" />}
+                          />
+                        )}
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        className="w-full mt-4"
+                        onClick={() => navigate('/dashboard/student/assignments')}
+                      >
+                        Все задания
+                      </Button>
+                    </Card>
                   </div>
-                </div>
-                <Badge variant={hw.checked ? "default" : "outline"}>
-                  {hw.checked ? "Проверено" : "На проверке"}
-                </Badge>
-              </div>
-            ))}
-          </div>
-          <Button variant="outline" className="w-full mt-4">
-            Все задания
-          </Button>
-        </Card>
-      </div>
 
-      {/* Quick Actions */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button variant="outline" className="h-auto flex-col gap-2 py-6">
-            <MessageCircle className="w-6 h-6" />
-            <span>Задать вопрос</span>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-6">
-            <BookOpen className="w-6 h-6" />
-            <span>Материалы</span>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-6">
-            <Target className="w-6 h-6" />
-            <span>Моя цель</span>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-6">
-            <CheckCircle className="w-6 h-6" />
-            <span>Задания</span>
-          </Button>
-        </div>
-      </Card>
+                  {/* Quick Actions */}
+                  <Card className="p-6">
+                    <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <Button 
+                        variant="outline" 
+                        className="h-auto flex-col gap-2 py-6"
+                        onClick={handleChatClick}
+                      >
+                        <MessageCircle className="w-6 h-6" />
+                        <span>Общий чат</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-auto flex-col gap-2 py-6"
+                        onClick={() => navigate('/dashboard/student/materials')}
+                      >
+                        <BookOpen className="w-6 h-6" />
+                        <span>Материалы</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-auto flex-col gap-2 py-6"
+                        onClick={() => navigate('/dashboard/student/progress')}
+                      >
+                        <Target className="w-6 h-6" />
+                        <span>Мой прогресс</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-auto flex-col gap-2 py-6"
+                        onClick={() => navigate('/dashboard/student/assignments')}
+                      >
+                        <CheckCircle className="w-6 h-6" />
+                        <span>Задания</span>
+                      </Button>
+                    </div>
+                  </Card>
+                </>
+                )}
+              </LoadingWithRetry>
             </div>
           </main>
         </SidebarInset>
@@ -156,17 +352,5 @@ const StudentDashboard = () => {
     </SidebarProvider>
   );
 };
-
-const currentMaterials = [
-  { title: "Тригонометрия: основные формулы", teacher: "Иванова М.П.", status: "new" },
-  { title: "Решение логарифмических уравнений", teacher: "Иванова М.П.", status: "progress" },
-  { title: "Геометрия: задачи на углы", teacher: "Петров А.С.", status: "progress" }
-];
-
-const homeworks = [
-  { title: "Задачи на производные", deadline: "До 25 октября", checked: false },
-  { title: "Тест по тригонометрии", deadline: "До 23 октября", checked: true },
-  { title: "Практическая работа №5", deadline: "До 27 октября", checked: false }
-];
 
 export default StudentDashboard;

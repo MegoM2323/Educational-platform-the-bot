@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
+from django.utils import timezone
+from datetime import timedelta
 from django.core.exceptions import ValidationError
 
 User = get_user_model()
@@ -46,6 +48,16 @@ class SubjectEnrollment(models.Model):
         on_delete=models.CASCADE,
         related_name='taught_subjects',
         verbose_name='Преподаватель'
+    )
+    
+    # Кто назначил предмет (обычно тьютор)
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_enrollments',
+        verbose_name='Назначено пользователем'
     )
     
     enrolled_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата зачисления')
@@ -98,7 +110,10 @@ class SubjectPayment(models.Model):
         verbose_name='Статус'
     )
     
-    due_date = models.DateTimeField(verbose_name='Срок оплаты')
+    def _default_due_date():
+        return timezone.now() + timedelta(days=7)
+
+    due_date = models.DateTimeField(verbose_name='Срок оплаты', default=_default_due_date)
     paid_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата оплаты')
     
     created_at = models.DateTimeField(auto_now_add=True)

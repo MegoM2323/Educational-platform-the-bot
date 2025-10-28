@@ -6,27 +6,36 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorHandlingProvider } from "@/components/ErrorHandlingProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { Suspense, lazy } from "react";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+
+// Импортируем критические компоненты напрямую
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ApplicationForm from "./pages/ApplicationForm";
 import ApplicationStatus from "./pages/ApplicationStatus";
-import StudentDashboard from "./pages/dashboard/StudentDashboard";
-import ParentDashboard from "./pages/dashboard/ParentDashboard";
-import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
-import TutorDashboard from "./pages/dashboard/TutorDashboard";
-import StudentMaterials from "./pages/dashboard/student/Materials";
-import StudentGeneralChat from "./pages/dashboard/student/GeneralChat";
-import TeacherMaterials from "./pages/dashboard/teacher/Materials";
-import CreateMaterial from "./pages/dashboard/teacher/CreateMaterial";
-import TeacherReports from "./pages/dashboard/teacher/Reports";
-import TeacherGeneralChat from "./pages/dashboard/teacher/GeneralChat";
-import TutorReports from "./pages/dashboard/tutor/Reports";
-import ParentChildren from "./pages/dashboard/parent/Children";
-import ParentStatistics from "./pages/dashboard/parent/Statistics";
-import ParentReports from "./pages/dashboard/parent/Reports";
-import Chat from "./pages/dashboard/Chat";
-import Payments from "./pages/dashboard/Payments";
 import NotFound from "./pages/NotFound";
+
+// Lazy load только тяжелые компоненты дашбордов
+const StudentDashboard = lazy(() => import("./pages/dashboard/StudentDashboard"));
+const ParentDashboard = lazy(() => import("./pages/dashboard/ParentDashboard"));
+const TeacherDashboard = lazy(() => import("./pages/dashboard/TeacherDashboard"));
+const TutorDashboard = lazy(() => import("./pages/dashboard/TutorDashboard"));
+const StudentMaterials = lazy(() => import("./pages/dashboard/student/Materials"));
+const StudentGeneralChat = lazy(() => import("./pages/dashboard/student/GeneralChat"));
+const TeacherMaterials = lazy(() => import("./pages/dashboard/teacher/Materials"));
+const CreateMaterial = lazy(() => import("./pages/dashboard/teacher/CreateMaterial"));
+const TeacherReports = lazy(() => import("./pages/dashboard/teacher/Reports"));
+const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissions"));
+const TeacherGeneralChat = lazy(() => import("./pages/dashboard/teacher/GeneralChat"));
+const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
+const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
+const ParentChildren = lazy(() => import("./pages/dashboard/parent/Children"));
+const ParentChildDetail = lazy(() => import("./pages/dashboard/parent/ChildDetail"));
+const ParentStatistics = lazy(() => import("./pages/dashboard/parent/Statistics"));
+const ParentReports = lazy(() => import("./pages/dashboard/parent/Reports"));
+const Chat = lazy(() => import("./pages/dashboard/Chat"));
+const Payments = lazy(() => import("./pages/dashboard/Payments"));
 
 // Configure React Query with default options
 const queryClient = new QueryClient({
@@ -52,7 +61,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
@@ -62,93 +71,148 @@ const App = () => (
           {/* Student Routes */}
           <Route path="/dashboard/student" element={
             <ProtectedRoute>
-              <StudentDashboard />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudentDashboard />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/student/materials" element={
             <ProtectedRoute>
-              <StudentMaterials />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudentMaterials />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/student/general-chat" element={
             <ProtectedRoute>
-              <StudentGeneralChat />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudentGeneralChat />
+              </Suspense>
             </ProtectedRoute>
           } />
           
           {/* Teacher Routes */}
           <Route path="/dashboard/teacher" element={
             <ProtectedRoute>
-              <TeacherDashboard />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherDashboard />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/teacher/materials" element={
             <ProtectedRoute>
-              <TeacherMaterials />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherMaterials />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/teacher/materials/create" element={
             <ProtectedRoute>
-              <CreateMaterial />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <CreateMaterial />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/teacher/reports" element={
             <ProtectedRoute>
-              <TeacherReports />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherReports />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/teacher/general-chat" element={
             <ProtectedRoute>
-              <TeacherGeneralChat />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherGeneralChat />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/submissions/pending" element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherSubmissions />
+              </Suspense>
             </ProtectedRoute>
           } />
           
           {/* Tutor Routes */}
           <Route path="/dashboard/tutor" element={
             <ProtectedRoute>
-              <TutorDashboard />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TutorDashboard />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/tutor/students" element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TutorStudents />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/tutor/reports" element={
             <ProtectedRoute>
-              <TutorReports />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TutorReports />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/tutor/chat" element={
             <ProtectedRoute>
-              <Chat />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <Chat />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/tutor/payments" element={
             <ProtectedRoute>
-              <Payments />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <Payments />
+              </Suspense>
             </ProtectedRoute>
           } />
           
           {/* Parent Routes */}
           <Route path="/dashboard/parent" element={
             <ProtectedRoute>
-              <ParentDashboard />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentDashboard />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/children" element={
             <ProtectedRoute>
-              <ParentChildren />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentChildren />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/parent/children/:id" element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentChildDetail />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/payments" element={
             <ProtectedRoute>
-              <Payments />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <Payments />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/statistics" element={
             <ProtectedRoute>
-              <ParentStatistics />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentStatistics />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/reports" element={
             <ProtectedRoute>
-              <ParentReports />
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentReports />
+              </Suspense>
             </ProtectedRoute>
           } />
           

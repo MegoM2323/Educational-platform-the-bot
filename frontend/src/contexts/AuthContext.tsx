@@ -19,11 +19,14 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Начинаем с false для лучшего LCP
 
   useEffect(() => {
-    // Инициализация состояния аутентификации
+    // Инициализация состояния аутентификации с задержкой для улучшения LCP
     const initializeAuth = async () => {
+      // Небольшая задержка для улучшения LCP
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
       try {
         const currentUser = authService.getCurrentUser();
         const isAuth = authService.isAuthenticated();

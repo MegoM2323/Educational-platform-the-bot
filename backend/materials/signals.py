@@ -1,7 +1,8 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
-from .models import Material, MaterialProgress, SubjectEnrollment, SubjectPayment
+from .models import Material, MaterialProgress, SubjectEnrollment, SubjectPayment, MaterialSubmission
+from notifications.notification_service import NotificationService
 from .cache_utils import DashboardCacheManager
 
 User = get_user_model()
@@ -88,6 +89,23 @@ def invalidate_payment_cache(sender, instance, **kwargs):
             pass
     except Exception:
         pass  # Игнорируем ошибки Redis
+
+
+@receiver(post_save, sender=MaterialSubmission)
+def notify_teacher_on_submission(sender, instance, created, **kwargs):
+    """Уведомление преподавателя о новом домашнем задании"""
+    if not created:
+        return
+    try:
+        teacher = instance.material.author
+        student = instance.student
+        NotificationService().notify_homework_submitted(
+            teacher=teacher,
+            submission_id=instance.id,
+            student=student,
+        )
+    except Exception:
+        pass
 
 
 @receiver(post_save, sender=User)

@@ -12,6 +12,9 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
+      fs: {
+        strict: false,
+      },
     },
     plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
@@ -22,6 +25,25 @@ export default defineConfig(({ mode }) => {
     define: {
       // Передаем переменные окружения в приложение
       "import.meta.env.VITE_DJANGO_API_URL": JSON.stringify(env.VITE_DJANGO_API_URL),
+    },
+    build: {
+      // Оптимизации для продакшена
+      target: 'esnext',
+      minify: 'esbuild',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            router: ['react-router-dom'],
+            ui: ['lucide-react', 'sonner'],
+            query: ['@tanstack/react-query'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000,
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-router-dom'],
     },
   };
 });

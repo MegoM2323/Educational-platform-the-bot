@@ -1,0 +1,68 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - heading "Page not found (404)" [level=1] [ref=e3]
+    - table [ref=e4]:
+      - rowgroup [ref=e5]:
+        - 'row "Request Method: GET" [ref=e6]':
+          - rowheader "Request Method:" [ref=e7]
+          - cell "GET" [ref=e8]
+        - 'row "Request URL: http://localhost:8000/dashboard/parent/children" [ref=e9]':
+          - rowheader "Request URL:" [ref=e10]
+          - cell "http://localhost:8000/dashboard/parent/children" [ref=e11]
+  - main [ref=e12]:
+    - paragraph [ref=e13]:
+      - text: Using the URLconf defined in
+      - code [ref=e14]: config.urls
+      - text: ", Django tried these URL patterns, in this order:"
+    - list [ref=e15]:
+      - listitem [ref=e16]:
+        - code [ref=e17]: admin/
+      - listitem [ref=e18]:
+        - code [ref=e19]: api/auth/
+      - listitem [ref=e20]:
+        - code [ref=e21]: api/materials/
+      - listitem [ref=e22]:
+        - code [ref=e23]: api/student/
+      - listitem [ref=e24]:
+        - code [ref=e25]: api/assignments/
+      - listitem [ref=e26]:
+        - code [ref=e27]: api/chat/
+      - listitem [ref=e28]:
+        - code [ref=e29]: api/reports/
+      - listitem [ref=e30]:
+        - code [ref=e31]: api/notifications/
+      - listitem [ref=e32]:
+        - code [ref=e33]: api/payments/
+      - listitem [ref=e34]:
+        - code [ref=e35]: api/applications/
+      - listitem [ref=e36]:
+        - code [ref=e37]: api/dashboard/
+      - listitem [ref=e38]:
+        - code [ref=e39]: api/teacher/
+      - listitem [ref=e40]:
+        - code [ref=e41]: api/system/
+      - listitem [ref=e42]:
+        - code [ref=e43]: "[name='pay_page']"
+      - listitem [ref=e44]:
+        - code [ref=e45]: yookassa-webhook [name='yookassa_webhook']
+      - listitem [ref=e46]:
+        - code [ref=e47]: payments/success/ [name='payments_success']
+      - listitem [ref=e48]:
+        - code [ref=e49]: payments/fail/ [name='payments_fail']
+      - listitem [ref=e50]:
+        - code [ref=e51]: api/check-payment/ [name='check_payment_status']
+    - paragraph [ref=e52]:
+      - text: The current path,
+      - code [ref=e53]: dashboard/parent/children
+      - text: ", didn’t match any of these."
+  - contentinfo [ref=e54]:
+    - paragraph [ref=e55]:
+      - text: You’re seeing this error because you have
+      - code [ref=e56]: DEBUG = True
+      - text: in your Django settings file. Change that to
+      - code [ref=e57]: "False"
+      - text: ", and Django will display a standard 404 page."
+```

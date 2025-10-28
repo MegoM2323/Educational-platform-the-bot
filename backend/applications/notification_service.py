@@ -16,7 +16,10 @@ class TelegramNotificationService:
     
     def __init__(self):
         self.bot_token = settings.TELEGRAM_BOT_TOKEN
-        self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
+
+    def _get_base_url(self) -> str:
+        """Build base URL using current bot token (token might be patched in tests)."""
+        return f"https://api.telegram.org/bot{self.bot_token}"
     
     def send_credentials(self, telegram_id: str, username: str, password: str, role: str, 
                         child_name: str = None) -> Optional[Dict[str, Any]]:
@@ -33,8 +36,8 @@ class TelegramNotificationService:
         Returns:
             Dict с ответом от Telegram API или None в случае ошибки
         """
-        if not self.bot_token or not telegram_id:
-            logger.error("Telegram bot token или telegram_id не настроены")
+        if not telegram_id:
+            logger.error("Telegram telegram_id не настроен")
             return None
         
         message = self._format_credentials_message(username, password, role, child_name)
@@ -54,8 +57,8 @@ class TelegramNotificationService:
         Returns:
             Dict с ответом от Telegram API или None в случае ошибки
         """
-        if not self.bot_token or not telegram_id:
-            logger.error("Telegram bot token или telegram_id не настроены")
+        if not telegram_id:
+            logger.error("Telegram telegram_id не настроен")
             return None
         
         message = self._format_parent_credentials_message(
@@ -76,8 +79,8 @@ class TelegramNotificationService:
         Returns:
             Dict с ответом от Telegram API или None в случае ошибки
         """
-        if not self.bot_token or not telegram_id:
-            logger.error("Telegram bot token или telegram_id не настроены")
+        if not telegram_id:
+            logger.error("Telegram telegram_id не настроен")
             return None
         
         message = self._format_status_message(status, details)
@@ -95,7 +98,7 @@ class TelegramNotificationService:
         Returns:
             Dict с ответом от Telegram API или None в случае ошибки
         """
-        url = f"{self.base_url}/sendMessage"
+        url = f"{self._get_base_url()}/sendMessage"
         
         data = {
             'chat_id': chat_id,
@@ -275,7 +278,7 @@ class TelegramNotificationService:
             logger.error("Telegram bot token не настроен")
             return False
         
-        url = f"{self.base_url}/getMe"
+        url = f"{self._get_base_url()}/getMe"
         
         try:
             response = requests.get(url, timeout=10)

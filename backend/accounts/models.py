@@ -46,6 +46,15 @@ class User(AbstractUser):
         verbose_name='Подтвержден'
     )
     
+    created_by_tutor = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_users',
+        verbose_name='Создан тьютором'
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -109,6 +118,17 @@ class StudentProfile(models.Model):
     accuracy_percentage = models.PositiveIntegerField(
         default=0,
         verbose_name='Точность (%)'
+    )
+    
+    generated_username = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name='Сгенерированное имя пользователя'
+    )
+    generated_password = models.CharField(
+        max_length=128,
+        blank=True,
+        verbose_name='Сгенерированный пароль'
     )
 
     def __str__(self):
@@ -192,3 +212,35 @@ class ParentProfile(models.Model):
 
     def __str__(self):
         return f"Профиль родителя: {self.user.get_full_name()}"
+
+
+class TutorStudentCreation(models.Model):
+    """
+    Запись о создании ученика тьютором с сохранением выданных учетных данных
+    """
+    tutor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_students',
+        verbose_name='Тьютор'
+    )
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='creation_record',
+        verbose_name='Ученик'
+    )
+    parent = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='parent_creation_record',
+        verbose_name='Родитель'
+    )
+    student_credentials = models.JSONField(verbose_name='Учетные данные ученика')
+    parent_credentials = models.JSONField(verbose_name='Учетные данные родителя')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+
+    class Meta:
+        verbose_name = 'Создание ученика тьютором'
+        verbose_name_plural = 'Создания учеников тьютором'
+        ordering = ['-created_at']

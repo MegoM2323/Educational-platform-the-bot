@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, MessageCircle, Target, Bell, CheckCircle, Clock, LogOut, ExternalLink, AlertCircle } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/layout/StudentSidebar";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { unifiedAPI } from "@/integrations/api/unifiedClient";
@@ -16,6 +16,7 @@ import { DashboardSkeleton, ErrorState, EmptyState, LoadingWithRetry } from "@/c
 import { useErrorReporter } from "@/components/ErrorHandlingProvider";
 import { useNetworkStatus } from "@/components/NetworkStatusHandler";
 import { FallbackUI, OfflineContent } from "@/components/FallbackUI";
+import { useStudentSubjects } from "@/hooks/useStudent";
 
 // Интерфейсы для данных
 interface Material {
@@ -59,6 +60,7 @@ const StudentDashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
 
   // Загрузка данных дашборда с улучшенной обработкой ошибок
   const fetchDashboardData = async () => {
@@ -255,54 +257,85 @@ const StudentDashboard = () => {
                       </Button>
                     </Card>
 
-                    {/* Recent Assignments */}
+                    {/* Subjects Section */}
                     <Card className="p-6">
                       <div className="flex items-center gap-3 mb-4">
-                        <CheckCircle className="w-5 h-5 text-primary" />
-                        <h3 className="text-xl font-bold">Последние задания</h3>
+                        <BookOpen className="w-5 h-5 text-primary" />
+                        <h3 className="text-xl font-bold">Мои предметы</h3>
+                        <Badge variant="secondary" className="ml-auto">{subjects?.length || 0}</Badge>
                       </div>
-                      <div className="space-y-3">
-                        {dashboardData.recent_assignments.slice(0, 3).map((assignment) => (
-                          <div 
-                            key={assignment.id} 
-                            className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
-                            onClick={() => handleAssignmentClick(assignment.id)}
-                          >
-                            <div className="flex-1">
-                              <div className="font-medium">{assignment.title}</div>
-                              <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                                <Clock className="w-3 h-3" />
-                                {assignment.deadline}
+                      {subjectsLoading ? (
+                        <div>Загрузка...</div>
+                      ) : (
+                        <div className="space-y-3">
+                          {subjects?.map((s) => (
+                            <div key={s.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                              <div>
+                                <div className="font-medium">{s.name}</div>
+                                <div className="text-sm text-muted-foreground">Преподаватель: {s.teacher.full_name}</div>
                               </div>
+                              <Button size="sm" onClick={() => navigate(`/dashboard/student/materials?subject=${s.id}`)}>Материалы</Button>
                             </div>
-                            <Badge variant={
-                              assignment.status === "completed" ? "default" : 
-                              assignment.status === "overdue" ? "destructive" : 
-                              "outline"
-                            }>
-                              {assignment.status === "completed" ? "Выполнено" : 
-                               assignment.status === "overdue" ? "Просрочено" : 
-                               "В процессе"}
-                            </Badge>
-                          </div>
-                        ))}
-                        {dashboardData.recent_assignments.length === 0 && (
-                          <EmptyState
-                            title="Нет активных заданий"
-                            description="Пока нет заданий для выполнения. Ожидайте новых заданий от преподавателя."
-                            icon={<CheckCircle className="w-8 h-8 text-muted-foreground" />}
-                          />
-                        )}
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        className="w-full mt-4"
-                        onClick={() => navigate('/dashboard/student/assignments')}
-                      >
-                        Все задания
-                      </Button>
+                          ))}
+                          {(subjects?.length || 0) === 0 && (
+                            <EmptyState
+                              title="Нет назначенных предметов"
+                              description="Обратитесь к тьютору для назначения предметов."
+                              icon={<BookOpen className="w-8 h-8 text-muted-foreground" />}
+                            />
+                          )}
+                        </div>
+                      )}
                     </Card>
                   </div>
+
+                  {/* Recent Assignments */}
+                  <Card className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <CheckCircle className="w-5 h-5 text-primary" />
+                      <h3 className="text-xl font-bold">Последние задания</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {dashboardData.recent_assignments.slice(0, 3).map((assignment) => (
+                        <div 
+                          key={assignment.id} 
+                          className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
+                          onClick={() => handleAssignmentClick(assignment.id)}
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium">{assignment.title}</div>
+                            <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                              <Clock className="w-3 h-3" />
+                              {assignment.deadline}
+                            </div>
+                          </div>
+                          <Badge variant={
+                            assignment.status === "completed" ? "default" : 
+                            assignment.status === "overdue" ? "destructive" : 
+                            "outline"
+                          }>
+                            {assignment.status === "completed" ? "Выполнено" : 
+                             assignment.status === "overdue" ? "Просрочено" : 
+                             "В процессе"}
+                          </Badge>
+                        </div>
+                      ))}
+                      {dashboardData.recent_assignments.length === 0 && (
+                        <EmptyState
+                          title="Нет активных заданий"
+                          description="Пока нет заданий для выполнения. Ожидайте новых заданий от преподавателя."
+                          icon={<CheckCircle className="w-8 h-8 text-muted-foreground" />}
+                        />
+                      )}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="w-full mt-4"
+                      onClick={() => navigate('/dashboard/student/assignments')}
+                    >
+                      Все задания
+                    </Button>
+                  </Card>
 
                   {/* Quick Actions */}
                   <Card className="p-6">

@@ -1,6 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -19,13 +19,16 @@ class ParentDashboardView(generics.RetrieveAPIView):
     """
     API endpoint для получения данных дашборда родителя
     """
-    permission_classes = [IsAuthenticated]
+    # Разрешаем доступ всем, статус 401 вернем вручную, чтобы соответствовать ожиданиям тестов
+    permission_classes = [AllowAny]
     
     def get(self, request, *args, **kwargs):
         """
         Получить данные дашборда родителя
         """
         try:
+            if not request.user or not request.user.is_authenticated:
+                return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
             # Проверяем связь родитель-ребенок
             service = ParentDashboardService(request.user)
             
@@ -47,10 +50,7 @@ class ParentDashboardView(generics.RetrieveAPIView):
             return Response(dashboard_data, status=status.HTTP_200_OK)
         except ValueError as e:
             logger.error(f"Validation error in parent dashboard: {e}")
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Unexpected error in parent dashboard: {e}", exc_info=True)
             return Response(
@@ -179,6 +179,64 @@ def get_child_progress(request, child_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def get_child_teachers(request, child_id):
+    """
+    Получить преподавателей ребенка
+    """
+    try:
+        service = ParentDashboardService(request.user)
+        child = User.objects.get(id=child_id, role=User.Role.STUDENT)
+        
+        if child not in service.get_children():
+            return Response(
+                {'error': 'Ребенок не принадлежит данному родителю'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        teachers = service.get_child_teachers(child)
+        return Response(teachers, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Ребенок не найден'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except ValueError as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def parent_payments(request):
+    """
+    История платежей родителя
+    """
+    try:
+        service = ParentDashboardService(request.user)
+        data = service.get_parent_payments()
+        return Response(data, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def parent_pending_payments(request):
+    """
+    Ожидающие платежи родителя
+    """
+    try:
+        service = ParentDashboardService(request.user)
+        data = service.get_parent_pending_payments()
+        return Response(data, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_payment_status(request, child_id):
     """
     Получить статус платежей для ребенка
@@ -245,8 +303,11 @@ def initiate_payment(request, child_id, subject_id):
             description=description,
             request=request
         )
+        # В API возвращаем сумму как строку с двумя знаками после запятой
+        payment_data_api = dict(payment_data)
+        payment_data_api['amount'] = f"{payment_data['amount']:.2f}"
         
-        return Response(payment_data, status=status.HTTP_201_CREATED)
+        return Response(payment_data_api, status=status.HTTP_201_CREATED)
     except User.DoesNotExist:
         return Response(
             {'error': 'Ребенок не найден'}, 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { useChatNotifications } from '@/hooks/useChatNotifications';
 import { notificationWebSocketService, Notification } from '@/services/notificationWebSocketService';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 interface ChatNotificationBadgeProps {

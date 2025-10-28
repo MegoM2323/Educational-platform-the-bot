@@ -8,6 +8,7 @@ urlpatterns = [
     # API endpoints
     path("api/auth/", include('accounts.urls')),
     path("api/materials/", include('materials.urls')),
+    path("api/student/", include('materials.student_urls')),
     path("api/assignments/", include('assignments.urls')),
     path("api/chat/", include('chat.urls')),
     path("api/reports/", include('reports.urls')),
@@ -15,6 +16,7 @@ urlpatterns = [
     path("api/payments/", include('payments.api_urls')),
     path("api/applications/", include('applications.urls')),
     path("api/dashboard/", include('materials.urls')),  # Dashboard endpoints
+    path("api/teacher/", include('materials.teacher_urls')),
     path("api/system/", include('core.urls')),  # System monitoring and management
     
     # Legacy payment endpoints

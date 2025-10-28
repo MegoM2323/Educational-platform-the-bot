@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 from .models import SubjectEnrollment, SubjectPayment, MaterialProgress, Material, Subject
+from notifications.notification_service import NotificationService
 from payments.models import Payment
 from .cache_utils import cache_dashboard_data, DashboardCacheManager
 
@@ -56,6 +57,38 @@ class ParentDashboardService:
         ).select_related('subject', 'teacher').prefetch_related(
             'subject__materials__progress'
         )
+    
+    def get_child_teachers(self, child):
+        """
+        Получить список преподавателей ребенка (уникальный список по зачислениям)
+        
+        Args:
+            child: Пользователь-студент
+        
+        Returns:
+            list[dict]: Список преподавателей с базовой информацией
+        """
+        if child not in self.get_children():
+            raise ValueError("Ребенок не принадлежит данному родителю")
+        
+        enrollments = self.get_child_subjects(child)
+        teachers = {}
+        for e in enrollments:
+            if e.teacher_id not in teachers:
+                teachers[e.teacher_id] = {
+                    'id': e.teacher_id,
+                    'name': e.teacher.get_full_name(),
+                    'email': e.teacher.email,
+                    'subjects': set()
+                }
+            teachers[e.teacher_id]['subjects'].add(e.subject.name)
+        
+        result = []
+        for t in teachers.values():
+            t['subjects'] = sorted(list(t['subjects']))
+            result.append(t)
+        
+        return result
     
     def get_child_progress(self, child):
         """
@@ -235,13 +268,83 @@ class ParentDashboardService:
         
         return {
             'payment_id': str(payment.id),
-            'amount': float(amount),
+            'amount': amount,
             'subject': enrollment.subject.name,
             'due_date': due_date.isoformat(),
             'confirmation_url': payment.confirmation_url,
             'return_url': payment.return_url,
             'payment_url': payment.confirmation_url  # Для фронтенда
         }
+    
+    def get_parent_payments(self):
+        """
+        История платежей родителя по всем детям
+        """
+        children = self.get_children()
+        payments = SubjectPayment.objects.select_related(
+            'enrollment__student', 'enrollment__subject', 'payment'
+        ).filter(enrollment__student__in=children).order_by('-created_at')
+        
+        data = []
+        for sp in payments:
+            data.append({
+                'subject': sp.enrollment.subject.name,
+                'student': sp.enrollment.student.get_full_name(),
+                'status': sp.status,
+                'amount': sp.amount,
+                'due_date': sp.due_date,
+                'paid_at': sp.paid_at,
+                'payment_id': str(sp.payment_id),
+                'gateway_status': sp.payment.status if sp.payment_id else None,
+            })
+        return data
+    
+    def get_parent_pending_payments(self):
+        """
+        Ожидающие платежи родителя (включая просроченные)
+        """
+        children = self.get_children()
+        now = timezone.now()
+        payments = SubjectPayment.objects.select_related(
+            'enrollment__student', 'enrollment__subject', 'payment'
+        ).filter(
+            enrollment__student__in=children,
+            status__in=[SubjectPayment.Status.PENDING]
+        ).order_by('due_date')
+        
+        data = []
+        for sp in payments:
+            state = 'overdue' if sp.due_date < now else 'pending'
+            data.append({
+                'subject': sp.enrollment.subject.name,
+                'student': sp.enrollment.student.get_full_name(),
+                'status': state,
+                'amount': sp.amount,
+                'due_date': sp.due_date,
+                'payment_id': str(sp.payment_id),
+            })
+        return data
+
+    def mark_payment_processed(self, *, enrollment: SubjectEnrollment, status: str, amount) -> None:
+        """Уведомить родителя об изменении статуса платежа по зачислению."""
+        parent = None
+        try:
+            parent_profile = enrollment.student.parent_profile
+            if parent_profile:
+                parent = parent_profile.parent
+        except Exception:
+            parent = None
+        if not parent:
+            return
+        try:
+            NotificationService().notify_payment_processed(
+                parent=parent,
+                status=status,
+                amount=str(amount),
+                enrollment_id=enrollment.id,
+            )
+        except Exception:
+            pass
     
     def get_dashboard_data(self):
         """

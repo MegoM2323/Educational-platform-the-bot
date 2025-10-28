@@ -19,6 +19,12 @@ class Notification(models.Model):
         PAYMENT_FAILED = 'payment_failed', 'Платеж не прошел'
         SYSTEM = 'system', 'Системное уведомление'
         REMINDER = 'reminder', 'Напоминание'
+        # Tutor/Student management system events
+        STUDENT_CREATED = 'student_created', 'Ученик создан'
+        SUBJECT_ASSIGNED = 'subject_assigned', 'Предмет назначен'
+        MATERIAL_PUBLISHED = 'material_published', 'Материал опубликован'
+        HOMEWORK_SUBMITTED = 'homework_submitted', 'Домашнее задание отправлено'
+        PAYMENT_PROCESSED = 'payment_processed', 'Платеж обработан'
     
     class Priority(models.TextChoices):
         LOW = 'low', 'Низкий'

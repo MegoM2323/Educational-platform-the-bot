@@ -387,8 +387,9 @@ class UnifiedAPIClient {
       }
     }
 
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     };
 
@@ -446,9 +447,13 @@ class UnifiedAPIClient {
         };
       }
 
+      // Если backend возвращает данные в формате {success: true, data: {...}}
+      // то используем result.data напрямую, иначе result.data.data
+      const responseData = result.data?.data || result.data;
+      
       const apiResponse: ApiResponse<T> = {
         success: true,
-        data: result.data,
+        data: responseData,
         message: result.data?.message,
         timestamp: new Date().toISOString(),
       };

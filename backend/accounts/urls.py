@@ -1,5 +1,7 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
+from .tutor_views import TutorStudentsViewSet
 
 urlpatterns = [
     # Основные API endpoints для аутентификации
@@ -16,4 +18,12 @@ urlpatterns = [
     path('teacher-profile/', views.TeacherProfileView.as_view(), name='teacher_profile'),
     path('tutor-profile/', views.TutorProfileView.as_view(), name='tutor_profile'),
     path('parent-profile/', views.ParentProfileView.as_view(), name='parent_profile'),
+]
+
+# Router for tutor endpoints
+router = DefaultRouter()
+router.register(r'tutor/students', TutorStudentsViewSet, basename='tutor-students')
+
+urlpatterns += [
+    path('', include(router.urls)),
 ]

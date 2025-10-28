@@ -19,54 +19,58 @@ from .supabase_service import SupabaseAuthService
 @permission_classes([AllowAny])
 def login_view(request):
     """
-    Вход пользователя через Supabase
+    Вход пользователя через Django аутентификацию
     """
     try:
+        # Логируем входящие данные
+        print(f"Login attempt - Request data: {request.data}")
+        
         # Валидируем данные
         serializer = UserLoginSerializer(data=request.data)
         if not serializer.is_valid():
+            print(f"Validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
+        print(f"Login attempt for email: {email}")
         
-        # Проверяем аутентификацию через Supabase
-        supabase_service = SupabaseAuthService()
-        result = supabase_service.sign_in(email, password)
+        # Проверяем аутентификацию через Django
+        from django.contrib.auth import authenticate
         
-        if result['success']:
-            # Находим или создаем пользователя в Django
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                # Если пользователь не найден в Django, создаем его
-                user = User.objects.create(
-                    email=email,
-                    username=email,  # username = email для совместимости
-                    first_name=result.get('user', {}).get('user_metadata', {}).get('full_name', '').split(' ')[0] if result.get('user', {}).get('user_metadata', {}).get('full_name') else '',
-                    last_name=' '.join(result.get('user', {}).get('user_metadata', {}).get('full_name', '').split(' ')[1:]) if result.get('user', {}).get('user_metadata', {}).get('full_name') else '',
-                    phone=result.get('user', {}).get('user_metadata', {}).get('phone', ''),
-                    role=result.get('user', {}).get('user_metadata', {}).get('role', 'student'),
-                    is_active=True,
-                    is_verified=True
-                )
+        # Пытаемся найти пользователя по email
+        try:
+            user = User.objects.get(email=email)
+            # Аутентифицируем пользователя
+            authenticated_user = authenticate(username=user.username, password=password)
             
-            # Создаем токен для Django API
-            token, created = Token.objects.get_or_create(user=user)
-            
+            if authenticated_user and authenticated_user.is_active:
+                # Создаем токен для Django API
+                token, created = Token.objects.get_or_create(user=authenticated_user)
+                
+                return Response({
+                    'success': True,
+                    'data': {
+                        'token': token.key,
+                        'user': UserSerializer(authenticated_user).data,
+                        'message': 'Вход выполнен успешно'
+                    }
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'error': 'Неверные учетные данные'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+                
+        except User.DoesNotExist:
             return Response({
-                'token': token.key,
-                'user': UserSerializer(user).data,
-                'message': 'Вход выполнен успешно',
-                'supabase_session': result.get('session')
-            })
-        else:
-            return Response({
-                'error': result.get('error', 'Неверные учетные данные')
+                'success': False,
+                'error': 'Пользователь с таким email не найден'
             }, status=status.HTTP_401_UNAUTHORIZED)
             
     except Exception as e:
         return Response({
+            'success': False,
             'error': f'Ошибка сервера: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

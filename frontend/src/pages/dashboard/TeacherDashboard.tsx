@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, CheckCircle, FileText, MessageCircle, Bell, Plus, Clock, AlertCircle, ExternalLink, Users, TrendingUp } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { unifiedAPI } from "@/integrations/api/unifiedClient";

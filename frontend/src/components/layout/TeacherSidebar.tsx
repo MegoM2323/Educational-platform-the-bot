@@ -1,4 +1,4 @@
-import { Home, Send, FileText, MessageSquare, LogOut, User } from "lucide-react";
+import { Home, Send, FileText, MessageSquare, LogOut, User, CheckSquare } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -13,12 +13,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
 
 const items = [
   { title: "Главная", url: "/dashboard/teacher", icon: Home },
   { title: "Распределение материалов", url: "/dashboard/teacher/materials", icon: Send },
+  { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },
   { title: "Общий чат", url: "/dashboard/teacher/general-chat", icon: MessageSquare },
 ];

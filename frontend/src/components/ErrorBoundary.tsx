@@ -2,7 +2,6 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Home } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 interface Props {
   children: ReactNode;
@@ -81,10 +80,9 @@ interface ErrorFallbackProps {
 }
 
 const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onRetry }) => {
-  const navigate = useNavigate();
-
   const handleGoHome = () => {
-    navigate('/');
+    // Используем window.location для навигации без Router
+    window.location.href = '/';
   };
 
   return (

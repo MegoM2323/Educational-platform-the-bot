@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from materials.models import Subject
+from django.db.models import Q
 from .models import StudentProfile
 from .tutor_service import StudentCreationService, SubjectAssignmentService
 from .tutor_serializers import (
@@ -51,7 +52,14 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         print(f"[TutorStudentsViewSet.list] User authenticated: {request.user.is_authenticated}")
         print(f"[TutorStudentsViewSet.list] User role: {getattr(request.user, 'role', None)}")
         
-        students = StudentProfile.objects.filter(tutor=request.user).select_related('user', 'tutor', 'parent')
+        # Показываем всех учеников тьютора:
+        # 1) у кого в профиле явно указан этот тьютор
+        # 2) кого этот тьютор создавал (created_by_tutor)
+        students = (
+            StudentProfile.objects
+            .filter(Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            .select_related('user', 'tutor', 'parent')
+        )
         print(f"[TutorStudentsViewSet.list] Found {students.count()} students")
         
         serializer = TutorStudentSerializer(students, many=True)

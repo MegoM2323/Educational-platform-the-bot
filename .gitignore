@@ -3,6 +3,7 @@ docs/
 .kiro/
 tests/
 README.md
+venv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

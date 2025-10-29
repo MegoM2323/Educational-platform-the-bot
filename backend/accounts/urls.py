@@ -22,7 +22,7 @@ urlpatterns = [
 
 # Router for tutor endpoints
 router = DefaultRouter()
-router.register(r'tutor/students', TutorStudentsViewSet, basename='tutor-students')
+router.register(r'students', TutorStudentsViewSet, basename='tutor-students')
 
 urlpatterns += [
     path('', include(router.urls)),

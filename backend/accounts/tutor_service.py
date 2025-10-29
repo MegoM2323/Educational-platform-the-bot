@@ -63,8 +63,10 @@ class StudentCreationService:
 
         # Для простоты: генерируем пароли как безопасный случайный hash-несекьюрный видимой строкой
         # В реальном проде использовать генератор секретов
-        student_password = User.objects.make_random_password()
-        parent_password = User.objects.make_random_password()
+        import secrets
+        import string
+        student_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+        parent_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
 
         # Создаем пользователя ученика
         student_user = User.objects.create(
@@ -133,13 +135,21 @@ class SubjectAssignmentService:
     """
 
     @staticmethod
-    def assign_subject(*, tutor: User, student: User, subject: Subject, teacher: User) -> SubjectEnrollment:
+    def get_available_teachers(subject: Subject):
+        """Возвращает список доступных преподавателей для предмета.
+        Пока что возвращаем всех пользователей с ролью TEACHER.
+        В будущем можно учитывать нагрузку/календарь/скилы.
+        """
+        return User.objects.filter(role=User.Role.TEACHER).order_by('id')
+
+    @staticmethod
+    def assign_subject(*, tutor: User, student: User, subject: Subject, teacher: User | None = None) -> SubjectEnrollment:
         if tutor.role != User.Role.TUTOR:
             raise PermissionError("Только тьютор может назначать предметы")
         # Валидация ролей
         if student.role != User.Role.STUDENT:
             raise ValueError("Указанный пользователь не является студентом")
-        if teacher.role != User.Role.TEACHER:
+        if teacher is not None and teacher.role != User.Role.TEACHER:
             raise ValueError("Указанный пользователь не является преподавателем")
 
         # Проверка, что данный студент привязан к этому тьютору
@@ -148,6 +158,12 @@ class SubjectAssignmentService:
                 raise PermissionError("Студент не принадлежит тьютору")
         except StudentProfile.DoesNotExist:
             raise ValueError("Профиль студента не найден")
+
+        # Если преподаватель не указан — подберем автоматически первого доступного
+        if teacher is None:
+            teacher = SubjectAssignmentService.get_available_teachers(subject).first()
+            if teacher is None:
+                raise ValueError("Нет доступных преподавателей для назначения")
 
         enrollment, _ = SubjectEnrollment.objects.get_or_create(
             student=student,

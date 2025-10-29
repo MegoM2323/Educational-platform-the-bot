@@ -2,8 +2,8 @@
 import { createClient, SupabaseClient, User as SupabaseUser, AuthError } from '@supabase/supabase-js';
 import { User } from '@/integrations/api/unifiedClient';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+const SUPABASE_ANON_KEY = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
 
 export interface SupabaseAuthResult {
   user: User | null;

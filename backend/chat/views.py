@@ -314,18 +314,30 @@ class GeneralChatViewSet(viewsets.ViewSet):
         try:
             content = request.data.get('content')
             message_type = request.data.get('message_type', Message.Type.TEXT)
-            
-            if not content:
+            uploaded_file = request.FILES.get('file')
+            uploaded_image = request.FILES.get('image')
+
+            if not content and not uploaded_file and not uploaded_image:
                 return Response(
-                    {'error': 'Содержание сообщения обязательно'},
+                    {'error': 'Нужно передать content, file или image'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
+            # Создаем сообщение через сервис, затем прикрепим файлы при необходимости
             message = GeneralChatService.send_general_message(
                 sender=request.user,
-                content=content,
+                content=content or '',
                 message_type=message_type
             )
+
+            if uploaded_image:
+                message.image = uploaded_image
+                message.message_type = Message.Type.IMAGE
+                message.save(update_fields=['image', 'message_type'])
+            elif uploaded_file:
+                message.file = uploaded_file
+                message.message_type = Message.Type.FILE
+                message.save(update_fields=['file', 'message_type'])
             
             serializer = MessageSerializer(message, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -32,20 +32,52 @@ interface Material {
 }
 
 interface DashboardData {
-  materials: Material[];
-  progress: {
+  student_info: {
+    id: number;
+    name: string;
+    role: string;
+    avatar?: string;
+  };
+  materials_by_subject: {
+    [subjectName: string]: {
+      subject_info: {
+        id: number;
+        name: string;
+        color?: string;
+        teacher?: {
+          id: number;
+          full_name: string;
+        };
+      };
+      materials: Array<{
+        id: number;
+        title: string;
+        description?: string;
+        created_at: string;
+        type?: string;
+        status?: string;
+        progress_percentage?: number;
+      }>;
+    };
+  };
+  progress_statistics: {
     overall_percentage: number;
     completed_tasks: number;
     total_tasks: number;
     streak_days: number;
     accuracy_percentage: number;
   };
-  recent_assignments: Array<{
+  recent_activity: Array<{
     id: number;
     title: string;
     deadline: string;
     status: 'pending' | 'completed' | 'overdue';
   }>;
+  general_chat: {
+    id: number;
+    name: string;
+    last_message?: string;
+  };
 }
 
 const StudentDashboard = () => {
@@ -60,7 +92,10 @@ const StudentDashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
+  // const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
+  
+  // console.log('StudentDashboard: subjects data:', subjects);
+  // console.log('StudentDashboard: subjects loading:', subjectsLoading);
 
   // Загрузка данных дашборда с улучшенной обработкой ошибок
   const fetchDashboardData = async () => {
@@ -70,10 +105,11 @@ const StudentDashboard = () => {
       
       const response = await unifiedAPI.getStudentDashboard();
       
-      if (response.success && response.data) {
-        setDashboardData(response.data);
-        showSuccess('Данные успешно загружены');
-      } else {
+        if (response.success && response.data) {
+          setDashboardData(response.data);
+          setLoading(false);
+          showSuccess('Данные успешно загружены');
+        } else {
         const errorMessage = response.error || 'Ошибка загрузки данных';
         setError(errorMessage);
         reportError(new Error(errorMessage), {
@@ -175,22 +211,22 @@ const StudentDashboard = () => {
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span>Выполнено заданий: {dashboardData.progress.completed_tasks} из {dashboardData.progress.total_tasks}</span>
-                        <span className="font-bold">{dashboardData.progress.overall_percentage}%</span>
+                        <span>Выполнено заданий: {dashboardData.progress_statistics?.completed_tasks || 0} из {dashboardData.progress_statistics?.total_tasks || 0}</span>
+                        <span className="font-bold">{dashboardData.progress_statistics?.overall_percentage || 0}%</span>
                       </div>
-                      <Progress value={dashboardData.progress.overall_percentage} className="h-3 bg-primary-foreground/20" />
+                      <Progress value={dashboardData.progress_statistics?.overall_percentage || 0} className="h-3 bg-primary-foreground/20" />
                     </div>
                     <div className="grid grid-cols-3 gap-4 mt-6">
                       <div className="text-center">
-                        <div className="text-2xl font-bold">{dashboardData.progress.streak_days}</div>
+                        <div className="text-2xl font-bold">{dashboardData.progress_statistics?.streak_days || 0}</div>
                         <div className="text-sm text-primary-foreground/80">Дней подряд</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold">{dashboardData.progress.completed_tasks}</div>
+                        <div className="text-2xl font-bold">{dashboardData.progress_statistics?.completed_tasks || 0}</div>
                         <div className="text-sm text-primary-foreground/80">Заданий</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold">{dashboardData.progress.accuracy_percentage}%</div>
+                        <div className="text-2xl font-bold">{dashboardData.progress_statistics?.accuracy_percentage || 0}%</div>
                         <div className="text-sm text-primary-foreground/80">Точность</div>
                       </div>
                     </div>
@@ -204,7 +240,7 @@ const StudentDashboard = () => {
                         <h3 className="text-xl font-bold">Текущие материалы</h3>
                       </div>
                       <div className="space-y-3">
-                        {dashboardData.materials.slice(0, 3).map((material) => (
+                        {Object.values(dashboardData?.materials_by_subject || {}).flatMap(subjectData => subjectData.materials).slice(0, 3).map((material) => (
                           <div 
                             key={material.id} 
                             className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
@@ -213,7 +249,7 @@ const StudentDashboard = () => {
                             <div className="flex-1">
                               <div className="font-medium">{material.title}</div>
                               <div className="text-sm text-muted-foreground">
-                                {material.teacher_name} • {material.subject}
+                                {material.description || 'Без описания'}
                               </div>
                               {material.progress_percentage > 0 && (
                                 <div className="mt-1">
@@ -225,7 +261,7 @@ const StudentDashboard = () => {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              {material.file_url && (
+                              {material.type === 'file' && (
                                 <ExternalLink className="w-4 h-4 text-muted-foreground" />
                               )}
                               <Badge variant={
@@ -240,7 +276,7 @@ const StudentDashboard = () => {
                             </div>
                           </div>
                         ))}
-                        {dashboardData.materials.length === 0 && (
+                        {Object.values(dashboardData?.materials_by_subject || {}).flatMap(subjectData => subjectData.materials).length === 0 && (
                           <EmptyState
                             title="Нет доступных материалов"
                             description="Пока нет материалов для изучения. Обратитесь к преподавателю."
@@ -262,22 +298,23 @@ const StudentDashboard = () => {
                       <div className="flex items-center gap-3 mb-4">
                         <BookOpen className="w-5 h-5 text-primary" />
                         <h3 className="text-xl font-bold">Мои предметы</h3>
-                        <Badge variant="secondary" className="ml-auto">{subjects?.length || 0}</Badge>
+                        <Badge variant="secondary" className="ml-auto">{Object.keys(dashboardData?.materials_by_subject || {}).length}</Badge>
                       </div>
-                      {subjectsLoading ? (
+                      {loading ? (
                         <div>Загрузка...</div>
                       ) : (
                         <div className="space-y-3">
-                          {subjects?.map((s) => (
-                            <div key={s.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                              <div>
-                                <div className="font-medium">{s.name}</div>
-                                <div className="text-sm text-muted-foreground">Преподаватель: {s.teacher.full_name}</div>
+                          {Object.values(dashboardData?.materials_by_subject || {}).map((subjectData) => (
+                              <div key={subjectData.subject_info.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                                <div>
+                                  <div className="font-medium">{subjectData.subject_info.name}</div>
+                                  <div className="text-sm text-muted-foreground">Преподаватель: {subjectData.subject_info.teacher?.full_name || 'Не назначен'}</div>
+                                  <div className="text-xs text-muted-foreground">Материалов: {subjectData.materials.length}</div>
+                                </div>
+                                <Button size="sm" onClick={() => navigate(`/dashboard/student/materials?subject=${subjectData.subject_info.id}`)}>Материалы</Button>
                               </div>
-                              <Button size="sm" onClick={() => navigate(`/dashboard/student/materials?subject=${s.id}`)}>Материалы</Button>
-                            </div>
-                          ))}
-                          {(subjects?.length || 0) === 0 && (
+                            ))}
+                          {Object.keys(dashboardData?.materials_by_subject || {}).length === 0 && (
                             <EmptyState
                               title="Нет назначенных предметов"
                               description="Обратитесь к тьютору для назначения предметов."
@@ -296,7 +333,7 @@ const StudentDashboard = () => {
                       <h3 className="text-xl font-bold">Последние задания</h3>
                     </div>
                     <div className="space-y-3">
-                      {dashboardData.recent_assignments.slice(0, 3).map((assignment) => (
+                      {(dashboardData?.recent_activity || []).slice(0, 3).map((assignment) => (
                         <div 
                           key={assignment.id} 
                           className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
@@ -320,7 +357,7 @@ const StudentDashboard = () => {
                           </Badge>
                         </div>
                       ))}
-                      {dashboardData.recent_assignments.length === 0 && (
+                      {(dashboardData?.recent_activity || []).length === 0 && (
                         <EmptyState
                           title="Нет активных заданий"
                           description="Пока нет заданий для выполнения. Ожидайте новых заданий от преподавателя."

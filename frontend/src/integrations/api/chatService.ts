@@ -91,7 +91,10 @@ class ChatService {
 
   // Отправить сообщение в общий чат
   async sendGeneralMessage(data: SendMessageRequest): Promise<ChatMessage> {
-    const response = await unifiedAPI.sendMessage(data);
+    const response = await unifiedAPI.request<ChatMessage>('/chat/general/send_message/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
     if (response.error) {
       throw new Error(response.error);
     }

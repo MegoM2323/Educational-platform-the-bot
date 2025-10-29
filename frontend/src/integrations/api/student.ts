@@ -35,15 +35,50 @@ export interface FeedbackItem {
 
 export const studentAPI = {
   getSubjects: async (): Promise<StudentSubject[]> => {
-    const resp = await unifiedAPI.request<StudentSubject[]>('/student/subjects/');
+    const resp = await unifiedAPI.request<any>('/materials/student/');
+    
     if (resp.error) throw new Error(resp.error);
-    return resp.data!;
+    
+    // Извлекаем предметы из materials_by_subject
+    const materialsBySubject = resp.data?.materials_by_subject || {};
+    
+    const subjects: StudentSubject[] = Object.values(materialsBySubject).map((subjectData: any) => ({
+      id: subjectData.subject_info.id,
+      name: subjectData.subject_info.name,
+      color: subjectData.subject_info.color,
+      teacher: {
+        id: subjectData.subject_info.teacher?.id || 0,
+        full_name: subjectData.subject_info.teacher?.full_name || 'Не назначен'
+      },
+      enrollment_status: 'enrolled'
+    }));
+    
+    return subjects;
   },
 
   getSubjectMaterials: async (subjectId: number): Promise<SubjectMaterial[]> => {
-    const resp = await unifiedAPI.request<SubjectMaterial[]>(`/student/subjects/${subjectId}/materials/`);
+    const resp = await unifiedAPI.request<any>('/materials/student/');
     if (resp.error) throw new Error(resp.error);
-    return resp.data!;
+    
+    // Извлекаем материалы для конкретного предмета из materials_by_subject
+    const materialsBySubject = resp.data?.materials_by_subject || {};
+    const subjectData = Object.values(materialsBySubject).find((subj: any) => subj.subject_info.id === subjectId);
+    
+    if (!subjectData) {
+      return [];
+    }
+    
+    const materials: SubjectMaterial[] = subjectData.materials.map((material: any) => ({
+      id: material.id,
+      title: material.title,
+      description: material.description,
+      created_at: material.created_at,
+      type: material.type,
+      status: material.status,
+      progress_percentage: material.progress_percentage || 0
+    }));
+    
+    return materials;
   },
 
   submitHomework: async (materialId: number, data: FormData): Promise<SubmissionResponse> => {

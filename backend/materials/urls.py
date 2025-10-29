@@ -18,6 +18,7 @@ urlpatterns = [
     
     # Student dashboard endpoints
     path('student/', student_dashboard_views.student_dashboard, name='student-dashboard'),
+    path('materials/student/', student_dashboard_views.student_dashboard, name='student-dashboard-materials'),
     path('materials/student/assigned/', student_dashboard_views.student_assigned_materials, name='student-assigned-materials'),
     path('materials/student/by-subject/', student_dashboard_views.student_materials_by_subject, name='student-materials-by-subject'),
     path('dashboard/student/progress/', student_dashboard_views.student_progress_statistics, name='student-progress-statistics'),
@@ -26,7 +27,7 @@ urlpatterns = [
     path('materials/<int:material_id>/progress/', student_dashboard_views.update_material_progress, name='update-material-progress'),
     
     # Student materials API endpoints
-    path('materials/student/', views.MaterialViewSet.as_view({'get': 'student_materials'}), name='student-materials'),
+    path('materials/student/list/', views.MaterialViewSet.as_view({'get': 'student_materials'}), name='student-materials'),
     path('materials/<int:pk>/download/', views.MaterialViewSet.as_view({'get': 'download_file'}), name='material-download'),
     
     # Teacher dashboard endpoints

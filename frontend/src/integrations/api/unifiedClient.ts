@@ -8,8 +8,12 @@ import { performanceMonitoringService } from '../../services/performanceMonitori
 import { cacheService } from '../../services/cacheService';
 
 // Environment configuration
-const API_BASE_URL = import.meta.env.VITE_DJANGO_API_URL || 'http://localhost:8000/api';
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
+let API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DJANGO_API_URL) || 'http://localhost:8000/api';
+// Нормализуем базовый URL: гарантируем окончание на /api
+if (!API_BASE_URL.endsWith('/api')) {
+  API_BASE_URL = API_BASE_URL.replace(/\/$/, '') + '/api';
+}
+const WS_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WS_URL) || 'ws://localhost:8000/ws';
 
 // Types
 export interface ApiResponse<T = any> {
@@ -235,26 +239,32 @@ class UnifiedAPIClient {
 
   // Token Management
   private loadTokensFromStorage(): void {
-    this.token = localStorage.getItem('authToken');
-    this.refreshToken = localStorage.getItem('refreshToken');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      this.token = localStorage.getItem('authToken');
+      this.refreshToken = localStorage.getItem('refreshToken');
+    }
   }
 
   private saveTokensToStorage(token: string, refreshToken?: string): void {
     this.token = token;
-    localStorage.setItem('authToken', token);
-    
-    if (refreshToken) {
-      this.refreshToken = refreshToken;
-      localStorage.setItem('refreshToken', refreshToken);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('authToken', token);
+      
+      if (refreshToken) {
+        this.refreshToken = refreshToken;
+        localStorage.setItem('refreshToken', refreshToken);
+      }
     }
   }
 
   private clearTokens(): void {
     this.token = null;
     this.refreshToken = null;
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('userData');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userData');
+    }
   }
 
   // Request Queue Management
@@ -373,6 +383,9 @@ class UnifiedAPIClient {
     retryCount: number = 0
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
+    
+    // Load tokens from storage before each request
+    this.loadTokensFromStorage();
     
     // Check cache for GET requests
     const isGET = !options.method || options.method === 'GET';
@@ -575,7 +588,7 @@ class UnifiedAPIClient {
 
   // Dashboard Methods
   async getStudentDashboard(): Promise<ApiResponse<StudentDashboard>> {
-    return this.request<StudentDashboard>('/materials/dashboard/student/');
+    return this.request<StudentDashboard>('/materials/student/');
   }
 
   async getTeacherDashboard(): Promise<ApiResponse<TeacherDashboard>> {

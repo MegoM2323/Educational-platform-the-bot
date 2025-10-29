@@ -1,4 +1,4 @@
-import { Home, Users, FileText, MessageCircle, CreditCard, LogOut, User } from "lucide-react";
+import { Home, Users, FileText, MessageCircle, LogOut, User } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -19,8 +19,7 @@ const items = [
   { title: "Главная", url: "/dashboard/tutor", icon: Home },
   { title: "Мои ученики", url: "/dashboard/tutor/students", icon: Users },
   { title: "Отчёты", url: "/dashboard/tutor/reports", icon: FileText },
-  { title: "Чат", url: "/dashboard/tutor/chat", icon: MessageCircle },
-  { title: "Оплата", url: "/dashboard/tutor/payments", icon: CreditCard },
+  { title: "Общий чат", url: "/dashboard/tutor/chat", icon: MessageCircle },
 ];
 
 export function TutorSidebar() {

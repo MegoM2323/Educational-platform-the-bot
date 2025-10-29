@@ -6,13 +6,14 @@ from django.db.models import Q, Avg, Count, Sum
 from django.utils import timezone
 from datetime import datetime, timedelta
 
-from .models import Report, ReportTemplate, ReportRecipient, AnalyticsData, ReportSchedule
+from .models import Report, ReportTemplate, ReportRecipient, AnalyticsData, ReportSchedule, StudentReport
 from .serializers import (
     ReportListSerializer, ReportDetailSerializer, ReportCreateSerializer,
     ReportTemplateSerializer, ReportRecipientSerializer, AnalyticsDataSerializer,
     ReportScheduleSerializer, ReportStatsSerializer, StudentProgressSerializer,
-    ClassPerformanceSerializer
+    ClassPerformanceSerializer, StudentReportSerializer, StudentReportCreateSerializer
 )
+from .student_report_service import StudentReportService
 
 
 class ReportViewSet(viewsets.ModelViewSet):
@@ -116,6 +117,49 @@ class ReportViewSet(viewsets.ModelViewSet):
             recipient.save()
         
         return Response({'message': 'Отчет отправлен'})
+
+
+class StudentReportViewSet(viewsets.ModelViewSet):
+    """CRUD для персональных отчётов студентов преподавателем.
+
+    Требует аутентификации. Преподаватели видят и управляют только своими отчётами.
+    Родители/студенты могут читать отчёты о себе (read-only queryset ограничен).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['report_type', 'status', 'student']
+    search_fields = ['title', 'description']
+    ordering_fields = ['created_at', 'sent_at']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = StudentReport.objects.select_related('teacher', 'student', 'parent')
+        if user.role == 'teacher':
+            return qs.filter(teacher=user)
+        if user.role == 'student':
+            return qs.filter(student=user)
+        if user.role == 'parent':
+            children = getattr(user, 'children', None)
+            if children is not None:
+                return qs.filter(student__in=children.all())
+        return StudentReport.objects.none()
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return StudentReportCreateSerializer
+        return StudentReportSerializer
+
+    def perform_create(self, serializer):
+        serializer.save()  # teacher подставится в serializer.create
+
+    @action(detail=False, methods=['get'])
+    def available_students(self, request):
+        """Список студентов, доступных преподавателю для отчётов."""
+        if request.user.role != 'teacher':
+            return Response({'error': 'Требуется роль преподавателя'}, status=status.HTTP_403_FORBIDDEN)
+        students = StudentReportService.get_teacher_students(request.user)
+        return Response({'students': students}, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['get'])
     def analytics(self, request, pk=None):

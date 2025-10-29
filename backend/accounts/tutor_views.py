@@ -34,28 +34,39 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-        student_user, parent_user, student_creds, parent_creds = StudentCreationService.create_student_with_parent(
-            tutor=request.user,
-            student_first_name=data['first_name'],
-            student_last_name=data['last_name'],
-            grade=data['grade'],
-            goal=data.get('goal', ''),
-            parent_first_name=data['parent_first_name'],
-            parent_last_name=data['parent_last_name'],
-            parent_email=data.get('parent_email', ''),
-            parent_phone=data.get('parent_phone', ''),
-        )
+        try:
+            student_user, parent_user, student_creds, parent_creds = StudentCreationService.create_student_with_parent(
+                tutor=request.user,
+                student_first_name=data['first_name'],
+                student_last_name=data['last_name'],
+                grade=data['grade'],
+                goal=data.get('goal', ''),
+                parent_first_name=data['parent_first_name'],
+                parent_last_name=data['parent_last_name'],
+                parent_email=data.get('parent_email', ''),
+                parent_phone=data.get('parent_phone', ''),
+            )
+        except PermissionError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return Response({'detail': f'Ошибка создания ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
         student_profile = student_user.student_profile
         response = {
             'student': TutorStudentSerializer(student_profile).data,
-            'student_credentials': {
-                'username': student_creds.username,
-                'password': student_creds.password,
+            'parent': {
+                'id': parent_user.id,
+                'full_name': parent_user.get_full_name() or parent_user.username,
             },
-            'parent_credentials': {
-                'username': parent_creds.username,
-                'password': parent_creds.password,
+            'credentials': {
+                'student': {
+                    'username': student_creds.username,
+                    'password': student_creds.password,
+                },
+                'parent': {
+                    'username': parent_creds.username,
+                    'password': parent_creds.password,
+                },
             },
         }
         return Response(response, status=status.HTTP_201_CREATED)

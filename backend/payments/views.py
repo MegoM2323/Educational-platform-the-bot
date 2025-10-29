@@ -304,6 +304,35 @@ def yookassa_webhook(request):
             payment.paid_at = timezone.now()
             payment.save()
             logger.info(f"Payment {payment.id} marked as succeeded")
+            # Дополнительно отмечаем платеж по предмету (если связан)
+            try:
+                from materials.models import SubjectPayment as SP
+                from notifications.notification_service import NotificationService
+                subject_payment = SP.objects.filter(payment=payment).first()
+                if subject_payment and subject_payment.status != SP.Status.PAID:
+                    subject_payment.status = SP.Status.PAID
+                    subject_payment.paid_at = payment.paid_at
+                    subject_payment.save(update_fields=['status', 'paid_at', 'updated_at'])
+                    # Уведомляем родителя, если можно определить
+                    try:
+                        parent = None
+                        try:
+                            parent_profile = subject_payment.enrollment.student.parent_profile
+                            if parent_profile:
+                                parent = parent_profile.parent
+                        except Exception:
+                            parent = None
+                        if parent:
+                            NotificationService().notify_payment_processed(
+                                parent=parent,
+                                status='paid',
+                                amount=str(subject_payment.amount),
+                                enrollment_id=subject_payment.enrollment.id,
+                            )
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.error(f"Failed to mark SubjectPayment as PAID for payment {payment.id}: {e}")
             
             # Отправляем уведомление в Telegram
             try:

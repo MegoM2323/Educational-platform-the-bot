@@ -5,22 +5,33 @@ from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentPr
 
 class UserLoginSerializer(serializers.Serializer):
     """
-    Сериализатор для входа пользователя
+    Сериализатор для входа пользователя (поддерживает email и username)
     """
-    email = serializers.EmailField()
+    email = serializers.CharField(required=False, allow_blank=True)
+    username = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField()
     
     def validate(self, attrs):
         email = attrs.get('email')
+        username = attrs.get('username')
         password = attrs.get('password')
         
-        if email and password:
-            # Аутентификация происходит через Supabase, поэтому просто возвращаем данные
-            # Проверка будет происходить в view
-            attrs['email'] = email
-            attrs['password'] = password
-        else:
-            raise serializers.ValidationError('Необходимо указать email и пароль')
+        # Должен быть указан либо email, либо username
+        if not email and not username:
+            raise serializers.ValidationError('Необходимо указать email или имя пользователя')
+        
+        if not password:
+            raise serializers.ValidationError('Необходимо указать пароль')
+        
+        # Если передан email, используем его; иначе используем username
+        if email:
+            attrs['email'] = email.strip() if email else None
+            attrs['username'] = None
+        elif username:
+            attrs['username'] = username.strip() if username else None
+            attrs['email'] = None
+        
+        attrs['password'] = password
         
         return attrs
 

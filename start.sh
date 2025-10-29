@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Единый скрипт для запуска THE BOT Platform
-# Автоматически убивает процессы на портах 8000 и 5173 перед запуском
+# Автоматически убивает процессы на портах 8000 и 8080 перед запуском
 
 echo "🚀 Запуск THE BOT Platform"
 echo "=================================================="
@@ -42,9 +42,9 @@ kill_port_processes() {
     fi
 }
 
-# Убиваем процессы на портах 8000 и 5173
+# Убиваем процессы на портах 8000 и 8080
 kill_port_processes 8000 "Django Backend"
-kill_port_processes 5173 "React Frontend"
+kill_port_processes 8080 "React Frontend"
 
 # Проверяем, что мы в правильной директории
 if [ ! -f "backend/manage.py" ]; then
@@ -78,6 +78,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(email='admin@example.com').exists():
     User.objects.create_superuser(
+        username='admin@example.com',
         email='admin@example.com',
         password='admin123',
         first_name='Admin',
@@ -127,8 +128,8 @@ else
 fi
 
 # Запускаем фронтенд сервер
-echo "🎨 Запуск фронтенд сервера на порту 5173..."
-npm run dev &
+echo "🎨 Запуск фронтенд сервера на порту 8080..."
+npm run dev -- --port 8080 &
 FRONTEND_PID=$!
 
 # Возвращаемся в корневую директорию
@@ -137,7 +138,7 @@ cd ..
 echo ""
 echo "✅ Серверы запущены!"
 echo "🌐 Django Backend: http://localhost:8000"
-echo "🎨 React Frontend: http://localhost:8083 (или другой порт, если 5173 занят)"
+echo "🎨 React Frontend: http://localhost:8080"
 echo "👤 Админ панель: http://localhost:8000/admin"
 echo "📊 API endpoints: http://localhost:8000/api/"
 echo ""
@@ -162,7 +163,7 @@ cleanup() {
     
     # Дополнительно убиваем процессы на портах
     kill_port_processes 8000 "Django Backend"
-    kill_port_processes 5173 "React Frontend"
+    kill_port_processes 8080 "React Frontend"
     
     echo "✅ Все серверы остановлены"
     exit 0

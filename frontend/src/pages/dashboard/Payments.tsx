@@ -1,106 +1,77 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CreditCard, CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { unifiedAPI as djangoAPI, type Payment } from "@/integrations/api/unifiedClient";
+import { CreditCard, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { apiClient } from "@/integrations/api/migration";
 import { useToast } from "@/hooks/use-toast";
 
-export default function Payments() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creatingPayment, setCreatingPayment] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({
-    amount: '12000',
-    service_name: 'Расширенный пакет',
-    customer_fio: '',
-    description: ''
-  });
-  const { toast } = useToast();
+interface ChildSubject {
+  id: number;
+  name: string;
+  teacher_name: string;
+  enrollment_status: 'active' | 'inactive';
+  payment_status: 'paid' | 'pending' | 'overdue' | 'no_payment';
+}
 
-  // Загружаем платежи при монтировании компонента
+interface ChildItem {
+  id: number;
+  full_name: string;
+  email: string;
+  grade: string;
+  goal: string;
+  subjects: ChildSubject[];
+}
+
+export default function Payments() {
+  const { toast } = useToast();
+  const [children, setChildren] = useState<ChildItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creatingFor, setCreatingFor] = useState<string | null>(null);
+
   useEffect(() => {
-    loadPayments();
+    const load = async () => {
+      try {
+        setLoading(true);
+        const resp = await apiClient.request<ChildItem[]>(`/materials/dashboard/parent/children/`);
+        if (resp.data) {
+          setChildren(resp.data);
+        } else {
+          throw new Error(resp.error || 'Не удалось загрузить данные');
+        }
+      } catch (e) {
+        toast({
+          title: 'Ошибка',
+          description: 'Не удалось загрузить список предметов детей',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
-  const loadPayments = async () => {
+  const initiatePayment = async (childId: number, subjectId: number) => {
     try {
-      setLoading(true);
-      const paymentsData = await djangoAPI.getPayments();
-      setPayments(paymentsData);
-    } catch (error) {
-      console.error('Ошибка загрузки платежей:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить платежи",
-        variant: "destructive",
+      setCreatingFor(`${childId}:${subjectId}`);
+      const resp = await apiClient.request<{ payment_url?: string }>(`/materials/dashboard/parent/children/${childId}/payment/${subjectId}/`, {
+        method: 'POST',
+        body: JSON.stringify({ amount: 5000.0, description: 'Оплата за предмет за месяц обучения' }),
       });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreatePayment = async () => {
-    if (!paymentForm.customer_fio.trim()) {
-      toast({
-        title: "Ошибка",
-        description: "Введите ФИО плательщика",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
-      toast({
-        title: "Ошибка",
-        description: "Введите корректную сумму",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setCreatingPayment(true);
-      
-      toast({
-        title: "Создание платежа",
-        description: "Пожалуйста, подождите...",
-      });
-
-      const payment = await djangoAPI.createPayment({
-        amount: paymentForm.amount,
-        service_name: paymentForm.service_name,
-        customer_fio: paymentForm.customer_fio,
-        description: paymentForm.description || `Оплата за ${paymentForm.service_name}`,
-        return_url: window.location.origin + '/dashboard/payments'
-      });
-
-      if (payment.confirmation_url) {
-        toast({
-          title: "Платеж создан",
-          description: "Откройте новую вкладку для оплаты",
-        });
-        
-        // Перенаправляем на страницу оплаты ЮКассы
-        window.open(payment.confirmation_url, '_blank');
-        
-        // Перезагружаем список платежей
-        await loadPayments();
+      if (resp.data?.payment_url) {
+        window.location.href = resp.data.payment_url;
       } else {
-        throw new Error('Не получена ссылка для оплаты');
+        throw new Error(resp.error || 'Не удалось создать платеж');
       }
-    } catch (error) {
-      console.error('Ошибка создания платежа:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Не удалось создать платеж';
+    } catch (e) {
       toast({
-        title: "Ошибка создания платежа",
-        description: errorMessage,
-        variant: "destructive",
+        title: 'Ошибка',
+        description: 'Не удалось создать платеж',
+        variant: 'destructive',
       });
     } finally {
-      setCreatingPayment(false);
+      setCreatingFor(null);
     }
   };
 
@@ -142,162 +113,68 @@ export default function Payments() {
         </div>
       </Card>
 
-      {/* Payment Method */}
+      {/* Оплата по предметам детей (фиксированная 5000₽) */}
       <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Способ оплаты</h3>
-        <div className="space-y-4">
-          <div className="p-4 border rounded-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <div className="font-medium">Visa •••• 4242</div>
-                <div className="text-sm text-muted-foreground">Срок действия: 12/25</div>
-              </div>
-            </div>
-            <Button variant="outline" size="sm">Изменить</Button>
-          </div>
-          <Button variant="outline" className="w-full">
-            <CreditCard className="w-4 h-4 mr-2" />
-            Добавить новый способ оплаты
-          </Button>
-        </div>
-      </Card>
-
-      {/* Payment Form */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Оплатить сейчас</h3>
-        <div className="space-y-4">
-          <div>
-            <Label>Сумма (₽)</Label>
-            <Input 
-              type="number" 
-              value={paymentForm.amount}
-              onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
-              placeholder="12000" 
-            />
-          </div>
-          <div>
-            <Label>Услуга</Label>
-            <Input 
-              value={paymentForm.service_name}
-              onChange={(e) => setPaymentForm(prev => ({ ...prev, service_name: e.target.value }))}
-              placeholder="Расширенный пакет" 
-            />
-          </div>
-          <div>
-            <Label>ФИО плательщика</Label>
-            <Input 
-              value={paymentForm.customer_fio}
-              onChange={(e) => setPaymentForm(prev => ({ ...prev, customer_fio: e.target.value }))}
-              placeholder="Иванов Иван Иванович" 
-            />
-          </div>
-          <div>
-            <Label>Описание (необязательно)</Label>
-            <Input 
-              value={paymentForm.description}
-              onChange={(e) => setPaymentForm(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Дополнительная информация" 
-            />
-          </div>
-          <Button 
-            className="w-full gradient-primary shadow-glow"
-            onClick={handleCreatePayment}
-            disabled={creatingPayment}
-          >
-            {creatingPayment ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <CreditCard className="w-4 h-4 mr-2" />
-            )}
-            {creatingPayment ? 'Создание платежа...' : `Оплатить ${paymentForm.amount}₽`}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Payment History */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">История платежей</h3>
+        <h3 className="text-xl font-bold mb-4">Оплата предметов детей</h3>
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            <span>Загрузка платежей...</span>
-          </div>
-        ) : payments.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            Платежи не найдены
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Загрузка...
           </div>
         ) : (
-          <div className="space-y-3">
-            {payments.map((payment) => (
-              <div key={payment.id} className="p-4 border rounded-lg flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    payment.status === "succeeded" ? "bg-success/20" : 
-                    payment.status === "pending" ? "bg-accent/20" : "bg-destructive/20"
-                  }`}>
-                    {payment.status === "succeeded" ? (
-                      <CheckCircle className="w-5 h-5 text-success" />
-                    ) : payment.status === "pending" ? (
-                      <Clock className="w-5 h-5 text-accent" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 text-destructive" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-medium">{payment.service_name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(payment.created).toLocaleDateString('ru-RU')}
+          <div className="space-y-4">
+            {children.map((child) => (
+              <div key={child.id} className="space-y-2">
+                <div className="font-medium">{child.full_name}</div>
+                <div className="space-y-2">
+                  {child.subjects.map((subject) => (
+                    <div key={subject.id} className="flex items-center justify-between p-2 border rounded">
+                      <div>
+                        <div className="text-sm font-medium">{subject.name}</div>
+                        <div className="text-xs text-muted-foreground">{subject.teacher_name}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={
+                          subject.payment_status === 'paid' ? 'default' :
+                          subject.payment_status === 'overdue' ? 'destructive' :
+                          subject.payment_status === 'pending' ? 'secondary' : 'outline'
+                        }>
+                          {subject.payment_status === 'paid' ? 'Оплачено' :
+                           subject.payment_status === 'overdue' ? 'Просрочено' :
+                           subject.payment_status === 'pending' ? 'Ожидание' : 'Нет платежа'}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => initiatePayment(child.id, subject.id)}
+                          disabled={creatingFor === `${child.id}:${subject.id}`}
+                        >
+                          {creatingFor === `${child.id}:${subject.id}` ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <CreditCard className="w-3 h-3 mr-1" />
+                          )}
+                          Оплатить 5000₽
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold">{payment.amount}₽</div>
-                  <Badge variant={
-                    payment.status === "succeeded" ? "default" : 
-                    payment.status === "pending" ? "secondary" : "destructive"
-                  }>
-                    {payment.status === "succeeded" ? "Оплачено" : 
-                     payment.status === "pending" ? "Ожидание" : "Отменено"}
-                  </Badge>
+                  ))}
                 </div>
               </div>
             ))}
+            {children.length === 0 && (
+              <div className="text-sm text-muted-foreground">Нет зарегистрированных детей</div>
+            )}
           </div>
         )}
       </Card>
 
-      {/* Available Plans */}
-      <div>
-        <h3 className="text-xl font-bold mb-4">Доступные тарифы</h3>
-        <div className="grid md:grid-cols-3 gap-4">
-          {plans.map((plan, index) => (
-            <Card key={index} className={`p-6 ${plan.popular ? "border-primary shadow-lg" : ""}`}>
-              {plan.popular && (
-                <Badge className="mb-4">Популярный</Badge>
-              )}
-              <h4 className="text-xl font-bold mb-2">{plan.name}</h4>
-              <div className="text-3xl font-bold mb-4">{plan.price}₽<span className="text-sm font-normal text-muted-foreground">/мес</span></div>
-              <ul className="space-y-2 mb-6">
-                {plan.features.map((feature, idx) => (
-                  <li key={idx} className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-success" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <Button 
-                className={plan.popular ? "w-full gradient-primary shadow-glow" : "w-full"}
-                variant={plan.popular ? "default" : "outline"}
-              >
-                Выбрать план
-              </Button>
-            </Card>
-          ))}
+      {/* Подсказка */}
+      <Card className="p-6">
+        <div className="text-sm text-muted-foreground">
+          После успешной оплаты вы автоматически вернётесь в систему.
         </div>
-      </div>
+      </Card>
+
+      {/* Удалены маркетинговые тарифы для упрощения UX оплаты по предметам */}
     </div>
   );
 }

@@ -96,19 +96,23 @@ const TeacherDashboard = () => {
   }, []);
 
   const handleMaterialClick = (materialId: number) => {
-    navigate(`/dashboard/teacher/materials/${materialId}`);
+    // Детальной страницы пока нет — ведём на список материалов
+    navigate('/dashboard/teacher/materials');
   };
 
   const handleStudentClick = (studentId: number) => {
-    navigate(`/dashboard/teacher/students/${studentId}`);
+    // Страницы студентов пока нет — ведём на материалы
+    navigate('/dashboard/teacher/materials');
   };
 
   const handleAssignmentClick = (assignmentId: number) => {
-    navigate(`/dashboard/teacher/assignments/${assignmentId}`);
+    // Страницы заданий пока нет — ведём на ожидающие проверки
+    navigate('/dashboard/teacher/submissions/pending');
   };
 
   const handleReportClick = (reportId: number) => {
-    navigate(`/dashboard/teacher/reports/${reportId}`);
+    // Детальной страницы отчёта пока нет — ведём на список отчётов
+    navigate('/dashboard/teacher/reports');
   };
 
   const handleCreateMaterial = () => {
@@ -120,7 +124,8 @@ const TeacherDashboard = () => {
   };
 
   const handleChatClick = () => {
-    navigate('/dashboard/chat');
+    // Для преподавателя используем маршрут общего чата преподавателя
+    navigate('/dashboard/teacher/general-chat');
   };
 
   return (
@@ -225,7 +230,7 @@ const TeacherDashboard = () => {
                         </div>
                       </div>
                     </Card>
-                    <Card className="p-4 hover:border-primary transition-colors cursor-pointer" onClick={() => navigate('/dashboard/teacher/students')}>
+                    <Card className="p-4 hover:border-primary transition-colors cursor-pointer" onClick={() => navigate('/dashboard/teacher/materials')}>
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center">
                           <Users className="w-6 h-6 text-accent" />
@@ -242,7 +247,7 @@ const TeacherDashboard = () => {
                           <FileText className="w-6 h-6 text-success" />
                         </div>
                         <div>
-                          <div className="text-2xl font-bold">{dashboardData.reports.length}</div>
+                          <div className="text-2xl font-bold">{(dashboardData.reports ?? []).length}</div>
                           <div className="text-sm text-muted-foreground">Отправлено отчетов</div>
                         </div>
                       </div>
@@ -298,7 +303,7 @@ const TeacherDashboard = () => {
                       <Button 
                         variant="outline" 
                         className="w-full mt-4"
-                        onClick={() => navigate('/dashboard/teacher/assignments')}
+                        onClick={() => navigate('/dashboard/teacher/submissions/pending')}
                       >
                         Все задания
                       </Button>
@@ -398,11 +403,11 @@ const TeacherDashboard = () => {
                         </div>
                       ))}
                     </div>
-                    <Button 
-                      variant="outline" 
-                      className="w-full mt-4"
-                      onClick={() => navigate('/dashboard/teacher/students')}
-                    >
+                      <Button 
+                        variant="outline" 
+                        className="w-full mt-4"
+                        onClick={() => navigate('/dashboard/teacher/materials')}
+                      >
                       Все ученики
                     </Button>
                   </Card>
@@ -420,7 +425,7 @@ const TeacherDashboard = () => {
                       </Button>
                     </div>
                     <div className="space-y-3">
-                      {dashboardData.reports.slice(0, 3).map((report) => (
+                      {(dashboardData.reports ?? []).slice(0, 3).map((report) => (
                         <div 
                           key={report.id} 
                           className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
@@ -442,7 +447,7 @@ const TeacherDashboard = () => {
                           </div>
                         </div>
                       ))}
-                      {dashboardData.reports.length === 0 && (
+                      {(dashboardData.reports ?? []).length === 0 && (
                         <div className="text-center py-8 text-muted-foreground">
                           <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                           <p>Нет созданных отчетов</p>
@@ -489,10 +494,10 @@ const TeacherDashboard = () => {
                       <Button 
                         variant="outline" 
                         className="h-auto flex-col gap-2 py-6"
-                        onClick={() => navigate('/dashboard/teacher/students')}
+                        onClick={() => navigate('/dashboard/teacher/assign-subject')}
                       >
                         <Users className="w-6 h-6" />
-                        <span>Ученики</span>
+                        <span>Назначить предмет</span>
                       </Button>
                     </div>
                   </Card>

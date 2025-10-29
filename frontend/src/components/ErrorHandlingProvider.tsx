@@ -154,7 +154,7 @@ export const ErrorHandlingProvider: React.FC<ErrorHandlingProviderProps> = ({
       <NotificationProvider>
         <ErrorBoundary>
           {enableNetworkMonitoring ? (
-            <NetworkStatusHandler>
+            <NetworkStatusHandler showStatusIndicator={false}>
               {children}
             </NetworkStatusHandler>
           ) : (

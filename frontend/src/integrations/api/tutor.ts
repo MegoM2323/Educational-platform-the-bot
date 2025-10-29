@@ -40,17 +40,58 @@ export interface AssignSubjectRequest {
 
 export const tutorAPI = {
   listStudents: async (): Promise<TutorStudent[]> => {
+    console.log('[tutorAPI.listStudents] Starting request');
+    
+    const token = unifiedAPI.getToken();
+    console.log('[tutorAPI.listStudents] Current token:', token ? 'EXISTS' : 'MISSING');
+    
+    if (!token) {
+      console.error('[tutorAPI.listStudents] No token available!');
+      throw new Error('Authentication required. Please login again.');
+    }
+    
     const resp = await unifiedAPI.request<TutorStudent[]>('/tutor/students/');
-    if (resp.error) throw new Error(resp.error);
+    
+    console.log('[tutorAPI.listStudents] Response status:', resp.success);
+    
+    if (resp.error) {
+      console.error('[tutorAPI.listStudents] Error:', resp.error);
+      throw new Error(resp.error);
+    }
+    
     return resp.data!;
   },
 
   createStudent: async (data: CreateStudentRequest): Promise<CreateStudentResponse> => {
+    console.log('[tutorAPI.createStudent] Starting request with data:', data);
+    
+    // Проверяем токен перед запросом
+    const token = unifiedAPI.getToken();
+    console.log('[tutorAPI.createStudent] Current token:', token ? 'EXISTS' : 'MISSING');
+    
+    if (!token) {
+      console.error('[tutorAPI.createStudent] No token available!');
+      throw new Error('HTTP 403: Forbidden - Authentication required');
+    }
+    
     const resp = await unifiedAPI.request<CreateStudentResponse>('/tutor/students/', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    if (resp.error) throw new Error(resp.error);
+    
+    console.log('[tutorAPI.createStudent] Response success:', resp.success);
+    console.log('[tutorAPI.createStudent] Response error:', resp.error);
+    console.log('[tutorAPI.createStudent] Full response:', JSON.stringify(resp, null, 2));
+    
+    if (resp.error) {
+      console.error('[tutorAPI.createStudent] Error:', resp.error);
+      // Если ошибка содержит 403 или Forbidden, сохраняем это в сообщении
+      if (resp.error.includes('403') || resp.error.includes('Forbidden')) {
+        throw new Error('HTTP 403: Forbidden');
+      }
+      throw new Error(resp.error);
+    }
+    
     return resp.data!;
   },
 

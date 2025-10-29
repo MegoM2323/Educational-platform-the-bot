@@ -37,4 +37,21 @@ export const teacherAPI = {
     });
     if (resp.error) throw new Error(resp.error);
   },
+  getSubjects: async (): Promise<any[]> => {
+    const resp = await unifiedAPI.request<{subjects: any[]}>('/materials/teacher/subjects/');
+    if (resp.error) throw new Error(resp.error);
+    return resp.data!.subjects;
+  },
+  getAllStudents: async (): Promise<any[]> => {
+    const resp = await unifiedAPI.request<{students: any[]}>('/materials/teacher/all-students/');
+    if (resp.error) throw new Error(resp.error);
+    return resp.data!.students;
+  },
+  assignSubjectToStudents: async (subjectId: number, studentIds: number[]): Promise<void> => {
+    const resp = await unifiedAPI.request('/materials/teacher/subjects/assign/', {
+      method: 'POST',
+      body: JSON.stringify({ subject_id: subjectId, student_ids: studentIds }),
+    });
+    if (resp.error) throw new Error(resp.error);
+  },
 };

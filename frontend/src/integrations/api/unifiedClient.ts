@@ -240,20 +240,77 @@ class UnifiedAPIClient {
   // Token Management
   private loadTokensFromStorage(): void {
     if (typeof window !== 'undefined' && window.localStorage) {
+      // Пробуем загрузить из authToken (простой формат)
       this.token = localStorage.getItem('authToken');
+      
+      // Если не найдено, пробуем загрузить из secureStorage формата
+      if (!this.token) {
+        const secureItem = localStorage.getItem('bot_platform_auth_token');
+        if (secureItem) {
+          try {
+            const parsed = JSON.parse(secureItem);
+            this.token = parsed?.data || null;
+            if (this.token) {
+              console.log('[Token Management] Token loaded from secure storage format');
+            }
+          } catch (e) {
+            console.warn('[Token Management] Failed to parse secure storage token:', e);
+          }
+        }
+      }
+      
+      // Для refresh token
       this.refreshToken = localStorage.getItem('refreshToken');
+      const secureRefresh = localStorage.getItem('bot_platform_refresh_token');
+      if (!this.refreshToken && secureRefresh) {
+        try {
+          const parsed = JSON.parse(secureRefresh);
+          this.refreshToken = parsed?.data || null;
+        } catch (e) {
+          console.warn('[Token Management] Failed to parse secure refresh token:', e);
+        }
+      }
+      
+      if (!this.token) {
+        console.warn('[Token Management] No auth token found in any storage location');
+      } else {
+        console.log('[Token Management] Token loaded from storage');
+      }
+    } else {
+      console.warn('[Token Management] localStorage not available');
     }
   }
 
   private saveTokensToStorage(token: string, refreshToken?: string): void {
     this.token = token;
+    console.log('[Token Management] Saving token to storage');
     if (typeof window !== 'undefined' && window.localStorage) {
+      // Сохраняем в простом формате
       localStorage.setItem('authToken', token);
+      console.log('[Token Management] Token saved to localStorage');
+      
+      // Также сохраняем в secureStorage формат для совместимости с authService
+      const tokenItem = {
+        data: token,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('bot_platform_auth_token', JSON.stringify(tokenItem));
+      console.log('[Token Management] Token saved to secure storage format');
       
       if (refreshToken) {
         this.refreshToken = refreshToken;
         localStorage.setItem('refreshToken', refreshToken);
+        console.log('[Token Management] Refresh token saved to localStorage');
+        
+        // Также сохраняем refresh token в secureStorage формат
+        const refreshItem = {
+          data: refreshToken,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('bot_platform_refresh_token', JSON.stringify(refreshItem));
       }
+    } else {
+      console.warn('[Token Management] Cannot save token: localStorage not available');
     }
   }
 
@@ -261,9 +318,17 @@ class UnifiedAPIClient {
     this.token = null;
     this.refreshToken = null;
     if (typeof window !== 'undefined' && window.localStorage) {
+      // Очищаем простой формат
       localStorage.removeItem('authToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('userData');
+      
+      // Очищаем secureStorage формат
+      localStorage.removeItem('bot_platform_auth_token');
+      localStorage.removeItem('bot_platform_refresh_token');
+      localStorage.removeItem('bot_platform_user_data');
+      
+      console.log('[Token Management] Tokens cleared from all storage locations');
     }
   }
 
@@ -386,6 +451,8 @@ class UnifiedAPIClient {
     
     // Load tokens from storage before each request
     this.loadTokensFromStorage();
+    console.log('[API Request] Token loaded:', this.token ? 'YES' : 'NO');
+    console.log('[API Request] Endpoint:', endpoint);
     
     // Check cache for GET requests
     const isGET = !options.method || options.method === 'GET';
@@ -408,6 +475,9 @@ class UnifiedAPIClient {
 
     if (this.token) {
       headers['Authorization'] = `Token ${this.token}`;
+      console.log('[API Request] Authorization header added');
+    } else {
+      console.warn('[API Request] No token available for request');
     }
 
     // Start performance timer
@@ -680,10 +750,22 @@ class UnifiedAPIClient {
   // Utility Methods
   setToken(token: string): void {
     this.token = token;
-    localStorage.setItem('authToken', token);
+    // Сохраняем в оба места для совместимости
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('authToken', token);
+      // Также в secureStorage формат для authService
+      const item = {
+        data: token,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('bot_platform_auth_token', JSON.stringify(item));
+      console.log('[Token Management] Token saved to both storage locations');
+    }
   }
 
   getToken(): string | null {
+    // Всегда читаем из localStorage для актуальности
+    this.loadTokensFromStorage();
     return this.token;
   }
 

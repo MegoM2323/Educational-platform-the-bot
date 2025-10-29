@@ -41,6 +41,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   useGeneralChatMessages,
   useGeneralChatThreads,
+  useThreadMessages,
   useSendGeneralMessage,
   useSendThreadMessage,
   useCreateThread,
@@ -159,12 +160,14 @@ export function GeneralChatForum({ className }: GeneralChatForumProps) {
     try {
       setError(null);
       
-      // Отправляем через WebSocket для real-time обновления
-      if (selectedThread) {
-        chatWebSocketService.sendRoomMessage(selectedThread.id, messageContent);
-      } else {
-        chatWebSocketService.sendGeneralMessage(messageContent);
-      }
+      // Пытаемся отправить через WebSocket для real-time обновления (не критично)
+      try {
+        if (selectedThread) {
+          chatWebSocketService.sendRoomMessage(selectedThread.id, messageContent);
+        } else {
+          chatWebSocketService.sendGeneralMessage(messageContent);
+        }
+      } catch {}
 
       // Также отправляем через API для сохранения в базе данных
       const messageData = {
@@ -182,6 +185,30 @@ export function GeneralChatForum({ className }: GeneralChatForumProps) {
 
       setMessage('');
       setReplyTo(null);
+      // Локальное добавление сообщения для мгновенного отображения, если WS не подключен
+      if (!isConnected) {
+        setMessages(prev => ([
+          ...prev,
+          {
+            id: Date.now(),
+            room: 0,
+            sender: {
+              id: user!.id,
+              username: user!.email,
+              first_name: user!.first_name,
+              last_name: user!.last_name,
+              role: user!.role,
+            },
+            content: messageContent,
+            message_type: 'text',
+            is_edited: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_read: false,
+            replies_count: 0,
+          }
+        ]));
+      }
       showSuccess('Сообщение отправлено');
     } catch (error: any) {
       console.error('Ошибка отправки сообщения:', error);
@@ -354,12 +381,12 @@ export function GeneralChatForum({ className }: GeneralChatForumProps) {
                   : 'hover:bg-muted border-transparent'
               )}
             >
-              <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
                   <MessageCircle className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium">Общий чат</div>
+                  <div className="font-medium">Главная лента</div>
                   <div className="text-sm text-muted-foreground">
                     {generalMessages.length} сообщений
                   </div>
@@ -618,14 +645,15 @@ export function GeneralChatForum({ className }: GeneralChatForumProps) {
                 value={message}
                 onChange={(e) => handleMessageChange(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder={isConnected ? "Введите сообщение..." : "Подключение к чату..."}
+                placeholder={"Введите сообщение..."}
                 className="min-h-[40px] max-h-32 resize-none"
-                disabled={!isConnected || sendGeneralMessage.isPending || sendThreadMessage.isPending}
+                disabled={sendGeneralMessage.isPending || sendThreadMessage.isPending}
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!message.trim() || !isConnected || sendGeneralMessage.isPending || sendThreadMessage.isPending}
+                disabled={!message.trim() || sendGeneralMessage.isPending || sendThreadMessage.isPending}
                 className="gradient-primary"
+                aria-label="Send"
               >
                 <Send className="w-4 h-4" />
               </Button>

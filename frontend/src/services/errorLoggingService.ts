@@ -45,46 +45,50 @@ class ErrorLoggingService {
   }
 
   private setupOnlineDetection(): void {
-    this.isOnline = navigator.onLine;
+    this.isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
     
-    window.addEventListener('online', () => {
-      this.isOnline = true;
-      this.flushPendingLogs();
-    });
-
-    window.addEventListener('offline', () => {
-      this.isOnline = false;
-    });
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.isOnline = true;
+        this.flushPendingLogs();
+      });
+      
+      window.addEventListener('offline', () => {
+        this.isOnline = false;
+      });
+    }
   }
 
   private setupErrorHandlers(): void {
-    // Global error handler for unhandled errors
-    window.addEventListener('error', (event) => {
-      this.logError({
-        level: 'error',
-        category: 'client',
-        message: event.message,
-        stack: event.error?.stack,
-        context: {
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno,
-        },
+    if (typeof window !== 'undefined') {
+      // Global error handler for unhandled errors
+      window.addEventListener('error', (event) => {
+        this.logError({
+          level: 'error',
+          category: 'client',
+          message: event.message,
+          stack: event.error?.stack,
+          context: {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+          },
+        });
       });
-    });
 
-    // Global handler for unhandled promise rejections
-    window.addEventListener('unhandledrejection', (event) => {
-      this.logError({
-        level: 'error',
-        category: 'client',
-        message: `Unhandled Promise Rejection: ${event.reason}`,
-        stack: event.reason?.stack,
-        context: {
-          reason: event.reason,
-        },
+      // Global handler for unhandled promise rejections
+      window.addEventListener('unhandledrejection', (event) => {
+        this.logError({
+          level: 'error',
+          category: 'client',
+          message: `Unhandled Promise Rejection: ${event.reason}`,
+          stack: event.reason?.stack,
+          context: {
+            reason: event.reason,
+          },
+        });
       });
-    });
+    }
   }
 
   setUserId(userId: string | null): void {

@@ -1,10 +1,11 @@
 from rest_framework import status, generics, permissions
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import make_password
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentProfile
 from .serializers import (
@@ -17,6 +18,8 @@ from .supabase_service import SupabaseAuthService
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@authentication_classes([])
+@csrf_exempt
 def login_view(request):
     """
     Вход пользователя через Django аутентификацию
@@ -35,38 +38,64 @@ def login_view(request):
         password = serializer.validated_data['password']
         print(f"Login attempt for email: {email}")
         
-        # Проверяем аутентификацию через Django
+        # Проверяем аутентификацию через Django; если не удалось, пробуем через Supabase
         from django.contrib.auth import authenticate
-        
-        # Пытаемся найти пользователя по email
-        try:
-            user = User.objects.get(email=email)
-            # Аутентифицируем пользователя
+
+        # Пытаемся найти локального пользователя по email
+        user = User.objects.filter(email=email).first()
+
+        authenticated_user = None
+        if user:
             authenticated_user = authenticate(username=user.username, password=password)
-            
-            if authenticated_user and authenticated_user.is_active:
-                # Создаем токен для Django API
-                token, created = Token.objects.get_or_create(user=authenticated_user)
-                
-                return Response({
-                    'success': True,
-                    'data': {
-                        'token': token.key,
-                        'user': UserSerializer(authenticated_user).data,
-                        'message': 'Вход выполнен успешно'
-                    }
-                })
-            else:
+
+        if not authenticated_user:
+            # Фолбэк на Supabase: в проектах, где пароли не хранятся локально
+            try:
+                supabase = SupabaseAuthService()
+                sb_result = getattr(supabase, 'sign_in', None)
+                if callable(sb_result):
+                    sb_login = supabase.sign_in(email=email, password=password)
+                else:
+                    sb_login = {"success": False, "error": "Supabase не настроен"}
+
+                if sb_login.get('success'):
+                    # Если локального пользователя нет — сообщаем, чтобы создать/синхронизировать
+                    if not user:
+                        return Response({
+                            'success': False,
+                            'error': 'Пользователь найден в Supabase, но отсутствует локально. Обратитесь к администратору.'
+                        }, status=status.HTTP_403_FORBIDDEN)
+
+                    # Признаём пользователя аутентифицированным без проверки локального пароля
+                    authenticated_user = user if user.is_active else None
+                else:
+                    # Нет успеха ни в Django, ни в Supabase
+                    return Response({
+                        'success': False,
+                        'error': sb_login.get('error') or 'Неверные учетные данные'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+            except Exception as e:
                 return Response({
                     'success': False,
-                    'error': 'Неверные учетные данные'
-                }, status=status.HTTP_401_UNAUTHORIZED)
-                
-        except User.DoesNotExist:
+                    'error': f'Ошибка аутентификации через Supabase: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Если дошли до сюда — пользователь аутентифицирован (либо Django, либо Supabase)
+        if authenticated_user and authenticated_user.is_active:
+            token, _ = Token.objects.get_or_create(user=authenticated_user)
             return Response({
-                'success': False,
-                'error': 'Пользователь с таким email не найден'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+                'success': True,
+                'data': {
+                    'token': token.key,
+                    'user': UserSerializer(authenticated_user).data,
+                    'message': 'Вход выполнен успешно'
+                }
+            })
+
+        return Response({
+            'success': False,
+            'error': 'Учетная запись отключена или недоступна'
+        }, status=status.HTTP_403_FORBIDDEN)
             
     except Exception as e:
         return Response({

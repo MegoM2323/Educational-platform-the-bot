@@ -6,22 +6,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileText, Plus, Send, Clock } from "lucide-react";
 import { useState } from "react";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 
 export default function TeacherReports() {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Отчёты по предмету</h1>
-          <p className="text-muted-foreground">Создавайте и отправляйте отчёты тьюторам</p>
-        </div>
-        <Button className="gradient-primary shadow-glow" onClick={() => setShowCreateForm(!showCreateForm)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Создать отчёт
-        </Button>
-      </div>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full">
+        <TeacherSidebar />
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger />
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              <h1 className="text-lg font-semibold">Отчёты по предмету</h1>
+            </div>
+            <div className="ml-auto">
+              <Button className="gradient-primary shadow-glow" onClick={() => setShowCreateForm(!showCreateForm)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Создать отчёт
+              </Button>
+            </div>
+          </header>
+          <main className="flex flex-1 flex-col gap-4 p-4">
+            <div className="space-y-6">
+              <div className="hidden" />
 
       {/* Create Report Form */}
       {showCreateForm && (
@@ -95,7 +106,11 @@ export default function TeacherReports() {
           </Card>
         ))}
       </div>
-    </div>
+            </div>
+          </main>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
   );
 }
 

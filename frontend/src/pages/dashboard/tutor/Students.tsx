@@ -140,6 +140,7 @@ export default function TutorStudentsPage() {
                 <div className="text-sm">Логин: {generatedCreds.parent.username}</div>
                 <div className="text-sm">Пароль: {generatedCreds.parent.password}</div>
               </Card>
+            </div>
           ) : null}
           <DialogFooter>
             <Button onClick={() => setCredsOpen(false)}>Закрыть</Button>

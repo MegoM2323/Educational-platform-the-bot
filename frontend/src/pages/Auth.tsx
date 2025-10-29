@@ -7,6 +7,7 @@ import { BookOpen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { authService } from "@/services/authService";
 import { validateEmail } from "@/utils/validation";
 
 const Auth = memo(() => {
@@ -24,7 +25,44 @@ const Auth = memo(() => {
     }
 
     try {
-      // Вход через AuthContext
+      // Вход через AuthContext (по умолчанию ВСЕГДА обращаемся к backend)
+      // Dev bypass возможен только при явном флаге VITE_AUTH_DEV_BYPASS === 'true'
+      if (import.meta.env.VITE_AUTH_DEV_BYPASS === 'true') {
+        const email = loginData.email.trim().toLowerCase();
+        const role = email.includes('parent') ? 'parent' : email.includes('teacher') ? 'teacher' : email.includes('tutor') ? 'tutor' : 'student';
+        const mockUser = {
+          id: role === 'parent' ? 4 : role === 'teacher' ? 3 : role === 'tutor' ? 2 : 1,
+          email: loginData.email,
+          first_name: 'Test',
+          last_name: 'User',
+          role,
+          role_display: role.charAt(0).toUpperCase() + role.slice(1),
+          phone: '+79990000000',
+          is_verified: true,
+          date_joined: new Date().toISOString(),
+          full_name: 'Test User'
+        } as any;
+        localStorage.setItem('authToken', 'dev-token');
+        localStorage.setItem('userData', JSON.stringify(mockUser));
+        await new Promise(r => setTimeout(r, 50));
+        switch (role) {
+          case 'parent':
+            navigate('/dashboard/parent');
+            break;
+          case 'teacher':
+            navigate('/dashboard/teacher');
+            break;
+          case 'tutor':
+            navigate('/dashboard/tutor');
+            break;
+          default:
+            navigate('/dashboard/student');
+        }
+        toast.success('Вход выполнен (dev bypass)');
+        return;
+      }
+
+      // Стандартный путь — реальный запрос к backend
       const result = await login({
         email: loginData.email,
         password: loginData.password
@@ -34,6 +72,8 @@ const Auth = memo(() => {
       
       // Переадресация в зависимости от роли
       const userRole = result.user.role;
+      // Небольшая задержка, чтобы контекст успел зафиксировать пользователя (устойчивость E2E)
+      await new Promise(r => setTimeout(r, 50));
       switch (userRole) {
         case 'student':
           navigate('/dashboard/student');
@@ -51,8 +91,8 @@ const Auth = memo(() => {
           navigate('/dashboard/student');
       }
     } catch (error) {
-      toast.error("Произошла ошибка при входе");
       console.error('Login error:', error);
+      toast.error("Произошла ошибка при входе");
     }
   };
 

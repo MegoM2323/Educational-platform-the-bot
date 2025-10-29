@@ -7,6 +7,7 @@ urlpatterns = [
     
     # API endpoints
     path("api/auth/", include('accounts.urls')),
+    path("api/tutor/", include('accounts.urls')),  # Tutor endpoints
     path("api/materials/", include('materials.urls')),
     path("api/student/", include('materials.student_urls')),
     path("api/assignments/", include('assignments.urls')),
@@ -18,6 +19,16 @@ urlpatterns = [
     path("api/dashboard/", include('materials.urls')),  # Dashboard endpoints
     path("api/teacher/", include('materials.teacher_urls')),
     path("api/system/", include('core.urls')),  # System monitoring and management
+    
+    # Compatibility aliases (non-API prefixed) used by tests and legacy frontend
+    path("auth/", include('accounts.urls')),
+    path("materials/", include('materials.urls')),
+    path("teacher/", include('materials.teacher_urls')),
+    path("student/", include('materials.student_urls')),
+    path("chat/", include('chat.urls')),
+    path("reports/", include('reports.urls')),
+    path("notifications/", include('notifications.urls')),
+    path("dashboard/", include('materials.urls')),
     
     # Legacy payment endpoints
     path("", pay_page, name="pay_page"),

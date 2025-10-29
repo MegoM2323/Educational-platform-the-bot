@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { unifiedAPI } from "@/integrations/api/unifiedClient";
+import { teacherAPI } from "@/integrations/api/teacher";
 import { useToast } from "@/hooks/use-toast";
 
 // Интерфейсы для данных
@@ -17,9 +18,9 @@ interface Material {
   id: number;
   title: string;
   description: string;
-  subject: string;
+  subject: { id: number; name: string; color: string };
   status: 'active' | 'draft';
-  students_count: number;
+  assigned_count: number;
   created_at: string;
   file_url?: string;
 }
@@ -27,21 +28,10 @@ interface Material {
 interface Student {
   id: number;
   name: string;
-  grade: string;
-  progress_percentage: number;
-  last_activity: string;
-  assignments_pending: number;
+  profile?: { grade: string; progress_percentage: number };
 }
 
-interface Assignment {
-  id: number;
-  student_name: string;
-  student_grade: string;
-  title: string;
-  subject: string;
-  submitted_at: string;
-  status: 'pending' | 'reviewed';
-}
+type Assignment = never;
 
 interface Report {
   id: number;
@@ -55,13 +45,12 @@ interface Report {
 interface DashboardData {
   materials: Material[];
   students: Student[];
-  assignments: Assignment[];
   reports: Report[];
-  statistics: {
-    total_materials: number;
+  progress_overview: {
     total_students: number;
-    pending_assignments: number;
-    sent_reports: number;
+    total_materials: number;
+    total_assignments: number;
+    completed_assignments: number;
   };
 }
 
@@ -73,6 +62,7 @@ const TeacherDashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
 
   // Загрузка данных дашборда
   useEffect(() => {
@@ -87,6 +77,12 @@ const TeacherDashboard = () => {
           setDashboardData(response.data);
         } else {
           setError(response.error || 'Ошибка загрузки данных');
+        }
+        try {
+          const pend = await teacherAPI.getPendingSubmissions();
+          setPendingSubmissions(pend);
+        } catch (e) {
+          console.warn('Не удалось загрузить pending submissions', e);
         }
       } catch (err) {
         setError('Произошла ошибка при загрузке данных');
@@ -154,7 +150,7 @@ const TeacherDashboard = () => {
               <div>
                 <h1 className="text-3xl font-bold">Личный кабинет преподавателя</h1>
                 <p className="text-muted-foreground">
-                  {user?.first_name || 'Преподаватель'} | {dashboardData?.statistics.total_students || 0} учеников
+                  {user?.first_name || 'Преподаватель'} | {dashboardData?.progress_overview?.total_students ?? 0} учеников
                 </p>
               </div>
 
@@ -207,46 +203,46 @@ const TeacherDashboard = () => {
 
                   {/* Stats Overview */}
                   <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="p-4">
+                    <Card className="p-4 hover:border-primary transition-colors cursor-pointer" onClick={() => navigate('/dashboard/teacher/materials')}>
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center">
                           <BookOpen className="w-6 h-6 text-primary-foreground" />
                         </div>
                         <div>
-                          <div className="text-2xl font-bold">{dashboardData.statistics.total_materials}</div>
+                          <div className="text-2xl font-bold">{dashboardData.progress_overview.total_materials}</div>
                           <div className="text-sm text-muted-foreground">Материалов</div>
                         </div>
                       </div>
                     </Card>
-                    <Card className="p-4">
+                    <Card className="p-4 hover:border-primary transition-colors cursor-pointer" onClick={() => navigate('/dashboard/teacher/submissions/pending')}>
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 gradient-secondary rounded-lg flex items-center justify-center">
                           <CheckCircle className="w-6 h-6 text-secondary-foreground" />
                         </div>
                         <div>
-                          <div className="text-2xl font-bold">{dashboardData.statistics.pending_assignments}</div>
+                          <div className="text-2xl font-bold">{Math.max((dashboardData.progress_overview.total_assignments - dashboardData.progress_overview.completed_assignments), 0)}</div>
                           <div className="text-sm text-muted-foreground">На проверке</div>
                         </div>
                       </div>
                     </Card>
-                    <Card className="p-4">
+                    <Card className="p-4 hover:border-primary transition-colors cursor-pointer" onClick={() => navigate('/dashboard/teacher/students')}>
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center">
                           <Users className="w-6 h-6 text-accent" />
                         </div>
                         <div>
-                          <div className="text-2xl font-bold">{dashboardData.statistics.total_students}</div>
+                          <div className="text-2xl font-bold">{dashboardData.progress_overview.total_students}</div>
                           <div className="text-sm text-muted-foreground">Учеников</div>
                         </div>
                       </div>
                     </Card>
-                    <Card className="p-4">
+                    <Card className="p-4 hover:border-primary transition-colors cursor-pointer" onClick={() => navigate('/dashboard/teacher/reports')}>
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-success/20 rounded-lg flex items-center justify-center">
                           <FileText className="w-6 h-6 text-success" />
                         </div>
                         <div>
-                          <div className="text-2xl font-bold">{dashboardData.statistics.sent_reports}</div>
+                          <div className="text-2xl font-bold">{dashboardData.reports.length}</div>
                           <div className="text-sm text-muted-foreground">Отправлено отчетов</div>
                         </div>
                       </div>
@@ -261,10 +257,10 @@ const TeacherDashboard = () => {
                           <CheckCircle className="w-5 h-5 text-primary" />
                           <h3 className="text-xl font-bold">Задания на проверку</h3>
                         </div>
-                        <Badge variant="destructive">{dashboardData.assignments.length}</Badge>
+                        <Badge variant="destructive">{pendingSubmissions.length}</Badge>
                       </div>
                       <div className="space-y-3">
-                        {dashboardData.assignments.slice(0, 3).map((assignment) => (
+                        {pendingSubmissions.slice(0, 3).map((assignment: any) => (
                           <div 
                             key={assignment.id} 
                             className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
@@ -280,21 +276,19 @@ const TeacherDashboard = () => {
                                 <div className="flex items-center justify-between mb-1">
                                   <div className="font-medium">{assignment.student_name}</div>
                                   <Badge variant="outline" className="text-xs">
-                                    {assignment.student_grade} класс
+                                    {assignment.student_grade || ''}
                                   </Badge>
                                 </div>
-                                <div className="text-sm text-muted-foreground mb-2">{assignment.title}</div>
+                                <div className="text-sm text-muted-foreground mb-2">{assignment.material_title}</div>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <Clock className="w-3 h-3" />
                                   Сдано {new Date(assignment.submitted_at).toLocaleDateString('ru-RU')}
-                                  <span>•</span>
-                                  <span>{assignment.subject}</span>
                                 </div>
                               </div>
                             </div>
                           </div>
                         ))}
-                        {dashboardData.assignments.length === 0 && (
+                        {pendingSubmissions.length === 0 && (
                           <div className="text-center py-8 text-muted-foreground">
                             <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
                             <p>Нет заданий на проверку</p>
@@ -341,9 +335,9 @@ const TeacherDashboard = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>{material.students_count} учеников</span>
+                              <span>{material.assigned_count} учеников</span>
                               <span>•</span>
-                              <span>{material.subject}</span>
+                              <span>{material.subject?.name}</span>
                               <span>•</span>
                               <span>{new Date(material.created_at).toLocaleDateString('ru-RU')}</span>
                             </div>
@@ -392,15 +386,12 @@ const TeacherDashboard = () => {
                               <div className="flex items-center justify-between mb-1">
                                 <div className="font-medium">{student.name}</div>
                                 <Badge variant="outline" className="text-xs">
-                                  {student.grade} класс
+                                  {student.profile?.grade} класс
                                 </Badge>
                               </div>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                                 <TrendingUp className="w-3 h-3" />
-                                Прогресс: {student.progress_percentage}%
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Заданий на проверке: {student.assignments_pending}
+                                Прогресс: {student.profile?.progress_percentage}%
                               </div>
                             </div>
                           </div>

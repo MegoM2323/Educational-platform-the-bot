@@ -37,8 +37,10 @@ export default function AssignSubjectDialog({ open, onOpenChange, studentId }: P
   }, [open]);
 
   const submit = async () => {
-    if (!subjectId || !teacherId) return;
-    await assignMutation.mutateAsync({ subject_id: Number(subjectId), teacher_id: Number(teacherId) });
+    if (!subjectId) return;
+    const payload: any = { subject_id: Number(subjectId) };
+    if (teacherId) payload.teacher_id = Number(teacherId);
+    await assignMutation.mutateAsync(payload);
     onOpenChange(false);
   };
 
@@ -78,7 +80,7 @@ export default function AssignSubjectDialog({ open, onOpenChange, studentId }: P
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
-          <Button onClick={submit} disabled={assignMutation.isPending || !subjectId || !teacherId}>Назначить</Button>
+          <Button onClick={submit} disabled={assignMutation.isPending || !subjectId}>Назначить</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

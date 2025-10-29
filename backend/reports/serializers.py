@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Report, ReportTemplate, ReportRecipient, AnalyticsData, ReportSchedule
+from .models import Report, ReportTemplate, ReportRecipient, AnalyticsData, ReportSchedule, StudentReport
 
 User = get_user_model()
 
@@ -190,3 +190,42 @@ class ClassPerformanceSerializer(serializers.Serializer):
     completion_rate = serializers.FloatField()
     top_performers = StudentProgressSerializer(many=True)
     struggling_students = StudentProgressSerializer(many=True)
+
+
+class StudentReportSerializer(serializers.ModelSerializer):
+    """Сериализатор персонального отчёта студента."""
+    teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    student_name = serializers.CharField(source='student.get_full_name', read_only=True)
+    parent_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentReport
+        fields = (
+            'id', 'title', 'description', 'report_type', 'status',
+            'teacher', 'teacher_name', 'student', 'student_name', 'parent', 'parent_name',
+            'period_start', 'period_end', 'content', 'overall_grade',
+            'progress_percentage', 'attendance_percentage', 'behavior_rating',
+            'recommendations', 'concerns', 'achievements', 'attachment',
+            'created_at', 'updated_at', 'sent_at', 'read_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'sent_at', 'read_at', 'status')
+
+    def get_parent_name(self, obj):
+        return obj.parent.get_full_name() if obj.parent else None
+
+
+class StudentReportCreateSerializer(serializers.ModelSerializer):
+    """Сериализатор создания персонального отчёта студента."""
+    class Meta:
+        model = StudentReport
+        fields = (
+            'student', 'title', 'description', 'report_type', 'period_start', 'period_end',
+            'content', 'overall_grade', 'progress_percentage', 'attendance_percentage',
+            'behavior_rating', 'recommendations', 'concerns', 'achievements', 'attachment'
+        )
+
+    def create(self, validated_data):
+        request = self.context['request']
+        teacher = request.user
+        return StudentReport.objects.create(teacher=teacher, **validated_data)
+

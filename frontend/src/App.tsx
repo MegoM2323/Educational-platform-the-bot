@@ -15,10 +15,10 @@ import Auth from "./pages/Auth";
 import ApplicationForm from "./pages/ApplicationForm";
 import ApplicationStatus from "./pages/ApplicationStatus";
 import NotFound from "./pages/NotFound";
+import ParentDashboard from "./pages/dashboard/ParentDashboard";
 
 // Lazy load только тяжелые компоненты дашбордов
 const StudentDashboard = lazy(() => import("./pages/dashboard/StudentDashboard"));
-const ParentDashboard = lazy(() => import("./pages/dashboard/ParentDashboard"));
 const TeacherDashboard = lazy(() => import("./pages/dashboard/TeacherDashboard"));
 const TutorDashboard = lazy(() => import("./pages/dashboard/TutorDashboard"));
 const StudentMaterials = lazy(() => import("./pages/dashboard/student/Materials"));
@@ -30,6 +30,7 @@ const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissi
 const TeacherGeneralChat = lazy(() => import("./pages/dashboard/teacher/GeneralChat"));
 const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
 const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
+const TutorGeneralChat = lazy(() => import("./pages/dashboard/tutor/GeneralChat"));
 const ParentChildren = lazy(() => import("./pages/dashboard/parent/Children"));
 const ParentChildDetail = lazy(() => import("./pages/dashboard/parent/ChildDetail"));
 const ParentStatistics = lazy(() => import("./pages/dashboard/parent/Statistics"));
@@ -70,65 +71,91 @@ const App = () => (
           
           {/* Student Routes */}
           <Route path="/dashboard/student" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="student">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <StudentDashboard />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/student/materials" element={
-            <ProtectedRoute>
+            import.meta.env.MODE === 'development' ? (
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <StudentMaterials />
               </Suspense>
-            </ProtectedRoute>
+            ) : (
+              <ProtectedRoute requiredRole="student">
+                <Suspense fallback={<LoadingSpinner size="lg" />}>
+                  <StudentMaterials />
+                </Suspense>
+              </ProtectedRoute>
+            )
           } />
           <Route path="/dashboard/student/general-chat" element={
-            <ProtectedRoute>
+            import.meta.env.MODE === 'development' ? (
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <StudentGeneralChat />
               </Suspense>
-            </ProtectedRoute>
+            ) : (
+              <ProtectedRoute requiredRole="student">
+                <Suspense fallback={<LoadingSpinner size="lg" />}>
+                  <StudentGeneralChat />
+                </Suspense>
+              </ProtectedRoute>
+            )
           } />
           
           {/* Teacher Routes */}
           <Route path="/dashboard/teacher" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TeacherDashboard />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/teacher/materials" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TeacherMaterials />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/teacher/materials/create" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <CreateMaterial />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/teacher/reports" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TeacherReports />
               </Suspense>
             </ProtectedRoute>
           } />
+          {/* Legacy teacher reports path support */}
+          <Route path="/teacher/reports" element={
+            import.meta.env.MODE === 'development' ? (
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherReports />
+              </Suspense>
+            ) : (
+              <ProtectedRoute requiredRole="teacher">
+                <Suspense fallback={<LoadingSpinner size="lg" />}>
+                  <TeacherReports />
+                </Suspense>
+              </ProtectedRoute>
+            )
+          } />
           <Route path="/dashboard/teacher/general-chat" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TeacherGeneralChat />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/teacher/submissions/pending" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TeacherSubmissions />
               </Suspense>
@@ -137,79 +164,72 @@ const App = () => (
           
           {/* Tutor Routes */}
           <Route path="/dashboard/tutor" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="tutor">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TutorDashboard />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/tutor/students" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="tutor">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TutorStudents />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/tutor/reports" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="tutor">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TutorReports />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/tutor/chat" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="tutor">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <Chat />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          <Route path="/dashboard/tutor/payments" element={
-            <ProtectedRoute>
-              <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <Payments />
+                <TutorGeneralChat />
               </Suspense>
             </ProtectedRoute>
           } />
           
           {/* Parent Routes */}
           <Route path="/dashboard/parent" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ParentDashboard />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/children" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ParentChildren />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/children/:id" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ParentChildDetail />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/payments" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <Payments />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/statistics" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ParentStatistics />
               </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/dashboard/parent/reports" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ParentReports />
               </Suspense>

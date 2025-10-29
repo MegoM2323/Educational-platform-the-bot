@@ -40,23 +40,28 @@ class GeneralChatService:
         )
         
         if created:
-            # Автоматически добавляем всех учителей и студентов в общий чат
-            GeneralChatService._add_all_teachers_and_students(general_chat)
+            # Автоматически добавляем всех пользователей платформы в общий чат
+            GeneralChatService._add_all_users(general_chat)
         
         return general_chat
     
     @staticmethod
-    def _add_all_teachers_and_students(chat_room):
+    def _add_all_users(chat_room):
         """
-        Добавить всех учителей и студентов в общий чат
+        Добавить всех пользователей (студенты, преподаватели, тьюторы, родители) в общий чат
         """
-        teachers_and_students = User.objects.filter(
-            role__in=[User.Role.TEACHER, User.Role.STUDENT]
+        all_users = User.objects.filter(
+            role__in=[
+                User.Role.TEACHER,
+                User.Role.STUDENT,
+                User.Role.TUTOR,
+                User.Role.PARENT,
+            ]
         )
         
-        for user in teachers_and_students:
+        for user in all_users:
             chat_room.participants.add(user)
-            # Создаем запись участника с правами администратора для учителей
+            # Администраторы: преподаватели (и при необходимости можно расширить)
             ChatParticipant.objects.get_or_create(
                 room=chat_room,
                 user=user,
@@ -141,9 +146,6 @@ class GeneralChatService:
         """
         Добавить пользователя в общий чат
         """
-        if user.role not in [User.Role.TEACHER, User.Role.STUDENT]:
-            return False
-        
         general_chat = GeneralChatService.get_or_create_general_chat()
         
         if not general_chat.participants.filter(id=user.id).exists():
@@ -207,8 +209,9 @@ class GeneralChatService:
         """
         general_chat = GeneralChatService.get_or_create_general_chat()
         
+        # Автоматически добавляем пользователя в общий чат, если он ещё не участник
         if not general_chat.participants.filter(id=sender.id).exists():
-            raise PermissionError("Пользователь не является участником общего чата")
+            GeneralChatService.add_user_to_general_chat(sender)
         
         message = Message.objects.create(
             room=general_chat,

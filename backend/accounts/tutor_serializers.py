@@ -76,3 +76,35 @@ class SubjectEnrollmentSerializer(serializers.ModelSerializer):
         )
 
 
+
+class SubjectBulkAssignItemSerializer(serializers.Serializer):
+    subject_id = serializers.IntegerField()
+    teacher_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        subject_id = attrs['subject_id']
+        teacher_id = attrs.get('teacher_id')
+
+        try:
+            attrs['subject'] = Subject.objects.get(id=subject_id)
+        except Subject.DoesNotExist:
+            raise serializers.ValidationError({'subject_id': 'Предмет не найден'})
+
+        if teacher_id is not None:
+            try:
+                teacher = User.objects.get(id=teacher_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({'teacher_id': 'Пользователь не найден'})
+
+            if teacher.role != User.Role.TEACHER:
+                raise serializers.ValidationError({'teacher_id': 'Пользователь не является преподавателем'})
+
+            attrs['teacher'] = teacher
+        else:
+            attrs['teacher'] = None
+        return attrs
+
+
+class SubjectBulkAssignSerializer(serializers.Serializer):
+    items = SubjectBulkAssignItemSerializer(many=True)
+

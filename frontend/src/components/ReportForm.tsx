@@ -321,14 +321,14 @@ export const ReportForm = ({
               <div className="space-y-2">
                 <Label htmlFor="parent">Родитель</Label>
                 <Select 
-                  value={formData.parent_id?.toString() || ''} 
-                  onValueChange={(value) => setFormData({ ...formData, parent_id: value ? parseInt(value) : undefined })}
+                  value={formData.parent_id?.toString() ?? 'none'} 
+                  onValueChange={(value) => setFormData({ ...formData, parent_id: value === 'none' ? undefined : parseInt(value) })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите родителя (необязательно)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Не выбран</SelectItem>
+                    <SelectItem value="none">Не выбран</SelectItem>
                     {parents.map((parent) => (
                       <SelectItem key={parent.id} value={parent.id.toString()}>
                         {parent.first_name} {parent.last_name}
@@ -378,14 +378,14 @@ export const ReportForm = ({
                 <div className="space-y-2">
                   <Label htmlFor="overall_grade">Общая оценка</Label>
                   <Select 
-                    value={formData.overall_grade || ''} 
-                    onValueChange={(value) => setFormData({ ...formData, overall_grade: value || undefined })}
+                    value={formData.overall_grade ?? 'none'} 
+                    onValueChange={(value) => setFormData({ ...formData, overall_grade: value === 'none' ? undefined : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите оценку" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Не указана</SelectItem>
+                      <SelectItem value="none">Не указана</SelectItem>
                       {gradeOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}

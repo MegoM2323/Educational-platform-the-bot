@@ -25,6 +25,39 @@ class Subject(models.Model):
         return self.name
 
 
+class TeacherSubject(models.Model):
+    """
+    Связь преподаватель - предмет (многие ко многим)
+    Один преподаватель может вести несколько предметов
+    """
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='teacher_subjects',
+        verbose_name='Преподаватель'
+    )
+    
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='subject_teachers',
+        verbose_name='Предмет'
+    )
+    
+    # Дополнительная информация
+    is_active = models.BooleanField(default=True, verbose_name='Активно')
+    assigned_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата назначения')
+    
+    class Meta:
+        verbose_name = 'Предмет преподавателя'
+        verbose_name_plural = 'Предметы преподавателей'
+        unique_together = ['teacher', 'subject']
+        ordering = ['-assigned_at']
+    
+    def __str__(self):
+        return f"{self.teacher.get_full_name()} - {self.subject.name}"
+
+
 class SubjectEnrollment(models.Model):
     """
     Зачисление студента на предмет

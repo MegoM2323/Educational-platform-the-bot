@@ -10,13 +10,14 @@ class TelegramNotificationService:
     
     def __init__(self):
         self.bot_token = settings.TELEGRAM_BOT_TOKEN
-        self.chat_id = settings.TELEGRAM_CHAT_ID
+        # Все уведомления об оплате направляем в лог-канал
+        self.chat_id = getattr(settings, 'TELEGRAM_LOG_CHAT_ID', None)
         self.api_url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
     
     def send_payment_notification(self, payment):
         """Отправляет уведомление о успешном платеже"""
         if not self.bot_token or not self.chat_id:
-            logger.warning("Telegram bot token or chat_id not configured")
+            logger.warning("Telegram bot token or TELEGRAM_LOG_CHAT_ID not configured")
             return False
         
         try:
@@ -74,7 +75,7 @@ class TelegramNotificationService:
                 # Специальная обработка ошибок
                 if response.status_code == 400:
                     if "chat not found" in error_description.lower():
-                        logger.error("Chat not found. Проверьте TELEGRAM_CHAT_ID")
+                        logger.error("Chat not found. Проверьте TELEGRAM_LOG_CHAT_ID")
                     elif "bot was blocked" in error_description.lower():
                         logger.error("Бот заблокирован пользователем")
                     elif "can't parse entities" in error_description.lower():

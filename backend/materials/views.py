@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import Subject, Material, MaterialProgress, MaterialComment, MaterialSubmission, MaterialFeedback
-from .models import SubjectEnrollment
+from .models import SubjectEnrollment, TeacherSubject
 from notifications.notification_service import NotificationService
 from .serializers import (
     SubjectSerializer, MaterialListSerializer, MaterialDetailSerializer,
@@ -22,6 +22,29 @@ class SubjectViewSet(viewsets.ModelViewSet):
     queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    @action(detail=True, methods=['get'])
+    def teachers(self, request, pk=None):
+        """
+        Получить преподавателей, которые ведут этот предмет
+        """
+        subject = self.get_object()
+        
+        # Получаем преподавателей через модель TeacherSubject
+        teacher_subjects = TeacherSubject.objects.filter(
+            subject=subject,
+            is_active=True
+        ).select_related('teacher')
+        
+        teacher_ids = [ts.teacher.id for ts in teacher_subjects]
+        teachers = User.objects.filter(
+            id__in=teacher_ids,
+            role=User.Role.TEACHER
+        )
+        
+        from accounts.serializers import UserSerializer
+        serializer = UserSerializer(teachers, many=True)
+        return Response(serializer.data)
 
 
 class MaterialViewSet(viewsets.ModelViewSet):
@@ -66,6 +89,62 @@ class MaterialViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """
+        Создание материала преподавателем с пост-обработкой:
+        - Проверка роли (teacher/tutor)
+        - Сохранение материала
+        - Создание прогресса для назначенных студентов
+        - Уведомление назначенных студентов при статусе ACTIVE
+        """
+        user = request.user
+        # Разрешаем создавать материалы только преподавателю/тьютору
+        if getattr(user, 'role', None) not in ['teacher', 'tutor']:
+            return Response(
+                {'error': 'Создавать материалы могут только преподаватели и тьюторы'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Сохраняем материал с автором
+        self.perform_create(serializer)
+
+        # На этом этапе материал создан. Получаем экземпляр
+        material = serializer.instance
+
+        # Создаем прогресс для назначенных студентов (если были переданы)
+        try:
+            assigned_students = material.assigned_to.all()
+            for student in assigned_students:
+                MaterialProgress.objects.get_or_create(student=student, material=material)
+        except Exception:
+            # Не прерываем создание материала из-за ошибки прогресса
+            pass
+
+        # Если материал активен — уведомляем назначенных студентов
+        if material.status == Material.Status.ACTIVE:
+            try:
+                notifier = NotificationService()
+                for student in assigned_students:
+                    try:
+                        notifier.notify_material_published(
+                            student=student,
+                            material_id=material.id,
+                            subject_id=material.subject_id,
+                        )
+                    except Exception:
+                        # Продолжаем даже если конкретное уведомление не ушло
+                        pass
+            except Exception:
+                pass
+
+        # Возвращаем детальные данные, включая id, assigned_to и т.д.
+        detail_data = MaterialDetailSerializer(material, context={'request': request}).data
+        headers = self.get_success_headers(detail_data)
+        return Response(detail_data, status=status.HTTP_201_CREATED, headers=headers)
     
     @action(detail=True, methods=['post'])
     def assign(self, request, pk=None):

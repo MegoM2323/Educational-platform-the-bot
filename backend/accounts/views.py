@@ -22,7 +22,7 @@ from .supabase_service import SupabaseAuthService
 @csrf_exempt
 def login_view(request):
     """
-    Вход пользователя через Django аутентификацию
+    Вход пользователя через Django аутентификацию (поддерживает email и username)
     """
     try:
         # Логируем входящие данные
@@ -34,15 +34,29 @@ def login_view(request):
             print(f"Validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        email = serializer.validated_data['email']
+        email = serializer.validated_data.get('email')
+        username = serializer.validated_data.get('username')
         password = serializer.validated_data['password']
-        print(f"Login attempt for email: {email}")
+        
+        # Логируем попытку входа
+        identifier = email or username
+        print(f"Login attempt for: {identifier}")
         
         # Проверяем аутентификацию через Django; если не удалось, пробуем через Supabase
         from django.contrib.auth import authenticate
 
-        # Пытаемся найти локального пользователя по email
-        user = User.objects.filter(email=email).first()
+        # Пытаемся найти локального пользователя по email или username
+        user = None
+        if email:
+            user = User.objects.filter(email=email).first()
+            print(f"User found by email: {user}")
+        elif username:
+            user = User.objects.filter(username=username).first()
+            print(f"User found by username: {user}")
+        
+        # Если пользователь найден по username, но у него есть email, используем email для Supabase
+        if user and not email and user.email:
+            email = user.email
 
         authenticated_user = None
         if user:

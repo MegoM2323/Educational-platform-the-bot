@@ -77,7 +77,8 @@ class NotificationService:
         try:
             if not getattr(settings, 'TELEGRAM_BOT_TOKEN', None):
                 return
-            chat_id = getattr(settings, 'TELEGRAM_CHAT_ID', None)
+            # Все системные уведомления — в лог-канал
+            chat_id = getattr(settings, 'TELEGRAM_LOG_CHAT_ID', None)
             if not chat_id:
                 return
             base_url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"

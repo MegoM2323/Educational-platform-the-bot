@@ -475,3 +475,125 @@ def material_assignments(request, material_id: int):
         MaterialProgress.objects.get_or_create(student=s, material=material)
 
     return Response({'assigned_count': students.count()}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_subjects(request):
+    """
+    Получить все предметы
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        service = TeacherDashboardService(request.user)
+        subjects = service.get_all_subjects()
+        
+        return Response({'subjects': subjects}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Ошибка при получении предметов: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def assign_subject_to_students(request):
+    """
+    Назначить предмет студентам
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        subject_id = request.data.get('subject_id')
+        student_ids = request.data.get('student_ids', [])
+        
+        if not subject_id:
+            return Response(
+                {'error': 'Не указан ID предмета'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not student_ids:
+            return Response(
+                {'error': 'Не указаны ID студентов'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not isinstance(student_ids, list):
+            return Response(
+                {'error': 'student_ids должен быть списком'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        service = TeacherDashboardService(request.user)
+        result = service.assign_subject_to_students(subject_id, student_ids)
+        
+        if result['success']:
+            return Response(result, status=status.HTTP_200_OK)
+        else:
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        return Response(
+            {'error': f'Ошибка при назначении предмета: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_students(request):
+    """
+    Получить всех студентов для назначения предметов
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        # Получаем всех студентов
+        students = User.objects.filter(role=User.Role.STUDENT).select_related('student_profile')
+        
+        data = []
+        for student in students:
+            try:
+                profile = student.student_profile
+                profile_data = {
+                    'grade': profile.grade,
+                    'goal': profile.goal,
+                    'progress_percentage': profile.progress_percentage
+                }
+            except:
+                profile_data = {
+                    'grade': 'Не указан',
+                    'goal': '',
+                    'progress_percentage': 0
+                }
+            
+            data.append({
+                'id': student.id,
+                'name': student.get_full_name(),
+                'email': student.email,
+                'profile': profile_data
+            })
+        
+        return Response({'students': data}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Ошибка при получении студентов: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

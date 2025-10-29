@@ -54,6 +54,21 @@ class ApplicationSubmitView(generics.CreateAPIView):
                 if message_id:
                     application.telegram_message_id = message_id
                     application.save(update_fields=['telegram_message_id'])
+                    # Подробный лог в лог-канал
+                    try:
+                        log_message = (
+                            f"🧾 <b>Лог: создана заявка</b>\n\n"
+                            f"🆔 <b>ID:</b> #{application.id}\n"
+                            f"👤 <b>ФИО:</b> {application.first_name} {application.last_name}\n"
+                            f"📧 <b>Email:</b> {application.email}\n"
+                            f"📞 <b>Телефон:</b> {application.phone}\n"
+                            f"🎭 <b>Тип:</b> {application.get_applicant_type_display()}\n"
+                            f"🕒 <b>Время:</b> {timezone.now().strftime('%d.%m.%Y %H:%M:%S')}\n"
+                            f"🔗 <b>Tracking:</b> {application.tracking_token}"
+                        )
+                        telegram_service.send_log(log_message)
+                    except Exception as log_err:
+                        logger.warning(f"Failed to send log to Telegram: {log_err}")
                     log_critical_operation(
                         "application_created",
                         user_id=None,

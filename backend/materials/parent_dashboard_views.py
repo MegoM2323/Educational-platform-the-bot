@@ -77,23 +77,41 @@ class ParentChildrenView(generics.ListAPIView):
             service = ParentDashboardService(request.user)
             children = service.get_children()
             
-            children_data = []
+            result = []
             for child in children:
-                child_data = {
+                # Основные поля профиля
+                student_profile = getattr(child, 'student_profile', None)
+                grade = getattr(student_profile, 'grade', '') if student_profile else ''
+                goal = getattr(student_profile, 'goal', '') if student_profile else ''
+                
+                # Предметы и статусы платежей
+                subjects = []
+                payments = {p['subject']: p for p in service.get_payment_status(child)}
+                for enrollment in service.get_child_subjects(child):
+                    subj_name = enrollment.subject.name
+                    pay = payments.get(subj_name)
+                    subjects.append({
+                        'id': enrollment.subject.id,
+                        'name': subj_name,
+                        'teacher_name': enrollment.teacher.get_full_name(),
+                        'enrollment_status': 'active' if enrollment.is_active else 'inactive',
+                        'payment_status': (pay['status'] if pay else 'no_payment'),
+                    })
+                
+                # Совместимость: возвращаем как 'name' (ожидается тестами) и 'full_name'
+                result.append({
                     'id': child.id,
                     'name': child.get_full_name(),
+                    'full_name': child.get_full_name(),
                     'email': child.email,
-                    'subjects_count': service.get_child_subjects(child).count(),
-                    'progress': service.get_child_progress(child)
-                }
-                children_data.append(child_data)
+                    'grade': str(grade) if grade is not None else '',
+                    'goal': goal or '',
+                    'subjects': subjects,
+                })
             
-            return Response(children_data, status=status.HTTP_200_OK)
+            return Response(result, status=status.HTTP_200_OK)
         except ValueError as e:
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])

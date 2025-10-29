@@ -236,12 +236,27 @@ class ParentDashboardService:
         except SubjectEnrollment.DoesNotExist:
             raise ValueError("Ребенок не зачислен на данный предмет")
         
-        # Создаем основной платеж
+        # Создаем основной платеж (плательщик — родитель)
+        parent = self.parent_user
         payment = Payment.objects.create(
             amount=amount,
-            service_name=f"Оплата за предмет: {enrollment.subject.name}",
-            customer_fio=f"{child.first_name} {child.last_name}",
-            description=description or f"Оплата за предмет {enrollment.subject.name} для {child.get_full_name()}"
+            service_name=f"Оплата за предмет: {enrollment.subject.name} (ученик: {child.get_full_name()})",
+            customer_fio=f"{parent.first_name} {parent.last_name}",
+            description=(
+                description
+                or f"Оплата за предмет {enrollment.subject.name} для ученика {child.get_full_name()}"
+            ),
+            metadata={
+                "payer_role": "parent",
+                "parent_id": parent.id,
+                "parent_email": parent.email,
+                "student_id": child.id,
+                "student_name": child.get_full_name(),
+                "subject_id": enrollment.subject.id,
+                "subject_name": enrollment.subject.name,
+                "enrollment_id": enrollment.id,
+                "teacher_id": enrollment.teacher_id,
+            },
         )
         
         # Если передан request, создаем платеж в ЮКассу
@@ -348,35 +363,101 @@ class ParentDashboardService:
     
     def get_dashboard_data(self):
         """
-        Получить все данные для дашборда родителя
+        Сформировать данные дашборда в формате, ожидаемом фронтендом.
         
-        Returns:
-            dict: Полные данные дашборда
+        Структура:
+        {
+          children: [
+            {
+              id, name, grade, goal, tutor_name, progress_percentage, avatar,
+              subjects: [ { id, name, teacher_name, payment_status, next_payment_date } ]
+            }
+          ],
+          reports: [],
+          statistics: { total_children, average_progress, completed_payments, pending_payments, overdue_payments }
+        }
         """
-        children = self.get_children()
+        children_qs = self.get_children()
         children_data = []
         
-        for child in children:
-            child_data = {
+        total_progress_list = []
+        completed_payments = 0
+        pending_payments = 0
+        overdue_payments = 0
+        
+        for child in children_qs:
+            # Профиль ученика
+            student_profile = getattr(child, 'student_profile', None)
+            grade = getattr(student_profile, 'grade', '') if student_profile else ''
+            goal = getattr(student_profile, 'goal', '') if student_profile else ''
+            tutor = getattr(student_profile, 'tutor', None) if student_profile else None
+            tutor_name = tutor.get_full_name() if tutor else ''
+            progress_percentage = getattr(student_profile, 'progress_percentage', 0) if student_profile else 0
+            avatar = getattr(child, 'avatar', None)
+            
+            # Предметы и платежи
+            subjects = []
+            payments_info = self.get_payment_status(child)
+            # Индекс платежей по предмету
+            payments_by_subject = {}
+            for p in payments_info:
+                payments_by_subject[p['subject']] = p
+                if p['status'] == 'paid':
+                    completed_payments += 1
+                elif p['status'] == 'pending':
+                    pending_payments += 1
+                elif p['status'] == 'overdue':
+                    overdue_payments += 1
+            
+            for enrollment in self.get_child_subjects(child):
+                subj_name = enrollment.subject.name
+                payment = payments_by_subject.get(subj_name, None)
+                subjects.append({
+                    'id': enrollment.subject.id,
+                    'name': subj_name,
+                    'teacher_name': enrollment.teacher.get_full_name(),
+                    'payment_status': payment['status'] if payment else 'no_payment',
+                    'next_payment_date': payment['due_date'] if payment else None,
+                })
+            
+            # Копим для средней статистики
+            total_progress_list.append(progress_percentage or 0)
+            
+            children_data.append({
                 'id': child.id,
                 'name': child.get_full_name(),
-                'email': child.email,
-                'subjects': list(self.get_child_subjects(child).values(
-                    'id', 'subject__name', 'subject__color', 'teacher__first_name', 'teacher__last_name'
-                )),
-                'progress': self.get_child_progress(child),
-                'payments': self.get_payment_status(child)
-            }
-            children_data.append(child_data)
+                'grade': str(grade) if grade is not None else '',
+                'goal': goal or '',
+                'tutor_name': tutor_name,
+                'progress_percentage': progress_percentage or 0,
+                'progress': progress_percentage or 0,
+                # Безопасно формируем URL аватара только если файл реально существует
+                'avatar': (avatar.url if (avatar and getattr(avatar, 'name', None)) else None),
+                'subjects': subjects,
+                'payments': payments_info,
+            })
+        
+        avg_progress = 0
+        if total_progress_list:
+            avg_progress = round(sum(total_progress_list) / max(len(total_progress_list), 1), 1)
         
         return {
             'parent': {
                 'id': self.parent_user.id,
                 'name': self.parent_user.get_full_name(),
-                'email': self.parent_user.email
+                'email': self.parent_user.email,
             },
             'children': children_data,
-            'total_children': children.count()
+            'reports': [],  # пока нет реальных отчётов
+            'statistics': {
+                'total_children': children_qs.count(),
+                'average_progress': avg_progress,
+                'completed_payments': completed_payments,
+                'pending_payments': pending_payments,
+                'overdue_payments': overdue_payments,
+            },
+            # Дублируем ключ для совместимости с ожиданиями тестов
+            'total_children': children_qs.count(),
         }
     
     def get_reports(self, child=None):

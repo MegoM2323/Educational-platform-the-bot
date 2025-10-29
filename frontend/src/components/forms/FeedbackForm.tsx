@@ -92,7 +92,7 @@ export default function FeedbackForm({ submission, onSuccess, onCancel }: Feedba
   const handleGradeChange = (value: string) => {
     setFeedbackData(prev => ({
       ...prev,
-      grade: value ? parseInt(value) : undefined
+      grade: value === 'none' ? undefined : parseInt(value)
     }));
   };
 
@@ -270,14 +270,14 @@ export default function FeedbackForm({ submission, onSuccess, onCancel }: Feedba
             <div className="space-y-2">
               <Label htmlFor="grade">Оценка (необязательно)</Label>
               <Select 
-                value={feedbackData.grade?.toString() || ""} 
+                value={feedbackData.grade?.toString() ?? 'none'} 
                 onValueChange={handleGradeChange}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите оценку" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Без оценки</SelectItem>
+                  <SelectItem value="none">Без оценки</SelectItem>
                   {[1, 2, 3, 4, 5].map(grade => (
                     <SelectItem key={grade} value={grade.toString()}>
                       <div className="flex items-center gap-2">

@@ -5,12 +5,32 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileText, Plus, Send, Clock } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
+import { unifiedAPI } from "@/integrations/api/unifiedClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TeacherReports() {
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [reports, setReports] = useState<any[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const resp = await unifiedAPI.request<{reports:any[]}>(`/materials/reports/teacher/`);
+        if (resp.data?.reports) setReports(resp.data.reports);
+      } catch (e) {
+        toast({ title: 'Ошибка', description: 'Не удалось загрузить отчёты', variant: 'destructive' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <SidebarProvider>
@@ -67,40 +87,30 @@ export default function TeacherReports() {
         </Card>
       )}
 
-      {/* Reports List */}
+      {/* Reports List — без лишних картинок, только кликабельные карточки */}
       <div className="grid md:grid-cols-2 gap-4">
-        {reports.map((report, index) => (
-          <Card key={index} className="p-6 hover:border-primary transition-colors">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                <FileText className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-bold mb-1">{report.title}</h3>
-                    <p className="text-sm text-muted-foreground">{report.period}</p>
+        {(!loading && reports.length === 0) && (
+          <Card className="p-6">
+            <div className="text-sm text-muted-foreground">Отчётов пока нет</div>
+          </Card>
+        )}
+        {reports.map((report) => (
+          <Card key={report.id} className="p-6 hover:border-primary transition-colors cursor-pointer" role="button" tabIndex={0}>
+            <div className="flex-1">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <h3 className="font-bold mb-1">{report.title}</h3>
+                  <div className="text-sm text-muted-foreground">
+                    {report.student?.name}
                   </div>
-                  <Badge variant={report.sent ? "default" : "outline"}>
-                    {report.sent ? "Отправлено" : "Черновик"}
-                  </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">{report.preview}</p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                  <Clock className="w-3 h-3" />
-                  {report.date}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1">
-                    Редактировать
-                  </Button>
-                  {!report.sent && (
-                    <Button size="sm" className="flex-1">
-                      <Send className="w-4 h-4 mr-2" />
-                      Отправить
-                    </Button>
-                  )}
-                </div>
+                <Badge variant={report.status === 'sent' ? 'default' : 'outline'}>
+                  {report.status === 'sent' ? 'Отправлено' : 'Черновик'}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                {new Date(report.created_at).toLocaleDateString('ru-RU')}
               </div>
             </div>
           </Card>
@@ -114,33 +124,4 @@ export default function TeacherReports() {
   );
 }
 
-const reports = [
-  {
-    title: "Отчёт за неделю - группа 9А",
-    period: "16-22 октября 2024",
-    preview: "Группа показывает хорошие результаты. Большинство учеников активно участвуют...",
-    date: "22 октября 2024",
-    sent: false
-  },
-  {
-    title: "Отчёт за неделю - группа 10Б",
-    period: "16-22 октября 2024",
-    preview: "Требуется дополнительная работа с несколькими учениками по теме производных...",
-    date: "22 октября 2024",
-    sent: false
-  },
-  {
-    title: "Месячный отчёт - все группы",
-    period: "Сентябрь 2024",
-    preview: "Общий прогресс положительный. Средний балл по группам составил 4.2...",
-    date: "30 сентября 2024",
-    sent: true
-  },
-  {
-    title: "Отчёт за неделю - группа 9А",
-    period: "9-15 октября 2024",
-    preview: "Продолжаем работу над тригонометрией. Иванов и Петрова показывают отличные...",
-    date: "15 октября 2024",
-    sent: true
-  }
-];
+// Убраны мок-данные; используется загрузка с бэкенда

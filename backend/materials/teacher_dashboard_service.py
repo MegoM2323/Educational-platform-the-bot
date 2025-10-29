@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
-from .models import Material, MaterialProgress, Subject
+from .models import Material, MaterialProgress, Subject, SubjectEnrollment
 from chat.models import ChatRoom, Message
 from reports.models import StudentReport, Report, ReportRecipient, AnalyticsData
 from .cache_utils import cache_dashboard_data, cache_material_data, DashboardCacheManager
@@ -580,6 +580,148 @@ class TeacherDashboardService:
                     
         except Exception as e:
             print(f"Ошибка при генерации аналитических данных: {e}")
+    
+    def assign_subject_to_students(self, subject_id: int, student_ids: List[int]) -> Dict[str, Any]:
+        """
+        Назначить предмет студентам
+        
+        Args:
+            subject_id: ID предмета
+            student_ids: Список ID студентов
+            
+        Returns:
+            Результат операции
+        """
+        try:
+            # Получаем предмет
+            subject = Subject.objects.get(id=subject_id)
+            
+            # Получаем студентов
+            students = User.objects.filter(
+                id__in=student_ids,
+                role=User.Role.STUDENT
+            )
+            
+            if students.count() != len(student_ids):
+                return {
+                    'success': False,
+                    'message': 'Некоторые пользователи не являются студентами'
+                }
+            
+            # Создаем зачисления
+            created_count = 0
+            already_exists_count = 0
+            
+            for student in students:
+                enrollment, created = SubjectEnrollment.objects.get_or_create(
+                    student=student,
+                    subject=subject,
+                    teacher=self.teacher,
+                    defaults={
+                        'assigned_by': self.teacher,
+                        'is_active': True
+                    }
+                )
+                
+                if created:
+                    created_count += 1
+                elif enrollment.is_active:
+                    already_exists_count += 1
+                else:
+                    # Если зачисление было неактивным, активируем его
+                    enrollment.is_active = True
+                    enrollment.save()
+                    created_count += 1
+            
+            return {
+                'success': True,
+                'message': f'Предмет "{subject.name}" назначен студентам',
+                'created_count': created_count,
+                'already_exists_count': already_exists_count,
+                'total': students.count()
+            }
+            
+        except Subject.DoesNotExist:
+            return {
+                'success': False,
+                'message': 'Предмет не найден'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Ошибка при назначении предмета: {str(e)}'
+            }
+    
+    def get_all_subjects(self) -> List[Dict[str, Any]]:
+        """
+        Получить все предметы
+        
+        Returns:
+            Список предметов
+        """
+        subjects = Subject.objects.all()
+        result = []
+        
+        for subject in subjects:
+            # Получаем количество студентов, зачисленных на этот предмет данным преподавателем
+            student_count = SubjectEnrollment.objects.filter(
+                subject=subject,
+                teacher=self.teacher,
+                is_active=True
+            ).count()
+            
+            result.append({
+                'id': subject.id,
+                'name': subject.name,
+                'description': subject.description,
+                'color': subject.color,
+                'student_count': student_count
+            })
+        
+        return result
+    
+    def get_subject_students(self, subject_id: int) -> List[Dict[str, Any]]:
+        """
+        Получить список студентов по предмету
+        
+        Args:
+            subject_id: ID предмета
+            
+        Returns:
+            Список студентов
+        """
+        enrollments = SubjectEnrollment.objects.filter(
+            subject_id=subject_id,
+            teacher=self.teacher,
+            is_active=True
+        ).select_related('student')
+        
+        result = []
+        for enrollment in enrollments:
+            try:
+                profile = enrollment.student.student_profile
+                profile_data = {
+                    'grade': profile.grade,
+                    'goal': profile.goal,
+                    'progress_percentage': profile.progress_percentage
+                }
+            except:
+                profile_data = {
+                    'grade': 'Не указан',
+                    'goal': '',
+                    'progress_percentage': 0
+                }
+            
+            result.append({
+                'id': enrollment.student.id,
+                'name': enrollment.student.get_full_name(),
+                'email': enrollment.student.email,
+                'enrollment_id': enrollment.id,
+                'enrolled_at': enrollment.enrolled_at,
+                'profile': profile_data
+            })
+        
+        return result
     
     @cache_dashboard_data(timeout=300)  # 5 минут
     def get_dashboard_data(self) -> Dict[str, Any]:

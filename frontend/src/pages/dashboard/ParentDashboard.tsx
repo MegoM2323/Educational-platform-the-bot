@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { unifiedAPI } from "@/integrations/api/unifiedClient";
+import { apiClient } from "@/integrations/api/migration";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorNotification, useSuccessNotification } from "@/components/NotificationSystem";
 import { DashboardSkeleton, ErrorState, EmptyState } from "@/components/LoadingStates";
@@ -27,7 +28,7 @@ interface Child {
     id: number;
     name: string;
     teacher_name: string;
-    payment_status: 'paid' | 'pending' | 'overdue';
+    payment_status: 'paid' | 'pending' | 'overdue' | 'no_payment';
     next_payment_date?: string;
   }>;
 }
@@ -112,10 +113,10 @@ const ParentDashboard = () => {
       // Устанавливаем фиксированную сумму и описание для платежа
       const response = await apiClient.request(`/materials/dashboard/parent/children/${childId}/payment/${subjectId}/`, {
         method: 'POST',
-        body: {
+        body: JSON.stringify({
           amount: 5000.00, // Фиксированная сумма за месяц обучения
           description: `Оплата за предмет за месяц обучения`
-        }
+        })
       });
       
       if (response.data?.payment_url) {
@@ -274,7 +275,7 @@ const ParentDashboard = () => {
                         <h3 className="text-xl font-bold">Последние отчёты</h3>
                       </div>
                       <div className="space-y-3">
-                        {dashboardData.reports.slice(0, 3).map((report) => (
+                        {(dashboardData.reports ?? []).slice(0, 3).map((report) => (
                           <div 
                             key={report.id} 
                             className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
@@ -304,7 +305,7 @@ const ParentDashboard = () => {
                             </div>
                           </div>
                         ))}
-                        {dashboardData.reports.length === 0 && (
+                        {(dashboardData.reports ?? []).length === 0 && (
                           <EmptyState
                             title="Нет новых отчетов"
                             description="Пока нет отчетов от преподавателей. Ожидайте новых отчетов о прогрессе вашего ребенка."

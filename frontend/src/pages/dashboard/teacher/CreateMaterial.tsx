@@ -62,16 +62,15 @@ const CreateMaterial = () => {
         setLoading(true);
         
         // Загружаем предметы
-        const subjectsResponse = await apiClient.request<Subject[]>('/materials/subjects/');
+        const subjectsResponse = await apiClient.request<any>('/materials/subjects/');
         if (subjectsResponse.data) {
-          setSubjects(subjectsResponse.data);
+          const items = Array.isArray(subjectsResponse.data)
+            ? subjectsResponse.data
+            : (subjectsResponse.data.results ?? []);
+          setSubjects(items as Subject[]);
         }
         
-        // Загружаем студентов
-        const studentsResponse = await apiClient.request<Student[]>('/accounts/users/?role=student');
-        if (studentsResponse.data) {
-          setStudents(studentsResponse.data);
-        }
+        // Студентов загружаем после выбора предмета
       } catch (error) {
         console.error('Error fetching data:', error);
         toast({
@@ -86,6 +85,33 @@ const CreateMaterial = () => {
 
     fetchData();
   }, [toast]);
+
+  // Загрузка студентов после выбора предмета
+  useEffect(() => {
+    const loadStudents = async () => {
+      if (!formData.subject) {
+        setStudents([]);
+        return;
+      }
+      try {
+        const resp = await apiClient.request<{students:{id:number; name:string; email:string}[]}>(`/materials/teacher/subjects/${formData.subject}/students/`);
+        if (resp.data?.students) {
+          const mapped: Student[] = resp.data.students.map(s => ({ id: s.id, first_name: s.name, last_name: '', email: s.email }));
+          setStudents(mapped);
+          // Сбрасываем выбор, если он не соответствует текущему списку
+          setFormData(prev => ({
+            ...prev,
+            assigned_to: prev.assigned_to.filter(id => resp.data!.students.some(s => s.id === id))
+          }));
+        } else {
+          setStudents([]);
+        }
+      } catch (e) {
+        setStudents([]);
+      }
+    };
+    loadStudents();
+  }, [formData.subject]);
 
   // Валидация файла
   const validateFile = (file: File) => {
@@ -314,7 +340,7 @@ const CreateMaterial = () => {
                           <SelectValue placeholder="Выберите предмет" />
                         </SelectTrigger>
                         <SelectContent>
-                          {subjects.map((subject) => (
+                          {(subjects || []).map((subject) => (
                             <SelectItem key={subject.id} value={subject.id.toString()}>
                               {subject.name}
                             </SelectItem>

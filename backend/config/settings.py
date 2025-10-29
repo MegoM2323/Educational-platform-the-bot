@@ -8,15 +8,29 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Загружаем переменные окружения из .env файла в корне проекта
 load_dotenv(BASE_DIR / ".env")
 
+# Поддержка импортов как без префикса `backend.*`, так и с ним в тестах
+import sys, importlib
+for _mod in ("accounts","applications","materials","assignments","chat","reports","notifications","payments","core"):
+    try:
+        # Двусторонние алиасы импортов
+        sys.modules.setdefault(f"backend.{_mod}", importlib.import_module(_mod))
+        sys.modules.setdefault(_mod, importlib.import_module(_mod))
+        # Критично: алиасы для подмодуля models, чтобы Django видел один и тот же модуль
+        sys.modules.setdefault(f"backend.{_mod}.models", importlib.import_module(f"{_mod}.models"))
+    except Exception:
+        pass
+
 # YooKasa settings
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 YOOKASSA_WEBHOOK_URL = os.getenv("YOOKASSA_WEBHOOK_URL")
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '0.0.0.0']  # Для разработки разрешаем локальные хосты
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '0.0.0.0', '5.129.249.206', 'the-bot.ru', 'www.the-bot.ru']  # Добавлен публичный IP сервера и домены
 
 # Telegram Bot settings
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")  # Ваш личный chat_id
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")  # Backward compatibility / default chat
+TELEGRAM_PUBLIC_CHAT_ID = os.getenv("TELEGRAM_PUBLIC_CHAT_ID", TELEGRAM_CHAT_ID)
+TELEGRAM_LOG_CHAT_ID = os.getenv("TELEGRAM_LOG_CHAT_ID", TELEGRAM_CHAT_ID)
 
 # Supabase settings
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://sobptsqfzgycmauglqzk.supabase.co")
@@ -179,10 +193,38 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:8080",
     "http://127.0.0.1:8081",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://5.129.249.206",
+    "https://5.129.249.206",
+    "https://the-bot.ru",
+    "https://www.the-bot.ru",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # Только для разработки
+
+# Дополнительные CORS настройки для разработки
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
 # REST Framework settings
 REST_FRAMEWORK = {

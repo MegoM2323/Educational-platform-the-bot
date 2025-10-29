@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { Plus, Search, Filter, BookOpen, Users, Calendar, ExternalLink, Edit, Trash2, Eye, MessageSquare } from "lucide-react";
@@ -17,6 +19,7 @@ interface Material {
   id: number;
   title: string;
   description: string;
+  subject: number;
   subject_name: string;
   type: string;
   status: 'draft' | 'active';
@@ -44,13 +47,20 @@ const Materials = () => {
   
   // Фильтры
   const [searchTerm, setSearchTerm] = useState('');
-  const [subjectFilter, setSubjectFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [subjectFilter, setSubjectFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   
   // Диалог ответов студентов
   const [submissionsDialogOpen, setSubmissionsDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+
+  // Диалог распределения
+  const [distributeDialogOpen, setDistributeDialogOpen] = useState(false);
+  const [selectedForDistribute, setSelectedForDistribute] = useState<Material | null>(null);
+  const [subjectStudents, setSubjectStudents] = useState<Array<{id:number; name:string; email:string}>>([]);
+  const [assignedStudentIds, setAssignedStudentIds] = useState<number[]>([]);
+  const [savingDistribute, setSavingDistribute] = useState(false);
 
   // Загрузка данных
   useEffect(() => {
@@ -60,17 +70,24 @@ const Materials = () => {
         setError(null);
         
         // Загружаем материалы
-        const materialsResponse = await apiClient.request<Material[]>('/materials/materials/');
+        const materialsResponse = await apiClient.request<any>('/materials/materials/');
         if (materialsResponse.data) {
-          setMaterials(materialsResponse.data);
+          // Учитываем пагинацию DRF: { count, next, previous, results }
+          const items = Array.isArray(materialsResponse.data)
+            ? materialsResponse.data
+            : (materialsResponse.data.results ?? []);
+          setMaterials(items as Material[]);
         } else {
           setError(materialsResponse.error || 'Ошибка загрузки материалов');
         }
         
         // Загружаем предметы
-        const subjectsResponse = await apiClient.request<Subject[]>('/materials/subjects/');
+        const subjectsResponse = await apiClient.request<any>('/materials/subjects/');
         if (subjectsResponse.data) {
-          setSubjects(subjectsResponse.data);
+          const subjItems = Array.isArray(subjectsResponse.data)
+            ? subjectsResponse.data
+            : (subjectsResponse.data.results ?? []);
+          setSubjects(subjItems as Subject[]);
         }
       } catch (err) {
         setError('Произошла ошибка при загрузке данных');
@@ -87,9 +104,9 @@ const Materials = () => {
   const filteredMaterials = materials.filter(material => {
     const matchesSearch = material.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          material.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSubject = !subjectFilter || material.subject_name === subjectFilter;
-    const matchesStatus = !statusFilter || material.status === statusFilter;
-    const matchesType = !typeFilter || material.type === typeFilter;
+    const matchesSubject = subjectFilter === 'all' || material.subject_name === subjectFilter;
+    const matchesStatus = statusFilter === 'all' || material.status === statusFilter;
+    const matchesType = typeFilter === 'all' || material.type === typeFilter;
     
     return matchesSearch && matchesSubject && matchesStatus && matchesType;
   });
@@ -103,7 +120,11 @@ const Materials = () => {
   };
 
   const handleViewMaterial = (materialId: number) => {
-    navigate(`/dashboard/teacher/materials/${materialId}`);
+    // Детальной страницы пока нет — показываем ответы студентов
+    const mat = materials.find(m => m.id === materialId) || null;
+    if (mat) {
+      handleViewSubmissions(mat);
+    }
   };
 
   const handleDeleteMaterial = async (materialId: number) => {
@@ -136,6 +157,55 @@ const Materials = () => {
   const handleViewSubmissions = (material: Material) => {
     setSelectedMaterial(material);
     setSubmissionsDialogOpen(true);
+  };
+
+  const openDistributeDialog = async (material: Material) => {
+    try {
+      setSelectedForDistribute(material);
+      setDistributeDialogOpen(true);
+      setSubjectStudents([]);
+      setAssignedStudentIds([]);
+      // Загружаем студентов по предмету
+      const studentsResp = await apiClient.request<{students: {id:number; name:string; email:string}[]}>(`/materials/teacher/subjects/${encodeURIComponent(String(material.subject))}/students/`);
+      if (studentsResp.data?.students) {
+        setSubjectStudents(studentsResp.data.students);
+      }
+      // Загружаем уже назначенных
+      const assignedResp = await apiClient.request<{assigned_students: {id:number; name:string; email:string}[]}>(`/materials/teacher/materials/${material.id}/assignments/`);
+      if (assignedResp.data?.assigned_students) {
+        setAssignedStudentIds(assignedResp.data.assigned_students.map(s => s.id));
+      }
+    } catch (e) {
+      toast({ title: 'Ошибка', description: 'Не удалось загрузить список студентов/назначений', variant: 'destructive' });
+    }
+  };
+
+  const toggleAssigned = (studentId: number) => {
+    setAssignedStudentIds(prev => prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]);
+  };
+
+  const saveDistribute = async () => {
+    if (!selectedForDistribute) return;
+    try {
+      setSavingDistribute(true);
+      const resp = await apiClient.request<{assigned_count:number}>(`/materials/teacher/materials/${selectedForDistribute.id}/assignments/`, {
+        method: 'PUT',
+        body: JSON.stringify({ student_ids: assignedStudentIds }),
+      });
+      if (resp.data) {
+        // Обновляем счётчик назначений локально
+        setMaterials(prev => prev.map(m => m.id === selectedForDistribute.id ? { ...m, assigned_count: resp.data!.assigned_count } : m));
+        toast({ title: 'Сохранено', description: 'Материал распределён студентам' });
+        setDistributeDialogOpen(false);
+        setSelectedForDistribute(null);
+      } else {
+        throw new Error(resp.error || 'Не удалось сохранить распределение');
+      }
+    } catch (e:any) {
+      toast({ title: 'Ошибка', description: e?.message || 'Не удалось сохранить распределение', variant: 'destructive' });
+    } finally {
+      setSavingDistribute(false);
+    }
   };
 
   const handleCloseSubmissionsDialog = () => {
@@ -233,8 +303,8 @@ const Materials = () => {
                     <SelectValue placeholder="Все предметы" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Все предметы</SelectItem>
-                    {subjects.map((subject) => (
+                    <SelectItem value="all">Все предметы</SelectItem>
+                    {(subjects || []).map((subject) => (
                       <SelectItem key={subject.id} value={subject.name}>
                         {subject.name}
                       </SelectItem>
@@ -247,7 +317,7 @@ const Materials = () => {
                     <SelectValue placeholder="Все статусы" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Все статусы</SelectItem>
+                    <SelectItem value="all">Все статусы</SelectItem>
                     <SelectItem value="draft">Черновик</SelectItem>
                     <SelectItem value="active">Активно</SelectItem>
                   </SelectContent>
@@ -258,7 +328,7 @@ const Materials = () => {
                     <SelectValue placeholder="Все типы" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Все типы</SelectItem>
+                    <SelectItem value="all">Все типы</SelectItem>
                     <SelectItem value="lesson">Урок</SelectItem>
                     <SelectItem value="presentation">Презентация</SelectItem>
                     <SelectItem value="video">Видео</SelectItem>
@@ -344,6 +414,13 @@ const Materials = () => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => openDistributeDialog(material)}
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleViewSubmissions(material)}
                         >
                           <MessageSquare className="h-4 w-4" />
@@ -384,6 +461,48 @@ const Materials = () => {
               materialId={selectedMaterial.id}
               materialTitle={selectedMaterial.title}
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог распределения материала */}
+      <Dialog open={distributeDialogOpen} onOpenChange={setDistributeDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Распределение материала</DialogTitle>
+          </DialogHeader>
+          {selectedForDistribute && (
+            <div className="space-y-4">
+              <div>
+                <div className="text-sm text-muted-foreground">Материал</div>
+                <div className="font-medium">{selectedForDistribute.title}</div>
+              </div>
+              <Card className="p-4">
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {subjectStudents.length === 0 && (
+                    <div className="text-sm text-muted-foreground">Нет доступных студентов для предмета</div>
+                  )}
+                  {subjectStudents.map((s) => (
+                    <div key={s.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`dist-st-${s.id}`}
+                        checked={assignedStudentIds.includes(s.id)}
+                        onCheckedChange={() => toggleAssigned(s.id)}
+                      />
+                      <Label htmlFor={`dist-st-${s.id}`} className="flex-1">
+                        {s.name} ({s.email})
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDistributeDialogOpen(false)}>Отмена</Button>
+                <Button onClick={saveDistribute} disabled={savingDistribute} className="gradient-primary shadow-glow">
+                  {savingDistribute ? 'Сохранение...' : 'Сохранить'}
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

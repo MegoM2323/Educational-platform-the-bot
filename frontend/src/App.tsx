@@ -28,6 +28,7 @@ const CreateMaterial = lazy(() => import("./pages/dashboard/teacher/CreateMateri
 const TeacherReports = lazy(() => import("./pages/dashboard/teacher/Reports"));
 const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissions"));
 const TeacherGeneralChat = lazy(() => import("./pages/dashboard/teacher/GeneralChat"));
+const AssignSubject = lazy(() => import("./pages/dashboard/teacher/AssignSubject"));
 const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
 const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
 const TutorGeneralChat = lazy(() => import("./pages/dashboard/tutor/GeneralChat"));
@@ -161,6 +162,13 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
+          <Route path="/dashboard/teacher/assign-subject" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <AssignSubject />
+              </Suspense>
+            </ProtectedRoute>
+          } />
           
           {/* Tutor Routes */}
           <Route path="/dashboard/tutor" element={
@@ -194,6 +202,14 @@ const App = () => (
           
           {/* Parent Routes */}
           <Route path="/dashboard/parent" element={
+            <ProtectedRoute requiredRole="parent">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentDashboard />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          {/* Support trailing slash for parent dashboard */}
+          <Route path="/dashboard/parent/" element={
             <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ParentDashboard />

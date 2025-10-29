@@ -14,6 +14,8 @@ import { useErrorNotification, useSuccessNotification } from "@/components/Notif
 import { ErrorState, EmptyState } from "@/components/LoadingStates";
 import MaterialSubmissionForm from "@/components/forms/MaterialSubmissionForm";
 import MaterialSubmissionStatus from "@/components/MaterialSubmissionStatus";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { StudentSidebar } from "@/components/layout/StudentSidebar";
 
 // Интерфейсы для данных
 interface Material {
@@ -97,10 +99,19 @@ export default function StudentMaterials() {
       if (selectedType !== "all") params.append('type', selectedType);
       if (selectedDifficulty !== "all") params.append('difficulty', selectedDifficulty);
       
-      const response = await apiClient.request<Material[]>(`/materials/student/?${params.toString()}`);
+      const response = await apiClient.request<any>(`/materials/student/?${params.toString()}`);
       
       if (response.data) {
-        setMaterials(response.data);
+        // Извлекаем материалы из materials_by_subject
+        const materialsBySubject = response.data.materials_by_subject || {};
+        const allMaterials: Material[] = [];
+        
+        for (const subjectData of Object.values(materialsBySubject)) {
+          const subjectMaterials = (subjectData as any).materials || [];
+          allMaterials.push(...subjectMaterials);
+        }
+        
+        setMaterials(allMaterials);
       } else {
         const errorMessage = response.error || 'Ошибка загрузки материалов';
         setError(errorMessage);
@@ -119,7 +130,7 @@ export default function StudentMaterials() {
   // Загрузка предметов
   const fetchSubjects = async () => {
     try {
-      const response = await apiClient.request<Subject[]>('/subjects/');
+      const response = await apiClient.request<Subject[]>('/materials/subjects/');
       if (response.data) {
         setSubjects(response.data);
       }
@@ -149,9 +160,9 @@ export default function StudentMaterials() {
         return;
       }
 
-      const response = await fetch(`/api/materials/${material.id}/download/`, {
+      const response = await fetch(`/api/materials/materials/${material.id}/download/`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Token ${localStorage.getItem('authToken') || ''}`,
         },
       });
 
@@ -179,12 +190,12 @@ export default function StudentMaterials() {
   // Обновление прогресса
   const updateProgress = async (materialId: number, progressPercentage: number) => {
     try {
-      await apiClient.request(`/materials/${materialId}/update_progress/`, {
+      await apiClient.request(`/materials/${materialId}/progress/`, {
         method: 'POST',
-        data: {
+        body: JSON.stringify({
           progress_percentage: progressPercentage,
-          time_spent: 1, // 1 минута за просмотр
-        },
+          time_spent: 1,
+        }),
       });
       
       // Обновляем локальное состояние
@@ -240,13 +251,25 @@ export default function StudentMaterials() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Учебные материалы</h1>
-          <p className="text-muted-foreground">Все материалы от ваших преподавателей</p>
-        </div>
-      </div>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full">
+        <StudentSidebar />
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
+            <SidebarTrigger />
+            <button aria-label="Toggle Sidebar" className="rounded border px-2 py-1 text-xs">
+              Меню
+            </button>
+            <div className="flex-1" />
+          </header>
+          <main className="p-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold">Учебные материалы</h1>
+                  <p className="text-muted-foreground">Все материалы от ваших преподавателей</p>
+                </div>
+              </div>
 
       {/* Search and Filter */}
       <Card className="p-4">
@@ -267,7 +290,7 @@ export default function StudentMaterials() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Все предметы</SelectItem>
-                {subjects.map(subject => (
+                {Array.isArray(subjects) && subjects.map(subject => (
                   <SelectItem key={subject.id} value={subject.id.toString()}>
                     {subject.name}
                   </SelectItem>
@@ -488,6 +511,10 @@ export default function StudentMaterials() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+            </div>
+          </main>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
   );
 }

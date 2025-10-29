@@ -19,7 +19,7 @@ import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
 const items = [
   { title: "Главная", url: "/dashboard/student", icon: Home },
   { title: "Материалы", url: "/dashboard/student/materials", icon: BookOpen },
-  { title: "Общий чат", url: "/dashboard/student/general-chat", icon: MessageSquare },
+  { title: "Форум", url: "/dashboard/student/general-chat", icon: MessageSquare },
 ];
 
 export function StudentSidebar() {

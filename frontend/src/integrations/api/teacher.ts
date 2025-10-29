@@ -19,19 +19,19 @@ export interface ProvideFeedbackRequest {
 
 export const teacherAPI = {
   getPendingSubmissions: async (): Promise<PendingSubmission[]> => {
-    const resp = await unifiedAPI.request<PendingSubmission[]>('/teacher/submissions/pending/');
+    const resp = await unifiedAPI.request<{pending: PendingSubmission[]}>('/materials/teacher/submissions/pending/');
     if (resp.error) throw new Error(resp.error);
-    return resp.data!;
+    return resp.data!.pending;
   },
   provideFeedback: async (submissionId: number, data: ProvideFeedbackRequest): Promise<void> => {
-    const resp = await unifiedAPI.request(`/teacher/submissions/${submissionId}/feedback/`, {
+    const resp = await unifiedAPI.request(`/materials/teacher/submissions/${submissionId}/feedback/`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
     if (resp.error) throw new Error(resp.error);
   },
   updateSubmissionStatus: async (submissionId: number, status: 'pending' | 'reviewed' | 'needs_changes'): Promise<void> => {
-    const resp = await unifiedAPI.request(`/teacher/submissions/${submissionId}/status/`, {
+    const resp = await unifiedAPI.request(`/materials/teacher/submissions/${submissionId}/status/`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
     });

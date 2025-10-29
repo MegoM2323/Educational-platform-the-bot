@@ -167,7 +167,7 @@ const ParentDashboard = () => {
           <main className="p-6">
             <div className="space-y-6">
               <div>
-                <h1 className="text-3xl font-bold">Личный кабинет родителя</h1>
+                <h1 className="text-3xl font-bold" aria-label="Личный кабинет родителя">Личный кабинет родителя</h1>
                 <p className="text-muted-foreground">Следите за успехами ваших детей</p>
               </div>
 

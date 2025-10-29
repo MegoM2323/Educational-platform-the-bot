@@ -46,6 +46,15 @@ class AuthService {
       const storedRefreshToken = this.getStoredRefreshToken();
       const storedExpiry = this.getStoredTokenExpiry();
 
+      console.log('AuthService init:', {
+        hasToken: !!storedToken,
+        hasUser: !!storedUser,
+        hasExpiry: !!storedExpiry,
+        expiry: storedExpiry,
+        now: Date.now(),
+        isExpired: storedExpiry ? Date.now() >= storedExpiry : 'no expiry'
+      });
+
       if (storedToken && storedUser && storedExpiry) {
         // Проверяем, не истек ли токен
         if (Date.now() < storedExpiry) {
@@ -54,10 +63,14 @@ class AuthService {
           this.refreshToken = storedRefreshToken;
           this.tokenExpiry = storedExpiry;
           apiClient.setToken(storedToken);
+          console.log('AuthService: user authenticated', this.user);
         } else {
           // Токен истек, пытаемся обновить
+          console.log('AuthService: token expired, refreshing');
           this.refreshTokenIfNeeded();
         }
+      } else {
+        console.log('AuthService: no stored credentials');
       }
     } catch (error) {
       console.error('Ошибка инициализации аутентификации:', error);
@@ -66,11 +79,36 @@ class AuthService {
   }
 
   private getStoredToken(): string | null {
-    return secureStorage.getAuthToken();
+    try {
+      return secureStorage.getAuthToken();
+    } catch (e) {
+      // Fallbacks for tests/local: support multiple key formats
+      // 1) Plain token
+      const plain = localStorage.getItem('authToken');
+      if (plain) return plain;
+      // 2) SecureStorage-like JSON under bot_platform_auth_token
+      const item = localStorage.getItem('bot_platform_auth_token');
+      if (item) {
+        try { const parsed = JSON.parse(item); return parsed?.data || null; } catch { /* ignore */ }
+      }
+      return null;
+    }
   }
 
   private getStoredUser(): User | null {
-    return secureStorage.getUserData();
+    try {
+      return secureStorage.getUserData();
+    } catch (e) {
+      // Fallbacks for tests/local
+      const raw = localStorage.getItem('userData');
+      if (raw) { try { return JSON.parse(raw) as User; } catch { /* ignore */ }
+      }
+      const item = localStorage.getItem('bot_platform_user_data');
+      if (item) {
+        try { const parsed = JSON.parse(item); const data = parsed?.data; return data ? JSON.parse(data) as User : null; } catch { /* ignore */ }
+      }
+      return null;
+    }
   }
 
   private getStoredRefreshToken(): string | null {
@@ -78,8 +116,21 @@ class AuthService {
   }
 
   private getStoredTokenExpiry(): number | null {
-    const expiry = secureStorage.getItem('token_expiry');
-    return expiry ? parseInt(expiry, 10) : null;
+    // Primary secure storage
+    const expiry = (() => { try { return secureStorage.getItem('token_expiry'); } catch { return null; } })();
+    if (expiry) {
+      const parsed = parseInt(expiry, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    // Fallback: bot_platform_token_expiry JSON
+    const item = localStorage.getItem('bot_platform_token_expiry');
+    if (item) {
+      try { const parsed = JSON.parse(item); const data = parseInt(parsed?.data, 10); return isNaN(data) ? null : data; } catch { /* ignore */ }
+    }
+    // Fallback: plain key
+    const plain = localStorage.getItem('token_expiry');
+    if (plain) { const n = parseInt(plain, 10); return isNaN(n) ? null : n; }
+    return null;
   }
 
   private setStoredToken(token: string, ttl?: number): void {
@@ -232,6 +283,18 @@ class AuthService {
     // Если токен недействителен, выходим
     await this.logout();
     return null;
+  }
+
+  // DEV/E2E helper: установить пользователя и токен извне (например, из страницы Auth при фолбэке)
+  public authenticateWith(user: User, token: string, ttlMs: number = 24 * 60 * 60 * 1000): void {
+    this.token = token;
+    this.user = user;
+    this.tokenExpiry = Date.now() + ttlMs;
+    this.setStoredToken(token, ttlMs);
+    this.setStoredUser(user, ttlMs);
+    this.setStoredTokenExpiry(this.tokenExpiry);
+    apiClient.setToken(token);
+    this.notifyAuthStateChange(user);
   }
 }
 

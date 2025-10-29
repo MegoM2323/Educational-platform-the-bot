@@ -21,7 +21,7 @@ const items = [
   { title: "Распределение материалов", url: "/dashboard/teacher/materials", icon: Send },
   { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },
-  { title: "Общий чат", url: "/dashboard/teacher/general-chat", icon: MessageSquare },
+  { title: "Форум", url: "/dashboard/teacher/general-chat", icon: MessageSquare },
 ];
 
 export function TeacherSidebar() {

@@ -82,6 +82,11 @@ export const ErrorHandlingProvider: React.FC<ErrorHandlingProviderProps> = ({
     }
   }, [enableLogging]);
 
+  // Ensure test helper buffer for WS tests exists
+  useEffect(() => {
+    (window as any).__wsMessages = (window as any).__wsMessages || [];
+  }, []);
+
   // Monitor network status
   useEffect(() => {
     if (!enableNetworkMonitoring) return;

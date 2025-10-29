@@ -6,6 +6,8 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import Subject, Material, MaterialProgress, MaterialComment, MaterialSubmission, MaterialFeedback
+from .models import SubjectEnrollment
+from notifications.notification_service import NotificationService
 from .serializers import (
     SubjectSerializer, MaterialListSerializer, MaterialDetailSerializer,
     MaterialCreateSerializer, MaterialProgressSerializer, MaterialCommentSerializer,
@@ -94,7 +96,21 @@ class MaterialViewSet(viewsets.ModelViewSet):
             )
         
         material.assigned_to.set(students)
-        return Response({'message': 'Материал назначен студентам'})
+
+        # Отправляем уведомления назначенным студентам о новом материале
+        notifier = NotificationService()
+        for student in students:
+            try:
+                notifier.notify_material_published(
+                    student=student,
+                    material_id=material.id,
+                    subject_id=material.subject_id,
+                )
+            except Exception:
+                # Не прерываем процесс назначения из-за ошибки уведомления
+                pass
+
+        return Response({'message': 'Материал назначен студентам', 'assigned_count': students.count()})
     
     @action(detail=True, methods=['post'])
     def update_progress(self, request, pk=None):
@@ -391,12 +407,33 @@ class MaterialSubmissionViewSet(viewsets.ModelViewSet):
         
         if serializer.is_valid():
             submission = serializer.save(material=material, student=request.user)
-            
-            # Обновляем статус материала на "проверено" если есть фидбэк
+
+            # Уведомляем всех преподавателей, закреплённых за предметом этого студента
+            try:
+                enrollments = SubjectEnrollment.objects.filter(
+                    student=request.user,
+                    subject=material.subject,
+                    is_active=True,
+                ).select_related('teacher')
+                notifier = NotificationService()
+                for enrollment in enrollments:
+                    try:
+                        notifier.notify_homework_submitted(
+                            teacher=enrollment.teacher,
+                            submission_id=submission.id,
+                            student=request.user,
+                        )
+                    except Exception:
+                        # Продолжаем, если уведомление не удалось отправить
+                        pass
+            except Exception:
+                pass
+
+            # Обновляем статус при наличии фидбэка
             if hasattr(submission, 'feedback'):
                 submission.status = MaterialSubmission.Status.REVIEWED
                 submission.save()
-            
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

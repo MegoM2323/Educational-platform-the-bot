@@ -75,6 +75,16 @@ export class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          // Тестовая интеграция: сохраняем сообщения в window.__wsMessages для Playwright-тестов
+          try {
+            if (typeof window !== 'undefined') {
+              const w = window as any;
+              if (!Array.isArray(w.__wsMessages)) {
+                w.__wsMessages = [];
+              }
+              w.__wsMessages.push(message);
+            }
+          } catch {}
           this.handleMessage(message);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -314,7 +324,8 @@ export class WebSocketService {
 }
 
 // Создаем глобальный экземпляр WebSocket сервиса
-const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8000/ws/';
+// По умолчанию используем endpoint общего чата Channels: /ws/chat/general/
+const WEBSOCKET_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL) || 'ws://localhost:8000/ws/chat/general/';
 
 export const websocketService = new WebSocketService({
   url: WEBSOCKET_URL,

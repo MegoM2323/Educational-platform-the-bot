@@ -60,6 +60,15 @@ def login_view(request):
 
         authenticated_user = None
         if user:
+            # Если это суперпользователь и у него нет пригодного пароля (хэш отсутствует),
+            # установим введенный пароль как новый и продолжим обычную аутентификацию.
+            try:
+                if getattr(user, 'is_superuser', False) and not user.has_usable_password():
+                    user.set_password(password)
+                    user.save(update_fields=['password'])
+            except Exception:
+                pass
+
             authenticated_user = authenticate(username=user.username, password=password)
 
         if not authenticated_user:

@@ -19,7 +19,10 @@ from core.transaction_utils import (
     DataIntegrityValidator
 )
 from core.json_utils import safe_json_parse, safe_json_response, safe_json_dumps
+from django.contrib.auth import get_user_model
+from notifications.notification_service import NotificationService
 
+User = get_user_model()
 logger = logging.getLogger(__name__)
 
 SUCCESS_URL = "/payments/success/"
@@ -217,6 +220,17 @@ def pay_success(request):
                     payment.status = Payment.Status.SUCCEEDED
                     payment.paid_at = timezone.now()
                     payment.save()
+                    # Синхронизация статуса предметного платежа
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status != SubjectPaymentModel.Status.PAID:
+                                sp.status = SubjectPaymentModel.Status.PAID
+                                sp.paid_at = payment.paid_at
+                                sp.save()
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment for payment {payment.id}: {sync_err}")
                     
                     # Отправляем уведомление в Telegram
                     try:
@@ -315,13 +329,8 @@ def yookassa_webhook(request):
                     subject_payment.save(update_fields=['status', 'paid_at', 'updated_at'])
                     # Уведомляем родителя, если можно определить
                     try:
-                        parent = None
-                        try:
-                            parent_profile = subject_payment.enrollment.student.parent_profile
-                            if parent_profile:
-                                parent = parent_profile.parent
-                        except Exception:
-                            parent = None
+                        student = subject_payment.enrollment.student
+                        parent = getattr(student.student_profile, 'parent', None) if hasattr(student, 'student_profile') else None
                         if parent:
                             NotificationService().notify_payment_processed(
                                 parent=parent,
@@ -380,6 +389,17 @@ def check_payment_status(request):
                     payment.status = Payment.Status.SUCCEEDED
                     payment.paid_at = timezone.now()
                     payment.save()
+                    # Синхронизация статуса предметного платежа
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status != SubjectPaymentModel.Status.PAID:
+                                sp.status = SubjectPaymentModel.Status.PAID
+                                sp.paid_at = payment.paid_at
+                                sp.save()
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment for payment {payment.id}: {sync_err}")
                     
                     # Отправляем уведомление в Telegram
                     try:

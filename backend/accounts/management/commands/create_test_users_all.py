@@ -104,10 +104,8 @@ class Command(BaseCommand):
             },
         )
 
-        # ParentProfile + связь с ребёнком
+        # ParentProfile
         parent_profile, _ = ParentProfile.objects.get_or_create(user=parent)
-        parent_profile.children.set([student])
-        parent_profile.save()
 
         # StudentProfile + связи с тьютором/родителем
         StudentProfile.objects.update_or_create(

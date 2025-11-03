@@ -96,7 +96,8 @@ class StudentProfile(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='children',
+        related_name='children_students',
+        limit_choices_to={'role': 'parent'},
         verbose_name='Родитель'
     )
     
@@ -202,16 +203,19 @@ class ParentProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='parent_profile'
     )
-    
-    children = models.ManyToManyField(
-        User,
-        related_name='parents',
-        blank=True,
-        verbose_name='Дети'
-    )
 
     def __str__(self):
         return f"Профиль родителя: {self.user.get_full_name()}"
+    
+    @property
+    def children(self):
+        """
+        Получить детей родителя через обратную связь StudentProfile.parent
+        """
+        return User.objects.filter(
+            student_profile__parent=self.user,
+            role=User.Role.STUDENT
+        )
 
 
 class TutorStudentCreation(models.Model):

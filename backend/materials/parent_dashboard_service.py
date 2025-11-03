@@ -342,13 +342,7 @@ class ParentDashboardService:
 
     def mark_payment_processed(self, *, enrollment: SubjectEnrollment, status: str, amount) -> None:
         """Уведомить родителя об изменении статуса платежа по зачислению."""
-        parent = None
-        try:
-            parent_profile = enrollment.student.parent_profile
-            if parent_profile:
-                parent = parent_profile.parent
-        except Exception:
-            parent = None
+        parent = getattr(enrollment.student.student_profile, 'parent', None) if hasattr(enrollment.student, 'student_profile') else None
         if not parent:
             return
         try:

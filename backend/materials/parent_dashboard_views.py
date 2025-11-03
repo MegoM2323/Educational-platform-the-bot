@@ -31,21 +31,6 @@ class ParentDashboardView(generics.RetrieveAPIView):
                 return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
             # Проверяем связь родитель-ребенок
             service = ParentDashboardService(request.user)
-            
-            # Если у родителя нет детей через связь parent_profile, пытаемся найти через student_profile.parent
-            children_count = service.get_children().count()
-            
-            if children_count == 0:
-                # Ищем детей через связь StudentProfile.parent
-                from accounts.models import StudentProfile
-                children_profiles = StudentProfile.objects.filter(parent=request.user)
-                if children_profiles.exists():
-                    # Добавляем найденных детей в parent_profile
-                    parent_profile, created = request.user.parent_profile.get_or_create(user=request.user)
-                    for child_profile in children_profiles:
-                        parent_profile.children.add(child_profile.user)
-                    parent_profile.save()
-            
             dashboard_data = service.get_dashboard_data()
             return Response(dashboard_data, status=status.HTTP_200_OK)
         except ValueError as e:

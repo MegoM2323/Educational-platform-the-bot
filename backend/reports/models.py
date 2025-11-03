@@ -373,9 +373,11 @@ class StudentReport(models.Model):
     
     def save(self, *args, **kwargs):
         # Автоматически устанавливаем родителя, если не указан
-        if not self.parent and hasattr(self.student, 'student_profile'):
+        if not self.parent:
             try:
-                self.parent = self.student.student_profile.parent
+                parent = getattr(self.student.student_profile, 'parent', None) if hasattr(self.student, 'student_profile') else None
+                if parent:
+                    self.parent = parent
             except:
                 pass
         super().save(*args, **kwargs)

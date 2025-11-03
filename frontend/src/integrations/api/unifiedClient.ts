@@ -34,6 +34,7 @@ export interface User {
   phone: string;
   avatar?: string;
   is_verified: boolean;
+  is_staff?: boolean;
   date_joined: string;
   full_name: string;
 }

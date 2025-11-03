@@ -258,9 +258,7 @@ class ApplicationService:
             
             # Создаем родительский профиль и связываем с ребенком
             parent_profile = ParentProfile.objects.create(user=parent_user)
-            parent_profile.children.add(student_user)
-            
-            # Обновляем профиль студента
+            # Устанавливаем родителя в StudentProfile ребенка
             if hasattr(student_user, 'student_profile'):
                 student_user.student_profile.parent = parent_user
                 student_user.student_profile.save()

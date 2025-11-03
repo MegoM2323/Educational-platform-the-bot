@@ -103,8 +103,6 @@ class StudentCreationService:
         )
 
         ParentProfile.objects.get_or_create(user=parent_user)
-        parent_profile = parent_user.parent_profile
-        parent_profile.children.add(student_user)
 
         # Запись о создании
         TutorStudentCreation.objects.create(

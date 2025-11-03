@@ -19,17 +19,16 @@ const Auth = memo(() => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Валидация email только если выбран тип "email"
-    if (loginType === "email") {
-      if (!validateEmail(loginData.emailOrUsername)) {
-        toast.error("Пожалуйста, введите корректный email адрес");
-        return;
-      }
-    } else {
-      if (!loginData.emailOrUsername.trim()) {
-        toast.error("Пожалуйста, введите имя пользователя");
-        return;
-      }
+    // Авто-определение: email или username
+    const identifier = loginData.emailOrUsername.trim();
+    if (!identifier) {
+      toast.error("Введите email или имя пользователя");
+      return;
+    }
+    const isEmail = identifier.includes('@');
+    if (isEmail && !validateEmail(identifier)) {
+      toast.error("Пожалуйста, введите корректный email адрес");
+      return;
     }
 
     try {
@@ -71,13 +70,20 @@ const Auth = memo(() => {
       }
 
       // Стандартный путь — реальный запрос к backend
-      const loginCredentials = loginType === "email" 
-        ? { email: loginData.emailOrUsername, password: loginData.password }
-        : { username: loginData.emailOrUsername, password: loginData.password };
+      const loginCredentials = (identifier.includes('@'))
+        ? { email: identifier, password: loginData.password }
+        : { username: identifier, password: loginData.password };
       
       const result = await login(loginCredentials);
 
       toast.success("Вход выполнен успешно!");
+      
+      // Если админ — отправляем в панель управления персоналом
+      if ((result.user as any).is_staff) {
+        await new Promise(r => setTimeout(r, 50));
+        navigate('/admin/staff');
+        return;
+      }
       
       // Переадресация в зависимости от роли
       const userRole = result.user.role;
@@ -101,7 +107,17 @@ const Auth = memo(() => {
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error("Произошла ошибка при входе");
+      const msg = (error as any)?.message?.toString()?.toLowerCase() || '';
+      if (
+        msg.includes('неверн') || // Russian: неверные учетные данные
+        msg.includes('invalid') ||
+        msg.includes('credential') ||
+        msg.includes('auth')
+      ) {
+        toast.error('Неверный логин или пароль');
+      } else {
+        toast.error('Произошла ошибка при входе');
+      }
     }
   };
 

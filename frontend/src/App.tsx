@@ -8,6 +8,8 @@ import { ErrorHandlingProvider } from "@/components/ErrorHandlingProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Suspense, lazy } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
+import StaffManagement from "@/pages/admin/StaffManagement";
 
 // Импортируем критические компоненты напрямую
 import Index from "./pages/Index";
@@ -69,6 +71,15 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/application" element={<ApplicationForm />} />
           <Route path="/application-status/:trackingToken" element={<ApplicationStatus />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin/staff" element={
+            <ProtectedAdminRoute>
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StaffManagement />
+              </Suspense>
+            </ProtectedAdminRoute>
+          } />
           
           {/* Student Routes */}
           <Route path="/dashboard/student" element={

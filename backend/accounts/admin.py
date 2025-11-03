@@ -127,18 +127,23 @@ class ParentProfileAdmin(admin.ModelAdmin):
     """
     list_display = ['user', 'children_count']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name']
-    readonly_fields = ['user']
-    filter_horizontal = ['children']
+    readonly_fields = ['user', 'children_list']
     
     fieldsets = (
         ('Основная информация', {
             'fields': ('user',)
         }),
-        ('Дети', {
-            'fields': ('children',)
+        ('Дети (только просмотр)', {
+            'fields': ('children_list',)
         }),
     )
     
     def children_count(self, obj):
         return obj.children.count()
     children_count.short_description = 'Количество детей'
+
+    def children_list(self, obj):
+        qs = obj.children.only('username', 'first_name', 'last_name')
+        names = [u.get_full_name() or u.username for u in qs]
+        return ', '.join(names) if names else '—'
+    children_list.short_description = 'Дети'

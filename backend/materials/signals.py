@@ -40,9 +40,9 @@ def invalidate_progress_cache(sender, instance, **kwargs):
         
         # Инвалидируем кэш родителя студента
         try:
-            parent_profile = instance.student.parent_profile
-            if parent_profile:
-                cache_manager.invalidate_parent_cache(parent_profile.parent.id)
+            parent = getattr(instance.student.student_profile, 'parent', None) if hasattr(instance.student, 'student_profile') else None
+            if parent:
+                cache_manager.invalidate_parent_cache(parent.id)
         except:
             pass
     except Exception:
@@ -64,9 +64,9 @@ def invalidate_enrollment_cache(sender, instance, **kwargs):
         
         # Инвалидируем кэш родителя
         try:
-            parent_profile = instance.student.parent_profile
-            if parent_profile:
-                cache_manager.invalidate_parent_cache(parent_profile.parent.id)
+            parent = getattr(instance.student.student_profile, 'parent', None) if hasattr(instance.student, 'student_profile') else None
+            if parent:
+                cache_manager.invalidate_parent_cache(parent.id)
         except:
             pass
     except Exception:
@@ -82,9 +82,9 @@ def invalidate_payment_cache(sender, instance, **kwargs):
         
         # Инвалидируем кэш родителя
         try:
-            parent_profile = instance.enrollment.student.parent_profile
-            if parent_profile:
-                cache_manager.invalidate_parent_cache(parent_profile.parent.id)
+            parent = getattr(instance.enrollment.student.student_profile, 'parent', None) if hasattr(instance.enrollment.student, 'student_profile') else None
+            if parent:
+                cache_manager.invalidate_parent_cache(parent.id)
         except:
             pass
     except Exception:
@@ -119,9 +119,9 @@ def invalidate_user_cache(sender, instance, **kwargs):
             
             # Инвалидируем кэш родителя
             try:
-                parent_profile = instance.parent_profile
-                if parent_profile:
-                    cache_manager.invalidate_parent_cache(parent_profile.parent.id)
+                parent = getattr(instance.student_profile, 'parent', None) if hasattr(instance, 'student_profile') else None
+                if parent:
+                    cache_manager.invalidate_parent_cache(parent.id)
             except:
                 pass
                 

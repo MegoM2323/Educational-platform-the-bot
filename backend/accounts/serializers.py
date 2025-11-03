@@ -47,9 +47,9 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'id', 'email', 'first_name', 'last_name', 'role', 'role_display',
-            'phone', 'avatar', 'is_verified', 'date_joined', 'full_name'
+            'phone', 'avatar', 'is_verified', 'is_staff', 'date_joined', 'full_name'
         )
-        read_only_fields = ('id', 'date_joined', 'is_verified')
+        read_only_fields = ('id', 'date_joined', 'is_verified', 'is_staff')
     
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()

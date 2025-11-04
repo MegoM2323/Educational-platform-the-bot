@@ -1,73 +1,75 @@
-# Welcome to your Lovable project
+# THE BOT Platform - Frontend
 
-## Project info
+## Описание
 
-**URL**: https://lovable.dev/projects/5b5b2d6a-2507-452d-99ee-b57872fa17d8
+Frontend часть образовательной платформы THE BOT, построенная на React, TypeScript и Vite.
 
-## How can I edit this code?
+## Технологии
 
-There are several ways of editing your application.
+- **React 18** — UI библиотека
+- **TypeScript** — типизированный JavaScript
+- **Vite** — современный сборщик
+- **React Router** — маршрутизация
+- **TanStack Query** — управление состоянием сервера
+- **shadcn/ui + Radix UI** — компоненты интерфейса
+- **Tailwind CSS** — стилизация
+- **React Hook Form + Zod** — формы и валидация
 
-**Use Lovable**
+## Установка
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/5b5b2d6a-2507-452d-99ee-b57872fa17d8) and start prompting.
+```bash
+npm install
+```
 
-Changes made via Lovable will be committed automatically to this repo.
+## Запуск
 
-**Use your preferred IDE**
+### Режим разработки
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Сервер запустится на `http://localhost:5173` (или на другом порту, если 5173 занят).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Сборка для продакшена
 
-**Use GitHub Codespaces**
+```bash
+npm run build
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Собранные файлы будут в папке `dist/`.
 
-## What technologies are used for this project?
+### Предпросмотр продакшен сборки
 
-This project is built with:
+```bash
+npm run preview
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Структура проекта
 
-## How can I deploy this project?
+```
+frontend/
+├── src/
+│   ├── components/     # React компоненты
+│   ├── pages/          # Страницы приложения
+│   ├── hooks/          # React хуки
+│   ├── services/        # API сервисы
+│   ├── utils/           # Утилиты
+│   └── types/           # TypeScript типы
+├── public/              # Статические файлы
+└── package.json         # Зависимости
+```
 
-Simply open [Lovable](https://lovable.dev/projects/5b5b2d6a-2507-452d-99ee-b57872fa17d8) and click on Share -> Publish.
+## Конфигурация
 
-## Can I connect a custom domain to my Lovable project?
+Переменные окружения должны быть настроены в корневом `.env` файле:
 
-Yes, you can!
+```env
+VITE_DJANGO_API_URL=http://localhost:8000/api
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Линтинг
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```bash
+npm run lint
+```

@@ -11,7 +11,8 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { useToast } from "@/hooks/use-toast";
 import { unifiedAPI } from "@/integrations/api/unifiedClient";
-import { BookOpen, Users, ArrowLeft, Save } from "lucide-react";
+import { BookOpen, Users, ArrowLeft, Save, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Subject {
   id: number;
@@ -19,6 +20,7 @@ interface Subject {
   description: string;
   color: string;
   student_count: number;
+  is_assigned?: boolean; // Флаг: предмет уже назначен преподавателю
 }
 
 interface Student {
@@ -61,10 +63,10 @@ const AssignSubject = () => {
           '/materials/teacher/all-students/'
         );
         if (studentsResponse.data?.students) {
-          // Дополнительная фильтрация на фронтенде для надежности
-          // Оставляем только студентов (на случай, если бэкенд вернет что-то лишнее)
+          // Backend уже фильтрует только студентов (исключая админов)
+          // Дополнительная проверка на фронтенде для безопасности
           const filteredStudents = studentsResponse.data.students.filter(
-            (student: any) => student.role === 'student' || !student.role
+            (student: any) => student.role === 'student'
           );
           setStudents(filteredStudents);
         }
@@ -188,11 +190,21 @@ const AssignSubject = () => {
               <div>
                 <h1 className="text-3xl font-bold">Назначение предмета</h1>
                 <p className="text-muted-foreground">
-                  Выберите предмет и студентов для назначения
+                  Вы можете назначить любой предмет любому студенту
                 </p>
               </div>
             </div>
           </div>
+
+          {/* Info Alert */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Свободный выбор предметов</AlertTitle>
+            <AlertDescription>
+              Вы можете назначить любой предмет из списка, даже если он ещё не назначен вам как преподавателю.
+              Система автоматически добавит выбранный предмет в ваш список после назначения студентам.
+            </AlertDescription>
+          </Alert>
 
           {/* Subject Selection */}
           <Card className="p-6">
@@ -216,9 +228,16 @@ const AssignSubject = () => {
                           style={{ backgroundColor: subject.color }}
                         />
                         <span>{subject.name}</span>
-                        <Badge variant="outline" className="ml-2">
-                          {subject.student_count} студентов
-                        </Badge>
+                        {subject.is_assigned && (
+                          <Badge variant="secondary" className="ml-2">
+                            Ваш предмет
+                          </Badge>
+                        )}
+                        {subject.student_count > 0 && (
+                          <Badge variant="outline" className="ml-2">
+                            {subject.student_count} студентов
+                          </Badge>
+                        )}
                       </div>
                     </SelectItem>
                   ))}

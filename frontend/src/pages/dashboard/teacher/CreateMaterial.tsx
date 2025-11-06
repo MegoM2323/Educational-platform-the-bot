@@ -75,10 +75,10 @@ const CreateMaterial = () => {
         console.log('[CreateMaterial] Students response:', studentsResponse);
         
         if (studentsResponse.data?.students) {
-          // Дополнительная фильтрация на фронтенде для надежности
-          // Оставляем только студентов (на случай, если бэкенд вернет что-то лишнее)
+          // Backend уже фильтрует только студентов (исключая админов)
+          // Дополнительная проверка на фронтенде для безопасности
           const filteredStudents = studentsResponse.data.students.filter(
-            (s: any) => s.role === 'student' || !s.role
+            (s: any) => s.role === 'student'
           );
           setStudents(filteredStudents.map((s: any) => ({
             id: s.id,

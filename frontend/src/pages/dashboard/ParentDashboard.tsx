@@ -79,7 +79,22 @@ const ParentDashboard = () => {
       const response = await unifiedAPI.getParentDashboard();
       
       if (response.data) {
-        const data = response.data as unknown as DashboardData;
+        // Бэкенд возвращает данные напрямую
+        const rawData = response.data as any;
+        
+        // Проверяем разные варианты структуры данных
+        let data: DashboardData;
+        if (rawData.children && Array.isArray(rawData.children)) {
+          // Данные уже в правильном формате
+          data = rawData as DashboardData;
+        } else if (rawData.data && rawData.data.children) {
+          // Данные обернуты в data
+          data = rawData.data as DashboardData;
+        } else {
+          // Пытаемся использовать response.data напрямую
+          data = rawData as DashboardData;
+        }
+        
         // Проверяем, что enrollment_id присутствует в данных
         if (data.children) {
           data.children.forEach((child: Child) => {
@@ -95,6 +110,7 @@ const ParentDashboard = () => {
         setDashboardData(data);
       } else {
         const errorMessage = response.error || 'Ошибка загрузки данных';
+        console.error('[ParentDashboard] Error:', errorMessage);
         setError(errorMessage);
         showError(errorMessage, {
           action: {
@@ -105,6 +121,7 @@ const ParentDashboard = () => {
       }
     } catch (err: any) {
       const errorMessage = 'Произошла ошибка при загрузке данных';
+      console.error('[ParentDashboard] Exception:', err);
       setError(errorMessage);
       showError(errorMessage, {
         action: {
@@ -112,7 +129,6 @@ const ParentDashboard = () => {
           onClick: fetchDashboardData,
         },
       });
-      console.error('Dashboard fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -120,6 +136,19 @@ const ParentDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+  }, []);
+
+  // Обновляем данные при возврате на страницу (например, после оплаты)
+  useEffect(() => {
+    const handleFocus = () => {
+      // Обновляем данные при возврате на вкладку
+      if (document.hasFocus()) {
+        fetchDashboardData();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const handlePaymentClick = async (childId: number, enrollmentId: number | undefined, subjectName: string, teacherName: string, e: React.MouseEvent) => {
@@ -155,16 +184,22 @@ const ParentDashboard = () => {
     try {
       const result = await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
       
-      if (result?.success) {
-        showSuccess("Подписка успешно отменена");
+      // Проверяем ответ от API
+      if (result && (result.success || result.message)) {
+        showSuccess(result.message || "Подписка успешно отменена");
         // Обновляем данные дашборда
-        fetchDashboardData();
+        await fetchDashboardData();
+      } else if (result?.error) {
+        showError(result.error);
       } else {
-        showError(result?.error || "Не удалось отменить подписку");
+        // Если ответ не содержит success/message, но и нет ошибки, считаем успешным
+        showSuccess("Подписка успешно отменена");
+        await fetchDashboardData();
       }
     } catch (err: any) {
       console.error('Cancel subscription error:', err);
-      showError(err.message || "Произошла ошибка при отмене подписки");
+      const errorMessage = err.response?.data?.error || err.message || "Произошла ошибка при отмене подписки";
+      showError(errorMessage);
     }
   };
 
@@ -212,15 +247,16 @@ const ParentDashboard = () => {
               {/* Основной контент */}
               {!loading && !error && dashboardData && (
                 <>
-
                   {/* Children Profiles */}
                   <Card className="p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <Users className="w-5 h-5 text-primary" />
                       <h3 className="text-xl font-bold">Профили детей</h3>
+                      <Badge variant="outline">{dashboardData.children?.length || 0} детей</Badge>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
-                      {dashboardData.children.map((child) => (
+                      {dashboardData.children && dashboardData.children.length > 0 ? (
+                        dashboardData.children.map((child) => (
                         <Card 
                           key={child.id} 
                           className="p-4 hover:border-primary transition-colors cursor-pointer"
@@ -264,13 +300,16 @@ const ParentDashboard = () => {
                                     </div>
                                     <div className="flex gap-2 items-center">
                                       {subject.has_subscription && subject.payment_status === 'paid' ? (
-                                        // Если есть активная подписка - показываем кнопку "Остановить оплату"
+                                        // Если есть активная подписка И платеж оплачен - показываем только кнопку "Остановить оплату"
                                         <Button
                                           size="sm"
                                           variant="outline"
                                           onClick={async (e) => {
                                             e.stopPropagation();
-                                            if (!subject.enrollment_id) return;
+                                            if (!subject.enrollment_id) {
+                                              showError("Ошибка: не указан идентификатор зачисления. Обновите страницу.");
+                                              return;
+                                            }
                                             
                                             const confirmed = window.confirm(
                                               `Остановить автоматические платежи за предмет "${subject.name}"?`
@@ -282,13 +321,14 @@ const ParentDashboard = () => {
                                               await handleCancelSubscription(child.id, subject.enrollment_id);
                                             } catch (err) {
                                               console.error('Cancel subscription error:', err);
+                                              showError("Произошла ошибка при отмене подписки");
                                             }
                                           }}
                                         >
                                           Остановить оплату
                                         </Button>
                                       ) : (
-                                        // Если нет подписки или не оплачено - показываем кнопку "Оплатить"
+                                        // Если нет подписки или платеж не оплачен - показываем кнопку "Оплатить"
                                         <Button
                                           size="sm"
                                           variant={subject.payment_status === 'overdue' ? 'destructive' : 'default'}
@@ -324,8 +364,8 @@ const ParentDashboard = () => {
                             </div>
                           </div>
                         </Card>
-                      ))}
-                      {dashboardData.children.length === 0 && (
+                        ))
+                      ) : (
                         <div className="col-span-2">
                           <EmptyState
                             title="Нет зарегистрированных детей"

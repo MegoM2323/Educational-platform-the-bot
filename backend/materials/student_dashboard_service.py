@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
-from .models import Material, MaterialProgress, Subject
+from .models import Material, MaterialProgress, Subject, SubjectEnrollment
 from chat.models import ChatRoom, Message
 from .cache_utils import cache_dashboard_data, cache_material_data, DashboardCacheManager
 
@@ -234,8 +234,11 @@ class StudentDashboardService:
         
         for progress in recent_completions:
             activities.append({
+                'id': progress.id,
                 'type': 'material_completed',
-                'title': f'Завершен материал: {progress.material.title}',
+                'title': progress.material.title,
+                'deadline': progress.completed_at.strftime('%Y-%m-%d') if progress.completed_at else '',
+                'status': 'completed',
                 'description': f'Предмет: {progress.material.subject.name}',
                 'timestamp': progress.completed_at,
                 'data': {
@@ -254,9 +257,14 @@ class StudentDashboardService:
         ).select_related('material', 'material__subject')
         
         for progress in recent_starts:
+            # Получаем дедлайн из материала, если есть
+            deadline = progress.material.published_at or progress.started_at
             activities.append({
+                'id': progress.id,
                 'type': 'material_started',
-                'title': f'Начат материал: {progress.material.title}',
+                'title': progress.material.title,
+                'deadline': deadline.strftime('%Y-%m-%d') if deadline else '',
+                'status': 'pending',
                 'description': f'Предмет: {progress.material.subject.name}',
                 'timestamp': progress.started_at,
                 'data': {
@@ -267,7 +275,7 @@ class StudentDashboardService:
             })
         
         # Сортируем по времени (новые сначала)
-        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        activities.sort(key=lambda x: x['timestamp'] if x.get('timestamp') else timezone.now(), reverse=True)
         
         return activities
     
@@ -349,6 +357,37 @@ class StudentDashboardService:
         
         return general_chat
     
+    @cache_material_data(timeout=600)  # 10 минут
+    def get_subjects(self) -> List[Dict[str, Any]]:
+        """
+        Получить список предметов студента через зачисления
+        
+        Returns:
+            Список предметов с информацией о зачислениях
+        """
+        enrollments = SubjectEnrollment.objects.filter(
+            student=self.student,
+            is_active=True
+        ).select_related('subject', 'teacher').order_by('subject__name')
+        
+        result = []
+        for enrollment in enrollments:
+            result.append({
+                'id': enrollment.subject.id,
+                'name': enrollment.subject.name,
+                'description': enrollment.subject.description,
+                'color': enrollment.subject.color,
+                'teacher': {
+                    'id': enrollment.teacher.id,
+                    'name': enrollment.teacher.get_full_name(),
+                    'username': enrollment.teacher.username
+                },
+                'enrolled_at': enrollment.enrolled_at,
+                'enrollment_id': enrollment.id
+            })
+        
+        return result
+    
     @cache_dashboard_data(timeout=300)  # 5 минут
     def get_dashboard_data(self) -> Dict[str, Any]:
         """
@@ -357,15 +396,20 @@ class StudentDashboardService:
         Returns:
             Словарь со всеми данными дашборда
         """
+        stats = self.get_progress_statistics()
+        
         return {
             'student_info': {
                 'id': self.student.id,
                 'name': self.student.get_full_name(),
+                'username': self.student.username,
                 'role': self.student.role,
                 'avatar': self.student.avatar.url if self.student.avatar else None
             },
+            'subjects': self.get_subjects(),
             'materials_by_subject': self.get_materials_by_subject(),
-            'progress_statistics': self.get_progress_statistics(),
+            'stats': stats,
+            'progress_statistics': stats,
             'recent_activity': self.get_recent_activity(),
             'general_chat': self.get_general_chat_access()
         }

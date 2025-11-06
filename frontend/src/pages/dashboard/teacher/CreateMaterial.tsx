@@ -70,7 +70,22 @@ const CreateMaterial = () => {
           setSubjects(items as Subject[]);
         }
         
-        // Студентов загружаем после выбора предмета
+        // Загружаем ВСЕХ студентов сразу
+        const studentsResponse = await apiClient.request<{students: any[]}>('/materials/teacher/all-students/');
+        console.log('[CreateMaterial] Students response:', studentsResponse);
+        
+        if (studentsResponse.data?.students) {
+          // Дополнительная фильтрация на фронтенде для надежности
+          // Оставляем только студентов (на случай, если бэкенд вернет что-то лишнее)
+          const filteredStudents = studentsResponse.data.students.filter(
+            (s: any) => s.role === 'student' || !s.role
+          );
+          setStudents(filteredStudents.map((s: any) => ({
+            id: s.id,
+            name: s.name || s.username || `${s.first_name} ${s.last_name}`.trim() || `ID: ${s.id}`,
+            email: s.email || ''
+          })));
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
         toast({
@@ -86,32 +101,6 @@ const CreateMaterial = () => {
     fetchData();
   }, [toast]);
 
-  // Загрузка студентов после выбора предмета
-  useEffect(() => {
-    const loadStudents = async () => {
-      if (!formData.subject) {
-        setStudents([]);
-        return;
-      }
-      try {
-        const resp = await apiClient.request<{students:{id:number; name:string; email:string}[]}>(`/materials/teacher/subjects/${formData.subject}/students/`);
-        if (resp.data?.students) {
-          const mapped: Student[] = resp.data.students.map(s => ({ id: s.id, first_name: s.name, last_name: '', email: s.email }));
-          setStudents(mapped);
-          // Сбрасываем выбор, если он не соответствует текущему списку
-          setFormData(prev => ({
-            ...prev,
-            assigned_to: prev.assigned_to.filter(id => resp.data!.students.some(s => s.id === id))
-          }));
-        } else {
-          setStudents([]);
-        }
-      } catch (e) {
-        setStudents([]);
-      }
-    };
-    loadStudents();
-  }, [formData.subject]);
 
   // Валидация файла
   const validateFile = (file: File) => {

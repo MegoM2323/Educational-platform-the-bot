@@ -67,6 +67,31 @@ echo "📦 Установка зависимостей бекенда..."
 cd backend
 pip install -r requirements.txt
 
+# Проверяем доступность конфигурации БД через Django (независимо от shell env)
+echo "🧪 Проверка параметров БД..."
+python - <<'PY'
+import os, sys
+os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
+try:
+    import django
+    django.setup()
+    from django.conf import settings
+    db = settings.DATABASES['default']
+    required = ['ENGINE','NAME','USER','HOST']
+    missing = [k for k in required if not db.get(k)]
+    if missing:
+        print(f"❌ Недостаточно параметров БД: {missing}")
+        sys.exit(2)
+    print(f"✅ БД: {db['HOST']}:{db.get('PORT','')} / {db['NAME']}")
+except Exception as e:
+    print("❌ Ошибка конфигурации БД:", e)
+    sys.exit(2)
+PY
+if [ $? -ne 0 ]; then
+    echo "   Проверьте .env: DATABASE_URL или SUPABASE_DB_* и формат строк (без комментариев на той же строке)."
+    exit 1
+fi
+
 # Применяем миграции
 echo "🗄️  Применение миграций Django..."
 python manage.py migrate

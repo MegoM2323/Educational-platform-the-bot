@@ -182,8 +182,8 @@ const StudentDashboard = () => {
               {!networkStatus.isOnline && (
                 <OfflineContent 
                   cachedData={dashboardData ? {
-                    materials: dashboardData.materials,
-                    reports: dashboardData.recent_assignments,
+                    materials: Object.values(dashboardData.materials_by_subject || {}).flatMap(subjectData => subjectData.materials),
+                    reports: dashboardData.recent_activity || [],
                   } : undefined}
                   onRetry={fetchDashboardData}
                 />
@@ -251,11 +251,11 @@ const StudentDashboard = () => {
                               <div className="text-sm text-muted-foreground">
                                 {material.description || 'Без описания'}
                               </div>
-                              {material.progress_percentage > 0 && (
+                              {(material.progress_percentage ?? 0) > 0 && (
                                 <div className="mt-1">
-                                  <Progress value={material.progress_percentage} className="h-2" />
+                                  <Progress value={material.progress_percentage ?? 0} className="h-2" />
                                   <span className="text-xs text-muted-foreground">
-                                    {material.progress_percentage}% завершено
+                                    {material.progress_percentage ?? 0}% завершено
                                   </span>
                                 </div>
                               )}
@@ -267,11 +267,13 @@ const StudentDashboard = () => {
                               <Badge variant={
                                 material.status === "new" ? "default" : 
                                 material.status === "in_progress" ? "secondary" : 
+                                material.status === "completed" ? "default" :
                                 "outline"
                               }>
                                 {material.status === "new" ? "Новое" : 
                                  material.status === "in_progress" ? "В процессе" : 
-                                 "Завершено"}
+                                 material.status === "completed" ? "Завершено" :
+                                 "Не начато"}
                               </Badge>
                             </div>
                           </div>

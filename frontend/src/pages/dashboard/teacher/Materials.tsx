@@ -165,17 +165,30 @@ const Materials = () => {
       setDistributeDialogOpen(true);
       setSubjectStudents([]);
       setAssignedStudentIds([]);
-      // Загружаем студентов по предмету
-      const studentsResp = await apiClient.request<{students: {id:number; name:string; email:string}[]}>(`/materials/teacher/subjects/${encodeURIComponent(String(material.subject))}/students/`);
+      
+      console.log('[openDistributeDialog] Material:', material);
+      
+      // Загружаем ВСЕХ студентов (не только по предмету)
+      const studentsResp = await apiClient.request<{students: {id:number; name:string; email:string; username?:string; first_name?:string; last_name?:string}[]}>('/materials/teacher/all-students/');
+      console.log('[openDistributeDialog] Students response:', studentsResp);
+      
       if (studentsResp.data?.students) {
-        setSubjectStudents(studentsResp.data.students);
+        setSubjectStudents(studentsResp.data.students.map(s => ({
+          id: s.id,
+          name: s.name || s.username || `${s.first_name} ${s.last_name}`.trim() || `ID: ${s.id}`,
+          email: s.email || ''
+        })));
       }
+      
       // Загружаем уже назначенных
       const assignedResp = await apiClient.request<{assigned_students: {id:number; name:string; email:string}[]}>(`/materials/teacher/materials/${material.id}/assignments/`);
+      console.log('[openDistributeDialog] Assigned response:', assignedResp);
+      
       if (assignedResp.data?.assigned_students) {
         setAssignedStudentIds(assignedResp.data.assigned_students.map(s => s.id));
       }
     } catch (e) {
+      console.error('[openDistributeDialog] Error:', e);
       toast({ title: 'Ошибка', description: 'Не удалось загрузить список студентов/назначений', variant: 'destructive' });
     }
   };
@@ -188,10 +201,17 @@ const Materials = () => {
     if (!selectedForDistribute) return;
     try {
       setSavingDistribute(true);
+      
+      console.log('[saveDistribute] Material ID:', selectedForDistribute.id);
+      console.log('[saveDistribute] Selected student IDs:', assignedStudentIds);
+      
       const resp = await apiClient.request<{assigned_count:number}>(`/materials/teacher/materials/${selectedForDistribute.id}/assignments/`, {
         method: 'PUT',
         body: JSON.stringify({ student_ids: assignedStudentIds }),
       });
+      
+      console.log('[saveDistribute] Response:', resp);
+      
       if (resp.data) {
         // Обновляем счётчик назначений локально
         setMaterials(prev => prev.map(m => m.id === selectedForDistribute.id ? { ...m, assigned_count: resp.data!.assigned_count } : m));

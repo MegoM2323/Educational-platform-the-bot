@@ -3,6 +3,7 @@ import json
 import uuid
 import logging
 from decimal import Decimal
+from datetime import timedelta
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.utils.crypto import get_random_string
@@ -220,13 +221,44 @@ def yookassa_webhook(request):
             logger.info(f"Payment {payment.id} marked as succeeded")
             # Дополнительно отмечаем платеж по предмету (если связан)
             try:
-                from materials.models import SubjectPayment as SP
+                from materials.models import SubjectPayment as SP, SubjectSubscription, SubjectEnrollment
                 from notifications.notification_service import NotificationService
                 subject_payment = SP.objects.filter(payment=payment).first()
                 if subject_payment and subject_payment.status != SP.Status.PAID:
                     subject_payment.status = SP.Status.PAID
                     subject_payment.paid_at = payment.paid_at
                     subject_payment.save(update_fields=['status', 'paid_at', 'updated_at'])
+                    
+                    # Проверяем, нужно ли создать подписку после успешной оплаты
+                    create_subscription = payment.metadata.get('create_subscription', False)
+                    if create_subscription:
+                        try:
+                            enrollment = subject_payment.enrollment
+                            # Проверяем, существует ли уже подписка для этого enrollment
+                            try:
+                                subscription = SubjectSubscription.objects.get(enrollment=enrollment)
+                                # Если подписка существует, обновляем её
+                                old_amount = subscription.amount
+                                subscription.amount = subject_payment.amount
+                                subscription.status = SubjectSubscription.Status.ACTIVE
+                                subscription.next_payment_date = timezone.now() + timedelta(weeks=1)
+                                subscription.payment_interval_weeks = 1
+                                subscription.cancelled_at = None  # Сбрасываем дату отмены, если была
+                                subscription.save()
+                                logger.info(f"Updated existing subscription {subscription.id} for enrollment {enrollment.id} (amount: {old_amount} -> {subject_payment.amount})")
+                            except SubjectSubscription.DoesNotExist:
+                                # Если подписки нет, создаём новую
+                                subscription = SubjectSubscription.objects.create(
+                                    enrollment=enrollment,
+                                    amount=subject_payment.amount,
+                                    status=SubjectSubscription.Status.ACTIVE,
+                                    next_payment_date=timezone.now() + timedelta(weeks=1),
+                                    payment_interval_weeks=1
+                                )
+                                logger.info(f"Created new subscription {subscription.id} for enrollment {enrollment.id} after successful payment")
+                        except Exception as e:
+                            logger.error(f"Failed to create/update subscription after payment {payment.id}: {e}", exc_info=True)
+                    
                     # Уведомляем родителя, если можно определить
                     try:
                         student = subject_payment.enrollment.student

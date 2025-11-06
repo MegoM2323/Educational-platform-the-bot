@@ -2,6 +2,7 @@ from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
@@ -20,8 +21,7 @@ from core.transaction_utils import (
     TransactionType, 
     transaction_manager, 
     ensure_data_integrity,
-    log_critical_operation,
-    DataIntegrityValidator
+    log_critical_operation
 )
 
 logger = logging.getLogger(__name__)
@@ -40,12 +40,7 @@ class ApplicationSubmitView(generics.CreateAPIView):
         Creates application and sends notification via Telegram
         """
         def create_application_operation():
-            # Validate application data
-            validation_errors = DataIntegrityValidator.validate_user_creation_data(serializer.validated_data)
-            if validation_errors:
-                raise ValueError(f"Validation errors: {', '.join(validation_errors)}")
-            
-            # Create application
+            # Create application (validation already done by serializer)
             application = serializer.save()
             
             # Send notification via Telegram
@@ -110,16 +105,31 @@ class ApplicationSubmitView(generics.CreateAPIView):
         """
         Override create to return tracking token
         """
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        
-        # Add tracking token to response
-        response_data = serializer.data.copy()
-        response_data['tracking_token'] = str(serializer.instance.tracking_token)
-        
-        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            
+            # Add tracking token to response
+            response_data = serializer.data.copy()
+            response_data['tracking_token'] = str(serializer.instance.tracking_token)
+            
+            return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
+        except ValidationError as e:
+            # Validation errors are already in the correct format
+            logger.warning(f"Validation error creating application: {e.detail}")
+            raise
+        except Exception as e:
+            logger.error(f"Error creating application: {e}", exc_info=True)
+            # Return error in a format that frontend can understand
+            error_message = str(e)
+            if hasattr(e, 'detail'):
+                error_message = str(e.detail)
+            return Response(
+                {'error': error_message, 'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class ApplicationListView(generics.ListAPIView):

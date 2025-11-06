@@ -164,16 +164,26 @@ export interface CreatePaymentRequest {
 // Application Types
 export interface Application {
   id: number;
-  student_name: string;
-  parent_name: string;
-  phone: string;
+  first_name: string;
+  last_name: string;
+  full_name?: string;
   email: string;
-  grade: number;
-  goal?: string;
-  message?: string;
-  status: 'new' | 'processing' | 'approved' | 'rejected' | 'completed';
+  phone: string;
+  telegram_id?: string;
+  applicant_type: 'student' | 'teacher' | 'parent';
+  status: 'pending' | 'approved' | 'rejected';
+  tracking_token: string;
+  grade?: string;
+  subject?: string;
+  experience?: string;
+  motivation?: string;
+  parent_first_name?: string;
+  parent_last_name?: string;
+  parent_full_name?: string;
+  parent_email?: string;
+  parent_phone?: string;
+  parent_telegram_id?: string;
   created_at: string;
-  updated_at: string;
   processed_at?: string;
   notes?: string;
 }
@@ -722,7 +732,7 @@ class UnifiedAPIClient {
 
   // Application Methods
   async createApplication(data: CreateApplicationRequest): Promise<ApiResponse<Application>> {
-    return this.request<Application>('/applications/create/', {
+    return this.request<Application>('/applications/submit/', {
       method: 'POST',
       body: JSON.stringify(data),
     });

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { validateEmail, validateName, validatePhone } from "@/utils/validation";
 import { ValidationMessage } from "@/components/ValidationMessage";
 import { safeJsonParse } from "../utils/jsonUtils";
+import { unifiedAPI as djangoAPI } from "@/integrations/api/unifiedClient";
 
 interface ApplicationData {
   first_name: string;
@@ -151,25 +152,23 @@ const ApplicationForm = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/applications/submit/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(applicationData),
-      });
+      const response = await djangoAPI.createApplication(applicationData);
 
-      const result = await safeJsonParse(response);
-
-      if (result.success && response.ok) {
+      if (response.success && response.data) {
         toast.success("Заявка успешно подана!");
-        navigate(`/application-status/${result.data.tracking_token}`);
+        const trackingToken = response.data.tracking_token;
+        if (trackingToken) {
+          navigate(`/application-status/${trackingToken}`);
+        } else {
+          toast.error("Ошибка: не получен tracking token");
+        }
       } else {
-        toast.error(result.error || result.data?.error || "Ошибка при подаче заявки");
+        toast.error(response.error || "Ошибка при подаче заявки");
       }
-    } catch (error) {
-      toast.error("Произошла ошибка при подаче заявки");
+    } catch (error: any) {
       console.error('Application error:', error);
+      const errorMessage = error?.message || error?.error || "Произошла ошибка при подаче заявки";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

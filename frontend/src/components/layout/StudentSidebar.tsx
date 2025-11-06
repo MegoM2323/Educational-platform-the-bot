@@ -18,6 +18,7 @@ import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
 
 const items = [
   { title: "Главная", url: "/dashboard/student", icon: Home },
+  { title: "Предметы", url: "/dashboard/student/subjects", icon: BookOpen },
   { title: "Материалы", url: "/dashboard/student/materials", icon: BookOpen },
   { title: "Форум", url: "/dashboard/student/general-chat", icon: MessageSquare },
 ];

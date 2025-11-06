@@ -259,6 +259,7 @@ class PaymentInitiationSerializer(serializers.Serializer):
     """
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    create_subscription = serializers.BooleanField(default=False, required=False)
     
     def validate_amount(self, value):
         if value <= 0:

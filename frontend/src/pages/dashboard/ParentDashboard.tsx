@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { unifiedAPI } from "@/integrations/api/unifiedClient";
-import { apiClient } from "@/integrations/api/migration";
+import { parentDashboardAPI } from "@/integrations/api/dashboard";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorNotification, useSuccessNotification } from "@/components/NotificationSystem";
 import { DashboardSkeleton, ErrorState, EmptyState } from "@/components/LoadingStates";
@@ -26,10 +26,13 @@ interface Child {
   avatar?: string;
   subjects: Array<{
     id: number;
+    enrollment_id: number;
     name: string;
     teacher_name: string;
+    teacher_id: number;
     payment_status: 'paid' | 'pending' | 'overdue' | 'no_payment';
     next_payment_date?: string;
+    has_subscription?: boolean;
   }>;
 }
 
@@ -76,7 +79,20 @@ const ParentDashboard = () => {
       const response = await unifiedAPI.getParentDashboard();
       
       if (response.data) {
-        setDashboardData(response.data);
+        const data = response.data as unknown as DashboardData;
+        // Проверяем, что enrollment_id присутствует в данных
+        if (data.children) {
+          data.children.forEach((child: Child) => {
+            if (child.subjects) {
+              child.subjects.forEach((subject) => {
+                if (!subject.enrollment_id) {
+                  console.warn('Missing enrollment_id for subject:', subject);
+                }
+              });
+            }
+          });
+        }
+        setDashboardData(data);
       } else {
         const errorMessage = response.error || 'Ошибка загрузки данных';
         setError(errorMessage);
@@ -106,39 +122,49 @@ const ParentDashboard = () => {
     fetchDashboardData();
   }, []);
 
-  const handlePaymentClick = async (childId: number, subjectId: number, e: React.MouseEvent) => {
-    e.stopPropagation(); // Останавливаем всплытие события
+  const handlePaymentClick = async (childId: number, enrollmentId: number | undefined, subjectName: string, teacherName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!enrollmentId) {
+      showError("Ошибка: не указан идентификатор зачисления. Обновите страницу.");
+      return;
+    }
     
     try {
-      // Устанавливаем фиксированную сумму и описание для платежа
-      const response = await apiClient.request(`/materials/dashboard/parent/children/${childId}/payment/${subjectId}/`, {
-        method: 'POST',
-        body: JSON.stringify({
-          amount: 5000.00, // Фиксированная сумма за месяц обучения
-          description: `Оплата за предмет за месяц обучения`
-        })
+      const amount = 5000.00;
+      const paymentData = await parentDashboardAPI.initiatePayment(childId, enrollmentId, {
+        amount: amount,
+        description: `Оплата за предмет "${subjectName}" (преподаватель: ${teacherName})`,
+        create_subscription: true
       });
       
-      if (response.data?.payment_url) {
-        // Открываем страницу оплаты ЮКассы
-        window.location.href = response.data.payment_url;
-        showSuccess("Перенаправление на страницу оплаты...");
+      const paymentUrl = paymentData?.confirmation_url || paymentData?.payment_url || paymentData?.return_url;
+      
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
       } else {
-        showError(response.error || "Не удалось создать платеж", {
-          action: {
-            label: 'Повторить',
-            onClick: () => handlePaymentClick(childId, subjectId, e),
-          },
-        });
+        showError("Не удалось создать платеж. Проверьте настройки ЮКассы.");
       }
     } catch (err: any) {
       console.error('Payment error:', err);
-      showError("Произошла ошибка при создании платежа", {
-        action: {
-          label: 'Повторить',
-          onClick: () => handlePaymentClick(childId, subjectId, e),
-        },
-      });
+      showError(err.message || "Произошла ошибка при создании платежа");
+    }
+  };
+
+  const handleCancelSubscription = async (childId: number, enrollmentId: number) => {
+    try {
+      const result = await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
+      
+      if (result?.success) {
+        showSuccess("Подписка успешно отменена");
+        // Обновляем данные дашборда
+        fetchDashboardData();
+      } else {
+        showError(result?.error || "Не удалось отменить подписку");
+      }
+    } catch (err: any) {
+      console.error('Cancel subscription error:', err);
+      showError(err.message || "Произошла ошибка при отмене подписки");
     }
   };
 
@@ -226,23 +252,67 @@ const ParentDashboard = () => {
                               {/* Предметы с кнопками оплаты */}
                               <div className="mt-3 space-y-2">
                                 {child.subjects.slice(0, 2).map((subject) => (
-                                  <div key={subject.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                                  <div key={subject.enrollment_id || subject.id} className="flex items-center justify-between p-2 bg-muted rounded">
                                     <div className="flex-1">
                                       <div className="text-sm font-medium">{subject.name}</div>
-                                      <div className="text-xs text-muted-foreground">{subject.teacher_name}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        Преподаватель: {subject.teacher_name}
+                                        {subject.has_subscription && (
+                                          <Badge variant="secondary" className="ml-2 text-xs">Подписка активна</Badge>
+                                        )}
+                                      </div>
                                     </div>
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        subject.payment_status === 'paid' ? 'outline' :
-                                        subject.payment_status === 'overdue' ? 'destructive' : 'default'
-                                      }
-                                      onClick={(e) => handlePaymentClick(child.id, subject.id, e)}
-                                    >
-                                      <CreditCard className="w-3 h-3 mr-1" />
-                                      {subject.payment_status === 'paid' ? 'Оплачено' :
-                                       subject.payment_status === 'overdue' ? 'Просрочено' : 'Оплатить'}
-                                    </Button>
+                                    <div className="flex gap-2 items-center">
+                                      {subject.has_subscription && subject.payment_status === 'paid' ? (
+                                        // Если есть активная подписка - показываем кнопку "Остановить оплату"
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (!subject.enrollment_id) return;
+                                            
+                                            const confirmed = window.confirm(
+                                              `Остановить автоматические платежи за предмет "${subject.name}"?`
+                                            );
+                                            
+                                            if (!confirmed) return;
+                                            
+                                            try {
+                                              await handleCancelSubscription(child.id, subject.enrollment_id);
+                                            } catch (err) {
+                                              console.error('Cancel subscription error:', err);
+                                            }
+                                          }}
+                                        >
+                                          Остановить оплату
+                                        </Button>
+                                      ) : (
+                                        // Если нет подписки или не оплачено - показываем кнопку "Оплатить"
+                                        <Button
+                                          size="sm"
+                                          variant={subject.payment_status === 'overdue' ? 'destructive' : 'default'}
+                                          disabled={!subject.enrollment_id}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!subject.enrollment_id) {
+                                              showError("Ошибка: не указан идентификатор зачисления. Обновите страницу.");
+                                              return;
+                                            }
+                                            handlePaymentClick(
+                                              child.id, 
+                                              subject.enrollment_id, 
+                                              subject.name, 
+                                              subject.teacher_name,
+                                              e
+                                            );
+                                          }}
+                                        >
+                                          <CreditCard className="w-3 h-3 mr-1" />
+                                          Оплатить
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                                 {child.subjects.length > 2 && (

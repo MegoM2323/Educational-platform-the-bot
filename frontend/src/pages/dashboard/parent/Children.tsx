@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
 import { Users, CreditCard } from "lucide-react";
 import { useParentChildren, useInitiatePayment } from "@/hooks/useParent";
+import { parentDashboardAPI } from "@/integrations/api/dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -38,7 +39,7 @@ const Children = () => {
                       <div className="text-sm text-muted-foreground">Цель: {child.goal || '—'}</div>
                       <div className="space-y-2">
                         {child.subjects.map((s) => (
-                          <div key={s.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                          <div key={s.enrollment_id || s.id} className="flex items-center justify-between p-2 bg-muted rounded">
                             <div>
                               <div className="font-medium text-sm">{s.name}</div>
                               <div className="text-xs text-muted-foreground">Преподаватель: {s.teacher_name}</div>
@@ -47,7 +48,16 @@ const Children = () => {
                               <Badge variant={s.payment_status === 'paid' ? 'default' : s.payment_status === 'pending' ? 'secondary' : 'destructive'}>
                                 {s.payment_status === 'paid' ? 'Оплачено' : s.payment_status === 'pending' ? 'Ожидание' : 'Просрочено'}
                               </Badge>
-                              <PayButton childId={child.id} subjectId={s.id} />
+                              {s.enrollment_id && (
+                                <PayButton 
+                                  childId={child.id} 
+                                  enrollmentId={s.enrollment_id}
+                                  subjectName={s.name}
+                                  teacherName={s.teacher_name}
+                                  hasSubscription={s.has_subscription || false}
+                                  paymentStatus={s.payment_status}
+                                />
+                              )}
                             </div>
                           </div>
                         ))}
@@ -67,11 +77,62 @@ const Children = () => {
   );
 };
 
-function PayButton({ childId, subjectId }: { childId: number; subjectId: number }) {
-  const payment = useInitiatePayment(childId, subjectId);
+function PayButton({ 
+  childId, 
+  enrollmentId, 
+  subjectName, 
+  teacherName, 
+  hasSubscription,
+  paymentStatus 
+}: { 
+  childId: number; 
+  enrollmentId: number;
+  subjectName: string;
+  teacherName: string;
+  hasSubscription: boolean;
+  paymentStatus: string;
+}) {
+  const payment = useInitiatePayment(childId, enrollmentId, {
+    amount: 5000.00,
+    description: `Оплата за предмет "${subjectName}" (преподаватель: ${teacherName})`,
+    create_subscription: true,
+  });
+  
+  // Если есть активная подписка и оплачено - показываем кнопку "Остановить оплату"
+  if (hasSubscription && paymentStatus === 'paid') {
+    return (
+      <Button 
+        size="sm" 
+        variant="outline"
+        onClick={async () => {
+          const confirmed = window.confirm(
+            `Остановить автоматические платежи за предмет "${subjectName}"?`
+          );
+          if (!confirmed) return;
+          
+          try {
+            await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
+            window.location.reload();
+          } catch (err) {
+            console.error('Cancel subscription error:', err);
+          }
+        }}
+      >
+        Остановить оплату
+      </Button>
+    );
+  }
+  
+  // Иначе показываем кнопку "Оплатить"
   return (
-    <Button size="sm" onClick={() => payment.mutate()} disabled={payment.isPending}>
-      <CreditCard className="w-4 h-4 mr-1" /> Оплатить
+    <Button 
+      size="sm" 
+      onClick={() => payment.mutate()} 
+      disabled={payment.isPending}
+      variant={paymentStatus === 'overdue' ? 'destructive' : 'default'}
+    >
+      <CreditCard className="w-4 h-4 mr-1" /> 
+      Оплатить
     </Button>
   );
 }

@@ -18,12 +18,15 @@ import ApplicationForm from "./pages/ApplicationForm";
 import ApplicationStatus from "./pages/ApplicationStatus";
 import NotFound from "./pages/NotFound";
 import ParentDashboard from "./pages/dashboard/ParentDashboard";
+const ParentPaymentHistory = lazy(() => import("./pages/dashboard/parent/PaymentHistory"));
+const ParentPaymentSuccess = lazy(() => import("./pages/dashboard/parent/PaymentSuccess"));
 
 // Lazy load только тяжелые компоненты дашбордов
 const StudentDashboard = lazy(() => import("./pages/dashboard/StudentDashboard"));
 const TeacherDashboard = lazy(() => import("./pages/dashboard/TeacherDashboard"));
 const TutorDashboard = lazy(() => import("./pages/dashboard/TutorDashboard"));
 const StudentMaterials = lazy(() => import("./pages/dashboard/student/Materials"));
+const StudentSubjects = lazy(() => import("./pages/dashboard/student/Subjects"));
 const StudentGeneralChat = lazy(() => import("./pages/dashboard/student/GeneralChat"));
 const TeacherMaterials = lazy(() => import("./pages/dashboard/teacher/Materials"));
 const CreateMaterial = lazy(() => import("./pages/dashboard/teacher/CreateMaterial"));
@@ -39,7 +42,6 @@ const ParentChildDetail = lazy(() => import("./pages/dashboard/parent/ChildDetai
 const ParentStatistics = lazy(() => import("./pages/dashboard/parent/Statistics"));
 const ParentReports = lazy(() => import("./pages/dashboard/parent/Reports"));
 const Chat = lazy(() => import("./pages/dashboard/Chat"));
-const Payments = lazy(() => import("./pages/dashboard/Payments"));
 
 // Configure React Query with default options
 const queryClient = new QueryClient({
@@ -86,6 +88,13 @@ const App = () => (
             <ProtectedRoute requiredRole="student">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <StudentDashboard />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/student/subjects" element={
+            <ProtectedRoute requiredRole="student">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudentSubjects />
               </Suspense>
             </ProtectedRoute>
           } />
@@ -241,10 +250,17 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
-          <Route path="/dashboard/parent/payments" element={
+          <Route path="/dashboard/parent/payment-history" element={
             <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <Payments />
+                <ParentPaymentHistory />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/parent/payment-success" element={
+            <ProtectedRoute requiredRole="parent">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentPaymentSuccess />
               </Suspense>
             </ProtectedRoute>
           } />

@@ -524,7 +524,13 @@ def material_assignments(request, material_id: int):
 
     from django.contrib.auth import get_user_model
     UserModel = get_user_model()
-    students = UserModel.objects.filter(id__in=student_ids, role=UserModel.Role.STUDENT)
+    # Исключаем админов из списка при назначении материала
+    students = UserModel.objects.filter(
+        id__in=student_ids,
+        role=UserModel.Role.STUDENT,
+        is_staff=False,
+        is_superuser=False
+    )
     material.assigned_to.set(students)
 
     for s in students:
@@ -615,6 +621,7 @@ def assign_subject_to_students(request):
 def get_all_students(request):
     """
     Получить всех студентов для назначения предметов
+    Исключаем админов (is_staff и is_superuser)
     """
     if request.user.role != User.Role.TEACHER:
         return Response(
@@ -623,10 +630,12 @@ def get_all_students(request):
         )
     
     try:
-        # Получаем только активных студентов
+        # Получаем только активных студентов, исключая админов
         students = User.objects.filter(
             role=User.Role.STUDENT,
-            is_active=True
+            is_active=True,
+            is_staff=False,
+            is_superuser=False
         ).select_related('student_profile').order_by('username')
         
         data = []

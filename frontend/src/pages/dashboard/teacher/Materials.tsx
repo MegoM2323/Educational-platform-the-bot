@@ -169,11 +169,16 @@ const Materials = () => {
       console.log('[openDistributeDialog] Material:', material);
       
       // Загружаем ВСЕХ студентов (не только по предмету)
-      const studentsResp = await apiClient.request<{students: {id:number; name:string; email:string; username?:string; first_name?:string; last_name?:string}[]}>('/materials/teacher/all-students/');
+      const studentsResp = await apiClient.request<{students: {id:number; name:string; email:string; username?:string; first_name?:string; last_name?:string; role?:string}[]}>('/materials/teacher/all-students/');
       console.log('[openDistributeDialog] Students response:', studentsResp);
       
       if (studentsResp.data?.students) {
-        setSubjectStudents(studentsResp.data.students.map(s => ({
+        // Backend уже фильтрует только студентов (исключая админов)
+        // Дополнительная проверка на фронтенде для безопасности
+        const filteredStudents = studentsResp.data.students.filter(
+          (s: any) => s.role === 'student'
+        );
+        setSubjectStudents(filteredStudents.map(s => ({
           id: s.id,
           name: s.name || s.username || `${s.first_name} ${s.last_name}`.trim() || `ID: ${s.id}`,
           email: s.email || ''

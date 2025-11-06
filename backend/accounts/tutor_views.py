@@ -81,14 +81,14 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         print(f"[TutorStudentsViewSet.list] User is_superuser: {getattr(request.user, 'is_superuser', False)}")
         
         # Показываем всех учеников тьютора:
-        # 1) у кого в профиле явно указан этот тьютор
-        # 2) кого этот тьютор создавал (created_by_tutor)
-        # Для администраторов показываем всех учеников, которых они создавали
+        # 1) у кого в профиле явно указан этот тьютор (tutor=request.user)
+        # 2) кого этот тьютор создавал (user__created_by_tutor=request.user)
         # Используем общий фильтр, который работает и для тьюторов, и для администраторов
         students = (
             StudentProfile.objects
             .filter(Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             .select_related('user', 'tutor', 'parent')
+            .distinct()  # Избегаем дубликатов, если оба условия выполнены
         )
         
         print(f"[TutorStudentsViewSet.list] Found {students.count()} students")
@@ -178,21 +178,13 @@ class TutorStudentsViewSet(viewsets.ViewSet):
 
     def retrieve(self, request, pk=None):
         try:
-            # Для тьюторов проверяем, что ученик принадлежит им
-            # Для администраторов проверяем, что они создали этого ученика
-            if request.user.role == User.Role.TUTOR:
-                profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(
-                    id=pk, 
-                    tutor=request.user
-                )
-            else:
-                # Для администраторов проверяем, что они создали этого ученика
-                profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(
-                    id=pk,
-                    user__created_by_tutor=request.user
-                )
+            # Проверяем, что ученик принадлежит тьютору
+            # Проверяем через tutor в профиле или через created_by_tutor в User
+            profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            )
         except StudentProfile.DoesNotExist:
-            return Response({'detail': 'Ученик не найден'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Ученик не найден или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             print(f"[TutorStudentsViewSet.retrieve] Error: {e}")
             return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -202,14 +194,12 @@ class TutorStudentsViewSet(viewsets.ViewSet):
     def subjects(self, request, pk=None):
         # pk — это id StudentProfile
         try:
-            # Для тьюторов проверяем, что ученик принадлежит им
-            # Для администраторов проверяем, что они создали этого ученика
-            if request.user.role == User.Role.TUTOR:
-                student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
-            else:
-                student_profile = StudentProfile.objects.select_related('user').get(id=pk, user__created_by_tutor=request.user)
+            # Проверяем, что ученик принадлежит тьютору
+            student_profile = StudentProfile.objects.select_related('user').get(
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            )
         except StudentProfile.DoesNotExist:
-            return Response({'detail': 'Ученик не найден'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Ученик не найден или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             print(f"[TutorStudentsViewSet.subjects] Error: {e}")
             return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -243,14 +233,12 @@ class TutorStudentsViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['delete'], url_path='subjects/(?P<subject_id>[^/.]+)')
     def unassign_subject(self, request, pk=None, subject_id=None):
         try:
-            # Для тьюторов проверяем, что ученик принадлежит им
-            # Для администраторов проверяем, что они создали этого ученика
-            if request.user.role == User.Role.TUTOR:
-                student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
-            else:
-                student_profile = StudentProfile.objects.select_related('user').get(id=pk, user__created_by_tutor=request.user)
+            # Проверяем, что ученик принадлежит тьютору
+            student_profile = StudentProfile.objects.select_related('user').get(
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            )
         except StudentProfile.DoesNotExist:
-            return Response({'detail': 'Ученик не найден'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Ученик не найден или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             print(f"[TutorStudentsViewSet.unassign_subject] Error getting student: {e}")
             return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -285,14 +273,12 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         Возвращает список созданных/актуализированных зачислений.
         """
         try:
-            # Для тьюторов проверяем, что ученик принадлежит им
-            # Для администраторов проверяем, что они создали этого ученика
-            if request.user.role == User.Role.TUTOR:
-                student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
-            else:
-                student_profile = StudentProfile.objects.select_related('user').get(id=pk, user__created_by_tutor=request.user)
+            # Проверяем, что ученик принадлежит тьютору
+            student_profile = StudentProfile.objects.select_related('user').get(
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            )
         except StudentProfile.DoesNotExist:
-            return Response({'detail': 'Ученик не найден'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Ученик не найден или не принадлежит вам'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             print(f"[TutorStudentsViewSet.assign_subjects_bulk] Error getting student: {e}")
             return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)

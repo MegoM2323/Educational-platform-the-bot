@@ -1,4 +1,4 @@
-from django.db.models import Q, Count, Avg, Sum, F
+from django.db.models import Q, Count, Avg, Sum, F, Prefetch
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from typing import Dict, List, Optional, Any
@@ -34,6 +34,7 @@ class TeacherDashboardService:
     def get_teacher_students(self) -> List[Dict[str, Any]]:
         """
         Получить список студентов преподавателя
+        Исключаем админов (is_staff и is_superuser)
         
         Returns:
             Список словарей с информацией о студентах
@@ -42,12 +43,25 @@ class TeacherDashboardService:
         logger = logging.getLogger(__name__)
         
         # Получаем студентов через SubjectEnrollment (зачисление на предмет)
+        # Исключаем админов
+        # Используем Prefetch для оптимизации запроса предметов студента
+        teacher_enrollments_prefetch = Prefetch(
+            'subject_enrollments',
+            queryset=SubjectEnrollment.objects.filter(
+                teacher=self.teacher,
+                is_active=True
+            ).select_related('subject'),
+            to_attr='teacher_subject_enrollments'
+        )
+        
         students = User.objects.filter(
             role=User.Role.STUDENT,
             subject_enrollments__teacher=self.teacher,
-            subject_enrollments__is_active=True
+            subject_enrollments__is_active=True,
+            is_staff=False,
+            is_superuser=False
         ).distinct().select_related('student_profile').prefetch_related(
-            'subject_enrollments__subject',
+            teacher_enrollments_prefetch,
             'assigned_materials__progress',
             'assigned_materials__subject'
         )
@@ -108,6 +122,27 @@ class TeacherDashboardService:
             total_materials = stats['total_materials']
             completed_materials = stats['completed_materials']
             
+            # Получаем все предметы студента, назначенные этим преподавателем
+            # Используем prefetched данные для оптимизации
+            teacher_enrollments = getattr(student, 'teacher_subject_enrollments', [])
+            if not teacher_enrollments:
+                # Fallback: если prefetch не сработал, делаем запрос
+                teacher_enrollments = list(student.subject_enrollments.filter(
+                    teacher=self.teacher,
+                    is_active=True
+                ).select_related('subject'))
+            
+            student_subjects = [
+                {
+                    'id': enrollment.subject.id,
+                    'name': enrollment.subject.name,
+                    'color': enrollment.subject.color,
+                    'enrollment_id': enrollment.id,
+                    'enrolled_at': enrollment.enrolled_at,
+                }
+                for enrollment in teacher_enrollments
+            ]
+            
             result.append({
                 'id': student.id,
                 'username': student.username,
@@ -117,6 +152,7 @@ class TeacherDashboardService:
                 'email': student.email or '',
                 'avatar': student.avatar.url if student.avatar else None,
                 'profile': profile_data,
+                'subjects': student_subjects,  # Добавляем список предметов
                 'assigned_materials_count': total_materials,
                 'completed_materials_count': completed_materials,
                 'completion_percentage': round((completed_materials / total_materials * 100) if total_materials > 0 else 0, 2)
@@ -206,10 +242,12 @@ class TeacherDashboardService:
             material = Material.objects.get(id=material_id, author=self.teacher)
             logger.info(f"[distribute_material] Material found: {material.title}")
             
-            # Получаем студентов
+            # Получаем студентов, исключая админов
             students = User.objects.filter(
                 id__in=student_ids,
-                role=User.Role.STUDENT
+                role=User.Role.STUDENT,
+                is_staff=False,
+                is_superuser=False
             )
             
             logger.info(f"[distribute_material] Found {students.count()} students")
@@ -636,16 +674,18 @@ class TeacherDashboardService:
                     defaults={'is_active': True}
                 )
             
-            # Получаем студентов
+            # Получаем студентов, исключая админов
             students = User.objects.filter(
                 id__in=student_ids,
-                role=User.Role.STUDENT
+                role=User.Role.STUDENT,
+                is_staff=False,
+                is_superuser=False
             )
             
             if students.count() != len(student_ids):
                 return {
                     'success': False,
-                    'message': 'Некоторые пользователи не являются студентами'
+                    'message': 'Некоторые пользователи не являются студентами или являются администраторами'
                 }
             
             # Создаем зачисления
@@ -789,13 +829,16 @@ class TeacherDashboardService:
     def get_all_students(self) -> List[Dict[str, Any]]:
         """
         Получить список ВСЕХ студентов в системе для назначения предметов
+        Исключаем админов (is_staff и is_superuser)
         
         Returns:
             Список всех студентов
         """
         students = User.objects.filter(
             role=User.Role.STUDENT,
-            is_active=True
+            is_active=True,
+            is_staff=False,
+            is_superuser=False
         ).select_related('student_profile').order_by('username')
         
         result = []

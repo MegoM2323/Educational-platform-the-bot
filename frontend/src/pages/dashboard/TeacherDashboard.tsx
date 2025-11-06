@@ -29,6 +29,13 @@ interface Student {
   id: number;
   name: string;
   profile?: { grade: string; progress_percentage: number };
+  subjects?: Array<{
+    id: number;
+    name: string;
+    color: string;
+    enrollment_id: number;
+    enrolled_at: string;
+  }>;
 }
 
 type Assignment = never;
@@ -398,6 +405,24 @@ const TeacherDashboard = () => {
                                 <TrendingUp className="w-3 h-3" />
                                 Прогресс: {student.profile?.progress_percentage}%
                               </div>
+                              {student.subjects && student.subjects.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {student.subjects.map((subject) => (
+                                    <Badge
+                                      key={subject.id}
+                                      variant="outline"
+                                      className="text-xs"
+                                      style={{ borderColor: subject.color }}
+                                    >
+                                      <div
+                                        className="w-2 h-2 rounded-full mr-1"
+                                        style={{ backgroundColor: subject.color }}
+                                      />
+                                      {subject.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

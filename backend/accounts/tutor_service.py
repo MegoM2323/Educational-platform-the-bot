@@ -50,8 +50,9 @@ class StudentCreationService:
         parent_email: str = "",
         parent_phone: str = "",
     ) -> Tuple[User, User, GeneratedCredentials, GeneratedCredentials]:
-        if tutor.role != User.Role.TUTOR:
-            raise PermissionError("Только тьютор может создавать учеников")
+        # Разрешаем создание учеников тьюторам или администраторам
+        if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
+            raise PermissionError("Только тьютор или администратор может создавать учеников")
 
         # Генерация учетных данных
         student_username = _generate_unique_username(
@@ -74,10 +75,12 @@ class StudentCreationService:
             first_name=student_first_name,
             last_name=student_last_name,
             email="",
-            role=User.Role.STUDENT,
+            role=User.Role.STUDENT,  # Явно устанавливаем роль STUDENT
             password=make_password(student_password),
             created_by_tutor=tutor,
+            is_active=True,
         )
+        print(f"[create_student_with_parent] Student user created: {student_user.username}, role: {student_user.role}")
 
         # Создаем пользователя родителя
         parent_user = User.objects.create(
@@ -86,23 +89,35 @@ class StudentCreationService:
             last_name=parent_last_name,
             email=parent_email or "",
             phone=parent_phone or "",
-            role=User.Role.PARENT,
+            role=User.Role.PARENT,  # Явно устанавливаем роль PARENT
             password=make_password(parent_password),
             created_by_tutor=tutor,
+            is_active=True,
         )
+        print(f"[create_student_with_parent] Parent user created: {parent_user.username}, role: {parent_user.role}")
 
         # Профили
-        StudentProfile.objects.create(
+        # Если создатель - администратор (не тьютор), не устанавливаем tutor в профиле
+        # Вместо этого полагаемся на created_by_tutor в User
+        # Если создатель - тьютор, устанавливаем tutor в профиле
+        tutor_for_profile = tutor if tutor.role == User.Role.TUTOR else None
+        student_profile = StudentProfile.objects.create(
             user=student_user,
             grade=grade,
             goal=goal,
-            tutor=tutor,
+            tutor=tutor_for_profile,
             parent=parent_user,
             generated_username=student_username,
             generated_password=student_password,
         )
+        print(f"[create_student_with_parent] StudentProfile created: id={student_profile.id}, parent_id={student_profile.parent_id}, parent={student_profile.parent}")
 
-        ParentProfile.objects.get_or_create(user=parent_user)
+        parent_profile, created = ParentProfile.objects.get_or_create(user=parent_user)
+        print(f"[create_student_with_parent] ParentProfile: id={parent_profile.id}, created={created}, user={parent_user.username}")
+        
+        # Проверяем связь после создания
+        children_count = User.objects.filter(student_profile__parent=parent_user, role=User.Role.STUDENT).count()
+        print(f"[create_student_with_parent] Children count for parent {parent_user.username}: {children_count}")
 
         # Запись о создании
         TutorStudentCreation.objects.create(
@@ -142,20 +157,27 @@ class SubjectAssignmentService:
 
     @staticmethod
     def assign_subject(*, tutor: User, student: User, subject: Subject, teacher: User | None = None) -> SubjectEnrollment:
-        if tutor.role != User.Role.TUTOR:
-            raise PermissionError("Только тьютор может назначать предметы")
+        # Разрешаем назначение предметов тьюторам или администраторам
+        if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
+            raise PermissionError("Только тьютор или администратор может назначать предметы")
         # Валидация ролей
         if student.role != User.Role.STUDENT:
             raise ValueError("Указанный пользователь не является студентом")
         if teacher is not None and teacher.role != User.Role.TEACHER:
             raise ValueError("Указанный пользователь не является преподавателем")
 
-        # Проверка, что данный студент привязан к этому тьютору
-        try:
-            if student.student_profile.tutor_id != tutor.id:
-                raise PermissionError("Студент не принадлежит тьютору")
-        except StudentProfile.DoesNotExist:
-            raise ValueError("Профиль студента не найден")
+        # Проверка, что данный студент привязан к этому тьютору (для обычных тьюторов)
+        # Администраторы могут назначать предметы студентам, которых они создали
+        if tutor.role == User.Role.TUTOR:
+            try:
+                if student.student_profile.tutor_id != tutor.id:
+                    raise PermissionError("Студент не принадлежит тьютору")
+            except StudentProfile.DoesNotExist:
+                raise ValueError("Профиль студента не найден")
+        else:
+            # Для администраторов проверяем, что они создали этого студента
+            if not student.created_by_tutor_id or student.created_by_tutor_id != tutor.id:
+                raise PermissionError("Студент не был создан этим администратором")
 
         # Если преподаватель не указан — подберем автоматически первого доступного
         if teacher is None:
@@ -194,18 +216,25 @@ class SubjectAssignmentService:
 
     @staticmethod
     def unassign_subject(*, tutor: User, student: User, subject: Subject) -> None:
-        if tutor.role != User.Role.TUTOR:
-            raise PermissionError("Только тьютор может отменять назначения")
+        # Разрешаем отмену назначений тьюторам или администраторам
+        if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
+            raise PermissionError("Только тьютор или администратор может отменять назначения")
         try:
             enrollment = SubjectEnrollment.objects.get(student=student, subject=subject)
         except SubjectEnrollment.DoesNotExist:
             return
-        # Разрешаем только для своих студентов
-        try:
-            if enrollment.student.student_profile.tutor_id != tutor.id:
-                raise PermissionError("Студент не принадлежит тьютору")
-        except StudentProfile.DoesNotExist:
-            raise ValueError("Профиль студента не найден")
+        # Разрешаем только для своих студентов (для обычных тьюторов)
+        # Администраторы могут отменять назначения для студентов, которых они создали
+        if tutor.role == User.Role.TUTOR:
+            try:
+                if enrollment.student.student_profile.tutor_id != tutor.id:
+                    raise PermissionError("Студент не принадлежит тьютору")
+            except StudentProfile.DoesNotExist:
+                raise ValueError("Профиль студента не найден")
+        else:
+            # Для администраторов проверяем, что они создали этого студента
+            if not enrollment.student.created_by_tutor_id or enrollment.student.created_by_tutor_id != tutor.id:
+                raise PermissionError("Студент не был создан этим администратором")
         enrollment.is_active = False
         enrollment.save()
 

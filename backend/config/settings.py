@@ -1,28 +1,31 @@
 from pathlib import Path
 import os
-from dotenv import load_dotenv
+from dotenv import dotenv_values
+from urllib.parse import urlparse
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Загружаем переменные окружения из .env файла в корне проекта
-# .env файл находится на уровень выше (в корне проекта)
+# Загружаем переменные окружения из .env (без ошибок на посторонние строки)
+# .env в корне проекта; резервно — backend/.env
 PROJECT_ROOT = BASE_DIR.parent
-load_dotenv(PROJECT_ROOT / ".env")
-# Также пробуем загрузить из текущей директории (на случай, если .env в backend/)
-load_dotenv(BASE_DIR / ".env", override=False)
-
-# Поддержка импортов как без префикса `backend.*`, так и с ним в тестах
-import sys, importlib
-for _mod in ("accounts","applications","materials","assignments","chat","reports","notifications","payments","core"):
+for _env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
     try:
-        # Двусторонние алиасы импортов
-        sys.modules.setdefault(f"backend.{_mod}", importlib.import_module(_mod))
-        sys.modules.setdefault(_mod, importlib.import_module(_mod))
-        # Критично: алиасы для подмодуля models, чтобы Django видел один и тот же модуль
-        sys.modules.setdefault(f"backend.{_mod}.models", importlib.import_module(f"{_mod}.models"))
+        if _env_path.exists():
+            for k, v in dotenv_values(_env_path).items():
+                if k and v is not None and k not in os.environ:
+                    os.environ[k] = str(v)
     except Exception:
+        # Игнорируем любые ошибки парсинга отдельных строк
         pass
+
+# (Удалено) Опасный ранний импорт модулей приложений.
+# Ранее здесь создавались двусторонние алиасы импортов для `backend.*` и без префикса,
+# что приводило к выполнению кода моделей до инициализации реестра приложений Django.
+# Это вызывало ошибку: "Model ... isn't in an application in INSTALLED_APPS".
+# Если необходима обратная совместимость путей импортов, её следует решать вне settings
+# и без раннего импорта моделей.
 
 # YooKasa settings
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
@@ -117,26 +120,61 @@ ASGI_APPLICATION = 'config.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Используем Supabase как основную базу данных
-# Для разработки используем SQLite, для продакшена - Supabase PostgreSQL
-if DEBUG:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-else:
-    DATABASES = {
-        'default': {
+def _build_db_from_env() -> dict:
+    """Собирает конфиг БД из переменных окружения.
+
+    Поддерживает два варианта:
+    1) DATABASE_URL (postgres URI)
+    2) Набор SUPABASE_DB_{NAME,USER,PASSWORD,HOST,PORT}
+
+    Если параметры не заданы — выбрасывает ImproperlyConfigured с понятным сообщением.
+    """
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        parsed = urlparse(database_url)
+        if parsed.scheme not in ('postgres', 'postgresql'):
+            raise ImproperlyConfigured('DATABASE_URL должен быть Postgres URI (postgres:// или postgresql://)')
+        return {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'postgres',
-            'USER': 'postgres.sobptsqfzgycmauglqzk',
-            'PASSWORD': os.getenv('SUPABASE_DB_PASSWORD', 'your-supabase-password'),
-            'HOST': 'aws-0-eu-central-1.pooler.supabase.com',
-            'PORT': '6543',
+            'NAME': parsed.path.lstrip('/'),
+            'USER': parsed.username,
+            'PASSWORD': parsed.password,
+            'HOST': parsed.hostname,
+            'PORT': str(parsed.port or ''),
+            'OPTIONS': {
+                'sslmode': os.getenv('DB_SSLMODE', 'require'),
+            }
         }
-    }
+
+    name = os.getenv('SUPABASE_DB_NAME')
+    user = os.getenv('SUPABASE_DB_USER')
+    password = os.getenv('SUPABASE_DB_PASSWORD')
+    host = os.getenv('SUPABASE_DB_HOST')
+    port = os.getenv('SUPABASE_DB_PORT')
+
+    if all([name, user, password, host]):
+        return {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': name,
+            'USER': user,
+            'PASSWORD': password,
+            'HOST': host,
+            'PORT': str(port or '6543'),
+            'OPTIONS': {
+                'sslmode': os.getenv('DB_SSLMODE', 'require'),
+            }
+        }
+
+    raise ImproperlyConfigured(
+        'Не заданы параметры подключения к БД. Установите DATABASE_URL (postgres URI) '
+        'или переменные SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD, SUPABASE_DB_HOST, SUPABASE_DB_PORT.'
+    )
+
+
+# Всегда используем PostgreSQL (Supabase) во всех средах
+DATABASES = {
+    'default': _build_db_from_env(),
+}
 
 
 # Password validation

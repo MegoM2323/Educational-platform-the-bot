@@ -1,6 +1,7 @@
 from rest_framework import generics, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -10,6 +11,7 @@ import logging
 
 from .parent_dashboard_service import ParentDashboardService
 from .serializers import ParentDashboardSerializer, ChildSubjectsSerializer, PaymentInitiationSerializer
+from accounts.staff_views import CSRFExemptSessionAuthentication
 
 logger = logging.getLogger(__name__)
 
@@ -20,19 +22,51 @@ class ParentDashboardView(generics.RetrieveAPIView):
     """
     API endpoint для получения данных дашборда родителя
     """
-    # Разрешаем доступ всем, статус 401 вернем вручную, чтобы соответствовать ожиданиям тестов
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, CSRFExemptSessionAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, *args, **kwargs):
         """
         Получить данные дашборда родителя
         """
         try:
+            # Логируем информацию о пользователе и токене
+            auth_header = request.META.get('HTTP_AUTHORIZATION', 'NOT SET')
+            logger.info(f"[ParentDashboardView.get] Authorization header: {auth_header}")
+            
+            # Проверяем, какой токен используется
+            if auth_header.startswith('Token '):
+                token_key = auth_header.replace('Token ', '')
+                from rest_framework.authtoken.models import Token
+                try:
+                    token_obj = Token.objects.get(key=token_key)
+                    logger.info(f"[ParentDashboardView.get] Token belongs to user: {token_obj.user.username}, role: {token_obj.user.role}")
+                    # Если токен принадлежит другому пользователю, чем request.user, это проблема
+                    if token_obj.user.id != request.user.id:
+                        logger.error(f"[ParentDashboardView.get] TOKEN MISMATCH! Token user: {token_obj.user.username} (id: {token_obj.user.id}), request.user: {request.user.username} (id: {request.user.id})")
+                except Token.DoesNotExist:
+                    logger.warning(f"[ParentDashboardView.get] Token not found in database")
+            
+            logger.info(f"[ParentDashboardView.get] Request from user: {request.user.username} (id: {request.user.id})")
+            logger.info(f"[ParentDashboardView.get] User role: {request.user.role}, type: {type(request.user.role)}")
+            logger.info(f"[ParentDashboardView.get] User authenticated: {request.user.is_authenticated}")
+            logger.info(f"[ParentDashboardView.get] User.Role.PARENT: {User.Role.PARENT}")
+            logger.info(f"[ParentDashboardView.get] Role match: {request.user.role == User.Role.PARENT}")
+            
             if not request.user or not request.user.is_authenticated:
                 return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
+            
             # Проверяем связь родитель-ребенок
             service = ParentDashboardService(request.user)
             dashboard_data = service.get_dashboard_data()
+            logger.info(f"[ParentDashboardView.get] Dashboard data children count: {len(dashboard_data.get('children', []))}")
+            logger.info(f"[ParentDashboardView.get] Dashboard data keys: {list(dashboard_data.keys())}")
+            logger.info(f"[ParentDashboardView.get] Children data: {dashboard_data.get('children', [])}")
+            
+            # Логируем полный ответ для отладки
+            import json
+            logger.info(f"[ParentDashboardView.get] Full dashboard data (first 2000 chars): {json.dumps(dashboard_data, default=str, ensure_ascii=False)[:2000]}")
+            
             return Response(dashboard_data, status=status.HTTP_200_OK)
         except ValueError as e:
             logger.error(f"Validation error in parent dashboard: {e}")
@@ -49,6 +83,7 @@ class ParentChildrenView(generics.ListAPIView):
     """
     API endpoint для получения списка детей родителя
     """
+    authentication_classes = [TokenAuthentication, CSRFExemptSessionAuthentication]
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
@@ -60,11 +95,14 @@ class ParentChildrenView(generics.ListAPIView):
     
     def list(self, request, *args, **kwargs):
         try:
+            logger.info(f"[ParentChildrenView.list] Request from user: {request.user.username}, role: {request.user.role}")
             service = ParentDashboardService(request.user)
             children = service.get_children()
+            logger.info(f"[ParentChildrenView.list] Found {children.count()} children for parent {request.user.username}")
             
             result = []
             for child in children:
+                logger.debug(f"[ParentChildrenView.list] Processing child: {child.username}")
                 # Основные поля профиля
                 student_profile = getattr(child, 'student_profile', None)
                 grade = getattr(student_profile, 'grade', '') if student_profile else ''
@@ -99,18 +137,26 @@ class ParentChildrenView(generics.ListAPIView):
                     'subjects': subjects,
                 })
             
+            logger.info(f"[ParentChildrenView.list] Returning {len(result)} children")
             return Response(result, status=status.HTTP_200_OK)
         except ValueError as e:
+            logger.error(f"[ParentChildrenView.list] ValueError: {e}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"[ParentChildrenView.list] Unexpected error: {e}", exc_info=True)
+            return Response({'error': f'Ошибка получения списка детей: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_child_subjects(request, child_id):
     """
     Получить предметы конкретного ребенка
     """
     try:
+        logger.info(f"[get_child_subjects] Request from user: {request.user.username}, role: {request.user.role}")
+        logger.info(f"[get_child_subjects] Authorization header: {request.META.get('HTTP_AUTHORIZATION', 'NOT SET')}")
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
         
@@ -156,12 +202,15 @@ def get_child_subjects(request, child_id):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_child_progress(request, child_id):
     """
     Получить прогресс конкретного ребенка
     """
     try:
+        logger.info(f"[get_child_progress] Request from user: {request.user.username}, role: {request.user.role}")
+        logger.info(f"[get_child_progress] Authorization header: {request.META.get('HTTP_AUTHORIZATION', 'NOT SET')}")
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
         
@@ -186,12 +235,14 @@ def get_child_progress(request, child_id):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_child_teachers(request, child_id):
     """
     Получить преподавателей ребенка
     """
     try:
+        logger.info(f"[get_child_teachers] Request from user: {request.user.username}, role: {request.user.role}")
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
         
@@ -216,12 +267,15 @@ def get_child_teachers(request, child_id):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def parent_payments(request):
     """
     История платежей родителя
     """
     try:
+        logger.info(f"[parent_payments] Request from user: {request.user.username}, role: {request.user.role}")
+        logger.info(f"[parent_payments] Authorization header: {request.META.get('HTTP_AUTHORIZATION', 'NOT SET')}")
         service = ParentDashboardService(request.user)
         data = service.get_parent_payments()
         return Response(data, status=status.HTTP_200_OK)
@@ -274,6 +328,7 @@ def get_payment_status(request, child_id):
 
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 @transaction.atomic
 def initiate_payment(request, child_id, enrollment_id):
@@ -282,6 +337,10 @@ def initiate_payment(request, child_id, enrollment_id):
     Использует enrollment_id для точного указания предмета и преподавателя
     """
     try:
+        logger.info(f"[initiate_payment] Request from user: {request.user.username}, role: {request.user.role}")
+        logger.info(f"[initiate_payment] child_id: {child_id}, enrollment_id: {enrollment_id}")
+        logger.info(f"[initiate_payment] Request data: {request.data}")
+        
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
         
@@ -390,6 +449,7 @@ def get_reports(request, child_id=None):
 
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 @transaction.atomic
 def cancel_subscription(request, child_id, enrollment_id):

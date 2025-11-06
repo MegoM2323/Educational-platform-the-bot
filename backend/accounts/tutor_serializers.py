@@ -20,8 +20,8 @@ class TutorStudentCreateSerializer(serializers.Serializer):
 
 
 class TutorStudentSerializer(serializers.ModelSerializer):
-    tutor_name = serializers.CharField(source='tutor.get_full_name', read_only=True)
-    parent_name = serializers.CharField(source='parent.get_full_name', read_only=True)
+    tutor_name = serializers.SerializerMethodField()
+    parent_name = serializers.SerializerMethodField()
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     full_name = serializers.SerializerMethodField()
 
@@ -33,7 +33,17 @@ class TutorStudentSerializer(serializers.ModelSerializer):
         )
 
     def get_full_name(self, obj):
-        return obj.user.get_full_name()
+        return obj.user.get_full_name() if obj.user else ''
+
+    def get_tutor_name(self, obj):
+        if obj.tutor:
+            return obj.tutor.get_full_name() or obj.tutor.username
+        return None
+
+    def get_parent_name(self, obj):
+        if obj.parent:
+            return obj.parent.get_full_name() or obj.parent.username
+        return None
 
 
 class SubjectAssignSerializer(serializers.Serializer):
@@ -66,7 +76,7 @@ class SubjectAssignSerializer(serializers.Serializer):
 
 class SubjectEnrollmentSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source='subject.name', read_only=True)
-    teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    teacher_name = serializers.SerializerMethodField()
 
     class Meta:
         model = SubjectEnrollment
@@ -74,6 +84,11 @@ class SubjectEnrollmentSerializer(serializers.ModelSerializer):
             'id', 'student', 'subject', 'subject_name', 'teacher', 'teacher_name',
             'enrolled_at', 'is_active'
         )
+
+    def get_teacher_name(self, obj):
+        if obj.teacher:
+            return obj.teacher.get_full_name() or obj.teacher.username
+        return None
 
 
 

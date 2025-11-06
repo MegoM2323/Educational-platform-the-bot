@@ -8,6 +8,27 @@ from .cache_utils import DashboardCacheManager
 User = get_user_model()
 
 
+@receiver(post_save, sender='accounts.StudentProfile')
+def invalidate_student_profile_cache(sender, instance, **kwargs):
+    """Инвалидирует кэш при создании/изменении StudentProfile"""
+    try:
+        cache_manager = DashboardCacheManager()
+        
+        # Инвалидируем кэш студента
+        if instance.user:
+            cache_manager.invalidate_student_cache(instance.user.id)
+        
+        # Инвалидируем кэш родителя при создании профиля
+        if kwargs.get('created', False) and instance.parent:
+            cache_manager.invalidate_parent_cache(instance.parent.id)
+        
+        # Инвалидируем кэш родителя при изменении
+        if not kwargs.get('created', False) and instance.parent:
+            cache_manager.invalidate_parent_cache(instance.parent.id)
+    except Exception:
+        pass  # Игнорируем ошибки Redis
+
+
 @receiver(post_save, sender=Material)
 @receiver(post_delete, sender=Material)
 def invalidate_material_cache(sender, instance, **kwargs):

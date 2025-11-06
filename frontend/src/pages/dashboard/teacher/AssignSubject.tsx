@@ -61,7 +61,12 @@ const AssignSubject = () => {
           '/materials/teacher/all-students/'
         );
         if (studentsResponse.data?.students) {
-          setStudents(studentsResponse.data.students);
+          // Дополнительная фильтрация на фронтенде для надежности
+          // Оставляем только студентов (на случай, если бэкенд вернет что-то лишнее)
+          const filteredStudents = studentsResponse.data.students.filter(
+            (student: any) => student.role === 'student' || !student.role
+          );
+          setStudents(filteredStudents);
         }
       } catch (error) {
         console.error('Error fetching data:', error);

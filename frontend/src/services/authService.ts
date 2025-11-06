@@ -156,6 +156,12 @@ class AuthService {
 
   public async login(credentials: LoginRequest): Promise<AuthResult> {
     try {
+      // Очищаем старые данные перед новым логином
+      this.clearStorage();
+      this.token = null;
+      this.user = null;
+      this.tokenExpiry = null;
+      
       const response = await apiClient.login(credentials);
       
       if (!response.success || !response.data) {
@@ -163,6 +169,12 @@ class AuthService {
       }
 
       const { token, user } = response.data;
+      
+      console.log('[AuthService.login] Login successful:', {
+        username: user?.username,
+        role: user?.role,
+        tokenLength: token?.length
+      });
       
       // Устанавливаем токен и пользователя
       this.token = token;
@@ -180,6 +192,12 @@ class AuthService {
       
       // Уведомляем подписчиков
       this.notifyAuthStateChange(user);
+      
+      console.log('[AuthService.login] User and token saved:', {
+        currentUser: this.user?.username,
+        currentRole: this.user?.role,
+        hasToken: !!this.token
+      });
       
       return {
         user,

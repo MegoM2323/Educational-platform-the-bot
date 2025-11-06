@@ -106,6 +106,12 @@ export const studentDashboardAPI = {
     });
     if (response.error) throw new Error(response.error);
   },
+
+  getSubjects: async (): Promise<any[]> => {
+    const response = await unifiedAPI.request<{ subjects: any[] }>('/materials/materials/student/subjects/');
+    if (response.error) throw new Error(response.error);
+    return response.data?.subjects || [];
+  },
 };
 
 // Teacher Dashboard API
@@ -169,10 +175,29 @@ export const parentDashboardAPI = {
     return response.data!;
   },
 
-  initiatePayment: async (childId: number, subjectId: number): Promise<any> => {
-    const response = await unifiedAPI.request(`/materials/dashboard/parent/children/${childId}/payment/${subjectId}/`, {
+  initiatePayment: async (childId: number, enrollmentId: number, data: { amount: number; description?: string; create_subscription?: boolean }): Promise<any> => {
+    const response = await unifiedAPI.request(`/materials/dashboard/parent/children/${childId}/payment/${enrollmentId}/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        amount: data.amount,
+        description: data.description,
+        create_subscription: data.create_subscription || false,
+      }),
+    });
+    if (response.error) throw new Error(response.error);
+    return response.data!;
+  },
+
+  cancelSubscription: async (childId: number, enrollmentId: number): Promise<any> => {
+    const response = await unifiedAPI.request(`/materials/dashboard/parent/children/${childId}/subscription/${enrollmentId}/cancel/`, {
       method: 'POST',
     });
+    if (response.error) throw new Error(response.error);
+    return response.data!;
+  },
+
+  getPaymentHistory: async (): Promise<any[]> => {
+    const response = await unifiedAPI.request<any[]>('/materials/dashboard/parent/payments/');
     if (response.error) throw new Error(response.error);
     return response.data!;
   },

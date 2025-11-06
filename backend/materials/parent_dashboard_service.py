@@ -1,12 +1,16 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Avg, Count, Sum
 from django.utils import timezone
+from django.conf import settings
 from datetime import timedelta
 from decimal import Decimal
-from .models import SubjectEnrollment, SubjectPayment, MaterialProgress, Material, Subject
+import logging
+from .models import SubjectEnrollment, SubjectPayment, SubjectSubscription, MaterialProgress, Material, Subject
 from notifications.notification_service import NotificationService
 from payments.models import Payment
 from .cache_utils import cache_dashboard_data, DashboardCacheManager
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -28,6 +32,18 @@ class ParentDashboardService:
         
         self.parent_user = parent_user
         self.parent_profile = parent_user.parent_profile
+    
+    def _has_active_subscription(self, enrollment):
+        """Проверяет, есть ли у зачисления активная подписка"""
+        try:
+            # Используем getattr для безопасного доступа к related объекту
+            subscription = getattr(enrollment, 'subscription', None)
+            if subscription:
+                return subscription.status == SubjectSubscription.Status.ACTIVE
+        except Exception:
+            # Если произошла любая ошибка (например, DoesNotExist), возвращаем False
+            pass
+        return False
     
     def get_children(self):
         """
@@ -200,25 +216,30 @@ class ParentDashboardService:
                     payment_status = 'expired'
             
             payment_info.append({
+                'enrollment_id': enrollment.id,
                 'subject': enrollment.subject.name,
+                'subject_id': enrollment.subject.id,
                 'teacher': enrollment.teacher.get_full_name(),
+                'teacher_id': enrollment.teacher.id,
                 'status': payment_status,
                 'amount': last_payment.amount if last_payment else Decimal('0.00'),
                 'due_date': last_payment.due_date if last_payment else None,
-                'paid_at': last_payment.paid_at if last_payment else None
+                'paid_at': last_payment.paid_at if last_payment else None,
+                'has_subscription': self._has_active_subscription(enrollment)
             })
         
         return payment_info
     
-    def initiate_payment(self, child, subject_id, amount, description="", request=None):
+    def initiate_payment(self, child, enrollment, amount, description="", create_subscription=False, request=None):
         """
-        Инициировать платеж за предмет
+        Инициировать платеж за предмет с конкретным преподавателем
         
         Args:
             child: Пользователь-студент
-            subject_id: ID предмета
+            enrollment: SubjectEnrollment объект (зачисление на предмет с преподавателем)
             amount: Сумма платежа
             description: Описание платежа
+            create_subscription: Создать регулярную подписку (еженедельное списание)
             request: Django request object для создания платежа через ЮКассу
             
         Returns:
@@ -227,14 +248,11 @@ class ParentDashboardService:
         if child not in self.get_children():
             raise ValueError("Ребенок не принадлежит данному родителю")
         
-        try:
-            enrollment = SubjectEnrollment.objects.get(
-                student=child,
-                subject_id=subject_id,
-                is_active=True
-            )
-        except SubjectEnrollment.DoesNotExist:
-            raise ValueError("Ребенок не зачислен на данный предмет")
+        if enrollment.student != child:
+            raise ValueError("Зачисление не принадлежит данному ребенку")
+        
+        if not enrollment.is_active:
+            raise ValueError("Зачисление неактивно")
         
         # Создаем основной платеж (плательщик — родитель)
         parent = self.parent_user
@@ -262,17 +280,35 @@ class ParentDashboardService:
         # Если передан request, создаем платеж в ЮКассу
         if request:
             from payments.views import create_yookassa_payment
+            
+            # Проверяем наличие ключей перед созданием платежа
+            if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
+                logger.error("YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured")
+                # Удаляем созданный платеж, так как он не может быть обработан
+                payment.delete()
+                raise ValueError("Настройки ЮКассы не сконфигурированы. Обратитесь к администратору.")
+            
             yookassa_payment = create_yookassa_payment(payment, request)
             
             if yookassa_payment:
                 # Сохраняем ID платежа ЮКассы и URL подтверждения
                 payment.yookassa_payment_id = yookassa_payment.get('id')
-                payment.confirmation_url = yookassa_payment.get('confirmation', {}).get('confirmation_url')
-                payment.return_url = f"{request.build_absolute_uri('/payments/success/')}?payment_id={payment.id}"
+                confirmation = yookassa_payment.get('confirmation', {})
+                payment.confirmation_url = confirmation.get('confirmation_url')
+                # Получаем return_url из ответа ЮКассы (он уже содержит URL фронтенда)
+                payment.return_url = confirmation.get('return_url')
                 payment.raw_response = yookassa_payment
                 payment.save()
+                logger.info(f"Payment {payment.id} created successfully with YooKassa ID: {payment.yookassa_payment_id}")
+            else:
+                # Если платеж не создан, логируем ошибку и удаляем созданный платеж
+                logger.error(f"Failed to create YooKassa payment for payment {payment.id}")
+                # Удаляем созданный платеж, так как он не может быть обработан
+                payment.delete()
+                raise ValueError("Не удалось создать платеж в ЮКассу. Проверьте настройки YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY, а также логи сервера для деталей.")
         
-        # Создаем платеж по предмету
+        # Создаем платеж по предмету только если платеж в YooKassa создан успешно
+        # (если request был передан, значит мы уже проверили создание в YooKassa выше)
         due_date = timezone.now() + timedelta(days=7)  # 7 дней на оплату
         subject_payment = SubjectPayment.objects.create(
             enrollment=enrollment,
@@ -281,15 +317,64 @@ class ParentDashboardService:
             due_date=due_date
         )
         
-        return {
+        # Если нужно создать подписку для регулярных платежей
+        subscription = None
+        if create_subscription:
+            from .models import SubjectSubscription
+            next_payment_date = timezone.now() + timedelta(weeks=1)  # Следующий платеж через неделю
+            
+            # Проверяем, существует ли уже подписка для этого enrollment
+            subscription_was_updated = False
+            try:
+                subscription = SubjectSubscription.objects.get(enrollment=enrollment)
+                # Если подписка существует, обновляем её
+                old_amount = subscription.amount
+                subscription.amount = amount
+                subscription.status = SubjectSubscription.Status.ACTIVE
+                subscription.next_payment_date = next_payment_date
+                subscription.payment_interval_weeks = 1
+                subscription.cancelled_at = None  # Сбрасываем дату отмены, если была
+                subscription.save()
+                subscription_was_updated = True
+                logger.info(f"Updated existing subscription {subscription.id} for enrollment {enrollment.id} (amount: {old_amount} -> {amount})")
+            except SubjectSubscription.DoesNotExist:
+                # Если подписки нет, создаём новую
+                subscription = SubjectSubscription.objects.create(
+                    enrollment=enrollment,
+                    amount=amount,
+                    status=SubjectSubscription.Status.ACTIVE,
+                    next_payment_date=next_payment_date,
+                    payment_interval_weeks=1
+                )
+                logger.info(f"Created new subscription {subscription.id} for enrollment {enrollment.id}")
+            
+            # Сохраняем флаг обновления для использования в результате
+            subscription._was_updated = subscription_was_updated
+        
+        result = {
             'payment_id': str(payment.id),
             'amount': amount,
             'subject': enrollment.subject.name,
+            'teacher_name': enrollment.teacher.get_full_name(),
             'due_date': due_date.isoformat(),
             'confirmation_url': payment.confirmation_url,
             'return_url': payment.return_url,
-            'payment_url': payment.confirmation_url  # Для фронтенда
+            'payment_url': payment.confirmation_url or payment.return_url,  # Для фронтенда
+            'subscription_created': subscription is not None,
         }
+        
+        if subscription:
+            result['subscription_id'] = subscription.id
+            result['next_payment_date'] = subscription.next_payment_date.isoformat()
+            # Проверяем, была ли подписка обновлена
+            result['subscription_updated'] = getattr(subscription, '_was_updated', False)
+        
+        # Если нет confirmation_url, но есть return_url, используем его
+        if not result['confirmation_url'] and result['return_url']:
+            result['confirmation_url'] = result['return_url']
+            result['payment_url'] = result['return_url']
+        
+        return result
     
     def get_parent_payments(self):
         """
@@ -297,20 +382,28 @@ class ParentDashboardService:
         """
         children = self.get_children()
         payments = SubjectPayment.objects.select_related(
-            'enrollment__student', 'enrollment__subject', 'payment'
+            'enrollment__student', 'enrollment__subject', 'enrollment__teacher', 'payment'
         ).filter(enrollment__student__in=children).order_by('-created_at')
         
         data = []
         for sp in payments:
             data.append({
+                'id': sp.id,
+                'enrollment_id': sp.enrollment.id,
                 'subject': sp.enrollment.subject.name,
+                'subject_id': sp.enrollment.subject.id,
+                'teacher': sp.enrollment.teacher.get_full_name(),
+                'teacher_id': sp.enrollment.teacher.id,
                 'student': sp.enrollment.student.get_full_name(),
+                'student_id': sp.enrollment.student.id,
                 'status': sp.status,
-                'amount': sp.amount,
-                'due_date': sp.due_date,
-                'paid_at': sp.paid_at,
+                'amount': str(sp.amount),
+                'due_date': sp.due_date.isoformat() if sp.due_date else None,
+                'paid_at': sp.paid_at.isoformat() if sp.paid_at else None,
+                'created_at': sp.created_at.isoformat(),
                 'payment_id': str(sp.payment_id),
                 'gateway_status': sp.payment.status if sp.payment_id else None,
+                'is_recurring': sp.payment.metadata.get('is_recurring', False) if sp.payment_id and sp.payment.metadata else False,
             })
         return data
     
@@ -392,10 +485,10 @@ class ParentDashboardService:
             # Предметы и платежи
             subjects = []
             payments_info = self.get_payment_status(child)
-            # Индекс платежей по предмету
-            payments_by_subject = {}
+            # Индекс платежей по enrollment_id (так как один предмет может быть с разными преподавателями)
+            payments_by_enrollment = {}
             for p in payments_info:
-                payments_by_subject[p['subject']] = p
+                payments_by_enrollment[p['enrollment_id']] = p
                 if p['status'] == 'paid':
                     completed_payments += 1
                 elif p['status'] == 'pending':
@@ -404,14 +497,17 @@ class ParentDashboardService:
                     overdue_payments += 1
             
             for enrollment in self.get_child_subjects(child):
-                subj_name = enrollment.subject.name
-                payment = payments_by_subject.get(subj_name, None)
+                payment = payments_by_enrollment.get(enrollment.id, None)
                 subjects.append({
                     'id': enrollment.subject.id,
-                    'name': subj_name,
+                    'enrollment_id': enrollment.id,
+                    'name': enrollment.subject.name,
                     'teacher_name': enrollment.teacher.get_full_name(),
+                    'teacher_id': enrollment.teacher.id,
                     'payment_status': payment['status'] if payment else 'no_payment',
                     'next_payment_date': payment['due_date'] if payment else None,
+                    'has_subscription': self._has_active_subscription(enrollment),
+                    'amount': str(payment['amount']) if payment and payment.get('amount') else None
                 })
             
             # Копим для средней статистики

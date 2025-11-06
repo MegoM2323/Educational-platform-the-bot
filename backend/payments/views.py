@@ -5,7 +5,6 @@ import logging
 from decimal import Decimal
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
-from django.shortcuts import render, redirect
 from django.utils.crypto import get_random_string
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -28,84 +27,23 @@ logger = logging.getLogger(__name__)
 SUCCESS_URL = "/payments/success/"
 FAIL_URL = "/payments/fail/"
 
-def pay_page(request):
-    """Страница создания платежа"""
-    if request.method == "POST":
-        service_name = (request.POST.get("service_name") or "").strip()
-        customer_fio = (request.POST.get("customer_fio") or "").strip()
-        raw_amount = (request.POST.get("amount") or "0").replace(",", ".")
-        
-        try:
-            amount = Decimal(raw_amount)
-        except Exception:
-            return HttpResponseBadRequest("Некорректная сумма")
-            
-        if not service_name or not customer_fio or amount <= 0:
-            return HttpResponseBadRequest("Заполните все поля корректно")
+def _get_safe_url(request, path):
+    """Безопасно получает абсолютный URL, обрабатывая случаи без правильного хоста"""
+    try:
+        if hasattr(request, 'build_absolute_uri'):
+            return request.build_absolute_uri(path)
+    except Exception:
+        pass
+    # Fallback для тестовых случаев
+    return f"http://localhost:8000{path}"
 
-        # Validate payment data
-        payment_data = {
-            'amount': amount,
-            'service_name': service_name,
-            'customer_fio': customer_fio
-        }
-        validation_errors = DataIntegrityValidator.validate_payment_data(payment_data)
-        if validation_errors:
-            return HttpResponseBadRequest(f"Validation errors: {', '.join(validation_errors)}")
-
-        # Создаем платеж в нашей системе
-        payment = Payment.objects.create(
-            amount=amount,
-            service_name=service_name,
-            customer_fio=customer_fio,
-            description=f"Услуга: {service_name}; Плательщик: {customer_fio}",
-            metadata={
-                "service_name": service_name,
-                "customer_fio": customer_fio,
-            }
-        )
-        
-        # Log payment creation
-        log_critical_operation(
-            "payment_created",
-            user_id=None,
-            details={
-                'payment_id': payment.id,
-                'amount': str(amount),
-                'service_name': service_name,
-                'customer_fio': customer_fio
-            },
-            success=True
-        )
-
-        # Создаем платеж в ЮКассе
-        yookassa_payment = create_yookassa_payment(payment, request)
-        
-        if yookassa_payment:
-            # Сохраняем ID платежа ЮКассы и URL подтверждения
-            payment.yookassa_payment_id = yookassa_payment.get('id')
-            payment.confirmation_url = yookassa_payment.get('confirmation', {}).get('confirmation_url')
-            payment.return_url = f"{request.build_absolute_uri(SUCCESS_URL)}?payment_id={payment.id}"
-            payment.raw_response = yookassa_payment
-            payment.save()
-            
-            # Перенаправляем на страницу подтверждения
-            return render(request, "payments/redirect_form.html", {
-                "payment": payment,
-                "confirmation_url": payment.confirmation_url,
-                "amount": payment.amount,
-                "description": payment.description,
-            })
-        else:
-            return HttpResponseBadRequest("Ошибка создания платежа")
-    
-    return render(request, "payments/pay.html")
+# Старая функция pay_page удалена - оплата теперь происходит через API
 
 def create_yookassa_payment(payment, request):
     """Создание платежа в ЮКассе с улучшенной валидацией"""
     # Проверяем наличие необходимых настроек
     if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
-        logger.error("YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured")
+        logger.error("YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured. Please set these environment variables.")
         return None
     
     url = "https://api.yookassa.ru/v3/payments"
@@ -115,7 +53,12 @@ def create_yookassa_payment(payment, request):
         logger.error(f"Invalid payment amount: {payment.amount}")
         return None
     
-    # Подготовка данных для ЮКассы
+    # Получаем URL фронтенда для возврата после оплаты
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:8080')
+    return_url = f"{frontend_url}/dashboard/parent/payment-success?payment_id={payment.id}"
+    
+    # Подготовка данных для ЮКассы согласно официальной документации
+    # https://yookassa.ru/developers/api#create_payment
     payment_data = {
         "amount": {
             "value": f"{payment.amount:.2f}",
@@ -123,9 +66,9 @@ def create_yookassa_payment(payment, request):
         },
         "confirmation": {
             "type": "redirect",
-            "return_url": f"{request.build_absolute_uri(SUCCESS_URL)}?payment_id={payment.id}"
+            "return_url": return_url
         },
-        "capture": True,
+        "capture": True,  # Автоматическое подтверждение платежа
         "description": payment.description or "Оплата услуги",
         "metadata": {
             "payment_id": str(payment.id),
@@ -143,7 +86,9 @@ def create_yookassa_payment(payment, request):
     auth = (settings.YOOKASSA_SHOP_ID, settings.YOOKASSA_SECRET_KEY)
     
     try:
-        logger.info(f"Creating YooKassa payment for payment {payment.id}")
+        logger.info(f"Creating YooKassa payment for payment {payment.id}, amount: {payment.amount}")
+        logger.debug(f"Payment data: {safe_json_dumps(payment_data)}")
+        
         response = requests.post(
             url, 
             headers=headers, 
@@ -152,20 +97,47 @@ def create_yookassa_payment(payment, request):
             timeout=30
         )
         
-        if response.status_code == 200:
+        logger.info(f"YooKassa API response status: {response.status_code}")
+        
+        if response.status_code in [200, 201]:
             data = safe_json_response(response)
             if data:
                 logger.info(f"YooKassa payment created successfully: {data.get('id')}")
+                logger.debug(f"YooKassa response: {safe_json_dumps(data)}")
                 return data
             else:
-                logger.error("Failed to parse YooKassa response")
+                logger.error(f"Failed to parse YooKassa response. Response text: {response.text[:500]}")
                 return None
         else:
-            logger.error(f"YooKassa API error: {response.status_code} - {response.text}")
+            error_text = response.text[:1000] if response.text else "No error message"
+            logger.error(f"YooKassa API error: {response.status_code} - {error_text}")
+            # Пытаемся распарсить ошибку из ответа
+            error_description = None
+            try:
+                error_data = response.json() if hasattr(response, 'json') else safe_json_response(response)
+                if error_data and isinstance(error_data, dict):
+                    error_description = error_data.get('description') or error_data.get('message') or error_data.get('type')
+                    if error_description:
+                        logger.error(f"YooKassa error description: {error_description}")
+            except Exception as parse_error:
+                logger.debug(f"Could not parse error response: {parse_error}")
+            
+            # Возвращаем None, чтобы вызывающий код мог обработать ошибку
+            # Но логируем детальную информацию
+            logger.error(f"YooKassa API error details - Status: {response.status_code}, Description: {error_description}, Text: {error_text[:200]}")
             return None
             
+    except requests.exceptions.Timeout as e:
+        logger.error(f"YooKassa API timeout: {e}")
+        return None
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"YooKassa API connection error: {e}")
+        return None
     except requests.RequestException as e:
-        logger.error(f"Request error creating YooKassa payment: {e}")
+        logger.error(f"Request error creating YooKassa payment: {e}", exc_info=True)
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error creating YooKassa payment: {e}", exc_info=True)
         return None
 
 def check_yookassa_payment_status(yookassa_payment_id):
@@ -197,79 +169,7 @@ def check_yookassa_payment_status(yookassa_payment_id):
         print(f"Request error checking payment status: {e}")
         return None
 
-def pay_success(request):
-    """Страница успешной оплаты"""
-    # Получаем ID платежа из параметров
-    payment_id = request.GET.get('payment_id')
-    
-    if not payment_id:
-        return render(request, "payments/fail.html", {
-            "error": "Не указан ID платежа"
-        })
-    
-    try:
-        # Находим платеж
-        payment = Payment.objects.get(id=payment_id)
-        
-        # Проверяем статус платежа в ЮКассе
-        if payment.yookassa_payment_id:
-            yookassa_status = check_yookassa_payment_status(payment.yookassa_payment_id)
-            if yookassa_status:
-                # Обновляем статус в нашей БД если нужно
-                if yookassa_status == 'succeeded' and payment.status != Payment.Status.SUCCEEDED:
-                    payment.status = Payment.Status.SUCCEEDED
-                    payment.paid_at = timezone.now()
-                    payment.save()
-                    # Синхронизация статуса предметного платежа
-                    try:
-                        from materials.models import SubjectPayment as SubjectPaymentModel
-                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
-                        for sp in subject_payments:
-                            if sp.status != SubjectPaymentModel.Status.PAID:
-                                sp.status = SubjectPaymentModel.Status.PAID
-                                sp.paid_at = payment.paid_at
-                                sp.save()
-                    except Exception as sync_err:
-                        logger.error(f"Failed to sync SubjectPayment for payment {payment.id}: {sync_err}")
-                    
-                    # Отправляем уведомление в Telegram
-                    try:
-                        telegram_service = TelegramNotificationService()
-                        telegram_service.send_payment_notification(payment)
-                    except Exception as e:
-                        print(f"Error sending Telegram notification: {e}")
-        
-        # Показываем соответствующую страницу в зависимости от статуса
-        if payment.status == Payment.Status.SUCCEEDED:
-            return render(request, "payments/success.html", {
-                "payment": payment
-            })
-        elif payment.status == Payment.Status.CANCELED:
-            return render(request, "payments/fail.html", {
-                "error": "Платеж был отменен"
-            })
-        else:
-            # Платеж еще в процессе
-            return render(request, "payments/pending.html", {
-                "payment": payment
-            })
-            
-    except Payment.DoesNotExist:
-        return render(request, "payments/fail.html", {
-            "error": "Платеж не найден"
-        })
-    except Exception as e:
-        print(f"Error in pay_success: {e}")
-        return render(request, "payments/fail.html", {
-            "error": "Ошибка обработки платежа"
-        })
-
-def pay_fail(request):
-    """Страница неудачной оплаты"""
-    error = request.GET.get('error', 'Произошла ошибка при обработке платежа')
-    return render(request, "payments/fail.html", {
-        "error": error
-    })
+# Старые функции pay_success и pay_fail удалены - обработка успешной оплаты теперь на фронтенде
 
 @csrf_exempt
 def yookassa_webhook(request):
@@ -417,6 +317,7 @@ def check_payment_status(request):
         return JsonResponse({
             "status": payment.status,
             "amount": str(payment.amount),
+            "description": payment.description,
             "service_name": payment.service_name,
             "customer_fio": payment.customer_fio,
             "created": payment.created.isoformat(),

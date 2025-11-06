@@ -24,6 +24,7 @@ urlpatterns = [
     path('dashboard/student/progress/', student_dashboard_views.student_progress_statistics, name='student-progress-statistics'),
     path('dashboard/student/activity/', student_dashboard_views.student_recent_activity, name='student-recent-activity'),
     path('dashboard/student/general-chat/', student_dashboard_views.student_general_chat, name='student-general-chat'),
+    path('materials/student/subjects/', student_dashboard_views.student_subjects, name='student-subjects'),
     path('materials/<int:material_id>/progress/', student_dashboard_views.update_material_progress, name='update-material-progress'),
     
     # Student materials API endpoints
@@ -56,9 +57,10 @@ urlpatterns = [
     path('dashboard/parent/children/<int:child_id>/progress/', parent_dashboard_views.get_child_progress, name='child-progress'),
     path('dashboard/parent/children/<int:child_id>/teachers/', parent_dashboard_views.get_child_teachers, name='child-teachers'),
     path('dashboard/parent/children/<int:child_id>/payments/', parent_dashboard_views.get_payment_status, name='child-payments'),
-    path('dashboard/parent/children/<int:child_id>/payment/<int:subject_id>/', parent_dashboard_views.initiate_payment, name='initiate-payment'),
+    path('dashboard/parent/children/<int:child_id>/payment/<int:enrollment_id>/', parent_dashboard_views.initiate_payment, name='initiate-payment'),
     path('dashboard/parent/payments/', parent_dashboard_views.parent_payments, name='parent-payments'),
     path('dashboard/parent/payments/pending/', parent_dashboard_views.parent_pending_payments, name='parent-pending-payments'),
     path('dashboard/parent/reports/', parent_dashboard_views.get_reports, name='parent-reports'),
     path('dashboard/parent/reports/<int:child_id>/', parent_dashboard_views.get_reports, name='parent-child-reports'),
+    path('dashboard/parent/children/<int:child_id>/subscription/<int:enrollment_id>/cancel/', parent_dashboard_views.cancel_subscription, name='cancel-subscription'),
 ]

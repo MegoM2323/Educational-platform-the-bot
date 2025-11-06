@@ -21,11 +21,27 @@ from .tutor_serializers import (
 User = get_user_model()
 
 
+class CSRFExemptSessionAuthentication(SessionAuthentication):
+    """
+    Кастомный класс аутентификации, который отключает CSRF проверку для API views.
+    Используется для POST запросов, где фронтенд использует токены.
+    """
+    def enforce_csrf(self, request):
+        # Отключаем CSRF проверку для API запросов
+        return
+
+
 class IsTutor(permissions.BasePermission):
+    """
+    Разрешение для пользователей с ролью TUTOR или администраторов (staff/superuser).
+    Администраторы имеют доступ ко всем функциям тьютора.
+    """
     def has_permission(self, request, view):
+        print(f"[IsTutor.has_permission] Called for method: {request.method}")
         print(f"[IsTutor] Checking permission")
-        print(f"[IsTutor] Request META: {dict(request.META)}")
         print(f"[IsTutor] Authorization header: {request.META.get('HTTP_AUTHORIZATION', 'NOT SET')}")
+        print(f"[IsTutor] User: {request.user}")
+        print(f"[IsTutor] User type: {type(request.user)}")
         
         if not request.user.is_authenticated:
             print(f"[IsTutor] User not authenticated")
@@ -33,17 +49,27 @@ class IsTutor(permissions.BasePermission):
             return False
         
         user_role = getattr(request.user, 'role', None)
-        print(f"[IsTutor] User: {request.user.username}, ID: {request.user.id}, Role: {user_role}, Expected: {User.Role.TUTOR}")
+        is_staff = getattr(request.user, 'is_staff', False)
+        is_superuser = getattr(request.user, 'is_superuser', False)
         
-        result = user_role == User.Role.TUTOR
+        print(f"[IsTutor] User: {request.user.username}, ID: {request.user.id}, Role: {user_role}, is_staff: {is_staff}, is_superuser: {is_superuser}")
+        
+        # Разрешаем доступ для тьюторов или администраторов
+        result = (
+            user_role == User.Role.TUTOR or 
+            is_staff or 
+            is_superuser
+        )
+        
         if not result:
-            print(f"[IsTutor] Permission denied: user role '{user_role}' != '{User.Role.TUTOR}'")
+            print(f"[IsTutor] Permission denied: user role '{user_role}' is not tutor and user is not staff/superuser")
         
+        print(f"[IsTutor] Access granted: {result}")
         return result
 
 
 class TutorStudentsViewSet(viewsets.ViewSet):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    authentication_classes = [TokenAuthentication, CSRFExemptSessionAuthentication]
     permission_classes = [permissions.IsAuthenticated, IsTutor]
 
     def list(self, request):
@@ -51,16 +77,22 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         print(f"[TutorStudentsViewSet.list] User: {request.user}")
         print(f"[TutorStudentsViewSet.list] User authenticated: {request.user.is_authenticated}")
         print(f"[TutorStudentsViewSet.list] User role: {getattr(request.user, 'role', None)}")
+        print(f"[TutorStudentsViewSet.list] User is_staff: {getattr(request.user, 'is_staff', False)}")
+        print(f"[TutorStudentsViewSet.list] User is_superuser: {getattr(request.user, 'is_superuser', False)}")
         
         # Показываем всех учеников тьютора:
         # 1) у кого в профиле явно указан этот тьютор
         # 2) кого этот тьютор создавал (created_by_tutor)
+        # Для администраторов показываем всех учеников, которых они создавали
+        # Используем общий фильтр, который работает и для тьюторов, и для администраторов
         students = (
             StudentProfile.objects
             .filter(Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             .select_related('user', 'tutor', 'parent')
         )
+        
         print(f"[TutorStudentsViewSet.list] Found {students.count()} students")
+        print(f"[TutorStudentsViewSet.list] Students: {[s.user.username for s in students]}")
         
         serializer = TutorStudentSerializer(students, many=True)
         print(f"[TutorStudentsViewSet.list] Serialized data: {serializer.data}")
@@ -99,9 +131,32 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             print(f"[TutorStudentsViewSet.create] Exception: {e}")
+            import traceback
+            print(f"[TutorStudentsViewSet.create] Traceback: {traceback.format_exc()}")
             return Response({'detail': f'Ошибка создания ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        student_profile = student_user.student_profile
+        try:
+            student_profile = student_user.student_profile
+        except StudentProfile.DoesNotExist:
+            print(f"[TutorStudentsViewSet.create] StudentProfile not found for user {student_user.id}")
+            return Response({'detail': 'Профиль студента не был создан'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        print(f"[TutorStudentsViewSet.create] Student profile created: {student_profile.id}")
+        print(f"[TutorStudentsViewSet.create] Student profile tutor: {student_profile.tutor}")
+        print(f"[TutorStudentsViewSet.create] Student profile parent: {student_profile.parent} (id: {student_profile.parent_id})")
+        print(f"[TutorStudentsViewSet.create] Student user created_by_tutor: {student_user.created_by_tutor}")
+        print(f"[TutorStudentsViewSet.create] Request user: {request.user}")
+        
+        # Проверяем связь родитель-ребенок
+        if parent_user:
+            print(f"[TutorStudentsViewSet.create] Parent user: {parent_user.username}, role: {parent_user.role}")
+            try:
+                parent_profile = parent_user.parent_profile
+                children = list(parent_profile.children)
+                print(f"[TutorStudentsViewSet.create] ParentProfile exists: True, children count: {len(children)}")
+                print(f"[TutorStudentsViewSet.create] Children: {[c.username for c in children]}")
+            except Exception as e:
+                print(f"[TutorStudentsViewSet.create] Error getting ParentProfile: {e}")
+        
         response = {
             'student': TutorStudentSerializer(student_profile).data,
             'parent': {
@@ -123,18 +178,41 @@ class TutorStudentsViewSet(viewsets.ViewSet):
 
     def retrieve(self, request, pk=None):
         try:
-            profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(id=pk, tutor=request.user)
+            # Для тьюторов проверяем, что ученик принадлежит им
+            # Для администраторов проверяем, что они создали этого ученика
+            if request.user.role == User.Role.TUTOR:
+                profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(
+                    id=pk, 
+                    tutor=request.user
+                )
+            else:
+                # Для администраторов проверяем, что они создали этого ученика
+                profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(
+                    id=pk,
+                    user__created_by_tutor=request.user
+                )
         except StudentProfile.DoesNotExist:
             return Response({'detail': 'Ученик не найден'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"[TutorStudentsViewSet.retrieve] Error: {e}")
+            return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(TutorStudentSerializer(profile).data)
 
     @action(detail=True, methods=['post', 'get'], url_path='subjects')
     def subjects(self, request, pk=None):
         # pk — это id StudentProfile
         try:
-            student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
+            # Для тьюторов проверяем, что ученик принадлежит им
+            # Для администраторов проверяем, что они создали этого ученика
+            if request.user.role == User.Role.TUTOR:
+                student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
+            else:
+                student_profile = StudentProfile.objects.select_related('user').get(id=pk, user__created_by_tutor=request.user)
         except StudentProfile.DoesNotExist:
             return Response({'detail': 'Ученик не найден'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"[TutorStudentsViewSet.subjects] Error: {e}")
+            return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
         if request.method.lower() == 'get':
             from materials.models import SubjectEnrollment
@@ -146,32 +224,59 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         subject = assign_serializer.validated_data['subject']
         teacher = assign_serializer.validated_data['teacher']
 
-        enrollment = SubjectAssignmentService.assign_subject(
-            tutor=request.user,
-            student=student_profile.user,
-            subject=subject,
-            teacher=teacher,
-        )
-        return Response(SubjectEnrollmentSerializer(enrollment).data, status=status.HTTP_201_CREATED)
+        try:
+            enrollment = SubjectAssignmentService.assign_subject(
+                tutor=request.user,
+                student=student_profile.user,
+                subject=subject,
+                teacher=teacher,
+            )
+            return Response(SubjectEnrollmentSerializer(enrollment).data, status=status.HTTP_201_CREATED)
+        except PermissionError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"[TutorStudentsViewSet.subjects] Error assigning subject: {e}")
+            return Response({'detail': f'Ошибка назначения предмета: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['delete'], url_path='subjects/(?P<subject_id>[^/.]+)')
     def unassign_subject(self, request, pk=None, subject_id=None):
         try:
-            student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
+            # Для тьюторов проверяем, что ученик принадлежит им
+            # Для администраторов проверяем, что они создали этого ученика
+            if request.user.role == User.Role.TUTOR:
+                student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
+            else:
+                student_profile = StudentProfile.objects.select_related('user').get(id=pk, user__created_by_tutor=request.user)
         except StudentProfile.DoesNotExist:
             return Response({'detail': 'Ученик не найден'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"[TutorStudentsViewSet.unassign_subject] Error getting student: {e}")
+            return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             subject = Subject.objects.get(id=subject_id)
         except Subject.DoesNotExist:
             return Response({'detail': 'Предмет не найден'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"[TutorStudentsViewSet.unassign_subject] Error getting subject: {e}")
+            return Response({'detail': f'Ошибка получения предмета: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        SubjectAssignmentService.unassign_subject(
-            tutor=request.user,
-            student=student_profile.user,
-            subject=subject,
-        )
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        try:
+            SubjectAssignmentService.unassign_subject(
+                tutor=request.user,
+                student=student_profile.user,
+                subject=subject,
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except PermissionError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"[TutorStudentsViewSet.unassign_subject] Error unassigning subject: {e}")
+            return Response({'detail': f'Ошибка отмены назначения предмета: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'], url_path='subjects/bulk')
     def assign_subjects_bulk(self, request, pk=None):
@@ -180,24 +285,49 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         Возвращает список созданных/актуализированных зачислений.
         """
         try:
-            student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
+            # Для тьюторов проверяем, что ученик принадлежит им
+            # Для администраторов проверяем, что они создали этого ученика
+            if request.user.role == User.Role.TUTOR:
+                student_profile = StudentProfile.objects.select_related('user').get(id=pk, tutor=request.user)
+            else:
+                student_profile = StudentProfile.objects.select_related('user').get(id=pk, user__created_by_tutor=request.user)
         except StudentProfile.DoesNotExist:
             return Response({'detail': 'Ученик не найден'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"[TutorStudentsViewSet.assign_subjects_bulk] Error getting student: {e}")
+            return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = SubjectBulkAssignSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         enrollments = []
+        errors = []
         for item in serializer.validated_data['items']:
             subject = item['subject']
             teacher = item.get('teacher')
-            enrollment = SubjectAssignmentService.assign_subject(
-                tutor=request.user,
-                student=student_profile.user,
-                subject=subject,
-                teacher=teacher,
-            )
-            enrollments.append(enrollment)
+            try:
+                enrollment = SubjectAssignmentService.assign_subject(
+                    tutor=request.user,
+                    student=student_profile.user,
+                    subject=subject,
+                    teacher=teacher,
+                )
+                enrollments.append(enrollment)
+            except (PermissionError, ValueError) as e:
+                errors.append(f"Предмет {subject.name}: {str(e)}")
+            except Exception as e:
+                print(f"[TutorStudentsViewSet.assign_subjects_bulk] Error assigning subject {subject.id}: {e}")
+                errors.append(f"Предмет {subject.name}: Ошибка назначения")
+
+        if errors and not enrollments:
+            return Response({'detail': 'Ошибки при назначении предметов', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if errors:
+            return Response({
+                'enrollments': SubjectEnrollmentSerializer(enrollments, many=True).data,
+                'errors': errors,
+                'warning': 'Некоторые предметы не были назначены'
+            }, status=status.HTTP_200_OK)
 
         return Response(SubjectEnrollmentSerializer(enrollments, many=True).data, status=status.HTTP_201_CREATED)
 

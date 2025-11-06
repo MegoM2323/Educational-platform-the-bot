@@ -37,11 +37,24 @@ class SecureStorage {
 
   private decrypt(encryptedData: string): string | null {
     try {
+      // Проверяем, что данные не пустые
+      if (!encryptedData || encryptedData.trim() === '') {
+        return null;
+      }
+      
       const bytes = CryptoJS.AES.decrypt(encryptedData, this.encryptionKey);
       const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-      return decrypted || null;
+      
+      // Проверяем, что расшифровка прошла успешно
+      if (!decrypted || decrypted.trim() === '') {
+        console.warn('Расшифровка вернула пустую строку - возможно, неверный ключ или поврежденные данные');
+        return null;
+      }
+      
+      return decrypted;
     } catch (error) {
       console.error('Ошибка расшифровки:', error);
+      // Если данные повреждены, возвращаем null
       return null;
     }
   }

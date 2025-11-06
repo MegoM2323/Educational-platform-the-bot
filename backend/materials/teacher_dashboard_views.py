@@ -1,6 +1,7 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
@@ -17,7 +18,14 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+# CSRF-exempt SessionAuthentication для API
+class CSRFExemptSessionAuthentication(SessionAuthentication):
+    def enforce_csrf(self, request):
+        return
+
+
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_dashboard(request):
     """
@@ -50,6 +58,7 @@ def teacher_dashboard(request):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_students(request):
     """
@@ -75,11 +84,14 @@ def teacher_students(request):
 
 
 @api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_materials(request):
     """
     Получить материалы преподавателя или создать новый материал
     """
+    logger.info(f"[teacher_materials] {request.method} from: {request.user.username}")
+    
     if request.user.role != User.Role.TEACHER:
         return Response(
             {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
@@ -98,6 +110,7 @@ def teacher_materials(request):
                         status=status.HTTP_400_BAD_REQUEST
                     )
             materials = service.get_teacher_materials(subject_id)
+            logger.info(f"[teacher_materials] Returning {len(materials)} materials")
             return Response({'materials': materials}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
@@ -113,11 +126,15 @@ def teacher_materials(request):
 
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def distribute_material(request):
     """
     Распределить материал среди студентов
     """
+    logger.info(f"[distribute_material] Request from: {request.user.username}")
+    logger.info(f"[distribute_material] Request data: {request.data}")
+    
     if request.user.role != User.Role.TEACHER:
         return Response(
             {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
@@ -149,6 +166,8 @@ def distribute_material(request):
         service = TeacherDashboardService(request.user)
         result = service.distribute_material(material_id, student_ids)
         
+        logger.info(f"[distribute_material] Result: {result}")
+        
         if result['success']:
             return Response(result, status=status.HTTP_200_OK)
         else:
@@ -162,6 +181,34 @@ def distribute_material(request):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def teacher_all_students(request):
+    """
+    Получить список ВСЕХ студентов для назначения предметов
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        service = TeacherDashboardService(request.user)
+        students = service.get_all_students()
+        
+        return Response({'students': students}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Error in teacher_all_students: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при получении списка студентов: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def student_progress_overview(request):
     """
@@ -203,6 +250,7 @@ def student_progress_overview(request):
 
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_student_report(request):
     """
@@ -259,6 +307,7 @@ def create_student_report(request):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_reports(request):
     """
@@ -284,6 +333,7 @@ def teacher_reports(request):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_general_chat(request):
     """
@@ -315,6 +365,7 @@ def teacher_general_chat(request):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_student_subjects(request, student_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -343,6 +394,7 @@ def teacher_student_subjects(request, student_id: int):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def subject_students(request, subject_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -371,6 +423,7 @@ def subject_students(request, subject_id: int):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def pending_submissions(request):
     if request.user.role != User.Role.TEACHER:
@@ -389,6 +442,7 @@ def pending_submissions(request):
 
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def submission_feedback(request, submission_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -416,6 +470,7 @@ def submission_feedback(request, submission_id: int):
 
 
 @api_view(['PUT'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def update_submission_status(request, submission_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -442,6 +497,7 @@ def update_submission_status(request, submission_id: int):
 
 
 @api_view(['GET', 'PUT'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def material_assignments(request, material_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -478,6 +534,7 @@ def material_assignments(request, material_id: int):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_subjects(request):
     """
@@ -503,6 +560,7 @@ def get_all_subjects(request):
 
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def assign_subject_to_students(request):
     """
@@ -552,6 +610,7 @@ def assign_subject_to_students(request):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_students(request):
     """
@@ -564,8 +623,11 @@ def get_all_students(request):
         )
     
     try:
-        # Получаем всех студентов
-        students = User.objects.filter(role=User.Role.STUDENT).select_related('student_profile')
+        # Получаем только активных студентов
+        students = User.objects.filter(
+            role=User.Role.STUDENT,
+            is_active=True
+        ).select_related('student_profile').order_by('username')
         
         data = []
         for student in students:
@@ -587,6 +649,7 @@ def get_all_students(request):
                 'id': student.id,
                 'name': student.get_full_name(),
                 'email': student.email,
+                'role': student.role,  # Добавляем роль для фильтрации на фронтенде
                 'profile': profile_data
             })
         

@@ -108,7 +108,18 @@ class SupabaseSyncService:
                 return None
             
             # Определяем роль (берем первую из списка)
-            role = roles[0] if roles else 'student'
+            role_str = roles[0] if roles else 'student'
+            
+            # Маппим строковую роль на User.Role enum
+            role_mapping = {
+                'student': User.Role.STUDENT,
+                'teacher': User.Role.TEACHER,
+                'tutor': User.Role.TUTOR,
+                'parent': User.Role.PARENT,
+            }
+            role = role_mapping.get(role_str.lower(), User.Role.STUDENT)
+            
+            print(f"[create_django_user_from_supabase] Role from Supabase: {role_str}, mapped to: {role}")
             
             # Создаем пользователя Django
             django_user = User.objects.create_user(
@@ -118,11 +129,12 @@ class SupabaseSyncService:
                 first_name=profile.get('full_name', '').split(' ')[0] if profile.get('full_name') else '',
                 last_name=' '.join(profile.get('full_name', '').split(' ')[1:]) if profile.get('full_name') and len(profile.get('full_name', '').split(' ')) > 1 else '',
                 phone=profile.get('phone', ''),
-                role=role,
+                role=role,  # Используем правильный enum
                 is_active=True
             )
+            print(f"[create_django_user_from_supabase] User created: {django_user.username}, role: {django_user.role}")
             
-            # Создаем соответствующий профиль
+            # Создаем соответствующий профиль (передаем enum роль)
             self._create_user_profile(django_user, role)
             
             return django_user
@@ -137,19 +149,38 @@ class SupabaseSyncService:
         
         Args:
             user: Пользователь Django
-            role: Роль пользователя
+            role: Роль пользователя (может быть строкой или User.Role enum)
         """
         try:
-            if role == 'student':
+            # Нормализуем роль: если это enum, преобразуем в строку
+            if hasattr(role, 'value'):
+                role_str = role.value
+            elif isinstance(role, str):
+                role_str = role.lower()
+            else:
+                role_str = str(role).lower()
+            
+            print(f"[_create_user_profile] Creating profile for user {user.username}, role: {role_str}")
+            
+            if role_str == 'student' or role == User.Role.STUDENT:
                 from .models import StudentProfile
-                StudentProfile.objects.get_or_create(user=user)
-            elif role == 'teacher':
+                StudentProfile.objects.get_or_create(
+                    user=user,
+                    defaults={'grade': '1', 'goal': ''}
+                )
+            elif role_str == 'teacher' or role == User.Role.TEACHER:
                 from .models import TeacherProfile
-                TeacherProfile.objects.get_or_create(user=user)
-            elif role == 'tutor':
+                TeacherProfile.objects.get_or_create(
+                    user=user,
+                    defaults={'subject': 'Не указан', 'experience_years': 0, 'bio': ''}
+                )
+            elif role_str == 'tutor' or role == User.Role.TUTOR:
                 from .models import TutorProfile
-                TutorProfile.objects.get_or_create(user=user)
-            elif role == 'parent':
+                TutorProfile.objects.get_or_create(
+                    user=user,
+                    defaults={'specialization': 'Не указана', 'experience_years': 0, 'bio': ''}
+                )
+            elif role_str == 'parent' or role == User.Role.PARENT:
                 from .models import ParentProfile
                 ParentProfile.objects.get_or_create(user=user)
         except Exception as e:

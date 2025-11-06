@@ -214,7 +214,7 @@ const TeacherDashboard = () => {
                           <BookOpen className="w-6 h-6 text-primary-foreground" />
                         </div>
                         <div>
-                          <div className="text-2xl font-bold">{dashboardData.progress_overview.total_materials}</div>
+                          <div className="text-2xl font-bold">{dashboardData.progress_overview?.total_materials ?? 0}</div>
                           <div className="text-sm text-muted-foreground">Материалов</div>
                         </div>
                       </div>
@@ -225,7 +225,7 @@ const TeacherDashboard = () => {
                           <CheckCircle className="w-6 h-6 text-secondary-foreground" />
                         </div>
                         <div>
-                          <div className="text-2xl font-bold">{Math.max((dashboardData.progress_overview.total_assignments - dashboardData.progress_overview.completed_assignments), 0)}</div>
+                          <div className="text-2xl font-bold">{Math.max(((dashboardData.progress_overview?.total_assignments ?? 0) - (dashboardData.progress_overview?.completed_assignments ?? 0)), 0)}</div>
                           <div className="text-sm text-muted-foreground">На проверке</div>
                         </div>
                       </div>
@@ -236,7 +236,7 @@ const TeacherDashboard = () => {
                           <Users className="w-6 h-6 text-accent" />
                         </div>
                         <div>
-                          <div className="text-2xl font-bold">{dashboardData.progress_overview.total_students}</div>
+                          <div className="text-2xl font-bold">{dashboardData.progress_overview?.total_students ?? 0}</div>
                           <div className="text-sm text-muted-foreground">Учеников</div>
                         </div>
                       </div>
@@ -322,7 +322,7 @@ const TeacherDashboard = () => {
                         </Button>
                       </div>
                       <div className="space-y-3">
-                        {dashboardData.materials.slice(0, 3).map((material) => (
+                        {(dashboardData.materials ?? []).slice(0, 3).map((material) => (
                           <div 
                             key={material.id} 
                             className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
@@ -348,7 +348,7 @@ const TeacherDashboard = () => {
                             </div>
                           </div>
                         ))}
-                        {dashboardData.materials.length === 0 && (
+                        {(dashboardData.materials ?? []).length === 0 && (
                           <div className="text-center py-8 text-muted-foreground">
                             <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
                             <p>Нет опубликованных материалов</p>
@@ -372,10 +372,10 @@ const TeacherDashboard = () => {
                         <Users className="w-5 h-5 text-primary" />
                         <h3 className="text-xl font-bold">Ученики</h3>
                       </div>
-                      <Badge variant="outline">{dashboardData.students.length} всего</Badge>
+                      <Badge variant="outline">{(dashboardData.students ?? []).length} всего</Badge>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
-                      {dashboardData.students.slice(0, 4).map((student) => (
+                      {(dashboardData.students ?? []).slice(0, 4).map((student) => (
                         <div 
                           key={student.id} 
                           className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"

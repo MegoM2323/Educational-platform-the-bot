@@ -105,7 +105,13 @@ def login_view(request):
 
         # Если дошли до сюда — пользователь аутентифицирован (либо Django, либо Supabase)
         if authenticated_user and authenticated_user.is_active:
-            token, _ = Token.objects.get_or_create(user=authenticated_user)
+            # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
+            Token.objects.filter(user=authenticated_user).delete()
+            token = Token.objects.create(user=authenticated_user)
+            
+            print(f"[login] Created new token for user: {authenticated_user.username}, role: {authenticated_user.role}")
+            print(f"[login] Token key: {token.key}")
+            
             return Response({
                 'success': True,
                 'data': {

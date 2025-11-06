@@ -38,14 +38,21 @@ class TeacherDashboardService:
         Returns:
             Список словарей с информацией о студентах
         """
-        # Получаем студентов с оптимизацией запросов
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Получаем студентов через SubjectEnrollment (зачисление на предмет)
         students = User.objects.filter(
             role=User.Role.STUDENT,
-            assigned_materials__author=self.teacher
+            subject_enrollments__teacher=self.teacher,
+            subject_enrollments__is_active=True
         ).distinct().select_related('student_profile').prefetch_related(
+            'subject_enrollments__subject',
             'assigned_materials__progress',
             'assigned_materials__subject'
         )
+        
+        logger.info(f"[get_teacher_students] Found {students.count()} students for teacher {self.teacher.username}")
         
         # Получаем материалы преподавателя для статистики
         teacher_materials = Material.objects.filter(
@@ -81,7 +88,8 @@ class TeacherDashboardService:
                     'total_points': profile.total_points,
                     'accuracy_percentage': profile.accuracy_percentage
                 }
-            except:
+            except Exception as e:
+                logger.warning(f"No profile for student {student.username}: {e}")
                 profile_data = {
                     'grade': 'Не указан',
                     'goal': '',
@@ -102,8 +110,11 @@ class TeacherDashboardService:
             
             result.append({
                 'id': student.id,
-                'name': student.get_full_name(),
-                'email': student.email,
+                'username': student.username,
+                'name': student.get_full_name() or student.username,
+                'first_name': student.first_name,
+                'last_name': student.last_name,
+                'email': student.email or '',
                 'avatar': student.avatar.url if student.avatar else None,
                 'profile': profile_data,
                 'assigned_materials_count': total_materials,
@@ -186,8 +197,14 @@ class TeacherDashboardService:
         Returns:
             Результат операции
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"[distribute_material] Material ID: {material_id}, Student IDs: {student_ids}")
+        
         try:
             material = Material.objects.get(id=material_id, author=self.teacher)
+            logger.info(f"[distribute_material] Material found: {material.title}")
             
             # Получаем студентов
             students = User.objects.filter(
@@ -195,15 +212,22 @@ class TeacherDashboardService:
                 role=User.Role.STUDENT
             )
             
+            logger.info(f"[distribute_material] Found {students.count()} students")
+            
             # Назначаем материал студентам
             material.assigned_to.set(students)
             
             # Создаем записи прогресса для новых назначений
+            progress_created = 0
             for student in students:
-                MaterialProgress.objects.get_or_create(
+                _, created = MaterialProgress.objects.get_or_create(
                     student=student,
                     material=material
                 )
+                if created:
+                    progress_created += 1
+            
+            logger.info(f"[distribute_material] Created {progress_created} new progress records")
             
             return {
                 'success': True,
@@ -518,12 +542,12 @@ class TeacherDashboardService:
         
         return general_chat
     
-    def _generate_report_analytics(self, report: Report, student: User) -> None:
+    def _generate_report_analytics(self, report: StudentReport, student: User) -> None:
         """
         Генерировать аналитические данные для отчета
         
         Args:
-            report: Объект отчета
+            report: Объект отчета о студенте
             student: Студент
         """
         try:
@@ -596,6 +620,22 @@ class TeacherDashboardService:
             # Получаем предмет
             subject = Subject.objects.get(id=subject_id)
             
+            # Проверяем, что учитель ведет этот предмет
+            from .models import TeacherSubject
+            teacher_subject = TeacherSubject.objects.filter(
+                teacher=self.teacher,
+                subject=subject,
+                is_active=True
+            ).first()
+            
+            if not teacher_subject:
+                # Если связи нет, создаем ее
+                teacher_subject, created = TeacherSubject.objects.get_or_create(
+                    teacher=self.teacher,
+                    subject=subject,
+                    defaults={'is_active': True}
+                )
+            
             # Получаем студентов
             students = User.objects.filter(
                 id__in=student_ids,
@@ -635,7 +675,8 @@ class TeacherDashboardService:
             
             return {
                 'success': True,
-                'message': f'Предмет "{subject.name}" назначен студентам',
+                'message': f'Предмет "{subject.name}" назначен студентам (новых: {created_count}, уже были: {already_exists_count})',
+                'assigned_count': created_count + already_exists_count,
                 'created_count': created_count,
                 'already_exists_count': already_exists_count,
                 'total': students.count()
@@ -654,15 +695,32 @@ class TeacherDashboardService:
     
     def get_all_subjects(self) -> List[Dict[str, Any]]:
         """
-        Получить все предметы
+        Получить все предметы, которые ведет учитель, или все предметы, если учитель еще не назначен на предметы
         
         Returns:
             Список предметов
         """
-        subjects = Subject.objects.all()
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        from .models import TeacherSubject
+        
+        # Получаем предметы, которые ведет учитель
+        teacher_subjects = TeacherSubject.objects.filter(
+            teacher=self.teacher,
+            is_active=True
+        ).select_related('subject')
+        
+        logger.info(f"[get_all_subjects] Teacher {self.teacher.username} has {teacher_subjects.count()} assigned subjects")
+        
+        # Всегда показываем все предметы (чтобы учитель мог выбрать любой предмет)
+        # Но помечаем те, которые уже назначены
+        all_subjects = Subject.objects.all()
+        assigned_subject_ids = set(ts.subject_id for ts in teacher_subjects)
+        
         result = []
         
-        for subject in subjects:
+        for subject in all_subjects:
             # Получаем количество студентов, зачисленных на этот предмет данным преподавателем
             student_count = SubjectEnrollment.objects.filter(
                 subject=subject,
@@ -675,9 +733,11 @@ class TeacherDashboardService:
                 'name': subject.name,
                 'description': subject.description,
                 'color': subject.color,
-                'student_count': student_count
+                'student_count': student_count,
+                'is_assigned': subject.id in assigned_subject_ids
             })
         
+        logger.info(f"[get_all_subjects] Returning {len(result)} subjects")
         return result
     
     def get_subject_students(self, subject_id: int) -> List[Dict[str, Any]]:
@@ -714,10 +774,52 @@ class TeacherDashboardService:
             
             result.append({
                 'id': enrollment.student.id,
-                'name': enrollment.student.get_full_name(),
-                'email': enrollment.student.email,
+                'username': enrollment.student.username,
+                'name': enrollment.student.get_full_name() or enrollment.student.username,
+                'first_name': enrollment.student.first_name,
+                'last_name': enrollment.student.last_name,
+                'email': enrollment.student.email or '',
                 'enrollment_id': enrollment.id,
                 'enrolled_at': enrollment.enrolled_at,
+                'profile': profile_data
+            })
+        
+        return result
+    
+    def get_all_students(self) -> List[Dict[str, Any]]:
+        """
+        Получить список ВСЕХ студентов в системе для назначения предметов
+        
+        Returns:
+            Список всех студентов
+        """
+        students = User.objects.filter(
+            role=User.Role.STUDENT,
+            is_active=True
+        ).select_related('student_profile').order_by('username')
+        
+        result = []
+        for student in students:
+            try:
+                profile = student.student_profile
+                profile_data = {
+                    'grade': profile.grade,
+                    'goal': profile.goal,
+                }
+            except Exception:
+                profile_data = {
+                    'grade': 'Не указан',
+                    'goal': '',
+                }
+            
+            result.append({
+                'id': student.id,
+                'username': student.username,
+                'name': student.get_full_name() or student.username,
+                'first_name': student.first_name,
+                'last_name': student.last_name,
+                'email': student.email or '',
+                'role': student.role,  # Добавляем роль для фильтрации на фронтенде
                 'profile': profile_data
             })
         

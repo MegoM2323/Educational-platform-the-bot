@@ -27,11 +27,53 @@ class ParentDashboardService:
         Args:
             parent_user: Пользователь с ролью PARENT
         """
-        if not parent_user or parent_user.role != User.Role.PARENT:
+        if not parent_user:
+            logger.error("[ParentDashboardService] parent_user is None")
             raise ValueError("Пользователь должен иметь роль PARENT")
         
+        # Логируем информацию о пользователе для отладки
+        logger.info(f"[ParentDashboardService] Initializing for user: {parent_user.username}")
+        logger.info(f"[ParentDashboardService] User role: {parent_user.role}, type: {type(parent_user.role)}")
+        logger.info(f"[ParentDashboardService] User.Role.PARENT: {User.Role.PARENT}, type: {type(User.Role.PARENT)}")
+        logger.info(f"[ParentDashboardService] Role comparison: {parent_user.role == User.Role.PARENT}")
+        
+        # Проверяем роль (поддерживаем как строку, так и enum)
+        # User.Role.PARENT возвращает 'parent' (строка), а parent_user.role тоже строка
+        # Нормализуем роль для сравнения
+        user_role = parent_user.role
+        if hasattr(user_role, 'value'):
+            user_role_str = user_role.value
+        else:
+            user_role_str = str(user_role).lower()
+        
+        parent_role_str = User.Role.PARENT.value if hasattr(User.Role.PARENT, 'value') else str(User.Role.PARENT).lower()
+        
+        # Разрешаем доступ родителям или администраторам, которые создали детей
+        is_parent = user_role_str == parent_role_str
+        
+        # Для администраторов проверяем, создали ли они детей (через created_by_tutor) или являются родителями
+        is_admin_with_children = (parent_user.is_staff or parent_user.is_superuser) and (
+            User.objects.filter(
+                student_profile__parent=parent_user,
+                role=User.Role.STUDENT
+            ).exists() or
+            User.objects.filter(
+                created_by_tutor=parent_user,
+                role=User.Role.STUDENT
+            ).exists()
+        )
+        
+        if not is_parent and not is_admin_with_children:
+            logger.error(f"[ParentDashboardService] User {parent_user.username} has role '{parent_user.role}' (type: {type(parent_user.role)}), expected '{User.Role.PARENT}' (type: {type(User.Role.PARENT)})")
+            logger.error(f"[ParentDashboardService] Normalized: user_role_str='{user_role_str}', parent_role_str='{parent_role_str}', is_parent={is_parent}, is_admin_with_children={is_admin_with_children}")
+            raise ValueError(f"Пользователь должен иметь роль PARENT или быть администратором с созданными детьми. Текущая роль: {parent_user.role}")
+        
         self.parent_user = parent_user
-        self.parent_profile = parent_user.parent_profile
+        # Создаем ParentProfile, если его нет
+        from accounts.models import ParentProfile
+        self.parent_profile, created = ParentProfile.objects.get_or_create(user=parent_user)
+        if created:
+            logger.info(f"Создан ParentProfile для пользователя {parent_user.username}")
     
     def _has_active_subscription(self, enrollment):
         """Проверяет, есть ли у зачисления активная подписка"""
@@ -52,7 +94,21 @@ class ParentDashboardService:
         Returns:
             QuerySet: Список детей пользователя
         """
-        return self.parent_profile.children.filter(role=User.Role.STUDENT)
+        # Если пользователь - родитель, используем ParentProfile.children
+        # Если пользователь - администратор, ищем детей через StudentProfile.parent или created_by_tutor
+        if self.parent_user.role == User.Role.PARENT:
+            # Свойство children уже фильтрует по роли STUDENT, но для надежности оставляем фильтр
+            children = self.parent_profile.children.filter(role=User.Role.STUDENT)
+        else:
+            # Для администраторов ищем детей, у которых parent = этому пользователю или created_by_tutor = этому пользователю
+            children = User.objects.filter(
+                Q(student_profile__parent=self.parent_user) | Q(created_by_tutor=self.parent_user),
+                role=User.Role.STUDENT
+            ).distinct()
+        logger.info(f"Найдено {children.count()} детей для пользователя {self.parent_user.username} (роль: {self.parent_user.role})")
+        logger.debug(f"Дети: {[c.username for c in children]}")
+        # Возвращаем QuerySet, но вызывающий код должен преобразовать в список, если нужно избежать повторных запросов
+        return children
     
     def get_child_subjects(self, child):
         """
@@ -64,8 +120,26 @@ class ParentDashboardService:
         Returns:
             QuerySet: Предметы ребенка с информацией о зачислениях
         """
-        if child not in self.get_children():
-            raise ValueError("Ребенок не принадлежит данному родителю")
+        # Проверяем, что ребенок принадлежит родителю
+        # Для родителей проверяем через StudentProfile.parent
+        # Для администраторов проверяем через created_by_tutor или parent
+        if self.parent_user.role == User.Role.PARENT:
+            # Для родителей проверяем, что child.student_profile.parent == self.parent_user
+            try:
+                if not hasattr(child, 'student_profile') or child.student_profile.parent != self.parent_user:
+                    logger.warning(f"[get_child_subjects] Child {child.username} does not belong to parent {self.parent_user.username}")
+                    return SubjectEnrollment.objects.none()
+            except Exception as e:
+                logger.error(f"[get_child_subjects] Error checking child ownership: {e}")
+                return SubjectEnrollment.objects.none()
+        else:
+            # Для администраторов проверяем через created_by_tutor или parent
+            from django.db.models import Q
+            is_created_by_admin = child.created_by_tutor == self.parent_user
+            is_parent_of_child = hasattr(child, 'student_profile') and child.student_profile.parent == self.parent_user
+            if not (is_created_by_admin or is_parent_of_child):
+                logger.warning(f"[get_child_subjects] Child {child.username} does not belong to admin {self.parent_user.username}")
+                return SubjectEnrollment.objects.none()
         
         return SubjectEnrollment.objects.filter(
             student=child,
@@ -274,6 +348,7 @@ class ParentDashboardService:
                 "subject_name": enrollment.subject.name,
                 "enrollment_id": enrollment.id,
                 "teacher_id": enrollment.teacher_id,
+                "create_subscription": create_subscription,  # Сохраняем флаг для создания подписки после успешной оплаты
             },
         )
         
@@ -317,39 +392,8 @@ class ParentDashboardService:
             due_date=due_date
         )
         
-        # Если нужно создать подписку для регулярных платежей
-        subscription = None
-        if create_subscription:
-            from .models import SubjectSubscription
-            next_payment_date = timezone.now() + timedelta(weeks=1)  # Следующий платеж через неделю
-            
-            # Проверяем, существует ли уже подписка для этого enrollment
-            subscription_was_updated = False
-            try:
-                subscription = SubjectSubscription.objects.get(enrollment=enrollment)
-                # Если подписка существует, обновляем её
-                old_amount = subscription.amount
-                subscription.amount = amount
-                subscription.status = SubjectSubscription.Status.ACTIVE
-                subscription.next_payment_date = next_payment_date
-                subscription.payment_interval_weeks = 1
-                subscription.cancelled_at = None  # Сбрасываем дату отмены, если была
-                subscription.save()
-                subscription_was_updated = True
-                logger.info(f"Updated existing subscription {subscription.id} for enrollment {enrollment.id} (amount: {old_amount} -> {amount})")
-            except SubjectSubscription.DoesNotExist:
-                # Если подписки нет, создаём новую
-                subscription = SubjectSubscription.objects.create(
-                    enrollment=enrollment,
-                    amount=amount,
-                    status=SubjectSubscription.Status.ACTIVE,
-                    next_payment_date=next_payment_date,
-                    payment_interval_weeks=1
-                )
-                logger.info(f"Created new subscription {subscription.id} for enrollment {enrollment.id}")
-            
-            # Сохраняем флаг обновления для использования в результате
-            subscription._was_updated = subscription_was_updated
+        # Подписка будет создана только после успешной оплаты (в webhook обработке)
+        # Флаг create_subscription сохранен в metadata платежа
         
         result = {
             'payment_id': str(payment.id),
@@ -360,14 +404,8 @@ class ParentDashboardService:
             'confirmation_url': payment.confirmation_url,
             'return_url': payment.return_url,
             'payment_url': payment.confirmation_url or payment.return_url,  # Для фронтенда
-            'subscription_created': subscription is not None,
+            'subscription_created': False,  # Подписка будет создана после успешной оплаты
         }
-        
-        if subscription:
-            result['subscription_id'] = subscription.id
-            result['next_payment_date'] = subscription.next_payment_date.isoformat()
-            # Проверяем, была ли подписка обновлена
-            result['subscription_updated'] = getattr(subscription, '_was_updated', False)
         
         # Если нет confirmation_url, но есть return_url, используем его
         if not result['confirmation_url'] and result['return_url']:
@@ -464,7 +502,12 @@ class ParentDashboardService:
           statistics: { total_children, average_progress, completed_payments, pending_payments, overdue_payments }
         }
         """
+        logger.info(f"[get_dashboard_data] Getting dashboard data for parent: {self.parent_user.username}")
         children_qs = self.get_children()
+        # Преобразуем QuerySet в список, чтобы избежать повторных запросов
+        children_list = list(children_qs)
+        logger.info(f"[get_dashboard_data] Found {len(children_list)} children")
+        logger.info(f"[get_dashboard_data] Children usernames: {[c.username for c in children_list]}")
         children_data = []
         
         total_progress_list = []
@@ -472,66 +515,86 @@ class ParentDashboardService:
         pending_payments = 0
         overdue_payments = 0
         
-        for child in children_qs:
-            # Профиль ученика
-            student_profile = getattr(child, 'student_profile', None)
-            grade = getattr(student_profile, 'grade', '') if student_profile else ''
-            goal = getattr(student_profile, 'goal', '') if student_profile else ''
-            tutor = getattr(student_profile, 'tutor', None) if student_profile else None
-            tutor_name = tutor.get_full_name() if tutor else ''
-            progress_percentage = getattr(student_profile, 'progress_percentage', 0) if student_profile else 0
-            avatar = getattr(child, 'avatar', None)
-            
-            # Предметы и платежи
-            subjects = []
-            payments_info = self.get_payment_status(child)
-            # Индекс платежей по enrollment_id (так как один предмет может быть с разными преподавателями)
-            payments_by_enrollment = {}
-            for p in payments_info:
-                payments_by_enrollment[p['enrollment_id']] = p
-                if p['status'] == 'paid':
-                    completed_payments += 1
-                elif p['status'] == 'pending':
-                    pending_payments += 1
-                elif p['status'] == 'overdue':
-                    overdue_payments += 1
-            
-            for enrollment in self.get_child_subjects(child):
-                payment = payments_by_enrollment.get(enrollment.id, None)
-                subjects.append({
-                    'id': enrollment.subject.id,
-                    'enrollment_id': enrollment.id,
-                    'name': enrollment.subject.name,
-                    'teacher_name': enrollment.teacher.get_full_name(),
-                    'teacher_id': enrollment.teacher.id,
-                    'payment_status': payment['status'] if payment else 'no_payment',
-                    'next_payment_date': payment['due_date'] if payment else None,
-                    'has_subscription': self._has_active_subscription(enrollment),
-                    'amount': str(payment['amount']) if payment and payment.get('amount') else None
-                })
-            
-            # Копим для средней статистики
-            total_progress_list.append(progress_percentage or 0)
-            
-            children_data.append({
-                'id': child.id,
-                'name': child.get_full_name(),
-                'grade': str(grade) if grade is not None else '',
-                'goal': goal or '',
-                'tutor_name': tutor_name,
-                'progress_percentage': progress_percentage or 0,
-                'progress': progress_percentage or 0,
-                # Безопасно формируем URL аватара только если файл реально существует
-                'avatar': (avatar.url if (avatar and getattr(avatar, 'name', None)) else None),
-                'subjects': subjects,
-                'payments': payments_info,
-            })
+        for child in children_list:
+            try:
+                logger.info(f"[get_dashboard_data] Processing child: {child.username} (id: {child.id})")
+                # Профиль ученика
+                student_profile = getattr(child, 'student_profile', None)
+                grade = getattr(student_profile, 'grade', '') if student_profile else ''
+                goal = getattr(student_profile, 'goal', '') if student_profile else ''
+                tutor = getattr(student_profile, 'tutor', None) if student_profile else None
+                tutor_name = tutor.get_full_name() if tutor else ''
+                progress_percentage = getattr(student_profile, 'progress_percentage', 0) if student_profile else 0
+                avatar = getattr(child, 'avatar', None)
+                
+                # Предметы и платежи
+                subjects = []
+                try:
+                    payments_info = self.get_payment_status(child)
+                    logger.info(f"[get_dashboard_data] Payments info for {child.username}: {len(payments_info)} payments")
+                except Exception as e:
+                    logger.error(f"[get_dashboard_data] Error getting payment status for {child.username}: {e}")
+                    payments_info = []
+                
+                # Индекс платежей по enrollment_id (так как один предмет может быть с разными преподавателями)
+                payments_by_enrollment = {}
+                for p in payments_info:
+                    payments_by_enrollment[p['enrollment_id']] = p
+                    if p['status'] == 'paid':
+                        completed_payments += 1
+                    elif p['status'] == 'pending':
+                        pending_payments += 1
+                    elif p['status'] == 'overdue':
+                        overdue_payments += 1
+                
+                try:
+                    child_subjects = self.get_child_subjects(child)
+                    logger.info(f"[get_dashboard_data] Child subjects for {child.username}: {child_subjects.count()} subjects")
+                    for enrollment in child_subjects:
+                        payment = payments_by_enrollment.get(enrollment.id, None)
+                        subjects.append({
+                            'id': enrollment.subject.id,
+                            'enrollment_id': enrollment.id,
+                            'name': enrollment.subject.name,
+                            'teacher_name': enrollment.teacher.get_full_name(),
+                            'teacher_id': enrollment.teacher.id,
+                            'payment_status': payment['status'] if payment else 'no_payment',
+                            'next_payment_date': payment['due_date'] if payment else None,
+                            'has_subscription': self._has_active_subscription(enrollment),
+                            'amount': str(payment['amount']) if payment and payment.get('amount') else None
+                        })
+                except Exception as e:
+                    logger.error(f"[get_dashboard_data] Error getting child subjects for {child.username}: {e}")
+                    subjects = []
+                
+                # Копим для средней статистики
+                total_progress_list.append(progress_percentage or 0)
+                
+                child_data = {
+                    'id': child.id,
+                    'name': child.get_full_name(),
+                    'grade': str(grade) if grade is not None else '',
+                    'goal': goal or '',
+                    'tutor_name': tutor_name,
+                    'progress_percentage': progress_percentage or 0,
+                    'progress': progress_percentage or 0,
+                    # Безопасно формируем URL аватара только если файл реально существует
+                    'avatar': (avatar.url if (avatar and getattr(avatar, 'name', None)) else None),
+                    'subjects': subjects,
+                    'payments': payments_info,
+                }
+                logger.info(f"[get_dashboard_data] Adding child data: {child_data['name']} (id: {child_data['id']}), subjects: {len(subjects)}")
+                children_data.append(child_data)
+            except Exception as e:
+                logger.error(f"[get_dashboard_data] Error processing child {child.username}: {e}", exc_info=True)
+                # Продолжаем обработку других детей даже если один не удался
+                continue
         
         avg_progress = 0
         if total_progress_list:
             avg_progress = round(sum(total_progress_list) / max(len(total_progress_list), 1), 1)
         
-        return {
+        result = {
             'parent': {
                 'id': self.parent_user.id,
                 'name': self.parent_user.get_full_name(),
@@ -549,6 +612,8 @@ class ParentDashboardService:
             # Дублируем ключ для совместимости с ожиданиями тестов
             'total_children': children_qs.count(),
         }
+        logger.info(f"[get_dashboard_data] Returning dashboard data with {len(children_data)} children")
+        return result
     
     def get_reports(self, child=None):
         """

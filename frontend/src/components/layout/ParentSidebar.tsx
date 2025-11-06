@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const items = [
   { title: "Главная", url: "/dashboard/parent", icon: Home },
   { title: "Мои дети", url: "/dashboard/parent/children", icon: Users },
-  { title: "Оплата", url: "/dashboard/parent/payments", icon: CreditCard },
+  { title: "История платежей", url: "/dashboard/parent/payment-history", icon: CreditCard },
   { title: "Статистика", url: "/dashboard/parent/statistics", icon: BarChart3 },
   { title: "Отчёты", url: "/dashboard/parent/reports", icon: FileText },
 ];

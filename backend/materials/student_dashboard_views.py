@@ -7,7 +7,7 @@ from django.utils import timezone
 import logging
 
 from .student_dashboard_service import StudentDashboardService
-from .models import Material, MaterialProgress
+from .models import Material, MaterialProgress, SubjectEnrollment
 from .serializers import MaterialListSerializer, MaterialProgressSerializer
 
 logger = logging.getLogger(__name__)
@@ -212,6 +212,58 @@ def student_general_chat(request):
     except Exception as e:
         return Response(
             {'error': f'Ошибка при получении доступа к чату: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def student_subjects(request):
+    """
+    Получить назначенные предметы студента с преподавателями
+    
+    GET /api/materials/student/subjects/
+    """
+    if request.user.role != User.Role.STUDENT:
+        return Response(
+            {'error': 'Доступ разрешен только студентам'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        enrollments = SubjectEnrollment.objects.filter(
+            student=request.user,
+            is_active=True
+        ).select_related('subject', 'teacher', 'assigned_by')
+        
+        subjects_data = []
+        for enrollment in enrollments:
+            subjects_data.append({
+                'enrollment_id': enrollment.id,
+                'subject': {
+                    'id': enrollment.subject.id,
+                    'name': enrollment.subject.name,
+                    'description': enrollment.subject.description,
+                    'color': enrollment.subject.color,
+                },
+                'teacher': {
+                    'id': enrollment.teacher.id,
+                    'name': enrollment.teacher.get_full_name(),
+                    'email': enrollment.teacher.email,
+                },
+                'assigned_by': {
+                    'id': enrollment.assigned_by.id,
+                    'name': enrollment.assigned_by.get_full_name(),
+                } if enrollment.assigned_by else None,
+                'enrolled_at': enrollment.enrolled_at,
+                'is_active': enrollment.is_active,
+            })
+        
+        return Response({'subjects': subjects_data}, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Error getting student subjects: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при получении предметов: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

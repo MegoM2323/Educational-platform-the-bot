@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { ParentSidebar } from '@/components/layout/ParentSidebar';
 import { useParams } from 'react-router-dom';
 import { useChildSubjects, useChildProgress, useInitiatePayment } from '@/hooks/useParent';
+import { parentDashboardAPI } from '@/integrations/api/dashboard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -48,16 +49,25 @@ export default function ChildDetail() {
                 ) : (
                   <div className="space-y-3">
                     {subjects?.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between p-3 bg-muted rounded">
+                      <div key={s.enrollment_id || s.id} className="flex items-center justify-between p-3 bg-muted rounded">
                         <div>
-                          <div className="font-medium">{s.name}</div>
-                          <div className="text-sm text-muted-foreground">Преподаватель: {s.teacher_name}</div>
+                          <div className="font-medium">{s.subject?.name || s.name}</div>
+                          <div className="text-sm text-muted-foreground">Преподаватель: {s.teacher?.name || s.teacher_name}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant={s.payment_status === 'paid' ? 'default' : s.payment_status === 'pending' ? 'secondary' : 'destructive'}>
                             {s.payment_status === 'paid' ? 'Оплачено' : s.payment_status === 'pending' ? 'Ожидание' : 'Просрочено'}
                           </Badge>
-                          <PayButton childId={childId} subjectId={s.id} />
+                          {s.enrollment_id && (
+                            <PayButton 
+                              childId={childId} 
+                              enrollmentId={s.enrollment_id}
+                              subjectName={s.subject?.name || s.name}
+                              teacherName={s.teacher?.name || s.teacher_name}
+                              hasSubscription={s.has_subscription || false}
+                              paymentStatus={s.payment_status}
+                            />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -72,11 +82,62 @@ export default function ChildDetail() {
   );
 }
 
-function PayButton({ childId, subjectId }: { childId: number; subjectId: number }) {
-  const payment = useInitiatePayment(childId, subjectId);
+function PayButton({ 
+  childId, 
+  enrollmentId, 
+  subjectName, 
+  teacherName, 
+  hasSubscription,
+  paymentStatus 
+}: { 
+  childId: number; 
+  enrollmentId: number;
+  subjectName: string;
+  teacherName: string;
+  hasSubscription: boolean;
+  paymentStatus: string;
+}) {
+  const payment = useInitiatePayment(childId, enrollmentId, {
+    amount: 5000.00,
+    description: `Оплата за предмет "${subjectName}" (преподаватель: ${teacherName})`,
+    create_subscription: true,
+  });
+  
+  // Если есть активная подписка и оплачено - показываем кнопку "Остановить оплату"
+  if (hasSubscription && paymentStatus === 'paid') {
+    return (
+      <Button 
+        size="sm" 
+        variant="outline"
+        onClick={async () => {
+          const confirmed = window.confirm(
+            `Остановить автоматические платежи за предмет "${subjectName}"?`
+          );
+          if (!confirmed) return;
+          
+          try {
+            await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
+            window.location.reload();
+          } catch (err) {
+            console.error('Cancel subscription error:', err);
+          }
+        }}
+      >
+        Остановить оплату
+      </Button>
+    );
+  }
+  
+  // Иначе показываем кнопку "Оплатить"
   return (
-    <Button size="sm" onClick={() => payment.mutate()} disabled={payment.isPending}>
-      <CreditCard className="w-4 h-4 mr-1" /> Оплатить
+    <Button 
+      size="sm" 
+      onClick={() => payment.mutate()} 
+      disabled={payment.isPending}
+      variant={paymentStatus === 'overdue' ? 'destructive' : 'default'}
+    >
+      <CreditCard className="w-4 h-4 mr-1" /> 
+      Оплатить
     </Button>
   );
 }

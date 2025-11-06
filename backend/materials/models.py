@@ -99,7 +99,7 @@ class SubjectEnrollment(models.Model):
     class Meta:
         verbose_name = 'Зачисление на предмет'
         verbose_name_plural = 'Зачисления на предметы'
-        unique_together = ['student', 'subject']
+        unique_together = ['student', 'subject', 'teacher']
         ordering = ['-enrolled_at']
     
     def __str__(self):
@@ -159,6 +159,72 @@ class SubjectPayment(models.Model):
     
     def __str__(self):
         return f"Платеж {self.enrollment.student} - {self.enrollment.subject} ({self.amount})"
+
+
+class SubjectSubscription(models.Model):
+    """
+    Регулярные платежи (подписки) по предметам
+    Еженедельное списание средств
+    """
+    class Status(models.TextChoices):
+        ACTIVE = 'active', 'Активна'
+        PAUSED = 'paused', 'Приостановлена'
+        CANCELLED = 'cancelled', 'Отменена'
+        EXPIRED = 'expired', 'Истекла'
+    
+    enrollment = models.OneToOneField(
+        SubjectEnrollment,
+        on_delete=models.CASCADE,
+        related_name='subscription',
+        verbose_name='Зачисление'
+    )
+    
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name='Сумма платежа'
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        verbose_name='Статус'
+    )
+    
+    # Настройки регулярных платежей
+    next_payment_date = models.DateTimeField(verbose_name='Дата следующего платежа')
+    payment_interval_weeks = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Интервал платежей (недели)'
+    )
+    
+    # ID подписки в ЮКассу (если используется)
+    yookassa_subscription_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name='ID подписки в ЮКассу'
+    )
+    
+    # Временные метки
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата отмены')
+    
+    class Meta:
+        verbose_name = 'Подписка на предмет'
+        verbose_name_plural = 'Подписки на предметы'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Подписка {self.enrollment.student} - {self.enrollment.subject} ({self.amount} руб/нед)"
+    
+    def schedule_next_payment(self):
+        """Запланировать следующий платеж"""
+        from django.utils import timezone
+        self.next_payment_date = timezone.now() + timedelta(weeks=self.payment_interval_weeks)
+        self.save(update_fields=['next_payment_date', 'updated_at'])
 
 
 class Material(models.Model):

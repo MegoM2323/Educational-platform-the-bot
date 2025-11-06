@@ -6,7 +6,11 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Загружаем переменные окружения из .env файла в корне проекта
-load_dotenv(BASE_DIR / ".env")
+# .env файл находится на уровень выше (в корне проекта)
+PROJECT_ROOT = BASE_DIR.parent
+load_dotenv(PROJECT_ROOT / ".env")
+# Также пробуем загрузить из текущей директории (на случай, если .env в backend/)
+load_dotenv(BASE_DIR / ".env", override=False)
 
 # Поддержка импортов как без префикса `backend.*`, так и с ним в тестах
 import sys, importlib
@@ -24,6 +28,9 @@ for _mod in ("accounts","applications","materials","assignments","chat","reports
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 YOOKASSA_WEBHOOK_URL = os.getenv("YOOKASSA_WEBHOOK_URL")
+
+# Frontend URL for payment redirects
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '0.0.0.0', '5.129.249.206', 'the-bot.ru', 'www.the-bot.ru']  # Добавлен публичный IP сервера и домены
 
 # Telegram Bot settings

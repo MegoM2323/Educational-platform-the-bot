@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils import timezone
 from decimal import Decimal
 import logging
 
@@ -71,16 +72,20 @@ class ParentChildrenView(generics.ListAPIView):
                 
                 # Предметы и статусы платежей
                 subjects = []
-                payments = {p['subject']: p for p in service.get_payment_status(child)}
+                payments_info = service.get_payment_status(child)
+                payments_by_enrollment = {p['enrollment_id']: p for p in payments_info}
                 for enrollment in service.get_child_subjects(child):
-                    subj_name = enrollment.subject.name
-                    pay = payments.get(subj_name)
+                    payment = payments_by_enrollment.get(enrollment.id, None)
                     subjects.append({
                         'id': enrollment.subject.id,
-                        'name': subj_name,
+                        'enrollment_id': enrollment.id,  # Добавляем enrollment_id
+                        'name': enrollment.subject.name,
                         'teacher_name': enrollment.teacher.get_full_name(),
+                        'teacher_id': enrollment.teacher.id,
                         'enrollment_status': 'active' if enrollment.is_active else 'inactive',
-                        'payment_status': (pay['status'] if pay else 'no_payment'),
+                        'payment_status': (payment['status'] if payment else 'no_payment'),
+                        'next_payment_date': payment['due_date'] if payment else None,
+                        'has_subscription': service._has_active_subscription(enrollment),
                     })
                 
                 # Совместимость: возвращаем как 'name' (ожидается тестами) и 'full_name'
@@ -271,9 +276,10 @@ def get_payment_status(request, child_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @transaction.atomic
-def initiate_payment(request, child_id, subject_id):
+def initiate_payment(request, child_id, enrollment_id):
     """
-    Инициировать платеж за предмет
+    Инициировать платеж за предмет с конкретным преподавателем
+    Использует enrollment_id для точного указания предмета и преподавателя
     """
     try:
         service = ParentDashboardService(request.user)
@@ -285,6 +291,20 @@ def initiate_payment(request, child_id, subject_id):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        # Получаем зачисление (enrollment) по ID
+        from .models import SubjectEnrollment
+        try:
+            enrollment = SubjectEnrollment.objects.get(
+                id=enrollment_id,
+                student=child,
+                is_active=True
+            )
+        except SubjectEnrollment.DoesNotExist:
+            return Response(
+                {'error': 'Зачисление не найдено или неактивно'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
         # Валидация данных
         serializer = PaymentInitiationSerializer(data=request.data)
         if not serializer.is_valid():
@@ -292,6 +312,7 @@ def initiate_payment(request, child_id, subject_id):
         
         amount = Decimal(str(serializer.validated_data['amount']))
         description = serializer.validated_data.get('description', '')
+        create_subscription = serializer.validated_data.get('create_subscription', False)
         
         if amount <= 0:
             return Response(
@@ -301,9 +322,10 @@ def initiate_payment(request, child_id, subject_id):
         
         payment_data = service.initiate_payment(
             child=child,
-            subject_id=subject_id,
+            enrollment=enrollment,
             amount=amount,
             description=description,
+            create_subscription=create_subscription,
             request=request
         )
         # В API возвращаем сумму как строку с двумя знаками после запятой
@@ -322,8 +344,13 @@ def initiate_payment(request, child_id, subject_id):
             status=status.HTTP_400_BAD_REQUEST
         )
     except Exception as e:
+        logger.error(f"Error initiating payment: {e}", exc_info=True)
+        error_message = str(e)
+        # Если это ошибка уникальности подписки, даём более понятное сообщение
+        if 'UNIQUE constraint failed' in error_message and 'subscription' in error_message.lower():
+            error_message = 'Подписка для этого предмета уже существует. Используйте кнопку "Отменить подписку" для отмены текущей подписки.'
         return Response(
-            {'error': 'Ошибка при создании платежа'}, 
+            {'error': f'Ошибка при создании платежа: {error_message}'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
@@ -349,7 +376,7 @@ def get_reports(request, child_id=None):
             reports = service.get_reports()
         
         # Пока возвращаем пустой список, так как модель отчетов еще не создана
-        return Response([], status=status.HTTP_200_OK)
+            return Response([], status=status.HTTP_200_OK)
     except User.DoesNotExist:
         return Response(
             {'error': 'Ребенок не найден'}, 
@@ -359,4 +386,73 @@ def get_reports(request, child_id=None):
         return Response(
             {'error': str(e)}, 
             status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@transaction.atomic
+def cancel_subscription(request, child_id, enrollment_id):
+    """
+    Отменить подписку на регулярные платежи
+    """
+    try:
+        service = ParentDashboardService(request.user)
+        child = User.objects.get(id=child_id, role=User.Role.STUDENT)
+        
+        if child not in service.get_children():
+            return Response(
+                {'error': 'Ребенок не принадлежит данному родителю'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Получаем зачисление
+        from .models import SubjectEnrollment, SubjectSubscription
+        try:
+            enrollment = SubjectEnrollment.objects.get(
+                id=enrollment_id,
+                student=child,
+                is_active=True
+            )
+        except SubjectEnrollment.DoesNotExist:
+            return Response(
+                {'error': 'Зачисление не найдено или неактивно'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Проверяем наличие подписки
+        try:
+            subscription = SubjectSubscription.objects.get(
+                enrollment=enrollment,
+                status=SubjectSubscription.Status.ACTIVE
+            )
+        except SubjectSubscription.DoesNotExist:
+            return Response(
+                {'error': 'Активная подписка не найдена'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Отменяем подписку
+        subscription.status = SubjectSubscription.Status.CANCELLED
+        subscription.cancelled_at = timezone.now()
+        subscription.save()
+        
+        # Если есть ID подписки в ЮКассу, можно отменить и там
+        # (требует дополнительной интеграции с API ЮКассы)
+        
+        return Response({
+            'success': True,
+            'message': 'Подписка успешно отменена'
+        }, status=status.HTTP_200_OK)
+        
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Ребенок не найден'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error cancelling subscription: {e}", exc_info=True)
+        return Response(
+            {'error': 'Ошибка при отмене подписки'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

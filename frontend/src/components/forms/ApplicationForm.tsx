@@ -73,7 +73,7 @@ export const ApplicationForm = () => {
       case 1:
         return !!(formData.firstName && formData.lastName && formData.email && formData.phone);
       case 2:
-        return formData.applicantType !== '';
+        return !!formData.applicantType;
       case 3:
         if (formData.applicantType === 'student') {
           return !!(formData.grade && formData.parentFirstName && formData.parentLastName && formData.parentEmail && formData.parentPhone);
@@ -139,9 +139,15 @@ export const ApplicationForm = () => {
       
       console.log("Application submitted:", response);
       
+      // Проверяем успешность ответа
+      if (!response.success) {
+        throw new Error(response.error || "Ошибка при отправке заявки");
+      }
+      
       // Показываем уведомление об успехе с отслеживанием
-      if (response.tracking_token) {
-        notificationUtils.showApplicationSubmitted(response.tracking_token);
+      const trackingToken = response.data?.tracking_token;
+      if (trackingToken) {
+        notificationUtils.showApplicationSubmitted(trackingToken);
       } else {
         showSuccess("Заявка успешно отправлена! Мы свяжемся с вами в ближайшее время.");
       }

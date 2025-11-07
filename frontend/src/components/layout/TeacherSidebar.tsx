@@ -1,4 +1,4 @@
-import { Home, Send, FileText, MessageSquare, LogOut, User, CheckSquare, BookOpen } from "lucide-react";
+import { Home, Send, FileText, MessageSquare, LogOut, User, CheckSquare, BookOpen, Calendar } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -19,6 +19,7 @@ import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
 const items = [
   { title: "Главная", url: "/dashboard/teacher", icon: Home },
   { title: "Распределение материалов", url: "/dashboard/teacher/materials", icon: Send },
+  { title: "Планы занятий", url: "/dashboard/teacher/study-plans", icon: Calendar },
   { title: "Назначение предметов", url: "/dashboard/teacher/assign-subject", icon: BookOpen },
   { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },

@@ -8,8 +8,8 @@ from django.utils import timezone
 import logging
 
 from .student_dashboard_service import StudentDashboardService
-from .models import Material, MaterialProgress, SubjectEnrollment
-from .serializers import MaterialListSerializer, MaterialProgressSerializer
+from .models import Material, MaterialProgress, SubjectEnrollment, StudyPlan
+from .serializers import MaterialListSerializer, MaterialProgressSerializer, StudyPlanSerializer, StudyPlanListSerializer
 from accounts.staff_views import CSRFExemptSessionAuthentication
 
 logger = logging.getLogger(__name__)
@@ -350,5 +350,136 @@ def update_material_progress(request, material_id):
     except Exception as e:
         return Response(
             {'error': f'Ошибка при обновлении прогресса: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([permissions.IsAuthenticated])
+def student_study_plans(request):
+    """
+    Получить список планов занятий студента
+    GET /api/materials/student/study-plans/
+    Query parameters:
+    - subject_id: ID предмета для фильтрации (опционально)
+    """
+    if request.user.role != User.Role.STUDENT:
+        return Response(
+            {'error': 'Доступ разрешен только студентам'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        subject_id = request.query_params.get('subject_id')
+        
+        # Получаем только отправленные планы
+        plans = StudyPlan.objects.filter(
+            student=request.user,
+            status=StudyPlan.Status.SENT
+        )
+        
+        if subject_id:
+            try:
+                plans = plans.filter(subject_id=int(subject_id))
+            except ValueError:
+                return Response(
+                    {'error': 'subject_id должен быть числом'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        plans = plans.select_related('teacher', 'subject').order_by('-week_start_date', '-sent_at')
+        serializer = StudyPlanListSerializer(plans, many=True)
+        
+        return Response({'study_plans': serializer.data}, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error in student_study_plans: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при получении планов занятий: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([permissions.IsAuthenticated])
+def student_study_plan_detail(request, plan_id):
+    """
+    Получить детали плана занятий студента
+    GET /api/materials/student/study-plans/<plan_id>/
+    """
+    if request.user.role != User.Role.STUDENT:
+        return Response(
+            {'error': 'Доступ разрешен только студентам'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        plan = StudyPlan.objects.get(
+            id=plan_id,
+            student=request.user,
+            status=StudyPlan.Status.SENT
+        )
+        
+        serializer = StudyPlanSerializer(plan)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    except StudyPlan.DoesNotExist:
+        return Response(
+            {'error': 'План занятий не найден'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error in student_study_plan_detail: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при получении плана занятий: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([permissions.IsAuthenticated])
+def student_study_plans_by_subject(request, subject_id):
+    """
+    Получить планы занятий студента по конкретному предмету
+    GET /api/materials/student/subjects/<subject_id>/study-plans/
+    """
+    if request.user.role != User.Role.STUDENT:
+        return Response(
+            {'error': 'Доступ разрешен только студентам'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        # Проверяем, что студент зачислен на этот предмет
+        enrollment = SubjectEnrollment.objects.filter(
+            student=request.user,
+            subject_id=subject_id,
+            is_active=True
+        ).first()
+        
+        if not enrollment:
+            return Response(
+                {'error': 'Вы не зачислены на этот предмет'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Получаем отправленные планы по этому предмету
+        plans = StudyPlan.objects.filter(
+            student=request.user,
+            subject_id=subject_id,
+            status=StudyPlan.Status.SENT
+        ).select_related('teacher', 'subject').order_by('-week_start_date', '-sent_at')
+        
+        serializer = StudyPlanListSerializer(plans, many=True)
+        
+        return Response({'study_plans': serializer.data}, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error in student_study_plans_by_subject: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при получении планов занятий: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

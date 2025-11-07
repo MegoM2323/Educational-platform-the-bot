@@ -505,3 +505,109 @@ class MaterialFeedback(models.Model):
     
     def __str__(self):
         return f"Фидбэк для {self.submission.student} по {self.submission.material}"
+
+
+class StudyPlan(models.Model):
+    """
+    Еженедельный план занятий по предмету для студента
+    Преподаватель создает персональный план подготовки для каждого ученика
+    """
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Черновик'
+        SENT = 'sent', 'Отправлен'
+        ARCHIVED = 'archived', 'Архив'
+    
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_study_plans',
+        verbose_name='Преподаватель'
+    )
+    
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='study_plans',
+        limit_choices_to={'role': 'student'},
+        verbose_name='Студент'
+    )
+    
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='study_plans',
+        verbose_name='Предмет'
+    )
+    
+    # Связь с зачислением (для проверки, что студент зачислен на предмет к этому преподавателю)
+    enrollment = models.ForeignKey(
+        SubjectEnrollment,
+        on_delete=models.CASCADE,
+        related_name='study_plans',
+        null=True,
+        blank=True,
+        verbose_name='Зачисление на предмет'
+    )
+    
+    # Название плана (например, "Неделя 1: Алгебра")
+    title = models.CharField(max_length=200, verbose_name='Название плана')
+    
+    # Содержание плана (структурированный текст или JSON)
+    content = models.TextField(verbose_name='Содержание плана')
+    
+    # Дата начала недели
+    week_start_date = models.DateField(verbose_name='Дата начала недели')
+    
+    # Дата окончания недели (вычисляется автоматически)
+    week_end_date = models.DateField(verbose_name='Дата окончания недели')
+    
+    # Статус плана
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name='Статус'
+    )
+    
+    # Временные метки
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата отправки')
+    
+    class Meta:
+        verbose_name = 'План занятий'
+        verbose_name_plural = 'Планы занятий'
+        ordering = ['-week_start_date', '-created_at']
+        indexes = [
+            models.Index(fields=['student', 'subject', 'week_start_date']),
+            models.Index(fields=['teacher', 'status']),
+        ]
+    
+    def __str__(self):
+        return f"План {self.student.get_full_name()} - {self.subject.name} ({self.week_start_date})"
+    
+    def save(self, *args, **kwargs):
+        # Автоматически вычисляем дату окончания недели
+        if self.week_start_date and not self.week_end_date:
+            from datetime import timedelta
+            self.week_end_date = self.week_start_date + timedelta(days=6)
+        
+        # Автоматически устанавливаем дату отправки при изменении статуса на SENT
+        if self.status == self.Status.SENT and not self.sent_at:
+            from django.utils import timezone
+            self.sent_at = timezone.now()
+        
+        # Автоматически находим enrollment, если не указан
+        if not self.enrollment:
+            try:
+                enrollment = SubjectEnrollment.objects.get(
+                    student=self.student,
+                    subject=self.subject,
+                    teacher=self.teacher,
+                    is_active=True
+                )
+                self.enrollment = enrollment
+            except SubjectEnrollment.DoesNotExist:
+                pass
+        
+        super().save(*args, **kwargs)

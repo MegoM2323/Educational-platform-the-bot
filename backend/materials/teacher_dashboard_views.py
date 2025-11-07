@@ -9,8 +9,8 @@ from django.db import transaction
 import logging
 
 from .teacher_dashboard_service import TeacherDashboardService
-from .models import Material, Subject, SubjectEnrollment, MaterialSubmission, MaterialProgress
-from .serializers import MaterialFeedbackSerializer, MaterialSubmissionSerializer, MaterialCreateSerializer
+from .models import Material, Subject, SubjectEnrollment, MaterialSubmission, MaterialProgress, StudyPlan
+from .serializers import MaterialFeedbackSerializer, MaterialSubmissionSerializer, MaterialCreateSerializer, StudyPlanSerializer, StudyPlanCreateSerializer, StudyPlanListSerializer
 from reports.models import Report
 
 logger = logging.getLogger(__name__)
@@ -667,5 +667,174 @@ def get_all_students(request):
     except Exception as e:
         return Response(
             {'error': f'Ошибка при получении студентов: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def teacher_study_plans(request):
+    """
+    Получить список планов занятий преподавателя или создать новый план
+    GET: получить список всех планов преподавателя
+    POST: создать новый план занятий
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        if request.method == 'GET':
+            # Получить список планов
+            student_id = request.query_params.get('student_id')
+            subject_id = request.query_params.get('subject_id')
+            status_filter = request.query_params.get('status')
+            
+            plans = StudyPlan.objects.filter(teacher=request.user)
+            
+            if student_id:
+                try:
+                    plans = plans.filter(student_id=int(student_id))
+                except ValueError:
+                    return Response(
+                        {'error': 'student_id должен быть числом'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            if subject_id:
+                try:
+                    plans = plans.filter(subject_id=int(subject_id))
+                except ValueError:
+                    return Response(
+                        {'error': 'subject_id должен быть числом'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            if status_filter:
+                plans = plans.filter(status=status_filter)
+            
+            plans = plans.select_related('student', 'subject', 'teacher').order_by('-week_start_date', '-created_at')
+            serializer = StudyPlanListSerializer(plans, many=True)
+            
+            return Response({'study_plans': serializer.data}, status=status.HTTP_200_OK)
+        
+        elif request.method == 'POST':
+            # Создать новый план
+            serializer = StudyPlanCreateSerializer(data=request.data, context={'request': request})
+            
+            if serializer.is_valid():
+                plan = serializer.save()
+                logger.info(
+                    "Study plan created | teacher=%s | student=%s | subject=%s | status=%s",
+                    request.user.id,
+                    plan.student_id,
+                    plan.subject_id,
+                    plan.status
+                )
+                response_serializer = StudyPlanSerializer(plan)
+                return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+            
+            logger.warning(
+                "Study plan creation failed | teacher=%s | errors=%s",
+                request.user.id,
+                serializer.errors
+            )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Exception as e:
+        logger.error(f"Error in teacher_study_plans: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при работе с планами занятий: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def teacher_study_plan_detail(request, plan_id):
+    """
+    Получить, обновить или удалить план занятий
+    GET: получить детали плана
+    PATCH: обновить план (включая отправку - изменение статуса на 'sent')
+    DELETE: удалить план
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        plan = get_object_or_404(StudyPlan, id=plan_id, teacher=request.user)
+        
+        if request.method == 'GET':
+            serializer = StudyPlanSerializer(plan)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        elif request.method == 'PATCH':
+            serializer = StudyPlanSerializer(plan, data=request.data, partial=True, context={'request': request})
+            
+            if serializer.is_valid():
+                # Если статус меняется на 'sent', устанавливаем sent_at
+                if 'status' in request.data and request.data['status'] == StudyPlan.Status.SENT:
+                    from django.utils import timezone
+                    if not plan.sent_at:
+                        serializer.validated_data['sent_at'] = timezone.now()
+                
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        elif request.method == 'DELETE':
+            plan.delete()
+            return Response({'message': 'План занятий удален'}, status=status.HTTP_204_NO_CONTENT)
+    
+    except Exception as e:
+        logger.error(f"Error in teacher_study_plan_detail: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при работе с планом занятий: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def send_study_plan(request, plan_id):
+    """
+    Отправить план занятий студенту (изменить статус на 'sent')
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        plan = get_object_or_404(StudyPlan, id=plan_id, teacher=request.user)
+        
+        if plan.status == StudyPlan.Status.SENT:
+            return Response(
+                {'error': 'План уже отправлен'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        from django.utils import timezone
+        plan.status = StudyPlan.Status.SENT
+        plan.sent_at = timezone.now()
+        plan.save()
+        
+        serializer = StudyPlanSerializer(plan)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Error in send_study_plan: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при отправке плана: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

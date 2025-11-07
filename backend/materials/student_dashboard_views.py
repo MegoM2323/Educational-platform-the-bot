@@ -373,10 +373,10 @@ def student_study_plans(request):
     try:
         subject_id = request.query_params.get('subject_id')
         
-        # Получаем только отправленные планы
+        # Получаем отправленные и архивные планы (история доступна ученику)
         plans = StudyPlan.objects.filter(
             student=request.user,
-            status=StudyPlan.Status.SENT
+            status__in=[StudyPlan.Status.SENT, StudyPlan.Status.ARCHIVED]
         )
         
         if subject_id:
@@ -466,11 +466,11 @@ def student_study_plans_by_subject(request, subject_id):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Получаем отправленные планы по этому предмету
+        # Получаем отправленные и архивные планы по этому предмету
         plans = StudyPlan.objects.filter(
             student=request.user,
             subject_id=subject_id,
-            status=StudyPlan.Status.SENT
+            status__in=[StudyPlan.Status.SENT, StudyPlan.Status.ARCHIVED]
         ).select_related('teacher', 'subject').order_by('-week_start_date', '-sent_at')
         
         serializer = StudyPlanListSerializer(plans, many=True)

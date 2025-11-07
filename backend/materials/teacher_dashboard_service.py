@@ -735,33 +735,30 @@ class TeacherDashboardService:
     
     def get_all_subjects(self) -> List[Dict[str, Any]]:
         """
-        Получить все предметы, которые ведет учитель, или все предметы, если учитель еще не назначен на предметы
+        Получить список всех предметов с признаком, ведет ли их преподаватель
         
         Returns:
-            Список предметов
+            Список предметов с индикатором назначения преподавателю
         """
         import logging
         logger = logging.getLogger(__name__)
         
         from .models import TeacherSubject
         
-        # Получаем предметы, которые ведет учитель
         teacher_subjects = TeacherSubject.objects.filter(
             teacher=self.teacher,
             is_active=True
         ).select_related('subject')
-        
-        logger.info(f"[get_all_subjects] Teacher {self.teacher.username} has {teacher_subjects.count()} assigned subjects")
-        
-        # Всегда показываем все предметы (чтобы учитель мог выбрать любой предмет)
-        # Но помечаем те, которые уже назначены
-        all_subjects = Subject.objects.all()
         assigned_subject_ids = set(ts.subject_id for ts in teacher_subjects)
         
-        result = []
+        logger.info(
+            "[get_all_subjects] Teacher %s has %d assigned subjects",
+            self.teacher.username,
+            len(assigned_subject_ids)
+        )
         
-        for subject in all_subjects:
-            # Получаем количество студентов, зачисленных на этот предмет данным преподавателем
+        result: List[Dict[str, Any]] = []
+        for subject in Subject.objects.all().select_related():
             student_count = SubjectEnrollment.objects.filter(
                 subject=subject,
                 teacher=self.teacher,
@@ -777,7 +774,11 @@ class TeacherDashboardService:
                 'is_assigned': subject.id in assigned_subject_ids
             })
         
-        logger.info(f"[get_all_subjects] Returning {len(result)} subjects")
+        logger.info(
+            "[get_all_subjects] Returning %d subjects for teacher %s",
+            len(result),
+            self.teacher.username
+        )
         return result
     
     def get_subject_students(self, subject_id: int) -> List[Dict[str, Any]]:

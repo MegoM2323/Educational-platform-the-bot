@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import student_api_views as views
+from . import student_dashboard_views
 
 
 urlpatterns = [
@@ -13,6 +14,11 @@ urlpatterns = [
     path("materials/<int:material_id>/submissions/", views.submit_material_submission, name="student-submit-material"),
     path("submissions/", views.list_student_submissions, name="student-submissions"),
     path("submissions/<int:submission_id>/feedback/", views.get_submission_feedback, name="student-submission-feedback"),
+
+    # Study plans
+    path("study-plans/", student_dashboard_views.student_study_plans, name="student-study-plans"),
+    path("study-plans/<int:plan_id>/", student_dashboard_views.student_study_plan_detail, name="student-study-plan-detail"),
+    path("subjects/<int:subject_id>/study-plans/", student_dashboard_views.student_study_plans_by_subject, name="student-study-plans-by-subject"),
 ]
 
 

@@ -31,6 +31,7 @@ const StudentGeneralChat = lazy(() => import("./pages/dashboard/student/GeneralC
 const TeacherMaterials = lazy(() => import("./pages/dashboard/teacher/Materials"));
 const CreateMaterial = lazy(() => import("./pages/dashboard/teacher/CreateMaterial"));
 const TeacherReports = lazy(() => import("./pages/dashboard/teacher/Reports"));
+const StudyPlans = lazy(() => import("./pages/dashboard/teacher/StudyPlans"));
 const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissions"));
 const TeacherGeneralChat = lazy(() => import("./pages/dashboard/teacher/GeneralChat"));
 const AssignSubject = lazy(() => import("./pages/dashboard/teacher/AssignSubject"));
@@ -151,6 +152,13 @@ const App = () => (
             <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TeacherReports />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/study-plans" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudyPlans />
               </Suspense>
             </ProtectedRoute>
           } />

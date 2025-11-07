@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Subject, Material, MaterialProgress, MaterialComment, MaterialSubmission, MaterialFeedback, SubjectEnrollment, SubjectPayment
+from .models import Subject, Material, MaterialProgress, MaterialComment, MaterialSubmission, MaterialFeedback, SubjectEnrollment, SubjectPayment, StudyPlan
 
 User = get_user_model()
 
@@ -318,3 +318,129 @@ class MaterialFeedbackSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['teacher'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class StudyPlanSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для планов занятий
+    """
+    teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    student_name = serializers.CharField(source='student.get_full_name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    subject_color = serializers.CharField(source='subject.color', read_only=True)
+    
+    class Meta:
+        model = StudyPlan
+        fields = (
+            'id', 'teacher', 'teacher_name', 'student', 'student_name',
+            'subject', 'subject_name', 'subject_color', 'enrollment',
+            'title', 'content', 'week_start_date', 'week_end_date',
+            'status', 'created_at', 'updated_at', 'sent_at'
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'sent_at', 'week_end_date')
+    
+    def validate(self, data):
+        """
+        Валидация данных плана
+        """
+        # Проверяем, что студент зачислен на предмет к этому преподавателю
+        if 'student' in data and 'subject' in data and 'teacher' in data:
+            from .models import SubjectEnrollment
+            try:
+                enrollment = SubjectEnrollment.objects.get(
+                    student=data['student'],
+                    subject=data['subject'],
+                    teacher=data['teacher'],
+                    is_active=True
+                )
+                if 'enrollment' not in data:
+                    data['enrollment'] = enrollment
+            except SubjectEnrollment.DoesNotExist:
+                raise serializers.ValidationError(
+                    "Студент не зачислен на этот предмет к данному преподавателю"
+                )
+        
+        return data
+    
+    def create(self, validated_data):
+        validated_data['teacher'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class StudyPlanCreateSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для создания плана занятий
+    """
+    class Meta:
+        model = StudyPlan
+        fields = (
+            'student', 'subject', 'title', 'content', 'week_start_date', 'status'
+        )
+    
+    def validate_title(self, value):
+        if not value or len(value.strip()) < 3:
+            raise serializers.ValidationError("Название плана должно содержать минимум 3 символа")
+        return value.strip()
+    
+    def validate_content(self, value):
+        if not value or len(value.strip()) < 10:
+            raise serializers.ValidationError("Содержание плана должно содержать минимум 10 символов")
+        return value.strip()
+    
+    def validate(self, data):
+        """
+        Валидация данных при создании
+        """
+        request = self.context['request']
+        teacher = request.user
+        
+        # Проверяем, что преподаватель ведет этот предмет
+        from .models import TeacherSubject
+        try:
+            TeacherSubject.objects.get(
+                teacher=teacher,
+                subject=data['subject'],
+                is_active=True
+            )
+        except TeacherSubject.DoesNotExist:
+            raise serializers.ValidationError(
+                "Вы не ведете этот предмет"
+            )
+        
+        # Проверяем, что студент зачислен на предмет к этому преподавателю
+        from .models import SubjectEnrollment
+        try:
+            enrollment = SubjectEnrollment.objects.get(
+                student=data['student'],
+                subject=data['subject'],
+                teacher=teacher,
+                is_active=True
+            )
+            data['enrollment'] = enrollment
+        except SubjectEnrollment.DoesNotExist:
+            raise serializers.ValidationError(
+                "Студент не зачислен на этот предмет к вам"
+            )
+        
+        return data
+    
+    def create(self, validated_data):
+        validated_data['teacher'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class StudyPlanListSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для списка планов занятий (упрощенный)
+    """
+    teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    student_name = serializers.CharField(source='student.get_full_name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    subject_color = serializers.CharField(source='subject.color', read_only=True)
+    
+    class Meta:
+        model = StudyPlan
+        fields = (
+            'id', 'teacher_name', 'student_name', 'subject_name', 'subject_color',
+            'title', 'content', 'week_start_date', 'week_end_date', 'status', 'sent_at', 'created_at'
+        )

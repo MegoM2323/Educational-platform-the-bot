@@ -135,7 +135,13 @@ const StudentDashboard = () => {
   }, []);
 
   const handleSignOut = async () => {
-    await signOut();
+    try {
+      await signOut();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      showError('Не удалось завершить сессию. Попробуйте ещё раз.');
+      console.error('StudentDashboard sign out error:', error);
+    }
   };
 
   const handleMaterialClick = (materialId: number) => {

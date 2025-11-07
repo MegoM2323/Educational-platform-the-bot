@@ -27,6 +27,11 @@ urlpatterns = [
     path('materials/student/subjects/', student_dashboard_views.student_subjects, name='student-subjects'),
     path('materials/<int:material_id>/progress/', student_dashboard_views.update_material_progress, name='update-material-progress'),
     
+    # Student study plans endpoints
+    path('student/study-plans/', student_dashboard_views.student_study_plans, name='student-study-plans'),
+    path('student/study-plans/<int:plan_id>/', student_dashboard_views.student_study_plan_detail, name='student-study-plan-detail'),
+    path('student/subjects/<int:subject_id>/study-plans/', student_dashboard_views.student_study_plans_by_subject, name='student-study-plans-by-subject'),
+    
     # Student materials API endpoints
     path('materials/student/list/', views.MaterialViewSet.as_view({'get': 'student_materials'}), name='student-materials'),
     path('materials/<int:pk>/download/', views.MaterialViewSet.as_view({'get': 'download_file'}), name='material-download'),
@@ -49,6 +54,11 @@ urlpatterns = [
     path('reports/teacher/create/', teacher_dashboard_views.create_student_report, name='create-student-report'),
     path('reports/teacher/', teacher_dashboard_views.teacher_reports, name='teacher-reports'),
     path('dashboard/teacher/general-chat/', teacher_dashboard_views.teacher_general_chat, name='teacher-general-chat'),
+    
+    # Teacher study plans endpoints
+    path('teacher/study-plans/', teacher_dashboard_views.teacher_study_plans, name='teacher-study-plans'),
+    path('teacher/study-plans/<int:plan_id>/', teacher_dashboard_views.teacher_study_plan_detail, name='teacher-study-plan-detail'),
+    path('teacher/study-plans/<int:plan_id>/send/', teacher_dashboard_views.send_study_plan, name='send-study-plan'),
     
     # Parent dashboard endpoints
     path('dashboard/parent/', parent_dashboard_views.ParentDashboardView.as_view(), name='parent-dashboard'),

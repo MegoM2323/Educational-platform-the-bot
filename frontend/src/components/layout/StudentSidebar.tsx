@@ -26,9 +26,15 @@ const items = [
 export function StudentSidebar() {
   const { state } = useSidebar();
   const { signOut } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await signOut();
+    try {
+      await signOut();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('StudentSidebar sign out error:', error);
+    }
   };
 
   return (

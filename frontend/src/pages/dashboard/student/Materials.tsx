@@ -6,7 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { BookOpen, Search, Download, Eye, Filter, Clock, User, FileText, Video, Presentation, TestTube, Home, Send, MessageSquare } from "lucide-react";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { BookOpen, Search, Download, Eye, Filter, Clock, User, FileText, Video, Presentation, TestTube, Home, Send, MessageSquare, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { unifiedAPI as apiClient } from "@/integrations/api/unifiedClient";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +89,10 @@ export default function StudentMaterials() {
   const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [studyPlans, setStudyPlans] = useState<any[]>([]);
+  const [studyPlansLoading, setStudyPlansLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
 
   // Загрузка материалов
   const fetchMaterials = async () => {
@@ -139,9 +145,34 @@ export default function StudentMaterials() {
     }
   };
 
+  // Загрузка планов занятий
+  const fetchStudyPlans = async () => {
+    try {
+      setStudyPlansLoading(true);
+      const params = new URLSearchParams();
+      if (selectedSubject !== "all") {
+        params.append('subject_id', selectedSubject);
+      }
+      params.append('_', Date.now().toString());
+      
+      const response = await apiClient.request<{ study_plans: any[] }>(
+        `/student/study-plans/?${params.toString()}`
+      );
+      
+      if (response.data) {
+        setStudyPlans(response.data.study_plans || []);
+      }
+    } catch (err) {
+      console.error('Study plans fetch error:', err);
+    } finally {
+      setStudyPlansLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMaterials();
     fetchSubjects();
+    fetchStudyPlans();
   }, [selectedSubject, selectedType, selectedDifficulty]);
 
   // Фильтрация по поисковому запросу
@@ -270,6 +301,48 @@ export default function StudentMaterials() {
                   <p className="text-muted-foreground">Все материалы от ваших преподавателей</p>
                 </div>
               </div>
+
+              {/* Планы занятий */}
+              {studyPlans.length > 0 && (
+                <Card className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    <h2 className="text-xl font-bold">Планы занятий</h2>
+                  </div>
+                  <div className="grid gap-4">
+                    {studyPlans.map(plan => (
+                      <Card key={plan.id} className="p-4 border-l-4" style={{ borderLeftColor: plan.subject_color }}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge style={{ backgroundColor: plan.subject_color }} className="text-white">
+                                {plan.subject_name}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {format(new Date(plan.week_start_date), "dd.MM.yyyy", { locale: ru })} - {format(new Date(plan.week_end_date), "dd.MM.yyyy", { locale: ru })}
+                              </span>
+                            </div>
+                            <h3 className="text-lg font-semibold mb-2">{plan.title}</h3>
+                            <p className="text-muted-foreground line-clamp-2">{plan.content}</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPlan(plan);
+                              setPlanDialogOpen(true);
+                            }}
+                            className="ml-4"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Просмотр
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </Card>
+              )}
 
       {/* Search and Filter */}
       <Card className="p-4">
@@ -508,6 +581,38 @@ export default function StudentMaterials() {
                 handleOpenSubmissionDialog(selectedMaterial);
               }}
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог просмотра плана занятий */}
+      <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedPlan?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedPlan && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Badge 
+                  style={{ backgroundColor: selectedPlan.subject_color }}
+                  className="text-white"
+                >
+                  {selectedPlan.subject_name}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {format(new Date(selectedPlan.week_start_date), "dd.MM.yyyy", { locale: ru })} - {format(new Date(selectedPlan.week_end_date), "dd.MM.yyyy", { locale: ru })}
+                </span>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2">Содержание плана</h4>
+                <div className="p-4 bg-muted rounded-md whitespace-pre-wrap">
+                  {selectedPlan.content}
+                </div>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

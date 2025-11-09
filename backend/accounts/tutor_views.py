@@ -84,18 +84,41 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         # 1) у кого в профиле явно указан этот тьютор (tutor=request.user)
         # 2) кого этот тьютор создавал (user__created_by_tutor=request.user)
         # Используем общий фильтр, который работает и для тьюторов, и для администраторов
-        students = (
+        # Принудительно получаем свежие данные из базы, не используя кеш
+        
+        # Сначала получаем queryset
+        students_queryset = (
             StudentProfile.objects
             .filter(Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             .select_related('user', 'tutor', 'parent')
             .distinct()  # Избегаем дубликатов, если оба условия выполнены
+            .order_by('-user__date_joined')  # Сортируем по дате создания (новые первыми)
         )
         
-        print(f"[TutorStudentsViewSet.list] Found {students.count()} students")
-        print(f"[TutorStudentsViewSet.list] Students: {[s.user.username for s in students]}")
+        # Преобразуем в список, чтобы выполнить запрос и получить свежие данные
+        # Это гарантирует, что мы получаем актуальные данные из базы
+        students_list = list(students_queryset)
         
-        serializer = TutorStudentSerializer(students, many=True)
-        print(f"[TutorStudentsViewSet.list] Serialized data: {serializer.data}")
+        print(f"[TutorStudentsViewSet.list] Found {len(students_list)} students")
+        print(f"[TutorStudentsViewSet.list] Students: {[s.user.username for s in students_list]}")
+        
+        # Проверяем связи для каждого студента
+        for student in students_list:
+            print(f"[TutorStudentsViewSet.list] Student {student.id}: tutor_id={student.tutor_id}, created_by_tutor_id={student.user.created_by_tutor_id if hasattr(student.user, 'created_by_tutor_id') else None}")
+        
+        # Сериализуем данные - get_subjects будет вызываться для каждого студента
+        # и получать свежие данные из базы каждый раз
+        serializer = TutorStudentSerializer(students_list, many=True)
+        
+        # Логируем информацию о предметах для каждого студента
+        for student_data in serializer.data:
+            subjects_count = len(student_data.get('subjects', []))
+            student_id = student_data.get('id')
+            student_name = student_data.get('full_name')
+            print(f"[TutorStudentsViewSet.list] Student {student_id} ({student_name}) has {subjects_count} subjects")
+            if subjects_count > 0:
+                for subject in student_data.get('subjects', []):
+                    print(f"  - {subject.get('name')} (teacher: {subject.get('teacher_name')}, enrollment_id: {subject.get('enrollment_id')})")
         
         # Возвращаем просто массив данных, как ожидает фронтенд
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -133,15 +156,34 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             return Response({'detail': f'Ошибка создания ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            student_profile = student_user.student_profile
+            # Принудительно перезагружаем студента из базы для получения свежих данных
+            student_profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(id=student_user.student_profile.id)
         except StudentProfile.DoesNotExist:
             print(f"[TutorStudentsViewSet.create] StudentProfile not found for user {student_user.id}")
             return Response({'detail': 'Профиль студента не был создан'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Принудительно обновляем данные из базы
+        student_profile.refresh_from_db()
+        student_user.refresh_from_db()
+        
         print(f"[TutorStudentsViewSet.create] Student profile created: {student_profile.id}")
-        print(f"[TutorStudentsViewSet.create] Student profile tutor: {student_profile.tutor}")
-        print(f"[TutorStudentsViewSet.create] Student profile parent: {student_profile.parent} (id: {student_profile.parent_id})")
-        print(f"[TutorStudentsViewSet.create] Student user created_by_tutor: {student_user.created_by_tutor}")
-        print(f"[TutorStudentsViewSet.create] Request user: {request.user}")
+        print(f"[TutorStudentsViewSet.create] Student profile tutor_id: {student_profile.tutor_id}, tutor: {student_profile.tutor}")
+        print(f"[TutorStudentsViewSet.create] Student profile parent_id: {student_profile.parent_id}, parent: {student_profile.parent}")
+        print(f"[TutorStudentsViewSet.create] Student user created_by_tutor_id: {student_user.created_by_tutor_id if hasattr(student_user, 'created_by_tutor_id') else None}")
+        print(f"[TutorStudentsViewSet.create] Request user id: {request.user.id}")
+        
+        # Проверяем, что студент действительно виден в списке студентов этого тьютора
+        # Это гарантирует, что связи установлены правильно
+        students_count = StudentProfile.objects.filter(
+            Q(id=student_profile.id) & 
+            (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+        ).count()
+        print(f"[TutorStudentsViewSet.create] Student visibility check: {students_count} students found (should be 1)")
+        
+        if students_count == 0:
+            print(f"[TutorStudentsViewSet.create] WARNING: Created student is not visible in tutor's student list!")
+            print(f"[TutorStudentsViewSet.create] tutor_id={student_profile.tutor_id}, request.user.id={request.user.id}")
+            print(f"[TutorStudentsViewSet.create] created_by_tutor_id={student_user.created_by_tutor_id if hasattr(student_user, 'created_by_tutor_id') else None}")
         
         # Проверяем связь родитель-ребенок
         if parent_user:
@@ -154,8 +196,12 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             except Exception as e:
                 print(f"[TutorStudentsViewSet.create] Error getting ParentProfile: {e}")
         
+        # Сериализуем данные студента - это гарантирует, что предметы тоже будут загружены
+        student_data = TutorStudentSerializer(student_profile).data
+        print(f"[TutorStudentsViewSet.create] Serialized student data: id={student_data.get('id')}, name={student_data.get('full_name')}, subjects_count={len(student_data.get('subjects', []))}")
+        
         response = {
-            'student': TutorStudentSerializer(student_profile).data,
+            'student': student_data,
             'parent': {
                 'id': parent_user.id,
                 'full_name': parent_user.get_full_name() or parent_user.username,
@@ -211,15 +257,51 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         subject = assign_serializer.validated_data['subject']
         teacher = assign_serializer.validated_data.get('teacher')
 
+        print(f"[TutorStudentsViewSet.subjects] Assigning subject: subject_id={subject.id}, teacher_id={teacher.id if teacher else None}, student_id={student_profile.user.id}")
+        
         try:
+            # Создаем или обновляем enrollment
             enrollment = SubjectAssignmentService.assign_subject(
                 tutor=request.user,
                 student=student_profile.user,
                 subject=subject,
                 teacher=teacher,
             )
-            # Возвращаем 200 OK - зачисление создано или обновлено
-            return Response(SubjectEnrollmentSerializer(enrollment).data, status=status.HTTP_200_OK)
+            print(f"[TutorStudentsViewSet.subjects] Enrollment created/updated: id={enrollment.id}, is_active={enrollment.is_active}, student_id={student_profile.user.id}, subject_id={subject.id}, teacher_id={teacher.id}")
+            
+            # Принудительно перезагружаем enrollment из базы с актуальными данными
+            from materials.models import SubjectEnrollment
+            
+            # Перезагружаем enrollment с актуальными данными
+            enrollment = SubjectEnrollment.objects.select_related(
+                'subject', 'teacher', 'student'
+            ).get(id=enrollment.id)
+            
+            print(f"[TutorStudentsViewSet.subjects] Reloaded enrollment: id={enrollment.id}, is_active={enrollment.is_active}")
+            
+            # Проверяем, сколько всего активных enrollments у этого студента
+            # Это поможет убедиться, что enrollment действительно создан
+            all_enrollments = list(SubjectEnrollment.objects.filter(
+                student=student_profile.user,
+                is_active=True
+            ).values_list('id', flat=True).order_by('-enrolled_at', '-id'))
+            print(f"[TutorStudentsViewSet.subjects] Student {student_profile.user.id} now has {len(all_enrollments)} active enrollments: {all_enrollments}")
+            
+            # Проверяем, что новый enrollment в списке
+            if enrollment.id not in all_enrollments:
+                print(f"[TutorStudentsViewSet.subjects] WARNING: Enrollment {enrollment.id} not found in active enrollments list!")
+            else:
+                print(f"[TutorStudentsViewSet.subjects] Enrollment {enrollment.id} confirmed in active enrollments list")
+            
+            # Принудительно обновляем данные из базы для студента
+            student_profile.refresh_from_db()
+            student_profile.user.refresh_from_db()
+            
+            # Возвращаем данные enrollment
+            enrollment_data = SubjectEnrollmentSerializer(enrollment).data
+            print(f"[TutorStudentsViewSet.subjects] Returning enrollment data: {enrollment_data}")
+            
+            return Response(enrollment_data, status=status.HTTP_200_OK)
         except PermissionError as e:
             return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as e:
@@ -323,18 +405,26 @@ def list_teachers(request):
     """
     Получить список всех преподавателей для тьютора.
     Доступно только для тьюторов и администраторов.
+    Возвращает только активных пользователей с ролью TEACHER (исключает админов и других ролей).
     """
     try:
-        # Получаем всех активных преподавателей
+        # Получаем только активных пользователей с ролью TEACHER
+        # Явно исключаем админов и других ролей
         teachers = User.objects.filter(
-            role=User.Role.TEACHER,
-            is_active=True
+            role=User.Role.TEACHER,  # Только преподаватели
+            is_active=True,  # Только активные
+            is_staff=False,  # Исключаем администраторов (is_staff=True)
+            is_superuser=False  # Исключаем суперпользователей
         ).order_by('first_name', 'last_name', 'email')
         
-        # Сериализуем данные
-        serializer = UserSerializer(teachers, many=True)
+        print(f"[list_teachers] Found {teachers.count()} teachers (role=TEACHER, is_active=True, is_staff=False, is_superuser=False) for tutor {request.user.username}")
         
-        print(f"[list_teachers] Found {teachers.count()} teachers for tutor {request.user.username}")
+        # Логируем для отладки
+        for teacher in teachers[:5]:  # Логируем первые 5 для проверки
+            print(f"[list_teachers] Teacher: {teacher.username} (role={teacher.role}, is_staff={teacher.is_staff}, is_superuser={teacher.is_superuser})")
+        
+        # Сериализуем данные - UserSerializer должен правильно обработать всех преподавателей
+        serializer = UserSerializer(teachers, many=True)
         
         # Возвращаем массив напрямую
         return Response(serializer.data, status=status.HTTP_200_OK)

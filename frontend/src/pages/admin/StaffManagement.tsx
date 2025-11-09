@@ -84,12 +84,17 @@ export default function StaffManagement() {
         specialization: form.role === 'tutor' ? form.specialization : undefined,
       };
       const res = await staffService.create(payload);
+      console.log('[StaffManagement] User created:', res);
       setCreatedCredentials(res.credentials);
       setIsCreateOpen(false);
       toast.success('Пользователь создан');
+      
+      // Загружаем список сразу после создания без задержек
+      // База данных уже обновлена на момент получения ответа
       await load();
     } catch (e: any) {
       toast.error(e?.message || 'Не удалось создать пользователя');
+      console.error('Error creating staff:', e);
     }
   };
 

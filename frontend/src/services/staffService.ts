@@ -27,9 +27,24 @@ export interface CreateStaffResponse {
 
 export const staffService = {
   async list(role: 'teacher' | 'tutor'): Promise<StaffListItem[]> {
-    const res = await apiClient.request<{ results: StaffListItem[] }>(`/auth/staff/?role=${role}&_=${Date.now()}`, { method: 'GET' });
-    if (!res.success) throw new Error(res.error || 'Не удалось получить список');
-    return (res.data as any)?.results || [];
+    // Добавляем timestamp для предотвращения кеширования
+    const timestamp = Date.now();
+    const res = await apiClient.request<{ results: StaffListItem[] } | StaffListItem[]>(`/auth/staff/?role=${role}&_=${timestamp}`, { method: 'GET' });
+    if (!res.success) {
+      console.error('Error loading staff list:', res.error);
+      throw new Error(res.error || 'Не удалось получить список');
+    }
+    // unifiedClient уже извлекает results из ответа, поэтому res.data может быть либо массивом, либо объектом с results
+    let results: StaffListItem[] = [];
+    if (Array.isArray(res.data)) {
+      // Если unifiedClient уже извлек results, res.data будет массивом
+      results = res.data;
+    } else if (res.data && typeof res.data === 'object' && 'results' in res.data) {
+      // Если unifiedClient не извлек results (редкий случай), извлекаем вручную
+      results = (res.data as any).results || [];
+    }
+    console.log(`[staffService] Loaded ${results.length} ${role}s`, { dataType: typeof res.data, isArray: Array.isArray(res.data) });
+    return results;
   },
 
   async create(payload: CreateStaffPayload): Promise<CreateStaffResponse> {

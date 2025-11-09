@@ -77,12 +77,22 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
     Сериализатор для профиля преподавателя
     """
     user = UserSerializer(read_only=True)
+    subjects_list = serializers.SerializerMethodField()
     
     class Meta:
         model = TeacherProfile
         fields = (
-            'id', 'user', 'subject', 'experience_years', 'bio'
+            'id', 'user', 'subject', 'experience_years', 'bio', 'subjects_list'
         )
+    
+    def get_subjects_list(self, obj):
+        """Возвращает список предметов преподавателя из TeacherSubject"""
+        from materials.models import TeacherSubject
+        teacher_subjects = TeacherSubject.objects.filter(
+            teacher=obj.user,
+            is_active=True
+        ).select_related('subject')
+        return [ts.subject.name for ts in teacher_subjects]
 
 
 class TutorProfileSerializer(serializers.ModelSerializer):

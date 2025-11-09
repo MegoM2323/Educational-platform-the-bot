@@ -85,19 +85,59 @@ class TeacherProfileAdmin(admin.ModelAdmin):
     """
     Админка для профилей преподавателей
     """
-    list_display = ['user', 'subject', 'experience_years']
-    list_filter = ['subject', 'experience_years']
+    list_display = ['user', 'get_subject_display', 'get_subjects_list', 'experience_years']
+    list_filter = ['experience_years']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'subject']
-    readonly_fields = ['user']
+    readonly_fields = ['user', 'get_subjects_list_display']
     
     fieldsets = (
         ('Основная информация', {
             'fields': ('user', 'subject', 'experience_years')
         }),
         ('Дополнительная информация', {
-            'fields': ('bio',)
+            'fields': ('bio', 'get_subjects_list_display')
         }),
     )
+    
+    def get_subject_display(self, obj):
+        """Отображает предмет из профиля или первый предмет из TeacherSubject"""
+        if obj.subject:
+            return obj.subject
+        # Если предмет не указан в профиле, получаем из TeacherSubject
+        from materials.models import TeacherSubject
+        teacher_subjects = TeacherSubject.objects.filter(
+            teacher=obj.user, 
+            is_active=True
+        ).select_related('subject')
+        if teacher_subjects.exists():
+            return teacher_subjects.first().subject.name
+        return '-'
+    get_subject_display.short_description = 'Предмет'
+    
+    def get_subjects_list(self, obj):
+        """Отображает список всех предметов преподавателя через TeacherSubject"""
+        from materials.models import TeacherSubject
+        teacher_subjects = TeacherSubject.objects.filter(
+            teacher=obj.user, 
+            is_active=True
+        ).select_related('subject')
+        subjects = [ts.subject.name for ts in teacher_subjects]
+        if subjects:
+            return ', '.join(subjects)
+        return '-'
+    get_subjects_list.short_description = 'Все предметы'
+    
+    def get_subjects_list_display(self, obj):
+        """Отображает список всех предметов в fieldsets"""
+        return self.get_subjects_list(obj)
+    get_subjects_list_display.short_description = 'Предметы (из TeacherSubject)'
+    
+    def get_queryset(self, request):
+        """Переопределяем queryset, чтобы показать всех преподавателей"""
+        qs = super().get_queryset(request)
+        # Включаем всех преподавателей, даже без профиля (через UserAdmin)
+        # Но здесь мы работаем только с TeacherProfile
+        return qs.select_related('user')
 
 
 @admin.register(TutorProfile)

@@ -9,6 +9,7 @@ import { parentDashboardAPI } from "@/integrations/api/dashboard";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { PaymentStatusBadge, PaymentStatus } from "@/components/PaymentStatusBadge";
 
 interface Payment {
   id: number;
@@ -56,20 +57,6 @@ const PaymentHistory = () => {
     fetchPayments();
   }, [toast]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return <Badge variant="default" className="bg-green-500">Оплачено</Badge>;
-      case 'pending':
-        return <Badge variant="secondary">Ожидает оплаты</Badge>;
-      case 'overdue':
-        return <Badge variant="destructive">Просрочено</Badge>;
-      case 'expired':
-        return <Badge variant="outline">Истекло</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
 
   if (loading) {
     return (
@@ -143,7 +130,10 @@ const PaymentHistory = () => {
                         </div>
                         <div>
                           <p className="text-muted-foreground">Статус</p>
-                          {getStatusBadge(payment.status)}
+                          <PaymentStatusBadge 
+                            status={payment.status as PaymentStatus} 
+                            size="default" 
+                          />
                         </div>
                       </div>
                     </div>

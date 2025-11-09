@@ -171,7 +171,7 @@ class ParentDashboardService:
                     'email': e.teacher.email,
                     'subjects': set()
                 }
-            teachers[e.teacher_id]['subjects'].add(e.subject.name)
+            teachers[e.teacher_id]['subjects'].add(e.get_subject_name())
         
         result = []
         for t in teachers.values():
@@ -229,8 +229,10 @@ class ParentDashboardService:
         
         subject_progress = []
         for enrollment in enrollments:
-            subject_name = enrollment.subject.name
-            progress_data = subject_progress_dict.get(subject_name, {
+            subject_name = enrollment.get_subject_name()
+            # Используем стандартное название для поиска в progress_data, так как материалы привязаны к стандартному предмету
+            standard_subject_name = enrollment.subject.name
+            progress_data = subject_progress_dict.get(standard_subject_name, {
                 'total_materials': 0,
                 'completed_materials': 0,
                 'avg_progress': 0
@@ -278,9 +280,12 @@ class ParentDashboardService:
             
             # Проверяем статус платежа
             payment_status = 'no_payment'
+            next_payment_date = None
             if last_payment:
                 if last_payment.status == SubjectPayment.Status.PAID:
                     payment_status = 'paid'
+                elif last_payment.status == SubjectPayment.Status.WAITING_FOR_PAYMENT:
+                    payment_status = 'waiting_for_payment'
                 elif last_payment.status == SubjectPayment.Status.PENDING:
                     if last_payment.due_date < timezone.now():
                         payment_status = 'overdue'
@@ -289,9 +294,19 @@ class ParentDashboardService:
                 elif last_payment.status == SubjectPayment.Status.EXPIRED:
                     payment_status = 'expired'
             
+            # Получаем информацию о подписке для next_payment_date
+            has_subscription = self._has_active_subscription(enrollment)
+            if has_subscription:
+                try:
+                    subscription = getattr(enrollment, 'subscription', None)
+                    if subscription and subscription.status == SubjectSubscription.Status.ACTIVE:
+                        next_payment_date = subscription.next_payment_date
+                except Exception:
+                    pass
+            
             payment_info.append({
                 'enrollment_id': enrollment.id,
-                'subject': enrollment.subject.name,
+                'subject': enrollment.get_subject_name(),
                 'subject_id': enrollment.subject.id,
                 'teacher': enrollment.teacher.get_full_name(),
                 'teacher_id': enrollment.teacher.id,
@@ -299,7 +314,8 @@ class ParentDashboardService:
                 'amount': last_payment.amount if last_payment else Decimal('0.00'),
                 'due_date': last_payment.due_date if last_payment else None,
                 'paid_at': last_payment.paid_at if last_payment else None,
-                'has_subscription': self._has_active_subscription(enrollment)
+                'has_subscription': has_subscription,
+                'next_payment_date': next_payment_date.isoformat() if next_payment_date else None
             })
         
         return payment_info
@@ -330,13 +346,14 @@ class ParentDashboardService:
         
         # Создаем основной платеж (плательщик — родитель)
         parent = self.parent_user
+        subject_name = enrollment.get_subject_name()
         payment = Payment.objects.create(
             amount=amount,
-            service_name=f"Оплата за предмет: {enrollment.subject.name} (ученик: {child.get_full_name()})",
+            service_name=f"Оплата за предмет: {subject_name} (ученик: {child.get_full_name()})",
             customer_fio=f"{parent.first_name} {parent.last_name}",
             description=(
                 description
-                or f"Оплата за предмет {enrollment.subject.name} для ученика {child.get_full_name()}"
+                or f"Оплата за предмет {subject_name} для ученика {child.get_full_name()}"
             ),
             metadata={
                 "payer_role": "parent",
@@ -345,7 +362,7 @@ class ParentDashboardService:
                 "student_id": child.id,
                 "student_name": child.get_full_name(),
                 "subject_id": enrollment.subject.id,
-                "subject_name": enrollment.subject.name,
+                "subject_name": subject_name,
                 "enrollment_id": enrollment.id,
                 "teacher_id": enrollment.teacher_id,
                 "create_subscription": create_subscription,  # Сохраняем флаг для создания подписки после успешной оплаты
@@ -373,8 +390,21 @@ class ParentDashboardService:
                 # Получаем return_url из ответа ЮКассы (он уже содержит URL фронтенда)
                 payment.return_url = confirmation.get('return_url')
                 payment.raw_response = yookassa_payment
+                
+                # Обновляем статус Payment на основе ответа от ЮКассы
+                yookassa_status = yookassa_payment.get('status')
+                if yookassa_status == 'pending':
+                    payment.status = Payment.Status.PENDING
+                elif yookassa_status == 'waiting_for_capture':
+                    payment.status = Payment.Status.WAITING_FOR_CAPTURE
+                elif yookassa_status == 'succeeded':
+                    payment.status = Payment.Status.SUCCEEDED
+                    payment.paid_at = timezone.now()
+                elif yookassa_status == 'canceled':
+                    payment.status = Payment.Status.CANCELED
+                
                 payment.save()
-                logger.info(f"Payment {payment.id} created successfully with YooKassa ID: {payment.yookassa_payment_id}")
+                logger.info(f"Payment {payment.id} created successfully with YooKassa ID: {payment.yookassa_payment_id}, status: {payment.status}")
             else:
                 # Если платеж не создан, логируем ошибку и удаляем созданный платеж
                 logger.error(f"Failed to create YooKassa payment for payment {payment.id}")
@@ -385,10 +415,14 @@ class ParentDashboardService:
         # Создаем платеж по предмету только если платеж в YooKassa создан успешно
         # (если request был передан, значит мы уже проверили создание в YooKassa выше)
         due_date = timezone.now() + timedelta(days=7)  # 7 дней на оплату
+        # Если платеж создан в YooKassa и есть confirmation_url, статус - WAITING_FOR_PAYMENT
+        # Иначе - PENDING (если платеж создан без request)
+        payment_status = SubjectPayment.Status.WAITING_FOR_PAYMENT if (request and payment.confirmation_url) else SubjectPayment.Status.PENDING
         subject_payment = SubjectPayment.objects.create(
             enrollment=enrollment,
             payment=payment,
             amount=amount,
+            status=payment_status,
             due_date=due_date
         )
         
@@ -398,7 +432,7 @@ class ParentDashboardService:
         result = {
             'payment_id': str(payment.id),
             'amount': amount,
-            'subject': enrollment.subject.name,
+            'subject': enrollment.get_subject_name(),
             'teacher_name': enrollment.teacher.get_full_name(),
             'due_date': due_date.isoformat(),
             'confirmation_url': payment.confirmation_url,
@@ -428,7 +462,7 @@ class ParentDashboardService:
             data.append({
                 'id': sp.id,
                 'enrollment_id': sp.enrollment.id,
-                'subject': sp.enrollment.subject.name,
+                'subject': sp.enrollment.get_subject_name(),
                 'subject_id': sp.enrollment.subject.id,
                 'teacher': sp.enrollment.teacher.get_full_name(),
                 'teacher_id': sp.enrollment.teacher.id,
@@ -455,14 +489,19 @@ class ParentDashboardService:
             'enrollment__student', 'enrollment__subject', 'payment'
         ).filter(
             enrollment__student__in=children,
-            status__in=[SubjectPayment.Status.PENDING]
+            status__in=[SubjectPayment.Status.PENDING, SubjectPayment.Status.WAITING_FOR_PAYMENT]
         ).order_by('due_date')
         
         data = []
         for sp in payments:
-            state = 'overdue' if sp.due_date < now else 'pending'
+            if sp.status == SubjectPayment.Status.WAITING_FOR_PAYMENT:
+                state = 'waiting_for_payment'
+            elif sp.due_date < now:
+                state = 'overdue'
+            else:
+                state = 'pending'
             data.append({
-                'subject': sp.enrollment.subject.name,
+                'subject': sp.enrollment.get_subject_name(),
                 'student': sp.enrollment.student.get_full_name(),
                 'status': state,
                 'amount': sp.amount,
@@ -542,7 +581,7 @@ class ParentDashboardService:
                     payments_by_enrollment[p['enrollment_id']] = p
                     if p['status'] == 'paid':
                         completed_payments += 1
-                    elif p['status'] == 'pending':
+                    elif p['status'] == 'pending' or p['status'] == 'waiting_for_payment':
                         pending_payments += 1
                     elif p['status'] == 'overdue':
                         overdue_payments += 1
@@ -552,14 +591,26 @@ class ParentDashboardService:
                     logger.info(f"[get_dashboard_data] Child subjects for {child.username}: {child_subjects.count()} subjects")
                     for enrollment in child_subjects:
                         payment = payments_by_enrollment.get(enrollment.id, None)
+                        # Получаем next_payment_date из подписки, если она активна
+                        next_payment_date = None
+                        if payment and payment.get('next_payment_date'):
+                            next_payment_date = payment['next_payment_date']
+                        elif self._has_active_subscription(enrollment):
+                            try:
+                                subscription = getattr(enrollment, 'subscription', None)
+                                if subscription and subscription.status == SubjectSubscription.Status.ACTIVE:
+                                    next_payment_date = subscription.next_payment_date.isoformat() if subscription.next_payment_date else None
+                            except Exception:
+                                pass
+                        
                         subjects.append({
                             'id': enrollment.subject.id,
                             'enrollment_id': enrollment.id,
-                            'name': enrollment.subject.name,
+                            'name': enrollment.get_subject_name(),
                             'teacher_name': enrollment.teacher.get_full_name(),
                             'teacher_id': enrollment.teacher.id,
                             'payment_status': payment['status'] if payment else 'no_payment',
-                            'next_payment_date': payment['due_date'] if payment else None,
+                            'next_payment_date': next_payment_date,
                             'has_subscription': self._has_active_subscription(enrollment),
                             'amount': str(payment['amount']) if payment and payment.get('amount') else None
                         })

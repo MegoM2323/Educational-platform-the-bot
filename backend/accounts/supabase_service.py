@@ -6,7 +6,6 @@ import logging
 from typing import Optional, Dict, Any
 from django.conf import settings
 from supabase import create_client, Client
-from supabase._sync.client import SyncClient
 from core.json_utils import safe_json_response
 
 logger = logging.getLogger(__name__)

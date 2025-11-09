@@ -64,10 +64,10 @@ PY
 fi
 
 # ================== PACKAGES ==================
-log "Устанавливаю системные пакеты (nginx, certbot, python3, node, npm, lsof)..."
+log "Устанавливаю системные пакеты (nginx, certbot, python3, node, npm, lsof, coreutils, netcat)..."
 sudo apt-get update -y
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  nginx certbot python3-certbot-nginx python3 python3-venv nodejs npm lsof
+  nginx certbot python3-certbot-nginx python3 python3-venv nodejs npm lsof coreutils netcat-openbsd
 
 # ================== PYTHON ENV + BACKEND ==================
 log "Проверяю .venv и зависимости backend..."
@@ -148,7 +148,353 @@ if ! "$VENV_DIR/bin/python" manage.py check --deploy >/dev/null 2>&1; then
   log "Предупреждение: Django настройки имеют проблемы, но продолжаю..."
 fi
 
-"$VENV_DIR/bin/python" manage.py migrate --noinput
+# Сначала получаем параметры БД для сетевой проверки
+log "Получаю параметры подключения к БД..."
+DB_PARAMS=$("$VENV_DIR/bin/python" - <<PY
+import os, sys
+from dotenv import dotenv_values
+from pathlib import Path
+from urllib.parse import urlparse
+
+# Загружаем .env из корня проекта
+project_root = Path("$PROJECT_ROOT")
+env_path = project_root / ".env"
+
+if env_path.exists():
+    env_vars = dotenv_values(env_path)
+    for k, v in env_vars.items():
+        if k and v is not None:
+            os.environ[k] = str(v)
+else:
+    # Пробуем backend/.env
+    backend_env = project_root / "backend" / ".env"
+    if backend_env.exists():
+        env_vars = dotenv_values(backend_env)
+        for k, v in env_vars.items():
+            if k and v is not None:
+                os.environ[k] = str(v)
+
+database_url = os.getenv('DATABASE_URL')
+if database_url:
+    parsed = urlparse(database_url)
+    host = parsed.hostname
+    port = str(parsed.port or '5432')
+else:
+    host = os.getenv('SUPABASE_DB_HOST')
+    port = str(os.getenv('SUPABASE_DB_PORT', '6543'))
+
+if host and port:
+    print(f"{host}:{port}")
+    sys.exit(0)
+else:
+    print("ERROR: Не удалось определить хост и порт БД", file=sys.stderr)
+    sys.exit(1)
+PY
+)
+
+if [ $? -eq 0 ] && [ -n "$DB_PARAMS" ]; then
+  DB_HOST=$(echo "$DB_PARAMS" | cut -d: -f1)
+  DB_PORT=$(echo "$DB_PARAMS" | cut -d: -f2)
+  
+  log "Проверяю сетевую доступность Supabase: $DB_HOST:$DB_PORT"
+  
+  # Проверка DNS резолюции
+  if command -v host >/dev/null 2>&1 || command -v nslookup >/dev/null 2>&1; then
+    if host "$DB_HOST" >/dev/null 2>&1 || nslookup "$DB_HOST" >/dev/null 2>&1; then
+      log "✅ DNS резолюция успешна для $DB_HOST"
+    else
+      log "⚠️  Не удалось разрешить DNS для $DB_HOST"
+    fi
+  fi
+  
+  # Проверка доступности порта через nc (netcat) или telnet
+  if command -v nc >/dev/null 2>&1; then
+    log "Проверяю доступность порта через nc (таймаут 10 секунд)..."
+    if timeout 10 nc -zv "$DB_HOST" "$DB_PORT" 2>&1 | grep -q "succeeded\|open"; then
+      log "✅ Порт $DB_PORT доступен на $DB_HOST"
+    else
+      log "⚠️  Порт $DB_PORT недоступен или фильтруется на $DB_HOST"
+      log "   Это может быть нормально, если используется SSL/TLS"
+    fi
+  elif command -v telnet >/dev/null 2>&1; then
+    log "Проверяю доступность порта через telnet (таймаут 10 секунд)..."
+    if timeout 10 telnet "$DB_HOST" "$DB_PORT" </dev/null 2>&1 | grep -q "Connected\|Open"; then
+      log "✅ Порт $DB_PORT доступен на $DB_HOST"
+    else
+      log "⚠️  Порт $DB_PORT недоступен или фильтруется на $DB_HOST"
+    fi
+  else
+    log "⚠️  Команды nc/telnet не найдены, пропускаю проверку порта"
+  fi
+else
+  log "⚠️  Не удалось получить параметры БД для сетевой проверки"
+fi
+
+# Проверяем доступность БД через Django с увеличенным таймаутом для сервера
+log "Проверяю подключение к БД через Django (таймаут 60 секунд)..."
+export DB_CONNECT_TIMEOUT=60  # Увеличиваем таймаут для сервера
+
+"$VENV_DIR/bin/python" - <<'PY'
+import os, sys, signal, time, traceback
+
+def timeout_handler(signum, frame):
+    print("\n❌ Проверка БД превысила таймаут (60 секунд)")
+    print("   Это указывает на проблему с сетевым подключением к Supabase")
+    sys.exit(2)
+
+# Устанавливаем обработчик таймаута
+signal.signal(signal.SIGALRM, timeout_handler)
+signal.alarm(60)  # 60 секунд для сервера
+
+try:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
+    # Устанавливаем увеличенный таймаут для сервера
+    if 'DB_CONNECT_TIMEOUT' not in os.environ:
+        os.environ['DB_CONNECT_TIMEOUT'] = '60'
+    
+    print("🔧 Инициализирую Django...")
+    import django
+    django.setup()
+    
+    from django.conf import settings
+    from django.db import connection
+    
+    db = settings.DATABASES['default']
+    required = ['ENGINE','NAME','USER','HOST']
+    missing = [k for k in required if not db.get(k)]
+    if missing:
+        print(f"❌ Недостаточно параметров БД: {missing}")
+        sys.exit(2)
+    
+    host = db['HOST']
+    port = db.get('PORT', '5432')
+    name = db['NAME']
+    user = db['USER']
+    
+    print(f"✅ Параметры БД: {host}:{port} / {name}")
+    print(f"   Пользователь: {user}")
+    print(f"   Таймаут подключения: {os.environ.get('DB_CONNECT_TIMEOUT', '60')} секунд")
+    
+    # Пытаемся подключиться к БД с детальной диагностикой
+    print("🔍 Пытаюсь подключиться к БД...")
+    start_time = time.time()
+    
+    try:
+        # Пробуем подключиться через psycopg2 напрямую для более детальной диагностики
+        import psycopg2
+        from psycopg2 import OperationalError, DatabaseError
+        
+        print("   Используя psycopg2 для подключения...")
+        conn_params = {
+            'host': host,
+            'port': port,
+            'database': name,
+            'user': user,
+            'password': db.get('PASSWORD', ''),
+            'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT', '60')),
+        }
+        
+        # Добавляем SSL параметры если есть
+        if 'OPTIONS' in db and 'sslmode' in db['OPTIONS']:
+            conn_params['sslmode'] = db['OPTIONS']['sslmode']
+            print(f"   SSL режим: {conn_params['sslmode']}")
+        
+        conn = psycopg2.connect(**conn_params)
+        elapsed = time.time() - start_time
+        print(f"✅ Подключение успешно! (заняло {elapsed:.2f} секунд)")
+        
+        # Проверяем версию PostgreSQL
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT version();")
+            version = cursor.fetchone()[0]
+            print(f"   PostgreSQL: {version[:60]}...")
+        
+        conn.close()
+        signal.alarm(0)
+        sys.exit(0)
+        
+    except OperationalError as e:
+        elapsed = time.time() - start_time
+        signal.alarm(0)
+        print(f"\n❌ Ошибка операционного подключения (после {elapsed:.2f} секунд):")
+        print(f"   {str(e)}")
+        print("\n   Возможные причины:")
+        print("   1. Хост/порт недоступен (проверьте файрвол)")
+        print("   2. Неправильные учетные данные")
+        print("   3. Проблемы с DNS резолюцией")
+        print("   4. SSL/TLS проблемы")
+        print("   5. Превышен лимит подключений в Supabase")
+        sys.exit(2)
+        
+    except DatabaseError as e:
+        elapsed = time.time() - start_time
+        signal.alarm(0)
+        print(f"\n❌ Ошибка базы данных (после {elapsed:.2f} секунд):")
+        print(f"   {str(e)}")
+        sys.exit(2)
+        
+    except Exception as e:
+        elapsed = time.time() - start_time
+        signal.alarm(0)
+        print(f"\n❌ Неожиданная ошибка при подключении (после {elapsed:.2f} секунд):")
+        print(f"   {type(e).__name__}: {str(e)}")
+        print("\n   Детали:")
+        traceback.print_exc()
+        sys.exit(2)
+    
+except SystemExit as e:
+    signal.alarm(0)
+    sys.exit(e.code)
+except Exception as e:
+    signal.alarm(0)
+    print(f"\n❌ Критическая ошибка: {e}")
+    traceback.print_exc()
+    sys.exit(2)
+PY
+
+DB_CHECK_EXIT_CODE=$?
+if [ $DB_CHECK_EXIT_CODE -ne 0 ]; then
+  log ""
+  log "════════════════════════════════════════════════════════════"
+  log "ОШИБКА: Не удалось подключиться к БД Supabase"
+  log "════════════════════════════════════════════════════════════"
+  log ""
+  log "Рекомендации по диагностике:"
+  log ""
+  log "1. Проверьте доступность Supabase с сервера:"
+  if [ -n "$DB_HOST" ] && [ -n "$DB_PORT" ]; then
+    log "   nc -zv $DB_HOST $DB_PORT"
+    log "   или"
+    log "   telnet $DB_HOST $DB_PORT"
+  fi
+  log ""
+  log "2. Проверьте правильность параметров в .env:"
+  log "   - DATABASE_URL или SUPABASE_DB_* параметры"
+  log "   - DB_CONNECT_TIMEOUT (попробуйте увеличить до 120)"
+  log ""
+  log "3. Проверьте настройки файрвола на сервере:"
+  log "   sudo ufw status"
+  log "   sudo iptables -L -n"
+  log ""
+  log "4. Проверьте логи Supabase на наличие блокировок"
+  log ""
+  log "5. Попробуйте подключиться вручную:"
+  log "   cd $BACKEND_DIR"
+  log "   source $VENV_DIR/bin/activate"
+  log "   python backend/test_db_connection.py"
+  log ""
+  log "6. Если проблема сохраняется, проверьте:"
+  log "   - Правильность хостнейма Supabase (pooler.supabase.com)"
+  log "   - Доступность порта 6543 (connection pooler) или 5432 (прямое)"
+  log "   - SSL/TLS сертификаты"
+  log ""
+  exit 1
+fi
+
+# Применяем миграции с увеличенным таймаутом для сервера
+log "Применяю миграции..."
+# Устанавливаем увеличенный таймаут подключения для сервера (60 секунд, как при проверке)
+export DB_CONNECT_TIMEOUT=60
+
+# Проверяем наличие конфликтующих миграций
+log "Проверяю наличие конфликтующих миграций..."
+MIGRATION_CHECK=$("$VENV_DIR/bin/python" manage.py showmigrations --plan 2>&1)
+if echo "$MIGRATION_CHECK" | grep -q "Conflicting migrations\|multiple leaf nodes"; then
+  log "⚠️  Обнаружены конфликтующие миграции"
+  log "Проверяю, существует ли merge-миграция..."
+  # Проверяем, есть ли уже merge-миграция для materials
+  if [ -f "$BACKEND_DIR/materials/migrations/0010_merge_0004_0009.py" ]; then
+    log "✅ Merge-миграция уже существует, применяю миграции..."
+  else
+    log "⚠️  Merge-миграция не найдена, но она должна быть создана вручную"
+    log "Продолжаю с применением миграций..."
+  fi
+fi
+
+# Проверяем наличие команды timeout, если есть - используем её
+if command -v timeout >/dev/null 2>&1; then
+  log "Запускаю миграции с таймаутом 5 минут..."
+  if timeout 300 "$VENV_DIR/bin/python" manage.py migrate --noinput; then
+    log "✅ Миграции применены успешно"
+  else
+    MIGRATION_EXIT_CODE=$?
+    if [ $MIGRATION_EXIT_CODE -eq 124 ]; then
+      log "❌ Миграции превысили таймаут (5 минут)"
+      log "Возможные причины:"
+      log "  1. Медленное подключение к Supabase БД"
+      log "  2. Большой объем данных для миграции"
+      log "  3. Блокировки в БД"
+      log "  4. Проблемы с сетью между сервером и Supabase"
+      log ""
+      log "Рекомендации:"
+      log "  1. Проверьте скорость подключения к Supabase:"
+      log "     nc -zv \$(grep SUPABASE_DB_HOST .env | cut -d= -f2) \$(grep SUPABASE_DB_PORT .env | cut -d= -f2)"
+      log "  2. Увеличьте DB_CONNECT_TIMEOUT в .env (например, до 60)"
+      log "  3. Запустите миграции вручную для диагностики:"
+      log "     cd $BACKEND_DIR && $VENV_DIR/bin/python manage.py migrate --verbosity 2"
+      exit 1
+    elif [ $MIGRATION_EXIT_CODE -eq 1 ]; then
+      # Ошибка миграций (например, конфликт)
+      log "❌ Ошибка при применении миграций (код выхода: $MIGRATION_EXIT_CODE)"
+      log ""
+      log "Попытка разрешить конфликт миграций автоматически..."
+      if timeout 60 "$VENV_DIR/bin/python" manage.py makemigrations --merge --noinput 2>&1 | tee /tmp/makemigrations.log; then
+        log "✅ Merge-миграция создана, повторяю применение миграций..."
+        if timeout 300 "$VENV_DIR/bin/python" manage.py migrate --noinput; then
+          log "✅ Миграции применены успешно после разрешения конфликта"
+        else
+          log "❌ Ошибка после создания merge-миграции"
+          log "Проверьте логи выше для деталей"
+          exit 1
+        fi
+      else
+        log "❌ Не удалось автоматически разрешить конфликт миграций"
+        log "Необходимо разрешить конфликт вручную:"
+        log "  1. cd $BACKEND_DIR"
+        log "  2. source $VENV_DIR/bin/activate"
+        log "  3. python manage.py makemigrations --merge"
+        log "  4. Выберите нужные миграции для merge"
+        log "  5. python manage.py migrate"
+        exit 1
+      fi
+    else
+      log "❌ Ошибка при применении миграций (код выхода: $MIGRATION_EXIT_CODE)"
+      log "Проверьте логи выше для деталей"
+      exit 1
+    fi
+  fi
+else
+  # Если команды timeout нет, запускаем без неё (таймаут будет через DB_CONNECT_TIMEOUT)
+  log "Команда timeout не найдена, запускаю миграции без внешнего таймаута..."
+  log "Таймаут подключения к БД: $DB_CONNECT_TIMEOUT секунд"
+  if "$VENV_DIR/bin/python" manage.py migrate --noinput; then
+    log "✅ Миграции применены успешно"
+  else
+    MIGRATION_EXIT_CODE=$?
+    if [ $MIGRATION_EXIT_CODE -eq 1 ]; then
+      log "❌ Ошибка при применении миграций (возможно, конфликт)"
+      log "Попытка разрешить конфликт..."
+      if "$VENV_DIR/bin/python" manage.py makemigrations --merge --noinput; then
+        log "✅ Merge-миграция создана, повторяю применение миграций..."
+        if "$VENV_DIR/bin/python" manage.py migrate --noinput; then
+          log "✅ Миграции применены успешно после разрешения конфликта"
+        else
+          log "❌ Ошибка после создания merge-миграции"
+          exit 1
+        fi
+      else
+        log "❌ Не удалось автоматически разрешить конфликт"
+        log "Разрешите конфликт вручную: python manage.py makemigrations --merge"
+        exit 1
+      fi
+    else
+      log "❌ Ошибка при применении миграций (код выхода: $MIGRATION_EXIT_CODE)"
+      log "Проверьте логи выше для деталей"
+      log "Если миграции зависают, установите пакет coreutils для команды timeout"
+      exit 1
+    fi
+  fi
+fi
 
 # Создаем суперпользователя для админки, если не существует
 log "Проверяю суперпользователя для админки..."

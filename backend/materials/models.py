@@ -93,6 +93,15 @@ class SubjectEnrollment(models.Model):
         verbose_name='Назначено пользователем'
     )
     
+    # Кастомное название предмета (если указано тьютором)
+    custom_subject_name = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='Кастомное название предмета',
+        help_text='Если указано, используется вместо стандартного названия предмета'
+    )
+    
     enrolled_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата зачисления')
     is_active = models.BooleanField(default=True, verbose_name='Активно')
     
@@ -103,7 +112,12 @@ class SubjectEnrollment(models.Model):
         ordering = ['-enrolled_at']
     
     def __str__(self):
-        return f"{self.student} - {self.subject} ({self.teacher})"
+        subject_name = self.custom_subject_name or self.subject.name
+        return f"{self.student} - {subject_name} ({self.teacher})"
+    
+    def get_subject_name(self):
+        """Возвращает название предмета (кастомное или стандартное)"""
+        return self.custom_subject_name or self.subject.name
 
 
 class SubjectPayment(models.Model):
@@ -112,6 +126,7 @@ class SubjectPayment(models.Model):
     """
     class Status(models.TextChoices):
         PENDING = 'pending', 'Ожидает оплаты'
+        WAITING_FOR_PAYMENT = 'waiting_for_payment', 'Ожидание платежа'
         PAID = 'paid', 'Оплачен'
         EXPIRED = 'expired', 'Просрочен'
         REFUNDED = 'refunded', 'Возвращен'

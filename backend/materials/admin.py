@@ -291,6 +291,7 @@ class SubjectPaymentAdmin(admin.ModelAdmin):
     def status_badge(self, obj):
         colors = {
             SubjectPayment.Status.PENDING: 'orange',
+            SubjectPayment.Status.WAITING_FOR_PAYMENT: 'blue',
             SubjectPayment.Status.PAID: 'green',
             SubjectPayment.Status.EXPIRED: 'red',
             SubjectPayment.Status.REFUNDED: 'gray'

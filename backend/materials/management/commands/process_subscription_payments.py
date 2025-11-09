@@ -64,11 +64,12 @@ class Command(BaseCommand):
                         )
                         continue
                     
+                    subject_name = enrollment.get_subject_name()
                     if dry_run:
                         self.stdout.write(
                             f'[DRY-RUN] Создан платеж для подписки {subscription.id}: '
                             f'Студент: {student.get_full_name()}, '
-                            f'Предмет: {enrollment.subject.name}, '
+                            f'Предмет: {subject_name}, '
                             f'Сумма: {subscription.amount} руб.'
                         )
                         processed += 1
@@ -77,10 +78,10 @@ class Command(BaseCommand):
                     # Создаем платеж в нашей системе
                     payment = Payment.objects.create(
                         amount=subscription.amount,
-                        service_name=f"Регулярный платеж за предмет: {enrollment.subject.name} (ученик: {student.get_full_name()})",
+                        service_name=f"Регулярный платеж за предмет: {subject_name} (ученик: {student.get_full_name()})",
                         customer_fio=f"{parent.first_name} {parent.last_name}",
                         description=(
-                            f"Регулярный платеж за предмет {enrollment.subject.name} "
+                            f"Регулярный платеж за предмет {subject_name} "
                             f"для ученика {student.get_full_name()} (преподаватель: {enrollment.teacher.get_full_name()})"
                         ),
                         metadata={
@@ -90,7 +91,7 @@ class Command(BaseCommand):
                             "student_id": student.id,
                             "student_name": student.get_full_name(),
                             "subject_id": enrollment.subject.id,
-                            "subject_name": enrollment.subject.name,
+                            "subject_name": subject_name,
                             "enrollment_id": enrollment.id,
                             "teacher_id": enrollment.teacher_id,
                             "subscription_id": subscription.id,
@@ -100,10 +101,12 @@ class Command(BaseCommand):
                     
                     # Создаем платеж по предмету
                     due_date = timezone.now() + timedelta(days=7)
+                    # Для рекуррентных платежей статус всегда PENDING, так как они еще не созданы в YooKassa
                     subject_payment = SubjectPayment.objects.create(
                         enrollment=enrollment,
                         payment=payment,
                         amount=subscription.amount,
+                        status=SubjectPayment.Status.PENDING,
                         due_date=due_date
                     )
                     
@@ -114,7 +117,7 @@ class Command(BaseCommand):
                         self.style.SUCCESS(
                             f'Создан платеж {payment.id} для подписки {subscription.id}: '
                             f'Студент: {student.get_full_name()}, '
-                            f'Предмет: {enrollment.subject.name}, '
+                            f'Предмет: {enrollment.get_subject_name()}, '
                             f'Сумма: {subscription.amount} руб., '
                             f'Следующий платеж: {subscription.next_payment_date.strftime("%Y-%m-%d %H:%M")}'
                         )

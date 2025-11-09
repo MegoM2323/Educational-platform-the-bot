@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('materials', '0004_auto_20251026_0956'),
+        ('materials', '0003_materialsubmission_materialfeedback'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

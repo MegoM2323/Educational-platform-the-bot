@@ -151,8 +151,24 @@ export default function TutorStudentsPage() {
                         <div className="font-medium">{s.full_name || `${s.first_name || ''} ${s.last_name || ''}`}</div>
                         <div className="text-sm text-muted-foreground">Класс: {s.grade || '-'}</div>
                         <div className="text-sm text-muted-foreground">Цель: {s.goal || '-'}</div>
-                        <div className="pt-2">
-                          <Button variant="secondary" onClick={() => { setSelectedStudentId(s.id); setAssignOpen(true); }}>Назначить предмет</Button>
+                        
+                        {/* Назначенные предметы */}
+                        {s.subjects && s.subjects.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-sm font-semibold">Назначенные предметы:</div>
+                            <div className="space-y-1">
+                              {s.subjects.map((subject) => (
+                                <div key={subject.enrollment_id} className="text-sm text-muted-foreground pl-2 border-l-2 border-primary">
+                                  <div className="font-medium">{subject.name}</div>
+                                  <div className="text-xs">Преподаватель: {subject.teacher_name}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="pt-2 flex gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => { setSelectedStudentId(s.id); setAssignOpen(true); }}>Назначить предмет</Button>
                         </div>
                       </Card>
                     ))}

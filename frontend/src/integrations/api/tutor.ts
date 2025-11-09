@@ -11,6 +11,12 @@ export interface TutorStudent {
   goal?: string;
   parent_name?: string;
   created_at?: string;
+  subjects?: Array<{
+    id: number;
+    name: string;
+    teacher_name: string;
+    enrollment_id: number;
+  }>;
 }
 
 export interface CreateStudentRequest {
@@ -34,8 +40,9 @@ export interface CreateStudentResponse {
 }
 
 export interface AssignSubjectRequest {
-  subject_id: number;
-  teacher_id: number;
+  subject_id?: number;
+  subject_name?: string;
+  teacher_id?: number;
 }
 
 export const tutorAPI = {
@@ -50,16 +57,28 @@ export const tutorAPI = {
       throw new Error('Authentication required. Please login again.');
     }
     
-    const resp = await unifiedAPI.request<TutorStudent[]>('/tutor/students/');
+    const resp = await unifiedAPI.request<any>('/tutor/students/');
     
     console.log('[tutorAPI.listStudents] Response status:', resp.success);
+    console.log('[tutorAPI.listStudents] Response data:', resp.data);
     
     if (resp.error) {
       console.error('[tutorAPI.listStudents] Error:', resp.error);
       throw new Error(resp.error);
     }
     
-    return resp.data!;
+    // Backend может вернуть данные в формате {success: true, data: [...]} или просто массив
+    if (resp.data) {
+      if (Array.isArray(resp.data)) {
+        return resp.data;
+      } else if (resp.data.data && Array.isArray(resp.data.data)) {
+        return resp.data.data;
+      } else if (Array.isArray(resp.data.results)) {
+        return resp.data.results;
+      }
+    }
+    
+    return [];
   },
 
   createStudent: async (data: CreateStudentRequest): Promise<CreateStudentResponse> => {
@@ -102,11 +121,25 @@ export const tutorAPI = {
   },
 
   assignSubject: async (studentId: number, data: AssignSubjectRequest): Promise<void> => {
-    const resp = await unifiedAPI.request(`/tutor/students/${studentId}/subjects/`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    if (resp.error) throw new Error(resp.error);
+    try {
+      const resp = await unifiedAPI.request(`/tutor/students/${studentId}/subjects/`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      
+      if (!resp.success || resp.error) {
+        // Пытаемся извлечь детальное сообщение об ошибке
+        const errorMessage = resp.error || resp.data?.detail || 'Не удалось назначить предмет';
+        throw new Error(errorMessage);
+      }
+    } catch (error: any) {
+      // Если это уже Error с сообщением, пробрасываем дальше
+      if (error instanceof Error) {
+        throw error;
+      }
+      // Иначе создаем новый Error
+      throw new Error(error?.message || 'Не удалось назначить предмет');
+    }
   },
 
   removeSubject: async (studentId: number, subjectId: number): Promise<void> => {

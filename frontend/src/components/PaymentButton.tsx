@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
   CreditCard, 
   CheckCircle2, 
   Clock, 
-  XCircle, 
-  AlertCircle,
   Loader2,
   ExternalLink,
   Calendar,
@@ -15,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { unifiedAPI as djangoAPI, Payment } from "@/integrations/api/unifiedClient";
+import { PaymentStatusBadge, PaymentStatus } from "@/components/PaymentStatusBadge";
 
 export interface SubjectPayment {
   id: number;
@@ -36,12 +34,14 @@ export interface SubjectPayment {
       last_name: string;
     };
   };
+  subject_name?: string; // Кастомное название предмета из API
   payment?: Payment;
   amount: number;
-  status: 'pending' | 'paid' | 'expired' | 'refunded';
+  status: PaymentStatus;
   due_date: string;
   paid_at?: string;
   created_at: string;
+  next_payment_date?: string;
 }
 
 interface PaymentButtonProps {
@@ -57,31 +57,45 @@ interface PaymentButtonProps {
 const statusConfig = {
   pending: {
     label: 'Ожидает оплаты',
-    color: 'bg-yellow-100 text-yellow-800',
     icon: Clock,
     buttonText: 'Оплатить',
     buttonVariant: 'default' as const,
   },
+  waiting_for_payment: {
+    label: 'Ожидание платежа',
+    icon: Clock,
+    buttonText: 'Перейти к оплате',
+    buttonVariant: 'default' as const,
+  },
   paid: {
     label: 'Оплачен',
-    color: 'bg-green-100 text-green-800',
     icon: CheckCircle2,
     buttonText: 'Оплачено',
     buttonVariant: 'outline' as const,
   },
   expired: {
     label: 'Просрочен',
-    color: 'bg-red-100 text-red-800',
     icon: XCircle,
     buttonText: 'Просрочен',
     buttonVariant: 'outline' as const,
   },
   refunded: {
     label: 'Возвращен',
-    color: 'bg-gray-100 text-gray-800',
     icon: AlertCircle,
     buttonText: 'Возвращен',
     buttonVariant: 'outline' as const,
+  },
+  overdue: {
+    label: 'Просрочен',
+    icon: XCircle,
+    buttonText: 'Просрочен',
+    buttonVariant: 'outline' as const,
+  },
+  no_payment: {
+    label: 'Без платежа',
+    icon: AlertCircle,
+    buttonText: 'Оплатить',
+    buttonVariant: 'default' as const,
   },
 };
 
@@ -98,12 +112,12 @@ export const PaymentButton = ({
   const [payment, setPayment] = useState<Payment | null>(subjectPayment.payment || null);
   const [paymentStatus, setPaymentStatus] = useState(subjectPayment.status);
 
-  const config = statusConfig[paymentStatus];
+  const config = statusConfig[paymentStatus] || statusConfig.pending;
   const StatusIcon = config.icon;
 
   // Проверяем статус платежа периодически
   useEffect(() => {
-    if (payment && payment.status === 'pending') {
+    if (payment && (payment.status === 'pending' || payment.status === 'waiting_for_capture')) {
       let attempts = 0;
       const maxAttempts = 24; // 2 минуты при интервале 5 секунд
       
@@ -123,6 +137,8 @@ export const PaymentButton = ({
             setPaymentStatus('pending');
             onPaymentError?.("Платеж был отменен");
             clearInterval(interval);
+          } else if (updatedPayment.status === 'waiting_for_capture') {
+            setPaymentStatus('waiting_for_payment');
           } else if (attempts >= maxAttempts) {
             // Прекращаем проверку после 2 минут
             clearInterval(interval);
@@ -144,18 +160,27 @@ export const PaymentButton = ({
   }, [payment, onPaymentSuccess, onPaymentError]);
 
   const handlePayment = async () => {
-    if (paymentStatus !== 'pending') return;
+    if (paymentStatus !== 'pending' && paymentStatus !== 'waiting_for_payment') return;
+
+    // Если платеж уже создан и есть confirmation_url, просто открываем его
+    if (payment && payment.confirmation_url && paymentStatus === 'waiting_for_payment') {
+      window.open(payment.confirmation_url, '_blank');
+      return;
+    }
 
     setIsLoading(true);
     toast.info("Создание платежа...", { duration: 2000 });
     
     try {
+      // Получаем название предмета (кастомное или стандартное)
+      const subjectName = subjectPayment.subject_name || subjectPayment.enrollment.subject.name;
+      
       // Создаем платеж через API
       const paymentData = {
         amount: subjectPayment.amount.toString(),
-        service_name: `Оплата за предмет: ${subjectPayment.enrollment.subject.name}`,
+        service_name: `Оплата за предмет: ${subjectName}`,
         customer_fio: `${subjectPayment.enrollment.student.first_name} ${subjectPayment.enrollment.student.last_name}`,
-        description: `Оплата за предмет "${subjectPayment.enrollment.subject.name}" для ученика ${subjectPayment.enrollment.student.first_name} ${subjectPayment.enrollment.student.last_name}`,
+        description: `Оплата за предмет "${subjectName}" для ученика ${subjectPayment.enrollment.student.first_name} ${subjectPayment.enrollment.student.last_name}`,
         return_url: window.location.href,
         metadata: {
           subject_payment_id: subjectPayment.id,
@@ -172,6 +197,7 @@ export const PaymentButton = ({
       }
       
       setPayment(newPayment);
+      setPaymentStatus('waiting_for_payment');
 
       if (newPayment.confirmation_url) {
         toast.success("Перенаправление на страницу оплаты...", { duration: 3000 });
@@ -227,7 +253,7 @@ export const PaymentButton = ({
   };
 
   const isOverdue = () => {
-    if (paymentStatus !== 'pending') return false;
+    if (paymentStatus !== 'pending' && paymentStatus !== 'waiting_for_payment') return false;
     return new Date(subjectPayment.due_date) < new Date();
   };
 
@@ -246,6 +272,15 @@ export const PaymentButton = ({
         <>
           <CheckCircle2 className="h-4 w-4 mr-2" />
           <span>Оплачено</span>
+        </>
+      );
+    }
+
+    if (paymentStatus === 'waiting_for_payment' && payment?.confirmation_url) {
+      return (
+        <>
+          <ExternalLink className="h-4 w-4 mr-2" />
+          <span>Перейти к оплате</span>
         </>
       );
     }
@@ -277,12 +312,9 @@ export const PaymentButton = ({
                 className="w-3 h-3 rounded-full" 
                 style={{ backgroundColor: subjectPayment.enrollment.subject.color }}
               />
-              <span className="font-medium">{subjectPayment.enrollment.subject.name}</span>
+              <span className="font-medium">{subjectPayment.subject_name || subjectPayment.enrollment.subject.name}</span>
             </div>
-            <Badge className={config.color}>
-              <StatusIcon className="h-3 w-3 mr-1" />
-              {config.label}
-            </Badge>
+            <PaymentStatusBadge status={paymentStatus as PaymentStatus} size="default" />
           </div>
 
           <div className="space-y-2 text-sm text-muted-foreground mb-4">
@@ -316,14 +348,22 @@ export const PaymentButton = ({
                 </span>
               </div>
             )}
+            {subjectPayment.next_payment_date && (
+              <div className="flex justify-between">
+                <span>Следующий платеж:</span>
+                <span className="font-medium text-blue-600">
+                  {formatDate(subjectPayment.next_payment_date)}
+                </span>
+              </div>
+            )}
           </div>
 
           <Button
             onClick={handlePayment}
-            disabled={paymentStatus !== 'pending' || isLoading}
-            variant={paymentStatus === 'pending' ? 'default' : 'outline'}
+            disabled={(paymentStatus !== 'pending' && paymentStatus !== 'waiting_for_payment') || isLoading}
+            variant={(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? 'default' : 'outline'}
             size={size}
-            className={`w-full ${paymentStatus === 'pending' ? 'gradient-primary shadow-glow hover:opacity-90 transition-opacity' : ''}`}
+            className={`w-full ${(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? 'gradient-primary shadow-glow hover:opacity-90 transition-opacity' : ''}`}
           >
             {getButtonContent()}
           </Button>
@@ -335,10 +375,10 @@ export const PaymentButton = ({
   return (
     <Button
       onClick={handlePayment}
-      disabled={paymentStatus !== 'pending' || isLoading}
-      variant={paymentStatus === 'pending' ? variant : 'outline'}
+      disabled={(paymentStatus !== 'pending' && paymentStatus !== 'waiting_for_payment') || isLoading}
+      variant={(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? variant : 'outline'}
       size={size}
-      className={`${className} ${paymentStatus === 'pending' ? 'gradient-primary shadow-glow hover:opacity-90 transition-opacity' : ''}`}
+      className={`${className} ${(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? 'gradient-primary shadow-glow hover:opacity-90 transition-opacity' : ''}`}
     >
       {getButtonContent()}
     </Button>

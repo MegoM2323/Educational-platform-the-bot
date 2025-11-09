@@ -45,7 +45,7 @@ def list_student_subjects(request):
                 "enrollment_id": e.id,
                 "subject": {
                     "id": e.subject.id,
-                    "name": e.subject.name,
+                    "name": e.get_subject_name(),
                     "color": e.subject.color,
                 },
                 "teacher": {

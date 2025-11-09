@@ -4,33 +4,277 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, Plus, Send, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileText, Plus, Send, Clock, Eye, Calendar } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
-import { unifiedAPI } from "@/integrations/api/unifiedClient";
+import { teacherWeeklyReportsAPI, TeacherWeeklyReport, TeacherStudent, CreateTeacherWeeklyReportRequest } from "@/integrations/api/reports";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export default function TeacherReports() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [reports, setReports] = useState<any[]>([]);
+  const [reports, setReports] = useState<TeacherWeeklyReport[]>([]);
+  const [students, setStudents] = useState<TeacherStudent[]>([]);
+  const [selectedReport, setSelectedReport] = useState<TeacherWeeklyReport | null>(null);
   const { toast } = useToast();
 
+  // Форма создания отчета
+  const [formData, setFormData] = useState<CreateTeacherWeeklyReportRequest>({
+    student: 0,
+    subject: 0,
+    week_start: '',
+    week_end: '',
+    title: 'Еженедельный отчет',
+    summary: '',
+    academic_progress: '',
+    performance_notes: '',
+    achievements: '',
+    concerns: '',
+    recommendations: '',
+    assignments_completed: 0,
+    assignments_total: 0,
+    average_score: undefined,
+    attendance_percentage: 0,
+    attachment: undefined,
+  });
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log('[Teacher Reports] Loading data...');
+      const [reportsData, studentsData] = await Promise.all([
+        teacherWeeklyReportsAPI.getReports(),
+        teacherWeeklyReportsAPI.getAvailableStudents(),
+      ]);
+      console.log('[Teacher Reports] Reports loaded:', reportsData);
+      console.log('[Teacher Reports] Students loaded:', studentsData);
+      const reportsArray = Array.isArray(reportsData) ? reportsData : [];
+      const studentsArray = Array.isArray(studentsData) ? studentsData : [];
+      console.log('[Teacher Reports] Setting reports:', reportsArray.length);
+      console.log('[Teacher Reports] Setting students:', studentsArray.length);
+      setReports(reportsArray);
+      setStudents(studentsArray);
+    } catch (error: any) {
+      console.error('[Teacher Reports] Error loading reports data:', error);
+      console.error('[Teacher Reports] Error details:', {
+        message: error?.message,
+        response: error?.response,
+        stack: error?.stack,
+      });
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось загрузить данные',
+        variant: 'destructive',
+      });
+      setReports([]);
+      setStudents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const resp = await unifiedAPI.request<{reports:any[]}>(`/materials/reports/teacher/`);
-        if (resp.data?.reports) setReports(resp.data.reports);
-      } catch (e) {
-        toast({ title: 'Ошибка', description: 'Не удалось загрузить отчёты', variant: 'destructive' });
-      } finally {
-        setLoading(false);
-      }
+    // Очищаем кэш при загрузке страницы для получения свежих данных
+    const clearCache = async () => {
+      const { cacheService } = await import('../../../services/cacheService');
+      cacheService.delete('/reports/teacher-weekly-reports/');
+      cacheService.delete('/reports/teacher-weekly-reports/available_students/');
     };
-    load();
-  }, []);
+    clearCache().then(() => {
+      loadData();
+    });
+  }, [loadData]);
+
+  const handleCreateReport = async () => {
+    if (!formData.student || formData.student === 0 || !formData.subject || formData.subject === 0 || !formData.week_start || !formData.week_end || !formData.summary) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все обязательные поля (ученик, предмет, период, резюме)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('Creating teacher report with data:', {
+        student: formData.student,
+        subject: formData.subject,
+        week_start: formData.week_start,
+        week_end: formData.week_end,
+        summary: formData.summary,
+        title: formData.title,
+      });
+      const createdReport = await teacherWeeklyReportsAPI.createReport(formData);
+      console.log('Report created successfully:', createdReport);
+      
+      // Добавляем созданный отчет в список сразу
+      if (createdReport && createdReport.id) {
+        setReports(prev => {
+          // Проверяем, нет ли уже такого отчета в списке
+          const exists = prev.some(r => r.id === createdReport.id);
+          if (!exists) {
+            return [createdReport, ...prev];
+          }
+          return prev.map(r => r.id === createdReport.id ? createdReport : r);
+        });
+      }
+      
+      toast({
+        title: 'Успешно',
+        description: 'Отчет создан',
+      });
+      setShowCreateForm(false);
+      resetForm();
+      
+      // Очищаем кэш и обновляем список отчетов для синхронизации
+      const { cacheService } = await import('../../../services/cacheService');
+      cacheService.delete('/reports/teacher-weekly-reports/');
+      // Обновляем данные в фоне для синхронизации
+      loadData().catch(err => console.error('Error refreshing data:', err));
+    } catch (error: any) {
+      console.error('Error creating teacher report:', error);
+      const errorMessage = error?.response?.data?.detail || error?.message || error?.response?.data?.error || 'Не удалось создать отчет';
+      console.error('Error details:', {
+        message: errorMessage,
+        response: error?.response?.data,
+        status: error?.response?.status,
+      });
+      toast({
+        title: 'Ошибка',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendReport = async (reportId: number) => {
+    try {
+      setLoading(true);
+      console.log('Sending teacher report:', reportId);
+      await teacherWeeklyReportsAPI.sendReport(reportId);
+      console.log('Report sent successfully');
+      toast({
+        title: 'Успешно',
+        description: 'Отчет отправлен тьютору',
+      });
+      // Очищаем кэш и обновляем список отчетов преподавателя
+      const { cacheService } = await import('../../../services/cacheService');
+      cacheService.delete('/reports/teacher-weekly-reports/');
+      await loadData();
+    } catch (error: any) {
+      console.error('Error sending teacher report:', error);
+      const errorMessage = error?.response?.data?.detail || error?.message || error?.response?.data?.error || 'Не удалось отправить отчет';
+      toast({
+        title: 'Ошибка',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      student: 0,
+      subject: 0,
+      week_start: '',
+      week_end: '',
+      title: 'Еженедельный отчет',
+      summary: '',
+      academic_progress: '',
+      performance_notes: '',
+      achievements: '',
+      concerns: '',
+      recommendations: '',
+      assignments_completed: 0,
+      assignments_total: 0,
+      average_score: undefined,
+      attendance_percentage: 0,
+      attachment: undefined,
+    });
+  };
+
+  const getStatusBadge = (status: string | undefined) => {
+    if (!status) return <Badge variant="outline">Не указан</Badge>;
+    const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
+      sent: 'default',
+      read: 'default',
+      draft: 'secondary',
+      archived: 'outline',
+    };
+    const labels: Record<string, string> = {
+      sent: 'Отправлен',
+      read: 'Прочитан',
+      draft: 'Черновик',
+      archived: 'Архив',
+    };
+    return (
+      <Badge variant={variants[status] || 'outline'}>
+        {labels[status] || status}
+      </Badge>
+    );
+  };
+
+  // Получаем предметы для выбранного студента
+  const getStudentSubjects = () => {
+    if (!formData.student) return [];
+    const student = students.find(s => s.id === formData.student);
+    return student?.subjects || [];
+  };
+
+  // Вычисляем начало и конец текущей недели
+  const getCurrentWeek = () => {
+    try {
+      const now = new Date();
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Понедельник
+      const monday = new Date(now);
+      monday.setDate(diff);
+      monday.setHours(0, 0, 0, 0);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+      return {
+        start: monday.toISOString().split('T')[0],
+        end: sunday.toISOString().split('T')[0],
+      };
+    } catch (error) {
+      console.error('Error calculating current week:', error);
+      // Fallback на текущую дату
+      const today = new Date();
+      return {
+        start: today.toISOString().split('T')[0],
+        end: today.toISOString().split('T')[0],
+      };
+    }
+  };
+
+  useEffect(() => {
+    if (showCreateForm && !formData.week_start) {
+      try {
+        const week = getCurrentWeek();
+        if (week.start && week.end) {
+          setFormData(prev => ({ ...prev, week_start: week.start, week_end: week.end }));
+        }
+      } catch (error) {
+        console.error('Error setting week dates:', error);
+      }
+    }
+  }, [showCreateForm]);
+
+  // Сбрасываем предмет при смене студента
+  useEffect(() => {
+    if (formData.student && getStudentSubjects().length > 0 && !getStudentSubjects().find(s => s.id === formData.subject)) {
+      setFormData(prev => ({ ...prev, subject: 0 }));
+    }
+  }, [formData.student]);
 
   return (
     <SidebarProvider>
@@ -41,10 +285,14 @@ export default function TeacherReports() {
             <SidebarTrigger />
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              <h1 className="text-lg font-semibold">Отчёты по предмету</h1>
+              <h1 className="text-lg font-semibold">Еженедельные отчёты тьютору</h1>
             </div>
             <div className="ml-auto">
-              <Button className="gradient-primary shadow-glow" onClick={() => setShowCreateForm(!showCreateForm)}>
+              <Button
+                className="gradient-primary shadow-glow"
+                onClick={() => setShowCreateForm(true)}
+                disabled={students.length === 0}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Создать отчёт
               </Button>
@@ -52,76 +300,343 @@ export default function TeacherReports() {
           </header>
           <main className="flex flex-1 flex-col gap-4 p-4">
             <div className="space-y-6">
-              <div className="hidden" />
-
-      {/* Create Report Form */}
-      {showCreateForm && (
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Новый отчёт</h3>
-          <div className="space-y-4">
-            <div>
-              <Label>Группа учеников</Label>
-              <Input placeholder="Выберите группу..." />
-            </div>
-            <div>
-              <Label>Период</Label>
-              <Input type="text" placeholder="например: 16-22 октября 2024" />
-            </div>
-            <div>
-              <Label>Содержание отчёта</Label>
-              <Textarea 
-                placeholder="Опишите прогресс учеников, сложности, рекомендации..."
-                rows={8}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button className="gradient-primary">
-                <Send className="w-4 h-4 mr-2" />
-                Отправить отчёт
-              </Button>
-              <Button variant="outline" onClick={() => setShowCreateForm(false)}>
-                Отмена
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Reports List — без лишних картинок, только кликабельные карточки */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {(!loading && reports.length === 0) && (
-          <Card className="p-6">
-            <div className="text-sm text-muted-foreground">Отчётов пока нет</div>
-          </Card>
-        )}
-        {reports.map((report) => (
-          <Card key={report.id} className="p-6 hover:border-primary transition-colors cursor-pointer" role="button" tabIndex={0}>
-            <div className="flex-1">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h3 className="font-bold mb-1">{report.title}</h3>
-                  <div className="text-sm text-muted-foreground">
-                    {report.student?.name}
-                  </div>
-                </div>
-                <Badge variant={report.status === 'sent' ? 'default' : 'outline'}>
-                  {report.status === 'sent' ? 'Отправлено' : 'Черновик'}
-                </Badge>
+              {/* Reports List */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {reports.length === 0 && !loading && (
+                  <Card className="p-6 col-span-2">
+                    <div className="text-center text-muted-foreground">
+                      <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>Отчётов пока нет</p>
+                      <p className="text-xs mt-2">Создайте новый отчёт, нажав кнопку "Создать отчёт"</p>
+                    </div>
+                  </Card>
+                )}
+                {reports.filter(report => report && report.id).map((report) => (
+                  <Card key={report.id} className="p-6 hover:border-primary transition-colors">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-bold">{report.title || 'Без названия'}</h3>
+                          {report.subject_name && (
+                            <Badge
+                              style={{ backgroundColor: report.subject_color || '#808080', color: 'white' }}
+                            >
+                              {report.subject_name}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground mb-2">
+                          Ученик: {report.student_name || 'Не указан'}
+                        </div>
+                        {report.tutor_name && (
+                          <div className="text-sm text-muted-foreground mb-2">
+                            Тьютор: {report.tutor_name}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                          <Calendar className="w-3 h-3" />
+                          {report.week_start && report.week_end ? (
+                            <>
+                              {new Date(report.week_start).toLocaleDateString('ru-RU')} - {new Date(report.week_end).toLocaleDateString('ru-RU')}
+                            </>
+                          ) : (
+                            'Период не указан'
+                          )}
+                        </div>
+                        {(report.average_score !== undefined && report.average_score !== null) && (
+                          <div className="text-sm mb-2">
+                            Средний балл: <strong>{report.average_score}</strong>
+                          </div>
+                        )}
+                      </div>
+                      {getStatusBadge(report.status || 'draft')}
+                    </div>
+                    <div className="flex items-center gap-2 mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => report && setSelectedReport(report)}
+                        disabled={!report}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Просмотр
+                      </Button>
+                      {report && report.status === 'draft' && report.id && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSendReport(report.id)}
+                          disabled={loading}
+                        >
+                          <Send className="w-4 h-4 mr-2" />
+                          Отправить
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                ))}
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
-                {new Date(report.created_at).toLocaleDateString('ru-RU')}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
             </div>
           </main>
         </SidebarInset>
       </div>
+
+      {/* Диалог создания отчета */}
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Создать еженедельный отчёт тьютору</DialogTitle>
+            <DialogDescription>Заполните форму для создания отчёта о прогрессе ученика</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Ученик *</Label>
+              <Select
+                value={formData.student && formData.student > 0 ? formData.student.toString() : ''}
+                onValueChange={(value) => setFormData({ ...formData, student: parseInt(value), subject: 0 })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите ученика" />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map((student) => (
+                    <SelectItem key={student.id} value={student.id.toString()}>
+                      {student.name} ({student.grade} класс)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {formData.student > 0 && (
+              <div>
+                <Label>Предмет *</Label>
+                <Select
+                  value={formData.subject && formData.subject > 0 ? formData.subject.toString() : ''}
+                  onValueChange={(value) => setFormData({ ...formData, subject: parseInt(value) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите предмет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getStudentSubjects().map((subject) => (
+                      <SelectItem key={subject.id} value={subject.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: subject.color }}
+                          />
+                          {subject.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Начало недели *</Label>
+                <Input
+                  type="date"
+                  value={formData.week_start}
+                  onChange={(e) => setFormData({ ...formData, week_start: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Конец недели *</Label>
+                <Input
+                  type="date"
+                  value={formData.week_end}
+                  onChange={(e) => setFormData({ ...formData, week_end: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Название</Label>
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Еженедельный отчёт"
+              />
+            </div>
+            <div>
+              <Label>Общее резюме *</Label>
+              <Textarea
+                value={formData.summary}
+                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                placeholder="Общее резюме недели..."
+                rows={4}
+              />
+            </div>
+            <div>
+              <Label>Академический прогресс</Label>
+              <Textarea
+                value={formData.academic_progress}
+                onChange={(e) => setFormData({ ...formData, academic_progress: e.target.value })}
+                placeholder="Опишите академический прогресс..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Заметки об успеваемости</Label>
+              <Textarea
+                value={formData.performance_notes}
+                onChange={(e) => setFormData({ ...formData, performance_notes: e.target.value })}
+                placeholder="Заметки об успеваемости..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Достижения</Label>
+              <Textarea
+                value={formData.achievements}
+                onChange={(e) => setFormData({ ...formData, achievements: e.target.value })}
+                placeholder="Достижения ученика..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Обеспокоенности</Label>
+              <Textarea
+                value={formData.concerns}
+                onChange={(e) => setFormData({ ...formData, concerns: e.target.value })}
+                placeholder="Обеспокоенности..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Рекомендации</Label>
+              <Textarea
+                value={formData.recommendations}
+                onChange={(e) => setFormData({ ...formData, recommendations: e.target.value })}
+                placeholder="Рекомендации..."
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <Label>Выполнено заданий</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.assignments_completed}
+                  onChange={(e) => setFormData({ ...formData, assignments_completed: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>Всего заданий</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.assignments_total}
+                  onChange={(e) => setFormData({ ...formData, assignments_total: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>Средний балл</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.average_score || ''}
+                  onChange={(e) => setFormData({ ...formData, average_score: e.target.value ? parseFloat(e.target.value) : undefined })}
+                />
+              </div>
+              <div>
+                <Label>Посещаемость (%)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.attendance_percentage}
+                  onChange={(e) => setFormData({ ...formData, attendance_percentage: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => { setShowCreateForm(false); resetForm(); }}>
+                Отмена
+              </Button>
+              <Button onClick={handleCreateReport} disabled={loading}>
+                <Send className="w-4 h-4 mr-2" />
+                Создать отчёт
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог просмотра отчета */}
+      <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedReport?.title}</DialogTitle>
+            <DialogDescription>
+              Отчёт по ученику {selectedReport?.student_name || 'Не указан'} по предмету {selectedReport?.subject_name || 'Не указан'} {selectedReport?.tutor_name && `(Тьютор: ${selectedReport.tutor_name})`} {selectedReport?.week_start && selectedReport?.week_end && `за период ${new Date(selectedReport.week_start).toLocaleDateString('ru-RU')} - ${new Date(selectedReport.week_end).toLocaleDateString('ru-RU')}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-4">
+              <div>
+                <strong>Общее резюме:</strong>
+                <p className="mt-1">{selectedReport.summary || 'Не указано'}</p>
+              </div>
+              {selectedReport.academic_progress && (
+                <div>
+                  <strong>Академический прогресс:</strong>
+                  <p className="mt-1">{selectedReport.academic_progress}</p>
+                </div>
+              )}
+              {selectedReport.performance_notes && (
+                <div>
+                  <strong>Заметки об успеваемости:</strong>
+                  <p className="mt-1">{selectedReport.performance_notes}</p>
+                </div>
+              )}
+              {selectedReport.achievements && (
+                <div>
+                  <strong>Достижения:</strong>
+                  <p className="mt-1">{selectedReport.achievements}</p>
+                </div>
+              )}
+              {selectedReport.concerns && (
+                <div>
+                  <strong>Обеспокоенности:</strong>
+                  <p className="mt-1">{selectedReport.concerns}</p>
+                </div>
+              )}
+              {selectedReport.recommendations && (
+                <div>
+                  <strong>Рекомендации:</strong>
+                  <p className="mt-1">{selectedReport.recommendations}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div>
+                  <strong>Выполнено заданий:</strong>
+                  <p>{selectedReport.assignments_completed || 0} / {selectedReport.assignments_total || 0} ({selectedReport.completion_percentage || 0}%)</p>
+                </div>
+                {(selectedReport.average_score !== undefined && selectedReport.average_score !== null) && (
+                  <div>
+                    <strong>Средний балл:</strong>
+                    <p>{selectedReport.average_score}</p>
+                  </div>
+                )}
+                {(selectedReport.attendance_percentage !== undefined && selectedReport.attendance_percentage > 0) && (
+                  <div>
+                    <strong>Посещаемость:</strong>
+                    <p>{selectedReport.attendance_percentage}%</p>
+                  </div>
+                )}
+                <div>
+                  <strong>Статус:</strong>
+                  <div>{getStatusBadge(selectedReport.status || 'draft')}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
-
-// Убраны мок-данные; используется загрузка с бэкенда

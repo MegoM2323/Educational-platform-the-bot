@@ -44,7 +44,6 @@ urlpatterns = [
     path('teacher/students/<int:student_id>/subjects/', teacher_dashboard_views.teacher_student_subjects, name='teacher-student-subjects'),
     path('teacher/subjects/<int:subject_id>/students/', teacher_dashboard_views.subject_students, name='teacher-subject-students'),
     path('teacher/subjects/', teacher_dashboard_views.get_all_subjects, name='teacher-all-subjects'),
-    path('teacher/subjects/assign/', teacher_dashboard_views.assign_subject_to_students, name='teacher-assign-subject'),
     path('teacher/all-students/', teacher_dashboard_views.teacher_all_students, name='teacher-all-students'),
     path('teacher/submissions/pending/', teacher_dashboard_views.pending_submissions, name='teacher-pending-submissions'),
     path('teacher/submissions/<int:submission_id>/feedback/', teacher_dashboard_views.submission_feedback, name='teacher-submission-feedback'),

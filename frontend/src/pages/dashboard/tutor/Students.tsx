@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { TutorSidebar } from '@/components/layout/TutorSidebar';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,24 @@ export default function TutorStudentsPage() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  
+  // Логируем изменения в данных студентов для отладки
+  useEffect(() => {
+    if (students) {
+      const totalSubjects = students.reduce((sum, s) => sum + (s.subjects?.length || 0), 0);
+      console.log(`[TutorStudentsPage] Rendered with ${students.length} students, ${totalSubjects} total subjects`);
+      
+      students.forEach(s => {
+        const subjectsCount = s.subjects?.length || 0;
+        console.log(`[TutorStudentsPage] - Student ${s.id} (${s.full_name}): ${subjectsCount} subjects`);
+        if (subjectsCount > 0) {
+          s.subjects?.forEach(subj => {
+            console.log(`    * ${subj.name} (teacher: ${subj.teacher_name})`);
+          });
+        }
+      });
+    }
+  }, [students]);
 
   const [form, setForm] = useState({
     first_name: '',
@@ -79,6 +97,7 @@ export default function TutorStudentsPage() {
       setGeneratedCreds(res.credentials);
       setOpen(false);
       setCredsOpen(true);
+      
       // Очищаем форму
       setForm({
         first_name: '',
@@ -91,27 +110,13 @@ export default function TutorStudentsPage() {
         parent_phone: '',
       });
       setValidationErrors({});
-      toast({
-        title: "Успешно",
-        description: "Ученик и родитель созданы"
-      });
+      
+      // Данные уже обновляются через onSuccess в useCreateTutorStudent
+      // Toast показывается в хуке useCreateTutorStudent
+      console.log('[Students] Student created, data should be refreshed automatically');
     } catch (error: any) {
+      // Ошибка уже обрабатывается в onError хука useCreateTutorStudent
       console.error('Error creating student:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      
-      let errorMessage = "Не удалось создать ученика";
-      if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
-        errorMessage = "Доступ запрещен. Проверьте, что вы вошли как тьютор.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: "Ошибка",
-        description: errorMessage,
-        variant: "destructive"
-      });
     }
   };
 
@@ -146,32 +151,41 @@ export default function TutorStudentsPage() {
                   <div>Загрузка...</div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {students?.map((s) => (
-                      <Card key={s.id} className="p-4 space-y-3">
-                        <div className="font-medium">{s.full_name || `${s.first_name || ''} ${s.last_name || ''}`}</div>
-                        <div className="text-sm text-muted-foreground">Класс: {s.grade || '-'}</div>
-                        <div className="text-sm text-muted-foreground">Цель: {s.goal || '-'}</div>
-                        
-                        {/* Назначенные предметы */}
-                        {s.subjects && s.subjects.length > 0 && (
-                          <div className="space-y-2">
-                            <div className="text-sm font-semibold">Назначенные предметы:</div>
-                            <div className="space-y-1">
-                              {s.subjects.map((subject) => (
-                                <div key={subject.enrollment_id} className="text-sm text-muted-foreground pl-2 border-l-2 border-primary">
-                                  <div className="font-medium">{subject.name}</div>
-                                  <div className="text-xs">Преподаватель: {subject.teacher_name}</div>
-                                </div>
-                              ))}
+                    {students?.map((s) => {
+                      const subjectsCount = s.subjects?.length || 0;
+                      return (
+                        <Card key={s.id} className="p-4 space-y-3">
+                          <div className="font-medium">{s.full_name || `${s.first_name || ''} ${s.last_name || ''}`}</div>
+                          <div className="text-sm text-muted-foreground">Класс: {s.grade || '-'}</div>
+                          <div className="text-sm text-muted-foreground">Цель: {s.goal || '-'}</div>
+                          
+                          {/* Назначенные предметы */}
+                          {subjectsCount > 0 ? (
+                            <div className="space-y-2">
+                              <div className="text-sm font-semibold">Назначенные предметы ({subjectsCount}):</div>
+                              <div className="space-y-1 max-h-32 overflow-y-auto">
+                                {s.subjects?.map((subject) => (
+                                  <div key={subject.enrollment_id} className="text-sm text-muted-foreground pl-2 border-l-2 border-primary">
+                                    <div className="font-medium">{subject.name}</div>
+                                    <div className="text-xs">Преподаватель: {subject.teacher_name || 'Не указан'}</div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground italic">Нет назначенных предметов</div>
+                          )}
+                          
+                          <div className="pt-2 flex gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => { 
+                              console.log('[Students] Opening assign dialog for student:', s.id);
+                              setSelectedStudentId(s.id); 
+                              setAssignOpen(true); 
+                            }}>Назначить предмет</Button>
                           </div>
-                        )}
-                        
-                        <div className="pt-2 flex gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => { setSelectedStudentId(s.id); setAssignOpen(true); }}>Назначить предмет</Button>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </Card>
@@ -313,7 +327,17 @@ export default function TutorStudentsPage() {
       </Dialog>
 
       {selectedStudentId !== null && (
-        <AssignSubjectDialog open={assignOpen} onOpenChange={setAssignOpen} studentId={selectedStudentId} />
+        <AssignSubjectDialog 
+          open={assignOpen} 
+          onOpenChange={(open) => {
+            setAssignOpen(open);
+            if (!open) {
+              // Сбрасываем выбранного студента при закрытии диалога
+              setSelectedStudentId(null);
+            }
+          }}
+          studentId={selectedStudentId}
+        />
       )}
     </SidebarProvider>
   );

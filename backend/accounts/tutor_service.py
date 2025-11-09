@@ -247,6 +247,12 @@ class SubjectAssignmentService:
                 enrollment.assigned_by = tutor
                 enrollment.is_active = True  # Активируем, если было деактивировано
                 enrollment.save(update_fields=['assigned_by', 'is_active'])
+            
+            print(f"[SubjectAssignmentService.assign_subject] Enrollment {'created' if created else 'updated'}: id={enrollment.id}, student_id={student.id}, subject_id={subject.id}, teacher_id={teacher.id}, is_active={enrollment.is_active}")
+            
+            # Принудительно перезагружаем enrollment из базы для гарантии актуальных данных
+            enrollment.refresh_from_db()
+            
         except IntegrityError:
             # В случае race condition, пытаемся получить существующее зачисление и обновить
             try:
@@ -258,6 +264,8 @@ class SubjectAssignmentService:
                 enrollment.assigned_by = tutor
                 enrollment.is_active = True
                 enrollment.save(update_fields=['assigned_by', 'is_active'])
+                enrollment.refresh_from_db()
+                print(f"[SubjectAssignmentService.assign_subject] Enrollment updated after IntegrityError: id={enrollment.id}")
             except SubjectEnrollment.DoesNotExist:
                 # Если даже после IntegrityError объект не найден, это странно, но обрабатываем
                 raise ValueError("Не удалось создать или обновить зачисление из-за конфликта данных")

@@ -463,9 +463,12 @@ class UnifiedAPIClient {
     // Load tokens from storage before each request
     this.loadTokensFromStorage();
     
-    // Check cache for GET requests (но не для списка пользователей, чтобы всегда получать актуальные данные)
+    // Check cache for GET requests (но не для списка пользователей, staff и студентов тьютора, чтобы всегда получать актуальные данные)
     const isGET = !options.method || options.method === 'GET';
-    const shouldUseCache = isGET && !retryCount && !endpoint.includes('/accounts/users/');
+    const shouldUseCache = isGET && !retryCount && 
+      !endpoint.includes('/accounts/users/') && 
+      !endpoint.includes('/auth/staff/') &&
+      !endpoint.includes('/tutor/students/');
     if (shouldUseCache) {
       const cachedData = cacheService.get<T>(endpoint);
       if (cachedData !== null) {
@@ -505,16 +508,21 @@ class UnifiedAPIClient {
 
       const result = await safeJsonParse(response);
       
-      // Логируем для отладки списка пользователей
-      if (endpoint.includes('/accounts/users/')) {
-        console.log('[unifiedClient] Teachers API response:', {
+      // Определяем, является ли это staff endpoint
+      const isStaffEndpoint = endpoint.includes('/auth/staff/');
+      
+      // Логируем для отладки списка пользователей и staff
+      if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
+        console.log('[unifiedClient] API response:', {
+          endpoint,
           ok: response.ok,
           status: response.status,
           statusText: response.statusText,
           parseSuccess: result.success,
           dataType: typeof result.data,
           isArray: Array.isArray(result.data),
-          dataLength: Array.isArray(result.data) ? result.data.length : 'N/A'
+          dataLength: Array.isArray(result.data) ? result.data.length : 'N/A',
+          dataKeys: result.data && typeof result.data === 'object' && !Array.isArray(result.data) ? Object.keys(result.data) : 'N/A'
         });
       }
 
@@ -593,30 +601,39 @@ class UnifiedAPIClient {
       if (Array.isArray(result.data)) {
         // Если это массив, используем его напрямую (самый частый случай для list endpoints)
         responseData = result.data;
-        if (endpoint.includes('/accounts/users/')) {
-          console.log('[unifiedClient] Teachers data is array, length:', responseData.length);
+        if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
+          console.log('[unifiedClient] Data is array, length:', responseData.length);
         }
       } else if (result.data && typeof result.data === 'object') {
         // Если это объект, проверяем наличие вложенных данных
         // Но для list endpoints Django обычно возвращает массив напрямую
-        if (endpoint.includes('/accounts/users/')) {
-          console.log('[unifiedClient] Teachers data is object, keys:', Object.keys(result.data));
+        if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
+          console.log('[unifiedClient] Data is object, keys:', Object.keys(result.data));
         }
         if (result.data.data !== undefined) {
           // Если есть вложенное поле data, используем его
           responseData = result.data.data;
+          if (isStaffEndpoint) {
+            console.log('[unifiedClient] Using result.data.data');
+          }
         } else if (Array.isArray(result.data.results)) {
           // Если есть поле results (пагинация), используем его
           responseData = result.data.results;
+          if (isStaffEndpoint) {
+            console.log('[unifiedClient] Using result.data.results, length:', responseData.length);
+          }
         } else {
           // Иначе используем весь объект
           responseData = result.data;
+          if (isStaffEndpoint) {
+            console.log('[unifiedClient] Using result.data as is');
+          }
         }
       } else {
         // Если это не массив и не объект, используем как есть
         responseData = result.data;
-        if (endpoint.includes('/accounts/users/')) {
-          console.warn('[unifiedClient] Teachers data is not array or object:', typeof result.data);
+        if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
+          console.warn('[unifiedClient] Data is not array or object:', typeof result.data);
         }
       }
       
@@ -627,8 +644,8 @@ class UnifiedAPIClient {
         timestamp: new Date().toISOString(),
       };
       
-      if (endpoint.includes('/accounts/users/')) {
-        console.log('[unifiedClient] Final teachers response:', {
+      if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
+        console.log('[unifiedClient] Final response:', {
           success: apiResponse.success,
           dataType: typeof apiResponse.data,
           isArray: Array.isArray(apiResponse.data),
@@ -636,8 +653,11 @@ class UnifiedAPIClient {
         });
       }
 
-      // Cache GET responses (но не для списка пользователей, чтобы всегда получать актуальные данные)
-      const shouldCache = isGET && apiResponse.success && apiResponse.data && !endpoint.includes('/accounts/users/');
+      // Cache GET responses (но не для списка пользователей, staff и студентов тьютора, чтобы всегда получать актуальные данные)
+      const shouldCache = isGET && apiResponse.success && apiResponse.data && 
+        !endpoint.includes('/accounts/users/') && 
+        !endpoint.includes('/auth/staff/') &&
+        !endpoint.includes('/tutor/students/');
       if (shouldCache) {
         cacheService.set(endpoint, apiResponse.data);
       }

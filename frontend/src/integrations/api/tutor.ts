@@ -122,17 +122,34 @@ export const tutorAPI = {
 
   assignSubject: async (studentId: number, data: AssignSubjectRequest): Promise<void> => {
     try {
+      console.log('[tutorAPI.assignSubject] Starting request:', { studentId, data });
       const resp = await unifiedAPI.request(`/tutor/students/${studentId}/subjects/`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
       
+      console.log('[tutorAPI.assignSubject] Response:', {
+        success: resp.success,
+        error: resp.error,
+        data: resp.data,
+        hasData: !!resp.data,
+        status: resp.status
+      });
+      
       if (!resp.success || resp.error) {
         // Пытаемся извлечь детальное сообщение об ошибке
         const errorMessage = resp.error || resp.data?.detail || 'Не удалось назначить предмет';
+        console.error('[tutorAPI.assignSubject] Error:', errorMessage);
         throw new Error(errorMessage);
       }
+      
+      // Если запрос успешен, даже если данных нет в ответе, считаем что предмет назначен
+      console.log('[tutorAPI.assignSubject] Subject assigned successfully, status:', resp.status || 'OK');
+      
+      // Возвращаем void, так как данные будут загружены через отдельный запрос
+      return;
     } catch (error: any) {
+      console.error('[tutorAPI.assignSubject] Exception:', error);
       // Если это уже Error с сообщением, пробрасываем дальше
       if (error instanceof Error) {
         throw error;

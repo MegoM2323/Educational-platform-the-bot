@@ -83,13 +83,91 @@ def list_staff(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     if role == User.Role.TEACHER:
-        qs = TeacherProfile.objects.select_related('user').all().order_by('user__date_joined')
-        data = TeacherProfileSerializer(qs, many=True).data
-        return Response({'results': data})
+        # Получаем всех пользователей с ролью TEACHER, а не только тех, у кого есть TeacherProfile
+        # Используем prefetch_related для оптимизации запросов к TeacherSubject
+        # Сортируем по дате создания (новые первыми)
+        users = User.objects.filter(
+            role=User.Role.TEACHER, 
+            is_active=True
+        ).prefetch_related(
+            'teacher_subjects__subject'
+        ).order_by('-date_joined', '-id')
+        
+        print(f"[list_staff] Found {users.count()} teachers with role={role}")
+        
+        # Создаем список результатов с профилями
+        results = []
+        for user in users:
+            try:
+                # Пытаемся получить профиль - используем get() для явной проверки
+                # Это гарантирует, что мы получим свежие данные из базы
+                profile = TeacherProfile.objects.select_related('user').get(user=user)
+                # Используем сериализатор профиля, если он существует
+                profile_data = TeacherProfileSerializer(profile).data
+                results.append(profile_data)
+                print(f"[list_staff] Added teacher with profile: {user.username} (id={user.id}, profile_id={profile.id})")
+            except TeacherProfile.DoesNotExist:
+                # Если профиля нет, создаем данные вручную в формате, который ожидает фронтенд
+                from materials.models import TeacherSubject
+                # Получаем предметы преподавателя через TeacherSubject
+                # Используем prefetched данные, если они есть
+                if hasattr(user, '_prefetched_objects_cache') and 'teacher_subjects' in user._prefetched_objects_cache:
+                    teacher_subjects = user._prefetched_objects_cache['teacher_subjects']
+                    subjects = [ts.subject.name for ts in teacher_subjects if ts.is_active]
+                else:
+                    # Если prefetch не сработал, делаем отдельный запрос
+                    teacher_subjects = TeacherSubject.objects.filter(
+                        teacher=user, 
+                        is_active=True
+                    ).select_related('subject')
+                    subjects = [ts.subject.name for ts in teacher_subjects]
+                
+                # Используем первый предмет как основной, или пустую строку
+                main_subject = subjects[0] if subjects else ''
+                
+                # Используем ID пользователя, так как профиля нет
+                # Фронтенд ожидает число в поле id
+                results.append({
+                    'id': user.id,  # Используем ID пользователя
+                    'user': UserSerializer(user).data,
+                    'subject': main_subject,
+                    'experience_years': 0,
+                    'bio': '',
+                    'subjects_list': subjects  # Добавляем список предметов для совместимости
+                })
+                print(f"[list_staff] Added teacher without profile: {user.username} (id={user.id})")
+        
+        print(f"[list_staff] Returning {len(results)} teachers")
+        return Response({'results': results})
     else:
-        qs = TutorProfile.objects.select_related('user').all().order_by('user__date_joined')
-        data = TutorProfileSerializer(qs, many=True).data
-        return Response({'results': data})
+        # Для тьюторов аналогично
+        users = User.objects.filter(
+            role=User.Role.TUTOR, 
+            is_active=True
+        ).order_by('-date_joined', '-id')
+        
+        print(f"[list_staff] Found {users.count()} tutors with role={role}")
+        
+        results = []
+        for user in users:
+            try:
+                # Пытаемся получить профиль - используем get() для явной проверки
+                profile = TutorProfile.objects.select_related('user').get(user=user)
+                profile_data = TutorProfileSerializer(profile).data
+                results.append(profile_data)
+                print(f"[list_staff] Added tutor with profile: {user.username} (id={user.id}, profile_id={profile.id})")
+            except TutorProfile.DoesNotExist:
+                results.append({
+                    'id': user.id,  # Используем ID пользователя
+                    'user': UserSerializer(user).data,
+                    'specialization': '',
+                    'experience_years': 0,
+                    'bio': ''
+                })
+                print(f"[list_staff] Added tutor without profile: {user.username} (id={user.id})")
+        
+        print(f"[list_staff] Returning {len(results)} tutors")
+        return Response({'results': results})
 
 
 @api_view(['POST'])
@@ -220,35 +298,45 @@ def create_staff(request):
 
             # Создаём/обновляем профиль в зависимости от роли
             if role == User.Role.TEACHER:
+                print(f"[create_staff] Creating/updating TeacherProfile for user {django_user.id}")
                 profile, created = TeacherProfile.objects.get_or_create(
                     user=django_user,
                     defaults=profile_kwargs
                 )
+                print(f"[create_staff] TeacherProfile {'created' if created else 'updated'}: id={profile.id}, subject={profile.subject}")
+                
                 # Если профиль уже существовал, обновляем его
                 if not created:
                     for k, v in profile_kwargs.items():
                         setattr(profile, k, v)
                     profile.save()
+                    print(f"[create_staff] TeacherProfile updated: subject={profile.subject}")
                 
                 # Создаем связь TeacherSubject, если указан предмет
                 if profile.subject:
                     from materials.models import TeacherSubject, Subject
                     # Ищем предмет по имени или создаем новый
-                    subject, _ = Subject.objects.get_or_create(
+                    subject, subject_created = Subject.objects.get_or_create(
                         name=profile.subject,
                         defaults={'description': '', 'color': '#3b82f6'}
                     )
+                    print(f"[create_staff] Subject {'created' if subject_created else 'found'}: id={subject.id}, name={subject.name}")
+                    
                     # Создаем связь учитель-предмет
-                    TeacherSubject.objects.get_or_create(
+                    teacher_subject, ts_created = TeacherSubject.objects.get_or_create(
                         teacher=django_user,
                         subject=subject,
                         defaults={'is_active': True}
                     )
+                    print(f"[create_staff] TeacherSubject {'created' if ts_created else 'found'}: id={teacher_subject.id}, is_active={teacher_subject.is_active}")
             else:
+                print(f"[create_staff] Creating/updating TutorProfile for user {django_user.id}")
                 profile, created = TutorProfile.objects.get_or_create(
                     user=django_user,
                     defaults=profile_kwargs
                 )
+                print(f"[create_staff] TutorProfile {'created' if created else 'updated'}: id={profile.id}")
+                
                 # Если профиль уже существовал, обновляем его
                 if not created:
                     for k, v in profile_kwargs.items():
@@ -256,16 +344,44 @@ def create_staff(request):
                     profile.save()
 
     except Exception as exc:
+        import traceback
+        print(f"[create_staff] Error creating user: {exc}")
+        print(f"[create_staff] Traceback: {traceback.format_exc()}")
         return Response({'detail': f'Ошибка создания пользователя: {exc}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    # После завершения транзакции, принудительно обновляем данные из базы
+    # Это гарантирует, что новый пользователь будет виден в списке
+    django_user.refresh_from_db()
+    
     # Возвращаем учётные данные ОДИН раз (логин = email)
     # Возвращаем профиль для мгновенного UI-обновления
-    if role == User.Role.TEACHER:
-        profile = TeacherProfile.objects.select_related('user').get(user=django_user)
-        profile_data = TeacherProfileSerializer(profile).data
-    else:
-        profile = TutorProfile.objects.select_related('user').get(user=django_user)
-        profile_data = TutorProfileSerializer(profile).data
+    try:
+        if role == User.Role.TEACHER:
+            profile = TeacherProfile.objects.select_related('user').get(user=django_user)
+            profile_data = TeacherProfileSerializer(profile).data
+        else:
+            profile = TutorProfile.objects.select_related('user').get(user=django_user)
+            profile_data = TutorProfileSerializer(profile).data
+    except (TeacherProfile.DoesNotExist, TutorProfile.DoesNotExist) as e:
+        # Если профиль не найден, создаем минимальные данные
+        print(f"[create_staff] Profile not found for user {django_user.id}, creating minimal data")
+        if role == User.Role.TEACHER:
+            profile_data = {
+                'id': django_user.id,
+                'user': UserSerializer(django_user).data,
+                'subject': profile_kwargs.get('subject', ''),
+                'experience_years': profile_kwargs.get('experience_years', 0),
+                'bio': profile_kwargs.get('bio', ''),
+                'subjects_list': []
+            }
+        else:
+            profile_data = {
+                'id': django_user.id,
+                'user': UserSerializer(django_user).data,
+                'specialization': profile_kwargs.get('specialization', ''),
+                'experience_years': profile_kwargs.get('experience_years', 0),
+                'bio': profile_kwargs.get('bio', '')
+            }
 
     return Response({
         'user': UserSerializer(django_user).data,

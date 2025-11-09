@@ -49,20 +49,45 @@ class TutorStudentSerializer(serializers.ModelSerializer):
     def get_subjects(self, obj):
         """Возвращает список назначенных предметов студента с кастомными названиями"""
         from materials.models import SubjectEnrollment
-        enrollments = SubjectEnrollment.objects.filter(
-            student=obj.user,
-            is_active=True
-        ).select_related('subject', 'teacher')
         
-        return [
+        # Получаем ID пользователя для гарантии свежих данных
+        user_id = obj.user.id if hasattr(obj.user, 'id') else obj.user.pk
+        
+        # Получаем свежие данные из базы каждый раз
+        # Используем student_id вместо student для избежания проблем с кешированием
+        # Используем явный запрос к базе, чтобы гарантировать получение актуальных данных
+        enrollments_queryset = SubjectEnrollment.objects.filter(
+            student_id=user_id,
+            is_active=True
+        ).select_related('subject', 'teacher').order_by('-enrolled_at', '-id')
+        
+        # Преобразуем в список, чтобы выполнить запрос сразу и получить свежие данные
+        # Это гарантирует, что мы получаем актуальные данные из базы данных
+        enrollments = list(enrollments_queryset)
+        
+        result = [
             {
                 'id': enrollment.subject.id,
                 'name': enrollment.get_subject_name(),
-                'teacher_name': enrollment.teacher.get_full_name(),
+                'teacher_name': enrollment.teacher.get_full_name() if enrollment.teacher else 'Не указан',
                 'enrollment_id': enrollment.id,
             }
             for enrollment in enrollments
         ]
+        
+        # Логируем для отладки
+        print(f"[TutorStudentSerializer.get_subjects] Student {user_id} ({obj.user.username}) has {len(result)} active enrollments")
+        if len(result) > 0:
+            for item in result:
+                print(f"  - {item['name']} (teacher: {item['teacher_name']}, enrollment_id: {item['enrollment_id']})")
+        else:
+            print(f"  - No active enrollments found for student {user_id}")
+            # Проверяем, есть ли вообще enrollments для этого студента (включая неактивные)
+            all_enrollments_count = SubjectEnrollment.objects.filter(student_id=user_id).count()
+            active_count = SubjectEnrollment.objects.filter(student_id=user_id, is_active=True).count()
+            print(f"  - Total enrollments: {all_enrollments_count}, Active: {active_count}")
+        
+        return result
 
 
 class SubjectAssignSerializer(serializers.Serializer):

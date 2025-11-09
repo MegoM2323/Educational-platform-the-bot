@@ -21,9 +21,10 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   studentId: number;
+  onSuccess?: () => void;
 }
 
-function AssignSubjectDialog({ open, onOpenChange, studentId }: Props) {
+function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [allTeachers, setAllTeachers] = useState<Teacher[]>([]);
   const [availableTeachers, setAvailableTeachers] = useState<Teacher[]>([]);
@@ -253,14 +254,27 @@ function AssignSubjectDialog({ open, onOpenChange, studentId }: Props) {
       // Преподаватель обязателен
       payload.teacher_id = Number(teacherId);
       
+      // Выполняем мутацию и ждем ее завершения
+      // mutateAsync автоматически вызовет onSuccess из useAssignSubject
+      // который инвалидирует кеш и React Query автоматически обновит данные
       await assignMutation.mutateAsync(payload);
       
-      // Сбрасываем форму только после успешного назначения
+      console.log('[AssignSubjectDialog] Subject assigned successfully');
+      
+      // Сбрасываем форму
       setSubjectId('');
       setSubjectName('');
       setTeacherId('');
       setSubjectMode('existing');
+      
+      // Закрываем диалог
       onOpenChange(false);
+      
+      // Вызываем callback если передан (для дополнительной логики)
+      if (onSuccess) {
+        console.log('[AssignSubjectDialog] Calling onSuccess callback');
+        onSuccess();
+      }
     } catch (error: any) {
       // Ошибка уже обрабатывается в хуке useAssignSubject через toast
       console.error('[AssignSubjectDialog] Error submitting:', error);

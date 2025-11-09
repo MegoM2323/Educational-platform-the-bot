@@ -203,24 +203,29 @@ class SubjectEnrollmentSerializer(serializers.ModelSerializer):
     """
     Сериализатор для зачислений на предметы
     """
-    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    subject_name = serializers.SerializerMethodField()
     subject_color = serializers.CharField(source='subject.color', read_only=True)
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    custom_subject_name = serializers.CharField(read_only=True)
     
     class Meta:
         model = SubjectEnrollment
         fields = (
-            'id', 'student', 'subject', 'subject_name', 'subject_color',
+            'id', 'student', 'subject', 'subject_name', 'subject_color', 'custom_subject_name',
             'teacher', 'teacher_name', 'enrolled_at', 'is_active'
         )
         read_only_fields = ('id', 'enrolled_at')
+    
+    def get_subject_name(self, obj):
+        """Возвращает кастомное название или стандартное название предмета"""
+        return obj.get_subject_name()
 
 
 class SubjectPaymentSerializer(serializers.ModelSerializer):
     """
     Сериализатор для платежей по предметам
     """
-    subject_name = serializers.CharField(source='enrollment.subject.name', read_only=True)
+    subject_name = serializers.SerializerMethodField()
     student_name = serializers.CharField(source='enrollment.student.get_full_name', read_only=True)
     
     class Meta:
@@ -231,6 +236,10 @@ class SubjectPaymentSerializer(serializers.ModelSerializer):
             'subject_name', 'student_name'
         )
         read_only_fields = ('id', 'created_at', 'updated_at', 'paid_at')
+    
+    def get_subject_name(self, obj):
+        """Возвращает кастомное название или стандартное название предмета"""
+        return obj.enrollment.get_subject_name()
 
 
 class ParentDashboardSerializer(serializers.Serializer):
@@ -326,7 +335,7 @@ class StudyPlanSerializer(serializers.ModelSerializer):
     """
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
-    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    subject_name = serializers.SerializerMethodField()
     subject_color = serializers.CharField(source='subject.color', read_only=True)
     
     class Meta:
@@ -338,6 +347,12 @@ class StudyPlanSerializer(serializers.ModelSerializer):
             'status', 'created_at', 'updated_at', 'sent_at'
         )
         read_only_fields = ('id', 'created_at', 'updated_at', 'sent_at', 'week_end_date')
+    
+    def get_subject_name(self, obj):
+        """Возвращает кастомное название предмета из enrollment, если есть, иначе стандартное"""
+        if obj.enrollment:
+            return obj.enrollment.get_subject_name()
+        return obj.subject.name
     
     def validate(self, data):
         """
@@ -435,8 +450,14 @@ class StudyPlanListSerializer(serializers.ModelSerializer):
     """
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
-    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    subject_name = serializers.SerializerMethodField()
     subject_color = serializers.CharField(source='subject.color', read_only=True)
+    
+    def get_subject_name(self, obj):
+        """Возвращает кастомное название предмета из enrollment, если есть, иначе стандартное"""
+        if obj.enrollment:
+            return obj.enrollment.get_subject_name()
+        return obj.subject.name
     
     class Meta:
         model = StudyPlan

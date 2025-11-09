@@ -167,7 +167,10 @@ def check_yookassa_payment_status(yookassa_payment_id):
             return None
             
     except requests.RequestException as e:
-        print(f"Request error checking payment status: {e}")
+        logger.error(f"Request error checking payment status: {e}", exc_info=True)
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error checking payment status: {e}", exc_info=True)
         return None
 
 # Старые функции pay_success и pay_fail удалены - обработка успешной оплаты теперь на фронтенде
@@ -217,17 +220,19 @@ def yookassa_webhook(request):
         if event_type == 'payment.succeeded':
             payment.status = Payment.Status.SUCCEEDED
             payment.paid_at = timezone.now()
-            payment.save()
+            payment.save(update_fields=['status', 'paid_at', 'updated'])
             logger.info(f"Payment {payment.id} marked as succeeded")
             # Дополнительно отмечаем платеж по предмету (если связан)
             try:
                 from materials.models import SubjectPayment as SP, SubjectSubscription, SubjectEnrollment
                 from notifications.notification_service import NotificationService
-                subject_payment = SP.objects.filter(payment=payment).first()
-                if subject_payment and subject_payment.status != SP.Status.PAID:
-                    subject_payment.status = SP.Status.PAID
-                    subject_payment.paid_at = payment.paid_at
-                    subject_payment.save(update_fields=['status', 'paid_at', 'updated_at'])
+                subject_payments = SP.objects.filter(payment=payment)
+                for subject_payment in subject_payments:
+                    if subject_payment.status != SP.Status.PAID:
+                        subject_payment.status = SP.Status.PAID
+                        subject_payment.paid_at = payment.paid_at
+                        subject_payment.save(update_fields=['status', 'paid_at', 'updated_at'])
+                        logger.info(f"SubjectPayment {subject_payment.id} marked as PAID")
                     
                     # Проверяем, нужно ли создать подписку после успешной оплаты
                     create_subscription = payment.metadata.get('create_subscription', False)
@@ -285,13 +290,35 @@ def yookassa_webhook(request):
                 
         elif event_type == 'payment.canceled':
             payment.status = Payment.Status.CANCELED
-            payment.save()
+            payment.save(update_fields=['status', 'updated'])
             logger.info(f"Payment {payment.id} marked as canceled")
+            # Обновляем статус SubjectPayment обратно на PENDING при отмене
+            try:
+                from materials.models import SubjectPayment as SP
+                subject_payments = SP.objects.filter(payment=payment)
+                for subject_payment in subject_payments:
+                    if subject_payment.status in [SP.Status.WAITING_FOR_PAYMENT]:
+                        subject_payment.status = SP.Status.PENDING
+                        subject_payment.save(update_fields=['status', 'updated_at'])
+                        logger.info(f"SubjectPayment {subject_payment.id} status changed to PENDING after payment cancellation")
+            except Exception as e:
+                logger.error(f"Failed to update SubjectPayment status after cancellation: {e}")
             
         elif event_type == 'payment.waiting_for_capture':
             payment.status = Payment.Status.WAITING_FOR_CAPTURE
-            payment.save()
+            payment.save(update_fields=['status', 'updated'])
             logger.info(f"Payment {payment.id} marked as waiting for capture")
+            # Устанавливаем статус WAITING_FOR_PAYMENT для SubjectPayment
+            try:
+                from materials.models import SubjectPayment as SP
+                subject_payments = SP.objects.filter(payment=payment)
+                for subject_payment in subject_payments:
+                    if subject_payment.status == SP.Status.PENDING:
+                        subject_payment.status = SP.Status.WAITING_FOR_PAYMENT
+                        subject_payment.save(update_fields=['status', 'updated_at'])
+                        logger.info(f"SubjectPayment {subject_payment.id} status changed to WAITING_FOR_PAYMENT")
+            except Exception as e:
+                logger.error(f"Failed to update SubjectPayment status to WAITING_FOR_PAYMENT: {e}")
         
         return HttpResponse("OK")
         
@@ -320,7 +347,7 @@ def check_payment_status(request):
                 if yookassa_status == 'succeeded' and payment.status != Payment.Status.SUCCEEDED:
                     payment.status = Payment.Status.SUCCEEDED
                     payment.paid_at = timezone.now()
-                    payment.save()
+                    payment.save(update_fields=['status', 'paid_at', 'updated'])
                     # Синхронизация статуса предметного платежа
                     try:
                         from materials.models import SubjectPayment as SubjectPaymentModel
@@ -329,22 +356,57 @@ def check_payment_status(request):
                             if sp.status != SubjectPaymentModel.Status.PAID:
                                 sp.status = SubjectPaymentModel.Status.PAID
                                 sp.paid_at = payment.paid_at
-                                sp.save()
+                                sp.save(update_fields=['status', 'paid_at', 'updated_at'])
+                                logger.info(f"SubjectPayment {sp.id} marked as PAID")
                     except Exception as sync_err:
-                        logger.error(f"Failed to sync SubjectPayment for payment {payment.id}: {sync_err}")
+                        logger.error(f"Failed to sync SubjectPayment for payment {payment.id}: {sync_err}", exc_info=True)
                     
                     # Отправляем уведомление в Telegram
                     try:
                         telegram_service = TelegramNotificationService()
                         telegram_service.send_payment_notification(payment)
                     except Exception as e:
-                        print(f"Error sending Telegram notification: {e}")
+                        logger.error(f"Error sending Telegram notification: {e}", exc_info=True)
                 elif yookassa_status == 'canceled' and payment.status != Payment.Status.CANCELED:
                     payment.status = Payment.Status.CANCELED
-                    payment.save()
+                    payment.save(update_fields=['status', 'updated'])
+                    # Обновляем статус SubjectPayment обратно на PENDING при отмене
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status in [SubjectPaymentModel.Status.WAITING_FOR_PAYMENT]:
+                                sp.status = SubjectPaymentModel.Status.PENDING
+                                sp.save(update_fields=['status', 'updated_at'])
+                                logger.info(f"SubjectPayment {sp.id} status changed to PENDING after payment cancellation")
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment status after cancellation for payment {payment.id}: {sync_err}", exc_info=True)
                 elif yookassa_status == 'waiting_for_capture' and payment.status != Payment.Status.WAITING_FOR_CAPTURE:
                     payment.status = Payment.Status.WAITING_FOR_CAPTURE
-                    payment.save()
+                    payment.save(update_fields=['status', 'updated'])
+                    # Устанавливаем статус WAITING_FOR_PAYMENT для SubjectPayment
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status in [SubjectPaymentModel.Status.PENDING]:
+                                sp.status = SubjectPaymentModel.Status.WAITING_FOR_PAYMENT
+                                sp.save(update_fields=['status', 'updated_at'])
+                                logger.info(f"SubjectPayment {sp.id} status changed to WAITING_FOR_PAYMENT")
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment status to WAITING_FOR_PAYMENT for payment {payment.id}: {sync_err}", exc_info=True)
+                elif yookassa_status == 'pending' and payment.confirmation_url:
+                    # Если платеж в статусе pending и есть confirmation_url, это тоже ожидание оплаты
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status == SubjectPaymentModel.Status.PENDING:
+                                sp.status = SubjectPaymentModel.Status.WAITING_FOR_PAYMENT
+                                sp.save(update_fields=['status', 'updated_at'])
+                                logger.info(f"SubjectPayment {sp.id} status changed to WAITING_FOR_PAYMENT (pending with confirmation_url)")
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment status to WAITING_FOR_PAYMENT for payment {payment.id}: {sync_err}", exc_info=True)
         
         return JsonResponse({
             "status": payment.status,
@@ -359,7 +421,7 @@ def check_payment_status(request):
     except Payment.DoesNotExist:
         return JsonResponse({"error": "Payment not found"}, status=404)
     except Exception as e:
-        print(f"Error checking payment status: {e}")
+        logger.error(f"Error checking payment status: {e}", exc_info=True)
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 
@@ -399,12 +461,105 @@ class PaymentViewSet(viewsets.ModelViewSet):
             payment.confirmation_url = yookassa_payment.get('confirmation', {}).get('confirmation_url')
             payment.return_url = f"{request.build_absolute_uri(SUCCESS_URL)}?payment_id={payment.id}"
             payment.raw_response = yookassa_payment
-            payment.save()
+            
+            # Обновляем статус Payment на основе ответа от ЮКассы
+            yookassa_status = yookassa_payment.get('status')
+            update_fields = ['yookassa_payment_id', 'confirmation_url', 'return_url', 'raw_response', 'status', 'updated']
+            
+            if yookassa_status == 'pending':
+                payment.status = Payment.Status.PENDING
+            elif yookassa_status == 'waiting_for_capture':
+                payment.status = Payment.Status.WAITING_FOR_CAPTURE
+            elif yookassa_status == 'succeeded':
+                payment.status = Payment.Status.SUCCEEDED
+                payment.paid_at = timezone.now()
+                update_fields.append('paid_at')
+            elif yookassa_status == 'canceled':
+                payment.status = Payment.Status.CANCELED
+            
+            payment.save(update_fields=update_fields)
+            
+            # Обрабатываем связь с SubjectPayment, если есть в metadata
+            # Это важно для случаев, когда платеж создается через PaymentViewSet.create
+            metadata = payment.metadata or {}
+            subject_payment_id = metadata.get('subject_payment_id')
+            enrollment_id = metadata.get('enrollment_id')
+            
+            if subject_payment_id or enrollment_id:
+                try:
+                    from materials.models import SubjectPayment as SP, SubjectEnrollment
+                    from datetime import timedelta
+                    
+                    # Определяем статус для SubjectPayment на основе статуса Payment и наличия confirmation_url
+                    # Если есть confirmation_url, значит платеж ожидает оплаты
+                    payment_status = SP.Status.WAITING_FOR_PAYMENT if payment.confirmation_url else SP.Status.PENDING
+                    
+                    # Если указан subject_payment_id, обновляем существующий
+                    if subject_payment_id:
+                        try:
+                            subject_payment = SP.objects.get(id=subject_payment_id)
+                            # Формируем список полей для обновления
+                            update_fields_list = ['updated_at']
+                            
+                            # Обновляем связь с Payment, если еще не установлена
+                            if not subject_payment.payment_id:
+                                subject_payment.payment = payment
+                                update_fields_list.append('payment')
+                            
+                            # Устанавливаем статус на основе наличия confirmation_url
+                            if payment.confirmation_url and subject_payment.status == SP.Status.PENDING:
+                                subject_payment.status = payment_status
+                                update_fields_list.append('status')
+                            elif not payment.confirmation_url and subject_payment.status != payment_status:
+                                subject_payment.status = payment_status
+                                update_fields_list.append('status')
+                            
+                            subject_payment.save(update_fields=update_fields_list)
+                            logger.info(f"Updated SubjectPayment {subject_payment.id} with Payment {payment.id}, status: {subject_payment.status}")
+                        except SP.DoesNotExist:
+                            logger.warning(f"SubjectPayment with id {subject_payment_id} not found")
+                            # Если SubjectPayment не найден, но есть enrollment_id, создаем новый
+                            if enrollment_id:
+                                try:
+                                    enrollment = SubjectEnrollment.objects.get(id=enrollment_id)
+                                    due_date = timezone.now() + timedelta(days=7)
+                                    subject_payment = SP.objects.create(
+                                        enrollment=enrollment,
+                                        payment=payment,
+                                        amount=payment.amount,
+                                        status=payment_status,
+                                        due_date=due_date
+                                    )
+                                    logger.info(f"Created new SubjectPayment {subject_payment.id} for enrollment {enrollment_id}")
+                                except SubjectEnrollment.DoesNotExist:
+                                    logger.error(f"Enrollment with id {enrollment_id} not found")
+                    
+                    # Если указан только enrollment_id (без subject_payment_id), создаем новый SubjectPayment
+                    elif enrollment_id and not subject_payment_id:
+                        try:
+                            enrollment = SubjectEnrollment.objects.get(id=enrollment_id)
+                            due_date = timezone.now() + timedelta(days=7)
+                            subject_payment = SP.objects.create(
+                                enrollment=enrollment,
+                                payment=payment,
+                                amount=payment.amount,
+                                status=payment_status,
+                                due_date=due_date
+                            )
+                            logger.info(f"Created new SubjectPayment {subject_payment.id} for enrollment {enrollment_id}")
+                        except SubjectEnrollment.DoesNotExist:
+                            logger.error(f"Enrollment with id {enrollment_id} not found")
+                
+                except Exception as e:
+                    logger.error(f"Failed to link Payment {payment.id} with SubjectPayment: {e}", exc_info=True)
+                    # Не прерываем создание платежа из-за ошибки связи с SubjectPayment
             
             # Возвращаем данные платежа
             response_serializer = PaymentSerializer(payment)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         else:
+            # Если платеж не создан в ЮКассе, удаляем его
+            payment.delete()
             return Response(
                 {"error": "Ошибка создания платежа в ЮКассе"}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -423,13 +578,59 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 if yookassa_status == 'succeeded' and payment.status != Payment.Status.SUCCEEDED:
                     payment.status = Payment.Status.SUCCEEDED
                     payment.paid_at = timezone.now()
-                    payment.save()
+                    payment.save(update_fields=['status', 'paid_at', 'updated'])
+                    # Синхронизация статуса предметного платежа
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status != SubjectPaymentModel.Status.PAID:
+                                sp.status = SubjectPaymentModel.Status.PAID
+                                sp.paid_at = payment.paid_at
+                                sp.save(update_fields=['status', 'paid_at', 'updated_at'])
+                                logger.info(f"SubjectPayment {sp.id} marked as PAID")
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment for payment {payment.id}: {sync_err}", exc_info=True)
                 elif yookassa_status == 'canceled' and payment.status != Payment.Status.CANCELED:
                     payment.status = Payment.Status.CANCELED
-                    payment.save()
+                    payment.save(update_fields=['status', 'updated'])
+                    # Обновляем статус SubjectPayment обратно на PENDING при отмене
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status in [SubjectPaymentModel.Status.WAITING_FOR_PAYMENT]:
+                                sp.status = SubjectPaymentModel.Status.PENDING
+                                sp.save(update_fields=['status', 'updated_at'])
+                                logger.info(f"SubjectPayment {sp.id} status changed to PENDING after payment cancellation")
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment status after cancellation for payment {payment.id}: {sync_err}", exc_info=True)
                 elif yookassa_status == 'waiting_for_capture' and payment.status != Payment.Status.WAITING_FOR_CAPTURE:
                     payment.status = Payment.Status.WAITING_FOR_CAPTURE
-                    payment.save()
+                    payment.save(update_fields=['status', 'updated'])
+                    # Устанавливаем статус WAITING_FOR_PAYMENT для SubjectPayment
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status in [SubjectPaymentModel.Status.PENDING]:
+                                sp.status = SubjectPaymentModel.Status.WAITING_FOR_PAYMENT
+                                sp.save(update_fields=['status', 'updated_at'])
+                                logger.info(f"SubjectPayment {sp.id} status changed to WAITING_FOR_PAYMENT")
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment status to WAITING_FOR_PAYMENT for payment {payment.id}: {sync_err}", exc_info=True)
+                elif yookassa_status == 'pending' and payment.confirmation_url:
+                    # Если платеж в статусе pending и есть confirmation_url, это тоже ожидание оплаты
+                    try:
+                        from materials.models import SubjectPayment as SubjectPaymentModel
+                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
+                        for sp in subject_payments:
+                            if sp.status == SubjectPaymentModel.Status.PENDING:
+                                sp.status = SubjectPaymentModel.Status.WAITING_FOR_PAYMENT
+                                sp.save(update_fields=['status', 'updated_at'])
+                                logger.info(f"SubjectPayment {sp.id} status changed to WAITING_FOR_PAYMENT (pending with confirmation_url)")
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync SubjectPayment status to WAITING_FOR_PAYMENT for payment {payment.id}: {sync_err}", exc_info=True)
         
         serializer = PaymentSerializer(payment)
         return Response(serializer.data)

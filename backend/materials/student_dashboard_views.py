@@ -251,7 +251,7 @@ def student_subjects(request):
                 'enrollment_id': enrollment.id,
                 'subject': {
                     'id': enrollment.subject.id,
-                    'name': enrollment.subject.name,
+                    'name': enrollment.get_subject_name(),
                     'description': enrollment.subject.description,
                     'color': enrollment.subject.color,
                 },

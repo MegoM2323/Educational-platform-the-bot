@@ -117,7 +117,7 @@ class ParentChildrenView(generics.ListAPIView):
                     subjects.append({
                         'id': enrollment.subject.id,
                         'enrollment_id': enrollment.id,  # Добавляем enrollment_id
-                        'name': enrollment.subject.name,
+                        'name': enrollment.get_subject_name(),
                         'teacher_name': enrollment.teacher.get_full_name(),
                         'teacher_id': enrollment.teacher.id,
                         'enrollment_status': 'active' if enrollment.is_active else 'inactive',
@@ -174,7 +174,7 @@ def get_child_subjects(request, child_id):
                 'enrollment_id': enrollment.id,
                 'subject': {
                     'id': enrollment.subject.id,
-                    'name': enrollment.subject.name,
+                    'name': enrollment.get_subject_name(),
                     'color': enrollment.subject.color,
                     'description': enrollment.subject.description
                 },

@@ -20,7 +20,6 @@ const items = [
   { title: "Главная", url: "/dashboard/teacher", icon: Home },
   { title: "Распределение материалов", url: "/dashboard/teacher/materials", icon: Send },
   { title: "Планы занятий", url: "/dashboard/teacher/study-plans", icon: Calendar },
-  { title: "Назначение предметов", url: "/dashboard/teacher/assign-subject", icon: BookOpen },
   { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },
   { title: "Форум", url: "/dashboard/teacher/general-chat", icon: MessageSquare },

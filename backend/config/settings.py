@@ -129,22 +129,37 @@ def _build_db_from_env() -> dict:
 
     Если параметры не заданы — выбрасывает ImproperlyConfigured с понятным сообщением.
     """
+    # Настройки таймаутов для предотвращения зависания
+    connect_timeout = int(os.getenv('DB_CONNECT_TIMEOUT', '10'))  # 10 секунд по умолчанию
+    sslmode = os.getenv('DB_SSLMODE', 'require')
+    
+    # База данных опций с таймаутами
+    db_options = {
+        'connect_timeout': str(connect_timeout),
+    }
+    
+    # Добавляем SSL режим если указан
+    if sslmode:
+        db_options['sslmode'] = sslmode
+    
     database_url = os.getenv('DATABASE_URL')
     if database_url:
         parsed = urlparse(database_url)
         if parsed.scheme not in ('postgres', 'postgresql'):
             raise ImproperlyConfigured('DATABASE_URL должен быть Postgres URI (postgres:// или postgresql://)')
-        return {
+        
+        # Если в URL уже есть параметры, добавляем timeout
+        db_config = {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': parsed.path.lstrip('/'),
             'USER': parsed.username,
             'PASSWORD': parsed.password,
             'HOST': parsed.hostname,
-            'PORT': str(parsed.port or ''),
-            'OPTIONS': {
-                'sslmode': os.getenv('DB_SSLMODE', 'require'),
-            }
+            'PORT': str(parsed.port or '5432'),
+            'CONN_MAX_AGE': 0,  # Отключаем пул соединений
+            'OPTIONS': db_options.copy(),
         }
+        return db_config
 
     name = os.getenv('SUPABASE_DB_NAME')
     user = os.getenv('SUPABASE_DB_USER')
@@ -160,9 +175,8 @@ def _build_db_from_env() -> dict:
             'PASSWORD': password,
             'HOST': host,
             'PORT': str(port or '6543'),
-            'OPTIONS': {
-                'sslmode': os.getenv('DB_SSLMODE', 'require'),
-            }
+            'CONN_MAX_AGE': 0,  # Отключаем пул соединений
+            'OPTIONS': db_options.copy(),
         }
 
     raise ImproperlyConfigured(
@@ -175,6 +189,28 @@ def _build_db_from_env() -> dict:
 DATABASES = {
     'default': _build_db_from_env(),
 }
+
+# Применяем патч для установки таймаутов подключения
+# Это нужно делать после определения DATABASES, но до использования
+try:
+    from django.db.backends.postgresql.base import DatabaseWrapper
+    
+    if not hasattr(DatabaseWrapper, '_timeout_patched'):
+        _original_get_new_connection = DatabaseWrapper.get_new_connection
+        
+        def get_new_connection_with_timeout(self, conn_params):
+            """Обертка для установки таймаута подключения"""
+            connect_timeout = int(os.getenv('DB_CONNECT_TIMEOUT', '10'))
+            # Устанавливаем таймаут в параметрах подключения psycopg2
+            if 'connect_timeout' not in conn_params:
+                conn_params['connect_timeout'] = connect_timeout
+            return _original_get_new_connection(self, conn_params)
+        
+        DatabaseWrapper.get_new_connection = get_new_connection_with_timeout
+        DatabaseWrapper._timeout_patched = True
+except (ImportError, AttributeError):
+    # Если не удалось применить патч, продолжаем без него
+    pass
 
 
 # Password validation

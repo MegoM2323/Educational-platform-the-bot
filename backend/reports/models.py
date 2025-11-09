@@ -438,3 +438,242 @@ class ReportSchedule(models.Model):
     
     def __str__(self):
         return f"{self.report_template} - {self.frequency}"
+
+
+class TutorWeeklyReport(models.Model):
+    """
+    Еженедельные отчеты тьютора родителю о прогрессе ученика
+    """
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Черновик'
+        SENT = 'sent', 'Отправлен'
+        READ = 'read', 'Прочитан'
+        ARCHIVED = 'archived', 'Архив'
+    
+    # Участники отчета
+    tutor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_tutor_reports',
+        verbose_name='Тьютор',
+        limit_choices_to={'role': 'tutor'}
+    )
+    
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='tutor_weekly_reports',
+        verbose_name='Ученик',
+        limit_choices_to={'role': 'student'}
+    )
+    
+    parent = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='received_tutor_reports',
+        verbose_name='Родитель',
+        limit_choices_to={'role': 'parent'}
+    )
+    
+    # Период отчета (неделя)
+    week_start = models.DateField(verbose_name='Начало недели')
+    week_end = models.DateField(verbose_name='Конец недели')
+    
+    # Основная информация
+    title = models.CharField(max_length=200, default='Еженедельный отчет', verbose_name='Название')
+    summary = models.TextField(verbose_name='Общее резюме')
+    
+    # Детали отчета
+    academic_progress = models.TextField(blank=True, verbose_name='Академический прогресс')
+    behavior_notes = models.TextField(blank=True, verbose_name='Заметки о поведении')
+    achievements = models.TextField(blank=True, verbose_name='Достижения')
+    concerns = models.TextField(blank=True, verbose_name='Обеспокоенности')
+    recommendations = models.TextField(blank=True, verbose_name='Рекомендации')
+    
+    # Метрики
+    attendance_days = models.PositiveIntegerField(default=0, verbose_name='Дней посещения')
+    total_days = models.PositiveIntegerField(default=7, verbose_name='Всего дней')
+    progress_percentage = models.PositiveIntegerField(default=0, verbose_name='Процент прогресса')
+    
+    # Статус и временные метки
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name='Статус'
+    )
+    
+    # Файлы
+    attachment = models.FileField(
+        upload_to='tutor_reports/',
+        blank=True,
+        null=True,
+        verbose_name='Приложение'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        verbose_name = 'Еженедельный отчет тьютора'
+        verbose_name_plural = 'Еженедельные отчеты тьютора'
+        ordering = ['-week_start', '-created_at']
+        unique_together = [['tutor', 'student', 'week_start']]
+        indexes = [
+            models.Index(fields=['tutor', 'student', '-week_start']),
+            models.Index(fields=['parent', '-week_start']),
+        ]
+    
+    def __str__(self):
+        tutor_name = self.tutor.get_full_name() if self.tutor else 'Не назначен'
+        student_name = self.student.get_full_name() if self.student else 'Не указан'
+        return f"Отчет тьютора {tutor_name} о {student_name} за {self.week_start}"
+    
+    def save(self, *args, **kwargs):
+        # Автоматически устанавливаем родителя из профиля ученика, если не установлен
+        if not self.parent_id and self.student_id:
+            try:
+                from accounts.models import StudentProfile
+                student_profile = StudentProfile.objects.select_related('parent').get(user_id=self.student_id)
+                if student_profile.parent_id:
+                    self.parent_id = student_profile.parent_id
+            except StudentProfile.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+
+
+class TeacherWeeklyReport(models.Model):
+    """
+    Еженедельные отчеты преподавателя тьютору о прогрессе ученика
+    """
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Черновик'
+        SENT = 'sent', 'Отправлен'
+        READ = 'read', 'Прочитан'
+        ARCHIVED = 'archived', 'Архив'
+    
+    # Участники отчета
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_teacher_reports',
+        verbose_name='Преподаватель',
+        limit_choices_to={'role': 'teacher'}
+    )
+    
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='teacher_weekly_reports',
+        verbose_name='Ученик',
+        limit_choices_to={'role': 'student'}
+    )
+    
+    tutor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='received_teacher_reports',
+        verbose_name='Тьютор',
+        limit_choices_to={'role': 'tutor'}
+    )
+    
+    # Предмет, по которому составлен отчет
+    subject = models.ForeignKey(
+        'materials.Subject',
+        on_delete=models.CASCADE,
+        related_name='teacher_weekly_reports',
+        verbose_name='Предмет'
+    )
+    
+    # Период отчета (неделя)
+    week_start = models.DateField(verbose_name='Начало недели')
+    week_end = models.DateField(verbose_name='Конец недели')
+    
+    # Основная информация
+    title = models.CharField(max_length=200, default='Еженедельный отчет', verbose_name='Название')
+    summary = models.TextField(verbose_name='Общее резюме')
+    
+    # Детали отчета
+    academic_progress = models.TextField(blank=True, verbose_name='Академический прогресс')
+    performance_notes = models.TextField(blank=True, verbose_name='Заметки об успеваемости')
+    achievements = models.TextField(blank=True, verbose_name='Достижения')
+    concerns = models.TextField(blank=True, verbose_name='Обеспокоенности')
+    recommendations = models.TextField(blank=True, verbose_name='Рекомендации')
+    
+    # Метрики
+    assignments_completed = models.PositiveIntegerField(default=0, verbose_name='Выполнено заданий')
+    assignments_total = models.PositiveIntegerField(default=0, verbose_name='Всего заданий')
+    average_score = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name='Средний балл')
+    attendance_percentage = models.PositiveIntegerField(default=0, verbose_name='Процент посещаемости')
+    
+    # Статус и временные метки
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name='Статус'
+    )
+    
+    # Файлы
+    attachment = models.FileField(
+        upload_to='teacher_reports/',
+        blank=True,
+        null=True,
+        verbose_name='Приложение'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        verbose_name = 'Еженедельный отчет преподавателя'
+        verbose_name_plural = 'Еженедельные отчеты преподавателя'
+        ordering = ['-week_start', '-created_at']
+        unique_together = [['teacher', 'student', 'subject', 'week_start']]
+        indexes = [
+            models.Index(fields=['teacher', 'student', '-week_start']),
+            models.Index(fields=['tutor', 'student', '-week_start']),
+        ]
+    
+    def __str__(self):
+        # Получаем кастомное название предмета из enrollment, если есть
+        subject_name = 'Предмет не указан'
+        try:
+            if self.subject_id:
+                subject_name = self.subject.name
+                from materials.models import SubjectEnrollment
+                enrollment = SubjectEnrollment.objects.filter(
+                    student_id=self.student_id,
+                    teacher_id=self.teacher_id,
+                    subject_id=self.subject_id,
+                    is_active=True
+                ).select_related('subject').first()
+                if enrollment:
+                    subject_name = enrollment.get_subject_name()
+        except Exception:
+            # Если что-то пошло не так, используем стандартное название
+            if self.subject:
+                subject_name = self.subject.name
+        teacher_name = self.teacher.get_full_name() if self.teacher else 'Не назначен'
+        student_name = self.student.get_full_name() if self.student else 'Не указан'
+        return f"Отчет преподавателя {teacher_name} о {student_name} по {subject_name} за {self.week_start}"
+    
+    def save(self, *args, **kwargs):
+        # Автоматически устанавливаем тьютора из профиля ученика, если не установлен
+        if not self.tutor_id and self.student_id:
+            try:
+                from accounts.models import StudentProfile
+                student_profile = StudentProfile.objects.select_related('tutor').get(user_id=self.student_id)
+                if student_profile.tutor_id:
+                    self.tutor_id = student_profile.tutor_id
+            except StudentProfile.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)

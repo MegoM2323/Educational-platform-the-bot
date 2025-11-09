@@ -1,5 +1,5 @@
 from rest_framework import status, permissions, generics, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from django.contrib.auth import get_user_model
@@ -16,7 +16,7 @@ from .tutor_serializers import (
     SubjectEnrollmentSerializer,
     SubjectBulkAssignSerializer,
 )
-
+from .serializers import UserSerializer
 
 User = get_user_model()
 
@@ -97,11 +97,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         serializer = TutorStudentSerializer(students, many=True)
         print(f"[TutorStudentsViewSet.list] Serialized data: {serializer.data}")
         
-        return Response({
-            'success': True,
-            'data': serializer.data,
-            'timestamp': str(timezone.now())
-        })
+        # Возвращаем просто массив данных, как ожидает фронтенд
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request):
         print(f"[TutorStudentsViewSet.create] Request received")
@@ -212,7 +209,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         assign_serializer = SubjectAssignSerializer(data=request.data)
         assign_serializer.is_valid(raise_exception=True)
         subject = assign_serializer.validated_data['subject']
-        teacher = assign_serializer.validated_data['teacher']
+        teacher = assign_serializer.validated_data.get('teacher')
 
         try:
             enrollment = SubjectAssignmentService.assign_subject(
@@ -221,7 +218,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
                 subject=subject,
                 teacher=teacher,
             )
-            return Response(SubjectEnrollmentSerializer(enrollment).data, status=status.HTTP_201_CREATED)
+            # Возвращаем 200 OK - зачисление создано или обновлено
+            return Response(SubjectEnrollmentSerializer(enrollment).data, status=status.HTTP_200_OK)
         except PermissionError as e:
             return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as e:
@@ -316,6 +314,38 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             }, status=status.HTTP_200_OK)
 
         return Response(SubjectEnrollmentSerializer(enrollments, many=True).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([permissions.IsAuthenticated, IsTutor])
+def list_teachers(request):
+    """
+    Получить список всех преподавателей для тьютора.
+    Доступно только для тьюторов и администраторов.
+    """
+    try:
+        # Получаем всех активных преподавателей
+        teachers = User.objects.filter(
+            role=User.Role.TEACHER,
+            is_active=True
+        ).order_by('first_name', 'last_name', 'email')
+        
+        # Сериализуем данные
+        serializer = UserSerializer(teachers, many=True)
+        
+        print(f"[list_teachers] Found {teachers.count()} teachers for tutor {request.user.username}")
+        
+        # Возвращаем массив напрямую
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Exception as e:
+        print(f"[list_teachers] Error: {e}")
+        import traceback
+        print(f"[list_teachers] Traceback: {traceback.format_exc()}")
+        return Response(
+            {'error': f'Ошибка получения списка преподавателей: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
     
 

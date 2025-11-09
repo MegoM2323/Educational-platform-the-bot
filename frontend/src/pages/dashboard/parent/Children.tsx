@@ -7,6 +7,7 @@ import { parentDashboardAPI } from "@/integrations/api/dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { PaymentStatusBadge, PaymentStatus } from "@/components/PaymentStatusBadge";
 
 const Children = () => {
   const navigate = useNavigate();
@@ -45,9 +46,7 @@ const Children = () => {
                               <div className="text-xs text-muted-foreground">Преподаватель: {s.teacher_name}</div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Badge variant={s.payment_status === 'paid' ? 'default' : s.payment_status === 'pending' ? 'secondary' : 'destructive'}>
-                                {s.payment_status === 'paid' ? 'Оплачено' : s.payment_status === 'pending' ? 'Ожидание' : 'Просрочено'}
-                              </Badge>
+                              <PaymentStatusBadge status={s.payment_status as PaymentStatus} size="sm" />
                               {s.enrollment_id && (
                                 <PayButton 
                                   childId={child.id} 

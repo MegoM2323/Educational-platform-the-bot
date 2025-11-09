@@ -2,6 +2,7 @@ from rest_framework import status, generics, permissions
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import make_password
@@ -265,6 +266,56 @@ def change_password(request):
         user.save()
         return Response({'message': 'Пароль успешно изменен'})
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def list_users(request):
+    """
+    Получить список пользователей с фильтрацией по роли
+    Доступно для аутентифицированных пользователей (тьюторы, администраторы)
+    
+    Query parameters:
+    - role: фильтр по роли (student, teacher, tutor, parent)
+    - limit: ограничение количества результатов (по умолчанию 1000)
+    """
+    role = request.query_params.get('role')
+    limit = request.query_params.get('limit', 1000)
+    
+    try:
+        limit = int(limit)
+        if limit < 1 or limit > 10000:
+            limit = 1000
+    except (ValueError, TypeError):
+        limit = 1000
+    
+    # Фильтруем по роли, если указана
+    queryset = User.objects.filter(is_active=True)
+    if role:
+        queryset = queryset.filter(role=role)
+    
+    # Подсчитываем количество до применения лимита
+    total_count = queryset.count()
+    
+    # Сортируем по дате создания и применяем лимит
+    queryset = queryset.order_by('-date_joined')
+    if limit and limit > 0:
+        queryset = queryset[:limit]
+    
+    # Сериализуем данные
+    serializer = UserSerializer(queryset, many=True)
+    
+    # Логируем для отладки
+    print(f"[list_users] Role filter: {role}, Limit: {limit}, Total users: {total_count}")
+    print(f"[list_users] Serialized data count: {len(serializer.data)}")
+    if len(serializer.data) > 0:
+        print(f"[list_users] First user sample: id={serializer.data[0].get('id')}, email={serializer.data[0].get('email')}")
+    else:
+        print(f"[list_users] WARNING: No users returned! Total count was: {total_count}")
+    
+    # Возвращаем массив напрямую
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class StudentProfileView(generics.RetrieveUpdateAPIView):

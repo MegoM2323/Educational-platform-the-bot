@@ -148,10 +148,50 @@ class SubjectAssignmentService:
     @staticmethod
     def get_available_teachers(subject: Subject):
         """Возвращает список доступных преподавателей для предмета.
-        Пока что возвращаем всех пользователей с ролью TEACHER.
-        В будущем можно учитывать нагрузку/календарь/скилы.
+        Сначала проверяем связь через TeacherSubject, если нет - возвращаем всех преподавателей.
         """
-        return User.objects.filter(role=User.Role.TEACHER).order_by('id')
+        from materials.models import TeacherSubject
+        
+        # Ищем преподавателей, которые ведут этот предмет
+        teacher_ids_list = list(TeacherSubject.objects.filter(
+            subject=subject,
+            is_active=True
+        ).values_list('teacher_id', flat=True))
+        
+        if teacher_ids_list:
+            # Если есть преподаватели, которые ведут предмет, возвращаем их
+            return User.objects.filter(id__in=teacher_ids_list, role=User.Role.TEACHER, is_active=True).order_by('id')
+        else:
+            # Если предмет новый или нет связи, возвращаем всех активных преподавателей
+            return User.objects.filter(role=User.Role.TEACHER, is_active=True).order_by('id')
+    
+    @staticmethod
+    def get_or_create_subject(subject_name: str) -> Subject:
+        """Получает существующий предмет по названию или создает новый.
+        
+        Args:
+            subject_name: Название предмета (должно быть уже валидировано и обрезано)
+            
+        Returns:
+            Существующий или созданный предмет
+        """
+        if not subject_name or not subject_name.strip():
+            raise ValueError("Название предмета не может быть пустым")
+        
+        subject_name = subject_name.strip()
+        
+        # Ищем предмет по названию (без учета регистра)
+        subject = Subject.objects.filter(name__iexact=subject_name).first()
+        
+        if not subject:
+            # Создаем новый предмет с дефолтным цветом
+            subject = Subject.objects.create(
+                name=subject_name,
+                description=f"Предмет '{subject_name}' создан тьютором",
+                color='#3B82F6'  # Дефолтный синий цвет
+            )
+        
+        return subject
 
     @staticmethod
     def assign_subject(*, tutor: User, student: User, subject: Subject, teacher: User | None = None) -> SubjectEnrollment:
@@ -161,9 +201,7 @@ class SubjectAssignmentService:
         # Валидация ролей
         if student.role != User.Role.STUDENT:
             raise ValueError("Указанный пользователь не является студентом")
-        if teacher is not None and teacher.role != User.Role.TEACHER:
-            raise ValueError("Указанный пользователь не является преподавателем")
-
+        
         # Проверка, что данный студент привязан к этому тьютору
         # Проверяем через tutor в профиле студента или через created_by_tutor в User
         try:
@@ -172,24 +210,57 @@ class SubjectAssignmentService:
         except StudentProfile.DoesNotExist:
             raise ValueError("Профиль студента не найден")
 
-        # Если преподаватель не указан — подберем автоматически первого доступного
+        # Если преподаватель указан, проверяем его
+        if teacher is not None:
+            if teacher.role != User.Role.TEACHER:
+                raise ValueError("Указанный пользователь не является преподавателем")
+            if not teacher.is_active:
+                raise ValueError("Указанный преподаватель неактивен")
+            
+            # Примечание: мы не проверяем связь TeacherSubject здесь, так как тьютор
+            # может назначить любого активного преподавателя любому студенту.
+            # Если требуется проверка, что преподаватель ведет предмет, это можно
+            # добавить в будущем, но пока оставляем гибкость для тьютора.
+        
+        # Преподаватель обязателен
         if teacher is None:
-            teacher = SubjectAssignmentService.get_available_teachers(subject).first()
-            if teacher is None:
-                raise ValueError("Нет доступных преподавателей для назначения")
-
-        enrollment, _ = SubjectEnrollment.objects.get_or_create(
-            student=student,
-            subject=subject,
-            defaults={"teacher": teacher, "assigned_by": tutor, "is_active": True},
-        )
-
-        # Если существовало и поменялся преподаватель — обновим
-        if enrollment.teacher_id != teacher.id:
-            enrollment.teacher = teacher
-            enrollment.assigned_by = tutor
-            enrollment.is_active = True
-            enrollment.save()
+            raise ValueError("Необходимо указать преподавателя")
+        
+        # Проверяем, не существует ли уже такое зачисление (включая неактивные)
+        # unique_together гарантирует, что может быть только одно зачисление для student+subject+teacher
+        # Используем get_or_create для атомарности операции с обработкой race condition
+        from django.db import IntegrityError
+        
+        try:
+            enrollment, created = SubjectEnrollment.objects.get_or_create(
+                student=student,
+                subject=subject,
+                teacher=teacher,
+                defaults={
+                    'assigned_by': tutor,
+                    'is_active': True,
+                }
+            )
+            
+            # Если зачисление уже существовало, обновляем его
+            if not created:
+                enrollment.assigned_by = tutor
+                enrollment.is_active = True  # Активируем, если было деактивировано
+                enrollment.save(update_fields=['assigned_by', 'is_active'])
+        except IntegrityError:
+            # В случае race condition, пытаемся получить существующее зачисление и обновить
+            try:
+                enrollment = SubjectEnrollment.objects.get(
+                    student=student,
+                    subject=subject,
+                    teacher=teacher
+                )
+                enrollment.assigned_by = tutor
+                enrollment.is_active = True
+                enrollment.save(update_fields=['assigned_by', 'is_active'])
+            except SubjectEnrollment.DoesNotExist:
+                # Если даже после IntegrityError объект не найден, это странно, но обрабатываем
+                raise ValueError("Не удалось создать или обновить зачисление из-за конфликта данных")
 
         # Уведомления студенту и преподавателю о назначении предмета
         try:

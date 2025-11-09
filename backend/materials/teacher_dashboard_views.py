@@ -384,7 +384,7 @@ def teacher_student_subjects(request, student_id: int):
         {
             'enrollment_id': e.id,
             'student': {'id': e.student.id, 'name': e.student.get_full_name()},
-            'subject': {'id': e.subject.id, 'name': e.subject.name, 'color': e.subject.color},
+            'subject': {'id': e.subject.id, 'name': e.get_subject_name(), 'color': e.subject.color},
             'enrolled_at': e.enrolled_at,
             'is_active': e.is_active,
         }
@@ -565,54 +565,6 @@ def get_all_subjects(request):
         )
 
 
-@api_view(['POST'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
-@permission_classes([IsAuthenticated])
-def assign_subject_to_students(request):
-    """
-    Назначить предмет студентам
-    """
-    if request.user.role != User.Role.TEACHER:
-        return Response(
-            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
-            status=status.HTTP_403_FORBIDDEN
-        )
-    
-    try:
-        subject_id = request.data.get('subject_id')
-        student_ids = request.data.get('student_ids', [])
-        
-        if not subject_id:
-            return Response(
-                {'error': 'Не указан ID предмета'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if not student_ids:
-            return Response(
-                {'error': 'Не указаны ID студентов'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if not isinstance(student_ids, list):
-            return Response(
-                {'error': 'student_ids должен быть списком'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        service = TeacherDashboardService(request.user)
-        result = service.assign_subject_to_students(subject_id, student_ids)
-        
-        if result['success']:
-            return Response(result, status=status.HTTP_200_OK)
-        else:
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
-            
-    except Exception as e:
-        return Response(
-            {'error': f'Ошибка при назначении предмета: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
 
 
 @api_view(['GET'])

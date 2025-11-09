@@ -4,10 +4,10 @@ import { ParentSidebar } from '@/components/layout/ParentSidebar';
 import { useParams } from 'react-router-dom';
 import { useChildSubjects, useChildProgress, useInitiatePayment } from '@/hooks/useParent';
 import { parentDashboardAPI } from '@/integrations/api/dashboard';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { CreditCard } from 'lucide-react';
+import { PaymentStatusBadge, PaymentStatus } from '@/components/PaymentStatusBadge';
 
 export default function ChildDetail() {
   const params = useParams();
@@ -55,9 +55,7 @@ export default function ChildDetail() {
                           <div className="text-sm text-muted-foreground">Преподаватель: {s.teacher?.name || s.teacher_name}</div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={s.payment_status === 'paid' ? 'default' : s.payment_status === 'pending' ? 'secondary' : 'destructive'}>
-                            {s.payment_status === 'paid' ? 'Оплачено' : s.payment_status === 'pending' ? 'Ожидание' : 'Просрочено'}
-                          </Badge>
+                          <PaymentStatusBadge status={s.payment_status as PaymentStatus} size="sm" />
                           {s.enrollment_id && (
                             <PayButton 
                               childId={childId} 

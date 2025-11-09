@@ -6,6 +6,15 @@
 echo "🚀 Запуск THE BOT Platform"
 echo "=================================================="
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PROJECT_ROOT="$SCRIPT_DIR"
+BACKEND_DIR="$PROJECT_ROOT/backend"
+FRONTEND_DIR="$PROJECT_ROOT/frontend"
+VENV_DIR="$PROJECT_ROOT/.venv"
+PYTHON_BIN="python3"
+
+cd "$PROJECT_ROOT"
+
 # Функция для убийства процессов на портах
 kill_port_processes() {
     local port=$1
@@ -47,29 +56,29 @@ kill_port_processes 8000 "Django Backend"
 kill_port_processes 8080 "React Frontend"
 
 # Проверяем, что мы в правильной директории
-if [ ! -f "backend/manage.py" ]; then
+if [ ! -f "$BACKEND_DIR/manage.py" ]; then
     echo "❌ Ошибка: Запустите скрипт из корневой директории проекта"
     exit 1
 fi
 
 # Проверяем наличие виртуального окружения
-if [ ! -d ".venv" ]; then
+if [ ! -d "$VENV_DIR" ]; then
     echo "❌ Виртуальное окружение не найдено. Создаем..."
-    python -m .venv .venv
+    "$PYTHON_BIN" -m venv "$VENV_DIR"
 fi
 
 # Активируем виртуальное окружение Python
 echo "📦 Активация виртуального окружения Python..."
-source .venv/bin/activate
+source "$VENV_DIR/bin/activate"
 
 # Устанавливаем зависимости бекенда
 echo "📦 Установка зависимостей бекенда..."
-cd backend
-pip install -r requirements.txt
+cd "$BACKEND_DIR"
+"$VENV_DIR/bin/pip" install -r requirements.txt
 
 # Проверяем доступность конфигурации БД через Django (независимо от shell env)
 echo "🧪 Проверка параметров БД..."
-python - <<'PY'
+"$VENV_DIR/bin/python" - <<'PY'
 import os, sys
 os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
 try:
@@ -94,11 +103,11 @@ fi
 
 # Применяем миграции
 echo "🗄️  Применение миграций Django..."
-python manage.py migrate
+"$VENV_DIR/bin/python" manage.py migrate
 
 # Создаем суперпользователя (если не существует)
 echo "👤 Проверка суперпользователя..."
-python manage.py shell -c "
+"$VENV_DIR/bin/python" manage.py shell -c "
 from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(email='admin@example.com').exists():
@@ -116,12 +125,12 @@ else:
 "
 
 # Проверяем настройки Telegram (если есть .env файл)
-if [ -f "../.env" ]; then
+if [ -f "$PROJECT_ROOT/.env" ]; then
     echo "🤖 Проверка настроек Telegram..."
-    if grep -q "TELEGRAM_BOT_TOKEN" ../.env; then
+    if grep -q "TELEGRAM_BOT_TOKEN" "$PROJECT_ROOT/.env"; then
         echo "✅ Настройки Telegram найдены"
         echo "🧪 Тестирование Telegram интеграции..."
-        python manage.py test_telegram --test-message 2>/dev/null || echo "⚠️  Telegram тест не выполнен (возможно, не настроен)"
+        "$VENV_DIR/bin/python" manage.py test_telegram --test-message 2>/dev/null || echo "⚠️  Telegram тест не выполнен (возможно, не настроен)"
     else
         echo "⚠️  Настройки Telegram не найдены в .env файле"
     fi
@@ -131,18 +140,18 @@ fi
 
 # Запускаем Django сервер в фоне
 echo "🌐 Запуск Django сервера на порту 8000..."
-python manage.py runserver 8000 &
+"$VENV_DIR/bin/python" manage.py runserver 8000 &
 DJANGO_PID=$!
 
 # Ждем немного, чтобы Django запустился
 sleep 3
 
 # Возвращаемся в корневую директорию
-cd ..
+cd "$PROJECT_ROOT"
 
 # Устанавливаем зависимости фронтенда
 echo "📦 Установка зависимостей фронтенда..."
-cd frontend
+cd "$FRONTEND_DIR"
 
 # Проверяем наличие node_modules
 if [ ! -d "node_modules" ]; then
@@ -158,7 +167,7 @@ npm run dev -- --port 8080 &
 FRONTEND_PID=$!
 
 # Возвращаемся в корневую директорию
-cd ..
+cd "$PROJECT_ROOT"
 
 echo ""
 echo "✅ Серверы запущены!"

@@ -14,6 +14,7 @@ import { parentDashboardAPI } from "@/integrations/api/dashboard";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorNotification, useSuccessNotification } from "@/components/NotificationSystem";
 import { DashboardSkeleton, ErrorState, EmptyState } from "@/components/LoadingStates";
+import { PaymentStatusBadge, PaymentStatus } from "@/components/PaymentStatusBadge";
 
 // Интерфейсы для данных
 interface Child {
@@ -30,7 +31,7 @@ interface Child {
     name: string;
     teacher_name: string;
     teacher_id: number;
-    payment_status: 'paid' | 'pending' | 'overdue' | 'no_payment';
+    payment_status: PaymentStatus;
     next_payment_date?: string;
     has_subscription?: boolean;
   }>;
@@ -291,10 +292,22 @@ const ParentDashboard = () => {
                                   <div key={subject.enrollment_id || subject.id} className="flex items-center justify-between p-2 bg-muted rounded">
                                     <div className="flex-1">
                                       <div className="text-sm font-medium">{subject.name}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        Преподаватель: {subject.teacher_name}
-                                        {subject.has_subscription && (
-                                          <Badge variant="secondary" className="ml-2 text-xs">Подписка активна</Badge>
+                                      <div className="text-xs text-muted-foreground space-y-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span>Преподаватель: {subject.teacher_name}</span>
+                                          <PaymentStatusBadge status={subject.payment_status} size="sm" />
+                                          {subject.has_subscription && (
+                                            <Badge variant="secondary" className="text-xs">Подписка активна</Badge>
+                                          )}
+                                        </div>
+                                        {subject.next_payment_date && (
+                                          <div className="text-xs text-blue-600">
+                                            Следующий платеж: {new Date(subject.next_payment_date).toLocaleDateString('ru-RU', {
+                                              year: 'numeric',
+                                              month: 'long',
+                                              day: 'numeric'
+                                            })}
+                                          </div>
                                         )}
                                       </div>
                                     </div>
@@ -331,7 +344,13 @@ const ParentDashboard = () => {
                                         // Если нет подписки или платеж не оплачен - показываем кнопку "Оплатить"
                                         <Button
                                           size="sm"
-                                          variant={subject.payment_status === 'overdue' ? 'destructive' : 'default'}
+                                          variant={
+                                            subject.payment_status === 'overdue' 
+                                              ? 'destructive' 
+                                              : subject.payment_status === 'waiting_for_payment'
+                                              ? 'default'
+                                              : 'default'
+                                          }
                                           disabled={!subject.enrollment_id}
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -349,7 +368,7 @@ const ParentDashboard = () => {
                                           }}
                                         >
                                           <CreditCard className="w-3 h-3 mr-1" />
-                                          Оплатить
+                                          {subject.payment_status === 'waiting_for_payment' ? 'Перейти к оплате' : 'Оплатить'}
                                         </Button>
                                       )}
                                     </div>

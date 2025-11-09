@@ -405,7 +405,7 @@ class UnifiedAPIClient {
   }
 
   // Main Request Method with Enhanced Error Handling and Retry Logic
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {},
     retryCount: number = 0
@@ -462,14 +462,14 @@ class UnifiedAPIClient {
     
     // Load tokens from storage before each request
     this.loadTokensFromStorage();
-    console.log('[API Request] Token loaded:', this.token ? 'YES' : 'NO');
-    console.log('[API Request] Endpoint:', endpoint);
     
-    // Check cache for GET requests
+    // Check cache for GET requests (но не для списка пользователей, чтобы всегда получать актуальные данные)
     const isGET = !options.method || options.method === 'GET';
-    if (isGET && !retryCount) {
+    const shouldUseCache = isGET && !retryCount && !endpoint.includes('/accounts/users/');
+    if (shouldUseCache) {
       const cachedData = cacheService.get<T>(endpoint);
       if (cachedData !== null) {
+        console.log('[API Request] Using cached data for:', endpoint);
         return {
           success: true,
           data: cachedData,
@@ -504,6 +504,19 @@ class UnifiedAPIClient {
       const duration = performanceMonitoringService.endTimer(timerId);
 
       const result = await safeJsonParse(response);
+      
+      // Логируем для отладки списка пользователей
+      if (endpoint.includes('/accounts/users/')) {
+        console.log('[unifiedClient] Teachers API response:', {
+          ok: response.ok,
+          status: response.status,
+          statusText: response.statusText,
+          parseSuccess: result.success,
+          dataType: typeof result.data,
+          isArray: Array.isArray(result.data),
+          dataLength: Array.isArray(result.data) ? result.data.length : 'N/A'
+        });
+      }
 
       if (!result.success) {
         return {
@@ -534,16 +547,78 @@ class UnifiedAPIClient {
           return this.request<T>(endpoint, options, retryCount + 1);
         }
 
+        // Обрабатываем ошибки валидации Django REST Framework
+        let errorMessage = apiError.message;
+        if (result.data) {
+          // Django REST Framework возвращает ошибки валидации в формате:
+          // { field: ["error message"], ... } или { detail: "error message" } или { error: "error message" }
+          if (result.data.detail) {
+            errorMessage = result.data.detail;
+          } else if (result.data.error) {
+            errorMessage = result.data.error;
+          } else if (result.data.message) {
+            errorMessage = result.data.message;
+          } else if (typeof result.data === 'object') {
+            // Если это объект с ошибками валидации полей, формируем сообщение
+            const fieldErrors = Object.entries(result.data)
+              .map(([field, errors]: [string, any]) => {
+                if (Array.isArray(errors)) {
+                  return `${field}: ${errors.join(', ')}`;
+                }
+                return `${field}: ${errors}`;
+              })
+              .join('; ');
+            if (fieldErrors) {
+              errorMessage = fieldErrors;
+            }
+          }
+        }
+
         return {
           success: false,
-          error: result.data?.error || result.data?.detail || result.data?.message || apiError.message,
+          error: errorMessage,
           timestamp: new Date().toISOString(),
         };
       }
 
-      // Если backend возвращает данные в формате {success: true, data: {...}}
-      // то используем result.data напрямую, иначе result.data.data
-      const responseData = result.data?.data || result.data;
+      // Обрабатываем ответ от backend
+      // Django REST Framework может возвращать:
+      // 1. Массив напрямую: [item1, item2, ...] - это самый частый случай для list endpoints
+      // 2. Объект: {field: value, ...}
+      // 3. Объект с вложенными данными: {data: [...], message: "..."}
+      let responseData: any;
+      
+      // result.data уже содержит распарсенный JSON ответ от сервера
+      // Если сервер вернул массив напрямую, result.data будет массивом
+      if (Array.isArray(result.data)) {
+        // Если это массив, используем его напрямую (самый частый случай для list endpoints)
+        responseData = result.data;
+        if (endpoint.includes('/accounts/users/')) {
+          console.log('[unifiedClient] Teachers data is array, length:', responseData.length);
+        }
+      } else if (result.data && typeof result.data === 'object') {
+        // Если это объект, проверяем наличие вложенных данных
+        // Но для list endpoints Django обычно возвращает массив напрямую
+        if (endpoint.includes('/accounts/users/')) {
+          console.log('[unifiedClient] Teachers data is object, keys:', Object.keys(result.data));
+        }
+        if (result.data.data !== undefined) {
+          // Если есть вложенное поле data, используем его
+          responseData = result.data.data;
+        } else if (Array.isArray(result.data.results)) {
+          // Если есть поле results (пагинация), используем его
+          responseData = result.data.results;
+        } else {
+          // Иначе используем весь объект
+          responseData = result.data;
+        }
+      } else {
+        // Если это не массив и не объект, используем как есть
+        responseData = result.data;
+        if (endpoint.includes('/accounts/users/')) {
+          console.warn('[unifiedClient] Teachers data is not array or object:', typeof result.data);
+        }
+      }
       
       const apiResponse: ApiResponse<T> = {
         success: true,
@@ -551,9 +626,19 @@ class UnifiedAPIClient {
         message: result.data?.message,
         timestamp: new Date().toISOString(),
       };
+      
+      if (endpoint.includes('/accounts/users/')) {
+        console.log('[unifiedClient] Final teachers response:', {
+          success: apiResponse.success,
+          dataType: typeof apiResponse.data,
+          isArray: Array.isArray(apiResponse.data),
+          dataLength: Array.isArray(apiResponse.data) ? apiResponse.data.length : 'N/A'
+        });
+      }
 
-      // Cache GET responses
-      if (isGET && apiResponse.success && apiResponse.data) {
+      // Cache GET responses (но не для списка пользователей, чтобы всегда получать актуальные данные)
+      const shouldCache = isGET && apiResponse.success && apiResponse.data && !endpoint.includes('/accounts/users/');
+      if (shouldCache) {
         cacheService.set(endpoint, apiResponse.data);
       }
 

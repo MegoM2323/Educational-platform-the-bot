@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Report, ReportTemplate, ReportRecipient, AnalyticsData, ReportSchedule
+from .models import (
+    Report, ReportTemplate, ReportRecipient, AnalyticsData, ReportSchedule,
+    StudentReport, TutorWeeklyReport, TeacherWeeklyReport
+)
 
 
 class ReportRecipientInline(admin.TabularInline):
@@ -237,3 +240,84 @@ class ReportScheduleAdmin(admin.ModelAdmin):
                 '<span style="background-color: red; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">❌ Неактивно</span>'
             )
     is_active_badge.short_description = 'Статус'
+
+
+@admin.register(StudentReport)
+class StudentReportAdmin(admin.ModelAdmin):
+    list_display = [
+        'title', 'teacher', 'student', 'parent', 'report_type', 'status_badge',
+        'period_start', 'period_end', 'created_at'
+    ]
+    list_filter = ['report_type', 'status', 'created_at', 'period_start']
+    search_fields = ['title', 'description', 'teacher__username', 'student__username']
+    readonly_fields = ['created_at', 'updated_at', 'sent_at', 'read_at']
+    date_hierarchy = 'period_start'
+    
+    def status_badge(self, obj):
+        colors = {
+            StudentReport.Status.DRAFT: 'gray',
+            StudentReport.Status.SENT: 'blue',
+            StudentReport.Status.READ: 'green',
+            StudentReport.Status.ARCHIVED: 'red'
+        }
+        color = colors.get(obj.status, 'gray')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Статус'
+
+
+@admin.register(TutorWeeklyReport)
+class TutorWeeklyReportAdmin(admin.ModelAdmin):
+    list_display = [
+        'title', 'tutor', 'student', 'parent', 'status_badge',
+        'week_start', 'week_end', 'progress_percentage', 'created_at'
+    ]
+    list_filter = ['status', 'created_at', 'week_start']
+    search_fields = ['title', 'summary', 'tutor__username', 'student__username', 'parent__username']
+    readonly_fields = ['created_at', 'updated_at', 'sent_at', 'read_at']
+    date_hierarchy = 'week_start'
+    
+    def status_badge(self, obj):
+        colors = {
+            TutorWeeklyReport.Status.DRAFT: 'gray',
+            TutorWeeklyReport.Status.SENT: 'blue',
+            TutorWeeklyReport.Status.READ: 'green',
+            TutorWeeklyReport.Status.ARCHIVED: 'red'
+        }
+        color = colors.get(obj.status, 'gray')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Статус'
+
+
+@admin.register(TeacherWeeklyReport)
+class TeacherWeeklyReportAdmin(admin.ModelAdmin):
+    list_display = [
+        'title', 'teacher', 'student', 'tutor', 'subject', 'status_badge',
+        'week_start', 'week_end', 'average_score', 'created_at'
+    ]
+    list_filter = ['status', 'subject', 'created_at', 'week_start']
+    search_fields = ['title', 'summary', 'teacher__username', 'student__username', 'tutor__username']
+    readonly_fields = ['created_at', 'updated_at', 'sent_at', 'read_at']
+    date_hierarchy = 'week_start'
+    
+    def status_badge(self, obj):
+        colors = {
+            TeacherWeeklyReport.Status.DRAFT: 'gray',
+            TeacherWeeklyReport.Status.SENT: 'blue',
+            TeacherWeeklyReport.Status.READ: 'green',
+            TeacherWeeklyReport.Status.ARCHIVED: 'red'
+        }
+        color = colors.get(obj.status, 'gray')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Статус'

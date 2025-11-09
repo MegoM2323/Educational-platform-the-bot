@@ -135,10 +135,11 @@ class TeacherDashboardService:
             student_subjects = [
                 {
                     'id': enrollment.subject.id,
-                    'name': enrollment.subject.name,
+                    'name': enrollment.get_subject_name(),  # Используем кастомное название, если есть
                     'color': enrollment.subject.color,
                     'enrollment_id': enrollment.id,
                     'enrolled_at': enrollment.enrolled_at,
+                    'custom_subject_name': enrollment.custom_subject_name,  # Добавляем кастомное название для отображения
                 }
                 for enrollment in teacher_enrollments
             ]
@@ -642,96 +643,6 @@ class TeacherDashboardService:
                     
         except Exception as e:
             print(f"Ошибка при генерации аналитических данных: {e}")
-    
-    def assign_subject_to_students(self, subject_id: int, student_ids: List[int]) -> Dict[str, Any]:
-        """
-        Назначить предмет студентам
-        
-        Args:
-            subject_id: ID предмета
-            student_ids: Список ID студентов
-            
-        Returns:
-            Результат операции
-        """
-        try:
-            # Получаем предмет
-            subject = Subject.objects.get(id=subject_id)
-            
-            # Проверяем, что учитель ведет этот предмет
-            from .models import TeacherSubject
-            teacher_subject = TeacherSubject.objects.filter(
-                teacher=self.teacher,
-                subject=subject,
-                is_active=True
-            ).first()
-            
-            if not teacher_subject:
-                # Если связи нет, создаем ее
-                teacher_subject, created = TeacherSubject.objects.get_or_create(
-                    teacher=self.teacher,
-                    subject=subject,
-                    defaults={'is_active': True}
-                )
-            
-            # Получаем студентов, исключая админов
-            students = User.objects.filter(
-                id__in=student_ids,
-                role=User.Role.STUDENT,
-                is_staff=False,
-                is_superuser=False
-            )
-            
-            if students.count() != len(student_ids):
-                return {
-                    'success': False,
-                    'message': 'Некоторые пользователи не являются студентами или являются администраторами'
-                }
-            
-            # Создаем зачисления
-            created_count = 0
-            already_exists_count = 0
-            
-            for student in students:
-                enrollment, created = SubjectEnrollment.objects.get_or_create(
-                    student=student,
-                    subject=subject,
-                    teacher=self.teacher,
-                    defaults={
-                        'assigned_by': self.teacher,
-                        'is_active': True
-                    }
-                )
-                
-                if created:
-                    created_count += 1
-                elif enrollment.is_active:
-                    already_exists_count += 1
-                else:
-                    # Если зачисление было неактивным, активируем его
-                    enrollment.is_active = True
-                    enrollment.save()
-                    created_count += 1
-            
-            return {
-                'success': True,
-                'message': f'Предмет "{subject.name}" назначен студентам (новых: {created_count}, уже были: {already_exists_count})',
-                'assigned_count': created_count + already_exists_count,
-                'created_count': created_count,
-                'already_exists_count': already_exists_count,
-                'total': students.count()
-            }
-            
-        except Subject.DoesNotExist:
-            return {
-                'success': False,
-                'message': 'Предмет не найден'
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Ошибка при назначении предмета: {str(e)}'
-            }
     
     def get_all_subjects(self) -> List[Dict[str, Any]]:
         """

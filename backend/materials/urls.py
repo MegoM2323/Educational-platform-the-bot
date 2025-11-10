@@ -58,6 +58,8 @@ urlpatterns = [
     path('teacher/study-plans/', teacher_dashboard_views.teacher_study_plans, name='teacher-study-plans'),
     path('teacher/study-plans/<int:plan_id>/', teacher_dashboard_views.teacher_study_plan_detail, name='teacher-study-plan-detail'),
     path('teacher/study-plans/<int:plan_id>/send/', teacher_dashboard_views.send_study_plan, name='send-study-plan'),
+    path('teacher/study-plans/<int:plan_id>/files/', teacher_dashboard_views.upload_study_plan_file, name='upload-study-plan-file'),
+    path('teacher/study-plans/<int:plan_id>/files/<int:file_id>/', teacher_dashboard_views.delete_study_plan_file, name='delete-study-plan-file'),
     
     # Parent dashboard endpoints
     path('dashboard/parent/', parent_dashboard_views.ParentDashboardView.as_view(), name='parent-dashboard'),

@@ -324,13 +324,30 @@ export default function StudentMaterials() {
                             </div>
                             <h3 className="text-lg font-semibold mb-2">{plan.title}</h3>
                             <p className="text-muted-foreground line-clamp-2">{plan.content}</p>
+                            {plan.files && plan.files.length > 0 && (
+                              <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                                <FileText className="w-4 h-4" />
+                                <span>Прикреплено файлов: {plan.files.length}</span>
+                              </div>
+                            )}
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              setSelectedPlan(plan);
-                              setPlanDialogOpen(true);
+                            onClick={async () => {
+                              try {
+                                // Загружаем полные детали плана с файлами
+                                const response = await apiClient.request<any>(`/student/study-plans/${plan.id}/`);
+                                if (response.data) {
+                                  setSelectedPlan(response.data);
+                                  setPlanDialogOpen(true);
+                                } else {
+                                  showError('Ошибка при загрузке деталей плана');
+                                }
+                              } catch (err: any) {
+                                showError('Произошла ошибка при загрузке деталей плана');
+                                console.error('Load plan details error:', err);
+                              }
                             }}
                             className="ml-4"
                           >
@@ -612,6 +629,43 @@ export default function StudentMaterials() {
                   {selectedPlan.content}
                 </div>
               </div>
+              {selectedPlan.files && selectedPlan.files.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2">Прикрепленные файлы</h4>
+                  <div className="space-y-2">
+                    {selectedPlan.files.map((file: any) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-md">
+                        <div className="flex items-center gap-2 flex-1">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                          <a
+                            href={file.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium hover:underline flex-1"
+                          >
+                            {file.name}
+                          </a>
+                          <span className="text-xs text-muted-foreground">
+                            {(file.file_size / 1024).toFixed(2)} KB
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (file.file_url) {
+                              window.open(file.file_url, '_blank');
+                            }
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Скачать
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

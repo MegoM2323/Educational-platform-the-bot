@@ -626,3 +626,53 @@ class StudyPlan(models.Model):
                 pass
         
         super().save(*args, **kwargs)
+
+
+class StudyPlanFile(models.Model):
+    """
+    Файлы, прикрепленные к плану занятий
+    """
+    study_plan = models.ForeignKey(
+        StudyPlan,
+        on_delete=models.CASCADE,
+        related_name='files',
+        verbose_name='План занятий'
+    )
+    
+    file = models.FileField(
+        upload_to='study_plans/files/',
+        verbose_name='Файл'
+    )
+    
+    name = models.CharField(
+        max_length=255,
+        verbose_name='Название файла'
+    )
+    
+    file_size = models.PositiveIntegerField(
+        verbose_name='Размер файла (байт)'
+    )
+    
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='uploaded_study_plan_files',
+        verbose_name='Загрузил'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата загрузки')
+    
+    class Meta:
+        verbose_name = 'Файл плана занятий'
+        verbose_name_plural = 'Файлы планов занятий'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.name} ({self.study_plan.title})"
+    
+    def save(self, *args, **kwargs):
+        if self.file and not self.name:
+            self.name = self.file.name
+        if self.file and not self.file_size:
+            self.file_size = self.file.size
+        super().save(*args, **kwargs)

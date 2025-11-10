@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar, Send, Plus, FileText, Clock, User, BookOpen } from "lucide-react";
+import { Calendar, Send, Plus, FileText, Clock, User, BookOpen, Edit, Upload, X, Download, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { unifiedAPI as apiClient } from "@/integrations/api/unifiedClient";
 import { cacheService } from "@/services/cacheService";
@@ -16,6 +16,15 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+
+interface StudyPlanFile {
+  id: number;
+  name: string;
+  file_url: string;
+  file_size: number;
+  uploaded_by_name: string;
+  created_at: string;
+}
 
 interface StudyPlan {
   id: number;
@@ -31,6 +40,7 @@ interface StudyPlan {
   subject: number;
   sent_at?: string;
   created_at: string;
+  files?: StudyPlanFile[];
 }
 
 interface Subject {
@@ -67,9 +77,15 @@ export default function StudyPlans() {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<StudyPlan | null>(null);
   const [sendingPlanId, setSendingPlanId] = useState<number | null>(null);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState<number | null>(null);
+  const [deletingFile, setDeletingFile] = useState<number | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [createPlanFiles, setCreatePlanFiles] = useState<File[]>([]);
+  const [uploadingCreateFiles, setUploadingCreateFiles] = useState(false);
 
   // Форма создания плана
   const [formData, setFormData] = useState({
@@ -97,7 +113,10 @@ export default function StudyPlans() {
       );
 
       if (response.data) {
-        setPlans(response.data.study_plans || []);
+        const plansData = response.data.study_plans || [];
+        console.log('Loaded plans:', plansData);
+        console.log('Plans with files:', plansData.filter(p => p.files && p.files.length > 0));
+        setPlans(plansData);
       } else {
         const errorMessage = response.error || 'Ошибка загрузки планов';
         setError(errorMessage);
@@ -205,6 +224,9 @@ export default function StudyPlans() {
     }
 
     try {
+      setUploadingCreateFiles(true);
+      
+      // Создаем план
       const response = await apiClient.request<StudyPlan>('/materials/teacher/study-plans/', {
         method: 'POST',
         body: JSON.stringify({
@@ -218,6 +240,26 @@ export default function StudyPlans() {
       });
 
       if (response.data) {
+        const createdPlanId = response.data.id;
+        
+        // Загружаем файлы, если они есть
+        if (createPlanFiles.length > 0) {
+          try {
+            for (const file of createPlanFiles) {
+              const formData = new FormData();
+              formData.append('file', file);
+              
+              await apiClient.request<StudyPlanFile>(`/materials/teacher/study-plans/${createdPlanId}/files/`, {
+                method: 'POST',
+                body: formData,
+              });
+            }
+          } catch (fileErr: any) {
+            console.error('Error uploading files:', fileErr);
+            showError('План создан, но не все файлы удалось загрузить');
+          }
+        }
+        
         showSuccess('План занятий создан');
         setCreateDialogOpen(false);
         setFormData({
@@ -228,6 +270,7 @@ export default function StudyPlans() {
           week_start_date: '',
           status: 'draft'
         });
+        setCreatePlanFiles([]);
         setAvailableStudents([]);
         // Инвалидируем кэш списка планов, чтобы сразу увидеть изменения
         cacheService.keys().forEach((key) => {
@@ -242,6 +285,139 @@ export default function StudyPlans() {
     } catch (err: any) {
       showError('Произошла ошибка при создании плана');
       console.error('Create plan error:', err);
+    } finally {
+      setUploadingCreateFiles(false);
+    }
+  };
+
+  // Редактирование плана
+  const handleEditPlan = async () => {
+    if (!selectedPlan || !formData.title || !formData.content || !formData.week_start_date) {
+      showError('Заполните все обязательные поля');
+      return;
+    }
+
+    try {
+      const response = await apiClient.request<StudyPlan>(`/materials/teacher/study-plans/${selectedPlan.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: formData.title,
+          content: formData.content,
+          week_start_date: formData.week_start_date,
+          status: formData.status
+        })
+      });
+
+      if (response.data) {
+        showSuccess('План занятий обновлен');
+        setEditDialogOpen(false);
+        cacheService.keys().forEach((key) => {
+          if (key.startsWith('/materials/teacher/study-plans/')) {
+            cacheService.delete(key);
+          }
+        });
+        fetchPlans();
+      } else {
+        showError(response.error || 'Ошибка при обновлении плана');
+      }
+    } catch (err: any) {
+      showError('Произошла ошибка при обновлении плана');
+      console.error('Edit plan error:', err);
+    }
+  };
+
+  // Открытие диалога редактирования
+  const handleOpenEditDialog = async (plan: StudyPlan) => {
+    try {
+      // Загружаем полные детали плана с файлами
+      const response = await apiClient.request<StudyPlan>(`/materials/teacher/study-plans/${plan.id}/`);
+      if (response.data) {
+        setSelectedPlan(response.data);
+        setFormData({
+          student: response.data.student.toString(),
+          subject: response.data.subject.toString(),
+          title: response.data.title,
+          content: response.data.content,
+          week_start_date: response.data.week_start_date,
+          status: response.data.status
+        });
+        setEditDialogOpen(true);
+      } else {
+        showError('Ошибка при загрузке деталей плана');
+      }
+    } catch (err: any) {
+      showError('Произошла ошибка при загрузке деталей плана');
+      console.error('Load plan details error:', err);
+    }
+  };
+
+  // Загрузка файла
+  const handleUploadFile = async (planId: number, file: File) => {
+    try {
+      setUploadingFile(planId);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await apiClient.request<StudyPlanFile>(`/materials/teacher/study-plans/${planId}/files/`, {
+        method: 'POST',
+        body: formData,
+        // Не устанавливаем Content-Type - браузер установит его автоматически с boundary
+      });
+
+      if (response.data) {
+        showSuccess('Файл загружен');
+        cacheService.keys().forEach((key) => {
+          if (key.startsWith('/materials/teacher/study-plans/')) {
+            cacheService.delete(key);
+          }
+        });
+        // Обновляем выбранный план, чтобы файлы сразу отобразились
+        if (selectedPlan && selectedPlan.id === planId) {
+          const updatedPlanResponse = await apiClient.request<StudyPlan>(`/materials/teacher/study-plans/${planId}/`);
+          if (updatedPlanResponse.data) {
+            setSelectedPlan(updatedPlanResponse.data);
+          }
+        }
+        fetchPlans();
+      } else {
+        showError(response.error || 'Ошибка при загрузке файла');
+      }
+    } catch (err: any) {
+      showError('Произошла ошибка при загрузке файла');
+      console.error('Upload file error:', err);
+    } finally {
+      setUploadingFile(null);
+    }
+  };
+
+  // Удаление файла
+  const handleDeleteFile = async (planId: number, fileId: number) => {
+    if (!confirm('Вы уверены, что хотите удалить этот файл?')) {
+      return;
+    }
+
+    try {
+      setDeletingFile(fileId);
+      const response = await apiClient.request(`/materials/teacher/study-plans/${planId}/files/${fileId}/`, {
+        method: 'DELETE'
+      });
+
+      if (response.data || response.status === 204) {
+        showSuccess('Файл удален');
+        cacheService.keys().forEach((key) => {
+          if (key.startsWith('/materials/teacher/study-plans/')) {
+            cacheService.delete(key);
+          }
+        });
+        fetchPlans();
+      } else {
+        showError(response.error || 'Ошибка при удалении файла');
+      }
+    } catch (err: any) {
+      showError('Произошла ошибка при удалении файла');
+      console.error('Delete file error:', err);
+    } finally {
+      setDeletingFile(null);
     }
   };
 
@@ -366,6 +542,7 @@ export default function StudyPlans() {
                       week_start_date: '',
                       status: 'draft'
                     });
+                    setCreatePlanFiles([]);
                     setAvailableStudents([]);
                   }
                 }}>
@@ -464,12 +641,51 @@ export default function StudyPlans() {
                           </SelectContent>
                         </Select>
                       </div>
+                      <div>
+                        <Label>Прикрепить файлы</Label>
+                        <div className="mt-2 space-y-2">
+                          <Input
+                            type="file"
+                            multiple
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              setCreatePlanFiles(prev => [...prev, ...files]);
+                              e.target.value = '';
+                            }}
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.zip,.rar"
+                          />
+                          {createPlanFiles.length > 0 && (
+                            <div className="space-y-2 mt-2">
+                              {createPlanFiles.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <FileText className="w-4 h-4 text-muted-foreground" />
+                                    <span className="text-sm font-medium">{file.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {(file.size / 1024).toFixed(2)} KB
+                                    </span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setCreatePlanFiles(prev => prev.filter((_, i) => i !== index));
+                                    }}
+                                  >
+                                    <X className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                           Отмена
                         </Button>
-                        <Button onClick={handleCreatePlan}>
-                          Создать
+                        <Button onClick={handleCreatePlan} disabled={uploadingCreateFiles}>
+                          {uploadingCreateFiles ? 'Создание...' : 'Создать'}
                         </Button>
                       </div>
                     </div>
@@ -523,18 +739,43 @@ export default function StudyPlans() {
                           )}
                         </div>
                         <p className="text-muted-foreground line-clamp-2">{plan.content}</p>
+                        {plan.files && plan.files.length > 0 && (
+                          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                            <FileText className="w-4 h-4" />
+                            <span>Прикреплено файлов: {plan.files.length}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-2 ml-4">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setSelectedPlan(plan);
-                            setViewDialogOpen(true);
+                          onClick={async () => {
+                            try {
+                              // Загружаем полные детали плана с файлами
+                              const response = await apiClient.request<StudyPlan>(`/materials/teacher/study-plans/${plan.id}/`);
+                              if (response.data) {
+                                setSelectedPlan(response.data);
+                                setViewDialogOpen(true);
+                              } else {
+                                showError('Ошибка при загрузке деталей плана');
+                              }
+                            } catch (err: any) {
+                              showError('Произошла ошибка при загрузке деталей плана');
+                              console.error('Load plan details error:', err);
+                            }
                           }}
                         >
                           <FileText className="w-4 h-4 mr-2" />
                           Просмотр
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEditDialog(plan)}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Редактировать
                         </Button>
                         {plan.status === 'draft' && (
                           <Button
@@ -600,6 +841,160 @@ export default function StudyPlans() {
                       <div className="mt-2 p-4 bg-muted rounded-md whitespace-pre-wrap">
                         {selectedPlan.content}
                       </div>
+                    </div>
+                    <div>
+                      <Label>Прикрепленные файлы</Label>
+                      <div className="mt-2 space-y-2">
+                        {selectedPlan.files && selectedPlan.files.length > 0 ? (
+                          selectedPlan.files.map((file) => (
+                            <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-md">
+                              <div className="flex items-center gap-2 flex-1">
+                                <FileText className="w-4 h-4 text-muted-foreground" />
+                                <a
+                                  href={file.file_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-medium hover:underline flex-1"
+                                >
+                                  {file.name}
+                                </a>
+                                <span className="text-xs text-muted-foreground">
+                                  {(file.file_size / 1024).toFixed(2)} KB
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Нет прикрепленных файлов</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
+            {/* Диалог редактирования плана */}
+            <Dialog open={editDialogOpen} onOpenChange={(open) => {
+              setEditDialogOpen(open);
+              if (!open) {
+                setSelectedPlan(null);
+                setSelectedFiles([]);
+              }
+            }}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Редактировать план занятий</DialogTitle>
+                </DialogHeader>
+                {selectedPlan && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Название плана *</Label>
+                      <Input
+                        value={formData.title}
+                        onChange={(e) => setFormData({...formData, title: e.target.value})}
+                        placeholder="Например: Неделя 1: Алгебра"
+                      />
+                    </div>
+                    <div>
+                      <Label>Дата начала недели *</Label>
+                      <Input
+                        type="date"
+                        value={formData.week_start_date}
+                        onChange={(e) => setFormData({...formData, week_start_date: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label>Содержание плана *</Label>
+                      <Textarea
+                        value={formData.content}
+                        onChange={(e) => setFormData({...formData, content: e.target.value})}
+                        placeholder="Опишите план занятий на неделю..."
+                        rows={10}
+                      />
+                    </div>
+                    <div>
+                      <Label>Статус</Label>
+                      <Select 
+                        value={formData.status} 
+                        onValueChange={(value) => setFormData({...formData, status: value as 'draft' | 'sent'})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Черновик</SelectItem>
+                          <SelectItem value="sent">Отправить сразу</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Прикрепленные файлы</Label>
+                      <div className="mt-2 space-y-2">
+                        {selectedPlan.files && selectedPlan.files.length > 0 ? (
+                          selectedPlan.files.map((file) => (
+                            <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-md">
+                              <div className="flex items-center gap-2 flex-1">
+                                <FileText className="w-4 h-4 text-muted-foreground" />
+                                <a
+                                  href={file.file_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-medium hover:underline flex-1"
+                                >
+                                  {file.name}
+                                </a>
+                                <span className="text-xs text-muted-foreground">
+                                  {(file.file_size / 1024).toFixed(2)} KB
+                                </span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteFile(selectedPlan.id, file.id)}
+                                disabled={deletingFile === file.id}
+                              >
+                                {deletingFile === file.id ? (
+                                  <span className="text-xs">Удаление...</span>
+                                ) : (
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                )}
+                              </Button>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Нет прикрепленных файлов</p>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Загрузить файл</Label>
+                      <div className="mt-2">
+                        <Input
+                          type="file"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleUploadFile(selectedPlan.id, file);
+                              e.target.value = '';
+                            }
+                          }}
+                          disabled={uploadingFile === selectedPlan.id}
+                          accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.zip,.rar"
+                        />
+                        {uploadingFile === selectedPlan.id && (
+                          <p className="text-xs text-muted-foreground mt-1">Загрузка...</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                        Отмена
+                      </Button>
+                      <Button onClick={handleEditPlan}>
+                        Сохранить
+                      </Button>
                     </div>
                   </div>
                 )}

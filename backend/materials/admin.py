@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Subject, Material, MaterialProgress, MaterialComment, SubjectEnrollment, SubjectPayment, SubjectSubscription
+from .models import Subject, Material, MaterialProgress, MaterialComment, SubjectEnrollment, SubjectPayment, SubjectSubscription, StudyPlan, StudyPlanFile
 
 
 @admin.register(Subject)
@@ -329,3 +329,73 @@ class SubjectSubscriptionAdmin(admin.ModelAdmin):
             obj.get_status_display()
         )
     status_badge.short_description = 'Статус'
+
+
+@admin.register(StudyPlan)
+class StudyPlanAdmin(admin.ModelAdmin):
+    """
+    Админка для планов занятий
+    """
+    list_display = ['title', 'teacher', 'student', 'subject', 'week_start_date', 'status_badge', 'created_at']
+    list_filter = ['status', 'week_start_date', 'subject', 'created_at']
+    search_fields = ['title', 'content', 'teacher__username', 'student__username', 'subject__name']
+    readonly_fields = ['created_at', 'updated_at', 'sent_at', 'week_end_date']
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('teacher', 'student', 'subject', 'enrollment', 'title', 'content')
+        }),
+        ('Период', {
+            'fields': ('week_start_date', 'week_end_date')
+        }),
+        ('Статус', {
+            'fields': ('status', 'sent_at')
+        }),
+        ('Временные метки', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def status_badge(self, obj):
+        colors = {
+            StudyPlan.Status.DRAFT: 'gray',
+            StudyPlan.Status.SENT: 'green',
+            StudyPlan.Status.ARCHIVED: 'red'
+        }
+        color = colors.get(obj.status, 'gray')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Статус'
+
+
+@admin.register(StudyPlanFile)
+class StudyPlanFileAdmin(admin.ModelAdmin):
+    """
+    Админка для файлов планов занятий
+    """
+    list_display = ['name', 'study_plan', 'uploaded_by', 'file_size_display', 'created_at']
+    list_filter = ['created_at', 'study_plan__subject']
+    search_fields = ['name', 'study_plan__title', 'uploaded_by__username']
+    readonly_fields = ['created_at', 'file_size']
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('study_plan', 'file', 'name', 'uploaded_by')
+        }),
+        ('Метаданные', {
+            'fields': ('file_size', 'created_at')
+        }),
+    )
+    
+    def file_size_display(self, obj):
+        if obj.file_size < 1024:
+            return f"{obj.file_size} B"
+        elif obj.file_size < 1024 * 1024:
+            return f"{obj.file_size / 1024:.2f} KB"
+        else:
+            return f"{obj.file_size / (1024 * 1024):.2f} MB"
+    file_size_display.short_description = 'Размер файла'

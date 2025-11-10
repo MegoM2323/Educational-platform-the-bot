@@ -388,8 +388,8 @@ def student_study_plans(request):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
-        plans = plans.select_related('teacher', 'subject').order_by('-week_start_date', '-sent_at')
-        serializer = StudyPlanListSerializer(plans, many=True)
+        plans = plans.select_related('teacher', 'subject').prefetch_related('files').order_by('-week_start_date', '-sent_at')
+        serializer = StudyPlanListSerializer(plans, many=True, context={'request': request})
         
         return Response({'study_plans': serializer.data}, status=status.HTTP_200_OK)
     
@@ -416,13 +416,13 @@ def student_study_plan_detail(request, plan_id):
         )
     
     try:
-        plan = StudyPlan.objects.get(
+        plan = StudyPlan.objects.prefetch_related('files').get(
             id=plan_id,
             student=request.user,
             status=StudyPlan.Status.SENT
         )
         
-        serializer = StudyPlanSerializer(plan)
+        serializer = StudyPlanSerializer(plan, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     except StudyPlan.DoesNotExist:
@@ -471,9 +471,9 @@ def student_study_plans_by_subject(request, subject_id):
             student=request.user,
             subject_id=subject_id,
             status__in=[StudyPlan.Status.SENT, StudyPlan.Status.ARCHIVED]
-        ).select_related('teacher', 'subject').order_by('-week_start_date', '-sent_at')
+        ).select_related('teacher', 'subject').prefetch_related('files').order_by('-week_start_date', '-sent_at')
         
-        serializer = StudyPlanListSerializer(plans, many=True)
+        serializer = StudyPlanListSerializer(plans, many=True, context={'request': request})
         
         return Response({'study_plans': serializer.data}, status=status.HTTP_200_OK)
     

@@ -9,8 +9,8 @@ from django.db import transaction
 import logging
 
 from .teacher_dashboard_service import TeacherDashboardService
-from .models import Material, Subject, SubjectEnrollment, MaterialSubmission, MaterialProgress, StudyPlan
-from .serializers import MaterialFeedbackSerializer, MaterialSubmissionSerializer, MaterialCreateSerializer, StudyPlanSerializer, StudyPlanCreateSerializer, StudyPlanListSerializer
+from .models import Material, Subject, SubjectEnrollment, MaterialSubmission, MaterialProgress, StudyPlan, StudyPlanFile
+from .serializers import MaterialFeedbackSerializer, MaterialSubmissionSerializer, MaterialCreateSerializer, StudyPlanSerializer, StudyPlanCreateSerializer, StudyPlanListSerializer, StudyPlanFileSerializer
 from reports.models import Report
 
 logger = logging.getLogger(__name__)
@@ -668,8 +668,8 @@ def teacher_study_plans(request):
             if status_filter:
                 plans = plans.filter(status=status_filter)
             
-            plans = plans.select_related('student', 'subject', 'teacher').order_by('-week_start_date', '-created_at')
-            serializer = StudyPlanListSerializer(plans, many=True)
+            plans = plans.select_related('student', 'subject', 'teacher').prefetch_related('files').order_by('-week_start_date', '-created_at')
+            serializer = StudyPlanListSerializer(plans, many=True, context={'request': request})
             
             return Response({'study_plans': serializer.data}, status=status.HTTP_200_OK)
         
@@ -686,7 +686,7 @@ def teacher_study_plans(request):
                     plan.subject_id,
                     plan.status
                 )
-                response_serializer = StudyPlanSerializer(plan)
+                response_serializer = StudyPlanSerializer(plan, context={'request': request})
                 return Response(response_serializer.data, status=status.HTTP_201_CREATED)
             
             logger.warning(
@@ -724,7 +724,7 @@ def teacher_study_plan_detail(request, plan_id):
         plan = get_object_or_404(StudyPlan, id=plan_id, teacher=request.user)
         
         if request.method == 'GET':
-            serializer = StudyPlanSerializer(plan)
+            serializer = StudyPlanSerializer(plan, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         
         elif request.method == 'PATCH':
@@ -738,7 +738,10 @@ def teacher_study_plan_detail(request, plan_id):
                         serializer.validated_data['sent_at'] = timezone.now()
                 
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                # Перезагружаем план с файлами
+                plan.refresh_from_db()
+                response_serializer = StudyPlanSerializer(plan, context={'request': request})
+                return Response(response_serializer.data, status=status.HTTP_200_OK)
             
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
@@ -781,12 +784,104 @@ def send_study_plan(request, plan_id):
         plan.sent_at = timezone.now()
         plan.save()
         
-        serializer = StudyPlanSerializer(plan)
+        serializer = StudyPlanSerializer(plan, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     except Exception as e:
         logger.error(f"Error in send_study_plan: {e}", exc_info=True)
         return Response(
             {'error': f'Ошибка при отправке плана: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def upload_study_plan_file(request, plan_id):
+    """
+    Загрузить файл к плану занятий
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        plan = get_object_or_404(StudyPlan, id=plan_id, teacher=request.user)
+        
+        if 'file' not in request.FILES:
+            return Response(
+                {'error': 'Файл не предоставлен'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        uploaded_file = request.FILES['file']
+        
+        # Валидация размера файла (10MB максимум)
+        max_size = 10 * 1024 * 1024  # 10MB
+        if uploaded_file.size > max_size:
+            return Response(
+                {'error': f'Размер файла не должен превышать {max_size // (1024*1024)}MB'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Валидация расширения файла
+        allowed_extensions = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'zip', 'rar']
+        file_extension = uploaded_file.name.split('.')[-1].lower()
+        if file_extension not in allowed_extensions:
+            return Response(
+                {'error': f'Неподдерживаемый тип файла. Разрешенные форматы: {", ".join(allowed_extensions)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Создаем файл плана
+        plan_file = StudyPlanFile.objects.create(
+            study_plan=plan,
+            file=uploaded_file,
+            name=uploaded_file.name,
+            file_size=uploaded_file.size,
+            uploaded_by=request.user
+        )
+        
+        serializer = StudyPlanFileSerializer(plan_file, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    except Exception as e:
+        logger.error(f"Error in upload_study_plan_file: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при загрузке файла: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['DELETE'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def delete_study_plan_file(request, plan_id, file_id):
+    """
+    Удалить файл из плана занятий
+    """
+    if request.user.role != User.Role.TEACHER:
+        return Response(
+            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        plan = get_object_or_404(StudyPlan, id=plan_id, teacher=request.user)
+        plan_file = get_object_or_404(StudyPlanFile, id=file_id, study_plan=plan)
+        
+        # Удаляем файл
+        plan_file.file.delete(save=False)
+        plan_file.delete()
+        
+        return Response({'message': 'Файл удален'}, status=status.HTTP_204_NO_CONTENT)
+    
+    except Exception as e:
+        logger.error(f"Error in delete_study_plan_file: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при удалении файла: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

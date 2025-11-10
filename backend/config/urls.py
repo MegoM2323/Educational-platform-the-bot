@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from payments.views import yookassa_webhook, check_payment_status
 
 urlpatterns = [
@@ -35,3 +37,7 @@ urlpatterns = [
     path("yookassa-webhook", yookassa_webhook, name="yookassa_webhook"),
     path("api/check-payment/", check_payment_status, name="check_payment_status"),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

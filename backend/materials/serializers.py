@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Subject, Material, MaterialProgress, MaterialComment, MaterialSubmission, MaterialFeedback, SubjectEnrollment, SubjectPayment, StudyPlan
+from .models import Subject, Material, MaterialProgress, MaterialComment, MaterialSubmission, MaterialFeedback, SubjectEnrollment, SubjectPayment, StudyPlan, StudyPlanFile
 
 User = get_user_model()
 
@@ -329,6 +329,31 @@ class MaterialFeedbackSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class StudyPlanFileSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для файлов плана занятий
+    """
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+    
+    class Meta:
+        model = StudyPlanFile
+        fields = (
+            'id', 'study_plan', 'file', 'file_url', 'name', 'file_size',
+            'uploaded_by', 'uploaded_by_name', 'created_at'
+        )
+        read_only_fields = ('id', 'uploaded_by', 'created_at', 'file_size')
+    
+    def get_file_url(self, obj):
+        """Возвращает URL файла"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+
+
 class StudyPlanSerializer(serializers.ModelSerializer):
     """
     Сериализатор для планов занятий
@@ -337,6 +362,7 @@ class StudyPlanSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
     subject_name = serializers.SerializerMethodField()
     subject_color = serializers.CharField(source='subject.color', read_only=True)
+    files = StudyPlanFileSerializer(many=True, read_only=True, source='files.all')
     
     class Meta:
         model = StudyPlan
@@ -344,7 +370,7 @@ class StudyPlanSerializer(serializers.ModelSerializer):
             'id', 'teacher', 'teacher_name', 'student', 'student_name',
             'subject', 'subject_name', 'subject_color', 'enrollment',
             'title', 'content', 'week_start_date', 'week_end_date',
-            'status', 'created_at', 'updated_at', 'sent_at'
+            'status', 'created_at', 'updated_at', 'sent_at', 'files'
         )
         read_only_fields = ('id', 'created_at', 'updated_at', 'sent_at', 'week_end_date')
     
@@ -452,6 +478,9 @@ class StudyPlanListSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
     subject_name = serializers.SerializerMethodField()
     subject_color = serializers.CharField(source='subject.color', read_only=True)
+    student = serializers.IntegerField(source='student.id', read_only=True)
+    subject = serializers.IntegerField(source='subject.id', read_only=True)
+    files = StudyPlanFileSerializer(many=True, read_only=True, source='files.all')
     
     def get_subject_name(self, obj):
         """Возвращает кастомное название предмета из enrollment, если есть, иначе стандартное"""
@@ -462,6 +491,6 @@ class StudyPlanListSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudyPlan
         fields = (
-            'id', 'teacher_name', 'student_name', 'subject_name', 'subject_color',
-            'title', 'content', 'week_start_date', 'week_end_date', 'status', 'sent_at', 'created_at'
+            'id', 'teacher_name', 'student_name', 'student', 'subject_name', 'subject', 'subject_color',
+            'title', 'content', 'week_start_date', 'week_end_date', 'status', 'sent_at', 'created_at', 'files'
         )

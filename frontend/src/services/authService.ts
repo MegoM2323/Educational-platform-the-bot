@@ -28,9 +28,11 @@ class AuthService {
   private refreshToken: string | null = null;
   private tokenExpiry: number | null = null;
   private authStateCallbacks: ((user: User | null) => void)[] = [];
+  private isRefreshing: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   private constructor() {
-    this.initializeFromStorage();
+    this.initializationPromise = this.initializeFromStorage();
   }
 
   public static getInstance(): AuthService {
@@ -40,7 +42,7 @@ class AuthService {
     return AuthService.instance;
   }
 
-  private initializeFromStorage(): void {
+  private async initializeFromStorage(): Promise<void> {
     try {
       const storedToken = this.getStoredToken();
       const storedUser = this.getStoredUser();
@@ -68,7 +70,22 @@ class AuthService {
         } else {
           // Токен истек, пытаемся обновить
           console.log('AuthService: token expired, refreshing');
-          this.refreshTokenIfNeeded();
+          this.isRefreshing = true;
+          try {
+            // Временно устанавливаем старый токен для refresh запроса
+            this.token = storedToken;
+            apiClient.setToken(storedToken);
+
+            await this.refreshTokenIfNeeded();
+            console.log('AuthService: token refreshed successfully during init');
+          } catch (err) {
+            console.error('AuthService: Failed to refresh token during init:', err);
+            this.clearStorage();
+            this.user = null;
+            this.token = null;
+          } finally {
+            this.isRefreshing = false;
+          }
         }
       } else {
         console.log('AuthService: no stored credentials');
@@ -179,10 +196,10 @@ class AuthService {
       // Устанавливаем токен и пользователя
       this.token = token;
       this.user = user;
-      this.tokenExpiry = Date.now() + (24 * 60 * 60 * 1000); // 24 часа по умолчанию
-      
+      this.tokenExpiry = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 дней по умолчанию
+
       // Сохраняем в безопасное хранилище
-      const ttl = 24 * 60 * 60 * 1000; // 24 часа
+      const ttl = 7 * 24 * 60 * 60 * 1000; // 7 дней
       this.setStoredToken(token, ttl);
       this.setStoredUser(user, ttl);
       this.setStoredTokenExpiry(this.tokenExpiry);
@@ -230,6 +247,16 @@ class AuthService {
     }
   }
 
+  public async waitForInitialization(): Promise<void> {
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+    }
+  }
+
+  public isInitializing(): boolean {
+    return this.isRefreshing;
+  }
+
   public getCurrentUser(): User | null {
     return this.user;
   }
@@ -243,24 +270,61 @@ class AuthService {
   }
 
   public async refreshTokenIfNeeded(): Promise<string | null> {
-    if (!this.refreshToken || !this.tokenExpiry) {
+    // Если нет токена или срока действия, возвращаем null
+    if (!this.token || !this.tokenExpiry) {
+      console.log('[AuthService.refreshTokenIfNeeded] No token or expiry');
       return null;
     }
 
     // Проверяем, нужно ли обновлять токен (за 5 минут до истечения)
     const refreshThreshold = 5 * 60 * 1000; // 5 минут
-    if (Date.now() < this.tokenExpiry - refreshThreshold) {
+    const timeUntilExpiry = this.tokenExpiry - Date.now();
+
+    console.log('[AuthService.refreshTokenIfNeeded]', {
+      timeUntilExpiry,
+      refreshThreshold,
+      needsRefresh: timeUntilExpiry < refreshThreshold
+    });
+
+    if (timeUntilExpiry >= refreshThreshold) {
       return this.token;
     }
 
     try {
-      // Здесь должен быть вызов API для обновления токена
-      // Пока что просто возвращаем текущий токен
-      // TODO: Реализовать вызов /auth/refresh/ endpoint
-      console.warn('Обновление токена не реализовано');
+      console.log('[AuthService.refreshTokenIfNeeded] Token expiring soon, refreshing...');
+
+      // Вызываем API для обновления токена
+      const response = await apiClient.refreshToken();
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Не удалось обновить токен');
+      }
+
+      const { token, user } = response.data;
+
+      // Обновляем токен и данные пользователя
+      this.token = token;
+      this.user = user;
+      this.tokenExpiry = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 дней
+
+      // Сохраняем в безопасное хранилище
+      const ttl = 7 * 24 * 60 * 60 * 1000;
+      this.setStoredToken(token, ttl);
+      this.setStoredUser(user, ttl);
+      this.setStoredTokenExpiry(this.tokenExpiry);
+
+      // Устанавливаем новый токен в API клиент
+      apiClient.setToken(token);
+
+      console.log('[AuthService.refreshTokenIfNeeded] Token refreshed successfully');
+
+      // Уведомляем подписчиков
+      this.notifyAuthStateChange(user);
+
       return this.token;
     } catch (error) {
-      console.error('Ошибка обновления токена:', error);
+      console.error('[AuthService.refreshTokenIfNeeded] Error refreshing token:', error);
+      // При ошибке обновления выполняем logout
       await this.logout();
       return null;
     }
@@ -305,7 +369,7 @@ class AuthService {
   }
 
   // DEV/E2E helper: установить пользователя и токен извне (например, из страницы Auth при фолбэке)
-  public authenticateWith(user: User, token: string, ttlMs: number = 24 * 60 * 60 * 1000): void {
+  public authenticateWith(user: User, token: string, ttlMs: number = 7 * 24 * 60 * 60 * 1000): void {
     this.token = token;
     this.user = user;
     this.tokenExpiry = Date.now() + ttlMs;

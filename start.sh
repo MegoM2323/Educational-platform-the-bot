@@ -146,6 +146,35 @@ DJANGO_PID=$!
 # Ждем немного, чтобы Django запустился
 sleep 3
 
+# Проверяем Redis и запускаем Celery
+echo "🔍 Проверка Redis для Celery..."
+if redis-cli ping >/dev/null 2>&1; then
+    echo "✅ Redis доступен"
+    
+    # Убиваем старые процессы Celery
+    pkill -f "celery worker" 2>/dev/null || true
+    pkill -f "celery beat" 2>/dev/null || true
+    sleep 1
+    
+    # Запускаем Celery worker
+    echo "🔧 Запуск Celery worker..."
+    "$VENV_DIR/bin/celery" -A core worker --loglevel=info --concurrency=2 --logfile=/tmp/celery_worker.log &
+    CELERY_WORKER_PID=$!
+    
+    # Запускаем Celery beat
+    echo "⏰ Запуск Celery beat (рекуррентные задачи)..."
+    "$VENV_DIR/bin/celery" -A core beat --loglevel=info --logfile=/tmp/celery_beat.log &
+    CELERY_BEAT_PID=$!
+    
+    echo "✅ Celery запущен (worker: $CELERY_WORKER_PID, beat: $CELERY_BEAT_PID)"
+else
+    echo "⚠️  Redis недоступен, Celery не запущен"
+    echo "   Рекуррентные платежи работать не будут"
+    echo "   Для запуска Redis: sudo systemctl start redis"
+    CELERY_WORKER_PID=""
+    CELERY_BEAT_PID=""
+fi
+
 # Возвращаемся в корневую директорию
 cd "$PROJECT_ROOT"
 
@@ -175,6 +204,10 @@ echo "🌐 Django Backend: http://localhost:8000"
 echo "🎨 React Frontend: http://localhost:8080"
 echo "👤 Админ панель: http://localhost:8000/admin"
 echo "📊 API endpoints: http://localhost:8000/api/"
+if [ ! -z "$CELERY_WORKER_PID" ]; then
+    echo "⏰ Celery: Рекуррентные задачи активны (платежи каждые 5 мин)"
+    echo "   Логи: tail -f /tmp/celery_worker.log"
+fi
 echo ""
 echo "🔧 Для остановки серверов нажмите Ctrl+C"
 echo ""
@@ -194,6 +227,21 @@ cleanup() {
         kill $FRONTEND_PID 2>/dev/null
         echo "   Frontend сервер остановлен"
     fi
+    
+    # Останавливаем Celery
+    if [ ! -z "$CELERY_WORKER_PID" ]; then
+        kill $CELERY_WORKER_PID 2>/dev/null
+        echo "   Celery worker остановлен"
+    fi
+    
+    if [ ! -z "$CELERY_BEAT_PID" ]; then
+        kill $CELERY_BEAT_PID 2>/dev/null
+        echo "   Celery beat остановлен"
+    fi
+    
+    # Убиваем оставшиеся процессы Celery
+    pkill -f "celery worker" 2>/dev/null || true
+    pkill -f "celery beat" 2>/dev/null || true
     
     # Дополнительно убиваем процессы на портах
     kill_port_processes 8000 "Django Backend"

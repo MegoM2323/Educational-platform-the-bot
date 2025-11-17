@@ -2,8 +2,11 @@
 docs/
 .kiro/
 tests/
-README.md
 venv
+.claude/
+CLAUDE.md 
+.env
+.env.backup
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

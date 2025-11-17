@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
-import { Users, CreditCard } from "lucide-react";
+import { Users, CreditCard, Repeat } from "lucide-react";
 import { useParentChildren, useInitiatePayment } from "@/hooks/useParent";
 import { parentDashboardAPI } from "@/integrations/api/dashboard";
 import { Button } from "@/components/ui/button";
@@ -91,38 +91,41 @@ function PayButton({
   hasSubscription: boolean;
   paymentStatus: string;
 }) {
+  // Сумма будет определена на бэкенде в зависимости от режима
   const payment = useInitiatePayment(childId, enrollmentId, {
-    amount: 5000.00,
     description: `Оплата за предмет "${subjectName}" (преподаватель: ${teacherName})`,
     create_subscription: true,
   });
   
-  // Если есть активная подписка и оплачено - показываем кнопку "Остановить оплату"
+  // Если есть активная подписка и оплачено - показываем кнопку "Отключить автосписание"
   if (hasSubscription && paymentStatus === 'paid') {
     return (
-      <Button 
-        size="sm" 
-        variant="outline"
-        onClick={async () => {
-          const confirmed = window.confirm(
-            `Остановить автоматические платежи за предмет "${subjectName}"?`
-          );
-          if (!confirmed) return;
-          
-          try {
-            await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
-            window.location.reload();
-          } catch (err) {
-            console.error('Cancel subscription error:', err);
-          }
-        }}
-      >
-        Остановить оплату
-      </Button>
+      <div className="flex flex-col items-end gap-1">
+        <Badge variant="secondary" className="text-xs">Автосписание активно</Badge>
+        <Button 
+          size="sm" 
+          variant="outline"
+          onClick={async () => {
+            const confirmed = window.confirm(
+              `Отключить автосписание для предмета "${subjectName}"?`
+            );
+            if (!confirmed) return;
+            
+            try {
+              await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
+              window.location.reload();
+            } catch (err) {
+              console.error('Cancel subscription error:', err);
+            }
+          }}
+        >
+          Отключить автосписание
+        </Button>
+      </div>
     );
   }
   
-  // Иначе показываем кнопку "Оплатить"
+  // Иначе показываем кнопку "Подключить предмет"
   return (
     <Button 
       size="sm" 
@@ -131,7 +134,7 @@ function PayButton({
       variant={paymentStatus === 'overdue' ? 'destructive' : 'default'}
     >
       <CreditCard className="w-4 h-4 mr-1" /> 
-      Оплатить
+      Подключить предмет
     </Button>
   );
 }

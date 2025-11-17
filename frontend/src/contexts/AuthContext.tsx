@@ -27,17 +27,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const initializeAuth = async () => {
       // Небольшая задержка для улучшения LCP
       await new Promise(resolve => setTimeout(resolve, 0));
-      
+
       try {
+        // Ждем завершения инициализации authService (включая refresh токена если нужно)
+        await authService.waitForInitialization();
+
         const currentUser = authService.getCurrentUser();
         const isAuth = authService.isAuthenticated();
-        
+
         console.log('AuthContext init:', {
           currentUser,
           isAuth,
-          hasUser: !!currentUser
+          hasUser: !!currentUser,
+          isInitializing: authService.isInitializing()
         });
-        
+
         if (isAuth && currentUser) {
           setUser(currentUser);
           console.log('AuthContext: user set', currentUser);

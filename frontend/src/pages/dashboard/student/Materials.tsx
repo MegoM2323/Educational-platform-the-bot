@@ -18,6 +18,7 @@ import MaterialSubmissionForm from "@/components/forms/MaterialSubmissionForm";
 import MaterialSubmissionStatus from "@/components/MaterialSubmissionStatus";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/layout/StudentSidebar";
+import { handleProtectedFileClick } from "@/utils/fileDownload";
 
 // Интерфейсы для данных
 interface Material {
@@ -642,6 +643,7 @@ export default function StudentMaterials() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm font-medium hover:underline flex-1"
+                            onClick={(e) => handleProtectedFileClick(e, file.file_url, file.name)}
                           >
                             {file.name}
                           </a>
@@ -652,9 +654,9 @@ export default function StudentMaterials() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
+                          onClick={(e) => {
                             if (file.file_url) {
-                              window.open(file.file_url, '_blank');
+                              handleProtectedFileClick(e as any, file.file_url, file.name);
                             }
                           }}
                         >

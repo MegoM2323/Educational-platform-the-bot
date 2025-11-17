@@ -38,7 +38,7 @@ def teacher_dashboard(request):
         )
     
     try:
-        service = TeacherDashboardService(request.user)
+        service = TeacherDashboardService(request.user, request)
         dashboard_data = service.get_dashboard_data()
         
         return Response(dashboard_data, status=status.HTTP_200_OK)
@@ -71,7 +71,7 @@ def teacher_students(request):
         )
     
     try:
-        service = TeacherDashboardService(request.user)
+        service = TeacherDashboardService(request.user, request)
         students = service.get_teacher_students()
         
         return Response({'students': students}, status=status.HTTP_200_OK)
@@ -99,7 +99,7 @@ def teacher_materials(request):
         )
     if request.method == 'GET':
         try:
-            service = TeacherDashboardService(request.user)
+            service = TeacherDashboardService(request.user, request)
             subject_id = request.GET.get('subject_id')
             if subject_id:
                 try:
@@ -818,21 +818,20 @@ def upload_study_plan_file(request, plan_id):
             )
         
         uploaded_file = request.FILES['file']
-        
-        # Валидация размера файла (10MB максимум)
-        max_size = 10 * 1024 * 1024  # 10MB
-        if uploaded_file.size > max_size:
-            return Response(
-                {'error': f'Размер файла не должен превышать {max_size // (1024*1024)}MB'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Валидация расширения файла
+
+        # Комплексная валидация файла (размер, расширение, MIME-тип)
+        from core.validators import validate_uploaded_file
+
         allowed_extensions = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'zip', 'rar']
-        file_extension = uploaded_file.name.split('.')[-1].lower()
-        if file_extension not in allowed_extensions:
+        is_valid, error_message = validate_uploaded_file(
+            uploaded_file,
+            allowed_extensions=allowed_extensions,
+            max_size_mb=10
+        )
+
+        if not is_valid:
             return Response(
-                {'error': f'Неподдерживаемый тип файла. Разрешенные форматы: {", ".join(allowed_extensions)}'},
+                {'error': error_message},
                 status=status.HTTP_400_BAD_REQUEST
             )
         

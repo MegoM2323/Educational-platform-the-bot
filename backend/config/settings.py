@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from decimal import Decimal
 from dotenv import dotenv_values
 from urllib.parse import urlparse
 from django.core.exceptions import ImproperlyConfigured
@@ -34,7 +35,7 @@ YOOKASSA_WEBHOOK_URL = os.getenv("YOOKASSA_WEBHOOK_URL")
 
 # Frontend URL for payment redirects
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '0.0.0.0', '5.129.249.206', 'the-bot.ru', 'www.the-bot.ru']  # Добавлен публичный IP сервера и домены
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '5.129.249.206', 'the-bot.ru', 'www.the-bot.ru']  # Добавлен публичный IP сервера и домены
 
 # Telegram Bot settings
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -54,10 +55,12 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-development-key-change-in-production")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 
-
-
+# Security settings for HTTPS behind reverse proxy (nginx)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 
 # Application definition
 
@@ -236,7 +239,15 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'  # Allow cookies on redirect from YooKassa (not 'Strict')
+SESSION_COOKIE_DOMAIN = '.the-bot.ru' if not DEBUG else None  # Allow cookies across subdomains in production
 SESSION_SAVE_EVERY_REQUEST = True
+
+# CSRF settings
+CSRF_COOKIE_SAMESITE = 'Lax'  # Allow CSRF cookies on redirect from YooKassa
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript access
+CSRF_COOKIE_DOMAIN = '.the-bot.ru' if not DEBUG else None  # Allow cookies across subdomains in production
 
 
 # Internationalization
@@ -288,7 +299,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Только для разработки
+CORS_ALLOW_ALL_ORIGINS = False  # Используем CORS_ALLOWED_ORIGINS вместо allow all
 
 # Дополнительные CORS настройки для разработки
 CORS_ALLOW_HEADERS = [
@@ -403,16 +414,52 @@ SYSTEM_MONITORING = {
 }
 
 # Django Channels settings
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')],
+# Используем Redis для production, InMemory для разработки (если Redis недоступен)
+USE_REDIS_CHANNELS = os.getenv('USE_REDIS_CHANNELS', 'False').lower() == 'true'
+
+if USE_REDIS_CHANNELS:
+    # Используем Redis для каналов (production)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')],
+            },
         },
-    },
-}
+    }
+else:
+    # Используем InMemory для разработки (не требует Redis)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 
 # WebSocket settings
 WEBSOCKET_URL = os.getenv('WEBSOCKET_URL', 'ws://localhost:8000/ws/')
 WEBSOCKET_AUTHENTICATION_TIMEOUT = 30  # seconds
 WEBSOCKET_MESSAGE_MAX_LENGTH = 1024 * 1024  # 1MB
+
+# Payment settings
+# PAYMENT_DEVELOPMENT_MODE: режим разработки с минимальными суммами (1 руб) и частыми платежами (10 мин)
+# Используется с live API ключом YooKassa, но с маленькими суммами для безопасности
+PAYMENT_DEVELOPMENT_MODE = os.getenv('PAYMENT_DEVELOPMENT_MODE', 'False').lower() == 'true'
+DEVELOPMENT_PAYMENT_AMOUNT = Decimal(os.getenv('DEVELOPMENT_PAYMENT_AMOUNT', '1.00'))  # 1 рубль в режиме разработки
+PRODUCTION_PAYMENT_AMOUNT = Decimal(os.getenv('PRODUCTION_PAYMENT_AMOUNT', '5000.00'))  # 5000 рублей в обычном режиме
+DEVELOPMENT_RECURRING_INTERVAL_MINUTES = int(os.getenv('DEVELOPMENT_RECURRING_INTERVAL_MINUTES', '10'))  # 10 минут в режиме разработки
+PRODUCTION_RECURRING_INTERVAL_WEEKS = int(os.getenv('PRODUCTION_RECURRING_INTERVAL_WEEKS', '1'))  # 1 неделя в обычном режиме
+
+# Celery settings
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут максимум на задачу
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Импортируем расписание периодических задач
+from core.celery_config import CELERY_BEAT_SCHEDULE

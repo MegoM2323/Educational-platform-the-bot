@@ -1,71 +1,139 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
-import { CheckCircle, XCircle, Loader2, ArrowLeft } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowLeft, Repeat } from "lucide-react";
 import { unifiedAPI } from "@/integrations/api/unifiedClient";
 import { useToast } from "@/hooks/use-toast";
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [paymentStatus, setPaymentStatus] = useState<'loading' | 'success' | 'failed' | 'pending'>('loading');
   const [paymentData, setPaymentData] = useState<any>(null);
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const paymentId = searchParams.get('payment_id');
+    // Получаем payment_id из URL или из sessionStorage (на случай если потерялся в URL)
+    let paymentId = searchParams.get('payment_id');
+    
+    // Если payment_id нет в URL, пытаемся получить из sessionStorage
+    if (!paymentId) {
+      paymentId = sessionStorage.getItem('pending_payment_id');
+      if (paymentId) {
+        // Обновляем URL с payment_id
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('payment_id', paymentId);
+        window.history.replaceState({}, '', newUrl.toString());
+      }
+    }
     
     if (!paymentId) {
       setPaymentStatus('failed');
+      toast({
+        title: "Ошибка",
+        description: "Не указан идентификатор платежа",
+        variant: "destructive",
+      });
       return;
     }
+    
+    // Очищаем сохраненный payment_id после использования
+    sessionStorage.removeItem('pending_payment_id');
 
-    // Проверяем статус платежа
-    const checkPayment = async () => {
+    // Проверяем статус платежа с polling
+    const checkPayment = async (retryCount = 0) => {
+      const MAX_RETRIES = 60; // Maximum 60 attempts = 60 seconds (increased for real payment webhooks)
+      const RETRY_DELAY = 1000; // 1 second between attempts
+
       try {
+        setChecking(true);
         const response = await unifiedAPI.request(`/api/check-payment/?payment_id=${paymentId}`);
-        
+
         if (response.data) {
           const status = response.data.status;
           setPaymentData(response.data);
-          
+
           if (status === 'succeeded' || status === 'SUCCEEDED') {
+            // Payment successful
             setPaymentStatus('success');
+
+            // CRITICAL: Invalidate and refetch dashboard data
+            // Invalidate first to mark queries as stale
+            await queryClient.invalidateQueries({ queryKey: ['parent-dashboard'] });
+            await queryClient.invalidateQueries({ queryKey: ['parent-children'] });
+            // Then explicitly refetch to get fresh data
+            await queryClient.refetchQueries({ queryKey: ['parent-dashboard'] });
+            await queryClient.refetchQueries({ queryKey: ['parent-children'] });
+
             toast({
-              title: "Платеж успешно обработан",
-              description: "Ваш платеж был успешно завершен",
-              variant: "default",
+              title: "Платеж успешно завершен!",
+              description: "Доступ к предмету активирован.",
             });
+
+            setRedirectCountdown(5); // Increased from 3 to 5 seconds
+
+          } else if (status === 'pending' || status === 'PENDING' || status === 'waiting_for_capture') {
+            // Payment still processing
+            setPaymentStatus('pending');
+
+            // Retry after 1 second
+            if (retryCount < MAX_RETRIES) {
+              console.log(`Payment pending, retry ${retryCount + 1}/${MAX_RETRIES}`);
+              setTimeout(() => checkPayment(retryCount + 1), RETRY_DELAY);
+            } else {
+              console.log('Max retries reached after 60 seconds, stopping polling');
+              toast({
+                title: "Платеж обрабатывается",
+                description: "Обработка платежа занимает больше времени, чем обычно. Пожалуйста, обновите страницу через минуту или вернитесь в личный кабинет.",
+                variant: "default",
+              });
+            }
+
           } else if (status === 'canceled' || status === 'CANCELED') {
             setPaymentStatus('failed');
             toast({
               title: "Платеж отменен",
-              description: "Платеж был отменен",
+              description: "Платеж был отменен.",
               variant: "destructive",
             });
-          } else {
-            setPaymentStatus('pending');
           }
-        } else {
-          setPaymentStatus('failed');
         }
       } catch (error: any) {
-        console.error('Error checking payment status:', error);
+        console.error('Error checking payment:', error);
+        setError(error.message || 'Произошла ошибка при проверке статуса платежа');
         setPaymentStatus('failed');
-        toast({
-          title: "Ошибка проверки платежа",
-          description: error.message || "Не удалось проверить статус платежа",
-          variant: "destructive",
-        });
+      } finally {
+        setChecking(false);
       }
     };
 
     checkPayment();
-  }, [searchParams, toast]);
+  }, [searchParams, toast, queryClient]);
+
+  // Эффект для обратного отсчета и автоматического редиректа
+  useEffect(() => {
+    if (redirectCountdown === null) return;
+
+    if (redirectCountdown === 0) {
+      navigate('/dashboard/parent', { replace: true });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setRedirectCountdown(redirectCountdown - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [redirectCountdown, navigate]);
 
   return (
     <SidebarProvider>
@@ -114,6 +182,23 @@ const PaymentSuccess = () => {
                         </div>
                       )}
                     </div>
+                  )}
+                  {/* Информация о подписке */}
+                  <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="flex items-center gap-2 justify-center">
+                      <Repeat className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <div>
+                        <p className="font-semibold text-green-800 dark:text-green-200">Автосписание подключено</p>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          Платежи будут списываться автоматически согласно расписанию
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {redirectCountdown !== null && (
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Автоматический переход в личный кабинет через {redirectCountdown} сек...
+                    </p>
                   )}
                   <div className="flex gap-4 justify-center">
                     <Button onClick={() => navigate('/dashboard/parent')}>

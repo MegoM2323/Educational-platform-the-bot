@@ -305,3 +305,51 @@ def log_system_metrics():
             'success': False,
             'message': error_msg
         }
+
+
+@shared_task
+def process_subscription_payments():
+    """
+    Обрабатывает регулярные платежи по активным подпискам
+    """
+    try:
+        logger.info("Starting subscription payments processing")
+        
+        from django.core.management import call_command
+        from io import StringIO
+        
+        # Захватываем вывод команды
+        out = StringIO()
+        call_command('process_subscription_payments', stdout=out)
+        output = out.getvalue()
+        
+        logger.info(f"Subscription payments processing completed:\n{output}")
+        
+        log_system_event(
+            'subscription_payments_processed',
+            'Subscription payments processing completed',
+            'info',
+            metadata={'output': output}
+        )
+        
+        return {
+            'success': True,
+            'message': 'Subscription payments processing completed',
+            'output': output
+        }
+        
+    except Exception as e:
+        error_msg = f"Error processing subscription payments: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        
+        log_system_event(
+            'subscription_payments_error',
+            error_msg,
+            'error',
+            metadata={'error': str(e)}
+        )
+        
+        return {
+            'success': False,
+            'message': error_msg
+        }

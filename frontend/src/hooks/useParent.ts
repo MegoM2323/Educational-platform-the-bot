@@ -1,5 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { parentDashboardAPI, type ChildData } from '@/integrations/api/dashboard';
+import { unifiedAPI } from '@/integrations/api/unifiedClient';
+
+export const useParentDashboard = () => {
+  return useQuery<any>({
+    queryKey: ['parent-dashboard'],
+    queryFn: async () => {
+      const response = await unifiedAPI.getParentDashboard();
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  });
+};
 
 export const useParentChildren = () => {
   return useQuery<ChildData[]>({
@@ -22,20 +39,24 @@ export const useInitiatePayment = (childId: number, enrollmentId: number, data?:
   const qc = useQueryClient();
   return useMutation<any, Error, void>({
     mutationFn: () => parentDashboardAPI.initiatePayment(childId, enrollmentId, {
-      amount: data?.amount || 5000.00,
+      // amount определяется на бэкенде в зависимости от режима (тестовый/обычный)
+      ...(data?.amount && { amount: data.amount }),
       description: data?.description || 'Оплата за предмет',
       create_subscription: data?.create_subscription !== false, // По умолчанию создаем подписку
     }),
     onSuccess: (response) => {
       qc.invalidateQueries({ queryKey: ['parent-children'] });
       qc.invalidateQueries({ queryKey: ['parent-child-subjects', childId] });
-      // Если есть URL для оплаты, перенаправляем
+      // Сохраняем payment_id перед переходом на оплату, чтобы при возврате можно было проверить статус
+      if (response?.payment_id) {
+        sessionStorage.setItem('pending_payment_id', response.payment_id);
+      }
+      
+      // Если есть URL для оплаты, переходим в текущей вкладке
       const paymentUrl = response?.confirmation_url || response?.payment_url || response?.return_url;
       if (paymentUrl) {
-        const isTestPayment = paymentUrl.includes('test=true') || response?.test === true;
-        if (!isTestPayment) {
-          window.location.href = paymentUrl;
-        }
+        // Используем текущую вкладку для сохранения сессии и cookies
+        window.location.href = paymentUrl;
       }
     },
   });

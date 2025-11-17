@@ -109,9 +109,8 @@ def login_view(request):
             # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
             Token.objects.filter(user=authenticated_user).delete()
             token = Token.objects.create(user=authenticated_user)
-            
+
             print(f"[login] Created new token for user: {authenticated_user.username}, role: {authenticated_user.role}")
-            print(f"[login] Token key: {token.key}")
             
             return Response({
                 'success': True,
@@ -146,6 +145,42 @@ def logout_view(request):
         pass
     logout(request)
     return Response({'message': 'Выход выполнен успешно'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+def refresh_token_view(request):
+    """
+    Обновление токена аутентификации
+    Удаляет старый токен и создает новый для текущего пользователя
+    """
+    try:
+        user = request.user
+
+        # Удаляем старый токен
+        Token.objects.filter(user=user).delete()
+
+        # Создаем новый токен
+        new_token = Token.objects.create(user=user)
+
+        print(f"[refresh_token] Created new token for user: {user.username}, role: {user.role}")
+
+        return Response({
+            'success': True,
+            'data': {
+                'token': new_token.key,
+                'user': UserSerializer(user).data,
+                'message': 'Токен успешно обновлен'
+            }
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print(f"[refresh_token] Error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'Ошибка обновления токена: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -275,23 +310,24 @@ def list_users(request):
     """
     Получить список пользователей с фильтрацией по роли
     Доступно для аутентифицированных пользователей (тьюторы, администраторы)
-    
+
     Query parameters:
     - role: фильтр по роли (student, teacher, tutor, parent)
-    - limit: ограничение количества результатов (по умолчанию 1000)
+    - limit: ограничение количества результатов (по умолчанию 50, максимум 100)
     """
     role = request.query_params.get('role')
-    limit = request.query_params.get('limit', 1000)
-    
+    limit = request.query_params.get('limit', 50)
+
     try:
         limit = int(limit)
-        if limit < 1 or limit > 10000:
-            limit = 1000
+        if limit < 1 or limit > 100:
+            limit = 50
     except (ValueError, TypeError):
-        limit = 1000
-    
+        limit = 50
+
     # Фильтруем по роли, если указана
-    queryset = User.objects.filter(is_active=True)
+    # Оптимизация: используем select_related для профилей
+    queryset = User.objects.filter(is_active=True).select_related('student_profile', 'teacher_profile', 'parent_profile')
     if role:
         queryset = queryset.filter(role=role)
     

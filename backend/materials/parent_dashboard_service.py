@@ -20,13 +20,16 @@ class ParentDashboardService:
     Сервис для работы с дашбордом родителя
     """
     
-    def __init__(self, parent_user):
+    def __init__(self, parent_user, request=None):
         """
         Инициализация сервиса для конкретного родителя
         
         Args:
             parent_user: Пользователь с ролью PARENT
+            request: HTTP request для формирования абсолютных URL (опционально)
         """
+        self.request = request
+        
         if not parent_user:
             logger.error("[ParentDashboardService] parent_user is None")
             raise ValueError("Пользователь должен иметь роль PARENT")
@@ -74,6 +77,14 @@ class ParentDashboardService:
         self.parent_profile, created = ParentProfile.objects.get_or_create(user=parent_user)
         if created:
             logger.info(f"Создан ParentProfile для пользователя {parent_user.username}")
+    
+    def _build_file_url(self, file_field):
+        """Формирует абсолютный URL для файла"""
+        if not file_field:
+            return None
+        if self.request:
+            return self.request.build_absolute_uri(file_field.url)
+        return file_field.url
     
     def _has_active_subscription(self, enrollment):
         """Проверяет, есть ли у зачисления активная подписка"""
@@ -141,12 +152,24 @@ class ParentDashboardService:
                 logger.warning(f"[get_child_subjects] Child {child.username} does not belong to admin {self.parent_user.username}")
                 return SubjectEnrollment.objects.none()
         
-        return SubjectEnrollment.objects.filter(
+        enrollments = SubjectEnrollment.objects.filter(
             student=child,
             is_active=True
-        ).select_related('subject', 'teacher').prefetch_related(
-            'subject__materials__progress'
+        ).select_related('subject', 'teacher', 'assigned_by')
+
+        logger.info(
+            f"get_child_subjects for child {child.id}: "
+            f"found {enrollments.count()} active enrollments"
         )
+
+        # Детали каждого enrollment
+        for enr in enrollments:
+            logger.debug(
+                f"  - Enrollment {enr.id}: subject={enr.subject.name}, "
+                f"is_active={enr.is_active}, teacher={enr.teacher.get_full_name()}"
+            )
+
+        return enrollments
     
     def get_child_teachers(self, child):
         """
@@ -320,14 +343,14 @@ class ParentDashboardService:
         
         return payment_info
     
-    def initiate_payment(self, child, enrollment, amount, description="", create_subscription=False, request=None):
+    def initiate_payment(self, child, enrollment, amount=None, description="", create_subscription=False, request=None):
         """
         Инициировать платеж за предмет с конкретным преподавателем
         
         Args:
             child: Пользователь-студент
             enrollment: SubjectEnrollment объект (зачисление на предмет с преподавателем)
-            amount: Сумма платежа
+            amount: Сумма платежа (если не указана, используется из настроек)
             description: Описание платежа
             create_subscription: Создать регулярную подписку (еженедельное списание)
             request: Django request object для создания платежа через ЮКассу
@@ -343,6 +366,13 @@ class ParentDashboardService:
         
         if not enrollment.is_active:
             raise ValueError("Зачисление неактивно")
+        
+        # Если сумма не указана, используем настройки из settings
+        if amount is None:
+            if settings.PAYMENT_DEVELOPMENT_MODE:
+                amount = settings.DEVELOPMENT_PAYMENT_AMOUNT
+            else:
+                amount = settings.PRODUCTION_PAYMENT_AMOUNT
         
         # Создаем основной платеж (плательщик — родитель)
         parent = self.parent_user
@@ -528,7 +558,7 @@ class ParentDashboardService:
     def get_dashboard_data(self):
         """
         Сформировать данные дашборда в формате, ожидаемом фронтендом.
-        
+
         Структура:
         {
           children: [
@@ -541,6 +571,7 @@ class ParentDashboardService:
           statistics: { total_children, average_progress, completed_payments, pending_payments, overdue_payments }
         }
         """
+        logger.info(f"get_dashboard_data called for parent {self.parent_user.id}")
         logger.info(f"[get_dashboard_data] Getting dashboard data for parent: {self.parent_user.username}")
         children_qs = self.get_children()
         # Преобразуем QuerySet в список, чтобы избежать повторных запросов
@@ -630,7 +661,7 @@ class ParentDashboardService:
                     'progress_percentage': progress_percentage or 0,
                     'progress': progress_percentage or 0,
                     # Безопасно формируем URL аватара только если файл реально существует
-                    'avatar': (avatar.url if (avatar and getattr(avatar, 'name', None)) else None),
+                    'avatar': (self._build_file_url(avatar) if (avatar and getattr(avatar, 'name', None)) else None),
                     'subjects': subjects,
                     'payments': payments_info,
                 }
@@ -664,6 +695,10 @@ class ParentDashboardService:
             'total_children': children_qs.count(),
         }
         logger.info(f"[get_dashboard_data] Returning dashboard data with {len(children_data)} children")
+        logger.info(
+            f"get_dashboard_data for parent {self.parent_user.id}: "
+            f"returning {len(children_data)} children"
+        )
         return result
     
     def get_reports(self, child=None):

@@ -1,12 +1,92 @@
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
-from .models import Material, MaterialProgress, SubjectEnrollment, SubjectPayment, MaterialSubmission
+import logging
+import os
+from .models import Material, MaterialProgress, SubjectEnrollment, SubjectPayment, MaterialSubmission, StudyPlanFile
 from notifications.notification_service import NotificationService
 from .cache_utils import DashboardCacheManager
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# FILE DELETION SIGNALS
+# ============================================================================
+
+@receiver(pre_delete, sender=Material)
+def delete_material_file(sender, instance, **kwargs):
+    """
+    Удаляет физический файл при удалении Material объекта.
+
+    Используется pre_delete signal, чтобы получить доступ к файлу до удаления записи из БД.
+    """
+    if instance.file:
+        try:
+            # Проверяем, существует ли файл
+            if os.path.isfile(instance.file.path):
+                os.remove(instance.file.path)
+                logger.info(f"Deleted file: {instance.file.path} for Material {instance.id}")
+            else:
+                logger.warning(f"File not found: {instance.file.path} for Material {instance.id}")
+        except FileNotFoundError:
+            # Файл уже удален - это нормально, логируем как info
+            logger.info(f"File already deleted: {instance.file.name} for Material {instance.id}")
+        except Exception as e:
+            # Логируем ошибку, но не прерываем процесс удаления
+            logger.error(f"Error deleting file for Material {instance.id}: {e}", exc_info=True)
+
+
+@receiver(pre_delete, sender=StudyPlanFile)
+def delete_study_plan_file(sender, instance, **kwargs):
+    """
+    Удаляет физический файл при удалении StudyPlanFile объекта.
+
+    Используется pre_delete signal, чтобы получить доступ к файлу до удаления записи из БД.
+    """
+    if instance.file:
+        try:
+            # Проверяем, существует ли файл
+            if os.path.isfile(instance.file.path):
+                os.remove(instance.file.path)
+                logger.info(f"Deleted file: {instance.file.path} for StudyPlanFile {instance.id}")
+            else:
+                logger.warning(f"File not found: {instance.file.path} for StudyPlanFile {instance.id}")
+        except FileNotFoundError:
+            # Файл уже удален - это нормально, логируем как info
+            logger.info(f"File already deleted: {instance.file.name} for StudyPlanFile {instance.id}")
+        except Exception as e:
+            # Логируем ошибку, но не прерываем процесс удаления
+            logger.error(f"Error deleting file for StudyPlanFile {instance.id}: {e}", exc_info=True)
+
+
+@receiver(pre_delete, sender=MaterialSubmission)
+def delete_material_submission_file(sender, instance, **kwargs):
+    """
+    Удаляет физический файл при удалении MaterialSubmission объекта.
+
+    Используется pre_delete signal, чтобы получить доступ к файлу до удаления записи из БД.
+    """
+    if instance.submission_file:
+        try:
+            # Проверяем, существует ли файл
+            if os.path.isfile(instance.submission_file.path):
+                os.remove(instance.submission_file.path)
+                logger.info(f"Deleted submission file: {instance.submission_file.path} for MaterialSubmission {instance.id}")
+            else:
+                logger.warning(f"Submission file not found: {instance.submission_file.path} for MaterialSubmission {instance.id}")
+        except FileNotFoundError:
+            # Файл уже удален - это нормально, логируем как info
+            logger.info(f"Submission file already deleted: {instance.submission_file.name} for MaterialSubmission {instance.id}")
+        except Exception as e:
+            # Логируем ошибку, но не прерываем процесс удаления
+            logger.error(f"Error deleting submission file for MaterialSubmission {instance.id}: {e}", exc_info=True)
+
+
+# ============================================================================
+# CACHE INVALIDATION SIGNALS
+# ============================================================================
 
 @receiver(post_save, sender='accounts.StudentProfile')
 def invalidate_student_profile_cache(sender, instance, **kwargs):

@@ -18,17 +18,27 @@ class TeacherDashboardService:
     Обеспечивает распределение материалов, отчетность и доступ к общему чату
     """
     
-    def __init__(self, teacher: User):
+    def __init__(self, teacher: User, request=None):
         """
         Инициализация сервиса для конкретного преподавателя
         
         Args:
             teacher: Пользователь с ролью 'teacher'
+            request: HTTP request для формирования абсолютных URL (опционально)
         """
         if teacher.role != User.Role.TEACHER:
             raise ValueError("Пользователь должен иметь роль 'teacher'")
         
         self.teacher = teacher
+        self.request = request
+    
+    def _build_file_url(self, file_field):
+        """Формирует абсолютный URL для файла"""
+        if not file_field:
+            return None
+        if self.request:
+            return self.request.build_absolute_uri(file_field.url)
+        return file_field.url
     
     @cache_dashboard_data(timeout=900)  # 15 минут
     def get_teacher_students(self) -> List[Dict[str, Any]]:
@@ -151,7 +161,7 @@ class TeacherDashboardService:
                 'first_name': student.first_name,
                 'last_name': student.last_name,
                 'email': student.email or '',
-                'avatar': student.avatar.url if student.avatar else None,
+                'avatar': self._build_file_url(student.avatar) if student.avatar else None,
                 'profile': profile_data,
                 'subjects': student_subjects,  # Добавляем список предметов
                 'assigned_materials_count': total_materials,
@@ -210,7 +220,7 @@ class TeacherDashboardService:
                     'name': material.subject.name,
                     'color': material.subject.color
                 },
-                'file_url': material.file.url if material.file else None,
+                'file_url': self._build_file_url(material.file) if material.file else None,
                 'video_url': material.video_url,
                 'tags': material.tags.split(',') if material.tags else [],
                 'created_at': material.created_at,
@@ -793,7 +803,7 @@ class TeacherDashboardService:
                 'id': self.teacher.id,
                 'name': self.teacher.get_full_name(),
                 'role': self.teacher.role,
-                'avatar': self.teacher.avatar.url if self.teacher.avatar else None
+                'avatar': self._build_file_url(self.teacher.avatar) if self.teacher.avatar else None
             },
             'students': self.get_teacher_students(),
             'materials': self.get_teacher_materials(),

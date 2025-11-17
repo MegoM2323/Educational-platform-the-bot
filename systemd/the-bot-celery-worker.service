@@ -1,0 +1,52 @@
+[Unit]
+Description=THE BOT Platform - Celery Worker Service
+Documentation=https://docs.celeryproject.io/
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+Type=forking
+User=www-data
+Group=www-data
+
+# Working directory
+WorkingDirectory=/home/mg/THE_BOT_platform/backend
+
+# Activate virtual environment and start Celery worker
+ExecStart=/home/mg/THE_BOT_platform/.venv/bin/celery -A core \
+    worker \
+    --loglevel=info \
+    --concurrency=4 \
+    --logfile=/var/log/celery/worker.log \
+    --pidfile=/var/run/celery/worker.pid \
+    --time-limit=300 \
+    --soft-time-limit=240 \
+    --max-tasks-per-child=1000 \
+    --autoscale=8,2
+
+# Graceful restart
+ExecReload=/bin/kill -s HUP $MAINPID
+
+# Environment variables
+Environment="DJANGO_SETTINGS_MODULE=config.settings"
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=/home/mg/THE_BOT_platform/.env
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Process management
+KillMode=process
+KillSignal=SIGTERM
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+# Timeouts
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

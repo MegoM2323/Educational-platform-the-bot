@@ -525,17 +525,47 @@ def check_payment_status(request):
     """API endpoint для проверки статуса платежа"""
     if request.method != "GET":
         return JsonResponse({"error": "GET only"}, status=405)
-    
+
     payment_id = request.GET.get('payment_id')
     if not payment_id:
         return JsonResponse({"error": "payment_id required"}, status=400)
-    
+
     try:
         payment = Payment.objects.get(id=payment_id)
-        
-        # Проверяем статус в ЮКассе если есть ID
+
+        # ОПТИМИЗАЦИЯ: Не запрашиваем YooKassa если платеж уже succeeded
+        # Это основная причина зависания - каждый polling запрос делал запрос к YooKassa
+        if payment.status == Payment.Status.SUCCEEDED:
+            # Платеж уже успешен, нет смысла проверять в ЮКассе
+            logger.debug(f"Payment {payment.id} already succeeded, skipping YooKassa check")
+            return JsonResponse({
+                "status": payment.status,
+                "amount": str(payment.amount),
+                "description": payment.description,
+                "service_name": payment.service_name,
+                "customer_fio": payment.customer_fio,
+                "created": payment.created.isoformat(),
+                "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
+            })
+
+        # Проверяем статус в ЮКассе если есть ID и платеж еще не успешен
         if payment.yookassa_payment_id:
-            yookassa_status = check_yookassa_payment_status(payment.yookassa_payment_id)
+            # ОПТИМИЗАЦИЯ: Кэшируем результат на 5 секунд для одного payment_id
+            # Это предотвращает cascade запросов к YooKassa при aggressive polling
+            from django.core.cache import cache
+            cache_key = f"yookassa_status_{payment.yookassa_payment_id}"
+            yookassa_status = cache.get(cache_key)
+
+            if yookassa_status is None:
+                # Только если не в кэше - делаем запрос к YooKassa
+                logger.debug(f"Checking YooKassa status for payment {payment.id} (not in cache)")
+                yookassa_status = check_yookassa_payment_status(payment.yookassa_payment_id)
+                # Кэшируем на 5 секунд
+                if yookassa_status:
+                    cache.set(cache_key, yookassa_status, 5)
+            else:
+                logger.debug(f"YooKassa status for payment {payment.id} retrieved from cache")
+
             if yookassa_status:
                 # Обновляем статус если нужно
                 if yookassa_status == 'succeeded' and payment.status != Payment.Status.SUCCEEDED:

@@ -5,9 +5,9 @@ After=network.target redis.service
 Wants=redis.service
 
 [Service]
-Type=forking
-User=www-data
-Group=www-data
+Type=simple
+User=mg
+Group=mg
 
 # Working directory
 WorkingDirectory=/home/mg/THE_BOT_platform/backend

@@ -6,8 +6,8 @@ Wants=redis.service celery-worker.service
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
+User=mg
+Group=mg
 
 # Working directory
 WorkingDirectory=/home/mg/THE_BOT_platform/backend

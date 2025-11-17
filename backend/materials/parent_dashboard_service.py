@@ -124,10 +124,10 @@ class ParentDashboardService:
     def get_child_subjects(self, child):
         """
         Получить предметы конкретного ребенка
-        
+
         Args:
             child: Пользователь-студент
-            
+
         Returns:
             QuerySet: Предметы ребенка с информацией о зачислениях
         """
@@ -151,11 +151,11 @@ class ParentDashboardService:
             if not (is_created_by_admin or is_parent_of_child):
                 logger.warning(f"[get_child_subjects] Child {child.username} does not belong to admin {self.parent_user.username}")
                 return SubjectEnrollment.objects.none()
-        
+
         enrollments = SubjectEnrollment.objects.filter(
             student=child,
             is_active=True
-        ).select_related('subject', 'teacher', 'assigned_by')
+        ).select_related('subject', 'teacher', 'assigned_by').prefetch_related('subscription')
 
         logger.info(
             f"get_child_subjects for child {child.id}: "
@@ -282,25 +282,38 @@ class ParentDashboardService:
     def get_payment_status(self, child):
         """
         Получить статус платежей для ребенка
-        
+
         Args:
             child: Пользователь-студент
-            
+
         Returns:
             dict: Информация о платежах
         """
         if child not in self.get_children():
             raise ValueError("Ребенок не принадлежит данному родителю")
-        
+
         enrollments = self.get_child_subjects(child)
-        payment_info = []
-        
+
+        # Оптимизация: загружаем все платежи одним запросом вместо цикла
+        enrollment_ids = [e.id for e in enrollments]
+        if not enrollment_ids:
+            return []
+
+        # Получаем последние платежи для каждого enrollment
+        last_payments = {}
         for enrollment in enrollments:
-            # Получаем последний платеж по предмету
             last_payment = SubjectPayment.objects.filter(
                 enrollment=enrollment
             ).order_by('-created_at').first()
-            
+            if last_payment:
+                last_payments[enrollment.id] = last_payment
+
+        payment_info = []
+        current_time = timezone.now()
+
+        for enrollment in enrollments:
+            last_payment = last_payments.get(enrollment.id)
+
             # Проверяем статус платежа
             payment_status = 'no_payment'
             next_payment_date = None
@@ -310,13 +323,13 @@ class ParentDashboardService:
                 elif last_payment.status == SubjectPayment.Status.WAITING_FOR_PAYMENT:
                     payment_status = 'waiting_for_payment'
                 elif last_payment.status == SubjectPayment.Status.PENDING:
-                    if last_payment.due_date < timezone.now():
+                    if last_payment.due_date < current_time:
                         payment_status = 'overdue'
                     else:
                         payment_status = 'pending'
                 elif last_payment.status == SubjectPayment.Status.EXPIRED:
                     payment_status = 'expired'
-            
+
             # Получаем информацию о подписке для next_payment_date
             has_subscription = self._has_active_subscription(enrollment)
             if has_subscription:
@@ -326,7 +339,7 @@ class ParentDashboardService:
                         next_payment_date = subscription.next_payment_date
                 except Exception:
                     pass
-            
+
             payment_info.append({
                 'enrollment_id': enrollment.id,
                 'subject': enrollment.get_subject_name(),
@@ -340,7 +353,7 @@ class ParentDashboardService:
                 'has_subscription': has_subscription,
                 'next_payment_date': next_payment_date.isoformat() if next_payment_date else None
             })
-        
+
         return payment_info
     
     def initiate_payment(self, child, enrollment, amount=None, description="", create_subscription=False, request=None):
@@ -579,12 +592,12 @@ class ParentDashboardService:
         logger.info(f"[get_dashboard_data] Found {len(children_list)} children")
         logger.info(f"[get_dashboard_data] Children usernames: {[c.username for c in children_list]}")
         children_data = []
-        
+
         total_progress_list = []
         completed_payments = 0
         pending_payments = 0
         overdue_payments = 0
-        
+
         for child in children_list:
             try:
                 logger.info(f"[get_dashboard_data] Processing child: {child.username} (id: {child.id})")
@@ -596,7 +609,7 @@ class ParentDashboardService:
                 tutor_name = tutor.get_full_name() if tutor else ''
                 progress_percentage = getattr(student_profile, 'progress_percentage', 0) if student_profile else 0
                 avatar = getattr(child, 'avatar', None)
-                
+
                 # Предметы и платежи
                 subjects = []
                 try:
@@ -605,7 +618,7 @@ class ParentDashboardService:
                 except Exception as e:
                     logger.error(f"[get_dashboard_data] Error getting payment status for {child.username}: {e}")
                     payments_info = []
-                
+
                 # Индекс платежей по enrollment_id (так как один предмет может быть с разными преподавателями)
                 payments_by_enrollment = {}
                 for p in payments_info:
@@ -616,24 +629,28 @@ class ParentDashboardService:
                         pending_payments += 1
                     elif p['status'] == 'overdue':
                         overdue_payments += 1
-                
+
                 try:
                     child_subjects = self.get_child_subjects(child)
                     logger.info(f"[get_dashboard_data] Child subjects for {child.username}: {child_subjects.count()} subjects")
                     for enrollment in child_subjects:
                         payment = payments_by_enrollment.get(enrollment.id, None)
-                        # Получаем next_payment_date из подписки, если она активна
+                        # Получаем next_payment_date из подписки (уже загружена через prefetch_related)
                         next_payment_date = None
                         if payment and payment.get('next_payment_date'):
                             next_payment_date = payment['next_payment_date']
-                        elif self._has_active_subscription(enrollment):
-                            try:
-                                subscription = getattr(enrollment, 'subscription', None)
-                                if subscription and subscription.status == SubjectSubscription.Status.ACTIVE:
-                                    next_payment_date = subscription.next_payment_date.isoformat() if subscription.next_payment_date else None
-                            except Exception:
-                                pass
-                        
+
+                        # Проверяем активную подписку с помощью уже загруженного prefetch
+                        has_subscription = False
+                        try:
+                            subscription = getattr(enrollment, 'subscription', None)
+                            if subscription and subscription.status == SubjectSubscription.Status.ACTIVE:
+                                has_subscription = True
+                                if not next_payment_date and subscription.next_payment_date:
+                                    next_payment_date = subscription.next_payment_date.isoformat()
+                        except Exception:
+                            pass
+
                         subjects.append({
                             'id': enrollment.subject.id,
                             'enrollment_id': enrollment.id,
@@ -642,16 +659,16 @@ class ParentDashboardService:
                             'teacher_id': enrollment.teacher.id,
                             'payment_status': payment['status'] if payment else 'no_payment',
                             'next_payment_date': next_payment_date,
-                            'has_subscription': self._has_active_subscription(enrollment),
+                            'has_subscription': has_subscription,
                             'amount': str(payment['amount']) if payment and payment.get('amount') else None
                         })
                 except Exception as e:
                     logger.error(f"[get_dashboard_data] Error getting child subjects for {child.username}: {e}")
                     subjects = []
-                
+
                 # Копим для средней статистики
                 total_progress_list.append(progress_percentage or 0)
-                
+
                 child_data = {
                     'id': child.id,
                     'name': child.get_full_name(),
@@ -671,11 +688,11 @@ class ParentDashboardService:
                 logger.error(f"[get_dashboard_data] Error processing child {child.username}: {e}", exc_info=True)
                 # Продолжаем обработку других детей даже если один не удался
                 continue
-        
+
         avg_progress = 0
         if total_progress_list:
             avg_progress = round(sum(total_progress_list) / max(len(total_progress_list), 1), 1)
-        
+
         result = {
             'parent': {
                 'id': self.parent_user.id,

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar, Send, Plus, FileText, Clock, User, BookOpen, Edit, Upload, X, Download, Trash2 } from "lucide-react";
+import { Calendar, Send, Plus, FileText, Clock, User, BookOpen, Edit, Upload, X, Download, Trash2, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { unifiedAPI as apiClient } from "@/integrations/api/unifiedClient";
 import { cacheService } from "@/services/cacheService";
@@ -16,6 +16,9 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { handleProtectedFileClick } from "@/utils/fileDownload";
+import { getFileIcon, getFileIconColor, formatFileSize, validateFileSize } from "@/utils/fileUtils";
+import { Progress } from "@/components/ui/progress";
 
 interface StudyPlanFile {
   id: number;
@@ -86,6 +89,7 @@ export default function StudyPlans() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [createPlanFiles, setCreatePlanFiles] = useState<File[]>([]);
   const [uploadingCreateFiles, setUploadingCreateFiles] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
 
   // Форма создания плана
   const [formData, setFormData] = useState({
@@ -161,19 +165,24 @@ export default function StudyPlans() {
   // Загрузка студентов по предмету
   const fetchStudentsForSubject = async (subjectId: number) => {
     try {
+      console.log('[StudyPlans] Fetching students for subject:', subjectId);
       const response = await apiClient.request<{ students: Array<{id: number; name: string; email: string}> }>(
         `/materials/teacher/subjects/${subjectId}/students/`
       );
+      console.log('[StudyPlans] Students response:', response);
       if (response.data?.students) {
-        return response.data.students.map(s => ({
+        const students = response.data.students.map(s => ({
           id: s.id,
           name: s.name,
           email: s.email
         }));
+        console.log('[StudyPlans] Available students:', students);
+        return students;
       }
+      console.warn('[StudyPlans] No students found in response');
       return [];
     } catch (err) {
-      console.error('Students fetch error:', err);
+      console.error('[StudyPlans] Students fetch error:', err);
       return [];
     }
   };
@@ -202,13 +211,16 @@ export default function StudyPlans() {
   useEffect(() => {
     const loadStudentsForSubject = async () => {
       if (formData.subject && formData.subject !== '') {
+        console.log('[StudyPlans] Loading students for selected subject:', formData.subject);
         setLoadingStudents(true);
         const studentsList = await fetchStudentsForSubject(parseInt(formData.subject));
+        console.log('[StudyPlans] Students loaded, count:', studentsList.length);
         setAvailableStudents(studentsList);
         setLoadingStudents(false);
         // Сбрасываем выбранного студента при смене предмета
         setFormData(prev => ({...prev, student: ''}));
       } else {
+        console.log('[StudyPlans] No subject selected, clearing students');
         setAvailableStudents([]);
       }
     };
@@ -218,13 +230,34 @@ export default function StudyPlans() {
 
   // Создание плана
   const handleCreatePlan = async () => {
-    if (!formData.student || !formData.subject || !formData.title || !formData.content || !formData.week_start_date) {
-      showError('Заполните все обязательные поля');
+    // Детальная валидация с отладочной информацией
+    const missingFields: string[] = [];
+    if (!formData.student) missingFields.push('Студент');
+    if (!formData.subject) missingFields.push('Предмет');
+    if (!formData.title) missingFields.push('Название плана');
+    if (!formData.content) missingFields.push('Содержание плана');
+    if (!formData.week_start_date) missingFields.push('Дата начала недели');
+
+    if (missingFields.length > 0) {
+      console.log('[StudyPlans] Missing fields:', missingFields);
+      console.log('[StudyPlans] Form data:', formData);
+      showError(`Заполните все обязательные поля: ${missingFields.join(', ')}`);
       return;
+    }
+
+    // Валидация размера файлов (10MB максимум)
+    const maxFileSizeMB = 10;
+    for (const file of createPlanFiles) {
+      const validation = validateFileSize(file, maxFileSizeMB);
+      if (!validation.isValid) {
+        showError(validation.error || 'Файл слишком большой');
+        return;
+      }
     }
 
     try {
       setUploadingCreateFiles(true);
+      setUploadProgress({});
       
       // Создаем план
       const response = await apiClient.request<StudyPlan>('/materials/teacher/study-plans/', {
@@ -245,14 +278,37 @@ export default function StudyPlans() {
         // Загружаем файлы, если они есть
         if (createPlanFiles.length > 0) {
           try {
-            for (const file of createPlanFiles) {
+            for (let i = 0; i < createPlanFiles.length; i++) {
+              const file = createPlanFiles[i];
+              const fileKey = `${file.name}-${i}`;
+
+              setUploadProgress(prev => ({ ...prev, [fileKey]: 0 }));
+
               const formData = new FormData();
               formData.append('file', file);
-              
-              await apiClient.request<StudyPlanFile>(`/materials/teacher/study-plans/${createdPlanId}/files/`, {
-                method: 'POST',
-                body: formData,
-              });
+
+              // Simulate progress (real progress requires XMLHttpRequest)
+              const progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                  const current = prev[fileKey] || 0;
+                  if (current < 90) {
+                    return { ...prev, [fileKey]: current + 10 };
+                  }
+                  return prev;
+                });
+              }, 100);
+
+              try {
+                await apiClient.request<StudyPlanFile>(`/materials/teacher/study-plans/${createdPlanId}/files/`, {
+                  method: 'POST',
+                  body: formData,
+                });
+                clearInterval(progressInterval);
+                setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }));
+              } catch (err) {
+                clearInterval(progressInterval);
+                throw err;
+              }
             }
           } catch (fileErr: any) {
             console.error('Error uploading files:', fileErr);
@@ -353,6 +409,14 @@ export default function StudyPlans() {
 
   // Загрузка файла
   const handleUploadFile = async (planId: number, file: File) => {
+    // Валидация размера файла (10MB максимум)
+    const maxFileSizeMB = 10;
+    const validation = validateFileSize(file, maxFileSizeMB);
+    if (!validation.isValid) {
+      showError(validation.error || 'Файл слишком большой');
+      return;
+    }
+
     try {
       setUploadingFile(planId);
       const formData = new FormData();
@@ -649,33 +713,74 @@ export default function StudyPlans() {
                             multiple
                             onChange={(e) => {
                               const files = Array.from(e.target.files || []);
+                              // Validate file sizes before adding
+                              const maxFileSizeMB = 10;
+                              const invalidFiles: string[] = [];
+
+                              files.forEach(file => {
+                                const validation = validateFileSize(file, maxFileSizeMB);
+                                if (!validation.isValid) {
+                                  invalidFiles.push(validation.error || file.name);
+                                }
+                              });
+
+                              if (invalidFiles.length > 0) {
+                                showError(invalidFiles.join('\n'));
+                                e.target.value = '';
+                                return;
+                              }
+
                               setCreatePlanFiles(prev => [...prev, ...files]);
                               e.target.value = '';
                             }}
                             accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.zip,.rar"
                           />
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            Максимальный размер файла: 10 MB
+                          </p>
                           {createPlanFiles.length > 0 && (
                             <div className="space-y-2 mt-2">
-                              {createPlanFiles.map((file, index) => (
-                                <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md">
-                                  <div className="flex items-center gap-2 flex-1">
-                                    <FileText className="w-4 h-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">{file.name}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {(file.size / 1024).toFixed(2)} KB
-                                    </span>
+                              {createPlanFiles.map((file, index) => {
+                                const FileIcon = getFileIcon(file.name);
+                                const iconColor = getFileIconColor(file.name);
+                                const fileKey = `${file.name}-${index}`;
+                                const progress = uploadProgress[fileKey];
+
+                                return (
+                                  <div key={index} className="space-y-1">
+                                    <div className="flex items-center justify-between p-2 bg-muted rounded-md">
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <FileIcon className={`w-4 h-4 ${iconColor}`} />
+                                        <span className="text-sm font-medium truncate">{file.name}</span>
+                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                          {formatFileSize(file.size)}
+                                        </span>
+                                      </div>
+                                      {!uploadingCreateFiles && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            setCreatePlanFiles(prev => prev.filter((_, i) => i !== index));
+                                          }}
+                                        >
+                                          <X className="w-4 h-4 text-destructive" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    {uploadingCreateFiles && progress !== undefined && (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                          <span>Загрузка...</span>
+                                          <span>{progress}%</span>
+                                        </div>
+                                        <Progress value={progress} className="h-1" />
+                                      </div>
+                                    )}
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setCreatePlanFiles(prev => prev.filter((_, i) => i !== index));
-                                    }}
-                                  >
-                                    <X className="w-4 h-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -846,24 +951,30 @@ export default function StudyPlans() {
                       <Label>Прикрепленные файлы</Label>
                       <div className="mt-2 space-y-2">
                         {selectedPlan.files && selectedPlan.files.length > 0 ? (
-                          selectedPlan.files.map((file) => (
-                            <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-md">
-                              <div className="flex items-center gap-2 flex-1">
-                                <FileText className="w-4 h-4 text-muted-foreground" />
-                                <a
-                                  href={file.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm font-medium hover:underline flex-1"
-                                >
-                                  {file.name}
-                                </a>
-                                <span className="text-xs text-muted-foreground">
-                                  {(file.file_size / 1024).toFixed(2)} KB
-                                </span>
+                          selectedPlan.files.map((file) => {
+                            const FileIcon = getFileIcon(file.name);
+                            const iconColor = getFileIconColor(file.name);
+
+                            return (
+                              <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-md hover:bg-muted/80 transition-colors">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <FileIcon className={`w-4 h-4 flex-shrink-0 ${iconColor}`} />
+                                  <a
+                                    href={file.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-medium hover:underline truncate"
+                                    onClick={(e) => handleProtectedFileClick(e, file.file_url, file.name)}
+                                  >
+                                    {file.name}
+                                  </a>
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                                    {formatFileSize(file.file_size)}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="text-sm text-muted-foreground">Нет прикрепленных файлов</p>
                         )}
@@ -933,36 +1044,43 @@ export default function StudyPlans() {
                       <Label>Прикрепленные файлы</Label>
                       <div className="mt-2 space-y-2">
                         {selectedPlan.files && selectedPlan.files.length > 0 ? (
-                          selectedPlan.files.map((file) => (
-                            <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-md">
-                              <div className="flex items-center gap-2 flex-1">
-                                <FileText className="w-4 h-4 text-muted-foreground" />
-                                <a
-                                  href={file.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm font-medium hover:underline flex-1"
+                          selectedPlan.files.map((file) => {
+                            const FileIcon = getFileIcon(file.name);
+                            const iconColor = getFileIconColor(file.name);
+
+                            return (
+                              <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-md hover:bg-muted/80 transition-colors">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <FileIcon className={`w-4 h-4 flex-shrink-0 ${iconColor}`} />
+                                  <a
+                                    href={file.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-medium hover:underline truncate"
+                                    onClick={(e) => handleProtectedFileClick(e, file.file_url, file.name)}
+                                  >
+                                    {file.name}
+                                  </a>
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                                    {formatFileSize(file.file_size)}
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteFile(selectedPlan.id, file.id)}
+                                  disabled={deletingFile === file.id}
+                                  className="flex-shrink-0"
                                 >
-                                  {file.name}
-                                </a>
-                                <span className="text-xs text-muted-foreground">
-                                  {(file.file_size / 1024).toFixed(2)} KB
-                                </span>
+                                  {deletingFile === file.id ? (
+                                    <span className="text-xs">Удаление...</span>
+                                  ) : (
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  )}
+                                </Button>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteFile(selectedPlan.id, file.id)}
-                                disabled={deletingFile === file.id}
-                              >
-                                {deletingFile === file.id ? (
-                                  <span className="text-xs">Удаление...</span>
-                                ) : (
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                )}
-                              </Button>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="text-sm text-muted-foreground">Нет прикрепленных файлов</p>
                         )}
@@ -970,7 +1088,7 @@ export default function StudyPlans() {
                     </div>
                     <div>
                       <Label>Загрузить файл</Label>
-                      <div className="mt-2">
+                      <div className="mt-2 space-y-2">
                         <Input
                           type="file"
                           onChange={(e) => {
@@ -983,6 +1101,10 @@ export default function StudyPlans() {
                           disabled={uploadingFile === selectedPlan.id}
                           accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.zip,.rar"
                         />
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Максимальный размер файла: 10 MB
+                        </p>
                         {uploadingFile === selectedPlan.id && (
                           <p className="text-xs text-muted-foreground mt-1">Загрузка...</p>
                         )}

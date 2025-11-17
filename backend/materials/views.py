@@ -19,7 +19,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     """
     ViewSet для предметов
     """
-    queryset = Subject.objects.all()
+    queryset = Subject.objects.all().prefetch_related('teacher_assignments')
     serializer_class = SubjectSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -51,7 +51,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
     """
     ViewSet для материалов
     """
-    queryset = Material.objects.all()
+    queryset = Material.objects.all().select_related('author', 'subject').prefetch_related('assigned_to', 'progress')
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['subject', 'type', 'status', 'author', 'difficulty_level']
@@ -71,20 +71,21 @@ class MaterialViewSet(viewsets.ModelViewSet):
         Фильтрация материалов в зависимости от роли пользователя
         """
         user = self.request.user
-        
+        base_queryset = Material.objects.select_related('author', 'subject').prefetch_related('assigned_to', 'progress')
+
         if user.role == 'student':
             # Студенты видят только назначенные им материалы или публичные
-            return Material.objects.filter(
+            return base_queryset.filter(
                 Q(assigned_to=user) | Q(is_public=True)
             ).distinct()
         elif user.role in ['teacher', 'tutor']:
             # Преподаватели и тьюторы видят все материалы
-            return Material.objects.all()
+            return base_queryset
         elif user.role == 'parent':
             # Родители видят материалы своих детей
             children = user.parent_profile.children.all()
-            return Material.objects.filter(assigned_to__in=children).distinct()
-        
+            return base_queryset.filter(assigned_to__in=children).distinct()
+
         return Material.objects.none()
     
     def perform_create(self, serializer):
@@ -250,7 +251,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
         material = self.get_object()
         
         if request.method == 'GET':
-            comments = material.comments.all()
+            comments = material.comments.select_related('author', 'material').all()
             return Response(MaterialCommentSerializer(comments, many=True).data)
         
         elif request.method == 'POST':
@@ -344,11 +345,11 @@ class MaterialViewSet(viewsets.ModelViewSet):
                 {'error': 'Доступно только для студентов'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         materials = Material.objects.filter(
             Q(assigned_to=request.user) | Q(is_public=True)
-        ).distinct().order_by('-created_at')
-        
+        ).distinct().select_related('author', 'subject').prefetch_related('progress').order_by('-created_at')
+
         serializer = MaterialListSerializer(materials, many=True, context={'request': request})
         return Response(serializer.data)
     
@@ -366,7 +367,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        submissions = MaterialSubmission.objects.filter(material=material)
+        submissions = MaterialSubmission.objects.filter(material=material).select_related('student', 'material')
         serializer = MaterialSubmissionSerializer(submissions, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -375,21 +376,22 @@ class MaterialProgressViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet для просмотра прогресса материалов
     """
-    queryset = MaterialProgress.objects.all()
+    queryset = MaterialProgress.objects.all().select_related('student', 'material', 'material__subject', 'material__author')
     serializer_class = MaterialProgressSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         user = self.request.user
-        
+        base_queryset = MaterialProgress.objects.select_related('student', 'material', 'material__subject', 'material__author')
+
         if user.role == 'student':
-            return MaterialProgress.objects.filter(student=user)
+            return base_queryset.filter(student=user)
         elif user.role in ['teacher', 'tutor']:
-            return MaterialProgress.objects.all()
+            return base_queryset
         elif user.role == 'parent':
             children = user.parent_profile.children.all()
-            return MaterialProgress.objects.filter(student__in=children)
-        
+            return base_queryset.filter(student__in=children)
+
         return MaterialProgress.objects.none()
 
 
@@ -397,10 +399,10 @@ class MaterialCommentViewSet(viewsets.ModelViewSet):
     """
     ViewSet для комментариев к материалам
     """
-    queryset = MaterialComment.objects.all()
+    queryset = MaterialComment.objects.all().select_related('author', 'material', 'material__subject')
     serializer_class = MaterialCommentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
@@ -409,31 +411,32 @@ class MaterialSubmissionViewSet(viewsets.ModelViewSet):
     """
     ViewSet для ответов учеников на материалы
     """
-    queryset = MaterialSubmission.objects.all()
+    queryset = MaterialSubmission.objects.all().select_related('student', 'material', 'material__subject', 'material__author').prefetch_related('feedback')
     serializer_class = MaterialSubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['material', 'student', 'is_late']
     ordering_fields = ['submitted_at']
     ordering = ['-submitted_at']
-    
+
     def get_queryset(self):
         """
         Фильтрация ответов в зависимости от роли пользователя
         """
         user = self.request.user
-        
+        base_queryset = MaterialSubmission.objects.select_related('student', 'material', 'material__subject', 'material__author').prefetch_related('feedback')
+
         if user.role == 'student':
             # Студенты видят только свои ответы
-            return MaterialSubmission.objects.filter(student=user)
+            return base_queryset.filter(student=user)
         elif user.role in ['teacher', 'tutor']:
             # Преподаватели видят все ответы
-            return MaterialSubmission.objects.all()
+            return base_queryset
         elif user.role == 'parent':
             # Родители видят ответы своих детей
             children = user.parent_profile.children.all()
-            return MaterialSubmission.objects.filter(student__in=children)
-        
+            return base_queryset.filter(student__in=children)
+
         return MaterialSubmission.objects.none()
     
     def perform_create(self, serializer):
@@ -553,25 +556,26 @@ class MaterialFeedbackViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet для просмотра фидбэка по материалам
     """
-    queryset = MaterialFeedback.objects.all()
+    queryset = MaterialFeedback.objects.all().select_related('submission', 'submission__student', 'submission__material', 'submission__material__subject')
     serializer_class = MaterialFeedbackSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         """
         Фильтрация фидбэка в зависимости от роли пользователя
         """
         user = self.request.user
-        
+        base_queryset = MaterialFeedback.objects.select_related('submission', 'submission__student', 'submission__material', 'submission__material__subject')
+
         if user.role == 'student':
             # Студенты видят фидбэк по своим ответам
-            return MaterialFeedback.objects.filter(submission__student=user)
+            return base_queryset.filter(submission__student=user)
         elif user.role in ['teacher', 'tutor']:
             # Преподаватели видят весь фидбэк
-            return MaterialFeedback.objects.all()
+            return base_queryset
         elif user.role == 'parent':
             # Родители видят фидбэк по ответам своих детей
             children = user.parent_profile.children.all()
-            return MaterialFeedback.objects.filter(submission__student__in=children)
-        
+            return base_queryset.filter(submission__student__in=children)
+
         return MaterialFeedback.objects.none()

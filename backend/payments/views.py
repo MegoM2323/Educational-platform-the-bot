@@ -4,8 +4,9 @@ import uuid
 import logging
 from decimal import Decimal
 from datetime import timedelta
+from ipaddress import ip_address, ip_network
 from django.conf import settings
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.utils.crypto import get_random_string
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -28,6 +29,68 @@ logger = logging.getLogger(__name__)
 SUCCESS_URL = "/payments/success/"
 FAIL_URL = "/payments/fail/"
 
+# Официальные IP-адреса YooKassa для webhooks
+# Источник: https://yookassa.ru/developers/using-api/webhooks#ip
+YOOKASSA_WEBHOOK_IPS = [
+    '185.71.76.0/27',
+    '185.71.77.0/27',
+    '77.75.153.0/25',
+    '77.75.156.11',
+    '77.75.156.35',
+    '77.75.154.128/25',
+    '2a02:5180::/32',
+]
+
+
+def verify_yookassa_ip(request):
+    """
+    Проверяет, что запрос пришел с IP-адреса YooKassa.
+
+    Args:
+        request: Django request object
+
+    Returns:
+        bool: True если IP разрешен, False если нет
+    """
+    # Получаем IP-адрес клиента
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        # Берем первый IP из списка (клиентский IP)
+        client_ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        client_ip = request.META.get('REMOTE_ADDR')
+
+    if not client_ip:
+        logger.warning("Could not determine client IP address")
+        return False
+
+    try:
+        client_ip_obj = ip_address(client_ip)
+
+        # Проверяем, входит ли IP в разрешенные сети
+        for allowed_network in YOOKASSA_WEBHOOK_IPS:
+            try:
+                if '/' in allowed_network:
+                    # Это сеть
+                    if client_ip_obj in ip_network(allowed_network, strict=False):
+                        logger.info(f"YooKassa webhook IP {client_ip} verified (network: {allowed_network})")
+                        return True
+                else:
+                    # Это конкретный IP
+                    if str(client_ip_obj) == allowed_network:
+                        logger.info(f"YooKassa webhook IP {client_ip} verified")
+                        return True
+            except ValueError as e:
+                logger.error(f"Invalid network in YOOKASSA_WEBHOOK_IPS: {allowed_network}: {e}")
+                continue
+
+        logger.warning(f"YooKassa webhook from unverified IP: {client_ip}")
+        return False
+
+    except ValueError as e:
+        logger.error(f"Invalid client IP address: {client_ip}: {e}")
+        return False
+
 def _get_safe_url(request, path):
     """Безопасно получает абсолютный URL, обрабатывая случаи без правильного хоста"""
     try:
@@ -41,22 +104,74 @@ def _get_safe_url(request, path):
 # Старая функция pay_page удалена - оплата теперь происходит через API
 
 def create_yookassa_payment(payment, request):
-    """Создание платежа в ЮКассе с улучшенной валидацией"""
+    """
+    Создание платежа в ЮКассе с улучшенной валидацией и обработкой ошибок.
+
+    Args:
+        payment: Payment объект из БД
+        request: Django request object для построения URL
+
+    Returns:
+        dict: YooKassa payment data если успешно
+        dict: {'error': str, 'error_type': str} если ошибка (для информативной обработки)
+        None: если критическая ошибка (устаревший формат для обратной совместимости)
+    """
     # Проверяем наличие необходимых настроек
     if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
         logger.error("YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured. Please set these environment variables.")
-        return None
+        return {
+            'error': 'Ошибка конфигурации платежной системы. Обратитесь к администратору.',
+            'error_type': 'configuration_error',
+            'technical_details': 'YOOKASSA credentials not configured'
+        }
     
     url = "https://api.yookassa.ru/v3/payments"
     
     # Валидация суммы
     if payment.amount <= 0:
         logger.error(f"Invalid payment amount: {payment.amount}")
-        return None
+        return {
+            'error': 'Неверная сумма платежа',
+            'error_type': 'invalid_amount',
+            'technical_details': f'Amount must be > 0, got {payment.amount}'
+        }
     
     # Получаем URL фронтенда для возврата после оплаты
+    # Используем FRONTEND_URL из настроек (должен быть установлен в .env для продакшена)
     frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:8080')
+    
+    # Если FRONTEND_URL все еще localhost, но есть request с реальным доменом,
+    # пытаемся определить правильный URL на основе request
+    if 'localhost' in frontend_url and request and hasattr(request, 'get_host'):
+        try:
+            host = request.get_host()
+            # Если это реальный домен (не localhost), используем его для определения протокола
+            if host and 'localhost' not in host and '127.0.0.1' not in host:
+                # Определяем протокол (http или https)
+                protocol = 'https' if request.is_secure() else 'http'
+                # Используем тот же домен, но убеждаемся, что используем правильный протокол
+                # Если FRONTEND_URL в настройках содержит правильный домен, используем его
+                # Иначе формируем на основе request
+                if 'the-bot.ru' in host or 'www.the-bot.ru' in host:
+                    frontend_url = f"{protocol}://{host.split(':')[0]}"  # Убираем порт если есть
+                    logger.warning(f"FRONTEND_URL was localhost, but detected production domain. Using {frontend_url}. "
+                                 f"Please set FRONTEND_URL in .env file for production!")
+                    # Если frontend на другом порту, нужно указать его в FRONTEND_URL в .env
+        except Exception as e:
+            logger.debug(f"Could not determine host from request: {e}, using FRONTEND_URL from settings: {frontend_url}")
+    
+    # Проверяем, что на продакшене не используется localhost
+    allowed_hosts = getattr(settings, 'ALLOWED_HOSTS', [])
+    has_production_host = any('the-bot.ru' in str(h) for h in allowed_hosts) if allowed_hosts else False
+    if has_production_host and 'localhost' in frontend_url:
+        logger.warning(f"WARNING: Production server detected, but FRONTEND_URL is set to localhost: {frontend_url}. "
+                      f"Please set FRONTEND_URL in .env file to your production frontend URL (e.g., https://the-bot.ru)")
+    
+    # Убеждаемся, что URL не заканчивается на слэш
+    frontend_url = frontend_url.rstrip('/')
     return_url = f"{frontend_url}/dashboard/parent/payment-success?payment_id={payment.id}"
+    
+    logger.info(f"Using frontend URL for return: {frontend_url}, return_url: {return_url}")
     
     # Подготовка данных для ЮКассы согласно официальной документации
     # https://yookassa.ru/developers/api#create_payment
@@ -75,6 +190,9 @@ def create_yookassa_payment(payment, request):
             "payment_id": str(payment.id),
             "service_name": payment.service_name,
             "customer_fio": payment.customer_fio,
+            # Передаем ВСЕ метаданные из payment.metadata без фильтрации
+            # Критично: subject_payment_id нужен для связи Payment ↔ SubjectPayment
+            **(payment.metadata or {})
         }
     }
     
@@ -114,32 +232,69 @@ def create_yookassa_payment(payment, request):
             logger.error(f"YooKassa API error: {response.status_code} - {error_text}")
             # Пытаемся распарсить ошибку из ответа
             error_description = None
+            error_code = None
+            user_message = "Ошибка создания платежа в платежной системе"
+
             try:
                 error_data = response.json() if hasattr(response, 'json') else safe_json_response(response)
                 if error_data and isinstance(error_data, dict):
                     error_description = error_data.get('description') or error_data.get('message') or error_data.get('type')
+                    error_code = error_data.get('code')
                     if error_description:
                         logger.error(f"YooKassa error description: {error_description}")
+
+                    # Определяем понятное для пользователя сообщение на основе типа ошибки
+                    if response.status_code == 401 or response.status_code == 403:
+                        user_message = "Ошибка конфигурации платежной системы. Обратитесь к администратору."
+                    elif 'amount' in str(error_description).lower():
+                        user_message = "Неверная сумма платежа"
+                    elif 'invalid' in str(error_description).lower() and 'credentials' in str(error_description).lower():
+                        user_message = "Ошибка конфигурации платежной системы. Обратитесь к администратору."
             except Exception as parse_error:
                 logger.debug(f"Could not parse error response: {parse_error}")
-            
-            # Возвращаем None, чтобы вызывающий код мог обработать ошибку
-            # Но логируем детальную информацию
-            logger.error(f"YooKassa API error details - Status: {response.status_code}, Description: {error_description}, Text: {error_text[:200]}")
-            return None
+
+            # Логируем детальную информацию
+            logger.error(
+                f"YooKassa API error details - Status: {response.status_code}, "
+                f"Code: {error_code}, Description: {error_description}, Text: {error_text[:200]}"
+            )
+
+            return {
+                'error': user_message,
+                'error_type': 'yookassa_api_error',
+                'technical_details': f'Status: {response.status_code}, Description: {error_description}',
+                'status_code': response.status_code,
+                'error_code': error_code
+            }
             
     except requests.exceptions.Timeout as e:
         logger.error(f"YooKassa API timeout: {e}")
-        return None
+        return {
+            'error': 'Не удалось связаться с платежной системой. Попробуйте позже.',
+            'error_type': 'network_timeout',
+            'technical_details': str(e)
+        }
     except requests.exceptions.ConnectionError as e:
         logger.error(f"YooKassa API connection error: {e}")
-        return None
+        return {
+            'error': 'Не удалось связаться с платежной системой. Попробуйте позже.',
+            'error_type': 'network_connection_error',
+            'technical_details': str(e)
+        }
     except requests.RequestException as e:
         logger.error(f"Request error creating YooKassa payment: {e}", exc_info=True)
-        return None
+        return {
+            'error': 'Ошибка при обращении к платежной системе. Попробуйте позже.',
+            'error_type': 'network_request_error',
+            'technical_details': str(e)
+        }
     except Exception as e:
         logger.error(f"Unexpected error creating YooKassa payment: {e}", exc_info=True)
-        return None
+        return {
+            'error': 'Произошла неожиданная ошибка. Попробуйте позже или обратитесь к администратору.',
+            'error_type': 'unexpected_error',
+            'technical_details': str(e)
+        }
 
 def check_yookassa_payment_status(yookassa_payment_id):
     """Проверяет статус платежа в ЮКассе"""
@@ -182,6 +337,12 @@ def yookassa_webhook(request):
         logger.warning("Webhook called with non-POST method")
         return HttpResponseBadRequest("POST only")
 
+    # Проверяем IP-адрес отправителя для безопасности
+    if not verify_yookassa_ip(request):
+        client_ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown'))
+        logger.error(f"Webhook request from unauthorized IP: {client_ip}")
+        return HttpResponseForbidden("Unauthorized IP address")
+
     try:
         # Получаем данные из webhook
         data = safe_json_parse(request.body)
@@ -193,7 +354,14 @@ def yookassa_webhook(request):
         
         # Проверяем тип события
         event_type = data.get('type')
-        if event_type not in ['payment.succeeded', 'payment.canceled', 'payment.waiting_for_capture']:
+        supported_events = [
+            'payment.succeeded',
+            'payment.canceled',
+            'payment.waiting_for_capture',
+            'payment.failed',
+            'refund.succeeded'
+        ]
+        if event_type not in supported_events:
             logger.info(f"Ignoring webhook event type: {event_type}")
             return HttpResponse("OK")
         
@@ -218,67 +386,30 @@ def yookassa_webhook(request):
         
         # Обновляем статус
         if event_type == 'payment.succeeded':
-            payment.status = Payment.Status.SUCCEEDED
-            payment.paid_at = timezone.now()
-            payment.save(update_fields=['status', 'paid_at', 'updated'])
-            logger.info(f"Payment {payment.id} marked as succeeded")
-            # Дополнительно отмечаем платеж по предмету (если связан)
-            try:
-                from materials.models import SubjectPayment as SP, SubjectSubscription, SubjectEnrollment
-                from notifications.notification_service import NotificationService
-                subject_payments = SP.objects.filter(payment=payment)
-                for subject_payment in subject_payments:
-                    if subject_payment.status != SP.Status.PAID:
-                        subject_payment.status = SP.Status.PAID
-                        subject_payment.paid_at = payment.paid_at
-                        subject_payment.save(update_fields=['status', 'paid_at', 'updated_at'])
-                        logger.info(f"SubjectPayment {subject_payment.id} marked as PAID")
-                    
-                    # Проверяем, нужно ли создать подписку после успешной оплаты
-                    create_subscription = payment.metadata.get('create_subscription', False)
-                    if create_subscription:
-                        try:
-                            enrollment = subject_payment.enrollment
-                            # Проверяем, существует ли уже подписка для этого enrollment
-                            try:
-                                subscription = SubjectSubscription.objects.get(enrollment=enrollment)
-                                # Если подписка существует, обновляем её
-                                old_amount = subscription.amount
-                                subscription.amount = subject_payment.amount
-                                subscription.status = SubjectSubscription.Status.ACTIVE
-                                subscription.next_payment_date = timezone.now() + timedelta(weeks=1)
-                                subscription.payment_interval_weeks = 1
-                                subscription.cancelled_at = None  # Сбрасываем дату отмены, если была
-                                subscription.save()
-                                logger.info(f"Updated existing subscription {subscription.id} for enrollment {enrollment.id} (amount: {old_amount} -> {subject_payment.amount})")
-                            except SubjectSubscription.DoesNotExist:
-                                # Если подписки нет, создаём новую
-                                subscription = SubjectSubscription.objects.create(
-                                    enrollment=enrollment,
-                                    amount=subject_payment.amount,
-                                    status=SubjectSubscription.Status.ACTIVE,
-                                    next_payment_date=timezone.now() + timedelta(weeks=1),
-                                    payment_interval_weeks=1
-                                )
-                                logger.info(f"Created new subscription {subscription.id} for enrollment {enrollment.id} after successful payment")
-                        except Exception as e:
-                            logger.error(f"Failed to create/update subscription after payment {payment.id}: {e}", exc_info=True)
-                    
-                    # Уведомляем родителя, если можно определить
-                    try:
-                        student = subject_payment.enrollment.student
-                        parent = getattr(student.student_profile, 'parent', None) if hasattr(student, 'student_profile') else None
-                        if parent:
-                            NotificationService().notify_payment_processed(
-                                parent=parent,
-                                status='paid',
-                                amount=str(subject_payment.amount),
-                                enrollment_id=subject_payment.enrollment.id,
-                            )
-                    except Exception:
-                        pass
-            except Exception as e:
-                logger.error(f"Failed to mark SubjectPayment as PAID for payment {payment.id}: {e}")
+            # Idempotency: проверяем, не был ли платеж уже обработан
+            if payment.status == Payment.Status.SUCCEEDED:
+                logger.info(f"Payment {payment.id} already processed as SUCCEEDED, skipping")
+                return HttpResponse('OK')
+
+            # Используем централизованную функцию для обработки успешного платежа
+            from payments.services import process_successful_payment
+
+            result = process_successful_payment(payment)
+
+            if result['success']:
+                logger.info(
+                    f"Webhook payment.succeeded processed successfully: "
+                    f"payment_id={payment.id}, "
+                    f"subject_payments_updated={result['subject_payments_updated']}, "
+                    f"enrollments_activated={result['enrollments_activated']}, "
+                    f"subscriptions_processed={result['subscriptions_processed']}"
+                )
+            else:
+                logger.error(
+                    f"Webhook payment.succeeded processing had errors: "
+                    f"payment_id={payment.id}, "
+                    f"errors={result['errors']}"
+                )
             
             # Отправляем уведомление в Telegram
             try:
@@ -319,7 +450,70 @@ def yookassa_webhook(request):
                         logger.info(f"SubjectPayment {subject_payment.id} status changed to WAITING_FOR_PAYMENT")
             except Exception as e:
                 logger.error(f"Failed to update SubjectPayment status to WAITING_FOR_PAYMENT: {e}")
-        
+
+        elif event_type == 'payment.failed':
+            payment.status = Payment.Status.FAILED
+            payment.save(update_fields=['status', 'updated'])
+            logger.info(f"Payment {payment.id} marked as failed")
+            # Обновляем статус SubjectPayment обратно на PENDING при ошибке
+            try:
+                from materials.models import SubjectPayment as SP
+                subject_payments = SP.objects.filter(payment=payment)
+                for subject_payment in subject_payments:
+                    if subject_payment.status in [SP.Status.WAITING_FOR_PAYMENT]:
+                        subject_payment.status = SP.Status.PENDING
+                        subject_payment.save(update_fields=['status', 'updated_at'])
+                        logger.info(f"SubjectPayment {subject_payment.id} status changed to PENDING after payment failure")
+            except Exception as e:
+                logger.error(f"Failed to update SubjectPayment status after payment failure: {e}")
+
+        elif event_type == 'refund.succeeded':
+            # Для refund объект содержит payment_id оригинального платежа
+            refund_object = data.get('object', {})
+            payment_id_from_refund = refund_object.get('payment_id')
+
+            if not payment_id_from_refund:
+                logger.error("Refund webhook received without payment_id")
+                return HttpResponseBadRequest("No payment_id in refund")
+
+            # Находим оригинальный платеж
+            try:
+                original_payment = Payment.objects.get(yookassa_payment_id=payment_id_from_refund)
+                original_payment.status = Payment.Status.REFUNDED
+                original_payment.raw_response = data  # Сохраняем данные о возврате
+                original_payment.save(update_fields=['status', 'raw_response', 'updated'])
+                logger.info(f"Payment {original_payment.id} marked as REFUNDED")
+
+                # Обновляем статус SubjectPayment на REFUNDED
+                try:
+                    from materials.models import SubjectPayment as SP
+                    subject_payments = SP.objects.filter(payment=original_payment)
+                    for subject_payment in subject_payments:
+                        subject_payment.status = SP.Status.REFUNDED
+                        subject_payment.save(update_fields=['status', 'updated_at'])
+                        logger.info(f"SubjectPayment {subject_payment.id} marked as REFUNDED")
+
+                        # Уведомляем родителя о возврате
+                        try:
+                            from notifications.notification_service import NotificationService
+                            student = subject_payment.enrollment.student
+                            parent = getattr(student.student_profile, 'parent', None) if hasattr(student, 'student_profile') else None
+                            if parent:
+                                NotificationService().notify_payment_processed(
+                                    parent=parent,
+                                    status='refunded',
+                                    amount=str(subject_payment.amount),
+                                    enrollment_id=subject_payment.enrollment.id,
+                                )
+                        except Exception:
+                            pass
+                except Exception as e:
+                    logger.error(f"Failed to update SubjectPayment status after refund: {e}")
+
+            except Payment.DoesNotExist:
+                logger.error(f"Original payment not found for refund: {payment_id_from_refund}")
+                return HttpResponseBadRequest("Original payment not found")
+
         return HttpResponse("OK")
         
     except Exception as e:
@@ -345,22 +539,24 @@ def check_payment_status(request):
             if yookassa_status:
                 # Обновляем статус если нужно
                 if yookassa_status == 'succeeded' and payment.status != Payment.Status.SUCCEEDED:
-                    payment.status = Payment.Status.SUCCEEDED
-                    payment.paid_at = timezone.now()
-                    payment.save(update_fields=['status', 'paid_at', 'updated'])
-                    # Синхронизация статуса предметного платежа
-                    try:
-                        from materials.models import SubjectPayment as SubjectPaymentModel
-                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
-                        for sp in subject_payments:
-                            if sp.status != SubjectPaymentModel.Status.PAID:
-                                sp.status = SubjectPaymentModel.Status.PAID
-                                sp.paid_at = payment.paid_at
-                                sp.save(update_fields=['status', 'paid_at', 'updated_at'])
-                                logger.info(f"SubjectPayment {sp.id} marked as PAID")
-                    except Exception as sync_err:
-                        logger.error(f"Failed to sync SubjectPayment for payment {payment.id}: {sync_err}", exc_info=True)
-                    
+                    # Используем централизованную функцию для обработки успешного платежа
+                    from payments.services import process_successful_payment
+
+                    result = process_successful_payment(payment)
+
+                    if result['success']:
+                        logger.info(
+                            f"Payment {payment.id} processed via check_payment_status: "
+                            f"subject_payments={result['subject_payments_updated']}, "
+                            f"enrollments={result['enrollments_activated']}, "
+                            f"subscriptions={result['subscriptions_processed']}, "
+                            f"notifications={result['notifications_sent']}"
+                        )
+                    else:
+                        logger.error(
+                            f"Payment {payment.id} processing via check_payment_status completed with errors: {result['errors']}"
+                        )
+
                     # Отправляем уведомление в Telegram
                     try:
                         telegram_service = TelegramNotificationService()
@@ -454,18 +650,46 @@ class PaymentViewSet(viewsets.ModelViewSet):
         
         # Создаем платеж в ЮКассе
         yookassa_payment = create_yookassa_payment(payment, request)
-        
-        if yookassa_payment:
+
+        # Проверяем, является ли ответ ошибкой
+        if yookassa_payment and 'error' in yookassa_payment:
+            # Это ошибка - логируем и помечаем платеж как неудавшийся
+            error_info = yookassa_payment
+            logger.error(
+                f"YooKassa payment creation failed for payment {payment.id}: "
+                f"{error_info.get('error_type', 'unknown')} - {error_info.get('technical_details', 'N/A')}"
+            )
+
+            # Не удаляем платеж, а помечаем как неудавшийся для аудита
+            payment.status = Payment.Status.CANCELED
+            payment.raw_response = {
+                'error': error_info.get('error'),
+                'error_type': error_info.get('error_type'),
+                'technical_details': error_info.get('technical_details'),
+                'timestamp': timezone.now().isoformat()
+            }
+            payment.save(update_fields=['status', 'raw_response', 'updated'])
+
+            # Возвращаем понятное пользователю сообщение об ошибке
+            return Response(
+                {
+                    "error": error_info.get('error', 'Ошибка создания платежа в ЮКассе'),
+                    "error_type": error_info.get('error_type'),
+                    "payment_id": payment.id
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        elif yookassa_payment:
             # Обновляем платеж с данными от ЮКассы
             payment.yookassa_payment_id = yookassa_payment.get('id')
             payment.confirmation_url = yookassa_payment.get('confirmation', {}).get('confirmation_url')
             payment.return_url = f"{request.build_absolute_uri(SUCCESS_URL)}?payment_id={payment.id}"
             payment.raw_response = yookassa_payment
-            
+
             # Обновляем статус Payment на основе ответа от ЮКассы
             yookassa_status = yookassa_payment.get('status')
             update_fields = ['yookassa_payment_id', 'confirmation_url', 'return_url', 'raw_response', 'status', 'updated']
-            
+
             if yookassa_status == 'pending':
                 payment.status = Payment.Status.PENDING
             elif yookassa_status == 'waiting_for_capture':
@@ -476,7 +700,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 update_fields.append('paid_at')
             elif yookassa_status == 'canceled':
                 payment.status = Payment.Status.CANCELED
-            
+
             payment.save(update_fields=update_fields)
             
             # Обрабатываем связь с SubjectPayment, если есть в metadata
@@ -558,10 +782,22 @@ class PaymentViewSet(viewsets.ModelViewSet):
             response_serializer = PaymentSerializer(payment)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         else:
-            # Если платеж не создан в ЮКассе, удаляем его
-            payment.delete()
+            # Если платеж не создан в ЮКассе (неожиданный случай - должен возвращаться error dict)
+            logger.error(f"Unexpected: create_yookassa_payment returned None/empty for payment {payment.id}")
+
+            # Не удаляем платеж, а помечаем как неудавшийся для аудита
+            payment.status = Payment.Status.CANCELED
+            payment.raw_response = {
+                'error': 'Неизвестная ошибка при создании платежа',
+                'timestamp': timezone.now().isoformat()
+            }
+            payment.save(update_fields=['status', 'raw_response', 'updated'])
+
             return Response(
-                {"error": "Ошибка создания платежа в ЮКассе"}, 
+                {
+                    "error": "Ошибка создания платежа в ЮКассе",
+                    "payment_id": payment.id
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
     
@@ -576,21 +812,23 @@ class PaymentViewSet(viewsets.ModelViewSet):
             if yookassa_status:
                 # Обновляем статус если нужно
                 if yookassa_status == 'succeeded' and payment.status != Payment.Status.SUCCEEDED:
-                    payment.status = Payment.Status.SUCCEEDED
-                    payment.paid_at = timezone.now()
-                    payment.save(update_fields=['status', 'paid_at', 'updated'])
-                    # Синхронизация статуса предметного платежа
-                    try:
-                        from materials.models import SubjectPayment as SubjectPaymentModel
-                        subject_payments = SubjectPaymentModel.objects.filter(payment=payment)
-                        for sp in subject_payments:
-                            if sp.status != SubjectPaymentModel.Status.PAID:
-                                sp.status = SubjectPaymentModel.Status.PAID
-                                sp.paid_at = payment.paid_at
-                                sp.save(update_fields=['status', 'paid_at', 'updated_at'])
-                                logger.info(f"SubjectPayment {sp.id} marked as PAID")
-                    except Exception as sync_err:
-                        logger.error(f"Failed to sync SubjectPayment for payment {payment.id}: {sync_err}", exc_info=True)
+                    # Используем централизованную функцию для полной обработки платежа
+                    from payments.services import process_successful_payment
+
+                    result = process_successful_payment(payment)
+
+                    if result['success']:
+                        logger.info(
+                            f"PaymentViewSet.status processed successful payment {payment.id}: "
+                            f"subject_payments_updated={result['subject_payments_updated']}, "
+                            f"enrollments_activated={result['enrollments_activated']}, "
+                            f"subscriptions_processed={result['subscriptions_processed']}"
+                        )
+                    else:
+                        logger.error(
+                            f"PaymentViewSet.status had errors processing payment {payment.id}: "
+                            f"errors={result['errors']}"
+                        )
                 elif yookassa_status == 'canceled' and payment.status != Payment.Status.CANCELED:
                     payment.status = Payment.Status.CANCELED
                     payment.save(update_fields=['status', 'updated'])

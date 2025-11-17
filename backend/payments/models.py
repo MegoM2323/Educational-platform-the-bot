@@ -7,6 +7,8 @@ class Payment(models.Model):
         WAITING_FOR_CAPTURE = "waiting_for_capture", "Waiting for Capture"
         SUCCEEDED = "succeeded", "Succeeded"
         CANCELED = "canceled", "Canceled"
+        FAILED = "failed", "Failed"
+        REFUNDED = "refunded", "Refunded"
 
     # Основные поля
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

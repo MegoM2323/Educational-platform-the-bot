@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from core.file_utils import build_secure_file_url
 from .models import Subject, Material, MaterialProgress, MaterialComment, MaterialSubmission, MaterialFeedback, SubjectEnrollment, SubjectPayment, StudyPlan, StudyPlanFile
 
 User = get_user_model()
@@ -63,16 +64,22 @@ class MaterialDetailSerializer(serializers.ModelSerializer):
     assigned_to_names = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Material
         fields = (
             'id', 'title', 'description', 'content', 'author', 'author_name',
-            'subject', 'subject_name', 'type', 'status', 'file', 'video_url',
+            'subject', 'subject_name', 'type', 'status', 'file', 'file_url', 'video_url',
             'is_public', 'assigned_to', 'assigned_to_names', 'tags',
             'difficulty_level', 'created_at', 'updated_at', 'published_at',
             'progress', 'comments_count'
         )
+    
+    def get_file_url(self, obj):
+        """Возвращает абсолютный URL файла с правильной схемой (HTTP/HTTPS)"""
+        request = self.context.get('request')
+        return build_secure_file_url(obj.file, request)
     
     def get_assigned_to_names(self, obj):
         return [user.get_full_name() for user in obj.assigned_to.all()]
@@ -266,12 +273,12 @@ class PaymentInitiationSerializer(serializers.Serializer):
     """
     Сериализатор для инициации платежа
     """
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
     create_subscription = serializers.BooleanField(default=False, required=False)
     
     def validate_amount(self, value):
-        if value <= 0:
+        if value is not None and value <= 0:
             raise serializers.ValidationError("Сумма должна быть больше нуля")
         return value
 
@@ -345,13 +352,9 @@ class StudyPlanFileSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'uploaded_by', 'created_at', 'file_size')
     
     def get_file_url(self, obj):
-        """Возвращает URL файла"""
-        if obj.file:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
-        return None
+        """Возвращает URL файла с правильной схемой (HTTP/HTTPS)"""
+        request = self.context.get('request')
+        return build_secure_file_url(obj.file, request)
 
 
 class StudyPlanSerializer(serializers.ModelSerializer):

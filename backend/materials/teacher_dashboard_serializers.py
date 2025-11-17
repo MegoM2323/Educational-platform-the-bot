@@ -43,8 +43,17 @@ class MaterialSerializer(serializers.ModelSerializer):
     completed_count = serializers.IntegerField(read_only=True)
     completion_percentage = serializers.FloatField(read_only=True)
     average_progress = serializers.FloatField(read_only=True)
-    file_url = serializers.URLField(source='file.url', read_only=True, allow_null=True)
+    file_url = serializers.SerializerMethodField()
     tags = serializers.ListField(child=serializers.CharField(), read_only=True)
+    
+    def get_file_url(self, obj):
+        """Возвращает абсолютный URL файла"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
     
     class Meta:
         model = Material

@@ -175,14 +175,18 @@ export const parentDashboardAPI = {
     return response.data!;
   },
 
-  initiatePayment: async (childId: number, enrollmentId: number, data: { amount: number; description?: string; create_subscription?: boolean }): Promise<any> => {
+  initiatePayment: async (childId: number, enrollmentId: number, data: { amount?: number; description?: string; create_subscription?: boolean }): Promise<any> => {
+    const requestBody: any = {
+      description: data.description,
+      create_subscription: data.create_subscription || false,
+    };
+    // amount передаем только если указан явно, иначе бэкенд определит из настроек
+    if (data.amount !== undefined) {
+      requestBody.amount = data.amount;
+    }
     const response = await unifiedAPI.request(`/materials/dashboard/parent/children/${childId}/payment/${enrollmentId}/`, {
       method: 'POST',
-      body: JSON.stringify({
-        amount: data.amount,
-        description: data.description,
-        create_subscription: data.create_subscription || false,
-      }),
+      body: JSON.stringify(requestBody),
     });
     if (response.error) throw new Error(response.error);
     return response.data!;

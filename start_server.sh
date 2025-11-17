@@ -570,6 +570,143 @@ sudo chown -R www-data:www-data "$FRONTEND_PUBLISH"
 sudo find "$FRONTEND_PUBLISH" -type d -exec chmod 755 {} +
 sudo find "$FRONTEND_PUBLISH" -type f -exec chmod 644 {} +
 
+# ================== SYSTEMD: CELERY ==================
+log "Проверяю Celery и Redis..."
+cd "$BACKEND_DIR"
+
+# Проверяем Redis
+if ! redis-cli ping >/dev/null 2>&1; then
+  log "⚠️  Redis недоступен. Устанавливаю Redis..."
+  sudo apt-get update -y
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y redis-server
+  sudo systemctl enable redis-server
+  sudo systemctl start redis-server
+  sleep 2
+  
+  if ! redis-cli ping >/dev/null 2>&1; then
+    log "❌ Не удалось запустить Redis. Celery не будет работать."
+  else
+    log "✅ Redis установлен и запущен"
+  fi
+else
+  log "✅ Redis доступен"
+fi
+
+# Проверяем Celery
+if ! "$VENV_DIR/bin/python" -c "from core.celery import app; print('Celery инициализирован')" >/dev/null 2>&1; then
+  log "❌ ОШИБКА: Celery приложение не загружается. Проверьте настройки."
+else
+  log "✅ Celery приложение проверено успешно"
+fi
+
+# Останавливаем и удаляем старые сервисы Celery (если есть)
+if systemctl list-units --full -all | grep -q "the-bot-celery-worker.service"; then
+  log "Останавливаю старый Celery Worker сервис..."
+  sudo systemctl stop the-bot-celery-worker.service 2>/dev/null || true
+  sudo systemctl disable the-bot-celery-worker.service 2>/dev/null || true
+fi
+
+if systemctl list-units --full -all | grep -q "the-bot-celery-beat.service"; then
+  log "Останавливаю старый Celery Beat сервис..."
+  sudo systemctl stop the-bot-celery-beat.service 2>/dev/null || true
+  sudo systemctl disable the-bot-celery-beat.service 2>/dev/null || true
+fi
+
+# Создаем директорию для логов Celery
+sudo mkdir -p /var/log/celery
+sudo chown $(whoami):$(id -gn) /var/log/celery
+
+# Создаем systemd unit для Celery Worker
+log "Создаю systemd unit для Celery Worker..."
+CELERY_WORKER_UNIT="[Unit]
+Description=THE_BOT Celery Worker
+After=network.target redis-server.service redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=$BACKEND_DIR
+Environment=PYTHONUNBUFFERED=1
+Environment=DJANGO_SETTINGS_MODULE=config.settings
+Environment=PYTHONPATH=$BACKEND_DIR
+ExecStart=$VENV_DIR/bin/celery -A core worker --loglevel=info --concurrency=4 --logfile=/var/log/celery/worker.log
+Restart=always
+RestartSec=10s
+User=$(whoami)
+Group=$(id -gn)
+StandardOutput=journal
+StandardError=journal
+
+# Увеличенные таймауты для запуска
+TimeoutStartSec=120s
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=multi-user.target
+"
+echo "$CELERY_WORKER_UNIT" | sudo tee /etc/systemd/system/the-bot-celery-worker.service >/dev/null
+
+# Создаем systemd unit для Celery Beat
+log "Создаю systemd unit для Celery Beat (планировщик)..."
+CELERY_BEAT_UNIT="[Unit]
+Description=THE_BOT Celery Beat (Scheduler)
+After=network.target redis-server.service redis.service the-bot-celery-worker.service
+
+[Service]
+Type=simple
+WorkingDirectory=$BACKEND_DIR
+Environment=PYTHONUNBUFFERED=1
+Environment=DJANGO_SETTINGS_MODULE=config.settings
+Environment=PYTHONPATH=$BACKEND_DIR
+ExecStart=$VENV_DIR/bin/celery -A core beat --loglevel=info --logfile=/var/log/celery/beat.log
+Restart=always
+RestartSec=10s
+User=$(whoami)
+Group=$(id -gn)
+StandardOutput=journal
+StandardError=journal
+
+# Увеличенные таймауты
+TimeoutStartSec=60s
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=multi-user.target
+"
+echo "$CELERY_BEAT_UNIT" | sudo tee /etc/systemd/system/the-bot-celery-beat.service >/dev/null
+
+# Запускаем Celery сервисы
+log "Перезагружаю конфигурацию systemd..."
+sudo systemctl daemon-reload
+sleep 2
+
+log "Включаю автозапуск Celery сервисов..."
+sudo systemctl enable the-bot-celery-worker.service
+sudo systemctl enable the-bot-celery-beat.service
+
+log "Запускаю Celery Worker..."
+sudo systemctl restart the-bot-celery-worker.service
+sleep 3
+
+log "Запускаю Celery Beat..."
+sudo systemctl restart the-bot-celery-beat.service
+sleep 2
+
+# Проверяем статус Celery Worker
+if ! systemctl is-active --quiet the-bot-celery-worker.service; then
+  log "⚠️  Ошибка запуска Celery Worker. Проверяю логи..."
+  journalctl -u the-bot-celery-worker.service -n 30 --no-pager | sed 's/^/[celery-worker] /'
+else
+  log "✅ Celery Worker запущен"
+fi
+
+# Проверяем статус Celery Beat
+if ! systemctl is-active --quiet the-bot-celery-beat.service; then
+  log "⚠️  Ошибка запуска Celery Beat. Проверяю логи..."
+  journalctl -u the-bot-celery-beat.service -n 30 --no-pager | sed 's/^/[celery-beat] /'
+else
+  log "✅ Celery Beat запущен (рекуррентные задачи активны)"
+fi
+
 # ================== SYSTEMD: DAPHNE (ASGI) ==================
 log "Проверяю ASGI приложение перед созданием systemd сервиса..."
 cd "$BACKEND_DIR"
@@ -790,6 +927,29 @@ log "Daphne: $DJANGO_BIND_IP:$ASGI_PORT, Nginx сайт: $NGINX_SITE_AVAILABLE"
 # ================== DIAGNOSTICS ==================
 log "Проверяю статус сервисов..."
 
+# Проверка Celery Worker
+if systemctl is-active --quiet the-bot-celery-worker.service; then
+  log "✓ Celery Worker активен"
+else
+  log "✗ Celery Worker неактивен"
+  journalctl -u the-bot-celery-worker.service -n 20 --no-pager | sed 's/^/[celery-worker] /'
+fi
+
+# Проверка Celery Beat
+if systemctl is-active --quiet the-bot-celery-beat.service; then
+  log "✓ Celery Beat активен (рекуррентные платежи)"
+else
+  log "✗ Celery Beat неактивен"
+  journalctl -u the-bot-celery-beat.service -n 20 --no-pager | sed 's/^/[celery-beat] /'
+fi
+
+# Проверка Redis
+if systemctl is-active --quiet redis-server.service || systemctl is-active --quiet redis.service; then
+  log "✓ Redis активен"
+else
+  log "✗ Redis неактивен"
+fi
+
 # Проверка Daphne
 if systemctl is-active --quiet the-bot-daphne.service; then
   log "✓ Daphne активен"
@@ -833,4 +993,8 @@ ls -la /etc/nginx/sites-enabled/ | sed 's/^/[nginx] /'
 
 log "Диагностика завершена. Если проблемы остаются, проверьте логи:"
 log "  sudo journalctl -u the-bot-daphne.service -f"
+log "  sudo journalctl -u the-bot-celery-worker.service -f"
+log "  sudo journalctl -u the-bot-celery-beat.service -f"
 log "  sudo tail -f /var/log/nginx/error.log"
+log "  sudo tail -f /var/log/celery/worker.log"
+log "  sudo tail -f /var/log/celery/beat.log"

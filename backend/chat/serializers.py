@@ -60,11 +60,12 @@ class ChatRoomDetailSerializer(serializers.ModelSerializer):
         )
     
     def get_participants(self, obj):
+        request = self.context.get('request')
         return [{
             'id': user.id,
             'name': user.get_full_name(),
             'role': user.role,
-            'avatar': user.avatar.url if user.avatar else None
+            'avatar': request.build_absolute_uri(user.avatar.url) if (user.avatar and request) else (user.avatar.url if user.avatar else None)
         } for user in obj.participants.all()]
     
     def get_messages(self, obj):
@@ -100,19 +101,42 @@ class MessageSerializer(serializers.ModelSerializer):
     is_read = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
     thread_title = serializers.CharField(source='thread.title', read_only=True)
+    file_url = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Message
         fields = (
             'id', 'room', 'thread', 'thread_title', 'sender', 'sender_name', 'sender_avatar', 'sender_role',
-            'content', 'message_type', 'file', 'image', 'is_edited',
+            'content', 'message_type', 'file', 'file_url', 'image', 'image_url', 'is_edited',
             'reply_to', 'created_at', 'updated_at', 'is_read', 'replies_count'
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
     
     def get_sender_avatar(self, obj):
         if obj.sender.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.sender.avatar.url)
             return obj.sender.avatar.url
+        return None
+    
+    def get_file_url(self, obj):
+        """Возвращает абсолютный URL файла"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+    
+    def get_image_url(self, obj):
+        """Возвращает абсолютный URL изображения"""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
         return None
     
     def get_is_read(self, obj):
@@ -173,6 +197,9 @@ class ChatParticipantSerializer(serializers.ModelSerializer):
     
     def get_user_avatar(self, obj):
         if obj.user.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user.avatar.url)
             return obj.user.avatar.url
         return None
 

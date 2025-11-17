@@ -238,7 +238,26 @@ class SubjectSubscription(models.Model):
     def schedule_next_payment(self):
         """Запланировать следующий платеж"""
         from django.utils import timezone
-        self.next_payment_date = timezone.now() + timedelta(weeks=self.payment_interval_weeks)
+        from django.conf import settings
+        
+        # Определяем интервал следующего платежа в зависимости от режима
+        if settings.PAYMENT_DEVELOPMENT_MODE:
+            # В режиме разработки: используем минуты
+            # Если payment_interval_weeks = 0, значит это режим разработки, используем настройку из settings
+            if self.payment_interval_weeks == 0:
+                next_payment_delta = timedelta(minutes=settings.DEVELOPMENT_RECURRING_INTERVAL_MINUTES)
+            else:
+                # Для обратной совместимости, если есть значение в неделях, но режим разработки
+                next_payment_delta = timedelta(minutes=settings.DEVELOPMENT_RECURRING_INTERVAL_MINUTES)
+        else:
+            # В обычном режиме: используем недели
+            if self.payment_interval_weeks > 0:
+                next_payment_delta = timedelta(weeks=self.payment_interval_weeks)
+            else:
+                # Если payment_interval_weeks = 0, используем настройку из settings
+                next_payment_delta = timedelta(weeks=settings.PRODUCTION_RECURRING_INTERVAL_WEEKS)
+        
+        self.next_payment_date = timezone.now() + next_payment_delta
         self.save(update_fields=['next_payment_date', 'updated_at'])
 
 

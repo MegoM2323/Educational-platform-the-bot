@@ -9,12 +9,12 @@ import { ParentSidebar } from "@/components/layout/ParentSidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { unifiedAPI } from "@/integrations/api/unifiedClient";
 import { parentDashboardAPI } from "@/integrations/api/dashboard";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorNotification, useSuccessNotification } from "@/components/NotificationSystem";
 import { DashboardSkeleton, ErrorState, EmptyState } from "@/components/LoadingStates";
 import { PaymentStatusBadge, PaymentStatus } from "@/components/PaymentStatusBadge";
+import { useParentDashboard } from "@/hooks/useParent";
 
 // Интерфейсы для данных
 interface Child {
@@ -66,91 +66,37 @@ const ParentDashboard = () => {
   const { toast } = useToast();
   const showError = useErrorNotification();
   const showSuccess = useSuccessNotification();
-  
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Загрузка данных дашборда
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await unifiedAPI.getParentDashboard();
-      
-      if (response.data) {
-        // Бэкенд возвращает данные напрямую
-        const rawData = response.data as any;
-        
-        // Проверяем разные варианты структуры данных
-        let data: DashboardData;
-        if (rawData.children && Array.isArray(rawData.children)) {
-          // Данные уже в правильном формате
-          data = rawData as DashboardData;
-        } else if (rawData.data && rawData.data.children) {
-          // Данные обернуты в data
-          data = rawData.data as DashboardData;
-        } else {
-          // Пытаемся использовать response.data напрямую
-          data = rawData as DashboardData;
-        }
-        
-        // Проверяем, что enrollment_id присутствует в данных
-        if (data.children) {
-          data.children.forEach((child: Child) => {
-            if (child.subjects) {
-              child.subjects.forEach((subject) => {
-                if (!subject.enrollment_id) {
-                  console.warn('Missing enrollment_id for subject:', subject);
-                }
-              });
-            }
-          });
-        }
-        setDashboardData(data);
-      } else {
-        const errorMessage = response.error || 'Ошибка загрузки данных';
-        console.error('[ParentDashboard] Error:', errorMessage);
-        setError(errorMessage);
-        showError(errorMessage, {
-          action: {
-            label: 'Повторить',
-            onClick: fetchDashboardData,
-          },
-        });
-      }
-    } catch (err: any) {
-      const errorMessage = 'Произошла ошибка при загрузке данных';
-      console.error('[ParentDashboard] Exception:', err);
-      setError(errorMessage);
-      showError(errorMessage, {
-        action: {
-          label: 'Повторить',
-          onClick: fetchDashboardData,
-        },
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use TanStack Query instead of useState
+  const {
+    data: dashboardData,
+    isLoading: loading,
+    error: queryError,
+    refetch
+  } = useParentDashboard();
 
+  const error = queryError?.message || null;
+
+  // Debounced refetch when window regains focus
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    let timeoutId: NodeJS.Timeout;
 
-  // Обновляем данные при возврате на страницу (например, после оплаты)
-  useEffect(() => {
     const handleFocus = () => {
-      // Обновляем данные при возврате на вкладку
       if (document.hasFocus()) {
-        fetchDashboardData();
+        // Debounce: wait 1 second before refetching
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          refetch();
+        }, 1000);
       }
     };
-    
+
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearTimeout(timeoutId);
+    };
+  }, [refetch]);
 
   const handlePaymentClick = async (childId: number, enrollmentId: number | undefined, subjectName: string, teacherName: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -161,9 +107,8 @@ const ParentDashboard = () => {
     }
     
     try {
-      const amount = 5000.00;
+      // Сумма будет определена на бэкенде в зависимости от режима
       const paymentData = await parentDashboardAPI.initiatePayment(childId, enrollmentId, {
-        amount: amount,
         description: `Оплата за предмет "${subjectName}" (преподаватель: ${teacherName})`,
         create_subscription: true
       });
@@ -184,18 +129,18 @@ const ParentDashboard = () => {
   const handleCancelSubscription = async (childId: number, enrollmentId: number) => {
     try {
       const result = await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
-      
+
       // Проверяем ответ от API
       if (result && (result.success || result.message)) {
         showSuccess(result.message || "Подписка успешно отменена");
         // Обновляем данные дашборда
-        await fetchDashboardData();
+        await refetch();
       } else if (result?.error) {
         showError(result.error);
       } else {
         // Если ответ не содержит success/message, но и нет ошибки, считаем успешным
         showSuccess("Подписка успешно отменена");
-        await fetchDashboardData();
+        await refetch();
       }
     } catch (err: any) {
       console.error('Cancel subscription error:', err);
@@ -236,9 +181,9 @@ const ParentDashboard = () => {
 
               {/* Обработка ошибок */}
               {error && (
-                <ErrorState 
+                <ErrorState
                   error={error}
-                  onRetry={fetchDashboardData}
+                  onRetry={() => refetch()}
                 />
               )}
 
@@ -325,7 +270,7 @@ const ParentDashboard = () => {
                                             }
                                             
                                             const confirmed = window.confirm(
-                                              `Остановить автоматические платежи за предмет "${subject.name}"?`
+                                              `Отключить предмет "${subject.name}"?`
                                             );
                                             
                                             if (!confirmed) return;
@@ -334,11 +279,11 @@ const ParentDashboard = () => {
                                               await handleCancelSubscription(child.id, subject.enrollment_id);
                                             } catch (err) {
                                               console.error('Cancel subscription error:', err);
-                                              showError("Произошла ошибка при отмене подписки");
+                                              showError("Произошла ошибка при отключении предмета");
                                             }
                                           }}
                                         >
-                                          Остановить оплату
+                                          Отключить предмет
                                         </Button>
                                       ) : (
                                         // Если нет подписки или платеж не оплачен - показываем кнопку "Оплатить"
@@ -368,7 +313,7 @@ const ParentDashboard = () => {
                                           }}
                                         >
                                           <CreditCard className="w-3 h-3 mr-1" />
-                                          {subject.payment_status === 'waiting_for_payment' ? 'Перейти к оплате' : 'Оплатить'}
+                                          {subject.payment_status === 'waiting_for_payment' ? 'Перейти к оплате' : 'Подключить предмет'}
                                         </Button>
                                       )}
                                     </div>

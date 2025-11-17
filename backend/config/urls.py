@@ -1,8 +1,9 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from payments.views import yookassa_webhook, check_payment_status
+from core.media_views import serve_media_file, serve_media_file_download
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -34,10 +35,11 @@ urlpatterns = [
     path("dashboard/", include('materials.urls')),
     
     # Payment webhook (required for YooKassa)
-    path("yookassa-webhook", yookassa_webhook, name="yookassa_webhook"),
+    path("yookassa-webhook/", yookassa_webhook, name="yookassa_webhook"),
     path("api/check-payment/", check_payment_status, name="check_payment_status"),
+    
+    # Media files serving (works in both development and production)
+    # Все медиа файлы требуют авторизации
+    re_path(r'^media/(?P<file_path>.*)$', serve_media_file, name='serve_media_file'),
+    re_path(r'^api/media/download/(?P<file_path>.*)$', serve_media_file_download, name='serve_media_file_download'),
 ]
-
-# Serve media files in development
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

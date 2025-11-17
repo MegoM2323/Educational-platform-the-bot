@@ -17,17 +17,27 @@ class StudentDashboardService:
     Обеспечивает доступ к материалам, прогрессу и общему чату
     """
     
-    def __init__(self, student: User):
+    def __init__(self, student: User, request=None):
         """
         Инициализация сервиса для конкретного студента
         
         Args:
             student: Пользователь с ролью 'student'
+            request: HTTP request для формирования абсолютных URL (опционально)
         """
         if student.role != User.Role.STUDENT:
             raise ValueError("Пользователь должен иметь роль 'student'")
         
         self.student = student
+        self.request = request
+    
+    def _build_file_url(self, file_field):
+        """Формирует абсолютный URL для файла"""
+        if not file_field:
+            return None
+        if self.request:
+            return self.request.build_absolute_uri(file_field.url)
+        return file_field.url
     
     @cache_material_data(timeout=600)  # 10 минут
     def get_assigned_materials(self, subject_id: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -101,7 +111,7 @@ class StudentDashboardService:
                     'name': material.author.get_full_name(),
                     'role': material.author.role
                 },
-                'file_url': material.file.url if material.file else None,
+                'file_url': self._build_file_url(material.file) if material.file else None,
                 'video_url': material.video_url,
                 'tags': material.tags.split(',') if material.tags else [],
                 'created_at': material.created_at,
@@ -404,7 +414,7 @@ class StudentDashboardService:
                 'name': self.student.get_full_name(),
                 'username': self.student.username,
                 'role': self.student.role,
-                'avatar': self.student.avatar.url if self.student.avatar else None
+                'avatar': self._build_file_url(self.student.avatar) if self.student.avatar else None
             },
             'subjects': self.get_subjects(),
             'materials_by_subject': self.get_materials_by_subject(),

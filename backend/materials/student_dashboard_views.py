@@ -33,7 +33,7 @@ def student_dashboard(request):
         )
     
     try:
-        service = StudentDashboardService(request.user)
+        service = StudentDashboardService(request.user, request)
         dashboard_data = service.get_dashboard_data()
         return Response(dashboard_data)
     except ValueError as e:
@@ -68,7 +68,7 @@ def student_assigned_materials(request):
         )
     
     try:
-        service = StudentDashboardService(request.user)
+        service = StudentDashboardService(request.user, request)
         subject_id = request.query_params.get('subject_id')
         
         if subject_id:
@@ -112,7 +112,7 @@ def student_materials_by_subject(request):
         )
     
     try:
-        service = StudentDashboardService(request.user)
+        service = StudentDashboardService(request.user, request)
         materials_by_subject = service.get_materials_by_subject()
         return Response(materials_by_subject)
     except Exception as e:
@@ -138,7 +138,7 @@ def student_progress_statistics(request):
         )
     
     try:
-        service = StudentDashboardService(request.user)
+        service = StudentDashboardService(request.user, request)
         statistics = service.get_progress_statistics()
         return Response(statistics)
     except Exception as e:
@@ -166,7 +166,7 @@ def student_recent_activity(request):
         )
     
     try:
-        service = StudentDashboardService(request.user)
+        service = StudentDashboardService(request.user, request)
         days = request.query_params.get('days', 7)
         
         try:
@@ -207,7 +207,7 @@ def student_general_chat(request):
         )
     
     try:
-        service = StudentDashboardService(request.user)
+        service = StudentDashboardService(request.user, request)
         chat_data = service.get_general_chat_access()
         
         if chat_data is None:

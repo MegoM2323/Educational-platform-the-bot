@@ -88,56 +88,51 @@ class SecureStorage {
   public getItem(key: string): string | null {
     try {
       if (typeof window === 'undefined' || !window.localStorage) return null;
-      
+
       const encryptedItem = localStorage.getItem(`${STORAGE_KEY_PREFIX}${key}`);
       if (!encryptedItem) {
         return null;
       }
 
-      // Проверяем, является ли это тестовой средой (Playwright)
-      const isTestEnvironment = typeof window !== 'undefined' && 
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-        (window.location.port === '8080' || window.location.port === '8081' || window.location.port === '5173');
-
-      let decryptedItem: string | null;
       let item: SecureStorageItem;
 
-      if (isTestEnvironment) {
-        // В тестовой среде данные могут быть не зашифрованы
-        try {
-          item = JSON.parse(encryptedItem);
-          if (item.data && item.timestamp && typeof item.expires === 'number') {
-            // Это уже правильный формат SecureStorageItem
-            decryptedItem = encryptedItem;
-          } else {
-            // Это старый формат, пытаемся расшифровать
-            decryptedItem = this.decrypt(encryptedItem);
-            if (!decryptedItem) {
-              return null;
-            }
-            item = JSON.parse(decryptedItem);
-          }
-        } catch (e) {
-          // Если не удается распарсить как JSON, пытаемся расшифровать
-          decryptedItem = this.decrypt(encryptedItem);
-          if (!decryptedItem) {
-            // Повреждённые данные — очищаем ключ, чтобы не ломать UI/тесты
+      // Стратегия 1: Пытаемся распарсить как незашифрованный JSON
+      try {
+        const parsed = JSON.parse(encryptedItem);
+        if (parsed && typeof parsed === 'object' && 'data' in parsed && 'timestamp' in parsed) {
+          item = parsed as SecureStorageItem;
+
+          // Проверяем истечение срока
+          if (this.isExpired(item)) {
             this.removeItem(key);
             return null;
           }
-          item = JSON.parse(decryptedItem);
+
+          return item.data;
         }
-      } else {
-        // В продакшене всегда расшифровываем
-        decryptedItem = this.decrypt(encryptedItem);
-        if (!decryptedItem) {
-          // Повреждённые данные — очищаем ключ
-          this.removeItem(key);
-          return null;
-        }
-        item = JSON.parse(decryptedItem);
+      } catch (e) {
+        // Не удалось распарсить как JSON, продолжаем
       }
-      
+
+      // Стратегия 2: Пытаемся расшифровать как зашифрованные данные
+      const decryptedItem = this.decrypt(encryptedItem);
+      if (!decryptedItem) {
+        // Расшифровка не удалась - очищаем данные
+        console.warn(`Failed to decrypt item with key: ${key}. Removing corrupted data.`);
+        this.removeItem(key);
+        return null;
+      }
+
+      // Парсим расшифрованный JSON
+      try {
+        item = JSON.parse(decryptedItem);
+      } catch (e) {
+        console.error(`Failed to parse decrypted item with key: ${key}`, e);
+        this.removeItem(key);
+        return null;
+      }
+
+      // Проверяем истечение срока
       if (this.isExpired(item)) {
         this.removeItem(key);
         return null;

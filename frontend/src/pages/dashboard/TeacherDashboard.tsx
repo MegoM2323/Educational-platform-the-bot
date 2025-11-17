@@ -7,11 +7,9 @@ import { BookOpen, CheckCircle, FileText, MessageCircle, Bell, Plus, Clock, Aler
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { unifiedAPI } from "@/integrations/api/unifiedClient";
-import { teacherAPI } from "@/integrations/api/teacher";
 import { useToast } from "@/hooks/use-toast";
+import { useTeacherDashboard, usePendingSubmissions } from "@/hooks/useTeacher";
 
 // Интерфейсы для данных
 interface Material {
@@ -65,42 +63,21 @@ const TeacherDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
 
-  // Загрузка данных дашборда
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await unifiedAPI.getTeacherDashboard();
-        
-        if (response.data) {
-          setDashboardData(response.data);
-        } else {
-          setError(response.error || 'Ошибка загрузки данных');
-        }
-        try {
-          const pend = await teacherAPI.getPendingSubmissions();
-          setPendingSubmissions(pend);
-        } catch (e) {
-          console.warn('Не удалось загрузить pending submissions', e);
-        }
-      } catch (err) {
-        setError('Произошла ошибка при загрузке данных');
-        console.error('Dashboard fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Используем TanStack Query для кеширования данных
+  const {
+    data: dashboardData,
+    isLoading: dashboardLoading,
+    error: dashboardError,
+  } = useTeacherDashboard();
 
-    fetchDashboardData();
-  }, []);
+  const {
+    data: pendingSubmissions = [],
+    isLoading: submissionsLoading,
+  } = usePendingSubmissions();
+
+  const loading = dashboardLoading || submissionsLoading;
+  const error = dashboardError?.message || null;
 
   const handleMaterialClick = (materialId: number) => {
     // Детальной страницы пока нет — ведём на список материалов

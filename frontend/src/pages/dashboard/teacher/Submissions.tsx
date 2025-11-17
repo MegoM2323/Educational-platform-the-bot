@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { TeacherSidebar } from '@/components/layout/TeacherSidebar';
 import { CheckSquare } from 'lucide-react';
+import { handleProtectedFileClick } from '@/utils/fileDownload';
 
 export default function TeacherSubmissionsPage() {
   const { data: submissions, isLoading } = usePendingSubmissions();
@@ -50,7 +51,7 @@ export default function TeacherSubmissionsPage() {
                         <div className="text-sm whitespace-pre-wrap">{s.submission_text}</div>
                       )}
                       {s.submission_file && (
-                        <Button variant="outline" onClick={() => window.open(s.submission_file!, '_blank')}>Открыть файл</Button>
+                        <Button variant="outline" onClick={(e) => handleProtectedFileClick(e as any, s.submission_file!, undefined, true)}>Открыть файл</Button>
                       )}
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                         <div className="md:col-span-3">

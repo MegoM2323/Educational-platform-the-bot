@@ -1,18 +1,26 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { 
-  CreditCard, 
-  CheckCircle2, 
-  Clock, 
+import {
+  CreditCard,
+  CheckCircle2,
+  Clock,
   Loader2,
   ExternalLink,
   Calendar,
-  DollarSign
+  DollarSign,
+  XCircle,
+  AlertCircle,
+  X,
+  Repeat,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { unifiedAPI as djangoAPI, Payment } from "@/integrations/api/unifiedClient";
 import { PaymentStatusBadge, PaymentStatus } from "@/components/PaymentStatusBadge";
+import { parentDashboardAPI } from "@/integrations/api/dashboard";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 export interface SubjectPayment {
   id: number;
@@ -42,12 +50,16 @@ export interface SubjectPayment {
   paid_at?: string;
   created_at: string;
   next_payment_date?: string;
+  has_subscription?: boolean;
 }
 
 interface PaymentButtonProps {
   subjectPayment: SubjectPayment;
   onPaymentSuccess?: (payment: Payment) => void;
   onPaymentError?: (error: string) => void;
+  onCancelSubscription?: () => void | Promise<void>;
+  childId?: number;
+  enrollmentId?: number;
   className?: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'sm' | 'default' | 'lg';
@@ -58,7 +70,7 @@ const statusConfig = {
   pending: {
     label: 'Ожидает оплаты',
     icon: Clock,
-    buttonText: 'Оплатить',
+    buttonText: 'Подключить предмет',
     buttonVariant: 'default' as const,
   },
   waiting_for_payment: {
@@ -94,7 +106,7 @@ const statusConfig = {
   no_payment: {
     label: 'Без платежа',
     icon: AlertCircle,
-    buttonText: 'Оплатить',
+    buttonText: 'Подключить предмет',
     buttonVariant: 'default' as const,
   },
 };
@@ -103,14 +115,22 @@ export const PaymentButton = ({
   subjectPayment,
   onPaymentSuccess,
   onPaymentError,
+  onCancelSubscription,
+  childId,
+  enrollmentId,
   className = "",
   variant = "default",
   size = "default",
   showDetails = false
 }: PaymentButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [payment, setPayment] = useState<Payment | null>(subjectPayment.payment || null);
   const [paymentStatus, setPaymentStatus] = useState(subjectPayment.status);
+  const [hasSubscription, setHasSubscription] = useState(subjectPayment.has_subscription || false);
+  const [pollingAttempt, setPollingAttempt] = useState(0);
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
   const config = statusConfig[paymentStatus] || statusConfig.pending;
   const StatusIcon = config.icon;
@@ -119,43 +139,59 @@ export const PaymentButton = ({
   useEffect(() => {
     if (payment && (payment.status === 'pending' || payment.status === 'waiting_for_capture')) {
       let attempts = 0;
-      const maxAttempts = 24; // 2 минуты при интервале 5 секунд
-      
+      const maxAttempts = 60; // 5 минут при интервале 5 секунд
+      setIsPolling(true);
+      setPollingTimedOut(false);
+
       const interval = setInterval(async () => {
         attempts++;
-        
+        setPollingAttempt(attempts);
+
         try {
           const updatedPayment = await djangoAPI.getPaymentStatus(payment.id);
           setPayment(updatedPayment);
-          
+
           if (updatedPayment.status === 'succeeded') {
             setPaymentStatus('paid');
+            // После успешной оплаты подписка должна быть активна
+            setHasSubscription(true);
+            setIsPolling(false);
+            setPollingAttempt(0);
             onPaymentSuccess?.(updatedPayment);
-            toast.success("Платеж успешно обработан!");
+            toast.success("Платеж успешно обработан! Автосписание подключено.");
             clearInterval(interval);
           } else if (updatedPayment.status === 'canceled') {
             setPaymentStatus('pending');
+            setIsPolling(false);
+            setPollingAttempt(0);
             onPaymentError?.("Платеж был отменен");
             clearInterval(interval);
           } else if (updatedPayment.status === 'waiting_for_capture') {
             setPaymentStatus('waiting_for_payment');
           } else if (attempts >= maxAttempts) {
-            // Прекращаем проверку после 2 минут
+            // Прекращаем проверку после 5 минут
+            setIsPolling(false);
+            setPollingTimedOut(true);
             clearInterval(interval);
-            toast.info("Проверка статуса платежа завершена. Обновите страницу для актуального статуса.");
+            toast.info("Время проверки статуса платежа истекло. Используйте кнопку повтора или обновите страницу.");
           }
         } catch (error) {
           console.error("Error checking payment status:", error);
-          
+
           // После 3 неудачных попыток останавливаем проверку
           if (attempts >= 3) {
+            setIsPolling(false);
+            setPollingTimedOut(true);
             clearInterval(interval);
-            toast.error("Не удалось проверить статус платежа. Пожалуйста, обновите страницу.");
+            toast.error("Не удалось проверить статус платежа. Используйте кнопку повтора или обновите страницу.");
           }
         }
       }, 5000);
 
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        setIsPolling(false);
+      };
     }
   }, [payment, onPaymentSuccess, onPaymentError]);
 
@@ -257,6 +293,69 @@ export const PaymentButton = ({
     return new Date(subjectPayment.due_date) < new Date();
   };
 
+  const handleCancelSubscription = async () => {
+    if (!childId || !enrollmentId) {
+      toast.error("Не указаны параметры для отмены подписки");
+      return;
+    }
+
+    const subjectName = subjectPayment.subject_name || subjectPayment.enrollment.subject.name;
+    const confirmed = window.confirm(
+      `Отключить автосписание для предмета "${subjectName}"?`
+    );
+
+    if (!confirmed) return;
+
+    setIsCancelling(true);
+    try {
+      if (onCancelSubscription) {
+        await onCancelSubscription();
+      } else {
+        await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
+      }
+      setHasSubscription(false);
+      toast.success("Автосписание отключено");
+      // Обновляем состояние без перезагрузки страницы
+      if (onPaymentSuccess) {
+        // Если есть колбэк, вызываем его для обновления родительского компонента
+        const updatedPayment = payment || {} as Payment;
+        onPaymentSuccess(updatedPayment);
+      }
+    } catch (error) {
+      console.error('Cancel subscription error:', error);
+      toast.error("Не удалось отключить автосписание. Попробуйте позже.");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleRetryPolling = async () => {
+    if (!payment) return;
+
+    setPollingTimedOut(false);
+    setPollingAttempt(0);
+
+    try {
+      const updatedPayment = await djangoAPI.getPaymentStatus(payment.id);
+      setPayment(updatedPayment);
+
+      if (updatedPayment.status === 'succeeded') {
+        setPaymentStatus('paid');
+        setHasSubscription(true);
+        onPaymentSuccess?.(updatedPayment);
+        toast.success("Платеж успешно обработан! Автосписание подключено.");
+      } else if (updatedPayment.status === 'canceled') {
+        setPaymentStatus('pending');
+        onPaymentError?.("Платеж был отменен");
+      } else {
+        toast.info("Платеж все еще обрабатывается. Попробуйте позже.");
+      }
+    } catch (error) {
+      console.error("Error retrying payment status check:", error);
+      toast.error("Не удалось проверить статус платежа. Попробуйте позже.");
+    }
+  };
+
   const getButtonContent = () => {
     if (isLoading) {
       return (
@@ -356,17 +455,76 @@ export const PaymentButton = ({
                 </span>
               </div>
             )}
+            {hasSubscription && paymentStatus === 'paid' && (
+              <div className="flex items-center justify-between pt-2 mt-2 border-t">
+                <div className="flex items-center gap-2">
+                  <Repeat className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-600">Автосписание подключено</span>
+                </div>
+                <Badge variant="secondary" className="text-xs">Активно</Badge>
+              </div>
+            )}
           </div>
 
-          <Button
-            onClick={handlePayment}
-            disabled={(paymentStatus !== 'pending' && paymentStatus !== 'waiting_for_payment') || isLoading}
-            variant={(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? 'default' : 'outline'}
-            size={size}
-            className={`w-full ${(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? 'gradient-primary shadow-glow hover:opacity-90 transition-opacity' : ''}`}
-          >
-            {getButtonContent()}
-          </Button>
+          <div className="space-y-2">
+            {isPolling && (
+              <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    <span className="text-blue-700 dark:text-blue-300">
+                      Проверяем статус платежа... (попытка {pollingAttempt} из 60)
+                    </span>
+                  </div>
+                </div>
+                <Progress value={(pollingAttempt / 60) * 100} className="h-2" />
+              </div>
+            )}
+
+            {pollingTimedOut && (
+              <Button
+                onClick={handleRetryPolling}
+                variant="outline"
+                size={size}
+                className="w-full"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                <span>Проверить статус платежа</span>
+              </Button>
+            )}
+
+            {hasSubscription && paymentStatus === 'paid' ? (
+              <Button
+                onClick={handleCancelSubscription}
+                disabled={isCancelling}
+                variant="outline"
+                size={size}
+                className="w-full"
+              >
+                {isCancelling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <span>Отключение...</span>
+                  </>
+                ) : (
+                  <>
+                    <X className="h-4 w-4 mr-2" />
+                    <span>Отключить автосписание</span>
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={handlePayment}
+                disabled={(paymentStatus !== 'pending' && paymentStatus !== 'waiting_for_payment') || isLoading}
+                variant={(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? 'default' : 'outline'}
+                size={size}
+                className={`w-full ${(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? 'gradient-primary shadow-glow hover:opacity-90 transition-opacity' : ''}`}
+              >
+                {getButtonContent()}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     );

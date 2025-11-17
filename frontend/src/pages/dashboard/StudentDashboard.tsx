@@ -7,16 +7,14 @@ import { BookOpen, MessageCircle, Target, Bell, CheckCircle, Clock, LogOut, Exte
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/layout/StudentSidebar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { unifiedAPI } from "@/integrations/api/unifiedClient";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorNotification, useSuccessNotification } from "@/components/NotificationSystem";
 import { DashboardSkeleton, ErrorState, EmptyState, LoadingWithRetry } from "@/components/LoadingStates";
 import { useErrorReporter } from "@/components/ErrorHandlingProvider";
 import { useNetworkStatus } from "@/components/NetworkStatusHandler";
 import { FallbackUI, OfflineContent } from "@/components/FallbackUI";
-import { useStudentSubjects } from "@/hooks/useStudent";
+import { useStudentDashboard } from "@/hooks/useStudent";
 
 // Интерфейсы для данных
 interface Material {
@@ -88,51 +86,16 @@ const StudentDashboard = () => {
   const showSuccess = useSuccessNotification();
   const { reportError, reportNetworkError } = useErrorReporter();
   const networkStatus = useNetworkStatus();
-  
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  // const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
-  
-  // console.log('StudentDashboard: subjects data:', subjects);
-  // console.log('StudentDashboard: subjects loading:', subjectsLoading);
 
-  // Загрузка данных дашборда с улучшенной обработкой ошибок
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await unifiedAPI.getStudentDashboard();
-      
-        if (response.success && response.data) {
-          setDashboardData(response.data);
-          setLoading(false);
-          showSuccess('Данные успешно загружены');
-        } else {
-        const errorMessage = response.error || 'Ошибка загрузки данных';
-        setError(errorMessage);
-        reportError(new Error(errorMessage), {
-          operation: 'fetchDashboardData',
-          component: 'StudentDashboard',
-          response,
-        });
-      }
-    } catch (err: any) {
-      const errorMessage = 'Произошла ошибка при загрузке данных';
-      setError(errorMessage);
-      reportNetworkError(err, {
-        operation: 'fetchDashboardData',
-        component: 'StudentDashboard',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Используем TanStack Query для кеширования данных
+  const {
+    data: dashboardData,
+    isLoading: loading,
+    error: queryError,
+    refetch: fetchDashboardData
+  } = useStudentDashboard();
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const error = queryError?.message || null;
 
   const handleSignOut = async () => {
     try {

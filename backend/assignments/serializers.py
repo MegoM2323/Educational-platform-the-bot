@@ -137,15 +137,25 @@ class AssignmentSubmissionSerializer(serializers.ModelSerializer):
     assignment_title = serializers.CharField(source='assignment.title', read_only=True)
     percentage = serializers.FloatField(read_only=True)
     answers = AssignmentAnswerSerializer(many=True, read_only=True)
+    file_url = serializers.SerializerMethodField()
     
     class Meta:
         model = AssignmentSubmission
         fields = (
             'id', 'assignment', 'assignment_title', 'student', 'student_name',
-            'content', 'file', 'status', 'score', 'max_score', 'percentage',
+            'content', 'file', 'file_url', 'status', 'score', 'max_score', 'percentage',
             'feedback', 'submitted_at', 'graded_at', 'updated_at', 'answers'
         )
         read_only_fields = ('id', 'submitted_at', 'graded_at', 'updated_at')
+    
+    def get_file_url(self, obj):
+        """Возвращает абсолютный URL файла"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
     
     def create(self, validated_data):
         validated_data['student'] = self.context['request'].user

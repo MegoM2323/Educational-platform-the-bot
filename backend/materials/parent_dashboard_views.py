@@ -57,7 +57,7 @@ class ParentDashboardView(generics.RetrieveAPIView):
                 return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
             
             # Проверяем связь родитель-ребенок
-            service = ParentDashboardService(request.user)
+            service = ParentDashboardService(request.user, request)
             dashboard_data = service.get_dashboard_data()
             logger.info(f"[ParentDashboardView.get] Dashboard data children count: {len(dashboard_data.get('children', []))}")
             logger.info(f"[ParentDashboardView.get] Dashboard data keys: {list(dashboard_data.keys())}")
@@ -96,7 +96,7 @@ class ParentChildrenView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         try:
             logger.info(f"[ParentChildrenView.list] Request from user: {request.user.username}, role: {request.user.role}")
-            service = ParentDashboardService(request.user)
+            service = ParentDashboardService(request.user, request)
             children = service.get_children()
             logger.info(f"[ParentChildrenView.list] Found {children.count()} children for parent {request.user.username}")
             
@@ -369,15 +369,18 @@ def initiate_payment(request, child_id, enrollment_id):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        amount = Decimal(str(serializer.validated_data['amount']))
+        # Если amount не указан, будет использоваться значение из настроек в service.initiate_payment
+        amount = serializer.validated_data.get('amount')
+        if amount is not None:
+            amount = Decimal(str(amount))
+            if amount <= 0:
+                return Response(
+                    {'error': 'Сумма должна быть больше нуля'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         description = serializer.validated_data.get('description', '')
         create_subscription = serializer.validated_data.get('create_subscription', False)
-        
-        if amount <= 0:
-            return Response(
-                {'error': 'Сумма должна быть больше нуля'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
         
         payment_data = service.initiate_payment(
             child=child,

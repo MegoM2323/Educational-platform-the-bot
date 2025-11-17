@@ -750,6 +750,26 @@ class UnifiedAPIClient {
     return response;
   }
 
+  async refreshToken(): Promise<ApiResponse<LoginResponse>> {
+    console.log('[unifiedAPIClient.refreshToken] Refreshing token');
+    const response = await this.request<LoginResponse>('/auth/refresh/', {
+      method: 'POST',
+    });
+
+    if (response.success && response.data) {
+      console.log('[unifiedAPIClient.refreshToken] Token refreshed successfully');
+      this.saveTokensToStorage(
+        response.data.token,
+        response.data.refresh_token
+      );
+      localStorage.setItem('userData', JSON.stringify(response.data.user));
+    } else {
+      console.error('[unifiedAPIClient.refreshToken] Failed to refresh token:', response.error);
+    }
+
+    return response;
+  }
+
   async getProfile(): Promise<ApiResponse<{ user: User; profile?: any }>> {
     return this.request<{ user: User; profile?: any }>('/auth/profile/');
   }

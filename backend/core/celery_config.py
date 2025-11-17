@@ -34,4 +34,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'core.tasks.log_system_metrics',
         'schedule': crontab(minute='*/15'),
     },
+    
+    # Обработка рекуррентных платежей каждые 5 минут
+    'process-subscription-payments': {
+        'task': 'core.tasks.process_subscription_payments',
+        'schedule': crontab(minute='*/5'),
+    },
 }

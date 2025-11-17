@@ -12,39 +12,66 @@ from accounts.models import (
 
 
 class Command(BaseCommand):
-    help = "Создаёт тестовые учётные записи и профили для student/parent/teacher/tutor"
+    help = "Создаёт тестовые учётные записи и профили для student/parent/teacher/tutor с одинаковым паролем"
 
     @transaction.atomic
     def handle(self, *args, **options):
+        # ЕДИНЫЙ ПАРОЛЬ для всех тестовых аккаунтов
+        TEST_PASSWORD = "TestPass123!"
+
         # Предсказуемые тестовые данные
         users_spec = [
             {
-                "email": "test_student@example.com",
-                "first_name": "Test",
-                "last_name": "Student",
+                "email": "student@test.com",
+                "first_name": "Иван",
+                "last_name": "Соколов",
                 "role": User.Role.STUDENT,
-                "password": "test123",
+                "password": TEST_PASSWORD,
             },
             {
-                "email": "test_parent@example.com",
-                "first_name": "Test",
-                "last_name": "Parent",
+                "email": "parent@test.com",
+                "first_name": "Мария",
+                "last_name": "Соколова",
                 "role": User.Role.PARENT,
-                "password": "test123",
+                "password": TEST_PASSWORD,
             },
             {
-                "email": "test_teacher@example.com",
-                "first_name": "Test",
-                "last_name": "Teacher",
+                "email": "teacher@test.com",
+                "first_name": "Петр",
+                "last_name": "Иванов",
                 "role": User.Role.TEACHER,
-                "password": "test123",
+                "password": TEST_PASSWORD,
             },
             {
-                "email": "test_tutor@example.com",
-                "first_name": "Test",
-                "last_name": "Tutor",
+                "email": "tutor@test.com",
+                "first_name": "Сергей",
+                "last_name": "Смирнов",
                 "role": User.Role.TUTOR,
-                "password": "test123",
+                "password": TEST_PASSWORD,
+            },
+            # Дополнительные тестовые аккаунты для разнообразия
+            {
+                "email": "student2@test.com",
+                "first_name": "Александр",
+                "last_name": "Петров",
+                "role": User.Role.STUDENT,
+                "password": TEST_PASSWORD,
+            },
+            {
+                "email": "teacher2@test.com",
+                "first_name": "Елена",
+                "last_name": "Кузнецова",
+                "role": User.Role.TEACHER,
+                "password": TEST_PASSWORD,
+            },
+            {
+                "email": "admin@test.com",
+                "first_name": "Админ",
+                "last_name": "Администратор",
+                "role": User.Role.PARENT,  # Обычная роль для админа
+                "password": TEST_PASSWORD,
+                "is_staff": True,
+                "is_superuser": True,
             },
         ]
 
@@ -61,6 +88,8 @@ class Command(BaseCommand):
                     "role": spec["role"],
                     "is_active": True,
                     "is_verified": True,
+                    "is_staff": spec.get("is_staff", False),
+                    "is_superuser": spec.get("is_superuser", False),
                 },
             )
 
@@ -73,10 +102,20 @@ class Command(BaseCommand):
             user.role = spec["role"]
             user.is_active = True
             user.is_verified = True
+            user.is_staff = spec.get("is_staff", False)
+            user.is_superuser = spec.get("is_superuser", False)
             user.save()
 
-            created_or_existing[spec["role"]] = user
-            self.stdout.write(self.style.SUCCESS(f"OK: {spec['role']} -> {spec['email']} / {spec['password']}"))
+            # Сохраняем первого найденного пользователя каждой роли (кроме дублей)
+            if spec["role"] not in created_or_existing:
+                created_or_existing[spec["role"]] = user
+
+            status = "🆕" if created else "♻️"
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"{status} {spec['role']:10} -> {spec['email']:25} / {spec['password']}"
+                )
+            )
 
         # Профили и связи
         student = created_or_existing[User.Role.STUDENT]
@@ -120,6 +159,24 @@ class Command(BaseCommand):
             },
         )
 
-        self.stdout.write(self.style.SUCCESS("Тестовые аккаунты и профили готовы."))
+        self.stdout.write("\n" + "="*80)
+        self.stdout.write(self.style.SUCCESS("✅ ТЕСТОВЫЕ АККАУНТЫ ГОТОВЫ!"))
+        self.stdout.write("="*80)
+        self.stdout.write(f"\n🔐 ЕДИНЫЙ ПАРОЛЬ ДЛЯ ВСЕХ: {TEST_PASSWORD}\n")
+        self.stdout.write(self.style.WARNING("📋 ТЕСТОВЫЕ УЧЁТНЫЕ ДАННЫЕ:"))
+        self.stdout.write("-"*80)
+        self.stdout.write(f"👨‍🎓 СТУДЕНТ        | Email: student@test.com           | Пароль: {TEST_PASSWORD}")
+        self.stdout.write(f"👩‍👧 РОДИТЕЛЬ       | Email: parent@test.com            | Пароль: {TEST_PASSWORD}")
+        self.stdout.write(f"👨‍🏫 ПРЕПОДАВАТЕЛЬ | Email: teacher@test.com           | Пароль: {TEST_PASSWORD}")
+        self.stdout.write(f"👨‍💼 ТЬЮТОР        | Email: tutor@test.com             | Пароль: {TEST_PASSWORD}")
+        self.stdout.write(f"👨‍🎓 СТУДЕНТ 2      | Email: student2@test.com          | Пароль: {TEST_PASSWORD}")
+        self.stdout.write(f"👩‍🏫 ПРЕПОДАВАТЕЛЬ 2| Email: teacher2@test.com          | Пароль: {TEST_PASSWORD}")
+        self.stdout.write(f"👑 АДМИНИСТРАТОР  | Email: admin@test.com             | Пароль: {TEST_PASSWORD}")
+        self.stdout.write("-"*80)
+        self.stdout.write("\n⚙️  СВЯЗИ:")
+        self.stdout.write(f"   • Студент связан с тьютором '{tutor.get_full_name()}' и родителем '{parent.get_full_name()}'")
+        self.stdout.write(f"   • Студент 2 независим (может быть связан через админ панель)")
+        self.stdout.write("\n💡 СОВЕТ: Запомните email и пароль выше для входа в приложение")
+        self.stdout.write("="*80 + "\n")
 
 

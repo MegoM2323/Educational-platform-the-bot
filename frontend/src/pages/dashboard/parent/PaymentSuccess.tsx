@@ -50,12 +50,18 @@ const PaymentSuccess = () => {
     sessionStorage.removeItem('pending_payment_id');
 
     // Проверяем статус платежа с polling
+    let checkPaymentTimeout: NodeJS.Timeout;
+    let pollCount = 0;
+
     const checkPayment = async (retryCount = 0) => {
-      const MAX_RETRIES = 60; // Maximum 60 attempts = 60 seconds (increased for real payment webhooks)
-      const RETRY_DELAY = 1000; // 1 second between attempts
+      const MAX_RETRIES = 30; // Maximum 30 attempts = 75 seconds at 2.5s interval (reduced from 60 at 1s)
+      const RETRY_DELAY = 2500; // 2.5 seconds between attempts (increased from 1s to reduce server load)
 
       try {
         setChecking(true);
+        pollCount++;
+        console.log(`[Payment Check ${pollCount}] Retry ${retryCount + 1}/${MAX_RETRIES}`);
+
         const response = await unifiedAPI.request(`/api/check-payment/?payment_id=${paymentId}`);
 
         if (response.data) {
@@ -64,6 +70,7 @@ const PaymentSuccess = () => {
 
           if (status === 'succeeded' || status === 'SUCCEEDED') {
             // Payment successful
+            console.log('[Payment Check] Status: SUCCEEDED');
             setPaymentStatus('success');
 
             // CRITICAL: Invalidate and refetch dashboard data
@@ -79,26 +86,33 @@ const PaymentSuccess = () => {
               description: "Доступ к предмету активирован.",
             });
 
-            setRedirectCountdown(5); // Increased from 3 to 5 seconds
+            setRedirectCountdown(5);
 
           } else if (status === 'pending' || status === 'PENDING' || status === 'waiting_for_capture') {
             // Payment still processing
+            console.log(`[Payment Check] Status: ${status} - continuing polling`);
             setPaymentStatus('pending');
 
-            // Retry after 1 second
+            // Retry after 2.5 seconds (reduced from 60s max, now 75s max)
             if (retryCount < MAX_RETRIES) {
-              console.log(`Payment pending, retry ${retryCount + 1}/${MAX_RETRIES}`);
-              setTimeout(() => checkPayment(retryCount + 1), RETRY_DELAY);
+              // Логируем только каждый 4-й запрос чтобы не замусорить консоль
+              if (retryCount % 4 === 0) {
+                console.log(`Payment pending, retry ${retryCount + 1}/${MAX_RETRIES}`);
+              }
+              checkPaymentTimeout = setTimeout(() => checkPayment(retryCount + 1), RETRY_DELAY);
             } else {
-              console.log('Max retries reached after 60 seconds, stopping polling');
+              // Максимум попыток исчерпан
+              console.log('[Payment Check] Max retries reached, stopping polling');
+              setPaymentStatus('pending'); // Оставляем "pending" статус
               toast({
                 title: "Платеж обрабатывается",
-                description: "Обработка платежа занимает больше времени, чем обычно. Пожалуйста, обновите страницу через минуту или вернитесь в личный кабинет.",
+                description: "Обработка платежа занимает больше времени, чем обычно. Платеж будет учтен, пожалуйста, вернитесь в личный кабинет.",
                 variant: "default",
               });
             }
 
           } else if (status === 'canceled' || status === 'CANCELED') {
+            console.log('[Payment Check] Status: CANCELED');
             setPaymentStatus('failed');
             toast({
               title: "Платеж отменен",
@@ -108,15 +122,26 @@ const PaymentSuccess = () => {
           }
         }
       } catch (error: any) {
-        console.error('Error checking payment:', error);
-        setError(error.message || 'Произошла ошибка при проверке статуса платежа');
-        setPaymentStatus('failed');
+        console.error('[Payment Check] Error:', error);
+        // При ошибке продолжаем polling, не прерываем
+        setPaymentStatus('pending');
+        if (retryCount < 30) {
+          checkPaymentTimeout = setTimeout(() => checkPayment(retryCount + 1), 5000);
+        }
       } finally {
         setChecking(false);
       }
     };
 
+    // Запускаем проверку
     checkPayment();
+
+    // Cleanup при размонтировании
+    return () => {
+      if (checkPaymentTimeout) {
+        clearTimeout(checkPaymentTimeout);
+      }
+    };
   }, [searchParams, toast, queryClient]);
 
   // Эффект для обратного отсчета и автоматического редиректа

@@ -12,7 +12,7 @@ export const useParentDashboard = () => {
       }
       return response.data;
     },
-    staleTime: 30000, // 30 seconds
+    staleTime: 60000, // 60 seconds - снижает нагрузку на сервер
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });

@@ -6,6 +6,9 @@ import { retryService } from '../../services/retryService';
 import { errorLoggingService } from '../../services/errorLoggingService';
 import { performanceMonitoringService } from '../../services/performanceMonitoringService';
 import { cacheService } from '../../services/cacheService';
+import { tokenStorage } from '../../services/tokenStorage';
+import { normalizeResponse, validateResponseData, extractErrorMessage, isResponseError } from './responseNormalizer';
+import { logger } from '../../utils/logger';
 
 // Environment configuration - получаем URL с автоопределением
 function getApiUrl(): string {
@@ -17,7 +20,7 @@ function getApiUrl(): string {
     if (!url.endsWith('/api')) {
       url = url.replace(/\/$/, '') + '/api';
     }
-    console.log('[Config] Using API URL from env:', url);
+    logger.info('[Config] Using API URL from env:', url);
     return url;
   }
 
@@ -25,12 +28,12 @@ function getApiUrl(): string {
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
     const url = `${protocol}//${window.location.host}/api`;
-    console.log('[Config] Using auto-detected API URL:', url);
+    logger.info('[Config] Using auto-detected API URL:', url);
     return url;
   }
 
   // Fallback для SSR
-  console.log('[Config] Using fallback API URL');
+  logger.info('[Config] Using fallback API URL');
   return 'http://localhost:8000/api';
 }
 
@@ -39,7 +42,7 @@ function getWebSocketUrl(): string {
   const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL);
   if (envUrl && envUrl !== 'undefined') {
     const url = envUrl.replace(/\/$/, '');
-    console.log('[Config] Using WebSocket URL from env:', url);
+    logger.info('[Config] Using WebSocket URL from env:', url);
     return url;
   }
 
@@ -47,12 +50,12 @@ function getWebSocketUrl(): string {
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${window.location.host}/ws`;
-    console.log('[Config] Using auto-detected WebSocket URL:', url);
+    logger.info('[Config] Using auto-detected WebSocket URL:', url);
     return url;
   }
 
   // Fallback для SSR
-  console.log('[Config] Using fallback WebSocket URL');
+  logger.info('[Config] Using fallback WebSocket URL');
   return 'ws://localhost:8000/ws';
 }
 
@@ -280,6 +283,8 @@ class UnifiedAPIClient {
   private refreshToken: string | null = null;
   private retryConfig: RetryConfig;
   private requestQueue: Map<string, Promise<any>> = new Map();
+  private isRefreshing = false; // Prevent concurrent refresh attempts
+  private refreshQueue: Array<() => void> = []; // Queue requests during refresh
 
   constructor(
     baseURL: string = API_BASE_URL,
@@ -292,98 +297,40 @@ class UnifiedAPIClient {
     this.loadTokensFromStorage();
   }
 
-  // Token Management
+  // Token Management - Use unified tokenStorage service
   private loadTokensFromStorage(): void {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      // Пробуем загрузить из authToken (простой формат)
-      this.token = localStorage.getItem('authToken');
-      
-      // Если не найдено, пробуем загрузить из secureStorage формата
-      if (!this.token) {
-        const secureItem = localStorage.getItem('bot_platform_auth_token');
-        if (secureItem) {
-          try {
-            const parsed = JSON.parse(secureItem);
-            this.token = parsed?.data || null;
-            if (this.token) {
-              console.log('[Token Management] Token loaded from secure storage format');
-            }
-          } catch (e) {
-            console.warn('[Token Management] Failed to parse secure storage token:', e);
-          }
-        }
-      }
-      
-      // Для refresh token
-      this.refreshToken = localStorage.getItem('refreshToken');
-      const secureRefresh = localStorage.getItem('bot_platform_refresh_token');
-      if (!this.refreshToken && secureRefresh) {
-        try {
-          const parsed = JSON.parse(secureRefresh);
-          this.refreshToken = parsed?.data || null;
-        } catch (e) {
-          console.warn('[Token Management] Failed to parse secure refresh token:', e);
-        }
-      }
-      
-      if (!this.token) {
-        console.warn('[Token Management] No auth token found in any storage location');
-      } else {
-        console.log('[Token Management] Token loaded from storage');
-      }
-    } else {
-      console.warn('[Token Management] localStorage not available');
+    const tokens = tokenStorage.getTokens();
+    this.token = tokens.accessToken;
+    this.refreshToken = tokens.refreshToken;
+
+    if (this.token) {
+      logger.debug('[TokenClient] Tokens loaded from unified storage');
     }
   }
 
   private saveTokensToStorage(token: string, refreshToken?: string): void {
     this.token = token;
-    console.log('[Token Management] Saving token to storage');
-    if (typeof window !== 'undefined' && window.localStorage) {
-      // Сохраняем в простом формате
-      localStorage.setItem('authToken', token);
-      console.log('[Token Management] Token saved to localStorage');
-      
-      // Также сохраняем в secureStorage формат для совместимости с authService
-      const tokenItem = {
-        data: token,
-        timestamp: Date.now()
-      };
-      localStorage.setItem('bot_platform_auth_token', JSON.stringify(tokenItem));
-      console.log('[Token Management] Token saved to secure storage format');
-      
-      if (refreshToken) {
-        this.refreshToken = refreshToken;
-        localStorage.setItem('refreshToken', refreshToken);
-        console.log('[Token Management] Refresh token saved to localStorage');
-        
-        // Также сохраняем refresh token в secureStorage формат
-        const refreshItem = {
-          data: refreshToken,
-          timestamp: Date.now()
-        };
-        localStorage.setItem('bot_platform_refresh_token', JSON.stringify(refreshItem));
-      }
-    } else {
-      console.warn('[Token Management] Cannot save token: localStorage not available');
-    }
+    this.refreshToken = refreshToken || this.refreshToken || undefined;
+
+    // Use unified tokenStorage service
+    tokenStorage.saveTokens(token, refreshToken);
+    logger.debug('[TokenClient] Tokens saved to unified storage');
   }
 
   private clearTokens(): void {
     this.token = null;
     this.refreshToken = null;
-    if (typeof window !== 'undefined' && window.localStorage) {
-      // Очищаем простой формат
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('userData');
-      
-      // Очищаем secureStorage формат
-      localStorage.removeItem('bot_platform_auth_token');
-      localStorage.removeItem('bot_platform_refresh_token');
-      localStorage.removeItem('bot_platform_user_data');
-      
-      console.log('[Token Management] Tokens cleared from all storage locations');
+
+    // Use unified tokenStorage service
+    tokenStorage.clearTokens();
+
+    // Redirect to login if in browser
+    if (typeof window !== 'undefined') {
+      logger.info('[TokenClient] Tokens cleared, redirecting to login');
+      // Redirect to login page
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 100);
     }
   }
 
@@ -509,14 +456,14 @@ class UnifiedAPIClient {
     
     // Check cache for GET requests (но не для списка пользователей, staff и студентов тьютора, чтобы всегда получать актуальные данные)
     const isGET = !options.method || options.method === 'GET';
-    const shouldUseCache = isGET && !retryCount && 
-      !endpoint.includes('/accounts/users/') && 
+    const shouldUseCache = isGET && !retryCount &&
+      !endpoint.includes('/accounts/users/') &&
       !endpoint.includes('/auth/staff/') &&
       !endpoint.includes('/tutor/students/');
     if (shouldUseCache) {
       const cachedData = cacheService.get<T>(endpoint);
       if (cachedData !== null) {
-        console.log('[API Request] Using cached data for:', endpoint);
+        logger.debug('[API Request] Using cached data for:', endpoint);
         return {
           success: true,
           data: cachedData,
@@ -533,9 +480,9 @@ class UnifiedAPIClient {
 
     if (this.token) {
       headers['Authorization'] = `Token ${this.token}`;
-      console.log('[API Request] Authorization header added');
+      logger.debug('[API Request] Authorization header added');
     } else {
-      console.warn('[API Request] No token available for request');
+      logger.warn('[API Request] No token available for request');
     }
 
     // Start performance timer
@@ -557,7 +504,7 @@ class UnifiedAPIClient {
       
       // Логируем для отладки списка пользователей и staff
       if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
-        console.log('[unifiedClient] API response:', {
+        logger.debug('[unifiedClient] API response:', {
           endpoint,
           ok: response.ok,
           status: response.status,
@@ -580,12 +527,33 @@ class UnifiedAPIClient {
 
       if (!response.ok) {
         const apiError = this.classifyError(null, response);
-        
-        // Handle authentication errors with token refresh
-        if (apiError.type === 'auth' && this.refreshToken && retryCount === 0) {
-          const refreshSuccess = await this.refreshAuthToken();
-          if (refreshSuccess) {
-            return this.request<T>(endpoint, options, retryCount + 1);
+
+        // Handle authentication errors with token refresh (prevent infinite loops)
+        if (apiError.type === 'auth' && retryCount === 0) {
+          // If refresh is in progress, queue this request
+          if (this.isRefreshing) {
+            return new Promise((resolve) => {
+              this.refreshQueue.push(() => {
+                this.request<T>(endpoint, options, retryCount + 1).then(resolve);
+              });
+            });
+          }
+
+          // If we have a refresh token, attempt refresh
+          if (this.refreshToken) {
+            this.isRefreshing = true;
+            try {
+              const refreshSuccess = await this.refreshAuthToken();
+              if (refreshSuccess) {
+                // Process queued requests
+                this.refreshQueue.forEach((callback) => callback());
+                this.refreshQueue = [];
+                return this.request<T>(endpoint, options, retryCount + 1);
+              }
+            } finally {
+              this.isRefreshing = false;
+              this.refreshQueue = [];
+            }
           }
         }
 
@@ -646,38 +614,38 @@ class UnifiedAPIClient {
         // Если это массив, используем его напрямую (самый частый случай для list endpoints)
         responseData = result.data;
         if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
-          console.log('[unifiedClient] Data is array, length:', responseData.length);
+          logger.debug('[unifiedClient] Data is array, length:', responseData.length);
         }
       } else if (result.data && typeof result.data === 'object') {
         // Если это объект, проверяем наличие вложенных данных
         // Но для list endpoints Django обычно возвращает массив напрямую
         if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
-          console.log('[unifiedClient] Data is object, keys:', Object.keys(result.data));
+          logger.debug('[unifiedClient] Data is object, keys:', Object.keys(result.data));
         }
         if (result.data.data !== undefined) {
           // Если есть вложенное поле data, используем его
           responseData = result.data.data;
           if (isStaffEndpoint) {
-            console.log('[unifiedClient] Using result.data.data');
+            logger.debug('[unifiedClient] Using result.data.data');
           }
         } else if (Array.isArray(result.data.results)) {
           // Если есть поле results (пагинация), используем его
           responseData = result.data.results;
           if (isStaffEndpoint) {
-            console.log('[unifiedClient] Using result.data.results, length:', responseData.length);
+            logger.debug('[unifiedClient] Using result.data.results, length:', responseData.length);
           }
         } else {
           // Иначе используем весь объект
           responseData = result.data;
           if (isStaffEndpoint) {
-            console.log('[unifiedClient] Using result.data as is');
+            logger.debug('[unifiedClient] Using result.data as is');
           }
         }
       } else {
         // Если это не массив и не объект, используем как есть
         responseData = result.data;
         if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
-          console.warn('[unifiedClient] Data is not array or object:', typeof result.data);
+          logger.warn('[unifiedClient] Data is not array or object:', typeof result.data);
         }
       }
       
@@ -689,7 +657,7 @@ class UnifiedAPIClient {
       };
       
       if (endpoint.includes('/accounts/users/') || isStaffEndpoint) {
-        console.log('[unifiedClient] Final response:', {
+        logger.debug('[unifiedClient] Final response:', {
           success: apiResponse.success,
           dataType: typeof apiResponse.data,
           isArray: Array.isArray(apiResponse.data),
@@ -736,35 +704,63 @@ class UnifiedAPIClient {
     }
   }
 
-  // Token Refresh
+  // Token Refresh with proper error handling
   private async refreshAuthToken(): Promise<boolean> {
     if (!this.refreshToken) {
+      logger.warn('[TokenClient] No refresh token available');
+      this.clearTokens();
       return false;
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     try {
+      logger.info('[TokenClient] Attempting token refresh');
       const response = await fetch(`${this.baseURL}/auth/refresh/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ refresh_token: this.refreshToken }),
+        signal: controller.signal,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data?.token) {
-          this.saveTokensToStorage(result.data.token, result.data.refresh_token);
-          return true;
-        }
+      clearTimeout(timeout);
+
+      // Check HTTP status
+      if (!response.ok) {
+        logger.error('[TokenClient] Token refresh failed with status:', response.status);
+        this.clearTokens();
+        return false;
+      }
+
+      // Parse response
+      const result = await response.json();
+
+      // Validate response structure (using new response normalizer logic)
+      if (result.success && result.data?.token) {
+        logger.info('[TokenClient] Token refresh successful');
+        this.saveTokensToStorage(result.data.token, result.data.refresh_token);
+        return true;
+      } else {
+        logger.error('[TokenClient] Invalid token refresh response:', result);
+        this.clearTokens();
+        return false;
       }
     } catch (error) {
-      console.error('Token refresh failed:', error);
-    }
+      clearTimeout(timeout);
 
-    // If refresh fails, clear tokens and redirect to login
-    this.clearTokens();
-    return false;
+      if (error instanceof Error && error.name === 'AbortError') {
+        logger.error('[TokenClient] Token refresh timeout');
+      } else {
+        logger.error('[TokenClient] Token refresh error:', error);
+      }
+
+      // Clear tokens and redirect to login on any error
+      this.clearTokens();
+      return false;
+    }
   }
 
   // Authentication Methods
@@ -795,20 +791,20 @@ class UnifiedAPIClient {
   }
 
   async refreshToken(): Promise<ApiResponse<LoginResponse>> {
-    console.log('[unifiedAPIClient.refreshToken] Refreshing token');
+    logger.info('[unifiedAPIClient.refreshToken] Refreshing token');
     const response = await this.request<LoginResponse>('/auth/refresh/', {
       method: 'POST',
     });
 
     if (response.success && response.data) {
-      console.log('[unifiedAPIClient.refreshToken] Token refreshed successfully');
+      logger.info('[unifiedAPIClient.refreshToken] Token refreshed successfully');
       this.saveTokensToStorage(
         response.data.token,
         response.data.refresh_token
       );
       localStorage.setItem('userData', JSON.stringify(response.data.user));
     } else {
-      console.error('[unifiedAPIClient.refreshToken] Failed to refresh token:', response.error);
+      logger.error('[unifiedAPIClient.refreshToken] Failed to refresh token:', response.error);
     }
 
     return response;
@@ -842,11 +838,11 @@ class UnifiedAPIClient {
   }
 
   async getTeacherDashboard(): Promise<ApiResponse<TeacherDashboard>> {
-    return this.request<TeacherDashboard>('/materials/dashboard/teacher/');
+    return this.request<TeacherDashboard>('/dashboard/teacher/');
   }
 
   async getParentDashboard(): Promise<ApiResponse<ParentDashboard>> {
-    return this.request<ParentDashboard>('/materials/dashboard/parent/');
+    return this.request<ParentDashboard>('/dashboard/parent/');
   }
 
   // Chat Methods
@@ -939,7 +935,7 @@ class UnifiedAPIClient {
         timestamp: Date.now()
       };
       localStorage.setItem('bot_platform_auth_token', JSON.stringify(item));
-      console.log('[Token Management] Token saved to both storage locations');
+      logger.debug('[Token Management] Token saved to both storage locations');
     }
   }
 
@@ -956,7 +952,7 @@ class UnifiedAPIClient {
   // WebSocket Connection (placeholder for future implementation)
   connectWebSocket(): WebSocket | null {
     if (typeof WebSocket === 'undefined') {
-      console.warn('WebSocket not supported in this environment');
+      logger.warn('WebSocket not supported in this environment');
       return null;
     }
 
@@ -964,7 +960,7 @@ class UnifiedAPIClient {
       const ws = new WebSocket(`${this.wsURL}/chat/`);
       return ws;
     } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
+      logger.error('Failed to create WebSocket connection:', error);
       return null;
     }
   }

@@ -20,8 +20,8 @@ const cspPlugin = (mode: string) => {
         );
       }
       
-      // Для production - строгий CSP
-      const prodCSP = "script-src 'self' 'unsafe-inline' https: 'wasm-unsafe-eval' 'strict-dynamic' 'report-sample' https://static.yoomoney.ru; object-src 'none'; base-uri 'self';";
+      // Для production - CSP с поддержкой WebAssembly
+      const prodCSP = "script-src 'self' 'unsafe-inline' https: 'wasm-unsafe-eval' 'unsafe-eval' 'report-sample' https://static.yoomoney.ru; object-src 'none'; base-uri 'self';";
       
       return html.replace(
         /<!-- CSP будет установлен через Vite плагин для поддержки development режима -->/,

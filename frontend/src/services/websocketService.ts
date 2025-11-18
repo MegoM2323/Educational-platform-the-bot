@@ -325,7 +325,29 @@ export class WebSocketService {
 
 // Создаем глобальный экземпляр WebSocket сервиса
 // По умолчанию используем endpoint общего чата Channels: /ws/chat/general/
-const WEBSOCKET_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL) || 'ws://localhost:8000/ws/chat/general/';
+function getChatWebSocketUrl(): string {
+  // Сначала пробуем получить из переменной окружения
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL);
+  if (envUrl && envUrl !== 'undefined') {
+    const url = envUrl.replace(/\/$/, '') + '/chat/general/';
+    console.log('[WebSocket Config] Using URL from env:', url);
+    return url;
+  }
+
+  // Для production и development автоматически определяем WebSocket URL
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${protocol}//${window.location.host}/ws/chat/general/`;
+    console.log('[WebSocket Config] Using auto-detected URL:', url);
+    return url;
+  }
+
+  // Fallback для SSR
+  console.log('[WebSocket Config] Using fallback URL');
+  return 'ws://localhost:8000/ws/chat/general/';
+}
+
+const WEBSOCKET_URL = getChatWebSocketUrl();
 
 export const websocketService = new WebSocketService({
   url: WEBSOCKET_URL,

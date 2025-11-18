@@ -349,9 +349,9 @@ def yookassa_webhook(request):
         if not data:
             logger.error("Invalid JSON in webhook request")
             return HttpResponseBadRequest("Invalid JSON")
-        
+
         logger.info(f"Webhook received: {data.get('type')}")
-        
+
         # Проверяем тип события
         event_type = data.get('type')
         supported_events = [
@@ -364,157 +364,190 @@ def yookassa_webhook(request):
         if event_type not in supported_events:
             logger.info(f"Ignoring webhook event type: {event_type}")
             return HttpResponse("OK")
-        
+
         # Получаем объект платежа
         payment_object = data.get('object', {})
         yookassa_payment_id = payment_object.get('id')
-        
+
         if not yookassa_payment_id:
             logger.error("Webhook received without payment ID")
             return HttpResponseBadRequest("No payment ID")
-        
-        # Находим наш платеж
-        try:
-            payment = Payment.objects.get(yookassa_payment_id=yookassa_payment_id)
-            logger.info(f"Found payment: {payment.id}")
-        except Payment.DoesNotExist:
-            logger.error(f"Payment not found for YooKassa ID: {yookassa_payment_id}")
-            return HttpResponseBadRequest("Payment not found")
-        
-        # Сохраняем сырой ответ
-        payment.raw_response = data
-        
-        # Обновляем статус
-        if event_type == 'payment.succeeded':
-            # Idempotency: проверяем, не был ли платеж уже обработан
-            if payment.status == Payment.Status.SUCCEEDED:
-                logger.info(f"Payment {payment.id} already processed as SUCCEEDED, skipping")
-                return HttpResponse('OK')
 
-            # Используем централизованную функцию для обработки успешного платежа
-            from payments.services import process_successful_payment
+        # Оборачиваем всю обработку в транзакцию для обеспечения атомичности
+        from django.db import transaction as db_transaction
 
-            result = process_successful_payment(payment)
-
-            if result['success']:
-                logger.info(
-                    f"Webhook payment.succeeded processed successfully: "
-                    f"payment_id={payment.id}, "
-                    f"subject_payments_updated={result['subject_payments_updated']}, "
-                    f"enrollments_activated={result['enrollments_activated']}, "
-                    f"subscriptions_processed={result['subscriptions_processed']}"
-                )
-            else:
-                logger.error(
-                    f"Webhook payment.succeeded processing had errors: "
-                    f"payment_id={payment.id}, "
-                    f"errors={result['errors']}"
-                )
-            
-            # Отправляем уведомление в Telegram
+        with db_transaction.atomic():
+            # Используем select_for_update() для блокировки платежа при обработке webhook
+            # Это обеспечивает атомичность и предотвращает race condition с дублирующимися webhook'ами
             try:
-                telegram_service = TelegramNotificationService()
-                telegram_service.send_payment_notification(payment)
-                logger.info("Telegram notification sent for payment")
-            except Exception as e:
-                logger.error(f"Error sending Telegram notification: {e}")
-                
-        elif event_type == 'payment.canceled':
-            payment.status = Payment.Status.CANCELED
-            payment.save(update_fields=['status', 'updated'])
-            logger.info(f"Payment {payment.id} marked as canceled")
-            # Обновляем статус SubjectPayment обратно на PENDING при отмене
-            try:
-                from materials.models import SubjectPayment as SP
-                subject_payments = SP.objects.filter(payment=payment)
-                for subject_payment in subject_payments:
-                    if subject_payment.status in [SP.Status.WAITING_FOR_PAYMENT]:
-                        subject_payment.status = SP.Status.PENDING
-                        subject_payment.save(update_fields=['status', 'updated_at'])
-                        logger.info(f"SubjectPayment {subject_payment.id} status changed to PENDING after payment cancellation")
-            except Exception as e:
-                logger.error(f"Failed to update SubjectPayment status after cancellation: {e}")
-            
-        elif event_type == 'payment.waiting_for_capture':
-            payment.status = Payment.Status.WAITING_FOR_CAPTURE
-            payment.save(update_fields=['status', 'updated'])
-            logger.info(f"Payment {payment.id} marked as waiting for capture")
-            # Устанавливаем статус WAITING_FOR_PAYMENT для SubjectPayment
-            try:
-                from materials.models import SubjectPayment as SP
-                subject_payments = SP.objects.filter(payment=payment)
-                for subject_payment in subject_payments:
-                    if subject_payment.status == SP.Status.PENDING:
-                        subject_payment.status = SP.Status.WAITING_FOR_PAYMENT
-                        subject_payment.save(update_fields=['status', 'updated_at'])
-                        logger.info(f"SubjectPayment {subject_payment.id} status changed to WAITING_FOR_PAYMENT")
-            except Exception as e:
-                logger.error(f"Failed to update SubjectPayment status to WAITING_FOR_PAYMENT: {e}")
+                payment = Payment.objects.select_for_update().get(yookassa_payment_id=yookassa_payment_id)
+                logger.info(f"Found payment: {payment.id}")
+            except Payment.DoesNotExist:
+                logger.error(f"Payment not found for YooKassa ID: {yookassa_payment_id}")
+                return HttpResponseBadRequest("Payment not found")
 
-        elif event_type == 'payment.failed':
-            payment.status = Payment.Status.FAILED
-            payment.save(update_fields=['status', 'updated'])
-            logger.info(f"Payment {payment.id} marked as failed")
-            # Обновляем статус SubjectPayment обратно на PENDING при ошибке
-            try:
-                from materials.models import SubjectPayment as SP
-                subject_payments = SP.objects.filter(payment=payment)
-                for subject_payment in subject_payments:
-                    if subject_payment.status in [SP.Status.WAITING_FOR_PAYMENT]:
-                        subject_payment.status = SP.Status.PENDING
-                        subject_payment.save(update_fields=['status', 'updated_at'])
-                        logger.info(f"SubjectPayment {subject_payment.id} status changed to PENDING after payment failure")
-            except Exception as e:
-                logger.error(f"Failed to update SubjectPayment status after payment failure: {e}")
+            # Сохраняем сырой ответ
+            payment.raw_response = data
 
-        elif event_type == 'refund.succeeded':
-            # Для refund объект содержит payment_id оригинального платежа
-            refund_object = data.get('object', {})
-            payment_id_from_refund = refund_object.get('payment_id')
+            # Обновляем статус
+            if event_type == 'payment.succeeded':
+                # Idempotency: проверяем, не был ли платеж уже обработан (внутри транзакции с блокировкой)
+                if payment.status == Payment.Status.SUCCEEDED:
+                    logger.info(f"Payment {payment.id} already processed as SUCCEEDED, skipping")
+                    return HttpResponse('OK')
 
-            if not payment_id_from_refund:
-                logger.error("Refund webhook received without payment_id")
-                return HttpResponseBadRequest("No payment_id in refund")
+                # Используем централизованную функцию для обработки успешного платежа
+                from payments.services import process_successful_payment
 
-            # Находим оригинальный платеж
-            try:
-                original_payment = Payment.objects.get(yookassa_payment_id=payment_id_from_refund)
-                original_payment.status = Payment.Status.REFUNDED
-                original_payment.raw_response = data  # Сохраняем данные о возврате
-                original_payment.save(update_fields=['status', 'raw_response', 'updated'])
-                logger.info(f"Payment {original_payment.id} marked as REFUNDED")
+                result = process_successful_payment(payment)
 
-                # Обновляем статус SubjectPayment на REFUNDED
+                if result['success']:
+                    logger.info(
+                        f"Webhook payment.succeeded processed successfully: "
+                        f"payment_id={payment.id}, "
+                        f"subject_payments_updated={result['subject_payments_updated']}, "
+                        f"enrollments_activated={result['enrollments_activated']}, "
+                        f"subscriptions_processed={result['subscriptions_processed']}"
+                    )
+                else:
+                    logger.error(
+                        f"Webhook payment.succeeded processing had errors: "
+                        f"payment_id={payment.id}, "
+                        f"errors={result['errors']}"
+                    )
+
+                # CRITICAL FIX: Invalidate YooKassa status cache after webhook processing
+                # This prevents check_payment_status() from serving stale cached data
+                # If webhook processed payment as SUCCEEDED, cache should not return "pending"
+                from django.core.cache import cache
+                cache_key = f"yookassa_status_{payment.yookassa_payment_id}"
+                cache.delete(cache_key)
+                logger.info(f"Invalidated YooKassa status cache for payment {payment.yookassa_payment_id}")
+
+                # Отправляем уведомление в Telegram
+                try:
+                    telegram_service = TelegramNotificationService()
+                    telegram_service.send_payment_notification(payment)
+                    logger.info("Telegram notification sent for payment")
+                except Exception as e:
+                    logger.error(f"Error sending Telegram notification: {e}")
+
+            elif event_type == 'payment.canceled':
+                payment.status = Payment.Status.CANCELED
+                payment.save(update_fields=['status', 'updated'])
+                logger.info(f"Payment {payment.id} marked as canceled")
+
+                # CRITICAL FIX: Invalidate cache for canceled payments too
+                from django.core.cache import cache
+                cache_key = f"yookassa_status_{payment.yookassa_payment_id}"
+                cache.delete(cache_key)
+                logger.info(f"Invalidated YooKassa status cache for canceled payment {payment.yookassa_payment_id}")
+
+                # Обновляем статус SubjectPayment обратно на PENDING при отмене
                 try:
                     from materials.models import SubjectPayment as SP
-                    subject_payments = SP.objects.filter(payment=original_payment)
+                    subject_payments = SP.objects.filter(payment=payment)
                     for subject_payment in subject_payments:
-                        subject_payment.status = SP.Status.REFUNDED
-                        subject_payment.save(update_fields=['status', 'updated_at'])
-                        logger.info(f"SubjectPayment {subject_payment.id} marked as REFUNDED")
-
-                        # Уведомляем родителя о возврате
-                        try:
-                            from notifications.notification_service import NotificationService
-                            student = subject_payment.enrollment.student
-                            parent = getattr(student.student_profile, 'parent', None) if hasattr(student, 'student_profile') else None
-                            if parent:
-                                NotificationService().notify_payment_processed(
-                                    parent=parent,
-                                    status='refunded',
-                                    amount=str(subject_payment.amount),
-                                    enrollment_id=subject_payment.enrollment.id,
-                                )
-                        except Exception:
-                            pass
+                        if subject_payment.status in [SP.Status.WAITING_FOR_PAYMENT]:
+                            subject_payment.status = SP.Status.PENDING
+                            subject_payment.save(update_fields=['status', 'updated_at'])
+                            logger.info(f"SubjectPayment {subject_payment.id} status changed to PENDING after payment cancellation")
                 except Exception as e:
-                    logger.error(f"Failed to update SubjectPayment status after refund: {e}")
+                    logger.error(f"Failed to update SubjectPayment status after cancellation: {e}")
 
-            except Payment.DoesNotExist:
-                logger.error(f"Original payment not found for refund: {payment_id_from_refund}")
-                return HttpResponseBadRequest("Original payment not found")
+            elif event_type == 'payment.waiting_for_capture':
+                payment.status = Payment.Status.WAITING_FOR_CAPTURE
+                payment.save(update_fields=['status', 'updated'])
+                logger.info(f"Payment {payment.id} marked as waiting for capture")
+                # Устанавливаем статус WAITING_FOR_PAYMENT для SubjectPayment
+                try:
+                    from materials.models import SubjectPayment as SP
+                    subject_payments = SP.objects.filter(payment=payment)
+                    for subject_payment in subject_payments:
+                        if subject_payment.status == SP.Status.PENDING:
+                            subject_payment.status = SP.Status.WAITING_FOR_PAYMENT
+                            subject_payment.save(update_fields=['status', 'updated_at'])
+                            logger.info(f"SubjectPayment {subject_payment.id} status changed to WAITING_FOR_PAYMENT")
+                except Exception as e:
+                    logger.error(f"Failed to update SubjectPayment status to WAITING_FOR_PAYMENT: {e}")
 
-        return HttpResponse("OK")
+            elif event_type == 'payment.failed':
+                payment.status = Payment.Status.FAILED
+                payment.save(update_fields=['status', 'updated'])
+                logger.info(f"Payment {payment.id} marked as failed")
+
+                # CRITICAL FIX: Invalidate cache for failed payments too
+                from django.core.cache import cache
+                cache_key = f"yookassa_status_{payment.yookassa_payment_id}"
+                cache.delete(cache_key)
+                logger.info(f"Invalidated YooKassa status cache for failed payment {payment.yookassa_payment_id}")
+
+                # Обновляем статус SubjectPayment обратно на PENDING при ошибке
+                try:
+                    from materials.models import SubjectPayment as SP
+                    subject_payments = SP.objects.filter(payment=payment)
+                    for subject_payment in subject_payments:
+                        if subject_payment.status in [SP.Status.WAITING_FOR_PAYMENT]:
+                            subject_payment.status = SP.Status.PENDING
+                            subject_payment.save(update_fields=['status', 'updated_at'])
+                            logger.info(f"SubjectPayment {subject_payment.id} status changed to PENDING after payment failure")
+                except Exception as e:
+                    logger.error(f"Failed to update SubjectPayment status after payment failure: {e}")
+
+            elif event_type == 'refund.succeeded':
+                # Для refund объект содержит payment_id оригинального платежа
+                refund_object = data.get('object', {})
+                payment_id_from_refund = refund_object.get('payment_id')
+
+                if not payment_id_from_refund:
+                    logger.error("Refund webhook received without payment_id")
+                    return HttpResponseBadRequest("No payment_id in refund")
+
+                # Находим оригинальный платеж
+                try:
+                    original_payment = Payment.objects.get(yookassa_payment_id=payment_id_from_refund)
+                    original_payment.status = Payment.Status.REFUNDED
+                    original_payment.raw_response = data  # Сохраняем данные о возврате
+                    original_payment.save(update_fields=['status', 'raw_response', 'updated'])
+                    logger.info(f"Payment {original_payment.id} marked as REFUNDED")
+
+                    # CRITICAL FIX: Invalidate cache for refunded payments too
+                    from django.core.cache import cache
+                    cache_key = f"yookassa_status_{original_payment.yookassa_payment_id}"
+                    cache.delete(cache_key)
+                    logger.info(f"Invalidated YooKassa status cache for refunded payment {original_payment.yookassa_payment_id}")
+
+                    # Обновляем статус SubjectPayment на REFUNDED
+                    try:
+                        from materials.models import SubjectPayment as SP
+                        subject_payments = SP.objects.filter(payment=original_payment)
+                        for subject_payment in subject_payments:
+                            subject_payment.status = SP.Status.REFUNDED
+                            subject_payment.save(update_fields=['status', 'updated_at'])
+                            logger.info(f"SubjectPayment {subject_payment.id} marked as REFUNDED")
+
+                            # Уведомляем родителя о возврате
+                            try:
+                                from notifications.notification_service import NotificationService
+                                student = subject_payment.enrollment.student
+                                parent = getattr(student.student_profile, 'parent', None) if hasattr(student, 'student_profile') else None
+                                if parent:
+                                    NotificationService().notify_payment_processed(
+                                        parent=parent,
+                                        status='refunded',
+                                        amount=str(subject_payment.amount),
+                                        enrollment_id=subject_payment.enrollment.id,
+                                    )
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        logger.error(f"Failed to update SubjectPayment status after refund: {e}")
+
+                except Payment.DoesNotExist:
+                    logger.error(f"Original payment not found for refund: {payment_id_from_refund}")
+                    return HttpResponseBadRequest("Original payment not found")
+
+            return HttpResponse("OK")
         
     except Exception as e:
         logger.error(f"Webhook error: {e}", exc_info=True)
@@ -522,7 +555,12 @@ def yookassa_webhook(request):
 
 @csrf_exempt
 def check_payment_status(request):
-    """API endpoint для проверки статуса платежа"""
+    """
+    API endpoint для проверки статуса платежа.
+
+    CRITICAL: DB status is the source of truth after webhook processing.
+    Cache is only used for YooKassa API responses to reduce load, but DB status always takes precedence.
+    """
     if request.method != "GET":
         return JsonResponse({"error": "GET only"}, status=405)
 
@@ -533,11 +571,11 @@ def check_payment_status(request):
     try:
         payment = Payment.objects.get(id=payment_id)
 
-        # ОПТИМИЗАЦИЯ: Не запрашиваем YooKassa если платеж уже succeeded
-        # Это основная причина зависания - каждый polling запрос делал запрос к YooKassa
+        # CRITICAL FIX: Check DB status FIRST - this is the source of truth
+        # If webhook already processed payment as SUCCEEDED, return immediately
+        # This prevents race condition where cached YooKassa status is stale
         if payment.status == Payment.Status.SUCCEEDED:
-            # Платеж уже успешен, нет смысла проверять в ЮКассе
-            logger.debug(f"Payment {payment.id} already succeeded, skipping YooKassa check")
+            logger.debug(f"Payment {payment.id} already SUCCEEDED in DB, returning immediately (no YooKassa check needed)")
             return JsonResponse({
                 "status": payment.status,
                 "amount": str(payment.amount),
@@ -548,26 +586,42 @@ def check_payment_status(request):
                 "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
             })
 
-        # Проверяем статус в ЮКассе если есть ID и платеж еще не успешен
+        # CRITICAL FIX: Also check for other terminal states in DB
+        # If payment is CANCELED, FAILED, or REFUNDED in DB, trust the DB (webhook already processed)
+        if payment.status in [Payment.Status.CANCELED, Payment.Status.FAILED, Payment.Status.REFUNDED]:
+            logger.debug(f"Payment {payment.id} in terminal state {payment.status} in DB, returning immediately")
+            return JsonResponse({
+                "status": payment.status,
+                "amount": str(payment.amount),
+                "description": payment.description,
+                "service_name": payment.service_name,
+                "customer_fio": payment.customer_fio,
+                "created": payment.created.isoformat(),
+                "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
+            })
+
+        # Only check YooKassa if DB status is still PENDING or WAITING_FOR_CAPTURE
+        # These are the only states where we need to poll YooKassa for updates
         if payment.yookassa_payment_id:
-            # ОПТИМИЗАЦИЯ: Кэшируем результат на 5 секунд для одного payment_id
-            # Это предотвращает cascade запросов к YooKassa при aggressive polling
+            # OPTIMIZATION: Cache YooKassa API response for 5 seconds to reduce load
+            # BUT: Cache is ONLY used for YooKassa API calls, NOT for DB status
+            # If webhook arrives and updates DB, next poll will hit DB check above and skip cache
             from django.core.cache import cache
             cache_key = f"yookassa_status_{payment.yookassa_payment_id}"
             yookassa_status = cache.get(cache_key)
 
             if yookassa_status is None:
-                # Только если не в кэше - делаем запрос к YooKassa
-                logger.debug(f"Checking YooKassa status for payment {payment.id} (not in cache)")
+                logger.debug(f"Checking YooKassa API for payment {payment.id} (not in cache)")
                 yookassa_status = check_yookassa_payment_status(payment.yookassa_payment_id)
-                # Кэшируем на 5 секунд
+                # Cache for 5 seconds to prevent aggressive polling
                 if yookassa_status:
                     cache.set(cache_key, yookassa_status, 5)
+                    logger.debug(f"Cached YooKassa status '{yookassa_status}' for payment {payment.id}")
             else:
-                logger.debug(f"YooKassa status for payment {payment.id} retrieved from cache")
+                logger.debug(f"YooKassa status '{yookassa_status}' for payment {payment.id} from cache")
 
             if yookassa_status:
-                # Обновляем статус если нужно
+                # Process YooKassa status and update DB if needed
                 if yookassa_status == 'succeeded' and payment.status != Payment.Status.SUCCEEDED:
                     # Используем централизованную функцию для обработки успешного платежа
                     from payments.services import process_successful_payment
@@ -833,10 +887,22 @@ class PaymentViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def status(self, request, pk=None):
-        """Получение статуса платежа"""
+        """
+        Получение статуса платежа.
+
+        CRITICAL: DB status is the source of truth after webhook processing.
+        Only poll YooKassa if payment is in non-terminal state (PENDING/WAITING_FOR_CAPTURE).
+        """
         payment = self.get_object()
-        
-        # Проверяем статус в ЮКассе если есть ID
+
+        # CRITICAL FIX: Check DB status FIRST - if already in terminal state, return immediately
+        # This prevents unnecessary YooKassa API calls and avoids stale cached data
+        if payment.status in [Payment.Status.SUCCEEDED, Payment.Status.CANCELED, Payment.Status.FAILED, Payment.Status.REFUNDED]:
+            logger.debug(f"PaymentViewSet.status: Payment {payment.id} in terminal state {payment.status}, returning DB status")
+            serializer = PaymentSerializer(payment)
+            return Response(serializer.data)
+
+        # Only check YooKassa if DB status is still PENDING or WAITING_FOR_CAPTURE
         if payment.yookassa_payment_id:
             yookassa_status = check_yookassa_payment_status(payment.yookassa_payment_id)
             if yookassa_status:

@@ -144,11 +144,14 @@ function PayButton({
     );
   }
 
-  // СЛУЧАЙ 2: Если предмет оплачен И следующий платеж еще впереди - предмет активен
+  // СЛУЧАЙ 2: Если предмет оплачен И (следующий платеж впереди ИЛИ есть активная подписка без даты) - предмет активен
   // Это выполняется для:
   // - Активных подписок с future payment date
+  // - Активных подписок без даты (fallback когда данные еще загружаются)
   // - Разовых платежей, которые еще актуальны
-  if (paymentStatus === 'paid' && isNextPaymentInFuture) {
+  const hasActivePayment = paymentStatus === 'paid' && (isNextPaymentInFuture || hasSubscription);
+
+  if (hasActivePayment) {
     return (
       <div className="flex flex-col items-end gap-1">
         <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">

@@ -56,10 +56,10 @@ const statusConfig: Record<PaymentStatus, PaymentStatusConfig> = {
     className: 'bg-red-50/80 text-red-700 border-red-300/50 hover:bg-red-100/80 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/50',
   },
   no_payment: {
-    label: 'Без платежа',
+    label: 'Требуется оплата',
     icon: AlertCircle,
-    variant: 'outline',
-    className: 'bg-slate-50/80 text-slate-600 border-slate-300/50 hover:bg-slate-100/80 dark:bg-slate-950/30 dark:text-slate-500 dark:border-slate-800/50',
+    variant: 'destructive',
+    className: 'bg-orange-50/80 text-orange-700 border-orange-400/50 hover:bg-orange-100/80 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-800/50 animate-pulse',
   },
 };
 

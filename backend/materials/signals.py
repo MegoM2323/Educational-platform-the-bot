@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 import logging
 import os
-from .models import Material, MaterialProgress, SubjectEnrollment, SubjectPayment, MaterialSubmission, StudyPlanFile
+from .models import Material, MaterialProgress, SubjectEnrollment, SubjectPayment, MaterialSubmission, StudyPlanFile, StudyPlan, SubjectSubscription
 from notifications.notification_service import NotificationService
 from .cache_utils import DashboardCacheManager
 
@@ -209,15 +209,51 @@ def notify_teacher_on_submission(sender, instance, created, **kwargs):
         pass
 
 
+@receiver(post_save, sender=StudyPlan)
+@receiver(post_delete, sender=StudyPlan)
+def invalidate_study_plan_cache(sender, instance, **kwargs):
+    """
+    Инвалидирует кэш при изменении планов занятий.
+
+    Когда преподаватель отправляет план студенту (status меняется на 'sent'),
+    родитель должен увидеть это в своем дашборде.
+    """
+    try:
+        cache_manager = DashboardCacheManager()
+
+        # Инвалидируем кэш студента
+        cache_manager.invalidate_student_cache(instance.student.id)
+
+        # Инвалидируем кэш преподавателя
+        cache_manager.invalidate_teacher_cache(instance.teacher.id)
+
+        # Инвалидируем кэш родителя (для отображения планов в дашборде)
+        try:
+            student = instance.student
+            if hasattr(student, 'student_profile'):
+                parent = getattr(student.student_profile, 'parent', None)
+                if parent:
+                    cache_manager.invalidate_parent_cache(parent.id)
+                    logger.debug(
+                        f"Parent cache invalidated via StudyPlan signal: "
+                        f"plan_id={instance.id}, parent_id={parent.id}, "
+                        f"student_id={student.id}, status={instance.status}"
+                    )
+        except Exception as e:
+            logger.debug(f"Could not invalidate parent cache in StudyPlan signal: {e}")
+    except Exception:
+        pass  # Игнорируем ошибки Redis
+
+
 @receiver(post_save, sender=User)
 def invalidate_user_cache(sender, instance, **kwargs):
     """Инвалидирует кэш при изменении пользователя"""
     try:
         cache_manager = DashboardCacheManager()
-        
+
         if instance.role == User.Role.STUDENT:
             cache_manager.invalidate_student_cache(instance.id)
-            
+
             # Инвалидируем кэш родителя
             try:
                 parent = getattr(instance.student_profile, 'parent', None) if hasattr(instance, 'student_profile') else None
@@ -225,11 +261,49 @@ def invalidate_user_cache(sender, instance, **kwargs):
                     cache_manager.invalidate_parent_cache(parent.id)
             except:
                 pass
-                
+
         elif instance.role == User.Role.TEACHER:
             cache_manager.invalidate_teacher_cache(instance.id)
-            
+
         elif instance.role == User.Role.PARENT:
             cache_manager.invalidate_parent_cache(instance.id)
     except Exception:
+        pass  # Игнорируем ошибки Redis
+
+
+# ============================================================================
+# SUBSCRIPTION SIGNALS - Инвалидация кеша при изменении подписок
+# ============================================================================
+
+@receiver(post_save, sender=SubjectSubscription)
+@receiver(post_delete, sender=SubjectSubscription)
+def invalidate_subscription_cache(sender, instance, **kwargs):
+    """
+    Инвалидирует кеш родителя при изменении/удалении подписки.
+
+    Это КРИТИЧНОЕ для:
+    1. Обновления статуса платежа после создания подписки
+    2. Отображения кнопки "Активен" вместо "Подключить"
+    3. Показания даты next_payment_date для рекуррентных платежей
+    """
+    try:
+        cache_manager = DashboardCacheManager()
+
+        # Получаем родителя через enrollment -> student -> student_profile -> parent
+        try:
+            student = instance.enrollment.student
+            parent = getattr(student.student_profile, 'parent', None) if hasattr(student, 'student_profile') else None
+
+            if parent:
+                # Инвалидируем кеш родителя и его детей
+                cache_manager.invalidate_parent_cache(parent.id)
+                logger.info(f"[Signal] Invalidated parent cache for parent={parent.id} due to subscription change (sub_id={instance.id})")
+            else:
+                logger.warning(f"[Signal] Parent not found for subscription {instance.id}")
+        except Exception as e:
+            logger.warning(f"[Signal] Error getting parent for subscription {instance.id}: {e}")
+            pass
+
+    except Exception as e:
+        logger.error(f"[Signal] Error in invalidate_subscription_cache: {e}", exc_info=True)
         pass  # Игнорируем ошибки Redis

@@ -347,9 +347,9 @@ class ParentDashboardService:
                 'teacher': enrollment.teacher.get_full_name(),
                 'teacher_id': enrollment.teacher.id,
                 'status': payment_status,
-                'amount': last_payment.amount if last_payment else Decimal('0.00'),
-                'due_date': last_payment.due_date if last_payment else None,
-                'paid_at': last_payment.paid_at if last_payment else None,
+                'amount': str(last_payment.amount) if last_payment else '0.00',
+                'due_date': last_payment.due_date.isoformat() if last_payment and last_payment.due_date else None,
+                'paid_at': last_payment.paid_at.isoformat() if last_payment and last_payment.paid_at else None,
                 'has_subscription': has_subscription,
                 'next_payment_date': next_payment_date.isoformat() if next_payment_date else None
             })
@@ -390,84 +390,112 @@ class ParentDashboardService:
         # Создаем основной платеж (плательщик — родитель)
         parent = self.parent_user
         subject_name = enrollment.get_subject_name()
-        payment = Payment.objects.create(
-            amount=amount,
-            service_name=f"Оплата за предмет: {subject_name} (ученик: {child.get_full_name()})",
-            customer_fio=f"{parent.first_name} {parent.last_name}",
-            description=(
-                description
-                or f"Оплата за предмет {subject_name} для ученика {child.get_full_name()}"
-            ),
-            metadata={
-                "payer_role": "parent",
-                "parent_id": parent.id,
-                "parent_email": parent.email,
-                "student_id": child.id,
-                "student_name": child.get_full_name(),
-                "subject_id": enrollment.subject.id,
-                "subject_name": subject_name,
-                "enrollment_id": enrollment.id,
-                "teacher_id": enrollment.teacher_id,
-                "create_subscription": create_subscription,  # Сохраняем флаг для создания подписки после успешной оплаты
-            },
-        )
-        
-        # Если передан request, создаем платеж в ЮКассу
-        if request:
-            from payments.views import create_yookassa_payment
-            
-            # Проверяем наличие ключей перед созданием платежа
-            if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
-                logger.error("YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured")
-                # Удаляем созданный платеж, так как он не может быть обработан
-                payment.delete()
-                raise ValueError("Настройки ЮКассы не сконфигурированы. Обратитесь к администратору.")
-            
-            yookassa_payment = create_yookassa_payment(payment, request)
-            
-            if yookassa_payment:
-                # Сохраняем ID платежа ЮКассы и URL подтверждения
-                payment.yookassa_payment_id = yookassa_payment.get('id')
-                confirmation = yookassa_payment.get('confirmation', {})
-                payment.confirmation_url = confirmation.get('confirmation_url')
-                # Получаем return_url из ответа ЮКассы (он уже содержит URL фронтенда)
-                payment.return_url = confirmation.get('return_url')
-                payment.raw_response = yookassa_payment
-                
-                # Обновляем статус Payment на основе ответа от ЮКассы
-                yookassa_status = yookassa_payment.get('status')
-                if yookassa_status == 'pending':
-                    payment.status = Payment.Status.PENDING
-                elif yookassa_status == 'waiting_for_capture':
-                    payment.status = Payment.Status.WAITING_FOR_CAPTURE
-                elif yookassa_status == 'succeeded':
-                    payment.status = Payment.Status.SUCCEEDED
-                    payment.paid_at = timezone.now()
-                elif yookassa_status == 'canceled':
-                    payment.status = Payment.Status.CANCELED
-                
-                payment.save()
-                logger.info(f"Payment {payment.id} created successfully with YooKassa ID: {payment.yookassa_payment_id}, status: {payment.status}")
-            else:
-                # Если платеж не создан, логируем ошибку и удаляем созданный платеж
-                logger.error(f"Failed to create YooKassa payment for payment {payment.id}")
-                # Удаляем созданный платеж, так как он не может быть обработан
-                payment.delete()
-                raise ValueError("Не удалось создать платеж в ЮКассу. Проверьте настройки YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY, а также логи сервера для деталей.")
-        
-        # Создаем платеж по предмету только если платеж в YooKassa создан успешно
-        # (если request был передан, значит мы уже проверили создание в YooKassa выше)
-        due_date = timezone.now() + timedelta(days=7)  # 7 дней на оплату
-        # Если платеж создан в YooKassa и есть confirmation_url, статус - WAITING_FOR_PAYMENT
-        # Иначе - PENDING (если платеж создан без request)
-        payment_status = SubjectPayment.Status.WAITING_FOR_PAYMENT if (request and payment.confirmation_url) else SubjectPayment.Status.PENDING
-        subject_payment = SubjectPayment.objects.create(
-            enrollment=enrollment,
-            payment=payment,
-            amount=amount,
-            status=payment_status,
-            due_date=due_date
-        )
+
+        # КРИТИЧНО: Оборачиваем всё создание в атомарную транзакцию
+        from django.db import transaction as db_transaction
+
+        with db_transaction.atomic():
+            logger.info(f"[initiate_payment] Creating payment for enrollment {enrollment.id}")
+
+            payment = Payment.objects.create(
+                amount=amount,
+                service_name=f"Оплата за предмет: {subject_name} (ученик: {child.get_full_name()})",
+                customer_fio=f"{parent.first_name} {parent.last_name}",
+                description=(
+                    description
+                    or f"Оплата за предмет {subject_name} для ученика {child.get_full_name()}"
+                ),
+                metadata={
+                    "payer_role": "parent",
+                    "parent_id": parent.id,
+                    "parent_email": parent.email,
+                    "student_id": child.id,
+                    "student_name": child.get_full_name(),
+                    "subject_id": enrollment.subject.id,
+                    "subject_name": subject_name,
+                    "enrollment_id": enrollment.id,
+                    "teacher_id": enrollment.teacher_id,
+                    "create_subscription": create_subscription,  # Сохраняем флаг для создания подписки после успешной оплаты
+                },
+            )
+            logger.info(f"[initiate_payment] Payment {payment.id} created")
+
+            # ✅ FIX: Создаем SubjectPayment СРАЗУ ПОСЛЕ Payment, но ДО вызова YooKassa API
+            # Это предотвращает race condition когда webhook приходит раньше создания SubjectPayment
+            due_date = timezone.now() + timedelta(days=7)  # 7 дней на оплату
+
+            subject_payment = SubjectPayment.objects.create(
+                enrollment=enrollment,
+                payment=payment,
+                amount=amount,
+                status=SubjectPayment.Status.PENDING,  # Начальный статус - PENDING
+                due_date=due_date
+            )
+            logger.info(
+                f"[initiate_payment] SubjectPayment {subject_payment.id} created BEFORE YooKassa call "
+                f"(enrollment={enrollment.id}, payment={payment.id}, status=PENDING)"
+            )
+
+            # Если передан request, создаем платеж в ЮКассу
+            if request:
+                from payments.views import create_yookassa_payment
+
+                # Проверяем наличие ключей перед созданием платежа
+                if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
+                    logger.error("YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured")
+                    raise ValueError("Настройки ЮКассы не сконфигурированы. Обратитесь к администратору.")
+
+                logger.info(f"[initiate_payment] Calling YooKassa API for payment {payment.id}")
+                yookassa_payment = create_yookassa_payment(payment, request)
+
+                if yookassa_payment:
+                    # Сохраняем ID платежа ЮКассы и URL подтверждения
+                    payment.yookassa_payment_id = yookassa_payment.get('id')
+                    confirmation = yookassa_payment.get('confirmation', {})
+                    payment.confirmation_url = confirmation.get('confirmation_url')
+                    # Получаем return_url из ответа ЮКассы (он уже содержит URL фронтенда)
+                    payment.return_url = confirmation.get('return_url')
+                    payment.raw_response = yookassa_payment
+
+                    # Обновляем статус Payment на основе ответа от ЮКассы
+                    yookassa_status = yookassa_payment.get('status')
+                    if yookassa_status == 'pending':
+                        payment.status = Payment.Status.PENDING
+                    elif yookassa_status == 'waiting_for_capture':
+                        payment.status = Payment.Status.WAITING_FOR_CAPTURE
+                    elif yookassa_status == 'succeeded':
+                        payment.status = Payment.Status.SUCCEEDED
+                        payment.paid_at = timezone.now()
+                    elif yookassa_status == 'canceled':
+                        payment.status = Payment.Status.CANCELED
+
+                    payment.save()
+                    logger.info(
+                        f"[initiate_payment] Payment {payment.id} updated with YooKassa ID: "
+                        f"{payment.yookassa_payment_id}, status: {payment.status}"
+                    )
+
+                    # Обновляем статус SubjectPayment на WAITING_FOR_PAYMENT если получили confirmation_url
+                    if payment.confirmation_url:
+                        subject_payment.status = SubjectPayment.Status.WAITING_FOR_PAYMENT
+                        subject_payment.save(update_fields=['status', 'updated_at'])
+                        logger.info(
+                            f"[initiate_payment] SubjectPayment {subject_payment.id} status updated to "
+                            f"WAITING_FOR_PAYMENT after YooKassa response"
+                        )
+                else:
+                    # Если платеж не создан, логируем ошибку
+                    # Транзакция откатится автоматически при raise
+                    logger.error(f"Failed to create YooKassa payment for payment {payment.id}")
+                    raise ValueError(
+                        "Не удалось создать платеж в ЮКассу. Проверьте настройки "
+                        "YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY, а также логи сервера для деталей."
+                    )
+
+            logger.info(
+                f"[initiate_payment] Transaction complete. Payment={payment.id}, "
+                f"SubjectPayment={subject_payment.id}, Status={subject_payment.status}"
+            )
         
         # Подписка будет создана только после успешной оплаты (в webhook обработке)
         # Флаг create_subscription сохранен в metadata платежа
@@ -548,7 +576,7 @@ class ParentDashboardService:
                 'student': sp.enrollment.student.get_full_name(),
                 'status': state,
                 'amount': sp.amount,
-                'due_date': sp.due_date,
+                'due_date': sp.due_date.isoformat() if sp.due_date else None,
                 'payment_id': str(sp.payment_id),
             })
         return data

@@ -10,7 +10,6 @@ urlpatterns = [
     
     # API endpoints
     path("api/auth/", include('accounts.urls')),
-    path("api/auth/tutor/", include('accounts.urls')),
     path("api/tutor/", include('accounts.urls')),  # Tutor endpoints
     path("api/materials/", include('materials.urls')),
     path("api/student/", include('materials.student_urls')),

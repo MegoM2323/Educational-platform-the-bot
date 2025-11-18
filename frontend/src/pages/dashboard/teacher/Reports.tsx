@@ -5,16 +5,29 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Plus, Send, Clock, Eye, Calendar } from "lucide-react";
+import { FileText, Plus, Send, Clock, Eye, Calendar, Edit2, Trash2 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { teacherWeeklyReportsAPI, TeacherWeeklyReport, TeacherStudent, CreateTeacherWeeklyReportRequest } from "@/integrations/api/reports";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function TeacherReports() {
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingReport, setEditingReport] = useState<TeacherWeeklyReport | null>(null);
+  const [deleteConfirmReport, setDeleteConfirmReport] = useState<TeacherWeeklyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<TeacherWeeklyReport[]>([]);
   const [students, setStudents] = useState<TeacherStudent[]>([]);
@@ -159,6 +172,12 @@ export default function TeacherReports() {
       console.log('Sending teacher report:', reportId);
       await teacherWeeklyReportsAPI.sendReport(reportId);
       console.log('Report sent successfully');
+
+      // Обновляем статус отчета в состоянии немедленно
+      setReports(prev => prev.map(r =>
+        r.id === reportId ? { ...r, status: 'sent' as const, sent_at: new Date().toISOString() } : r
+      ));
+
       toast({
         title: 'Успешно',
         description: 'Отчет отправлен тьютору',
@@ -170,6 +189,108 @@ export default function TeacherReports() {
     } catch (error: any) {
       console.error('Error sending teacher report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || error?.response?.data?.error || 'Не удалось отправить отчет';
+      toast({
+        title: 'Ошибка',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditReport = (report: TeacherWeeklyReport) => {
+    setEditingReport(report);
+    setFormData({
+      student: report.student,
+      subject: report.subject,
+      week_start: report.week_start,
+      week_end: report.week_end,
+      title: report.title,
+      summary: report.summary,
+      academic_progress: report.academic_progress || '',
+      performance_notes: report.performance_notes || '',
+      achievements: report.achievements || '',
+      concerns: report.concerns || '',
+      recommendations: report.recommendations || '',
+      assignments_completed: report.assignments_completed || 0,
+      assignments_total: report.assignments_total || 0,
+      average_score: report.average_score,
+      attendance_percentage: report.attendance_percentage || 0,
+      attachment: undefined,
+    });
+    setShowEditForm(true);
+  };
+
+  const handleUpdateReport = async () => {
+    if (!editingReport) return;
+
+    if (!formData.student || formData.student === 0 || !formData.subject || formData.subject === 0 || !formData.week_start || !formData.week_end || !formData.summary) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все обязательные поля (ученик, предмет, период, резюме)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('Updating teacher report:', editingReport.id, formData);
+      const updatedReport = await teacherWeeklyReportsAPI.updateReport(editingReport.id, formData);
+      console.log('Report updated successfully:', updatedReport);
+
+      // Обновляем отчет в состоянии немедленно
+      setReports(prev => prev.map(r =>
+        r.id === editingReport.id ? updatedReport : r
+      ));
+
+      toast({
+        title: 'Успешно',
+        description: 'Отчет обновлен',
+      });
+      setShowEditForm(false);
+      setEditingReport(null);
+      resetForm();
+
+      // Очищаем кэш
+      const { cacheService } = await import('../../../services/cacheService');
+      cacheService.delete('/reports/teacher-weekly-reports/');
+    } catch (error: any) {
+      console.error('Error updating teacher report:', error);
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось обновить отчет';
+      toast({
+        title: 'Ошибка',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteReport = async (reportId: number) => {
+    try {
+      setLoading(true);
+      console.log('Deleting teacher report:', reportId);
+      await teacherWeeklyReportsAPI.deleteReport(reportId);
+      console.log('Report deleted successfully');
+
+      // Удаляем отчет из состояния немедленно
+      setReports(prev => prev.filter(r => r.id !== reportId));
+
+      toast({
+        title: 'Успешно',
+        description: 'Отчет удален',
+      });
+      setDeleteConfirmReport(null);
+
+      // Очищаем кэш
+      const { cacheService } = await import('../../../services/cacheService');
+      cacheService.delete('/reports/teacher-weekly-reports/');
+    } catch (error: any) {
+      console.error('Error deleting teacher report:', error);
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось удалить отчет';
       toast({
         title: 'Ошибка',
         description: errorMessage,
@@ -361,16 +482,36 @@ export default function TeacherReports() {
                         <Eye className="w-4 h-4 mr-2" />
                         Просмотр
                       </Button>
-                      {report && report.status === 'draft' && report.id && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSendReport(report.id)}
-                          disabled={loading}
-                        >
-                          <Send className="w-4 h-4 mr-2" />
-                          Отправить
-                        </Button>
+                      {report && report.status === 'draft' && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditReport(report)}
+                            disabled={loading}
+                          >
+                            <Edit2 className="w-4 h-4 mr-2" />
+                            Изменить
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSendReport(report.id)}
+                            disabled={loading}
+                          >
+                            <Send className="w-4 h-4 mr-2" />
+                            Отправить
+                          </Button>
+                        </>
                       )}
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeleteConfirmReport(report)}
+                        disabled={loading}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Удалить
+                      </Button>
                     </div>
                   </Card>
                 ))}
@@ -637,6 +778,224 @@ export default function TeacherReports() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Диалог редактирования отчета */}
+      <Dialog open={showEditForm} onOpenChange={(open) => {
+        setShowEditForm(open);
+        if (!open) {
+          setEditingReport(null);
+          resetForm();
+        }
+      }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Редактировать отчёт</DialogTitle>
+            <DialogDescription>Внесите изменения в отчёт</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Ученик *</Label>
+              <Select
+                value={formData.student && formData.student > 0 ? formData.student.toString() : ''}
+                onValueChange={(value) => setFormData({ ...formData, student: parseInt(value), subject: 0 })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите ученика" />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map((student) => (
+                    <SelectItem key={student.id} value={student.id.toString()}>
+                      {student.name} ({student.grade} класс)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {formData.student > 0 && (
+              <div>
+                <Label>Предмет *</Label>
+                <Select
+                  value={formData.subject && formData.subject > 0 ? formData.subject.toString() : ''}
+                  onValueChange={(value) => setFormData({ ...formData, subject: parseInt(value) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите предмет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getStudentSubjects().map((subject) => (
+                      <SelectItem key={subject.id} value={subject.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: subject.color }}
+                          />
+                          {subject.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Начало недели *</Label>
+                <Input
+                  type="date"
+                  value={formData.week_start}
+                  onChange={(e) => setFormData({ ...formData, week_start: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Конец недели *</Label>
+                <Input
+                  type="date"
+                  value={formData.week_end}
+                  onChange={(e) => setFormData({ ...formData, week_end: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Название</Label>
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Еженедельный отчёт"
+              />
+            </div>
+            <div>
+              <Label>Общее резюме *</Label>
+              <Textarea
+                value={formData.summary}
+                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                placeholder="Общее резюме недели..."
+                rows={4}
+              />
+            </div>
+            <div>
+              <Label>Академический прогресс</Label>
+              <Textarea
+                value={formData.academic_progress}
+                onChange={(e) => setFormData({ ...formData, academic_progress: e.target.value })}
+                placeholder="Опишите академический прогресс..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Заметки об успеваемости</Label>
+              <Textarea
+                value={formData.performance_notes}
+                onChange={(e) => setFormData({ ...formData, performance_notes: e.target.value })}
+                placeholder="Заметки об успеваемости..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Достижения</Label>
+              <Textarea
+                value={formData.achievements}
+                onChange={(e) => setFormData({ ...formData, achievements: e.target.value })}
+                placeholder="Достижения ученика..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Обеспокоенности</Label>
+              <Textarea
+                value={formData.concerns}
+                onChange={(e) => setFormData({ ...formData, concerns: e.target.value })}
+                placeholder="Обеспокоенности..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label>Рекомендации</Label>
+              <Textarea
+                value={formData.recommendations}
+                onChange={(e) => setFormData({ ...formData, recommendations: e.target.value })}
+                placeholder="Рекомендации..."
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <Label>Выполнено заданий</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.assignments_completed}
+                  onChange={(e) => setFormData({ ...formData, assignments_completed: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>Всего заданий</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.assignments_total}
+                  onChange={(e) => setFormData({ ...formData, assignments_total: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>Средний балл</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.average_score || ''}
+                  onChange={(e) => setFormData({ ...formData, average_score: e.target.value ? parseFloat(e.target.value) : undefined })}
+                />
+              </div>
+              <div>
+                <Label>Посещаемость (%)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.attendance_percentage}
+                  onChange={(e) => setFormData({ ...formData, attendance_percentage: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => {
+                setShowEditForm(false);
+                setEditingReport(null);
+                resetForm();
+              }}>
+                Отмена
+              </Button>
+              <Button onClick={handleUpdateReport} disabled={loading}>
+                <Send className="w-4 h-4 mr-2" />
+                Сохранить изменения
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог подтверждения удаления */}
+      <AlertDialog open={!!deleteConfirmReport} onOpenChange={(open) => !open && setDeleteConfirmReport(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить отчёт?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить отчёт "{deleteConfirmReport?.title}"? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirmReport && handleDeleteReport(deleteConfirmReport.id)}
+              disabled={loading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarProvider>
   );
 }

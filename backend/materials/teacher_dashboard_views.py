@@ -728,21 +728,68 @@ def teacher_study_plan_detail(request, plan_id):
             return Response(serializer.data, status=status.HTTP_200_OK)
         
         elif request.method == 'PATCH':
+            # Проверяем, можно ли редактировать план
+            if plan.status == StudyPlan.Status.SENT or plan.status == StudyPlan.Status.ARCHIVED:
+                # Проверяем, пытается ли пользователь изменить что-то кроме статуса
+                # Если меняется только статус draft -> sent, это разрешено в другом эндпоинте
+                return Response(
+                    {'error': 'Нельзя редактировать отправленные или архивные планы занятий'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Проверяем попытку изменения статуса
+            if 'status' in request.data:
+                new_status = request.data['status']
+                # Разрешаем только переход draft -> sent
+                if plan.status == StudyPlan.Status.DRAFT and new_status == StudyPlan.Status.SENT:
+                    # Это допустимо
+                    pass
+                elif plan.status == new_status:
+                    # Статус не меняется, допустимо
+                    pass
+                else:
+                    # Любые другие изменения статуса запрещены
+                    return Response(
+                        {'error': f'Недопустимое изменение статуса: {plan.status} -> {new_status}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
             serializer = StudyPlanSerializer(plan, data=request.data, partial=True, context={'request': request})
-            
+
             if serializer.is_valid():
                 # Если статус меняется на 'sent', устанавливаем sent_at
+                status_changed_to_sent = False
                 if 'status' in request.data and request.data['status'] == StudyPlan.Status.SENT:
                     from django.utils import timezone
                     if not plan.sent_at:
                         serializer.validated_data['sent_at'] = timezone.now()
-                
+                        status_changed_to_sent = True
+
                 serializer.save()
                 # Перезагружаем план с файлами
                 plan.refresh_from_db()
+
+                # Инвалидируем кэш родителя при отправке плана
+                if status_changed_to_sent:
+                    try:
+                        from .cache_utils import DashboardCacheManager
+                        cache_manager = DashboardCacheManager()
+
+                        student = plan.student
+                        if hasattr(student, 'student_profile'):
+                            parent = getattr(student.student_profile, 'parent', None)
+                            if parent:
+                                cache_manager.invalidate_parent_cache(parent.id)
+                                logger.info(
+                                    f"Parent cache invalidated after study plan updated to sent: "
+                                    f"plan_id={plan.id}, parent_id={parent.id}, student_id={student.id}"
+                                )
+                    except Exception as e:
+                        logger.warning(f"Failed to invalidate parent cache after study plan update: {e}")
+
                 response_serializer = StudyPlanSerializer(plan, context={'request': request})
                 return Response(response_serializer.data, status=status.HTTP_200_OK)
-            
+
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         elif request.method == 'DELETE':
@@ -783,7 +830,25 @@ def send_study_plan(request, plan_id):
         plan.status = StudyPlan.Status.SENT
         plan.sent_at = timezone.now()
         plan.save()
-        
+
+        # Инвалидируем кэш родителя для обновления дашборда
+        try:
+            from .cache_utils import DashboardCacheManager
+            cache_manager = DashboardCacheManager()
+
+            # Получаем родителя через студента
+            student = plan.student
+            if hasattr(student, 'student_profile'):
+                parent = getattr(student.student_profile, 'parent', None)
+                if parent:
+                    cache_manager.invalidate_parent_cache(parent.id)
+                    logger.info(
+                        f"Parent cache invalidated after study plan sent: "
+                        f"plan_id={plan.id}, parent_id={parent.id}, student_id={student.id}"
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to invalidate parent cache after study plan sent: {e}")
+
         serializer = StudyPlanSerializer(plan, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -810,7 +875,14 @@ def upload_study_plan_file(request, plan_id):
     
     try:
         plan = get_object_or_404(StudyPlan, id=plan_id, teacher=request.user)
-        
+
+        # Запрещаем загружать файлы к отправленным или архивным планам
+        if plan.status == StudyPlan.Status.SENT or plan.status == StudyPlan.Status.ARCHIVED:
+            return Response(
+                {'error': 'Нельзя загружать файлы к отправленным или архивным планам занятий'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         if 'file' not in request.FILES:
             return Response(
                 {'error': 'Файл не предоставлен'},
@@ -871,7 +943,14 @@ def delete_study_plan_file(request, plan_id, file_id):
     try:
         plan = get_object_or_404(StudyPlan, id=plan_id, teacher=request.user)
         plan_file = get_object_or_404(StudyPlanFile, id=file_id, study_plan=plan)
-        
+
+        # Запрещаем удалять файлы из отправленных или архивных планов
+        if plan.status == StudyPlan.Status.SENT or plan.status == StudyPlan.Status.ARCHIVED:
+            return Response(
+                {'error': 'Нельзя удалять файлы из отправленных или архивных планов занятий'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Удаляем файл
         plan_file.file.delete(save=False)
         plan_file.delete()

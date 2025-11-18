@@ -234,9 +234,23 @@ const ParentDashboard = () => {
                               {/* Предметы с кнопками оплаты */}
                               <div className="mt-3 space-y-2">
                                 {child.subjects.slice(0, 2).map((subject) => (
-                                  <div key={subject.enrollment_id || subject.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                                  <div
+                                    key={subject.enrollment_id || subject.id}
+                                    className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                                      subject.payment_status === 'no_payment' || subject.payment_status === 'overdue'
+                                        ? 'bg-orange-50 border-orange-400 shadow-md dark:bg-orange-950/20 dark:border-orange-800'
+                                        : 'bg-muted border-transparent'
+                                    }`}
+                                  >
                                     <div className="flex-1">
-                                      <div className="text-sm font-medium">{subject.name}</div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <div className="text-sm font-medium">{subject.name}</div>
+                                        {(subject.payment_status === 'no_payment' || subject.payment_status === 'overdue') && (
+                                          <Badge variant="destructive" className="text-xs font-bold bg-orange-600 hover:bg-orange-700 animate-pulse">
+                                            ТРЕБУЕТСЯ ОПЛАТА
+                                          </Badge>
+                                        )}
+                                      </div>
                                       <div className="text-xs text-muted-foreground space-y-1">
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <span>Преподаватель: {subject.teacher_name}</span>
@@ -252,6 +266,11 @@ const ParentDashboard = () => {
                                               month: 'long',
                                               day: 'numeric'
                                             })}
+                                          </div>
+                                        )}
+                                        {subject.payment_status === 'no_payment' && (
+                                          <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">
+                                            Нажмите "Подключить предмет" для оплаты
                                           </div>
                                         )}
                                       </div>
@@ -290,11 +309,16 @@ const ParentDashboard = () => {
                                         <Button
                                           size="sm"
                                           variant={
-                                            subject.payment_status === 'overdue' 
-                                              ? 'destructive' 
+                                            subject.payment_status === 'overdue' || subject.payment_status === 'no_payment'
+                                              ? 'default'
                                               : subject.payment_status === 'waiting_for_payment'
                                               ? 'default'
                                               : 'default'
+                                          }
+                                          className={
+                                            subject.payment_status === 'no_payment' || subject.payment_status === 'overdue'
+                                              ? 'bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-lg border-2 border-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700'
+                                              : ''
                                           }
                                           disabled={!subject.enrollment_id}
                                           onClick={(e) => {
@@ -304,15 +328,15 @@ const ParentDashboard = () => {
                                               return;
                                             }
                                             handlePaymentClick(
-                                              child.id, 
-                                              subject.enrollment_id, 
-                                              subject.name, 
+                                              child.id,
+                                              subject.enrollment_id,
+                                              subject.name,
                                               subject.teacher_name,
                                               e
                                             );
                                           }}
                                         >
-                                          <CreditCard className="w-3 h-3 mr-1" />
+                                          <CreditCard className="w-4 h-4 mr-1" />
                                           {subject.payment_status === 'waiting_for_payment' ? 'Перейти к оплате' : 'Подключить предмет'}
                                         </Button>
                                       )}

@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Eye, Calendar, CheckCircle } from "lucide-react";
+import { FileText, Eye, Calendar, CheckCircle, Trash2 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
@@ -10,6 +10,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { unifiedAPI } from "@/integrations/api/unifiedClient";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Child {
   id: number;
@@ -23,6 +33,7 @@ export default function ParentReports() {
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChild, setSelectedChild] = useState<number | null>(null);
   const [selectedReport, setSelectedReport] = useState<TutorWeeklyReport | null>(null);
+  const [deleteConfirmReport, setDeleteConfirmReport] = useState<TutorWeeklyReport | null>(null);
   const { toast } = useToast();
 
   const loadChildren = useCallback(async () => {
@@ -104,18 +115,56 @@ export default function ParentReports() {
     try {
       setLoading(true);
       await tutorWeeklyReportsAPI.markAsRead(reportId);
+
+      // Обновляем статус отчета в состоянии немедленно
+      setReports(prev => prev.map(r =>
+        r.id === reportId ? { ...r, status: 'read' as const, read_at: new Date().toISOString() } : r
+      ));
+
       toast({
         title: 'Успешно',
         description: 'Отчёт отмечен как прочитанный',
       });
-      // Очищаем кэш и обновляем список отчетов
+
+      // Очищаем кэш
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/tutor-weekly-reports/');
-      await loadReports();
     } catch (error: any) {
       toast({
         title: 'Ошибка',
         description: error.message || 'Не удалось отметить отчёт',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteReport = async (reportId: number) => {
+    try {
+      setLoading(true);
+      console.log('Deleting tutor report:', reportId);
+      await tutorWeeklyReportsAPI.deleteReport(reportId);
+      console.log('Report deleted successfully');
+
+      // Удаляем отчет из состояния немедленно
+      setReports(prev => prev.filter(r => r.id !== reportId));
+
+      toast({
+        title: 'Успешно',
+        description: 'Отчет удален',
+      });
+      setDeleteConfirmReport(null);
+
+      // Очищаем кэш
+      const { cacheService } = await import('../../../services/cacheService');
+      cacheService.delete('/reports/tutor-weekly-reports/');
+    } catch (error: any) {
+      console.error('Error deleting tutor report:', error);
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось удалить отчет';
+      toast({
+        title: 'Ошибка',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -259,6 +308,15 @@ export default function ParentReports() {
                           Прочитано
                         </Button>
                       )}
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeleteConfirmReport(report)}
+                        disabled={loading}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Удалить
+                      </Button>
                     </div>
                   </Card>
                 ))}
@@ -345,6 +403,28 @@ export default function ParentReports() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Диалог подтверждения удаления */}
+      <AlertDialog open={!!deleteConfirmReport} onOpenChange={(open) => !open && setDeleteConfirmReport(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить отчёт?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить отчёт "{deleteConfirmReport?.title}"? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirmReport && handleDeleteReport(deleteConfirmReport.id)}
+              disabled={loading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarProvider>
   );
 }

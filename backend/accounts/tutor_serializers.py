@@ -1,3 +1,4 @@
+import logging
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
@@ -5,6 +6,7 @@ from materials.models import Subject, SubjectEnrollment
 from .models import StudentProfile
 
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -74,19 +76,19 @@ class TutorStudentSerializer(serializers.ModelSerializer):
             }
             for enrollment in enrollments
         ]
-        
+
         # Логируем для отладки
-        print(f"[TutorStudentSerializer.get_subjects] Student {user_id} ({obj.user.username}) has {len(result)} active enrollments")
+        logger.debug(f"Student {user_id} ({obj.user.username}) has {len(result)} active enrollments")
         if len(result) > 0:
             for item in result:
-                print(f"  - {item['name']} (teacher: {item['teacher_name']}, enrollment_id: {item['enrollment_id']})")
+                logger.debug(f"  - {item['name']} (teacher: {item['teacher_name']}, enrollment_id: {item['enrollment_id']})")
         else:
-            print(f"  - No active enrollments found for student {user_id}")
+            logger.debug(f"No active enrollments found for student {user_id}")
             # Проверяем, есть ли вообще enrollments для этого студента (включая неактивные)
             all_enrollments_count = SubjectEnrollment.objects.filter(student_id=user_id).count()
             active_count = SubjectEnrollment.objects.filter(student_id=user_id, is_active=True).count()
-            print(f"  - Total enrollments: {all_enrollments_count}, Active: {active_count}")
-        
+            logger.debug(f"Total enrollments: {all_enrollments_count}, Active: {active_count}")
+
         return result
 
 

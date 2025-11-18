@@ -384,6 +384,12 @@ export default function StudyPlans() {
 
   // Открытие диалога редактирования
   const handleOpenEditDialog = async (plan: StudyPlan) => {
+    // Проверяем, можно ли редактировать план
+    if (plan.status === 'sent' || plan.status === 'archived') {
+      showError('Нельзя редактировать отправленные или архивные планы занятий');
+      return;
+    }
+
     try {
       // Загружаем полные детали плана с файлами
       const response = await apiClient.request<StudyPlan>(`/materials/teacher/study-plans/${plan.id}/`);
@@ -878,6 +884,8 @@ export default function StudyPlans() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleOpenEditDialog(plan)}
+                          disabled={plan.status === 'sent' || plan.status === 'archived'}
+                          title={plan.status === 'sent' || plan.status === 'archived' ? 'Нельзя редактировать отправленные или архивные планы' : ''}
                         >
                           <Edit className="w-4 h-4 mr-2" />
                           Редактировать
@@ -999,12 +1007,21 @@ export default function StudyPlans() {
                 </DialogHeader>
                 {selectedPlan && (
                   <div className="space-y-4">
+                    {(selectedPlan.status === 'sent' || selectedPlan.status === 'archived') && (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                        <p className="text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" />
+                          Этот план уже отправлен студенту и не может быть изменен
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <Label>Название плана *</Label>
                       <Input
                         value={formData.title}
                         onChange={(e) => setFormData({...formData, title: e.target.value})}
                         placeholder="Например: Неделя 1: Алгебра"
+                        disabled={selectedPlan.status === 'sent' || selectedPlan.status === 'archived'}
                       />
                     </div>
                     <div>
@@ -1014,6 +1031,7 @@ export default function StudyPlans() {
                         value={formData.week_start_date}
                         onChange={(e) => setFormData({...formData, week_start_date: e.target.value})}
                         required
+                        disabled={selectedPlan.status === 'sent' || selectedPlan.status === 'archived'}
                       />
                     </div>
                     <div>
@@ -1023,13 +1041,15 @@ export default function StudyPlans() {
                         onChange={(e) => setFormData({...formData, content: e.target.value})}
                         placeholder="Опишите план занятий на неделю..."
                         rows={10}
+                        disabled={selectedPlan.status === 'sent' || selectedPlan.status === 'archived'}
                       />
                     </div>
                     <div>
                       <Label>Статус</Label>
-                      <Select 
-                        value={formData.status} 
+                      <Select
+                        value={formData.status}
                         onValueChange={(value) => setFormData({...formData, status: value as 'draft' | 'sent'})}
+                        disabled={selectedPlan.status === 'sent' || selectedPlan.status === 'archived'}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -1042,11 +1062,18 @@ export default function StudyPlans() {
                     </div>
                     <div>
                       <Label>Прикрепленные файлы</Label>
+                      {(selectedPlan.status === 'sent' || selectedPlan.status === 'archived') && (
+                        <p className="text-xs text-amber-600 dark:text-amber-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Нельзя изменять файлы в отправленных или архивных планах
+                        </p>
+                      )}
                       <div className="mt-2 space-y-2">
                         {selectedPlan.files && selectedPlan.files.length > 0 ? (
                           selectedPlan.files.map((file) => {
                             const FileIcon = getFileIcon(file.name);
                             const iconColor = getFileIconColor(file.name);
+                            const canDelete = selectedPlan.status === 'draft';
 
                             return (
                               <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-md hover:bg-muted/80 transition-colors">
@@ -1065,19 +1092,21 @@ export default function StudyPlans() {
                                     {formatFileSize(file.file_size)}
                                   </span>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteFile(selectedPlan.id, file.id)}
-                                  disabled={deletingFile === file.id}
-                                  className="flex-shrink-0"
-                                >
-                                  {deletingFile === file.id ? (
-                                    <span className="text-xs">Удаление...</span>
-                                  ) : (
-                                    <Trash2 className="w-4 h-4 text-destructive" />
-                                  )}
-                                </Button>
+                                {canDelete && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteFile(selectedPlan.id, file.id)}
+                                    disabled={deletingFile === file.id}
+                                    className="flex-shrink-0"
+                                  >
+                                    {deletingFile === file.id ? (
+                                      <span className="text-xs">Удаление...</span>
+                                    ) : (
+                                      <Trash2 className="w-4 h-4 text-destructive" />
+                                    )}
+                                  </Button>
+                                )}
                               </div>
                             );
                           })
@@ -1086,37 +1115,41 @@ export default function StudyPlans() {
                         )}
                       </div>
                     </div>
-                    <div>
-                      <Label>Загрузить файл</Label>
-                      <div className="mt-2 space-y-2">
-                        <Input
-                          type="file"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleUploadFile(selectedPlan.id, file);
-                              e.target.value = '';
-                            }
-                          }}
-                          disabled={uploadingFile === selectedPlan.id}
-                          accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.zip,.rar"
-                        />
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          Максимальный размер файла: 10 MB
-                        </p>
-                        {uploadingFile === selectedPlan.id && (
-                          <p className="text-xs text-muted-foreground mt-1">Загрузка...</p>
-                        )}
+                    {selectedPlan.status === 'draft' && (
+                      <div>
+                        <Label>Загрузить файл</Label>
+                        <div className="mt-2 space-y-2">
+                          <Input
+                            type="file"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleUploadFile(selectedPlan.id, file);
+                                e.target.value = '';
+                              }
+                            }}
+                            disabled={uploadingFile === selectedPlan.id}
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.zip,.rar"
+                          />
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            Максимальный размер файла: 10 MB
+                          </p>
+                          {uploadingFile === selectedPlan.id && (
+                            <p className="text-xs text-muted-foreground mt-1">Загрузка...</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-                        Отмена
+                        {selectedPlan.status === 'sent' || selectedPlan.status === 'archived' ? 'Закрыть' : 'Отмена'}
                       </Button>
-                      <Button onClick={handleEditPlan}>
-                        Сохранить
-                      </Button>
+                      {(selectedPlan.status === 'draft') && (
+                        <Button onClick={handleEditPlan}>
+                          Сохранить
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -12,6 +13,7 @@ from .models import StudentProfile, ParentProfile, TutorStudentCreation
 from notifications.notification_service import NotificationService
 
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -80,7 +82,7 @@ class StudentCreationService:
             created_by_tutor=tutor,
             is_active=True,
         )
-        print(f"[create_student_with_parent] Student user created: {student_user.username}, role: {student_user.role}")
+        logger.info(f"Student user created: {student_user.username}, role: {student_user.role}, id: {student_user.id}")
 
         # Создаем пользователя родителя
         parent_user = User.objects.create(
@@ -94,7 +96,7 @@ class StudentCreationService:
             created_by_tutor=tutor,
             is_active=True,
         )
-        print(f"[create_student_with_parent] Parent user created: {parent_user.username}, role: {parent_user.role}")
+        logger.info(f"Parent user created: {parent_user.username}, role: {parent_user.role}, id: {parent_user.id}")
 
         # Профили
         # Всегда устанавливаем tutor в профиле, если ученика создает пользователь через функционал тьютора
@@ -108,14 +110,40 @@ class StudentCreationService:
             generated_username=student_username,
             generated_password=student_password,
         )
-        print(f"[create_student_with_parent] StudentProfile created: id={student_profile.id}, parent_id={student_profile.parent_id}, parent={student_profile.parent}")
+        logger.info(f"StudentProfile created: id={student_profile.id}, student={student_user.username}, tutor={tutor.username}")
 
+        # КРИТИЧНО: Проверяем, что parent установлен
+        if student_profile.parent is None:
+            error_msg = (
+                f"CRITICAL: StudentProfile.parent must be set for proper dashboard visibility. "
+                f"StudentProfile.id={student_profile.id}, student={student_user.username}, "
+                f"parent_user.id={parent_user.id if parent_user else None}"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Логируем успешное установление связи
+        logger.info(
+            f"StudentProfile.parent validated: parent_id={student_profile.parent_id}, "
+            f"parent_username={student_profile.parent.username}"
+        )
+
+        # Создаем ParentProfile
         parent_profile, created = ParentProfile.objects.get_or_create(user=parent_user)
-        print(f"[create_student_with_parent] ParentProfile: id={parent_profile.id}, created={created}, user={parent_user.username}")
-        
+        logger.info(f"ParentProfile {'created' if created else 'retrieved'}: id={parent_profile.id}, user={parent_user.username}")
+
+        # КРИТИЧНО: Проверяем, что ParentProfile создан успешно
+        if not parent_profile:
+            error_msg = (
+                f"CRITICAL: ParentProfile creation failed. "
+                f"parent_user.id={parent_user.id}, parent_user.username={parent_user.username}"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
         # Проверяем связь после создания
         children_count = User.objects.filter(student_profile__parent=parent_user, role=User.Role.STUDENT).count()
-        print(f"[create_student_with_parent] Children count for parent {parent_user.username}: {children_count}")
+        logger.info(f"Parent-student relationship verified: parent={parent_user.username} has {children_count} child(ren)")
 
         # Запись о создании
         TutorStudentCreation.objects.create(
@@ -241,18 +269,22 @@ class SubjectAssignmentService:
                     'is_active': True,
                 }
             )
-            
+
             # Если зачисление уже существовало, обновляем его
             if not created:
                 enrollment.assigned_by = tutor
                 enrollment.is_active = True  # Активируем, если было деактивировано
                 enrollment.save(update_fields=['assigned_by', 'is_active'])
-            
-            print(f"[SubjectAssignmentService.assign_subject] Enrollment {'created' if created else 'updated'}: id={enrollment.id}, student_id={student.id}, subject_id={subject.id}, teacher_id={teacher.id}, is_active={enrollment.is_active}")
-            
+
+            logger.info(
+                f"Enrollment {'created' if created else 'updated'}: id={enrollment.id}, "
+                f"student_id={student.id}, subject_id={subject.id}, teacher_id={teacher.id}, "
+                f"is_active={enrollment.is_active}"
+            )
+
             # Принудительно перезагружаем enrollment из базы для гарантии актуальных данных
             enrollment.refresh_from_db()
-            
+
         except IntegrityError:
             # В случае race condition, пытаемся получить существующее зачисление и обновить
             try:
@@ -265,7 +297,7 @@ class SubjectAssignmentService:
                 enrollment.is_active = True
                 enrollment.save(update_fields=['assigned_by', 'is_active'])
                 enrollment.refresh_from_db()
-                print(f"[SubjectAssignmentService.assign_subject] Enrollment updated after IntegrityError: id={enrollment.id}")
+                logger.info(f"Enrollment updated after IntegrityError: id={enrollment.id}")
             except SubjectEnrollment.DoesNotExist:
                 # Если даже после IntegrityError объект не найден, это странно, но обрабатываем
                 raise ValueError("Не удалось создать или обновить зачисление из-за конфликта данных")

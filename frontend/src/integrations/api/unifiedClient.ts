@@ -7,13 +7,57 @@ import { errorLoggingService } from '../../services/errorLoggingService';
 import { performanceMonitoringService } from '../../services/performanceMonitoringService';
 import { cacheService } from '../../services/cacheService';
 
-// Environment configuration
-let API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DJANGO_API_URL) || 'http://localhost:8000/api';
-// Нормализуем базовый URL: гарантируем окончание на /api
-if (!API_BASE_URL.endsWith('/api')) {
-  API_BASE_URL = API_BASE_URL.replace(/\/$/, '') + '/api';
+// Environment configuration - получаем URL с автоопределением
+function getApiUrl(): string {
+  // Сначала проверяем переменную окружения
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DJANGO_API_URL);
+  if (envUrl && envUrl !== 'undefined') {
+    let url = envUrl;
+    // Нормализуем: гарантируем окончание на /api
+    if (!url.endsWith('/api')) {
+      url = url.replace(/\/$/, '') + '/api';
+    }
+    console.log('[Config] Using API URL from env:', url);
+    return url;
+  }
+
+  // Если нет переменной окружения, автоматически определяем по текущему хосту
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    const url = `${protocol}//${window.location.host}/api`;
+    console.log('[Config] Using auto-detected API URL:', url);
+    return url;
+  }
+
+  // Fallback для SSR
+  console.log('[Config] Using fallback API URL');
+  return 'http://localhost:8000/api';
 }
-const WS_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WS_URL) || 'ws://localhost:8000/ws';
+
+function getWebSocketUrl(): string {
+  // Сначала проверяем переменную окружения
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL);
+  if (envUrl && envUrl !== 'undefined') {
+    const url = envUrl.replace(/\/$/, '');
+    console.log('[Config] Using WebSocket URL from env:', url);
+    return url;
+  }
+
+  // Если нет переменной окружения, автоматически определяем по текущему хосту
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${protocol}//${window.location.host}/ws`;
+    console.log('[Config] Using auto-detected WebSocket URL:', url);
+    return url;
+  }
+
+  // Fallback для SSR
+  console.log('[Config] Using fallback WebSocket URL');
+  return 'ws://localhost:8000/ws';
+}
+
+const API_BASE_URL = getApiUrl();
+const WS_BASE_URL = getWebSocketUrl();
 
 // Types
 export interface ApiResponse<T = any> {

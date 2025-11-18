@@ -35,6 +35,84 @@ if [ ! -d "$BACKEND_DIR" ] || [ ! -d "$FRONTEND_DIR" ]; then
   exit 1
 fi
 
+# ================== ENV CONFIGURATION AUTO-SWITCH ==================
+# Проверяем и переключаем .env с localhost на production конфигурацию
+log "Проверяю конфигурацию .env..."
+
+ENV_FILE="$PROJECT_ROOT/.env"
+ENV_NEEDS_UPDATE=false
+
+if [ -f "$ENV_FILE" ]; then
+  # Проверяем на localhost-specific значения в .env
+  if grep -q "VITE_DJANGO_API_URL.*localhost\|FRONTEND_URL.*localhost\|VITE_WS_URL.*localhost" "$ENV_FILE" 2>/dev/null; then
+    log "⚠️  Обнаружена LOCALHOST конфигурация в .env"
+    log "   Переключаю на PRODUCTION конфигурацию для сервера ($DOMAIN)..."
+
+    # Создаём резервную копию
+    cp "$ENV_FILE" "$ENV_FILE.backup.localhost"
+    log "   (резервная копия: $ENV_FILE.backup.localhost)"
+
+    # Заменяем localhost значения на production
+    # Используем макрос для безопасной подстановки
+    sed -i.tmp \
+      -e "s|VITE_DJANGO_API_URL=.*localhost.*|VITE_DJANGO_API_URL=https://$DOMAIN/api|g" \
+      -e "s|FRONTEND_URL=.*localhost.*|FRONTEND_URL=https://$DOMAIN|g" \
+      -e "s|VITE_WS_URL=.*ws://localhost.*|VITE_WS_URL=wss://$DOMAIN/ws|g" \
+      "$ENV_FILE"
+
+    # Удаляем временный файл
+    rm -f "$ENV_FILE.tmp"
+
+    log "✅ .env переключён на production конфигурацию"
+    log "   VITE_DJANGO_API_URL=https://$DOMAIN/api"
+    log "   FRONTEND_URL=https://$DOMAIN"
+    log "   VITE_WS_URL=wss://$DOMAIN/ws"
+  else
+    log "✅ .env уже настроена на production"
+  fi
+else
+  log "⚠️  Файл .env не найден. Создаётся базовая конфигурация..."
+  cat > "$ENV_FILE" <<EOF
+# Production Configuration for the-bot.ru
+VITE_DJANGO_API_URL=https://$DOMAIN/api
+FRONTEND_URL=https://$DOMAIN
+VITE_WS_URL=wss://$DOMAIN/ws
+
+# Database
+SUPABASE_DB_HOST=your_db_host
+SUPABASE_DB_USER=your_db_user
+SUPABASE_DB_PASSWORD=your_db_password
+SUPABASE_DB_NAME=your_db_name
+SUPABASE_DB_PORT=6543
+
+# Payment
+YOOKASSA_SHOP_ID=your_shop_id
+YOOKASSA_SECRET_KEY=your_secret_key
+PAYMENT_TEST_MODE=False
+
+# Supabase
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Telegram
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_PUBLIC_CHAT_ID=your_chat_id
+TELEGRAM_LOG_CHAT_ID=your_log_chat_id
+
+# Redis
+USE_REDIS_CACHE=True
+USE_REDIS_CHANNELS=True
+REDIS_URL=redis://127.0.0.1:6379/0
+
+# Debug
+DEBUG=False
+PAYMENT_DEVELOPMENT_MODE=False
+EOF
+  log "⚠️  Заполните переменные в .env файле перед запуском сервера"
+  exit 1
+fi
+
 log "Проверяю ALLOWED_HOSTS в Django..."
 if ! grep -Eiq "ALLOWED_HOSTS\s*=.*$DOMAIN" "$BACKEND_DIR/config/settings.py"; then
   log "ВНИМАНИЕ: В $BACKEND_DIR/config/settings.py должен быть добавлен домен в ALLOWED_HOSTS (например: ['$DOMAIN', '$WWW_DOMAIN']). Скрипт его не меняет."

@@ -101,24 +101,41 @@ class ParentDashboardService:
     def get_children(self):
         """
         Получить список детей родителя
-        
+
         Returns:
             QuerySet: Список детей пользователя
         """
+        logger.info(f"[get_children] Getting children for parent: {self.parent_user.username} (id: {self.parent_user.id}, role: {self.parent_user.role})")
+
         # Если пользователь - родитель, используем ParentProfile.children
         # Если пользователь - администратор, ищем детей через StudentProfile.parent или created_by_tutor
         if self.parent_user.role == User.Role.PARENT:
             # Свойство children уже фильтрует по роли STUDENT, но для надежности оставляем фильтр
+            logger.debug(f"[get_children] User is PARENT, using ParentProfile.children")
             children = self.parent_profile.children.filter(role=User.Role.STUDENT)
+
+            # Проверяем есть ли ParentProfile
+            if not hasattr(self.parent_user, 'parent_profile') or self.parent_profile is None:
+                logger.warning(f"[get_children] ParentProfile not found for parent {self.parent_user.id}")
         else:
             # Для администраторов ищем детей, у которых parent = этому пользователю или created_by_tutor = этому пользователю
+            logger.debug(f"[get_children] User is not PARENT, searching through StudentProfile.parent or created_by_tutor")
             children = User.objects.filter(
                 Q(student_profile__parent=self.parent_user) | Q(created_by_tutor=self.parent_user),
                 role=User.Role.STUDENT
             ).distinct()
-        logger.info(f"Найдено {children.count()} детей для пользователя {self.parent_user.username} (роль: {self.parent_user.role})")
-        logger.debug(f"Дети: {[c.username for c in children]}")
-        # Возвращаем QuerySet, но вызывающий код должен преобразовать в список, если нужно избежать повторных запросов
+
+        child_count = children.count()
+        logger.info(f"[get_children] Found {child_count} children for parent {self.parent_user.username}")
+
+        if child_count == 0:
+            logger.warning(f"[get_children] WARNING: No children found for parent {self.parent_user.username}. This might indicate:")
+            logger.warning(f"  - ParentProfile not linked to StudentProfile.parent")
+            logger.warning(f"  - StudentProfile.parent is None or incorrect")
+            logger.warning(f"  - Children don't exist in database")
+        else:
+            logger.debug(f"[get_children] Children: {[(c.id, c.username) for c in children]}")
+
         return children
     
     def get_child_subjects(self, child):

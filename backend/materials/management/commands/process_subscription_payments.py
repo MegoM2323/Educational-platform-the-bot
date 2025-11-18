@@ -31,52 +31,89 @@ class Command(BaseCommand):
     
     def handle(self, *args, **options):
         dry_run = options['dry_run']
-        
+
+        logger.info(f"[process_subscription] Starting payment processing (dry_run={dry_run})")
+
         if dry_run:
             self.stdout.write(self.style.WARNING('Режим тестирования (dry-run)'))
-        
+
         # Получаем активные подписки, у которых наступила дата следующего платежа
         now = timezone.now()
+        logger.info(f"[process_subscription] Current time: {now}")
+
+        # Сначала получаем общее количество активных подписок для диагностики
+        total_active = SubjectSubscription.objects.filter(
+            status=SubjectSubscription.Status.ACTIVE
+        ).count()
+        logger.info(f"[process_subscription] Total ACTIVE subscriptions in database: {total_active}")
+
         subscriptions = SubjectSubscription.objects.filter(
             status=SubjectSubscription.Status.ACTIVE,
             next_payment_date__lte=now
         ).select_related('enrollment__student', 'enrollment__subject', 'enrollment__teacher')
-        
-        self.stdout.write(f'Найдено {subscriptions.count()} подписок для обработки')
-        
+
+        subscriptions_count = subscriptions.count()
+        logger.info(f"[process_subscription] Found {subscriptions_count} subscriptions with next_payment_date <= {now}")
+
+        self.stdout.write(f'Найдено {subscriptions_count} подписок для обработки')
+
         processed = 0
         errors = 0
-        
+
         for subscription in subscriptions:
+            subscription_id = subscription.id
+            logger.info(f"[process_subscription] Processing subscription {subscription_id}")
             try:
                 with transaction.atomic():
-                    enrollment = subscription.enrollment
+                    # Используем select_for_update() для блокировки enrollment строки
+                    # Это предотвращает race condition когда несколько workers обрабатывают одну подписку
+                    enrollment = SubjectEnrollment.objects.select_for_update().get(id=subscription.enrollment_id)
                     student = enrollment.student
-                    
+                    logger.info(
+                        f"[process_subscription] Subscription {subscription_id}: "
+                        f"enrollment_id={enrollment.id}, student={student.get_full_name()} (id={student.id})"
+                    )
+
                     # Получаем родителя студента
                     parent = None
                     if hasattr(student, 'student_profile') and student.student_profile:
                         parent = student.student_profile.parent
-                    
+                        logger.debug(f"[process_subscription] StudentProfile found for student {student.id}")
+                    else:
+                        logger.warning(f"[process_subscription] No StudentProfile for student {student.id}")
+
                     if not parent:
+                        logger.warning(
+                            f"[process_subscription] Subscription {subscription_id} skipped: "
+                            f"student {student.get_full_name()} (id={student.id}) has no parent"
+                        )
                         self.stdout.write(
                             self.style.WARNING(
-                                f'Пропущена подписка {subscription.id}: у студента {student.get_full_name()} нет родителя'
+                                f'Пропущена подписка {subscription_id}: у студента {student.get_full_name()} нет родителя'
                             )
                         )
                         continue
 
                     # Проверяем, нет ли уже pending/waiting_for_payment платежей для этой подписки
                     # Это предотвращает создание дублирующихся платежей если webhook еще не обработан
+                    # Уже защищено select_for_update() на enrollment выше
                     existing_pending = SubjectPayment.objects.filter(
                         enrollment=enrollment,
                         status__in=[SubjectPayment.Status.PENDING, SubjectPayment.Status.WAITING_FOR_PAYMENT]
                     ).exists()
 
                     if existing_pending:
+                        pending_count = SubjectPayment.objects.filter(
+                            enrollment=enrollment,
+                            status__in=[SubjectPayment.Status.PENDING, SubjectPayment.Status.WAITING_FOR_PAYMENT]
+                        ).count()
+                        logger.warning(
+                            f"[process_subscription] Subscription {subscription_id} skipped: "
+                            f"has {pending_count} pending/waiting_for_payment payments"
+                        )
                         self.stdout.write(
                             self.style.WARNING(
-                                f'Пропущена подписка {subscription.id}: уже есть необработанный платеж'
+                                f'Пропущена подписка {subscription_id}: уже есть необработанный платеж'
                             )
                         )
                         continue
@@ -93,6 +130,8 @@ class Command(BaseCommand):
                         continue
                     
                     # Создаем платеж в нашей системе
+                    logger.info(f"[process_subscription] Creating payment for subscription {subscription.id}")
+
                     payment = Payment.objects.create(
                         amount=subscription.amount,
                         service_name=f"Регулярный платеж за предмет: {subject_name} (ученик: {student.get_full_name()})",
@@ -116,7 +155,24 @@ class Command(BaseCommand):
                             "create_subscription": False,  # Не создаем новую подписку, она уже есть
                         },
                     )
-                    
+                    logger.info(f"[process_subscription] Payment {payment.id} created")
+
+                    # ✅ FIX: Создаем SubjectPayment СРАЗУ ПОСЛЕ Payment, но ДО вызова YooKassa API
+                    # Это предотвращает race condition когда webhook приходит раньше создания SubjectPayment
+                    due_date = timezone.now() + timedelta(days=7)
+
+                    subject_payment = SubjectPayment.objects.create(
+                        enrollment=enrollment,
+                        payment=payment,
+                        amount=subscription.amount,
+                        status=SubjectPayment.Status.PENDING,  # Начальный статус - PENDING
+                        due_date=due_date
+                    )
+                    logger.info(
+                        f"[process_subscription] SubjectPayment {subject_payment.id} created BEFORE YooKassa call "
+                        f"(enrollment={enrollment.id}, payment={payment.id}, status=PENDING)"
+                    )
+
                     # Создаем платеж в YooKassa
                     # Для команды создаем фиктивный request объект
                     # Важно: для команды используется FRONTEND_URL из настроек
@@ -140,19 +196,19 @@ class Command(BaseCommand):
                             fake_request.META['wsgi.url_scheme'] = 'https'
                     else:
                         fake_request.META['HTTP_HOST'] = 'localhost'
-                    
+
+                    logger.info(f"[process_subscription] Calling YooKassa API for payment {payment.id}")
                     yookassa_payment = create_yookassa_payment(payment, fake_request)
-                    
+
                     if not yookassa_payment:
                         logger.error(f"Не удалось создать платеж в YooKassa для подписки {subscription.id}")
-                        payment.delete()  # Удаляем платеж, если не удалось создать в YooKassa
                         raise Exception("Не удалось создать платеж в YooKassa")
-                    
+
                     # Обновляем платеж с данными от ЮКассы
                     payment.yookassa_payment_id = yookassa_payment.get('id')
                     payment.confirmation_url = yookassa_payment.get('confirmation', {}).get('confirmation_url')
                     payment.raw_response = yookassa_payment
-                    
+
                     # Обновляем статус Payment на основе ответа от ЮКассы
                     yookassa_status = yookassa_payment.get('status')
                     if yookassa_status == 'pending':
@@ -164,21 +220,21 @@ class Command(BaseCommand):
                         payment.paid_at = timezone.now()
                     elif yookassa_status == 'canceled':
                         payment.status = Payment.Status.CANCELED
-                    
+
                     payment.save(update_fields=['yookassa_payment_id', 'confirmation_url', 'raw_response', 'status', 'paid_at', 'updated'])
-                    
-                    # Создаем платеж по предмету
-                    due_date = timezone.now() + timedelta(days=7)
-                    # Определяем статус на основе наличия confirmation_url
-                    payment_status = SubjectPayment.Status.WAITING_FOR_PAYMENT if payment.confirmation_url else SubjectPayment.Status.PENDING
-                    
-                    subject_payment = SubjectPayment.objects.create(
-                        enrollment=enrollment,
-                        payment=payment,
-                        amount=subscription.amount,
-                        status=payment_status,
-                        due_date=due_date
+                    logger.info(
+                        f"[process_subscription] Payment {payment.id} updated with YooKassa ID: "
+                        f"{payment.yookassa_payment_id}, status: {payment.status}"
                     )
+
+                    # Обновляем статус SubjectPayment на WAITING_FOR_PAYMENT если получили confirmation_url
+                    if payment.confirmation_url:
+                        subject_payment.status = SubjectPayment.Status.WAITING_FOR_PAYMENT
+                        subject_payment.save(update_fields=['status', 'updated_at'])
+                        logger.info(
+                            f"[process_subscription] SubjectPayment {subject_payment.id} status updated to "
+                            f"WAITING_FOR_PAYMENT after YooKassa response"
+                        )
 
                     # Отправляем Telegram уведомление родителю о новом счете
                     try:
@@ -236,10 +292,21 @@ class Command(BaseCommand):
                 )
                 errors += 1
         
-        self.stdout.write(
-            self.style.SUCCESS(
-                f'\nОбработка завершена: обработано {processed}, ошибок {errors}'
+        summary_message = (
+            f'\nОбработка завершена: обработано {processed}, ошибок {errors}'
+        )
+        logger.info(f"[process_subscription] SUMMARY: processed={processed}, errors={errors}, total_queried={subscriptions_count}")
+
+        if subscriptions_count == 0:
+            logger.warning(
+                f"[process_subscription] No subscriptions found for processing. Possible reasons:"
+                f"\n  - All ACTIVE subscriptions have next_payment_date in the future"
+                f"\n  - Total ACTIVE subscriptions in DB: {total_active}"
+                f"\n  - Check if subscriptions are being created: next_payment_date should be <= current_time"
             )
+
+        self.stdout.write(
+            self.style.SUCCESS(summary_message)
         )
 
     def _send_parent_notification(self, telegram_service, parent, student, enrollment, payment, amount, due_date):

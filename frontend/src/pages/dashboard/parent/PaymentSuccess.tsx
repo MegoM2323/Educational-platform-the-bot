@@ -54,15 +54,15 @@ const PaymentSuccess = () => {
     let pollCount = 0;
 
     const checkPayment = async (retryCount = 0) => {
-      const MAX_RETRIES = 30; // Maximum 30 attempts = 75 seconds at 2.5s interval (reduced from 60 at 1s)
-      const RETRY_DELAY = 2500; // 2.5 seconds between attempts (increased from 1s to reduce server load)
+      const MAX_RETRIES = 60; // Maximum 60 attempts = 180 seconds (3 minutes) at 3s interval
+      const RETRY_DELAY = 3000; // 3 seconds between attempts (gives YooKassa webhook time to arrive)
 
       try {
         setChecking(true);
         pollCount++;
         console.log(`[Payment Check ${pollCount}] Retry ${retryCount + 1}/${MAX_RETRIES}`);
 
-        const response = await unifiedAPI.request(`/api/check-payment/?payment_id=${paymentId}`);
+        const response = await unifiedAPI.request(`/check-payment/?payment_id=${paymentId}`);
 
         if (response.data) {
           const status = response.data.status;
@@ -73,13 +73,22 @@ const PaymentSuccess = () => {
             console.log('[Payment Check] Status: SUCCEEDED');
             setPaymentStatus('success');
 
-            // CRITICAL: Invalidate and refetch dashboard data
+            // CRITICAL: Invalidate and refetch ALL related dashboard data
+            console.log('[Payment Success] Invalidating all parent dashboard caches...');
+
             // Invalidate first to mark queries as stale
             await queryClient.invalidateQueries({ queryKey: ['parent-dashboard'] });
             await queryClient.invalidateQueries({ queryKey: ['parent-children'] });
+            // Добавляем инвалидацию для подписок и платежей (важно для немедленного обновления статуса)
+            await queryClient.invalidateQueries({ queryKey: ['parent-payments'] });
+            await queryClient.invalidateQueries({ queryKey: ['parent-subscriptions'] });
+
             // Then explicitly refetch to get fresh data
+            console.log('[Payment Success] Refetching parent dashboard data...');
             await queryClient.refetchQueries({ queryKey: ['parent-dashboard'] });
             await queryClient.refetchQueries({ queryKey: ['parent-children'] });
+            await queryClient.refetchQueries({ queryKey: ['parent-payments'] });
+            console.log('[Payment Success] All caches refreshed successfully');
 
             toast({
               title: "Платеж успешно завершен!",
@@ -93,20 +102,20 @@ const PaymentSuccess = () => {
             console.log(`[Payment Check] Status: ${status} - continuing polling`);
             setPaymentStatus('pending');
 
-            // Retry after 2.5 seconds (reduced from 60s max, now 75s max)
+            // Retry after 3 seconds (max 180 seconds = 3 minutes)
             if (retryCount < MAX_RETRIES) {
-              // Логируем только каждый 4-й запрос чтобы не замусорить консоль
-              if (retryCount % 4 === 0) {
+              // Логируем только каждый 5-й запрос чтобы не замусорить консоль
+              if (retryCount % 5 === 0) {
                 console.log(`Payment pending, retry ${retryCount + 1}/${MAX_RETRIES}`);
               }
               checkPaymentTimeout = setTimeout(() => checkPayment(retryCount + 1), RETRY_DELAY);
             } else {
-              // Максимум попыток исчерпан
-              console.log('[Payment Check] Max retries reached, stopping polling');
+              // Максимум попыток исчерпан (3 минуты прошло)
+              console.log('[Payment Check] Max retries reached (3 minutes), stopping polling');
               setPaymentStatus('pending'); // Оставляем "pending" статус
               toast({
                 title: "Платеж обрабатывается",
-                description: "Обработка платежа занимает больше времени, чем обычно. Платеж будет учтен, пожалуйста, вернитесь в личный кабинет.",
+                description: "Обработка платежа занимает больше времени, чем обычно (более 3 минут). Платеж будет учтен автоматически, пожалуйста, вернитесь в личный кабинет.",
                 variant: "default",
               });
             }
@@ -240,8 +249,11 @@ const PaymentSuccess = () => {
                 <div className="text-center">
                   <Loader2 className="h-16 w-16 mx-auto mb-4 animate-spin text-yellow-500" />
                   <h2 className="text-2xl font-bold mb-2">Платеж обрабатывается</h2>
-                  <p className="text-muted-foreground mb-6">
+                  <p className="text-muted-foreground mb-2">
                     Ваш платеж находится в обработке. Пожалуйста, подождите.
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Обработка может занять до 3 минут
                   </p>
                   <Button onClick={() => navigate('/dashboard/parent')}>
                     Вернуться в личный кабинет

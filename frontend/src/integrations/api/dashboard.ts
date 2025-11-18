@@ -73,15 +73,23 @@ export interface DistributeMaterialRequest {
 
 export interface ChildData {
   id: number;
+  name: string;
   full_name: string;
   email: string;
   grade: string;
+  goal?: string;
   subjects: Array<{
     id: number;
+    enrollment_id: number;
     name: string;
     teacher_name: string;
+    teacher_id: number;
     enrollment_status: string;
     payment_status: string;
+    next_payment_date?: string | null;
+    has_subscription: boolean;
+    subscription_status?: string | null;
+    expires_at?: string | null;
   }>;
 }
 

@@ -39,41 +39,45 @@ const Children = () => {
                       </div>
                       <div className="text-sm text-muted-foreground">Цель: {child.goal || '—'}</div>
                       <div className="space-y-2">
-                        {child.subjects.map((s) => (
-                          <div key={s.enrollment_id || s.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                            <div className="flex-1">
-                              <div className="font-medium text-sm">{s.name}</div>
-                              <div className="text-xs text-muted-foreground">Преподаватель: {s.teacher_name}</div>
-                              {s.subscription_status === 'cancelled' && s.expires_at && (
-                                <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                                  Доступ до: {new Date(s.expires_at).toLocaleString('ru-RU', {
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <PaymentStatusBadge status={s.payment_status as PaymentStatus} size="sm" />
-                              {s.enrollment_id && (
+                        {child.subjects && child.subjects.length > 0 ? (
+                          child.subjects.map((s) => (
+                            <div key={s.enrollment_id} className="flex items-center justify-between p-2 bg-muted rounded">
+                              <div className="flex-1">
+                                <div className="font-medium text-sm">{s.name}</div>
+                                <div className="text-xs text-muted-foreground">Преподаватель: {s.teacher_name}</div>
+                                {s.subscription_status === 'cancelled' && s.expires_at && (
+                                  <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                                    Доступ до: {new Date(s.expires_at).toLocaleString('ru-RU', {
+                                      year: 'numeric',
+                                      month: '2-digit',
+                                      day: '2-digit',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <PaymentStatusBadge status={s.payment_status as PaymentStatus} size="sm" />
                                 <PayButton
                                   childId={child.id}
                                   enrollmentId={s.enrollment_id}
                                   subjectName={s.name}
                                   teacherName={s.teacher_name}
-                                  hasSubscription={s.has_subscription || false}
+                                  hasSubscription={s.has_subscription}
                                   paymentStatus={s.payment_status}
                                   subscriptionStatus={s.subscription_status}
                                   expiresAt={s.expires_at}
                                   nextPaymentDate={s.next_payment_date}
                                 />
-                              )}
+                              </div>
                             </div>
+                          ))
+                        ) : (
+                          <div className="text-sm text-muted-foreground text-center py-4">
+                            У ребенка еще нет предметов
                           </div>
-                        ))}
+                        )}
                       </div>
                       <div className="pt-2">
                         <Button variant="outline" onClick={() => navigate(`/dashboard/parent/children/${child.id}`)}>Детали</Button>
@@ -120,11 +124,13 @@ function PayButton({
   // Проверяем, находится ли следующий платеж в будущем
   const isNextPaymentInFuture = nextPaymentDate ? new Date(nextPaymentDate) > new Date() : false;
 
-  // Если подписка отменена и есть дата истечения - показываем дату истечения доступа
+  // СЛУЧАЙ 1: Если подписка отменена - показываем дату истечения доступа
   if (subscriptionStatus === 'cancelled' && expiresAt) {
     return (
       <div className="flex flex-col items-end gap-1">
-        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">Доступ ограничен</Badge>
+        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+          Доступ ограничен
+        </Badge>
         <div className="text-xs text-orange-600 dark:text-orange-400 text-right">
           До: {new Date(expiresAt).toLocaleString('ru-RU', {
             year: 'numeric',
@@ -138,72 +144,66 @@ function PayButton({
     );
   }
 
-  // Если предмет оплачен И следующий платеж еще не наступил - показываем что предмет активен
+  // СЛУЧАЙ 2: Если предмет оплачен И следующий платеж еще впереди - предмет активен
+  // Это выполняется для:
+  // - Активных подписок с future payment date
+  // - Разовых платежей, которые еще актуальны
   if (paymentStatus === 'paid' && isNextPaymentInFuture) {
     return (
       <div className="flex flex-col items-end gap-1">
-        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Активен</Badge>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={async () => {
-            const confirmed = window.confirm(
-              `Отключить автосписание для предмета "${subjectName}"?`
-            );
-            if (!confirmed) return;
+        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+          Активен
+        </Badge>
+        {hasSubscription && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              const confirmed = window.confirm(
+                `Отключить автосписание для предмета "${subjectName}"?`
+              );
+              if (!confirmed) return;
 
-            try {
-              await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
-              window.location.reload();
-            } catch (err) {
-              console.error('Cancel subscription error:', err);
-            }
-          }}
-        >
-          Отключить автосписание
-        </Button>
+              try {
+                await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
+                window.location.reload();
+              } catch (err) {
+                console.error('Cancel subscription error:', err);
+              }
+            }}
+          >
+            Отключить автосписание
+          </Button>
+        )}
       </div>
     );
   }
 
-  // Если есть активная подписка и оплачено - показываем кнопку "Отключить автосписание"
-  if (hasSubscription && paymentStatus === 'paid') {
+  // СЛУЧАЙ 3: Платеж просрочен или доступ закончился - нужна новая оплата
+  if (paymentStatus === 'overdue' || (paymentStatus === 'paid' && !isNextPaymentInFuture)) {
     return (
-      <div className="flex flex-col items-end gap-1">
-        <Badge variant="secondary" className="text-xs">Автосписание активно</Badge>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={async () => {
-            const confirmed = window.confirm(
-              `Отключить автосписание для предмета "${subjectName}"?`
-            );
-            if (!confirmed) return;
-
-            try {
-              await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
-              window.location.reload();
-            } catch (err) {
-              console.error('Cancel subscription error:', err);
-            }
-          }}
-        >
-          Отключить автосписание
-        </Button>
-      </div>
+      <Button
+        size="sm"
+        onClick={() => payment.mutate()}
+        disabled={payment.isPending}
+        variant="destructive"
+      >
+        <CreditCard className="w-4 h-4 mr-1" />
+        Оплатить предмет
+      </Button>
     );
   }
 
-  // Если платеж просрочен или нет платежа - показываем кнопку "Подключить предмет"
+  // СЛУЧАЙ 4: Нет платежа или ожидание платежа - подключить предмет
   return (
     <Button
       size="sm"
       onClick={() => payment.mutate()}
       disabled={payment.isPending}
-      variant={paymentStatus === 'overdue' ? 'destructive' : 'default'}
+      variant="default"
     >
       <CreditCard className="w-4 h-4 mr-1" />
-      {paymentStatus === 'overdue' ? 'Оплатить предмет' : 'Подключить предмет'}
+      Подключить предмет
     </Button>
   );
 }

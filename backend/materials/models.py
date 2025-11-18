@@ -171,6 +171,7 @@ class SubjectPayment(models.Model):
         verbose_name = 'Платеж по предмету'
         verbose_name_plural = 'Платежи по предметам'
         ordering = ['-created_at']
+        unique_together = [('enrollment', 'payment')]
     
     def __str__(self):
         return f"Платеж {self.enrollment.student} - {self.enrollment.subject} ({self.amount})"
@@ -226,6 +227,7 @@ class SubjectSubscription(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
     cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата отмены')
+    expires_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата истечения доступа')
     
     class Meta:
         verbose_name = 'Подписка на предмет'

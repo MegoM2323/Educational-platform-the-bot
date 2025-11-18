@@ -114,6 +114,21 @@ class ParentChildrenView(generics.ListAPIView):
                 payments_by_enrollment = {p['enrollment_id']: p for p in payments_info}
                 for enrollment in service.get_child_subjects(child):
                     payment = payments_by_enrollment.get(enrollment.id, None)
+
+                    # Получаем информацию о подписке
+                    subscription = getattr(enrollment, 'subscription', None)
+                    expires_at = None
+                    subscription_status = None
+
+                    if subscription:
+                        subscription_status = subscription.status
+                        # Если подписка отменена, returns expires_at (когда доступ заканчивается)
+                        if subscription.status == 'cancelled':
+                            expires_at = subscription.expires_at.isoformat() if subscription.expires_at else None
+                        # Если подписка активна, returns next_payment_date как дата следующего платежа
+                        elif subscription.status == 'active':
+                            expires_at = subscription.next_payment_date.isoformat() if subscription.next_payment_date else None
+
                     subjects.append({
                         'id': enrollment.subject.id,
                         'enrollment_id': enrollment.id,  # Добавляем enrollment_id
@@ -122,8 +137,10 @@ class ParentChildrenView(generics.ListAPIView):
                         'teacher_id': enrollment.teacher.id,
                         'enrollment_status': 'active' if enrollment.is_active else 'inactive',
                         'payment_status': (payment['status'] if payment else 'no_payment'),
-                        'next_payment_date': payment['due_date'] if payment else None,
+                        'next_payment_date': payment['next_payment_date'] if payment else None,
                         'has_subscription': service._has_active_subscription(enrollment),
+                        'subscription_status': subscription_status,
+                        'expires_at': expires_at,
                     })
                 
                 # Совместимость: возвращаем как 'name' (ожидается тестами) и 'full_name'
@@ -498,8 +515,10 @@ def cancel_subscription(request, child_id, enrollment_id):
         # Отменяем подписку
         subscription.status = SubjectSubscription.Status.CANCELLED
         subscription.cancelled_at = timezone.now()
+        # Дата истечения доступа = следующая дата платежа (доступ до конца текущего периода)
+        subscription.expires_at = subscription.next_payment_date
         subscription.save()
-        
+
         # Если есть ID подписки в ЮКассу, можно отменить и там
         # (требует дополнительной интеграции с API ЮКассы)
         

@@ -193,3 +193,13 @@ frontend/coverage/
 
 # CI/CD
 *.pid
+
+# Script logs and temporary files
+setup.log
+*.log.bak
+table-version-push
+
+# Deprecated/old files
+.env.test.localhost
+package.json
+package-lock.json

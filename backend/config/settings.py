@@ -311,23 +311,31 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom user model
 AUTH_USER_MODEL = 'accounts.User'
 
-# CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:8080",
-    "http://127.0.0.1:8081",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://5.129.249.206",
-    "https://5.129.249.206",
-    "https://the-bot.ru",
-    "https://www.the-bot.ru",
-]
+# CORS settings - динамически в зависимости от окружения
+if DEBUG:
+    # Development: разрешаем все localhost порты
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:8081",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
+else:
+    # Production: только реальные домены (HTTP для редиректов, HTTPS для основной работы)
+    CORS_ALLOWED_ORIGINS = [
+        "https://the-bot.ru",
+        "https://www.the-bot.ru",
+        "http://the-bot.ru",   # Для редиректов с HTTP на HTTPS
+        "http://www.the-bot.ru",
+        "http://5.129.249.206",  # IP сервера (для прямого доступа)
+        "https://5.129.249.206",
+    ]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False  # Используем CORS_ALLOWED_ORIGINS вместо allow all
@@ -369,7 +377,9 @@ REST_FRAMEWORK = {
 
 # Cache settings
 # Настройки кэширования
-USE_REDIS_CACHE = os.getenv('USE_REDIS_CACHE', 'False').lower() == 'true'
+# По умолчанию: Development (DEBUG=True) -> False, Production (DEBUG=False) -> True
+# Можно переопределить в .env: USE_REDIS_CACHE=True/False
+USE_REDIS_CACHE = os.getenv('USE_REDIS_CACHE', str(not DEBUG)).lower() == 'true'
 
 if USE_REDIS_CACHE:
     # Используем Redis для кэширования
@@ -445,8 +455,10 @@ SYSTEM_MONITORING = {
 }
 
 # Django Channels settings
-# Используем Redis для production, InMemory для разработки (если Redis недоступен)
-USE_REDIS_CHANNELS = os.getenv('USE_REDIS_CHANNELS', 'False').lower() == 'true'
+# По умолчанию: Development (DEBUG=True) -> InMemory, Production (DEBUG=False) -> Redis
+# Можно переопределить в .env: USE_REDIS_CHANNELS=True/False
+# ВАЖНО: В production Redis КРИТИЧНО необходим для WebSocket на нескольких процессах
+USE_REDIS_CHANNELS = os.getenv('USE_REDIS_CHANNELS', str(not DEBUG)).lower() == 'true'
 
 if USE_REDIS_CHANNELS:
     # Используем Redis для каналов (production)
@@ -473,8 +485,9 @@ WEBSOCKET_MESSAGE_MAX_LENGTH = 1024 * 1024  # 1MB
 
 # Payment settings
 # PAYMENT_DEVELOPMENT_MODE: режим разработки с минимальными суммами (1 руб) и частыми платежами (10 мин)
-# Используется с live API ключом YooKassa, но с маленькими суммами для безопасности
-PAYMENT_DEVELOPMENT_MODE = os.getenv('PAYMENT_DEVELOPMENT_MODE', 'False').lower() == 'true'
+# По умолчанию берется из DEBUG, но можно переопределить в .env
+# Это позволяет тестировать реальные суммы даже в development, если нужно
+PAYMENT_DEVELOPMENT_MODE = os.getenv('PAYMENT_DEVELOPMENT_MODE', str(DEBUG)).lower() == 'true'
 DEVELOPMENT_PAYMENT_AMOUNT = Decimal(os.getenv('DEVELOPMENT_PAYMENT_AMOUNT', '1.00'))  # 1 рубль в режиме разработки
 PRODUCTION_PAYMENT_AMOUNT = Decimal(os.getenv('PRODUCTION_PAYMENT_AMOUNT', '5000.00'))  # 5000 рублей в обычном режиме
 DEVELOPMENT_RECURRING_INTERVAL_MINUTES = int(os.getenv('DEVELOPMENT_RECURRING_INTERVAL_MINUTES', '10'))  # 10 минут в режиме разработки
@@ -494,3 +507,47 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Импортируем расписание периодических задач
 from core.celery_config import CELERY_BEAT_SCHEDULE
+
+# ============================================
+# PRODUCTION CONFIGURATION VALIDATION
+# ============================================
+# Проверяем критические настройки в production режиме
+if not DEBUG:
+    # 1. Проверка Redis - КРИТИЧНО для Celery и рекуррентных платежей
+    if not USE_REDIS_CACHE or not USE_REDIS_CHANNELS:
+        import warnings
+        warnings.warn(
+            "Production mode requires Redis for Celery (recurring payments) and WebSocket.\n"
+            "Set USE_REDIS_CACHE=True and USE_REDIS_CHANNELS=True in .env\n"
+            "Or remove these variables to use automatic defaults.",
+            RuntimeWarning,
+            stacklevel=2
+        )
+
+    # 2. Проверка FRONTEND_URL - не должен быть localhost
+    if FRONTEND_URL and ('localhost' in FRONTEND_URL.lower() or '127.0.0.1' in FRONTEND_URL):
+        raise ImproperlyConfigured(
+            f"Production mode with localhost FRONTEND_URL is not allowed.\n"
+            f"Current value: {FRONTEND_URL}\n"
+            f"Expected: https://the-bot.ru or similar production URL"
+        )
+
+    # 3. Проверка ALLOWED_HOSTS - должны быть заданы
+    if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['*']:
+        raise ImproperlyConfigured(
+            "ALLOWED_HOSTS must be properly configured in production.\n"
+            "Current value: []\n"
+            "Expected: ['the-bot.ru', 'www.the-bot.ru', ...]"
+        )
+
+    # 4. Информационное сообщение о режиме
+    import sys
+    if 'runserver' in sys.argv or 'test' in sys.argv:
+        pass  # Не выводим при тестах или runserver
+    else:
+        print(f"✅ Production mode active (DEBUG=False)")
+        print(f"   - Redis Cache: {'✅ Enabled' if USE_REDIS_CACHE else '❌ Disabled'}")
+        print(f"   - Redis Channels: {'✅ Enabled' if USE_REDIS_CHANNELS else '❌ Disabled'}")
+        print(f"   - Payment Mode: {'💰 Production (5000₽/week)' if not PAYMENT_DEVELOPMENT_MODE else '🧪 Development (1₽/10min)'}")
+        print(f"   - Frontend URL: {FRONTEND_URL}")
+        print(f"   - Allowed Hosts: {', '.join(ALLOWED_HOSTS)}")

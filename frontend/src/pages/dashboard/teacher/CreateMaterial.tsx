@@ -26,6 +26,7 @@ interface Student {
   first_name: string;
   last_name: string;
   email: string;
+  name: string;
 }
 
 const CreateMaterial = () => {
@@ -73,7 +74,7 @@ const CreateMaterial = () => {
         // Загружаем ВСЕХ студентов сразу
         const studentsResponse = await apiClient.request<{students: any[]}>('/materials/teacher/all-students/');
         console.log('[CreateMaterial] Students response:', studentsResponse);
-        
+
         if (studentsResponse.data?.students) {
           // Backend уже фильтрует только студентов (исключая админов)
           // Дополнительная проверка на фронтенде для безопасности
@@ -82,8 +83,10 @@ const CreateMaterial = () => {
           );
           setStudents(filteredStudents.map((s: any) => ({
             id: s.id,
-            name: s.name || s.username || `${s.first_name} ${s.last_name}`.trim() || `ID: ${s.id}`,
-            email: s.email || ''
+            first_name: s.first_name || '',
+            last_name: s.last_name || '',
+            email: s.email || '',
+            name: s.name || s.username || `${s.first_name} ${s.last_name}`.trim() || `ID: ${s.id}`
           })));
         }
       } catch (error) {
@@ -291,237 +294,251 @@ const CreateMaterial = () => {
               </Button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Основная информация */}
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Основная информация</h3>
+            <form onSubmit={handleSubmit}>
+              <Card className="p-6">
+                <div className="space-y-6">
+                  {/* Основные поля */}
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="title">Заголовок *</Label>
+                      <Label htmlFor="title">Название материала *</Label>
                       <Input
                         id="title"
                         value={formData.title}
                         onChange={(e) => handleInputChange('title', e.target.value)}
-                        placeholder="Введите заголовок материала"
+                        placeholder="Например: Введение в алгебру"
                         required
+                        className="mt-1"
                       />
                     </div>
-                    
+
                     <div>
-                      <Label htmlFor="description">Описание</Label>
+                      <Label htmlFor="content">Содержание *</Label>
                       <Textarea
-                        id="description"
-                        value={formData.description}
-                        onChange={(e) => handleInputChange('description', e.target.value)}
-                        placeholder="Краткое описание материала"
-                        rows={3}
+                        id="content"
+                        value={formData.content}
+                        onChange={(e) => handleInputChange('content', e.target.value)}
+                        placeholder="Опишите содержание материала..."
+                        rows={4}
+                        required
+                        className="mt-1"
                       />
                     </div>
-                    
-                    <div>
-                      <Label htmlFor="subject">Предмет *</Label>
-                      <Select
-                        value={formData.subject}
-                        onValueChange={(value) => handleInputChange('subject', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Выберите предмет" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(subjects || []).map((subject) => (
-                            <SelectItem key={subject.id} value={subject.id.toString()}>
-                              {subject.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="type">Тип материала</Label>
-                      <Select
-                        value={formData.type}
-                        onValueChange={(value) => handleInputChange('type', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="lesson">Урок</SelectItem>
-                          <SelectItem value="presentation">Презентация</SelectItem>
-                          <SelectItem value="video">Видео</SelectItem>
-                          <SelectItem value="document">Документ</SelectItem>
-                          <SelectItem value="test">Тест</SelectItem>
-                          <SelectItem value="homework">Домашнее задание</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="subject">Предмет *</Label>
+                        <Select
+                          value={formData.subject}
+                          onValueChange={(value) => handleInputChange('subject', value)}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Выберите предмет" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(subjects || []).map((subject) => (
+                              <SelectItem key={subject.id} value={subject.id.toString()}>
+                                {subject.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="type">Тип</Label>
+                        <Select
+                          value={formData.type}
+                          onValueChange={(value) => handleInputChange('type', value)}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="lesson">Урок</SelectItem>
+                            <SelectItem value="homework">Домашнее задание</SelectItem>
+                            <SelectItem value="test">Тест</SelectItem>
+                            <SelectItem value="document">Документ</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
-                </Card>
 
-                {/* Дополнительные настройки */}
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Дополнительные настройки</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="difficulty_level">Уровень сложности</Label>
-                      <Select
-                        value={formData.difficulty_level.toString()}
-                        onValueChange={(value) => handleInputChange('difficulty_level', parseInt(value))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[1, 2, 3, 4, 5].map((level) => (
-                            <SelectItem key={level} value={level.toString()}>
-                              Уровень {level}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="status">Статус</Label>
-                      <Select
-                        value={formData.status}
-                        onValueChange={(value) => handleInputChange('status', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">Черновик</SelectItem>
-                          <SelectItem value="active">Активно</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="is_public"
-                        checked={formData.is_public}
-                        onCheckedChange={(checked) => handleInputChange('is_public', checked)}
-                      />
-                      <Label htmlFor="is_public">Публичный материал</Label>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="tags">Теги</Label>
-                      <Input
-                        id="tags"
-                        value={formData.tags}
-                        onChange={(e) => handleInputChange('tags', e.target.value)}
-                        placeholder="Введите теги через запятую"
-                      />
-                    </div>
-                  </div>
-                </Card>
-              </div>
+                  {/* Дополнительно (скрываемая секция) */}
+                  <details className="group">
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-2">
+                      <span>Дополнительные параметры</span>
+                      <span className="text-xs">(опционально)</span>
+                    </summary>
+                    <div className="mt-4 space-y-4 pl-4 border-l-2 border-muted">
+                      <div>
+                        <Label htmlFor="description">Краткое описание</Label>
+                        <Textarea
+                          id="description"
+                          value={formData.description}
+                          onChange={(e) => handleInputChange('description', e.target.value)}
+                          placeholder="Опционально"
+                          rows={2}
+                          className="mt-1"
+                        />
+                      </div>
 
-              {/* Содержание */}
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Содержание *</h3>
-                <Textarea
-                  value={formData.content}
-                  onChange={(e) => handleInputChange('content', e.target.value)}
-                  placeholder="Введите содержание материала"
-                  rows={8}
-                  required
-                />
-              </Card>
-
-              {/* Файлы и медиа */}
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Файлы и медиа</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="file">Файл материала</Label>
-                    <div className="mt-2">
-                      <Input
-                        id="file"
-                        type="file"
-                        onChange={handleFileChange}
-                        accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
-                      />
-                      {fileError && (
-                        <div className="flex items-center gap-2 mt-2 text-destructive">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-sm">{fileError}</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="file">Файл</Label>
+                          <Input
+                            id="file"
+                            type="file"
+                            onChange={handleFileChange}
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
+                            className="mt-1"
+                          />
+                          {file && (
+                            <Badge variant="outline" className="mt-2">
+                              <FileText className="h-3 w-3 mr-1" />
+                              {file.name}
+                            </Badge>
+                          )}
+                          {fileError && (
+                            <p className="text-xs text-destructive mt-1">{fileError}</p>
+                          )}
                         </div>
-                      )}
-                      {file && (
-                        <div className="mt-2">
-                          <Badge variant="outline">
-                            <FileText className="h-3 w-3 mr-1" />
-                            {file.name}
+
+                        <div>
+                          <Label htmlFor="video_url">Ссылка на видео</Label>
+                          <Input
+                            id="video_url"
+                            type="url"
+                            value={formData.video_url}
+                            onChange={(e) => handleInputChange('video_url', e.target.value)}
+                            placeholder="https://youtube.com/..."
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="difficulty_level">Сложность</Label>
+                          <Select
+                            value={formData.difficulty_level.toString()}
+                            onValueChange={(value) => handleInputChange('difficulty_level', parseInt(value))}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[1, 2, 3, 4, 5].map((level) => (
+                                <SelectItem key={level} value={level.toString()}>
+                                  Уровень {level}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="status">Статус</Label>
+                          <Select
+                            value={formData.status}
+                            onValueChange={(value) => handleInputChange('status', value)}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="draft">Черновик</SelectItem>
+                              <SelectItem value="active">Активно</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="tags">Теги</Label>
+                        <Input
+                          id="tags"
+                          value={formData.tags}
+                          onChange={(e) => handleInputChange('tags', e.target.value)}
+                          placeholder="математика, алгебра, уравнения"
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="is_public"
+                          checked={formData.is_public}
+                          onCheckedChange={(checked) => handleInputChange('is_public', checked)}
+                        />
+                        <Label htmlFor="is_public" className="text-sm font-normal">Публичный (доступен всем)</Label>
+                      </div>
+                    </div>
+                  </details>
+
+                  {/* Назначение студентам */}
+                  {students.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Назначить студентам</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setFormData(prev => ({ ...prev, assigned_to: students.map(s => s.id) }))}
+                          >
+                            Выбрать всех
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setFormData(prev => ({ ...prev, assigned_to: [] }))}
+                          >
+                            Снять всех
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 p-3 border rounded-md max-h-32 overflow-y-auto">
+                        {students.map((student) => (
+                          <Badge
+                            key={student.id}
+                            variant={formData.assigned_to.includes(student.id) ? "default" : "outline"}
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => handleStudentToggle(student.id)}
+                          >
+                            {student.name}
                           </Badge>
-                        </div>
+                        ))}
+                      </div>
+                      {formData.assigned_to.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Выбрано: {formData.assigned_to.length} из {students.length}
+                        </p>
                       )}
                     </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="video_url">Ссылка на видео</Label>
-                    <Input
-                      id="video_url"
-                      type="url"
-                      value={formData.video_url}
-                      onChange={(e) => handleInputChange('video_url', e.target.value)}
-                      placeholder="https://youtube.com/watch?v=..."
-                    />
+                  )}
+
+                  {/* Кнопки действий */}
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => navigate('/dashboard/teacher/materials')}
+                    >
+                      Отмена
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={submitting}
+                      className="gradient-primary shadow-glow"
+                    >
+                      {submitting ? 'Создание...' : 'Создать материал'}
+                    </Button>
                   </div>
                 </div>
               </Card>
-
-              {/* Назначение студентам */}
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Назначение студентам</h3>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {students.map((student) => (
-                    <div key={student.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`student-${student.id}`}
-                        checked={formData.assigned_to.includes(student.id)}
-                        onCheckedChange={() => handleStudentToggle(student.id)}
-                      />
-                      <Label htmlFor={`student-${student.id}`} className="flex-1">
-                        {student.first_name} {student.last_name} ({student.email})
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-                {formData.assigned_to.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span className="text-sm text-muted-foreground">
-                        Назначено {formData.assigned_to.length} студентам
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </Card>
-
-              {/* Кнопки действий */}
-              <div className="flex justify-end gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/dashboard/teacher/materials')}
-                >
-                  Отмена
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  className="gradient-primary shadow-glow"
-                >
-                  {submitting ? 'Создание...' : 'Создать материал'}
-                </Button>
-              </div>
             </form>
           </main>
         </SidebarInset>

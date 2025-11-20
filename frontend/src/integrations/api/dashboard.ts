@@ -34,15 +34,49 @@ export interface TeacherDashboard {
 }
 
 export interface ParentDashboard {
-  total_children: number;
-  total_subjects: number;
-  pending_payments: number;
-  recent_reports: Array<{
+  parent: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  children: Array<{
+    id: number;
+    name: string;
+    grade: string;
+    goal: string;
+    tutor_name: string;
+    progress_percentage: number;
+    progress: number;
+    avatar?: string;
+    subjects: Array<{
+      id: number;
+      enrollment_id: number;
+      name: string;
+      teacher_name: string;
+      teacher_id: number;
+      payment_status: string;
+      next_payment_date?: string | null;
+      has_subscription: boolean;
+      subscription_status?: string | null;
+      expires_at?: string | null;
+      amount?: string;
+    }>;
+    payments: Array<any>;
+  }>;
+  reports: Array<{
     id: number;
     child_name: string;
     report_type: string;
     created_at: string;
   }>;
+  statistics: {
+    total_children: number;
+    average_progress: number;
+    completed_payments: number;
+    pending_payments: number;
+    overdue_payments: number;
+  };
+  total_children: number;
 }
 
 export interface StudentMaterial {

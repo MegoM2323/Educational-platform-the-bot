@@ -1,0 +1,43 @@
+# Автоматические лейблы для PR на основе измененных файлов
+
+backend:
+  - backend/**/*
+
+frontend:
+  - frontend/**/*
+
+database:
+  - backend/**/migrations/**/*
+  - backend/**/models.py
+
+tests:
+  - tests/**/*
+  - backend/tests/**/*
+  - frontend/src/**/*.test.*
+  - frontend/src/**/*.spec.*
+
+documentation:
+  - '**/*.md'
+  - docs/**/*
+
+ci/cd:
+  - .github/**/*
+  - '*.yml'
+  - '*.yaml'
+  - Makefile
+  - start.sh
+  - deploy*.sh
+
+payments:
+  - backend/payments/**/*
+
+chat:
+  - backend/chat/**/*
+
+materials:
+  - backend/materials/**/*
+
+dependencies:
+  - package.json
+  - package-lock.json
+  - requirements.txt

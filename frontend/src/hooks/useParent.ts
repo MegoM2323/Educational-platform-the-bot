@@ -1,15 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { parentDashboardAPI, type ChildData } from '@/integrations/api/dashboard';
+import { parentDashboardAPI, type ChildData, type ParentDashboard } from '@/integrations/api/dashboard';
 import { unifiedAPI } from '@/integrations/api/unifiedClient';
 
 export const useParentDashboard = () => {
-  return useQuery<any>({
+  return useQuery<ParentDashboard>({
     queryKey: ['parent-dashboard'],
     queryFn: async () => {
+      console.log('[useParentDashboard] Fetching dashboard data...');
       const response = await unifiedAPI.getParentDashboard();
+      console.log('[useParentDashboard] Full response:', response);
+      console.log('[useParentDashboard] Response.data:', response.data);
+      console.log('[useParentDashboard] Response.data.children:', response.data?.children);
+
       if (response.error) {
+        console.error('[useParentDashboard] Error:', response.error);
         throw new Error(response.error);
       }
+
+      if (!response.data) {
+        console.error('[useParentDashboard] No data in response!');
+        throw new Error('Данные дашборда отсутствуют');
+      }
+
+      console.log('[useParentDashboard] Returning data with', response.data.children?.length || 0, 'children');
       return response.data;
     },
     staleTime: 60000, // 60 seconds - снижает нагрузку на сервер

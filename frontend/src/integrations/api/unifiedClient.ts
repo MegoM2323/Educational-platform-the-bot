@@ -9,6 +9,7 @@ import { cacheService } from '../../services/cacheService';
 import { tokenStorage } from '../../services/tokenStorage';
 import { normalizeResponse, validateResponseData, extractErrorMessage, isResponseError } from './responseNormalizer';
 import { logger } from '../../utils/logger';
+import type { ParentDashboard } from './dashboard';
 
 // Environment configuration - получаем URL с автоопределением
 function getApiUrl(): string {
@@ -134,18 +135,6 @@ export interface TeacherDashboard {
     material_title: string;
     action: string;
     timestamp: string;
-  }>;
-}
-
-export interface ParentDashboard {
-  total_children: number;
-  total_subjects: number;
-  pending_payments: number;
-  recent_reports: Array<{
-    id: number;
-    child_name: string;
-    report_type: string;
-    created_at: string;
   }>;
 }
 

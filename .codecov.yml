@@ -1,0 +1,76 @@
+codecov:
+  require_ci_to_pass: yes
+  notify:
+    wait_for_ci: yes
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 5%
+        if_ci_failed: error
+
+    patch:
+      default:
+        target: 70%
+        threshold: 5%
+        if_ci_failed: error
+
+comment:
+  layout: "reach,diff,flags,tree,footer"
+  behavior: default
+  require_changes: no
+  require_base: no
+  require_head: yes
+
+flags:
+  backend:
+    paths:
+      - backend/
+    carryforward: true
+
+  backend-unit:
+    paths:
+      - backend/
+    carryforward: true
+
+  backend-integration:
+    paths:
+      - backend/
+    carryforward: true
+
+  frontend:
+    paths:
+      - frontend/src/
+    carryforward: true
+
+  frontend-unit:
+    paths:
+      - frontend/src/
+    carryforward: true
+
+ignore:
+  - "backend/migrations/**/*"
+  - "backend/*/migrations/**/*"
+  - "backend/tests/**/*"
+  - "backend/*/tests/**/*"
+  - "backend/manage.py"
+  - "backend/*/wsgi.py"
+  - "backend/*/asgi.py"
+  - "backend/config/settings.py"
+  - "backend/core/celery_config.py"
+  - "frontend/node_modules/**/*"
+  - "frontend/dist/**/*"
+  - "frontend/build/**/*"
+  - "**/__pycache__/**/*"
+  - "**/*.pyc"
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "tests/**/*"
+  - "**/.venv/**/*"
+  - "**/venv/**/*"

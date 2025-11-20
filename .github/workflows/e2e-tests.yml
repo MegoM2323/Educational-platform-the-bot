@@ -138,7 +138,7 @@ jobs:
 
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report-${{ matrix.browser }}
           path: playwright-report/
@@ -146,7 +146,7 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-${{ matrix.browser }}
           path: test-results/
@@ -154,7 +154,7 @@ jobs:
 
       - name: Upload server logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: server-logs-${{ matrix.browser }}
           path: |

@@ -298,7 +298,8 @@ describe('TeacherDashboard', () => {
     render(<TeacherDashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Создать материал')).toBeInTheDocument();
+      // Проверяем наличие кнопок "Создать материал" (может быть несколько)
+      expect(screen.getAllByText('Создать материал').length).toBeGreaterThan(0);
     });
   });
 

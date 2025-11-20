@@ -298,7 +298,17 @@ class StudentReport(models.Model):
         blank=True,
         verbose_name='Родитель'
     )
-    
+
+    tutor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='received_student_reports',
+        null=True,
+        blank=True,
+        verbose_name='Тьютор',
+        limit_choices_to={'role': 'tutor'}
+    )
+
     # Период отчета
     period_start = models.DateField(verbose_name='Начало периода')
     period_end = models.DateField(verbose_name='Конец периода')

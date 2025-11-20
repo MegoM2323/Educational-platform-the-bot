@@ -244,13 +244,18 @@ describe('parentDashboardAPI', () => {
         '/dashboard/parent/children/1/payment/101/',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({
-            amount: 5000,
-            description: 'Monthly subscription',
-            create_subscription: true
-          })
+          body: expect.any(String)
         })
       );
+
+      // Проверяем что body содержит правильные данные (порядок не важен)
+      const callArgs = vi.mocked(unifiedAPI.request).mock.calls[0];
+      const bodyData = JSON.parse(callArgs[1].body);
+      expect(bodyData).toEqual(expect.objectContaining({
+        amount: 5000,
+        description: 'Monthly subscription',
+        create_subscription: true
+      }));
       expect(result.confirmation_url).toBe('https://yookassa.ru/checkout/123');
       expect(cacheInvalidationManager.invalidateEndpoint).toHaveBeenCalledWith('/dashboard/parent/children/');
     });

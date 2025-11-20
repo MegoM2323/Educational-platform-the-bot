@@ -195,22 +195,36 @@ class TutorDashboardService:
         avg_progress = progress_stats['avg_progress'] or 0
         total_time = progress_stats['total_time'] or 0
 
-        # Прогресс по предметам
+        # Прогресс по предметам - оптимизация N+1
+        # Получаем все subject_id из enrollments
         enrollments = SubjectEnrollment.objects.filter(
             student=student,
             is_active=True
         ).select_related('subject', 'teacher')
 
+        # Получаем статистику по всем предметам одним запросом
+        subject_stats_data = MaterialProgress.objects.filter(
+            student=student,
+            material__subject__in=[e.subject for e in enrollments]
+        ).values('material__subject__id', 'material__subject__name').annotate(
+            total=Count('id'),
+            completed=Count('id', filter=Q(is_completed=True)),
+            avg_progress=Avg('progress_percentage')
+        )
+
+        # Создаем словарь для быстрого поиска статистики по subject_id
+        stats_by_subject = {
+            item['material__subject__id']: item
+            for item in subject_stats_data
+        }
+
         subject_progress = []
         for enrollment in enrollments:
-            subject_stats = MaterialProgress.objects.filter(
-                student=student,
-                material__subject=enrollment.subject
-            ).aggregate(
-                total=Count('id'),
-                completed=Count('id', filter=Q(is_completed=True)),
-                avg_progress=Avg('progress_percentage')
-            )
+            subject_stats = stats_by_subject.get(enrollment.subject.id, {
+                'total': 0,
+                'completed': 0,
+                'avg_progress': 0
+            })
 
             subject_progress.append({
                 'subject': enrollment.get_subject_name(),
@@ -218,7 +232,7 @@ class TutorDashboardService:
                 'teacher': enrollment.teacher.get_full_name(),
                 'total_materials': subject_stats['total'] or 0,
                 'completed_materials': subject_stats['completed'] or 0,
-                'average_progress': round(subject_stats['avg_progress'] or 0, 1)
+                'average_progress': round(subject_stats.get('avg_progress') or 0, 1)
             })
 
         return {
@@ -408,15 +422,25 @@ class TutorDashboardService:
         Returns:
             Список отчетов
         """
+        # Оптимизация: prefetch recipients с select_related для recipient user
+        from django.db.models import Prefetch
+        from reports.models import ReportRecipient
+
         reports = Report.objects.filter(
             author=self.tutor
-        ).prefetch_related('recipients', 'recipients__recipient').order_by('-created_at')
+        ).prefetch_related(
+            Prefetch(
+                'recipients',
+                queryset=ReportRecipient.objects.select_related('recipient'),
+                to_attr='prefetched_recipients'
+            )
+        ).order_by('-created_at')
 
         result = []
         for report in reports:
-            # Получаем получателей
+            # Получаем получателей из prefetched данных
             recipients_data = []
-            for recipient_rel in report.recipients.all():
+            for recipient_rel in report.prefetched_recipients:
                 # Проверяем наличие атрибута is_read (может не быть в старых записях)
                 is_read = getattr(recipient_rel, 'is_read', hasattr(recipient_rel, 'read_at') and recipient_rel.read_at is not None)
                 recipients_data.append({

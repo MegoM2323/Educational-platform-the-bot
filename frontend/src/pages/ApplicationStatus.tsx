@@ -30,7 +30,9 @@ const ApplicationStatus = () => {
     if (!trackingToken) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/applications/status/${trackingToken}/`);
+      // Используем относительный URL для автоматического определения хоста
+      const apiUrl = `/api/applications/status/${trackingToken}/`;
+      const response = await fetch(apiUrl);
       
       const result = await safeJsonParse(response);
       

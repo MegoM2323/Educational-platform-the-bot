@@ -129,9 +129,23 @@ export async function downloadProtectedFile(
  */
 export function isProtectedMediaUrl(url: string): boolean {
   if (!url) return false;
-  
-  // Проверяем, что это URL с нашего сервера и это media файл
-  return url.includes('/media/') || url.includes('localhost:8000/media/') || url.includes('the-bot.ru/media/');
+
+  // Проверяем, что это относительный путь или URL с текущего хоста
+  if (url.startsWith('/media/')) {
+    return true;
+  }
+
+  // Проверяем абсолютные URL - сравниваем с текущим хостом
+  try {
+    const urlObj = new URL(url, window.location.origin);
+    const currentHost = window.location.host;
+
+    // Если это URL с того же хоста и содержит /media/
+    return urlObj.host === currentHost && urlObj.pathname.includes('/media/');
+  } catch {
+    // Если не удалось распарсить URL, проверяем просто наличие /media/
+    return url.includes('/media/');
+  }
 }
 
 /**

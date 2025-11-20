@@ -62,7 +62,7 @@ const PaymentSuccess = () => {
         pollCount++;
         console.log(`[Payment Check ${pollCount}] Retry ${retryCount + 1}/${MAX_RETRIES}`);
 
-        const response = await unifiedAPI.request(`/check-payment/?payment_id=${paymentId}`);
+        const response = await unifiedAPI.request(`/payments/check-payment-status/?payment_id=${paymentId}`);
 
         if (response.data) {
           const status = response.data.status;

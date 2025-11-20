@@ -318,7 +318,7 @@ class UnifiedAPIClient {
       logger.info('[TokenClient] Tokens cleared, redirecting to login');
       // Redirect to login page
       setTimeout(() => {
-        window.location.href = '/login';
+        window.location.href = '/auth';
       }, 100);
     }
   }

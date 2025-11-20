@@ -98,8 +98,10 @@ def _get_safe_url(request, path):
             return request.build_absolute_uri(path)
     except Exception:
         pass
-    # Fallback для тестовых случаев
-    return f"http://localhost:8000{path}"
+    # Fallback для тестовых случаев - используем FRONTEND_URL из settings
+    from django.conf import settings
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:8080')
+    return f"{frontend_url.rstrip('/')}{path}"
 
 # Старая функция pay_page удалена - оплата теперь происходит через API
 

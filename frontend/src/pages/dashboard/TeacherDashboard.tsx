@@ -104,7 +104,7 @@ const TeacherDashboard = () => {
   };
 
   const handleCreateReport = () => {
-    navigate('/dashboard/teacher/reports/create');
+    navigate('/dashboard/teacher/reports');
   };
 
   const handleChatClick = () => {

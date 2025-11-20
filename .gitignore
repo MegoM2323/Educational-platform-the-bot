@@ -7,6 +7,15 @@ venv
 CLAUDE.md 
 .env
 .env.backup
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+tests/
+logs/
+.playwright-mcp/
+test-results/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -170,3 +179,21 @@ DEPLOYMENT_INSTRUCTIONS.md
 main.mdc
 .cursor/
 rules/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Node modules
+node_modules/
+
+# Frontend build
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/coverage/
+
+# CI/CD
+*.pid

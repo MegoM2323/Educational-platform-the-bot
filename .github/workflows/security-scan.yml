@@ -1,0 +1,91 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Запуск каждый понедельник в 00:00 UTC
+    - cron: '0 0 * * 1'
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-security:
+    name: Backend Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install safety
+        run: pip install safety bandit
+
+      - name: Check for known vulnerabilities
+        run: |
+          cd backend
+          safety check --file=requirements.txt --json || true
+
+      - name: Run bandit security linter
+        run: |
+          cd backend
+          bandit -r . -f json -o bandit-report.json || true
+          bandit -r . -f txt
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-security-reports
+          path: backend/bandit-report.json
+          retention-days: 30
+
+  frontend-security:
+    name: Frontend Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run npm audit
+        working-directory: ./frontend
+        run: npm audit --json > npm-audit.json || true
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-security-reports
+          path: frontend/npm-audit.json
+          retention-days: 30
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

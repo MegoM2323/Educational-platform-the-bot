@@ -57,10 +57,41 @@ SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-development-key-change-in-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 
+# Production security validation
+if not DEBUG:
+    if len(SECRET_KEY) < 50:
+        raise ImproperlyConfigured(
+            "SECRET_KEY must be at least 50 characters in production. "
+            "Generate a secure key using: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'"
+        )
+    if not ALLOWED_HOSTS:
+        raise ImproperlyConfigured("ALLOWED_HOSTS must be set in production")
+    if SECRET_KEY.startswith('django-insecure-'):
+        raise ImproperlyConfigured("SECRET_KEY must not use the default insecure key in production")
+
 # Security settings for HTTPS behind reverse proxy (nginx)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
+
+# Production security settings (only when DEBUG=False)
+if not DEBUG:
+    # HSTS (HTTP Strict Transport Security)
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # SSL/HTTPS enforcement
+    SECURE_SSL_REDIRECT = True
+
+    # Secure cookies
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # Additional security headers
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
 
 # Application definition
 
@@ -237,7 +268,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Session settings
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 86400  # 24 hours
-SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+# SESSION_COOKIE_SECURE управляется через условие DEBUG выше
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'  # Allow cookies on redirect from YooKassa (not 'Strict')
 SESSION_COOKIE_DOMAIN = '.the-bot.ru' if not DEBUG else None  # Allow cookies across subdomains in production
@@ -245,7 +276,7 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 # CSRF settings
 CSRF_COOKIE_SAMESITE = 'Lax'  # Allow CSRF cookies on redirect from YooKassa
-CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+# CSRF_COOKIE_SECURE управляется через условие DEBUG выше
 CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript access
 CSRF_COOKIE_DOMAIN = '.the-bot.ru' if not DEBUG else None  # Allow cookies across subdomains in production
 

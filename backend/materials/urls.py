@@ -15,18 +15,18 @@ router.register(r'submissions', views.MaterialSubmissionViewSet)
 router.register(r'feedback', views.MaterialFeedbackViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
-    
-    # Student dashboard endpoints
-    path('student/', student_dashboard_views.student_dashboard, name='student-dashboard'),
-    path('materials/student/', student_dashboard_views.student_dashboard, name='student-dashboard-materials'),
-    path('materials/student/assigned/', student_dashboard_views.student_assigned_materials, name='student-assigned-materials'),
-    path('materials/student/by-subject/', student_dashboard_views.student_materials_by_subject, name='student-materials-by-subject'),
+    # ВАЖНО: пути НЕ должны начинаться с 'materials/', т.к. это уже в config/urls.py
+    # Student dashboard endpoints (MUST be before router to avoid conflicts)
+    path('student/subjects/', student_dashboard_views.student_subjects, name='student-subjects'),
+    path('student/', student_dashboard_views.student_dashboard, name='student-dashboard-materials'),
+    path('student/assigned/', student_dashboard_views.student_assigned_materials, name='student-assigned-materials'),
+    path('student/by-subject/', student_dashboard_views.student_materials_by_subject, name='student-materials-by-subject'),
+    path('<int:material_id>/progress/', student_dashboard_views.update_material_progress, name='update-material-progress'),
     path('student/progress/', student_dashboard_views.student_progress_statistics, name='student-progress-statistics'),
     path('student/activity/', student_dashboard_views.student_recent_activity, name='student-recent-activity'),
     path('student/general-chat/', student_dashboard_views.student_general_chat, name='student-general-chat'),
-    path('materials/student/subjects/', student_dashboard_views.student_subjects, name='student-subjects'),
-    path('materials/<int:material_id>/progress/', student_dashboard_views.update_material_progress, name='update-material-progress'),
+
+    path('', include(router.urls)),
     
     # Student study plans endpoints
     path('student/study-plans/', student_dashboard_views.student_study_plans, name='student-study-plans'),

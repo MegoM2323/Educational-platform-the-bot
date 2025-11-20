@@ -14,7 +14,17 @@
     "test:coverage": "vitest --coverage",
     "test:dashboards": "vitest run src/hooks/__tests__/",
     "test:dashboards:watch": "vitest src/hooks/__tests__/",
-    "test:e2e:dashboards": "playwright test tests/e2e/dashboards/"
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:dashboards": "playwright test tests/e2e/dashboards/",
+    "test:e2e:admin": "playwright test tests/e2e/admin-panel.spec.ts",
+    "test:e2e:admin:integration": "playwright test tests/e2e/admin-panel-integration.spec.ts",
+    "test:e2e:admin:all": "playwright test tests/e2e/admin-panel*.spec.ts",
+    "test:e2e:interactions": "playwright test tests/e2e/user-interactions.spec.ts",
+    "test:e2e:interactions:headed": "playwright test tests/e2e/user-interactions.spec.ts --headed",
+    "test:e2e:interactions:debug": "playwright test tests/e2e/user-interactions.spec.ts --debug",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -72,6 +82,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.48.0",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

@@ -311,25 +311,46 @@ class ParentDashboardService:
 
         enrollments = self.get_child_subjects(child)
 
-        # Оптимизация: загружаем все платежи одним запросом вместо цикла
+        # Оптимизация: загружаем все платежи одним запросом с использованием Prefetch
+        from django.db.models import Prefetch
+
         enrollment_ids = [e.id for e in enrollments]
         if not enrollment_ids:
             return []
 
-        # Получаем последние платежи для каждого enrollment
-        last_payments = {}
-        for enrollment in enrollments:
-            last_payment = SubjectPayment.objects.filter(
-                enrollment=enrollment
-            ).order_by('-created_at').first()
-            if last_payment:
-                last_payments[enrollment.id] = last_payment
+        # Получаем последние платежи для каждого enrollment одним запросом через subquery
+        # Используем аннотацию для получения ID последнего платежа, затем загружаем их
+        from django.db.models import Max, OuterRef, Subquery
+
+        latest_payment_subquery = SubjectPayment.objects.filter(
+            enrollment=OuterRef('pk')
+        ).order_by('-created_at').values('id')[:1]
+
+        enrollments_with_payments = SubjectEnrollment.objects.filter(
+            id__in=enrollment_ids
+        ).select_related('subject', 'teacher', 'subscription').annotate(
+            latest_payment_id=Subquery(latest_payment_subquery)
+        ).prefetch_related(
+            Prefetch(
+                'payments',
+                queryset=SubjectPayment.objects.select_related('payment').order_by('-created_at'),
+                to_attr='all_payments'
+            )
+        )
+
+        # Создаем словарь для быстрого доступа
+        enrollments_dict = {e.id: e for e in enrollments_with_payments}
 
         payment_info = []
         current_time = timezone.now()
 
-        for enrollment in enrollments:
-            last_payment = last_payments.get(enrollment.id)
+        for enrollment_id in enrollment_ids:
+            enrollment = enrollments_dict.get(enrollment_id)
+            if not enrollment:
+                continue
+
+            # Получаем последний платеж из prefetched данных
+            last_payment = enrollment.all_payments[0] if enrollment.all_payments else None
 
             # Проверяем статус платежа
             payment_status = 'no_payment'
@@ -347,15 +368,15 @@ class ParentDashboardService:
                 elif last_payment.status == SubjectPayment.Status.EXPIRED:
                     payment_status = 'expired'
 
-            # Получаем информацию о подписке для next_payment_date
-            has_subscription = self._has_active_subscription(enrollment)
-            if has_subscription:
-                try:
-                    subscription = getattr(enrollment, 'subscription', None)
-                    if subscription and subscription.status == SubjectSubscription.Status.ACTIVE:
-                        next_payment_date = subscription.next_payment_date
-                except Exception:
-                    pass
+            # Получаем информацию о подписке (уже загружена через select_related)
+            has_subscription = False
+            try:
+                subscription = enrollment.subscription
+                if subscription and subscription.status == SubjectSubscription.Status.ACTIVE:
+                    has_subscription = True
+                    next_payment_date = subscription.next_payment_date
+            except SubjectSubscription.DoesNotExist:
+                pass
 
             payment_info.append({
                 'enrollment_id': enrollment.id,
@@ -765,14 +786,36 @@ class ParentDashboardService:
     
     def get_reports(self, child=None):
         """
-        Получить отчеты о прогрессе ребенка
-        
+        Получить отчеты о прогрессе ребенка от тьютора
+
         Args:
             child: Конкретный ребенок (опционально)
-            
+
         Returns:
             QuerySet: Отчеты о прогрессе
         """
-        # Пока заглушка, так как модель отчетов еще не создана
-        # TODO: Реализовать после создания модели отчетов
-        return []
+        from reports.models import TutorWeeklyReport
+        from django.db.models import Q
+
+        # Получаем детей родителя
+        children_ids = list(User.objects.filter(
+            student_profile__parent_id=self.parent_user.id,
+            role=User.Role.STUDENT
+        ).values_list('id', flat=True))
+
+        # Базовый запрос - только отправленные отчеты (не черновики)
+        queryset = TutorWeeklyReport.objects.select_related(
+            'tutor', 'student', 'parent', 'student__student_profile'
+        ).exclude(status=TutorWeeklyReport.Status.DRAFT)
+
+        if child:
+            # Отчеты о конкретном ребенке
+            return queryset.filter(student=child)
+        elif children_ids:
+            # Отчеты обо всех детях родителя
+            return queryset.filter(
+                Q(parent_id=self.parent_user.id) | Q(student_id__in=children_ids)
+            )
+        else:
+            # Если нет детей в профилях, фильтруем только по parent
+            return queryset.filter(parent_id=self.parent_user.id)

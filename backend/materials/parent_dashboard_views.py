@@ -438,32 +438,35 @@ def initiate_payment(request, child_id, enrollment_id):
 @permission_classes([IsAuthenticated])
 def get_reports(request, child_id=None):
     """
-    Получить отчеты о прогрессе (пока заглушка)
+    Получить отчеты о прогрессе от тьютора
     """
     try:
+        from reports.serializers import TutorWeeklyReportSerializer
+
         service = ParentDashboardService(request.user)
-        
+
         if child_id:
             child = User.objects.get(id=child_id, role=User.Role.STUDENT)
             if child not in service.get_children():
                 return Response(
-                    {'error': 'Ребенок не принадлежит данному родителю'}, 
+                    {'error': 'Ребенок не принадлежит данному родителю'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             reports = service.get_reports(child)
         else:
             reports = service.get_reports()
-        
-        # Пока возвращаем пустой список, так как модель отчетов еще не создана
-            return Response([], status=status.HTTP_200_OK)
+
+        # Сериализуем отчеты
+        serializer = TutorWeeklyReportSerializer(reports, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     except User.DoesNotExist:
         return Response(
-            {'error': 'Ребенок не найден'}, 
+            {'error': 'Ребенок не найден'},
             status=status.HTTP_404_NOT_FOUND
         )
     except ValueError as e:
         return Response(
-            {'error': str(e)}, 
+            {'error': str(e)},
             status=status.HTTP_400_BAD_REQUEST
         )
 

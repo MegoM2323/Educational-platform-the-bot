@@ -107,24 +107,24 @@ class Command(BaseCommand):
 
         try:
             if all_cleanup or options['users']:
-                stats['users'] = self.cleanup_users(dry_run, days)
-            
+                stats['users'] = self.cleanup_users(dry_run, days, force)
+
             if all_cleanup or options['applications']:
-                stats['applications'] = self.cleanup_applications(dry_run, days)
-            
+                stats['applications'] = self.cleanup_applications(dry_run, days, force)
+
             if all_cleanup or options['chat']:
-                chat_stats = self.cleanup_chat(dry_run, days)
+                chat_stats = self.cleanup_chat(dry_run, days, force)
                 stats['chat_messages'] = chat_stats['messages']
                 stats['chat_rooms'] = chat_stats['rooms']
-            
+
             if all_cleanup or options['drafts']:
-                stats['drafts'] = self.cleanup_drafts(dry_run, days)
-            
+                stats['drafts'] = self.cleanup_drafts(dry_run, days, force)
+
             if all_cleanup or options['notifications']:
-                stats['notifications'] = self.cleanup_notifications(dry_run, days)
-            
+                stats['notifications'] = self.cleanup_notifications(dry_run, days, force)
+
             if all_cleanup or options['files']:
-                stats['files'] = self.cleanup_files(dry_run)
+                stats['files'] = self.cleanup_files(dry_run, force)
 
             # Выводим статистику
             self.print_stats(stats, dry_run)
@@ -133,7 +133,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Ошибка при очистке: {e}'))
             raise CommandError(f'Очистка не завершена: {e}')
 
-    def cleanup_users(self, dry_run, days):
+    def cleanup_users(self, dry_run, days, force):
         """Очистка тестовых и мусорных пользователей"""
         self.stdout.write('\n=== Очистка пользователей ===')
         
@@ -197,7 +197,7 @@ class Command(BaseCommand):
         if count > 0:
             self.stdout.write(f'Найдено пользователей для удаления: {count}')
             if not dry_run:
-                if not self.confirm(f'Удалить {count} пользователей?', force):
+                if not self.confirm(f'Удалить {count} пользователей?', force_confirm=force):
                     return 0
                 
                 with transaction.atomic():
@@ -215,7 +215,7 @@ class Command(BaseCommand):
             self.stdout.write('Пользователей для удаления не найдено')
             return 0
 
-    def cleanup_applications(self, dry_run, days):
+    def cleanup_applications(self, dry_run, days, force):
         """Очистка старых заявок"""
         self.stdout.write('\n=== Очистка заявок ===')
         
@@ -234,7 +234,7 @@ class Command(BaseCommand):
         if count > 0:
             self.stdout.write(f'Найдено заявок для удаления: {count}')
             if not dry_run:
-                if not self.confirm(f'Удалить {count} заявок?', force):
+                if not self.confirm(f'Удалить {count} заявок?', force_confirm=force):
                     return 0
                 
                 with transaction.atomic():
@@ -248,7 +248,7 @@ class Command(BaseCommand):
             self.stdout.write('Заявок для удаления не найдено')
             return 0
 
-    def cleanup_chat(self, dry_run, days):
+    def cleanup_chat(self, dry_run, days, force):
         """Очистка старых сообщений и пустых чатов"""
         self.stdout.write('\n=== Очистка чата ===')
         
@@ -278,7 +278,7 @@ class Command(BaseCommand):
         if messages_count > 0:
             self.stdout.write(f'Найдено сообщений для удаления: {messages_count}')
             if not dry_run:
-                if self.confirm(f'Удалить {messages_count} сообщений?', force):
+                if self.confirm(f'Удалить {messages_count} сообщений?', force_confirm=force):
                     with transaction.atomic():
                         deleted_count = messages_to_delete.count()
                         messages_to_delete.delete()
@@ -290,7 +290,7 @@ class Command(BaseCommand):
         if rooms_count > 0:
             self.stdout.write(f'Найдено пустых чат-комнат для удаления: {rooms_count}')
             if not dry_run:
-                if self.confirm(f'Удалить {rooms_count} пустых чат-комнат?', force):
+                if self.confirm(f'Удалить {rooms_count} пустых чат-комнат?', force_confirm=force):
                     with transaction.atomic():
                         deleted_count = empty_rooms.count()
                         empty_rooms.delete()
@@ -304,7 +304,7 @@ class Command(BaseCommand):
         
         return stats
 
-    def cleanup_drafts(self, dry_run, days):
+    def cleanup_drafts(self, dry_run, days, force):
         """Очистка старых черновиков"""
         self.stdout.write('\n=== Очистка черновиков ===')
         
@@ -362,7 +362,7 @@ class Command(BaseCommand):
             self.stdout.write(f'  - Отчеты: {report_count + student_report_count + tutor_report_count + teacher_report_count}')
             
             if not dry_run:
-                if self.confirm(f'Удалить {total_count} черновиков?', force):
+                if self.confirm(f'Удалить {total_count} черновиков?', force_confirm=force):
                     with transaction.atomic():
                         if material_count > 0:
                             deleted = material_drafts.count()
@@ -402,7 +402,7 @@ class Command(BaseCommand):
             self.stdout.write('Черновиков для удаления не найдено')
             return 0
 
-    def cleanup_notifications(self, dry_run, days):
+    def cleanup_notifications(self, dry_run, days, force):
         """Очистка старых уведомлений"""
         self.stdout.write('\n=== Очистка уведомлений ===')
         
@@ -421,7 +421,7 @@ class Command(BaseCommand):
         if count > 0:
             self.stdout.write(f'Найдено уведомлений для удаления: {count}')
             if not dry_run:
-                if self.confirm(f'Удалить {count} уведомлений?', force):
+                if self.confirm(f'Удалить {count} уведомлений?', force_confirm=force):
                     with transaction.atomic():
                         deleted_count = notifications_to_delete.count()
                         notifications_to_delete.delete()
@@ -433,7 +433,7 @@ class Command(BaseCommand):
             self.stdout.write('Уведомлений для удаления не найдено')
             return 0
 
-    def cleanup_files(self, dry_run):
+    def cleanup_files(self, dry_run, force):
         """Очистка неиспользуемых файлов"""
         self.stdout.write('\n=== Очистка файлов ===')
         
@@ -534,7 +534,7 @@ class Command(BaseCommand):
             self.stdout.write(f'Размер: {size_mb:.2f} MB')
             
             if not dry_run:
-                if self.confirm(f'Удалить {count} файлов ({size_mb:.2f} MB)?', force):
+                if self.confirm(f'Удалить {count} файлов ({size_mb:.2f} MB)?', force_confirm=force):
                     for file_path in unused_files:
                         try:
                             if file_path.exists():
@@ -560,11 +560,11 @@ class Command(BaseCommand):
             self.stdout.write('Неиспользуемых файлов не найдено')
             return 0
 
-    def confirm(self, message, force=False):
+    def confirm(self, message, force_confirm=False):
         """Запрашивает подтверждение у пользователя"""
-        if force:
+        if force_confirm:
             return True
-        
+
         response = input(f'{message} (yes/no): ')
         return response.lower() in ['yes', 'y', 'да', 'д']
 

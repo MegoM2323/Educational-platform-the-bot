@@ -106,6 +106,9 @@ describe('tutorAPI', () => {
     });
 
     it('should throw error on request failure', async () => {
+      // Ensure token is available for this test
+      vi.mocked(unifiedAPI.getToken).mockReturnValue('mock-token');
+
       vi.mocked(unifiedAPI.request).mockResolvedValue({
         success: false,
         data: null,

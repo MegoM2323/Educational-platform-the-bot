@@ -43,16 +43,24 @@ class StudentDashboardService:
     def get_assigned_materials(self, subject_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Получить назначенные студенту материалы
-        
+
         Args:
             subject_id: ID предмета для фильтрации (опционально)
-            
+
         Returns:
             Список словарей с информацией о материалах и прогрессе
         """
-        # Базовый запрос для материалов, назначенных студенту
+        # Получаем ID предметов студента через enrollments
+        enrolled_subject_ids = SubjectEnrollment.objects.filter(
+            student=self.student,
+            is_active=True
+        ).values_list('subject_id', flat=True)
+
+        # Базовый запрос для материалов по предметам студента
         materials_query = Material.objects.filter(
-            Q(assigned_to=self.student) | Q(is_public=True),
+            Q(subject_id__in=enrolled_subject_ids) |
+            Q(assigned_to=self.student) |
+            Q(is_public=True),
             status=Material.Status.ACTIVE
         ).select_related('subject', 'author').prefetch_related(
             'progress'  # Оптимизация для получения прогресса
@@ -147,13 +155,21 @@ class StudentDashboardService:
     def get_progress_statistics(self) -> Dict[str, Any]:
         """
         Получить статистику прогресса студента
-        
+
         Returns:
             Словарь со статистикой прогресса
         """
-        # Получаем все материалы, назначенные студенту с оптимизацией
+        # Получаем ID предметов студента
+        enrolled_subject_ids = SubjectEnrollment.objects.filter(
+            student=self.student,
+            is_active=True
+        ).values_list('subject_id', flat=True)
+
+        # Получаем все материалы по предметам студента с оптимизацией
         assigned_materials = Material.objects.filter(
-            Q(assigned_to=self.student) | Q(is_public=True),
+            Q(subject_id__in=enrolled_subject_ids) |
+            Q(assigned_to=self.student) |
+            Q(is_public=True),
             status=Material.Status.ACTIVE
         ).select_related('subject', 'author').prefetch_related('progress')
         

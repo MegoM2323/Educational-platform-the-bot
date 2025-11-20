@@ -19,7 +19,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     """
     ViewSet для предметов
     """
-    queryset = Subject.objects.all().prefetch_related('teacher_assignments')
+    queryset = Subject.objects.all().prefetch_related('subject_teachers')
     serializer_class = SubjectSerializer
     permission_classes = [permissions.IsAuthenticated]
     

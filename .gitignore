@@ -1,20 +1,16 @@
 # Local 
 docs/
 .kiro/
-tests/
 venv
 .claude/
 CLAUDE.md 
 .env
 .env.backup
-test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
-tests/
 logs/
 .playwright-mcp/
-test-results/
 
 
 # Byte-compiled / optimized / DLL files

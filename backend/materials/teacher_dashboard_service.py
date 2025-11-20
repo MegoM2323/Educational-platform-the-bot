@@ -175,39 +175,29 @@ class TeacherDashboardService:
     def get_teacher_materials(self, subject_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Получить материалы преподавателя
-        
+
         Args:
             subject_id: ID предмета для фильтрации (опционально)
-            
+
         Returns:
             Список словарей с информацией о материалах
         """
         materials_query = Material.objects.filter(
             author=self.teacher
-        ).select_related('subject').prefetch_related(
-            'assigned_to',
-            'progress'
-        )
-        
+        ).select_related('subject').prefetch_related('assigned_to')
+
         if subject_id:
             materials_query = materials_query.filter(subject_id=subject_id)
-        
-        materials = materials_query.order_by('-created_at')
-        
+
+        # Аннотируем статистику одним запросом для всех материалов
+        materials = materials_query.annotate(
+            assigned_count=Count('assigned_to', distinct=True),
+            completed_count=Count('progress', filter=Q(progress__is_completed=True)),
+            avg_progress=Avg('progress__progress_percentage')
+        ).order_by('-created_at')
+
         result = []
         for material in materials:
-            # Получаем статистику по материалу
-            assigned_count = material.assigned_to.count()
-            completed_count = MaterialProgress.objects.filter(
-                material=material,
-                is_completed=True
-            ).count()
-            
-            # Получаем средний прогресс
-            avg_progress = MaterialProgress.objects.filter(
-                material=material
-            ).aggregate(avg_progress=Avg('progress_percentage'))['avg_progress'] or 0
-            
             result.append({
                 'id': material.id,
                 'title': material.title,
@@ -225,12 +215,12 @@ class TeacherDashboardService:
                 'tags': material.tags.split(',') if material.tags else [],
                 'created_at': material.created_at,
                 'published_at': material.published_at,
-                'assigned_count': assigned_count,
-                'completed_count': completed_count,
-                'completion_percentage': round((completed_count / assigned_count * 100) if assigned_count > 0 else 0, 2),
-                'average_progress': round(avg_progress, 2)
+                'assigned_count': material.assigned_count,
+                'completed_count': material.completed_count,
+                'completion_percentage': round((material.completed_count / material.assigned_count * 100) if material.assigned_count > 0 else 0, 2),
+                'average_progress': round(material.avg_progress or 0, 2)
             })
-        
+
         return result
     
     def distribute_material(self, material_id: int, student_ids: List[int]) -> Dict[str, Any]:
@@ -385,23 +375,21 @@ class TeacherDashboardService:
                 material__in=teacher_materials
             ).aggregate(avg=Avg('progress_percentage'))['avg'] or 0
             
-            # Статистика по предметам
-            subject_stats = {}
-            for material in teacher_materials:
-                subject_name = material.subject.name
-                if subject_name not in subject_stats:
-                    subject_stats[subject_name] = {
-                        'total_materials': 0,
-                        'assigned_count': 0,
-                        'completed_count': 0
-                    }
-                
-                subject_stats[subject_name]['total_materials'] += 1
-                subject_stats[subject_name]['assigned_count'] += material.assigned_to.count()
-                subject_stats[subject_name]['completed_count'] += MaterialProgress.objects.filter(
-                    material=material,
-                    is_completed=True
-                ).count()
+            # Статистика по предметам через аннотации (оптимизация N+1)
+            subject_stats_raw = teacher_materials.values('subject__name').annotate(
+                total_materials=Count('id', distinct=True),
+                assigned_count=Count('assigned_to', distinct=True),
+                completed_count=Count('progress', filter=Q(progress__is_completed=True))
+            )
+
+            subject_stats = {
+                item['subject__name']: {
+                    'total_materials': item['total_materials'],
+                    'assigned_count': item['assigned_count'],
+                    'completed_count': item['completed_count']
+                }
+                for item in subject_stats_raw
+            }
             
             return {
                 'total_students': total_students,
@@ -428,7 +416,32 @@ class TeacherDashboardService:
         """
         try:
             student = User.objects.get(id=student_id, role=User.Role.STUDENT)
-            
+
+            # Автоматически находим родителя студента
+            parent = None
+            try:
+                from accounts.models import StudentProfile
+                student_profile = StudentProfile.objects.filter(user=student).first()
+                if student_profile and student_profile.parent:
+                    parent = student_profile.parent
+            except Exception as e:
+                logger.warning(f"Не удалось найти родителя для студента {student.id}: {e}")
+
+            # Автоматически находим тьютора студента
+            tutor = None
+            try:
+                from .models import SubjectEnrollment
+                # Ищем активное зачисление с тьютором
+                enrollment = SubjectEnrollment.objects.filter(
+                    student=student,
+                    is_active=True,
+                    tutor__isnull=False
+                ).select_related('tutor').first()
+                if enrollment:
+                    tutor = enrollment.tutor
+            except Exception as e:
+                logger.warning(f"Не удалось найти тьютора для студента {student.id}: {e}")
+
             # Создаем отчет
             report = StudentReport.objects.create(
                 title=report_data.get('title', f'Отчет по студенту {student.get_full_name()}'),
@@ -436,6 +449,8 @@ class TeacherDashboardService:
                 report_type=report_data.get('type', StudentReport.ReportType.PROGRESS),
                 teacher=self.teacher,
                 student=student,
+                parent=parent,  # Автоматически заполненный родитель
+                tutor=tutor,    # Автоматически заполненный тьютор
                 period_start=report_data.get('start_date', timezone.now().date()),
                 period_end=report_data.get('end_date', timezone.now().date()),
                 content=report_data.get('content', {}),
@@ -446,16 +461,17 @@ class TeacherDashboardService:
                 achievements=report_data.get('achievements', ''),
                 status=StudentReport.Status.DRAFT
             )
-            
+
             # Генерируем аналитические данные
             self._generate_report_analytics(report, student)
-            
+
             return {
                 'success': True,
                 'message': 'Отчет успешно создан',
                 'report_id': report.id,
                 'report_title': report.title,
-                'sent_to_parent': bool(report.parent)
+                'sent_to_parent': bool(parent),
+                'sent_to_tutor': bool(tutor)
             }
             
         except User.DoesNotExist:

@@ -99,6 +99,27 @@ export class ChatWebSocketService {
   }
 
   /**
+   * Отключение от конкретной комнаты
+   */
+  disconnectFromRoom(roomId: number): void {
+    const channel = `chat_${roomId}`;
+    const subscriptionId = this.subscriptions.get(channel);
+
+    if (subscriptionId) {
+      websocketService.unsubscribe(subscriptionId);
+      this.subscriptions.delete(channel);
+    }
+
+    // Очищаем таймер печати для этой комнаты
+    const timeoutKey = roomId;
+    const timeout = this.typingTimeouts.get(timeoutKey);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.typingTimeouts.delete(timeoutKey);
+    }
+  }
+
+  /**
    * Отключение от чата
    */
   disconnectFromChat(): void {

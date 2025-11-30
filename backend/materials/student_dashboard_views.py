@@ -219,39 +219,6 @@ def student_recent_activity(request):
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
-def student_general_chat(request):
-    """
-    Получить доступ к общему чату
-    
-    GET /api/dashboard/student/general-chat/
-    """
-    if request.user.role != User.Role.STUDENT:
-        return Response(
-            {'error': 'Доступ разрешен только студентам'},
-            status=status.HTTP_403_FORBIDDEN
-        )
-    
-    try:
-        service = StudentDashboardService(request.user, request)
-        chat_data = service.get_general_chat_access()
-        
-        if chat_data is None:
-            return Response(
-                {'error': 'Не удалось получить доступ к общему чату'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
-        return Response(chat_data)
-    except Exception as e:
-        return Response(
-            {'error': f'Ошибка при получении доступа к чату: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
-@permission_classes([permissions.IsAuthenticated])
 def student_subjects(request):
     """
     Получить назначенные предметы студента с преподавателями

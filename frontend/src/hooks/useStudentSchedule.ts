@@ -6,7 +6,16 @@ import { Lesson, LessonFilters } from '@/types/scheduling';
 export const useStudentSchedule = (filters?: LessonFilters) => {
   const query = useQuery({
     queryKey: ['lessons', 'student', filters],
-    queryFn: () => schedulingAPI.getMySchedule(filters)
+    queryFn: async () => {
+      try {
+        return await schedulingAPI.getMySchedule(filters);
+      } catch (error) {
+        console.error('Error fetching student schedule:', error);
+        throw error;
+      }
+    },
+    retry: 1,
+    staleTime: 60000 // 1 minute
   });
 
   const lessonsBySubject = useMemo(() => {

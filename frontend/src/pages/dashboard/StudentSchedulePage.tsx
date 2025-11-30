@@ -14,7 +14,7 @@ import { LessonCard } from "@/components/scheduling/student/LessonCard";
 
 const StudentSchedulePage: React.FC = () => {
   const { user } = useAuth();
-  const { lessons, isLoading } = useStudentSchedule();
+  const { lessons, isLoading, error } = useStudentSchedule();
 
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [selectedSubject, setSelectedSubject] = useState<string>('');
@@ -131,6 +131,26 @@ const StudentSchedulePage: React.FC = () => {
                         </Card>
                       ))}
                     </div>
+                  ) : error ? (
+                    <Card className="border-destructive">
+                      <CardContent className="p-12 text-center">
+                        <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                          <Calendar className="w-6 h-6 text-destructive" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2 text-destructive">
+                          Ошибка загрузки расписания
+                        </h3>
+                        <p className="text-muted-foreground mb-6">
+                          {error instanceof Error ? error.message : 'Не удалось загрузить расписание. Попробуйте обновить страницу.'}
+                        </p>
+                        <Button
+                          onClick={() => window.location.reload()}
+                          variant="outline"
+                        >
+                          Обновить страницу
+                        </Button>
+                      </CardContent>
+                    </Card>
                   ) : filteredLessons.length === 0 ? (
                     <Card>
                       <CardContent className="p-12 text-center">

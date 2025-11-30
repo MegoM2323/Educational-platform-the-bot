@@ -366,36 +366,6 @@ def teacher_reports(request):
         )
 
 
-@api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
-@permission_classes([IsAuthenticated])
-def teacher_general_chat(request):
-    """
-    Получить доступ к общему чату
-    """
-    if request.user.role != User.Role.TEACHER:
-        return Response(
-            {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
-            status=status.HTTP_403_FORBIDDEN
-        )
-    
-    try:
-        service = TeacherDashboardService(request.user)
-        chat_data = service.get_general_chat_access()
-        
-        if chat_data:
-            return Response(chat_data, status=status.HTTP_200_OK)
-        else:
-            return Response(
-                {'error': 'Не удалось получить доступ к общему чату'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-            
-    except Exception as e:
-        return Response(
-            {'error': f'Ошибка при получении доступа к чату: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
 
 
 @api_view(['GET'])

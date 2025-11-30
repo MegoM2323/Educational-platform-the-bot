@@ -305,83 +305,6 @@ class StudentDashboardService:
         
         return activities
     
-    def get_general_chat_access(self) -> Optional[Dict[str, Any]]:
-        """
-        Получить доступ к общему чату для студентов и преподавателей
-        
-        Returns:
-            Информация о чате или None, если чат не найден
-        """
-        try:
-            # Ищем общий чат (тип CLASS или специальный общий чат)
-            general_chat = ChatRoom.objects.filter(
-                type__in=[ChatRoom.Type.CLASS, 'general'],
-                is_active=True
-            ).first()
-            
-            if not general_chat:
-                # Если общий чат не существует, создаем его
-                general_chat = self._create_general_chat()
-            
-            # Проверяем, участвует ли студент в чате
-            is_participant = general_chat.participants.filter(id=self.student.id).exists()
-            
-            # Получаем последние сообщения
-            recent_messages = general_chat.messages.select_related(
-                'sender'
-            ).order_by('-created_at')[:10]
-            
-            messages_data = []
-            for message in recent_messages:
-                messages_data.append({
-                    'id': message.id,
-                    'content': message.content,
-                    'sender': {
-                        'id': message.sender.id,
-                        'name': message.sender.get_full_name(),
-                        'role': message.sender.role
-                    },
-                    'message_type': message.message_type,
-                    'created_at': message.created_at,
-                    'is_edited': message.is_edited
-                })
-            
-            return {
-                'id': general_chat.id,
-                'name': general_chat.name,
-                'description': general_chat.description,
-                'is_participant': is_participant,
-                'participants_count': general_chat.participants.count(),
-                'recent_messages': messages_data
-            }
-            
-        except Exception as e:
-            # Логируем ошибку и возвращаем None
-            print(f"Ошибка при получении доступа к общему чату: {e}")
-            return None
-    
-    def _create_general_chat(self) -> ChatRoom:
-        """
-        Создать общий чат для студентов и преподавателей
-        
-        Returns:
-            Созданный чат
-        """
-        # Создаем общий чат
-        general_chat = ChatRoom.objects.create(
-            name='Общий чат',
-            description='Общий чат для студентов и преподавателей',
-            type='general',  # Используем кастомный тип
-            created_by=self.student  # Временно, потом можно изменить
-        )
-        
-        # Добавляем всех студентов и преподавателей
-        students_and_teachers = User.objects.filter(
-            role__in=[User.Role.STUDENT, User.Role.TEACHER]
-        )
-        general_chat.participants.set(students_and_teachers)
-        
-        return general_chat
     
     @cache_material_data(timeout=600)  # 10 минут
     def get_subjects(self) -> List[Dict[str, Any]]:
@@ -436,6 +359,5 @@ class StudentDashboardService:
             'materials_by_subject': self.get_materials_by_subject(),
             'stats': stats,
             'progress_statistics': stats,
-            'recent_activity': self.get_recent_activity(),
-            'general_chat': self.get_general_chat_access()
+            'recent_activity': self.get_recent_activity()
         }

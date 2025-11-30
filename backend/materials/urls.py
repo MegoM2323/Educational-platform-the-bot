@@ -29,7 +29,6 @@ urlpatterns = [
     path('<int:material_id>/progress/', student_dashboard_views.update_material_progress, name='update-material-progress'),
     path('student/progress/', student_dashboard_views.student_progress_statistics, name='student-progress-statistics'),
     path('student/activity/', student_dashboard_views.student_recent_activity, name='student-recent-activity'),
-    path('student/general-chat/', student_dashboard_views.student_general_chat, name='student-general-chat'),
 
     path('', include(router.urls)),
     
@@ -58,8 +57,7 @@ urlpatterns = [
     path('teacher/progress/', teacher_dashboard_views.student_progress_overview, name='teacher-progress-overview'),
     path('reports/teacher/create/', teacher_dashboard_views.create_student_report, name='create-student-report'),
     path('reports/teacher/', teacher_dashboard_views.teacher_reports, name='teacher-reports'),
-    path('teacher/general-chat/', teacher_dashboard_views.teacher_general_chat, name='teacher-general-chat'),
-    
+
     # Teacher study plans endpoints
     path('teacher/study-plans/', teacher_dashboard_views.teacher_study_plans, name='teacher-study-plans'),
     path('teacher/study-plans/<int:plan_id>/', teacher_dashboard_views.teacher_study_plan_detail, name='teacher-study-plan-detail'),

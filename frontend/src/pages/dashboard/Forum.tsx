@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
 import { ForumChat, ForumMessage } from '@/integrations/api/forumAPI';
 import { Skeleton } from '@/components/ui/skeleton';
+import { chatWebSocketService, ChatMessage } from '@/services/chatWebSocketService';
 
 interface ChatListProps {
   chats: ForumChat[];
@@ -293,6 +295,7 @@ const ChatWindow = ({
 export default function Forum() {
   const [selectedChat, setSelectedChat] = useState<ForumChat | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const queryClient = useQueryClient();
 
   const { data: chats = [], isLoading: isLoadingChats } = useForumChats();
   const { data: messagesResponse, isLoading: isLoadingMessages } = useForumMessages(
@@ -301,6 +304,72 @@ export default function Forum() {
   const sendMessageMutation = useSendForumMessage();
 
   const messages = messagesResponse?.results || [];
+
+  // WebSocket integration for real-time messages
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const chatId = selectedChat.id;
+
+    const handlers = {
+      onMessage: (wsMessage: ChatMessage) => {
+        // Transform WebSocket message to ForumMessage format
+        const forumMessage: ForumMessage = {
+          id: wsMessage.id,
+          content: wsMessage.content,
+          sender: {
+            id: wsMessage.sender.id,
+            full_name: `${wsMessage.sender.first_name} ${wsMessage.sender.last_name}`.trim() || wsMessage.sender.username,
+            role: wsMessage.sender.role,
+          },
+          created_at: wsMessage.created_at,
+          updated_at: wsMessage.updated_at,
+          is_read: wsMessage.is_read,
+          message_type: wsMessage.message_type,
+        };
+
+        // Update TanStack Query cache with new message
+        queryClient.setQueryData(
+          ['forum-messages', chatId, 50, 0],
+          (oldData: any) => {
+            if (!oldData) {
+              return {
+                success: true,
+                chat_id: chatId,
+                limit: 50,
+                offset: 0,
+                count: 1,
+                results: [forumMessage],
+              };
+            }
+
+            // Check if message already exists (avoid duplicates)
+            const exists = oldData.results.some((msg: ForumMessage) => msg.id === forumMessage.id);
+            if (exists) {
+              return oldData;
+            }
+
+            return {
+              ...oldData,
+              count: oldData.count + 1,
+              results: [...oldData.results, forumMessage],
+            };
+          }
+        );
+
+        // Also invalidate chat list to update last_message and unread_count
+        queryClient.invalidateQueries({ queryKey: ['forum-chats'] });
+      },
+    };
+
+    // Connect to WebSocket for this chat room
+    chatWebSocketService.connectToRoom(chatId, handlers);
+
+    // Cleanup: disconnect when chat changes or component unmounts
+    return () => {
+      chatWebSocketService.disconnectFromRoom(chatId);
+    };
+  }, [selectedChat, queryClient]);
 
   const handleSelectChat = (chat: ForumChat) => {
     setSelectedChat(chat);

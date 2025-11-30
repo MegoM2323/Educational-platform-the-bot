@@ -83,7 +83,7 @@ export const forumAPI = {
     chatId: number,
     limit: number = 50,
     offset: number = 0
-  ): Promise<ForumMessagesResponse> => {
+  ): Promise<ForumMessage[]> => {
     const params = new URLSearchParams();
     if (limit) params.append('limit', String(limit));
     if (offset) params.append('offset', String(offset));
@@ -91,18 +91,15 @@ export const forumAPI = {
     const queryString = params.toString();
     const url = `/chat/forum/${chatId}/messages/${queryString ? '?' + queryString : ''}`;
 
-    const response = await unifiedAPI.request<ForumMessagesResponse>(url);
+    const response = await unifiedAPI.request<ForumMessage[]>(url);
+
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data || {
-      success: false,
-      chat_id: chatId,
-      limit,
-      offset,
-      count: 0,
-      results: [],
-    };
+
+    // unifiedAPI already extracts the results array from paginated responses
+    // So response.data is already ForumMessage[], not ForumMessagesResponse
+    return response.data || [];
   },
 
   sendForumMessage: async (

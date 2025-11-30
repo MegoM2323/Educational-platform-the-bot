@@ -3,16 +3,21 @@ import { forumAPI, ForumMessage, SendForumMessageRequest } from '../integrations
 import { toast } from 'sonner';
 
 export const useForumMessages = (chatId: number | null, limit: number = 50, offset: number = 0) => {
-  return useQuery({
+  const query = useQuery<ForumMessage[]>({
     queryKey: ['forum-messages', chatId, limit, offset],
-    queryFn: () => {
-      if (!chatId) throw new Error('Chat ID is required');
-      return forumAPI.getForumMessages(chatId, limit, offset);
+    queryFn: async () => {
+      if (!chatId) {
+        throw new Error('Chat ID is required');
+      }
+      const messages = await forumAPI.getForumMessages(chatId, limit, offset);
+      return messages;
     },
     enabled: !!chatId,
     staleTime: Infinity, // Rely on WebSocket for real-time updates, no polling
     retry: 2,
   });
+
+  return query;
 };
 
 export const useSendForumMessage = () => {

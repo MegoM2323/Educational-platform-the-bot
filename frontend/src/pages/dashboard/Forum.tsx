@@ -298,12 +298,10 @@ export default function Forum() {
   const queryClient = useQueryClient();
 
   const { data: chats = [], isLoading: isLoadingChats } = useForumChats();
-  const { data: messagesResponse, isLoading: isLoadingMessages } = useForumMessages(
+  const { data: messages = [], isLoading: isLoadingMessages } = useForumMessages(
     selectedChat?.id || null
   );
   const sendMessageMutation = useSendForumMessage();
-
-  const messages = messagesResponse?.results || [];
 
   // WebSocket integration for real-time messages
   useEffect(() => {
@@ -331,29 +329,18 @@ export default function Forum() {
         // Update TanStack Query cache with new message
         queryClient.setQueryData(
           ['forum-messages', chatId, 50, 0],
-          (oldData: any) => {
+          (oldData: ForumMessage[] | undefined) => {
             if (!oldData) {
-              return {
-                success: true,
-                chat_id: chatId,
-                limit: 50,
-                offset: 0,
-                count: 1,
-                results: [forumMessage],
-              };
+              return [forumMessage];
             }
 
             // Check if message already exists (avoid duplicates)
-            const exists = oldData.results.some((msg: ForumMessage) => msg.id === forumMessage.id);
+            const exists = oldData.some((msg: ForumMessage) => msg.id === forumMessage.id);
             if (exists) {
               return oldData;
             }
 
-            return {
-              ...oldData,
-              count: oldData.count + 1,
-              results: [...oldData.results, forumMessage],
-            };
+            return [...oldData, forumMessage];
           }
         );
 

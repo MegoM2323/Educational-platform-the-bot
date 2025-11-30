@@ -21,7 +21,6 @@ urlpatterns = [
     path('progress/', v.student_progress_overview, name='teacher-progress-overview'),
     path('reports/', v.teacher_reports, name='teacher-reports'),
     path('reports/create/', v.create_student_report, name='create-student-report'),
-    path('general-chat/', v.teacher_general_chat, name='teacher-general-chat'),
 ]
 
 

@@ -325,16 +325,21 @@ class TeacherDashboardService:
                     subject_progress[subject_name]['completed_materials'] += 1
                 subject_progress[subject_name]['total_time_spent'] += progress.time_spent
             
-            # Вычисляем средний прогресс по предметам
+            # Вычисляем средний прогресс по предметам через аннотации (оптимизация N+1)
+            subject_avg_progress = progress_records.values('material__subject__name').annotate(
+                avg_progress=Avg('progress_percentage')
+            )
+            avg_progress_dict = {
+                item['material__subject__name']: item['avg_progress']
+                for item in subject_avg_progress
+            }
+
             for subject_name, data in subject_progress.items():
                 if data['total_materials'] > 0:
                     data['completion_percentage'] = round(
                         (data['completed_materials'] / data['total_materials'] * 100), 2
                     )
-                    data['average_progress'] = round(
-                        progress_records.filter(material__subject__name=subject_name)
-                        .aggregate(avg=Avg('progress_percentage'))['avg'] or 0, 2
-                    )
+                    data['average_progress'] = round(avg_progress_dict.get(subject_name) or 0, 2)
             
             return {
                 'student': {
@@ -532,87 +537,11 @@ class TeacherDashboardService:
         
         return result
     
-    def get_general_chat_access(self) -> Optional[Dict[str, Any]]:
-        """
-        Получить доступ к общему чату для преподавателей и студентов
-        
-        Returns:
-            Информация о чате или None, если чат не найден
-        """
-        try:
-            # Ищем общий чат
-            general_chat = ChatRoom.objects.filter(
-                type__in=[ChatRoom.Type.CLASS, 'general'],
-                is_active=True
-            ).first()
-            
-            if not general_chat:
-                # Если общий чат не существует, создаем его
-                general_chat = self._create_general_chat()
-            
-            # Проверяем, участвует ли преподаватель в чате
-            is_participant = general_chat.participants.filter(id=self.teacher.id).exists()
-            
-            # Получаем последние сообщения
-            recent_messages = general_chat.messages.select_related(
-                'sender'
-            ).order_by('-created_at')[:10]
-            
-            messages_data = []
-            for message in recent_messages:
-                messages_data.append({
-                    'id': message.id,
-                    'content': message.content,
-                    'sender': {
-                        'id': message.sender.id,
-                        'name': message.sender.get_full_name(),
-                        'role': message.sender.role
-                    },
-                    'message_type': message.message_type,
-                    'created_at': message.created_at,
-                    'is_edited': message.is_edited
-                })
-            
-            return {
-                'id': general_chat.id,
-                'name': general_chat.name,
-                'description': general_chat.description,
-                'is_participant': is_participant,
-                'participants_count': general_chat.participants.count(),
-                'recent_messages': messages_data
-            }
-            
-        except Exception as e:
-            print(f"Ошибка при получении доступа к общему чату: {e}")
-            return None
-    
-    def _create_general_chat(self) -> ChatRoom:
-        """
-        Создать общий чат для преподавателей и студентов
-        
-        Returns:
-            Созданный чат
-        """
-        # Создаем общий чат
-        general_chat = ChatRoom.objects.create(
-            name='Общий чат',
-            description='Общий чат для преподавателей и студентов',
-            type='general',
-            created_by=self.teacher
-        )
-        
-        # Добавляем всех студентов и преподавателей
-        students_and_teachers = User.objects.filter(
-            role__in=[User.Role.STUDENT, User.Role.TEACHER]
-        )
-        general_chat.participants.set(students_and_teachers)
-        
-        return general_chat
     
     def _generate_report_analytics(self, report: StudentReport, student: User) -> None:
         """
         Генерировать аналитические данные для отчета
-        
+
         Args:
             report: Объект отчета о студенте
             student: Студент
@@ -622,23 +551,31 @@ class TeacherDashboardService:
             teacher_materials = Material.objects.filter(
                 author=self.teacher,
                 assigned_to=student
-            )
-            
-            # Создаем аналитические данные
+            ).select_related('subject')
+
+            # Получаем все прогрессы студента одним запросом
+            progress_dict = {
+                p.material_id: p
+                for p in MaterialProgress.objects.filter(
+                    student=student,
+                    material__in=teacher_materials
+                )
+            }
+
+            # Собираем записи для bulk_create
+            analytics_records = []
+            current_date = timezone.now().date()
+
             for material in teacher_materials:
-                try:
-                    progress = MaterialProgress.objects.get(
-                        student=student,
-                        material=material
-                    )
-                    
-                    # Создаем запись о прогрессе
-                    AnalyticsData.objects.create(
+                progress = progress_dict.get(material.id)
+
+                if progress:
+                    analytics_records.append(AnalyticsData(
                         student=student,
                         metric_type=AnalyticsData.MetricType.STUDENT_PROGRESS,
                         value=float(progress.progress_percentage),
                         unit='%',
-                        date=timezone.now().date(),
+                        date=current_date,
                         period_start=report.period_start,
                         period_end=report.period_end,
                         metadata={
@@ -648,16 +585,15 @@ class TeacherDashboardService:
                             'is_completed': progress.is_completed,
                             'time_spent': progress.time_spent
                         }
-                    )
-                    
-                except MaterialProgress.DoesNotExist:
+                    ))
+                else:
                     # Если прогресса нет, создаем запись с нулевым прогрессом
-                    AnalyticsData.objects.create(
+                    analytics_records.append(AnalyticsData(
                         student=student,
                         metric_type=AnalyticsData.MetricType.STUDENT_PROGRESS,
                         value=0.0,
                         unit='%',
-                        date=timezone.now().date(),
+                        date=current_date,
                         period_start=report.period_start,
                         period_end=report.period_end,
                         metadata={
@@ -667,10 +603,14 @@ class TeacherDashboardService:
                             'is_completed': False,
                             'time_spent': 0
                         }
-                    )
-                    
+                    ))
+
+            # Создаем все записи одним запросом
+            if analytics_records:
+                AnalyticsData.objects.bulk_create(analytics_records)
+
         except Exception as e:
-            print(f"Ошибка при генерации аналитических данных: {e}")
+            logger.error(f"Ошибка при генерации аналитических данных: {e}")
     
     def get_all_subjects(self) -> List[Dict[str, Any]]:
         """
@@ -826,6 +766,5 @@ class TeacherDashboardService:
             'students': self.get_teacher_students(),
             'materials': self.get_teacher_materials(),
             'progress_overview': self.get_student_progress_overview(),
-            'reports': self.get_teacher_reports(),
-            'general_chat': self.get_general_chat_access()
+            'reports': self.get_teacher_reports()
         }

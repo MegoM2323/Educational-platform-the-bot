@@ -133,9 +133,9 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def update(self, request, pk=None):
         """
-        Update a lesson (teacher only, before lesson starts).
+        Full update of a lesson (teacher only, before lesson starts).
 
-        PATCH /api/scheduling/lessons/{id}/
+        PUT /api/scheduling/lessons/{id}/
         {
             "date": "2024-12-21",
             "start_time": "11:00:00",
@@ -161,6 +161,56 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         # Validate input
         serializer = LessonUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            # Use service to update lesson
+            updated_lesson = LessonService.update_lesson(
+                lesson=lesson,
+                updates=serializer.validated_data,
+                user=request.user
+            )
+
+            # Return updated lesson
+            output_serializer = LessonSerializer(updated_lesson)
+            return Response(output_serializer.data)
+
+        except DjangoValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def partial_update(self, request, pk=None):
+        """
+        Partial update of a lesson (teacher only, before lesson starts).
+
+        PATCH /api/scheduling/lessons/{id}/
+        {
+            "date": "2024-12-21",  # Optional
+            "start_time": "11:00:00",  # Optional
+            "end_time": "12:00:00",  # Optional
+            "description": "Updated description",  # Optional
+            "telemost_link": "https://telemost.yandex.ru/..."  # Optional
+        }
+        """
+        try:
+            lesson = self.get_object()
+        except Lesson.DoesNotExist:
+            return Response(
+                {'error': 'Lesson not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Only teacher can update
+        if lesson.teacher != request.user:
+            return Response(
+                {'error': 'Only the teacher who created this lesson can update it'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Validate input (partial=True allows optional fields)
+        serializer = LessonUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -208,10 +258,8 @@ class LessonViewSet(viewsets.ModelViewSet):
             # Use service to delete lesson
             LessonService.delete_lesson(lesson=lesson, user=request.user)
 
-            return Response(
-                {'success': 'Lesson cancelled successfully'},
-                status=status.HTTP_204_NO_CONTENT
-            )
+            # 204 No Content - must not have response body
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
         except DjangoValidationError as e:
             return Response(

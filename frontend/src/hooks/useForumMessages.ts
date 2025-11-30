@@ -10,7 +10,7 @@ export const useForumMessages = (chatId: number | null, limit: number = 50, offs
       return forumAPI.getForumMessages(chatId, limit, offset);
     },
     enabled: !!chatId,
-    staleTime: 30000, // 30 seconds
+    staleTime: Infinity, // Rely on WebSocket for real-time updates, no polling
     retry: 2,
   });
 };

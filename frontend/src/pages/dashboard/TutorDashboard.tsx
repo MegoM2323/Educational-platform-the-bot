@@ -7,10 +7,13 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { TutorSidebar } from "@/components/layout/TutorSidebar";
 import { useNavigate } from "react-router-dom";
 import { useTutorStudents } from "@/hooks/useTutor";
+import { useProfile } from "@/hooks/useProfile";
+import { ProfileCard } from "@/components/ProfileCard";
 
 const TutorDashboard = () => {
   const navigate = useNavigate();
   const { data: students, isLoading } = useTutorStudents();
+  const { profileData, isLoading: isProfileLoading, error: profileError } = useProfile();
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -22,6 +25,36 @@ const TutorDashboard = () => {
           </header>
           <main className="p-6">
             <div className="space-y-6">
+              {/* Секция "Мой профиль" */}
+              {isProfileLoading ? (
+                <Card className="p-6 h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-2" />
+                    <p className="text-muted-foreground">Загружаю профиль...</p>
+                  </div>
+                </Card>
+              ) : profileError ? (
+                <Card className="p-6 border-destructive/50 bg-destructive/5">
+                  <div className="text-center">
+                    <p className="text-destructive font-medium">Ошибка загрузки профиля</p>
+                    <p className="text-sm text-muted-foreground mt-1">{profileError.message}</p>
+                  </div>
+                </Card>
+              ) : profileData?.user ? (
+                <ProfileCard
+                  userName={profileData.user.full_name || `${profileData.user.first_name} ${profileData.user.last_name}`.trim()}
+                  userEmail={profileData.user.email}
+                  userRole="tutor"
+                  profileData={{
+                    specialization: (profileData.profile?.specialization as string) || undefined,
+                    experience: (profileData.profile?.experience_years as number) || undefined,
+                    studentsCount: students?.length ?? 0,
+                    reportsCount: (profileData.profile?.reportsCount as number) ?? 0,
+                  }}
+                  onEdit={() => navigate('/profile/tutor')}
+                />
+              ) : null}
+
               <div>
                 <h1 className="text-3xl font-bold">Личный кабинет тьютора</h1>
                 <p className="text-muted-foreground">Ученики: {isLoading ? 'Загрузка…' : (students?.length ?? 0)}</p>
@@ -76,6 +109,10 @@ const TutorDashboard = () => {
           <Button variant="outline" className="h-auto flex-col gap-2 py-6" onClick={() => navigate('/dashboard/tutor/students')}>
             <Users className="w-6 h-6" />
             <span>Мои ученики</span>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col gap-2 py-6" onClick={() => navigate('/dashboard/tutor/students')}>
+            <Users className="w-6 h-6" />
+            <span>Назначить предмет</span>
           </Button>
           <Button variant="outline" className="h-auto flex-col gap-2 py-6" onClick={() => navigate('/dashboard/tutor/reports')}>
             <FileText className="w-6 h-6" />

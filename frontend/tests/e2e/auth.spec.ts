@@ -13,7 +13,7 @@ test.describe('Authentication', () => {
 
   for (const user of testUsers) {
     test(`should login as ${user.role} and redirect to dashboard`, async ({ page }) => {
-      await page.goto('http://localhost:8080/auth');
+      await page.goto('/auth');
 
       // Fill login form
       await page.fill('input[type="email"]', user.email);
@@ -33,7 +33,7 @@ test.describe('Authentication', () => {
   }
 
   test('should show error for invalid credentials', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
 
     await page.fill('input[type="email"]', 'wrong@test.com');
     await page.fill('input[type="password"]', 'wrongpass');
@@ -47,7 +47,7 @@ test.describe('Authentication', () => {
 
   test('should logout successfully', async ({ page }) => {
     // Login first
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
     await page.fill('input[type="email"]', 'student@test.com');
     await page.fill('input[type="password"]', 'TestPass123!');
     await page.click('button[type="submit"]');
@@ -72,14 +72,14 @@ test.describe('Authentication', () => {
 
   test('should protect dashboard routes', async ({ page }) => {
     // Clear any existing auth data
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
     });
 
     // Try to access dashboard without token
-    await page.goto('http://localhost:8080/dashboard/student');
+    await page.goto('/dashboard/student');
 
     // Should redirect to auth or show some protection
     // Wait a bit for potential redirect
@@ -94,7 +94,7 @@ test.describe('Authentication', () => {
   });
 
   test('should handle empty form submission', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
 
     // Try to submit empty form
     await page.click('button[type="submit"]');
@@ -106,7 +106,7 @@ test.describe('Authentication', () => {
   });
 
   test('should show password field as password type', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
 
     const passwordField = page.locator('input[type="password"]');
     await expect(passwordField).toBeVisible();
@@ -117,7 +117,7 @@ test.describe('Authentication', () => {
   });
 
   test('should display login form elements', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
 
     // Check all required form elements exist
     await expect(page.locator('input[type="email"]')).toBeVisible();

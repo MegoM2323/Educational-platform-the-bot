@@ -11,6 +11,7 @@ from .student_dashboard_service import StudentDashboardService
 from .models import Material, MaterialProgress, SubjectEnrollment, StudyPlan
 from .serializers import MaterialListSerializer, MaterialProgressSerializer, StudyPlanSerializer, StudyPlanListSerializer
 from accounts.staff_views import CSRFExemptSessionAuthentication
+from accounts.serializers import get_profile_serializer
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,13 @@ User = get_user_model()
 @permission_classes([permissions.IsAuthenticated])
 def student_dashboard(request):
     """
-    Получить данные дашборда студента
-    
+    Получить данные дашборда студента.
+
+    Скрывает приватные поля профиля от самого студента:
+    - goal (цель обучения)
+    - tutor (назначенный тьютор)
+    - parent (назначенный родитель)
+
     GET /api/dashboard/student/
     """
     if request.user.role != User.Role.STUDENT:
@@ -31,10 +37,29 @@ def student_dashboard(request):
             {'error': 'Доступ разрешен только студентам'},
             status=status.HTTP_403_FORBIDDEN
         )
-    
+
     try:
-        service = StudentDashboardService(request.user, request)
+        user = request.user
+        service = StudentDashboardService(user, request)
         dashboard_data = service.get_dashboard_data()
+
+        # Получаем профиль студента
+        try:
+            profile = user.student_profile
+
+            # Выбираем serializer в зависимости от прав
+            # Сам студент НЕ видит приватные поля (goal, tutor, parent)
+            ProfileSerializer = get_profile_serializer(profile, user, user)
+            serialized_profile = ProfileSerializer(profile).data
+
+            # Добавляем профиль в dashboard_data
+            dashboard_data['profile'] = serialized_profile
+
+        except Exception as profile_error:
+            logger.warning(f"Could not load student profile: {profile_error}")
+            # Не блокируем весь dashboard если не удалось загрузить профиль
+            dashboard_data['profile'] = None
+
         return Response(dashboard_data)
     except ValueError as e:
         logger.error(f"Validation error in student dashboard: {e}")

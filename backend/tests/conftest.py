@@ -1,6 +1,43 @@
 """
 Pytest configuration and fixtures for THE_BOT platform tests
 """
+import os
+import sys
+
+# ============================================================================
+# КРИТИЧЕСКАЯ ЗАЩИТА: Принудительно устанавливаем тестовое окружение
+# ============================================================================
+#
+# ОБЯЗАТЕЛЬНО устанавливаем ENVIRONMENT=test ДО импорта Django
+# Это обеспечивает использование SQLite in-memory вместо продакшн БД
+#
+# ============================================================================
+
+os.environ['ENVIRONMENT'] = 'test'
+os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings'
+
+# Убедиться что не используется продакшн БД
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
+if 'supabase' in DATABASE_URL.lower():
+    raise RuntimeError(
+        f"\n"
+        f"{'='*70}\n"
+        f"🚨🚨🚨 КРИТИЧЕСКАЯ ОШИБКА: DATABASE_URL указывает на Supabase! 🚨🚨🚨\n"
+        f"{'='*70}\n"
+        f"\n"
+        f"Тесты НЕ ДОЛЖНЫ использовать продакшн БД!\n"
+        f"\n"
+        f"РЕШЕНИЕ:\n"
+        f"1. Удалите DATABASE_URL из окружения при запуске pytest\n"
+        f"2. Или используйте: unset DATABASE_URL && pytest\n"
+        f"3. Или используйте скрипт: ./scripts/run_tests.sh\n"
+        f"\n"
+        f"DATABASE_URL будет проигнорирован для тестов.\n"
+        f"{'='*70}\n"
+    )
+    # Удаляем опасную переменную
+    del os.environ['DATABASE_URL']
+
 import pytest
 from decimal import Decimal
 from datetime import timedelta
@@ -9,11 +46,6 @@ from django.contrib.auth import get_user_model
 import factory
 from factory import Faker, SubFactory
 from factory.django import DjangoModelFactory
-
-# Import all fixtures modules to make them available
-# Fixtures will be auto-discovered from these modules
-import sys
-import os
 
 # Add tests directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -60,9 +92,12 @@ class TutorUserFactory(UserFactory):
 
 @pytest.fixture
 def student_user(db):
-    """Create a student user"""
+    """Create a student user with StudentProfile.
+
+    Note: In test mode, auto_create_user_profile signal is disabled,
+    so we explicitly create the profile here.
+    """
     user = StudentUserFactory()
-    # Create student profile
     from accounts.models import StudentProfile
     StudentProfile.objects.create(user=user)
     return user
@@ -70,9 +105,12 @@ def student_user(db):
 
 @pytest.fixture
 def parent_user(db):
-    """Create a parent user"""
+    """Create a parent user with ParentProfile.
+
+    Note: In test mode, auto_create_user_profile signal is disabled,
+    so we explicitly create the profile here.
+    """
     user = ParentUserFactory()
-    # Create parent profile
     from accounts.models import ParentProfile
     ParentProfile.objects.create(user=user)
     return user
@@ -80,9 +118,12 @@ def parent_user(db):
 
 @pytest.fixture
 def teacher_user(db):
-    """Create a teacher user"""
+    """Create a teacher user with TeacherProfile.
+
+    Note: In test mode, auto_create_user_profile signal is disabled,
+    so we explicitly create the profile here.
+    """
     user = TeacherUserFactory()
-    # Create teacher profile
     from accounts.models import TeacherProfile
     TeacherProfile.objects.create(user=user)
     return user
@@ -90,8 +131,15 @@ def teacher_user(db):
 
 @pytest.fixture
 def tutor_user(db):
-    """Create a tutor user"""
-    return TutorUserFactory()
+    """Create a tutor user with TutorProfile.
+
+    Note: In test mode, auto_create_user_profile signal is disabled,
+    so we explicitly create the profile here.
+    """
+    user = TutorUserFactory()
+    from accounts.models import TutorProfile
+    TutorProfile.objects.create(user=user)
+    return user
 
 
 @pytest.fixture
@@ -254,12 +302,40 @@ def mock_request(rf):
 
 @pytest.fixture(scope='session')
 def django_db_setup(django_db_setup, django_db_blocker):
-    """Custom database setup for tests - creates DB schema with migrations"""
+    """
+    Настройка и валидация тестовой БД.
+
+    ЗАЩИТА: Проверяет что используется SQLite in-memory, не продакшн БД.
+    """
+    from django.conf import settings
+
+    db = settings.DATABASES['default']
+
+    # КРИТИЧЕСКАЯ ПРОВЕРКА: БД должна быть SQLite
+    assert 'sqlite' in db['ENGINE'], (
+        f"❌ Тесты должны использовать SQLite! "
+        f"Текущий ENGINE: {db['ENGINE']}"
+    )
+
+    # КРИТИЧЕСКАЯ ПРОВЕРКА: Не Supabase
+    db_host = db.get('HOST', '')
+    assert 'supabase' not in db_host.lower(), (
+        f"❌ Тесты НЕ ДОЛЖНЫ использовать Supabase! "
+        f"HOST: {db_host}"
+    )
+
+    # КРИТИЧЕСКАЯ ПРОВЕРКА: Окружение = test
+    assert os.getenv('ENVIRONMENT') == 'test', (
+        f"❌ ENVIRONMENT должна быть 'test', получено: {os.getenv('ENVIRONMENT')}"
+    )
+
+    # Выполнить миграции
     with django_db_blocker.unblock():
         from django.core.management import call_command
         # Run migrations to create full DB schema
         call_command('migrate', '--run-syncdb', verbosity=0)
-        print("\n✓ Test database schema created successfully")
+
+    print(f"\n✅ Тестовая БД: SQLite in-memory (изолирована от продакшн)")
 
 
 @pytest.fixture(autouse=True)
@@ -313,7 +389,11 @@ def admin_user(db):
 
 @pytest.fixture
 def other_student_user(db):
-    """Create another student user for testing access control"""
+    """Create another student user for testing access control.
+
+    Note: In test mode, auto_create_user_profile signal is disabled,
+    so we explicitly create the profile here.
+    """
     user = StudentUserFactory()
     from accounts.models import StudentProfile
     StudentProfile.objects.create(user=user)
@@ -341,15 +421,20 @@ def sample_material(db, subject, teacher_user):
 
 
 @pytest.fixture
-def sample_study_plan(db, student_user, teacher_user):
+def sample_study_plan(db, student_user, teacher_user, subject):
     """Create a sample study plan"""
     from materials.models import StudyPlan
+    from datetime import timedelta
 
+    week_start = timezone.now().date()
     plan = StudyPlan.objects.create(
         student=student_user,
         teacher=teacher_user,
-        week_start_date=timezone.now().date(),
-        notes="Test study plan"
+        subject=subject,
+        title="Test study plan",
+        content="Test study plan content",
+        week_start_date=week_start,
+        week_end_date=week_start + timedelta(days=6)
     )
     return plan
 
@@ -360,13 +445,15 @@ def sample_study_plan_file(db, sample_study_plan, teacher_user):
     from materials.models import StudyPlanFile
     from django.core.files.uploadedfile import SimpleUploadedFile
 
-    test_file = SimpleUploadedFile("test_plan.pdf", b"test plan content", content_type="application/pdf")
+    test_content = b"test plan content"
+    test_file = SimpleUploadedFile("test_plan.pdf", test_content, content_type="application/pdf")
 
     plan_file = StudyPlanFile.objects.create(
         study_plan=sample_study_plan,
         file=test_file,
-        uploaded_by=teacher_user,
-        description="Test plan file"
+        name="test_plan.pdf",
+        file_size=len(test_content),
+        uploaded_by=teacher_user
     )
     return plan_file
 
@@ -383,3 +470,135 @@ def sample_enrollment(db, student_user, subject, teacher_user):
         is_active=True
     )
     return enrollment
+
+
+# ===== Lesson Testing Fixtures =====
+
+@pytest.fixture
+def another_student_user(db):
+    """Create another student for testing multiple students."""
+    user = StudentUserFactory()
+    from accounts.models import StudentProfile
+    StudentProfile.objects.create(user=user)
+    return user
+
+
+@pytest.fixture
+def math_subject(db):
+    """Create a test Math subject."""
+    from materials.models import Subject
+    return Subject.objects.create(
+        name='Математика',
+        description='Тестовый предмет математика'
+    )
+
+
+@pytest.fixture
+def english_subject(db):
+    """Create a test English subject."""
+    from materials.models import Subject
+    return Subject.objects.create(
+        name='Английский язык',
+        description='Тестовый предмет английский'
+    )
+
+
+@pytest.fixture
+def subject_enrollment(db, student_user, teacher_user, math_subject):
+    """Create an active SubjectEnrollment linking teacher to student."""
+    from materials.models import SubjectEnrollment
+    return SubjectEnrollment.objects.create(
+        student=student_user,
+        teacher=teacher_user,
+        subject=math_subject,
+        is_active=True
+    )
+
+
+@pytest.fixture
+def another_enrollment(db, another_student_user, teacher_user, english_subject):
+    """Create another SubjectEnrollment for different student."""
+    from materials.models import SubjectEnrollment
+    return SubjectEnrollment.objects.create(
+        student=another_student_user,
+        teacher=teacher_user,
+        subject=english_subject,
+        is_active=True
+    )
+
+
+@pytest.fixture
+def lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
+    """Create a test lesson for future date."""
+    from datetime import time
+    from scheduling.models import Lesson
+
+    future_date = timezone.now().date() + timedelta(days=3)
+    return Lesson.objects.create(
+        teacher=teacher_user,
+        student=student_user,
+        subject=math_subject,
+        date=future_date,
+        start_time=time(10, 0),
+        end_time=time(11, 0),
+        description='Алгебра для 8 класса',
+        telemost_link='https://telemost.yandex.ru/test',
+        status='pending'
+    )
+
+
+@pytest.fixture
+def confirmed_lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
+    """Create a confirmed lesson."""
+    from datetime import time
+    from scheduling.models import Lesson
+
+    future_date = timezone.now().date() + timedelta(days=5)
+    return Lesson.objects.create(
+        teacher=teacher_user,
+        student=student_user,
+        subject=math_subject,
+        date=future_date,
+        start_time=time(14, 0),
+        end_time=time(15, 0),
+        description='Геометрия',
+        status='confirmed'
+    )
+
+
+@pytest.fixture
+def past_lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
+    """Create a lesson in the past."""
+    from datetime import time
+    from scheduling.models import Lesson
+
+    past_date = timezone.now().date() - timedelta(days=5)
+    return Lesson.objects.create(
+        teacher=teacher_user,
+        student=student_user,
+        subject=math_subject,
+        date=past_date,
+        start_time=time(10, 0),
+        end_time=time(11, 0),
+        description='Прошлый урок',
+        status='completed'
+    )
+
+
+@pytest.fixture
+def near_future_lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
+    """Create a lesson that is less than 2 hours away."""
+    from datetime import time
+    from scheduling.models import Lesson
+
+    near_future = timezone.now() + timedelta(minutes=30)
+    return Lesson.objects.create(
+        teacher=teacher_user,
+        student=student_user,
+        subject=math_subject,
+        date=near_future.date(),
+        start_time=near_future.time(),
+        end_time=(near_future + timedelta(hours=1)).time(),
+        description='Урок через 30 минут',
+        status='confirmed'
+    )

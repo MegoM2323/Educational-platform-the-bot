@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { useTutorStudents, useCreateTutorStudent } from '@/hooks/useTutor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import AssignSubjectDialog from '@/components/tutor/AssignSubjectDialog';
+import { TutorStudentSchedule } from '@/components/scheduling/tutor/TutorStudentSchedule';
 
 export default function TutorStudentsPage() {
   const { data: students, isLoading } = useTutorStudents();
@@ -21,6 +23,9 @@ export default function TutorStudentsPage() {
   const [generatedCreds, setGeneratedCreds] = useState<{ student: { username: string; password: string }; parent: { username: string; password: string } } | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedStudentForDetails, setSelectedStudentForDetails] = useState<any | null>(null);
+  const [detailsTab, setDetailsTab] = useState<'overview' | 'schedule'>('overview');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   
   // Логируем изменения в данных студентов для отладки
@@ -154,11 +159,19 @@ export default function TutorStudentsPage() {
                     {students?.map((s) => {
                       const subjectsCount = s.subjects?.length || 0;
                       return (
-                        <Card key={s.id} className="p-4 space-y-3">
+                        <Card
+                          key={s.id}
+                          className="p-4 space-y-3 cursor-pointer hover:border-primary transition-colors"
+                          onClick={() => {
+                            setSelectedStudentForDetails(s);
+                            setDetailsTab('overview');
+                            setDetailsOpen(true);
+                          }}
+                        >
                           <div className="font-medium">{s.full_name || `${s.first_name || ''} ${s.last_name || ''}`}</div>
                           <div className="text-sm text-muted-foreground">Класс: {s.grade || '-'}</div>
                           <div className="text-sm text-muted-foreground">Цель: {s.goal || '-'}</div>
-                          
+
                           {/* Назначенные предметы */}
                           {subjectsCount > 0 ? (
                             <div className="space-y-2">
@@ -175,12 +188,12 @@ export default function TutorStudentsPage() {
                           ) : (
                             <div className="text-sm text-muted-foreground italic">Нет назначенных предметов</div>
                           )}
-                          
-                          <div className="pt-2 flex gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => { 
+
+                          <div className="pt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="secondary" size="sm" onClick={() => {
                               console.log('[Students] Opening assign dialog for student:', s.id);
-                              setSelectedStudentId(s.id); 
-                              setAssignOpen(true); 
+                              setSelectedStudentId(s.id);
+                              setAssignOpen(true);
                             }}>Назначить предмет</Button>
                           </div>
                         </Card>
@@ -327,18 +340,94 @@ export default function TutorStudentsPage() {
       </Dialog>
 
       {selectedStudentId !== null && (
-        <AssignSubjectDialog 
-          open={assignOpen} 
+        <AssignSubjectDialog
+          open={assignOpen}
           onOpenChange={(open) => {
             setAssignOpen(open);
             if (!open) {
-              // Сбрасываем выбранного студента при закрытии диалога
               setSelectedStudentId(null);
             }
           }}
           studentId={selectedStudentId}
         />
       )}
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedStudentForDetails?.full_name || `${selectedStudentForDetails?.first_name || ''} ${selectedStudentForDetails?.last_name || ''}`}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedStudentForDetails && (
+            <Tabs value={detailsTab} onValueChange={(v) => setDetailsTab(v as 'overview' | 'schedule')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="overview">Обзор</TabsTrigger>
+                <TabsTrigger value="schedule">Расписание</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-4">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-semibold text-muted-foreground">Класс</label>
+                      <p className="text-base font-medium">{selectedStudentForDetails.grade || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-muted-foreground">Цель обучения</label>
+                      <p className="text-base font-medium">{selectedStudentForDetails.goal || '-'}</p>
+                    </div>
+                  </div>
+
+                  {selectedStudentForDetails.subjects && selectedStudentForDetails.subjects.length > 0 ? (
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-muted-foreground">
+                        Назначенные предметы ({selectedStudentForDetails.subjects.length})
+                      </label>
+                      <div className="space-y-2">
+                        {selectedStudentForDetails.subjects.map((subject: any) => (
+                          <Card key={subject.enrollment_id} className="p-3">
+                            <div className="font-medium text-sm">{subject.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Преподаватель: {subject.teacher_name || 'Не указан'}
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-muted rounded-lg text-center text-sm text-muted-foreground">
+                      Нет назначенных предметов
+                    </div>
+                  )}
+
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => {
+                      setSelectedStudentId(selectedStudentForDetails.id);
+                      setAssignOpen(true);
+                    }}
+                  >
+                    Назначить новый предмет
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="schedule">
+                <TutorStudentSchedule studentId={selectedStudentForDetails.id.toString()} />
+              </TabsContent>
+            </Tabs>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+              Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }

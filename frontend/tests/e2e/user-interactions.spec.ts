@@ -64,7 +64,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
       await loginAs(page, 'admin');
 
       // Переходим в админ панель создания пользователей
-      await page.goto('http://localhost:8080/admin/staff');
+      await page.goto('/admin/staff');
       await waitForLoadingComplete(page);
 
       // Ищем кнопку создания тьютора
@@ -99,7 +99,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('A3. Admin creates new teacher through admin panel', async ({ page }) => {
       await loginAs(page, 'admin');
 
-      await page.goto('http://localhost:8080/admin/staff');
+      await page.goto('/admin/staff');
       await waitForLoadingComplete(page);
 
       const createButton = page.locator('text=/создать|добавить|create/i').first();
@@ -131,7 +131,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
       await loginAs(page, 'admin');
 
       // Переходим в раздел управления предметами
-      await page.goto('http://localhost:8080/admin/subjects');
+      await page.goto('/admin/subjects');
       await waitForLoadingComplete(page);
 
       // Ищем функционал назначения предметов
@@ -159,7 +159,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('B2. Tutor creates new student account', async ({ page }) => {
       await loginAs(page, 'tutor');
 
-      await page.goto('http://localhost:8080/dashboard/tutor');
+      await page.goto('/dashboard/tutor');
       await waitForLoadingComplete(page);
 
       // Ищем раздел создания студентов
@@ -205,7 +205,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('B3. Tutor assigns subjects to student', async ({ page }) => {
       await loginAs(page, 'tutor');
 
-      await page.goto('http://localhost:8080/dashboard/tutor');
+      await page.goto('/dashboard/tutor');
       await waitForLoadingComplete(page);
 
       // Находим созданного студента
@@ -241,7 +241,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('B4. Tutor assigns teachers to student subjects', async ({ page }) => {
       await loginAs(page, 'tutor');
 
-      await page.goto('http://localhost:8080/dashboard/tutor');
+      await page.goto('/dashboard/tutor');
       await waitForLoadingComplete(page);
 
       // Находим студента и его предметы
@@ -274,7 +274,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('B5. Tutor creates report for parent', async ({ page }) => {
       await loginAs(page, 'tutor');
 
-      await page.goto('http://localhost:8080/dashboard/tutor');
+      await page.goto('/dashboard/tutor');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел отчетов
@@ -325,7 +325,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('C2. Teacher creates study plan with file attachment', async ({ page }) => {
       await loginAs(page, 'teacher');
 
-      await page.goto('http://localhost:8080/dashboard/teacher');
+      await page.goto('/dashboard/teacher');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел планов занятий
@@ -358,7 +358,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('C3. Teacher uploads study plan PDF file', async ({ page }) => {
       await loginAs(page, 'teacher');
 
-      await page.goto('http://localhost:8080/dashboard/teacher');
+      await page.goto('/dashboard/teacher');
       await waitForLoadingComplete(page);
 
       const plansLink = page.locator('text=/планы|study plans/i').first();
@@ -390,7 +390,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('C4. Teacher creates material for subject', async ({ page }) => {
       await loginAs(page, 'teacher');
 
-      await page.goto('http://localhost:8080/dashboard/teacher');
+      await page.goto('/dashboard/teacher');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел материалов
@@ -429,7 +429,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('C5. Teacher creates assignment for student', async ({ page }) => {
       await loginAs(page, 'teacher');
 
-      await page.goto('http://localhost:8080/dashboard/teacher');
+      await page.goto('/dashboard/teacher');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел заданий
@@ -467,7 +467,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('C6. Teacher grades student submission', async ({ page }) => {
       await loginAs(page, 'teacher');
 
-      await page.goto('http://localhost:8080/dashboard/teacher');
+      await page.goto('/dashboard/teacher');
       await waitForLoadingComplete(page);
 
       const assignmentsLink = page.locator('text=/задания|assignments/i').first();
@@ -505,7 +505,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('C7. Teacher creates student report for tutor', async ({ page }) => {
       await loginAs(page, 'teacher');
 
-      await page.goto('http://localhost:8080/dashboard/teacher');
+      await page.goto('/dashboard/teacher');
       await waitForLoadingComplete(page);
 
       const reportsLink = page.locator('text=/отчеты|reports/i').first();
@@ -553,7 +553,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('D2. Student views study plan', async ({ page }) => {
       await loginAs(page, 'student');
 
-      await page.goto('http://localhost:8080/dashboard/student');
+      await page.goto('/dashboard/student');
       await waitForLoadingComplete(page);
 
       // Проверяем что план занятий отображается
@@ -569,7 +569,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('D3. Student opens study plan PDF file', async ({ page }) => {
       await loginAs(page, 'student');
 
-      await page.goto('http://localhost:8080/dashboard/student');
+      await page.goto('/dashboard/student');
       await waitForLoadingComplete(page);
 
       const studyPlanLink = page.locator('text=/план занятий|study plan/i').first();
@@ -591,7 +591,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('D4. Student downloads material', async ({ page }) => {
       await loginAs(page, 'student');
 
-      await page.goto('http://localhost:8080/dashboard/student');
+      await page.goto('/dashboard/student');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел материалов
@@ -620,7 +620,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('D5. Student submits assignment with file', async ({ page }) => {
       await loginAs(page, 'student');
 
-      await page.goto('http://localhost:8080/dashboard/student');
+      await page.goto('/dashboard/student');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел заданий
@@ -664,7 +664,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('D6. Student sends message to teacher in chat', async ({ page }) => {
       await loginAs(page, 'student');
 
-      await page.goto('http://localhost:8080/dashboard/student');
+      await page.goto('/dashboard/student');
       await waitForLoadingComplete(page);
 
       // Переходим в чат
@@ -713,7 +713,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('E2. Parent views child progress', async ({ page }) => {
       await loginAs(page, 'parent');
 
-      await page.goto('http://localhost:8080/dashboard/parent');
+      await page.goto('/dashboard/parent');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел "Мои дети"
@@ -738,7 +738,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('E3. Parent reads tutor report', async ({ page }) => {
       await loginAs(page, 'parent');
 
-      await page.goto('http://localhost:8080/dashboard/parent');
+      await page.goto('/dashboard/parent');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел отчетов
@@ -764,7 +764,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('E4. Parent initiates payment', async ({ page }) => {
       await loginAs(page, 'parent');
 
-      await page.goto('http://localhost:8080/dashboard/parent/children');
+      await page.goto('/dashboard/parent/children');
       await waitForLoadingComplete(page);
 
       // Находим кнопку оплаты
@@ -790,7 +790,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('E5. Parent views payment history', async ({ page }) => {
       await loginAs(page, 'parent');
 
-      await page.goto('http://localhost:8080/dashboard/parent');
+      await page.goto('/dashboard/parent');
       await waitForLoadingComplete(page);
 
       // Переходим в раздел платежей
@@ -816,7 +816,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('F1. Teacher uploads report, tutor opens it', async ({ page }) => {
       // 1. Teacher создает отчет с файлом
       await loginAs(page, 'teacher');
-      await page.goto('http://localhost:8080/dashboard/teacher');
+      await page.goto('/dashboard/teacher');
       await waitForLoadingComplete(page);
 
       const reportsLink = page.locator('text=/отчеты|reports/i').first();
@@ -833,7 +833,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
 
           // 2. Tutor открывает отчет
           await loginAs(page, 'tutor');
-          await page.goto('http://localhost:8080/dashboard/tutor');
+          await page.goto('/dashboard/tutor');
           await waitForLoadingComplete(page);
 
           const tutorReportsLink = page.locator('text=/отчеты|reports/i').first();
@@ -861,7 +861,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('F2. Teacher creates plan, student downloads it', async ({ page }) => {
       // 1. Teacher создает план
       await loginAs(page, 'teacher');
-      await page.goto('http://localhost:8080/dashboard/teacher');
+      await page.goto('/dashboard/teacher');
       await waitForLoadingComplete(page);
 
       const plansLink = page.locator('text=/планы|study plans/i').first();
@@ -874,7 +874,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
 
         // 2. Student скачивает план
         await loginAs(page, 'student');
-        await page.goto('http://localhost:8080/dashboard/student');
+        await page.goto('/dashboard/student');
         await waitForLoadingComplete(page);
 
         const studentPlansLink = page.locator('text=/план|расписание|schedule/i').first();
@@ -895,7 +895,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
     test('F3. Student submits work, teacher downloads and grades', async ({ page }) => {
       // 1. Student сдает работу
       await loginAs(page, 'student');
-      await page.goto('http://localhost:8080/dashboard/student');
+      await page.goto('/dashboard/student');
       await waitForLoadingComplete(page);
 
       const assignmentsLink = page.locator('text=/задания|assignments/i').first();
@@ -912,7 +912,7 @@ test.describe.serial('FULL USER INTERACTION FLOW', () => {
 
           // 2. Teacher скачивает и оценивает
           await loginAs(page, 'teacher');
-          await page.goto('http://localhost:8080/dashboard/teacher');
+          await page.goto('/dashboard/teacher');
           await waitForLoadingComplete(page);
 
           const teacherAssignmentsLink = page.locator('text=/задания|assignments/i').first();

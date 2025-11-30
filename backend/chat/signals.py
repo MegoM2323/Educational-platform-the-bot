@@ -1,0 +1,161 @@
+"""
+Signal handlers for chat system.
+
+Includes:
+- Auto-creation of forum chats when SubjectEnrollment is created
+- Pachca notifications for new forum messages
+"""
+
+import logging
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils.translation import gettext_lazy as _
+
+from materials.models import SubjectEnrollment
+from accounts.models import StudentProfile
+from .models import ChatRoom, Message
+from .services.pachca_service import PachcaService
+
+logger = logging.getLogger(__name__)
+
+
+@receiver(post_save, sender=SubjectEnrollment)
+def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created: bool, **kwargs) -> None:
+    """
+    Automatically create forum chats when a student enrolls in a subject.
+
+    Creates two chats:
+    1. Student-Teacher chat (FORUM_SUBJECT type)
+    2. Student-Tutor chat if student has a tutor (FORUM_TUTOR type)
+
+    This signal is idempotent - it checks if chats already exist before creating.
+
+    Args:
+        sender: SubjectEnrollment model class
+        instance: The SubjectEnrollment instance being saved
+        created: Boolean indicating if instance was just created
+        **kwargs: Additional keyword arguments from signal
+    """
+    if not created:
+        return
+
+    try:
+        # Get student profile for tutor info
+        student_profile: StudentProfile | None = None
+        try:
+            student_profile = StudentProfile.objects.select_related('tutor').get(
+                user=instance.student
+            )
+        except StudentProfile.DoesNotExist:
+            logger.warning(
+                f"StudentProfile not found for user {instance.student.id} during enrollment "
+                f"{instance.id} for subject {instance.subject.id}"
+            )
+
+        # Create student-teacher forum chat
+        subject_name = instance.get_subject_name()
+        student_name = instance.student.get_full_name()
+        teacher_name = instance.teacher.get_full_name()
+
+        # Format: "{Subject} - {Student} ↔ {Teacher}"
+        forum_chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
+
+        # Check if forum chat already exists (idempotent)
+        existing_forum_chat = ChatRoom.objects.filter(
+            type=ChatRoom.Type.FORUM_SUBJECT,
+            enrollment=instance
+        ).first()
+
+        if not existing_forum_chat:
+            forum_chat = ChatRoom.objects.create(
+                name=forum_chat_name,
+                type=ChatRoom.Type.FORUM_SUBJECT,
+                enrollment=instance,
+                created_by=instance.student,
+                description=f"Forum for {subject_name} between {student_name} and {teacher_name}"
+            )
+            # Add student and teacher as participants
+            forum_chat.participants.add(instance.student, instance.teacher)
+            logger.info(
+                f"Created forum_subject chat '{forum_chat.name}' for enrollment {instance.id}"
+            )
+        else:
+            logger.info(
+                f"Forum_subject chat already exists for enrollment {instance.id}, skipping creation"
+            )
+
+        # Create student-tutor forum chat if student has a tutor
+        if student_profile and student_profile.tutor:
+            tutor_name = student_profile.tutor.get_full_name()
+            tutor_chat_name = f"{subject_name} - {student_name} ↔ {tutor_name}"
+
+            # Check if tutor chat already exists
+            existing_tutor_chat = ChatRoom.objects.filter(
+                type=ChatRoom.Type.FORUM_TUTOR,
+                enrollment=instance
+            ).first()
+
+            if not existing_tutor_chat:
+                tutor_chat = ChatRoom.objects.create(
+                    name=tutor_chat_name,
+                    type=ChatRoom.Type.FORUM_TUTOR,
+                    enrollment=instance,
+                    created_by=instance.student,
+                    description=f"Forum for {subject_name} between {student_name} and {tutor_name}"
+                )
+                # Add student and tutor as participants
+                tutor_chat.participants.add(instance.student, student_profile.tutor)
+                logger.info(
+                    f"Created forum_tutor chat '{tutor_chat.name}' for enrollment {instance.id}"
+                )
+            else:
+                logger.info(
+                    f"Forum_tutor chat already exists for enrollment {instance.id}, skipping creation"
+                )
+
+    except Exception as e:
+        logger.error(
+            f"Error creating forum chats for SubjectEnrollment {instance.id}: {str(e)}",
+            exc_info=True
+        )
+        # Don't raise the exception - log it but let the enrollment creation succeed
+
+
+@receiver(post_save, sender=Message)
+def send_forum_notification(sender, instance: Message, created: bool, **kwargs) -> None:
+    """
+    Send Pachca notification when new forum message is created.
+
+    Only triggers for forum chats (FORUM_SUBJECT and FORUM_TUTOR types).
+    Runs asynchronously - errors in Pachca notification do not block message creation.
+
+    Args:
+        sender: Message model class
+        instance: The Message instance being saved
+        created: Boolean indicating if instance was just created
+        **kwargs: Additional keyword arguments from signal
+    """
+    if not created:
+        return
+
+    try:
+        chat_room: ChatRoom | None = instance.room
+        if not chat_room:
+            logger.warning(f"Message {instance.id} has no associated ChatRoom")
+            return
+
+        # Only send notification for forum chats
+        if chat_room.type not in (ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR):
+            return
+
+        # Initialize Pachca service and send notification
+        pachca_service = PachcaService()
+        if pachca_service.is_configured():
+            pachca_service.notify_new_forum_message(instance, chat_room)
+
+    except Exception as e:
+        logger.error(
+            f"Error sending Pachca notification for message {instance.id}: {str(e)}",
+            exc_info=True
+        )
+        # Don't raise the exception - log it but let the message creation succeed

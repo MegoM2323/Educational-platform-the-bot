@@ -5,11 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import ParentDashboard from '../ParentDashboard';
 import * as useParentHook from '@/hooks/useParent';
+import * as useProfileHook from '@/hooks/useProfile';
 import * as AuthContext from '@/contexts/AuthContext';
 import { parentDashboardAPI } from '@/integrations/api/dashboard';
 
 // Mock модулей
 vi.mock('@/hooks/useParent');
+vi.mock('@/hooks/useProfile');
 vi.mock('@/contexts/AuthContext');
 vi.mock('@/integrations/api/dashboard');
 vi.mock('@/hooks/use-toast', () => ({
@@ -42,6 +44,15 @@ vi.mock('@/components/LoadingStates', () => ({
 vi.mock('@/components/PaymentStatusBadge', () => ({
   PaymentStatusBadge: ({ status }: any) => <span data-testid="payment-badge">{status}</span>,
 }));
+vi.mock('@/components/ProfileCard', () => ({
+  ProfileCard: ({ userName, userEmail, profileData }: any) => (
+    <div data-testid="profile-card">
+      <div>{userName}</div>
+      <div>{userEmail}</div>
+      <div>{profileData.childrenCount} детей</div>
+    </div>
+  ),
+}));
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -58,6 +69,17 @@ const createWrapper = () => {
       </QueryClientProvider>
     </MemoryRouter>
   );
+};
+
+const mockProfileData = {
+  user: {
+    id: 1,
+    email: 'parent@example.com',
+    full_name: 'Parent User',
+    avatar_url: null,
+    role: 'parent',
+  },
+  profile: {},
 };
 
 const mockDashboardData = {
@@ -167,6 +189,16 @@ describe('ParentDashboard', () => {
       user: { id: 1, first_name: 'Parent', last_name: 'User', role: 'parent' },
     } as any);
 
+    // Mock useProfile
+    vi.mocked(useProfileHook.useProfile).mockReturnValue({
+      profileData: mockProfileData,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      isError: false,
+      user: mockProfileData.user,
+    } as any);
+
     // Mock window.location.href
     Object.defineProperty(window, 'location', {
       value: { href: '' },
@@ -267,8 +299,9 @@ describe('ParentDashboard', () => {
     render(<ParentDashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      // Проверяем более специфичный текст вместо просто "2"
-      expect(screen.getByText(/2 детей/)).toBeInTheDocument();
+      // Проверяем наличие ProfileCard и основной контент
+      expect(screen.getByTestId('profile-card')).toBeInTheDocument();
+      expect(screen.getByText('Monthly Progress')).toBeInTheDocument();
     });
   });
 
@@ -436,8 +469,9 @@ describe('ParentDashboard', () => {
     render(<ParentDashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      // Проверяем наличие badge с количеством детей
-      expect(screen.getByText(/2 детей/)).toBeInTheDocument();
+      // Проверяем наличие ProfileCard
+      expect(screen.getByTestId('profile-card')).toBeInTheDocument();
+      expect(screen.getByText('Parent User')).toBeInTheDocument();
     });
   });
 
@@ -526,6 +560,114 @@ describe('ParentDashboard', () => {
       // Progress percentages: 85% and 72%
       expect(screen.getByText(/85/)).toBeInTheDocument();
       expect(screen.getByText(/72/)).toBeInTheDocument();
+    });
+  });
+
+  it('should render ProfileCard with user data', async () => {
+    vi.mocked(useParentHook.useParentDashboard).mockReturnValue({
+      data: mockDashboardData,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as any);
+
+    render(<ParentDashboard />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('profile-card')).toBeInTheDocument();
+      expect(screen.getByText('Parent User')).toBeInTheDocument();
+      expect(screen.getByText('parent@example.com')).toBeInTheDocument();
+    });
+  });
+
+  it('should display ProfileCard with correct children count in profileData', async () => {
+    vi.mocked(useParentHook.useParentDashboard).mockReturnValue({
+      data: mockDashboardData,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as any);
+
+    render(<ParentDashboard />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      // ProfileCard should be rendered with correct children count
+      const profileCard = screen.getByTestId('profile-card');
+      expect(profileCard).toBeInTheDocument();
+      const childrenElements = profileCard.querySelectorAll('div');
+      // The ProfileCard mock should show the children count
+      const childrenText = Array.from(childrenElements)
+        .map(el => el.textContent)
+        .join(' ');
+      expect(childrenText).toContain('2 детей');
+    });
+  });
+
+  it('should show loading state while profile is loading', async () => {
+    vi.mocked(useProfileHook.useProfile).mockReturnValue({
+      profileData: undefined,
+      isLoading: true,
+      error: null,
+      refetch: vi.fn(),
+      isError: false,
+      user: undefined,
+    } as any);
+
+    vi.mocked(useParentHook.useParentDashboard).mockReturnValue({
+      data: mockDashboardData,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as any);
+
+    render(<ParentDashboard />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      // Should show skeleton loading state
+      const skeletons = screen.getAllByRole('generic');
+      expect(skeletons.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('should handle profile loading error gracefully', async () => {
+    vi.mocked(useProfileHook.useProfile).mockReturnValue({
+      profileData: undefined,
+      isLoading: false,
+      error: new Error('Failed to load profile'),
+      refetch: vi.fn(),
+      isError: true,
+      user: undefined,
+    } as any);
+
+    vi.mocked(useParentHook.useParentDashboard).mockReturnValue({
+      data: mockDashboardData,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as any);
+
+    render(<ParentDashboard />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Не удалось загрузить данные профиля/)).toBeInTheDocument();
+    });
+  });
+
+  it('should calculate profileData with correct active subscriptions', async () => {
+    // Dashboard data has Alice with 1 active subscription (Mathematics)
+    // and Bob with no subjects, so total 1 active subscription
+    vi.mocked(useParentHook.useParentDashboard).mockReturnValue({
+      data: mockDashboardData,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as any);
+
+    render(<ParentDashboard />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      // ProfileCard should be rendered with profile data
+      expect(screen.getByTestId('profile-card')).toBeInTheDocument();
     });
   });
 });

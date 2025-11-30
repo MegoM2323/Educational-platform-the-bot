@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, MessageCircle, Target, Bell, CheckCircle, Clock, LogOut, ExternalLink, AlertCircle } from "lucide-react";
+import { BookOpen, MessageCircle, Target, CheckCircle, Clock, LogOut, ExternalLink, AlertCircle } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/layout/StudentSidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,9 @@ import { useErrorReporter } from "@/components/ErrorHandlingProvider";
 import { useNetworkStatus } from "@/components/NetworkStatusHandler";
 import { FallbackUI, OfflineContent } from "@/components/FallbackUI";
 import { useStudentDashboard } from "@/hooks/useStudent";
+import { ProfileCard } from "@/components/ProfileCard";
+import { useProfile } from "@/hooks/useProfile";
+import { BookingWidget } from "@/components/dashboard/BookingWidget";
 
 // Интерфейсы для данных
 interface Material {
@@ -95,6 +98,14 @@ const StudentDashboard = () => {
     refetch: fetchDashboardData
   } = useStudentDashboard();
 
+  // Получаем данные профиля студента
+  const {
+    profileData,
+    isLoading: profileLoading,
+    error: profileError,
+    refetch: refetchProfile
+  } = useProfile();
+
   const error = queryError?.message || null;
 
   const handleSignOut = async () => {
@@ -119,6 +130,14 @@ const StudentDashboard = () => {
     navigate(`/dashboard/student/assignments/${assignmentId}`);
   };
 
+  const handleProfileEdit = () => {
+    navigate('/profile/student');
+  };
+
+  const handleProfileRetry = () => {
+    refetchProfile();
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -127,12 +146,6 @@ const StudentDashboard = () => {
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <div className="flex-1" />
-            <Button variant="outline" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground rounded-full text-xs flex items-center justify-center">
-                3
-              </span>
-            </Button>
             <Button variant="outline" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               Выйти
@@ -146,6 +159,40 @@ const StudentDashboard = () => {
                 </h1>
                 <p className="text-muted-foreground">Продолжай двигаться к своей цели</p>
               </div>
+
+              {/* Секция профиля студента */}
+              {profileLoading ? (
+                <Card className="p-6">
+                  <div className="space-y-4">
+                    <Skeleton className="h-24 w-24 rounded-full" />
+                    <Skeleton className="h-8 w-1/3" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                    </div>
+                  </div>
+                </Card>
+              ) : profileError ? (
+                <ErrorState
+                  title="Не удалось загрузить профиль"
+                  description={profileError.message || 'Произошла ошибка при загрузке данных профиля. Попробуйте ещё раз.'}
+                  onRetry={handleProfileRetry}
+                />
+              ) : profileData?.user ? (
+                <ProfileCard
+                  userName={profileData.user.full_name || profileData.user.email}
+                  userEmail={profileData.user.email}
+                  userRole="student"
+                  profileData={{
+                    grade: profileData.user.grade || 'Не указан',
+                    learningGoal: profileData.user.learning_goal || 'Не указана',
+                    progressPercentage: dashboardData?.progress_statistics?.overall_percentage || 0,
+                    subjectsCount: Object.keys(dashboardData?.materials_by_subject || {}).length || 0
+                  }}
+                  onEdit={handleProfileEdit}
+                />
+              ) : null}
 
               {/* Обработка офлайн режима */}
               {!networkStatus.isOnline && (
@@ -167,39 +214,46 @@ const StudentDashboard = () => {
                 {dashboardData && (
                 <>
 
-                  {/* Progress Section */}
-                  <Card className="p-6 gradient-primary text-primary-foreground shadow-glow">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-                        <Target className="w-6 h-6" />
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {/* Progress Section */}
+                    <Card className="p-6 gradient-primary text-primary-foreground shadow-glow lg:col-span-2">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center">
+                          <Target className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold">Твой прогресс</h3>
+                          <p className="text-primary-foreground/80">Продолжай двигаться к цели</p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold">Твой прогресс</h3>
-                        <p className="text-primary-foreground/80">Продолжай двигаться к цели</p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Выполнено заданий: {dashboardData.progress_statistics?.completed_tasks || 0} из {dashboardData.progress_statistics?.total_tasks || 0}</span>
+                          <span className="font-bold">{dashboardData.progress_statistics?.overall_percentage || 0}%</span>
+                        </div>
+                        <Progress value={dashboardData.progress_statistics?.overall_percentage || 0} className="h-3 bg-primary-foreground/20" />
                       </div>
+                      <div className="grid grid-cols-3 gap-4 mt-6">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{dashboardData.progress_statistics?.streak_days || 0}</div>
+                          <div className="text-sm text-primary-foreground/80">Дней подряд</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{dashboardData.progress_statistics?.completed_tasks || 0}</div>
+                          <div className="text-sm text-primary-foreground/80">Заданий</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{dashboardData.progress_statistics?.accuracy_percentage || 0}%</div>
+                          <div className="text-sm text-primary-foreground/80">Точность</div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Booking Widget */}
+                    <div className="lg:col-span-1">
+                      <BookingWidget />
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Выполнено заданий: {dashboardData.progress_statistics?.completed_tasks || 0} из {dashboardData.progress_statistics?.total_tasks || 0}</span>
-                        <span className="font-bold">{dashboardData.progress_statistics?.overall_percentage || 0}%</span>
-                      </div>
-                      <Progress value={dashboardData.progress_statistics?.overall_percentage || 0} className="h-3 bg-primary-foreground/20" />
-                    </div>
-                    <div className="grid grid-cols-3 gap-4 mt-6">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{dashboardData.progress_statistics?.streak_days || 0}</div>
-                        <div className="text-sm text-primary-foreground/80">Дней подряд</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{dashboardData.progress_statistics?.completed_tasks || 0}</div>
-                        <div className="text-sm text-primary-foreground/80">Заданий</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{dashboardData.progress_statistics?.accuracy_percentage || 0}%</div>
-                        <div className="text-sm text-primary-foreground/80">Точность</div>
-                      </div>
-                    </div>
-                  </Card>
+                  </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
                     {/* Current Materials */}

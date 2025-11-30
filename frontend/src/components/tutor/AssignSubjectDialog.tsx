@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAssignSubject } from '@/hooks/useTutor';
+import { useToast } from '@/hooks/use-toast';
 import { unifiedAPI } from '@/integrations/api/unifiedClient';
 
 interface Subject { id: number; name: string; }
@@ -36,6 +37,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
   const [loading, setLoading] = useState(false);
 
   const assignMutation = useAssignSubject(studentId);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!open) {
@@ -56,10 +58,10 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
         // Запрашиваем всех преподавателей из базы данных (максимум 10000)
         console.log('[AssignSubjectDialog] Making API requests...');
         console.log('[AssignSubjectDialog] Token:', unifiedAPI.getToken() ? 'EXISTS' : 'MISSING');
-        
+
         const subjectsPromise = unifiedAPI.request<any>('/materials/subjects/');
         // Используем специальный endpoint для тьюторов для получения списка преподавателей
-        const teachersPromise = unifiedAPI.request<any>('/auth/tutor/teachers/');
+        const teachersPromise = unifiedAPI.request<any>('/tutor/teachers/');
         
         const [s, t] = await Promise.all([subjectsPromise, teachersPromise]);
         console.log('[AssignSubjectDialog] API requests completed');
@@ -114,9 +116,9 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
           });
           
           // unifiedClient возвращает {success: true, data: ...} или {success: false, error: ...}
-          // Backend endpoint /auth/tutor/teachers/ возвращает массив всех активных преподавателей
+          // Backend endpoint /tutor/teachers/ возвращает массив всех активных преподавателей
           // unifiedClient должен положить этот массив в data
-          
+
           // Упрощенная проверка: если нет явной ошибки, пытаемся извлечь данные
           if (t.error) {
             console.error('[AssignSubjectDialog] ✗ Teachers API returned error:', t.error);
@@ -124,11 +126,11 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
           } else {
             // Пытаемся извлечь данные из ответа
             const data = t.data;
-            
+
             if (data !== undefined && data !== null) {
               // Проверяем, что data - это массив
               if (Array.isArray(data)) {
-                // Прямой массив - это ожидаемый формат для /auth/tutor/teachers/
+                // Прямой массив - это ожидаемый формат для /tutor/teachers/
                 teachersData = data.filter((teacher: any) => {
                   // Фильтруем только тех, у кого есть id
                   // Роль teacher уже отфильтрована на backend, но проверим для надежности
@@ -195,7 +197,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
           setAvailableTeachers(teachersData);
           console.log('[AssignSubjectDialog] Teachers set as available:', teachersData.length);
         } else {
-          console.warn('[AssignSubjectDialog] No teachers loaded! Response was:', t);
+          console.warn('[AssignSubjectDialog] No teachers response object received');
           // Показываем предупреждение пользователю
           setAvailableTeachers([]);
         }
@@ -231,15 +233,33 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
     try {
       // Валидация
       if (subjectMode === 'existing' && !subjectId) {
-        console.error('Не выбран предмет');
+        const msg = 'Пожалуйста, выберите предмет';
+        console.error(msg);
+        toast({
+          title: 'Ошибка валидации',
+          description: msg,
+          variant: 'destructive',
+        });
         return;
       }
       if (subjectMode === 'custom' && !subjectName.trim()) {
-        console.error('Не указано название предмета');
+        const msg = 'Пожалуйста, укажите название предмета';
+        console.error(msg);
+        toast({
+          title: 'Ошибка валидации',
+          description: msg,
+          variant: 'destructive',
+        });
         return;
       }
       if (!teacherId || teacherId === '') {
-        console.error('Не выбран преподаватель');
+        const msg = 'Пожалуйста, выберите преподавателя';
+        console.error(msg);
+        toast({
+          title: 'Ошибка валидации',
+          description: msg,
+          variant: 'destructive',
+        });
         return;
       }
       

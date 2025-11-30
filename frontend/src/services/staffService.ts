@@ -1,5 +1,14 @@
 import { unifiedAPI as apiClient, ApiResponse, User } from '@/integrations/api/unifiedClient';
 
+export interface Subject {
+  id: number;
+  name: string;
+  description?: string;
+  color?: string;
+  is_active: boolean;
+  assigned_at?: string;
+}
+
 export interface StaffListItem {
   id: number;
   user: User;
@@ -7,6 +16,7 @@ export interface StaffListItem {
   specialization?: string;
   experience_years?: number;
   bio?: string;
+  subjects?: Subject[]; // Массив назначенных предметов (для преподавателей)
 }
 
 export interface CreateStaffPayload {
@@ -54,6 +64,26 @@ export const staffService = {
     });
     if (!res.success) throw new Error(res.error || 'Не удалось создать пользователя');
     return res.data as any;
+  },
+
+  async getAllSubjects(): Promise<Subject[]> {
+    const res = await apiClient.request<Subject[]>('/materials/subjects/all/', {
+      method: 'GET',
+    });
+    if (!res.success) {
+      throw new Error(res.error || 'Не удалось загрузить предметы');
+    }
+    return res.data as Subject[];
+  },
+
+  async updateTeacherSubjects(teacherId: number, subjectIds: number[]): Promise<void> {
+    const res = await apiClient.request(`/staff/teachers/${teacherId}/subjects/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ subject_ids: subjectIds }),
+    });
+    if (!res.success) {
+      throw new Error(res.error || 'Не удалось обновить предметы');
+    }
   },
 };
 

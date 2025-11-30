@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookOpen } from "lucide-react";
+import { BookOpen, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -126,7 +126,7 @@ const Auth = memo(() => {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-muted/20 to-background">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 w-fit">
             <div className="w-10 h-10 gradient-primary rounded-lg flex items-center justify-center">
               <BookOpen className="w-6 h-6 text-primary-foreground" />
@@ -135,6 +135,14 @@ const Auth = memo(() => {
               THE BOT
             </span>
           </Link>
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/')}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            На главную
+          </Button>
         </div>
       </header>
 
@@ -176,8 +184,9 @@ const Auth = memo(() => {
                     type={loginType === "email" ? "email" : "text"}
                     value={loginData.emailOrUsername}
                     onChange={(e) => setLoginData({ ...loginData, emailOrUsername: e.target.value })}
-                    placeholder={loginType === "email" ? "example@mail.ru" : "mylogin"}
+                    placeholder={loginType === "email" ? "Email" : "Username"}
                     required
+                    data-testid="login-email-input"
                   />
                 </div>
 
@@ -188,12 +197,18 @@ const Auth = memo(() => {
                     type="password"
                     value={loginData.password}
                     onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                    placeholder="••••••••"
+                    placeholder="Password"
                     required
+                    data-testid="login-password-input"
                   />
                 </div>
 
-                <Button type="submit" className="w-full gradient-primary shadow-glow" disabled={isLoading}>
+                <Button
+                  type="submit"
+                  className="w-full gradient-primary shadow-glow"
+                  disabled={isLoading}
+                  data-testid="login-submit-button"
+                >
                   {isLoading ? "Вход..." : "Войти"}
                 </Button>
 

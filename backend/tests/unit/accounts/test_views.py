@@ -377,10 +377,11 @@ class TestProfileView:
         response = api_client.get('/api/auth/profile/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data['user']['email'] == 'student@example.com'
-        assert response.data['profile'] is not None
-        assert response.data['profile']['grade'] == '8'
-        assert response.data['profile']['goal'] == 'Подготовка к ОГЭ'
+        data = response.data['data']
+        assert data['user']['email'] == 'student@example.com'
+        assert data['profile'] is not None
+        assert data['profile']['grade'] == '8'
+        assert data['profile']['goal'] == 'Подготовка к ОГЭ'
 
     def test_get_profile_teacher(self, api_client):
         """Тест получения профиля преподавателя"""
@@ -402,8 +403,9 @@ class TestProfileView:
         response = api_client.get('/api/auth/profile/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data['profile']['subject'] == 'Математика'
-        assert response.data['profile']['experience_years'] == 5
+        data = response.data['data']
+        assert data['profile']['subject'] == 'Математика'
+        assert data['profile']['experience_years'] == 5
 
     def test_get_profile_tutor(self, api_client):
         """Тест получения профиля тьютора"""
@@ -425,7 +427,8 @@ class TestProfileView:
         response = api_client.get('/api/auth/profile/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data['profile']['specialization'] == 'ОГЭ'
+        data = response.data['data']
+        assert data['profile']['specialization'] == 'ОГЭ'
 
     def test_get_profile_parent(self, api_client):
         """Тест получения профиля родителя"""
@@ -443,7 +446,8 @@ class TestProfileView:
         response = api_client.get('/api/auth/profile/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data['profile'] is not None
+        data = response.data['data']
+        assert data['profile'] is not None
 
     def test_get_profile_without_profile_model(self, api_client):
         """Тест получения профиля пользователя без созданного профиля"""
@@ -459,8 +463,10 @@ class TestProfileView:
 
         response = api_client.get('/api/auth/profile/')
 
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data['profile'] is None
+        # Should return 404 since profile doesn't exist
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        data = response.data['data']
+        assert data['profile'] is None
 
     def test_get_profile_without_authentication(self, api_client):
         """Тест получения профиля без аутентификации"""
@@ -680,3 +686,230 @@ class TestListUsersView:
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) >= 1
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestCurrentUserProfileView:
+    """Тесты для новой CurrentUserProfileView (class-based view)"""
+
+    def test_get_current_user_profile_student(self, api_client):
+        """Тест получения профиля студента через CurrentUserProfileView"""
+        user = User.objects.create_user(
+            username='student_test',
+            email='student@test.com',
+            password='testpass123',
+            role=User.Role.STUDENT,
+            first_name='Иван',
+            last_name='Петров'
+        )
+        profile = StudentProfile.objects.create(
+            user=user,
+            grade='10А',
+            goal='Подготовка к ЕГЭ',
+            progress_percentage=75,
+            streak_days=15,
+            total_points=1500,
+            accuracy_percentage=85
+        )
+
+        token = Token.objects.create(user=user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = api_client.get('/api/auth/profile/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['message'] == 'Профиль успешно получен'
+        assert response.data['errors'] is None
+
+        # Проверяем структуру ответа
+        data = response.data['data']
+        assert 'user' in data
+        assert 'profile' in data
+
+        # Проверяем данные пользователя
+        user_data = data['user']
+        assert user_data['email'] == 'student@test.com'
+        assert user_data['first_name'] == 'Иван'
+        assert user_data['last_name'] == 'Петров'
+        assert user_data['role'] == User.Role.STUDENT
+        assert user_data['role_display'] == 'Студент'
+
+        # Проверяем данные профиля
+        profile_data = data['profile']
+        assert profile_data['grade'] == '10А'
+        assert profile_data['goal'] == 'Подготовка к ЕГЭ'
+        assert profile_data['progress_percentage'] == 75
+        assert profile_data['streak_days'] == 15
+        assert profile_data['total_points'] == 1500
+        assert profile_data['accuracy_percentage'] == 85
+
+    def test_get_current_user_profile_teacher(self, api_client):
+        """Тест получения профиля преподавателя"""
+        user = User.objects.create_user(
+            username='teacher_test',
+            email='teacher@test.com',
+            password='testpass123',
+            role=User.Role.TEACHER,
+            first_name='Мария',
+            last_name='Сидорова'
+        )
+        profile = TeacherProfile.objects.create(
+            user=user,
+            subject='Математика',
+            experience_years=10,
+            bio='Преподаватель высшей категории'
+        )
+
+        token = Token.objects.create(user=user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = api_client.get('/api/auth/profile/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['message'] == 'Профиль успешно получен'
+
+        data = response.data['data']
+        assert data['user']['role'] == User.Role.TEACHER
+        assert data['profile']['subject'] == 'Математика'
+        assert data['profile']['experience_years'] == 10
+        assert data['profile']['bio'] == 'Преподаватель высшей категории'
+
+    def test_get_current_user_profile_tutor(self, api_client):
+        """Тест получения профиля тьютора"""
+        user = User.objects.create_user(
+            username='tutor_test',
+            email='tutor@test.com',
+            password='testpass123',
+            role=User.Role.TUTOR
+        )
+        profile = TutorProfile.objects.create(
+            user=user,
+            specialization='Подготовка к ЕГЭ',
+            experience_years=7,
+            bio='Опытный тьютор'
+        )
+
+        token = Token.objects.create(user=user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = api_client.get('/api/auth/profile/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['message'] == 'Профиль успешно получен'
+
+        data = response.data['data']
+        assert data['user']['role'] == User.Role.TUTOR
+        assert data['profile']['specialization'] == 'Подготовка к ЕГЭ'
+        assert data['profile']['experience_years'] == 7
+        assert data['profile']['bio'] == 'Опытный тьютор'
+
+    def test_get_current_user_profile_parent(self, api_client):
+        """Тест получения профиля родителя"""
+        user = User.objects.create_user(
+            username='parent_test',
+            email='parent@test.com',
+            password='testpass123',
+            role=User.Role.PARENT
+        )
+        profile = ParentProfile.objects.create(user=user)
+
+        token = Token.objects.create(user=user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = api_client.get('/api/auth/profile/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['message'] == 'Профиль успешно получен'
+
+        data = response.data['data']
+        assert data['user']['role'] == User.Role.PARENT
+        assert 'profile' in data
+        assert data['profile'] is not None
+
+    def test_get_profile_without_authentication(self, api_client):
+        """Тест получения профиля без аутентификации"""
+        response = api_client.get('/api/auth/profile/')
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN
+        ]
+
+    def test_get_profile_user_without_profile_model(self, api_client):
+        """Тест получения профиля пользователя у которого нет модели профиля"""
+        user = User.objects.create_user(
+            username='no_profile_user',
+            email='noprofile@test.com',
+            password='testpass123',
+            role=User.Role.STUDENT
+        )
+
+        token = Token.objects.create(user=user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = api_client.get('/api/auth/profile/')
+
+        # Профиль не существует, должна быть 404 ошибка
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.data['errors'] == 'Profile not found'
+        assert 'Профиль пользователя' in response.data['message']
+
+    def test_get_profile_response_structure(self, api_client):
+        """Тест правильной структуры ответа"""
+        user = User.objects.create_user(
+            username='test_structure',
+            email='structure@test.com',
+            password='testpass123',
+            role=User.Role.STUDENT
+        )
+        StudentProfile.objects.create(user=user, grade='11')
+
+        token = Token.objects.create(user=user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = api_client.get('/api/auth/profile/')
+
+        assert response.status_code == status.HTTP_200_OK
+        # Проверяем что ответ имеет обязательные поля
+        assert 'data' in response.data
+        assert 'message' in response.data
+        assert 'errors' in response.data
+
+        # Проверяем структуру data
+        assert 'user' in response.data['data']
+        assert 'profile' in response.data['data']
+
+    @pytest.mark.parametrize('role', [
+        User.Role.STUDENT,
+        User.Role.TEACHER,
+        User.Role.TUTOR,
+        User.Role.PARENT
+    ])
+    def test_get_profile_all_roles(self, api_client, role):
+        """Параметризованный тест для всех ролей"""
+        user = User.objects.create_user(
+            username=f'user_{role}',
+            email=f'user_{role}@test.com',
+            password='testpass123',
+            role=role
+        )
+
+        # Создаем соответствующий профиль
+        if role == User.Role.STUDENT:
+            StudentProfile.objects.create(user=user, grade='10')
+        elif role == User.Role.TEACHER:
+            TeacherProfile.objects.create(user=user, subject='Math')
+        elif role == User.Role.TUTOR:
+            TutorProfile.objects.create(user=user, specialization='Tutoring')
+        elif role == User.Role.PARENT:
+            ParentProfile.objects.create(user=user)
+
+        token = Token.objects.create(user=user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = api_client.get('/api/auth/profile/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['data']['user']['role'] == role
+        assert response.data['data']['profile'] is not None

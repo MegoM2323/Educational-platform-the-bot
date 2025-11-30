@@ -1,4 +1,4 @@
-import { Home, Users, FileText, MessageCircle, LogOut, User } from "lucide-react";
+import { Home, Users, FileText, MessageSquare, LogOut, User } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -14,12 +14,13 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
 
 const items = [
   { title: "Главная", url: "/dashboard/tutor", icon: Home },
   { title: "Мои ученики", url: "/dashboard/tutor/students", icon: Users },
   { title: "Отчёты", url: "/dashboard/tutor/reports", icon: FileText },
-  { title: "Общий чат", url: "/dashboard/tutor/chat", icon: MessageCircle },
+  { title: "Чат", url: "/dashboard/tutor/general-chat", icon: MessageSquare },
 ];
 
 export function TutorSidebar() {
@@ -42,7 +43,12 @@ export function TutorSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} className={({ isActive }) => isActive ? "bg-sidebar-accent" : ""}>
                       <item.icon className="h-4 w-4" />
-                      {state === "expanded" && <span>{item.title}</span>}
+                      {state === "expanded" && (
+                        <div className="flex items-center justify-between w-full">
+                          <span>{item.title}</span>
+                          {item.title === "Чат" && <ChatNotificationBadge />}
+                        </div>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -55,7 +61,7 @@ export function TutorSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink to="/dashboard/tutor/profile">
+              <NavLink to="/profile">
                 <User className="h-4 w-4" />
                 {state === "expanded" && <span>Профиль</span>}
               </NavLink>

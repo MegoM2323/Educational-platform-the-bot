@@ -2,7 +2,7 @@ import { test } from '@playwright/test';
 
 test.describe('Dashboard Screenshots', () => {
   test('Student Dashboard screenshot', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
     await page.fill('input[type="email"]', 'student@test.com');
     await page.fill('input[type="password"]', 'test123');
     await page.click('button:has-text("Войти")');
@@ -19,7 +19,7 @@ test.describe('Dashboard Screenshots', () => {
   });
 
   test('Teacher Dashboard screenshot', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
     await page.fill('input[type="email"]', 'teacher@test.com');
     await page.fill('input[type="password"]', 'test123');
     await page.click('button:has-text("Войти")');
@@ -36,7 +36,7 @@ test.describe('Dashboard Screenshots', () => {
   });
 
   test('Parent Dashboard screenshot', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
     await page.fill('input[type="email"]', 'parent@test.com');
     await page.fill('input[type="password"]', 'test123');
     await page.click('button:has-text("Войти")');
@@ -53,7 +53,7 @@ test.describe('Dashboard Screenshots', () => {
   });
 
   test('Tutor Dashboard screenshot', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
     await page.fill('input[type="email"]', 'tutor@test.com');
     await page.fill('input[type="password"]', 'test123');
     await page.click('button:has-text("Войти")');

@@ -1,4 +1,4 @@
-import { Home, BookOpen, MessageSquare, LogOut, User } from "lucide-react";
+import { Home, BookOpen, MessageSquare, LogOut, User, Calendar, CalendarCheck } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -20,7 +20,8 @@ const items = [
   { title: "Главная", url: "/dashboard/student", icon: Home },
   { title: "Предметы", url: "/dashboard/student/subjects", icon: BookOpen },
   { title: "Материалы", url: "/dashboard/student/materials", icon: BookOpen },
-  { title: "Форум", url: "/dashboard/student/general-chat", icon: MessageSquare },
+  { title: "Расписание", url: "/dashboard/student/schedule", icon: Calendar },
+  { title: "Чат", url: "/dashboard/student/general-chat", icon: MessageSquare },
 ];
 
 export function StudentSidebar() {
@@ -50,7 +51,7 @@ export function StudentSidebar() {
                       {state === "expanded" && (
                         <div className="flex items-center justify-between w-full">
                           <span>{item.title}</span>
-                          {item.title === "Общий чат" && <ChatNotificationBadge />}
+                          {item.title === "Чат" && <ChatNotificationBadge />}
                         </div>
                       )}
                     </NavLink>
@@ -65,7 +66,7 @@ export function StudentSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink to="/dashboard/student/profile">
+              <NavLink to="/profile">
                 <User className="h-4 w-4" />
                 {state === "expanded" && <span>Профиль</span>}
               </NavLink>

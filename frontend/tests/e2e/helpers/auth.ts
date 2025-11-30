@@ -58,7 +58,7 @@ export const TEST_USERS: Record<string, TestUser> = {
 export async function loginAs(page: Page, userKey: keyof typeof TEST_USERS): Promise<void> {
   const user = TEST_USERS[userKey];
 
-  await page.goto('http://localhost:8080/auth');
+  await page.goto('/auth');
 
   // Заполняем форму
   await page.fill('input[type="email"]', user.email);
@@ -92,7 +92,7 @@ export async function logout(page: Page): Promise<void> {
       localStorage.clear();
       sessionStorage.clear();
     });
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
   }
 }
 

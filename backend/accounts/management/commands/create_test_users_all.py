@@ -123,41 +123,64 @@ class Command(BaseCommand):
         teacher = created_or_existing[User.Role.TEACHER]
         tutor = created_or_existing[User.Role.TUTOR]
 
-        # TeacherProfile
-        TeacherProfile.objects.update_or_create(
-            user=teacher,
-            defaults={
-                "subject": "Математика",
-                "experience_years": 5,
-                "bio": "Тестовый преподаватель."
-            },
-        )
+        # КРИТИЧНО: Создаём профили для ВСЕХ пользователей, не только для первого из каждой роли
+        for spec in users_spec:
+            user = User.objects.get(email=spec["email"])
 
-        # TutorProfile
-        TutorProfile.objects.update_or_create(
-            user=tutor,
-            defaults={
-                "specialization": "Индивидуальные образовательные траектории",
-                "experience_years": 3,
-                "bio": "Тестовый тьютор."
-            },
-        )
+            if user.role == User.Role.STUDENT:
+                StudentProfile.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "grade": "9",
+                        "goal": "Подготовка к экзаменам",
+                        "tutor": tutor,
+                        "parent": parent,
+                        "generated_username": user.email,
+                        "generated_password": "test123",
+                    }
+                )
+            elif user.role == User.Role.TEACHER:
+                TeacherProfile.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "subject": "Математика",
+                        "experience_years": 5,
+                        "bio": "Тестовый преподаватель."
+                    }
+                )
+            elif user.role == User.Role.TUTOR:
+                TutorProfile.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "specialization": "Индивидуальные образовательные траектории",
+                        "experience_years": 3,
+                        "bio": "Тестовый тьютор."
+                    }
+                )
+            elif user.role == User.Role.PARENT:
+                ParentProfile.objects.get_or_create(user=user)
 
-        # ParentProfile
-        parent_profile, _ = ParentProfile.objects.get_or_create(user=parent)
+        # ПРОВЕРКА: Убедимся что все профили созданы
+        self.stdout.write("\n" + "="*80)
+        self.stdout.write(self.style.SUCCESS("✅ ПРОФИЛИ СОЗДАНЫ!"))
+        self.stdout.write("="*80)
 
-        # StudentProfile + связи с тьютором/родителем
-        StudentProfile.objects.update_or_create(
-            user=student,
-            defaults={
-                "grade": "9",
-                "goal": "Подготовка к экзаменам",
-                "tutor": tutor,
-                "parent": parent,
-                "generated_username": student.email,
-                "generated_password": "test123",
-            },
-        )
+        # Проверяем каждого пользователя
+        for spec in users_spec:
+            user = User.objects.get(email=spec["email"])
+            profile_exists = False
+
+            if user.role == User.Role.STUDENT:
+                profile_exists = hasattr(user, 'student_profile') and user.student_profile is not None
+            elif user.role == User.Role.TEACHER:
+                profile_exists = hasattr(user, 'teacher_profile') and user.teacher_profile is not None
+            elif user.role == User.Role.TUTOR:
+                profile_exists = hasattr(user, 'tutor_profile') and user.tutor_profile is not None
+            elif user.role == User.Role.PARENT:
+                profile_exists = hasattr(user, 'parent_profile') and user.parent_profile is not None
+
+            status = "✅" if profile_exists else "❌"
+            self.stdout.write(f"{status} {user.email:30} ({user.get_role_display():15}) - профиль {'создан' if profile_exists else 'ОТСУТСТВУЕТ'}")
 
         self.stdout.write("\n" + "="*80)
         self.stdout.write(self.style.SUCCESS("✅ ТЕСТОВЫЕ АККАУНТЫ ГОТОВЫ!"))

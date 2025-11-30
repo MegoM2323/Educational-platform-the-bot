@@ -484,16 +484,61 @@ class StudyPlanListSerializer(serializers.ModelSerializer):
     student = serializers.IntegerField(source='student.id', read_only=True)
     subject = serializers.IntegerField(source='subject.id', read_only=True)
     files = StudyPlanFileSerializer(many=True, read_only=True, source='files.all')
-    
+
     def get_subject_name(self, obj):
         """Возвращает кастомное название предмета из enrollment, если есть, иначе стандартное"""
         if obj.enrollment:
             return obj.enrollment.get_subject_name()
         return obj.subject.name
-    
+
     class Meta:
         model = StudyPlan
         fields = (
             'id', 'teacher_name', 'student_name', 'student', 'subject_name', 'subject', 'subject_color',
             'title', 'content', 'week_start_date', 'week_end_date', 'status', 'sent_at', 'created_at', 'files'
         )
+
+
+class TeacherSubjectUpdateSerializer(serializers.Serializer):
+    """
+    Сериализатор для обновления предметов преподавателя
+    """
+    subject_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=True,
+        help_text="Список ID предметов для назначения преподавателю"
+    )
+
+    def validate_subject_ids(self, value):
+        """
+        Валидация списка ID предметов - проверяем что все предметы существуют
+        """
+        if not value:
+            # Пустой список - удаляем все предметы
+            return value
+
+        # Проверяем что все ID существуют в базе
+        from .models import Subject
+        existing_subjects = Subject.objects.filter(id__in=value).values_list('id', flat=True)
+        existing_ids = set(existing_subjects)
+        requested_ids = set(value)
+
+        missing_ids = requested_ids - existing_ids
+        if missing_ids:
+            raise serializers.ValidationError(
+                f"Предметы с ID {sorted(missing_ids)} не найдены"
+            )
+
+        return value
+
+
+class TeacherSubjectSerializer(serializers.Serializer):
+    """
+    Сериализатор для вывода связи преподаватель-предмет
+    """
+    id = serializers.IntegerField(source='subject.id', read_only=True)
+    name = serializers.CharField(source='subject.name', read_only=True)
+    description = serializers.CharField(source='subject.description', read_only=True)
+    color = serializers.CharField(source='subject.color', read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+    assigned_at = serializers.DateTimeField(read_only=True)

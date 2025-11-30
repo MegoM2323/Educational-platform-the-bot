@@ -11,52 +11,65 @@ import { normalizeResponse, validateResponseData, extractErrorMessage, isRespons
 import { logger } from '../../utils/logger';
 import type { ParentDashboard } from './dashboard';
 
-// Environment configuration - получаем URL с автоопределением
+/**
+ * Frontend Environment Configuration
+ *
+ * URL Detection Precedence:
+ * 1. Environment variable (VITE_DJANGO_API_URL for API, VITE_WEBSOCKET_URL for WebSocket)
+ * 2. Auto-detection from window.location (production-friendly)
+ * 3. Fallback to localhost (SSR/build-time only)
+ *
+ * Environment Setup:
+ * - Development: Set VITE_DJANGO_API_URL=http://localhost:8000/api in .env.local
+ * - Production: Auto-detects from window.location (https://the-bot.ru → https://the-bot.ru/api)
+ * - Override WebSocket: Set VITE_WEBSOCKET_URL in .env (optional, auto-detected if not set)
+ */
+
 function getApiUrl(): string {
-  // Сначала проверяем переменную окружения
+  // Priority 1: Check environment variable (set in .env.local or .env)
   const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DJANGO_API_URL);
   if (envUrl && envUrl !== 'undefined') {
     let url = envUrl;
-    // Нормализуем: гарантируем окончание на /api
+    // Normalize: ensure ends with /api
     if (!url.endsWith('/api')) {
       url = url.replace(/\/$/, '') + '/api';
     }
-    logger.info('[Config] Using API URL from env:', url);
+    logger.info('[Config] Using API URL from VITE_DJANGO_API_URL env var:', url);
     return url;
   }
 
-  // Если нет переменной окружения, автоматически определяем по текущему хосту
+  // Priority 2: Auto-detect from current location (production-friendly)
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
     const url = `${protocol}//${window.location.host}/api`;
-    logger.info('[Config] Using auto-detected API URL:', url);
+    logger.info('[Config] Using auto-detected API URL from window.location:', url);
     return url;
   }
 
-  // Fallback для SSR
-  logger.info('[Config] Using fallback API URL');
+  // Fallback 3: SSR or build-time only (should not be used in browser)
+  logger.info('[Config] Using fallback API URL (SSR/build-time)');
   return 'http://localhost:8000/api';
 }
 
 function getWebSocketUrl(): string {
-  // Сначала проверяем переменную окружения
+  // Priority 1: Check environment variable (set in .env.local or .env)
   const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL);
   if (envUrl && envUrl !== 'undefined') {
     const url = envUrl.replace(/\/$/, '');
-    logger.info('[Config] Using WebSocket URL from env:', url);
+    logger.info('[Config] Using WebSocket URL from VITE_WEBSOCKET_URL env var:', url);
     return url;
   }
 
-  // Если нет переменной окружения, автоматически определяем по текущему хосту
+  // Priority 2: Auto-detect from current location (production-friendly)
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${window.location.host}/ws`;
-    logger.info('[Config] Using auto-detected WebSocket URL:', url);
+    logger.info('[Config] Using auto-detected WebSocket URL from window.location:', url);
     return url;
   }
 
-  // Fallback для SSR
-  logger.info('[Config] Using fallback WebSocket URL');
+  // Fallback 3: SSR or build-time only (should not be used in browser)
+  logger.info('[Config] Using fallback WebSocket URL (SSR/build-time)');
   return 'ws://localhost:8000/ws';
 }
 
@@ -82,6 +95,7 @@ export interface User {
   phone: string;
   avatar?: string;
   is_verified: boolean;
+  is_active?: boolean;
   is_staff?: boolean;
   date_joined: string;
   full_name: string;
@@ -126,16 +140,57 @@ export interface StudentDashboard {
 }
 
 export interface TeacherDashboard {
-  total_students: number;
-  total_materials: number;
-  pending_reports: number;
-  recent_activity: Array<{
+  teacher_info?: {
     id: number;
-    student_name: string;
-    material_title: string;
-    action: string;
-    timestamp: string;
+    name: string;
+    role: string;
+    avatar?: string | null;
+  };
+  students: Array<{
+    id: number;
+    username: string;
+    name: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    avatar?: string | null;
+    subjects: Array<{
+      id: number;
+      name: string;
+      color?: string;
+      custom_subject_name?: string;
+    }>;
+    profile?: {
+      grade: string;
+      goal: string;
+      progress_percentage: number;
+      streak_days: number;
+      total_points: number;
+      accuracy_percentage: number;
+    };
+    assigned_materials_count: number;
+    completed_materials_count: number;
+    completion_percentage: number;
   }>;
+  materials: Array<{
+    id: number;
+    title: string;
+    description: string;
+    type: string;
+    status: string;
+    subject: {
+      id: number;
+      name: string;
+      color?: string;
+    };
+    assigned_count: number;
+    completed_count: number;
+    completion_percentage: number;
+  }>;
+  progress_overview?: any;
+  reports?: any[];
+  general_chat?: any;
+  profile?: any;
 }
 
 // Chat Types
@@ -269,7 +324,7 @@ class UnifiedAPIClient {
   private baseURL: string;
   private wsURL: string;
   private token: string | null = null;
-  private refreshToken: string | null = null;
+  private refreshTokenValue: string | null = null;
   private retryConfig: RetryConfig;
   private requestQueue: Map<string, Promise<any>> = new Map();
   private isRefreshing = false; // Prevent concurrent refresh attempts
@@ -290,16 +345,18 @@ class UnifiedAPIClient {
   private loadTokensFromStorage(): void {
     const tokens = tokenStorage.getTokens();
     this.token = tokens.accessToken;
-    this.refreshToken = tokens.refreshToken;
+    this.refreshTokenValue = tokens.refreshToken;
 
-    if (this.token) {
-      logger.debug('[TokenClient] Tokens loaded from unified storage');
-    }
+    logger.debug('[TokenClient] Load tokens from storage:', {
+      hasAccessToken: !!tokens.accessToken,
+      hasRefreshToken: !!tokens.refreshToken,
+      accessTokenLength: tokens.accessToken?.length || 0
+    });
   }
 
   private saveTokensToStorage(token: string, refreshToken?: string): void {
     this.token = token;
-    this.refreshToken = refreshToken || this.refreshToken || undefined;
+    this.refreshTokenValue = refreshToken || this.refreshTokenValue || undefined;
 
     // Use unified tokenStorage service
     tokenStorage.saveTokens(token, refreshToken);
@@ -308,19 +365,14 @@ class UnifiedAPIClient {
 
   private clearTokens(): void {
     this.token = null;
-    this.refreshToken = null;
+    this.refreshTokenValue = null;
 
     // Use unified tokenStorage service
     tokenStorage.clearTokens();
 
-    // Redirect to login if in browser
-    if (typeof window !== 'undefined') {
-      logger.info('[TokenClient] Tokens cleared, redirecting to login');
-      // Redirect to login page
-      setTimeout(() => {
-        window.location.href = '/auth';
-      }, 100);
-    }
+    logger.info('[TokenClient] Tokens cleared');
+    // Note: Redirection to login page is handled by ProtectedRoute component
+    // when it detects no authentication, not by this method
   }
 
   // Request Queue Management
@@ -448,7 +500,8 @@ class UnifiedAPIClient {
     const shouldUseCache = isGET && !retryCount &&
       !endpoint.includes('/accounts/users/') &&
       !endpoint.includes('/auth/staff/') &&
-      !endpoint.includes('/tutor/students/');
+      !endpoint.includes('/tutor/students/') &&
+      !endpoint.includes('/profile/'); // Don't cache any profile endpoints
     if (shouldUseCache) {
       const cachedData = cacheService.get<T>(endpoint);
       if (cachedData !== null) {
@@ -469,9 +522,16 @@ class UnifiedAPIClient {
 
     if (this.token) {
       headers['Authorization'] = `Token ${this.token}`;
-      logger.debug('[API Request] Authorization header added');
+      logger.debug('[API Request] Authorization header added', {
+        endpoint,
+        tokenLength: this.token.length,
+        hasAuthHeader: true
+      });
     } else {
-      logger.warn('[API Request] No token available for request');
+      logger.warn('[API Request] No token available for request', {
+        endpoint,
+        method: options.method || 'GET'
+      });
     }
 
     // Start performance timer
@@ -529,7 +589,7 @@ class UnifiedAPIClient {
           }
 
           // If we have a refresh token, attempt refresh
-          if (this.refreshToken) {
+          if (this.refreshTokenValue) {
             this.isRefreshing = true;
             try {
               const refreshSuccess = await this.refreshAuthToken();
@@ -655,10 +715,11 @@ class UnifiedAPIClient {
       }
 
       // Cache GET responses (но не для списка пользователей, staff и студентов тьютора, чтобы всегда получать актуальные данные)
-      const shouldCache = isGET && apiResponse.success && apiResponse.data && 
-        !endpoint.includes('/accounts/users/') && 
+      const shouldCache = isGET && apiResponse.success && apiResponse.data &&
+        !endpoint.includes('/accounts/users/') &&
         !endpoint.includes('/auth/staff/') &&
-        !endpoint.includes('/tutor/students/');
+        !endpoint.includes('/tutor/students/') &&
+        !endpoint.includes('/profile/'); // Don't cache profile endpoints
       if (shouldCache) {
         cacheService.set(endpoint, apiResponse.data);
       }
@@ -695,7 +756,7 @@ class UnifiedAPIClient {
 
   // Token Refresh with proper error handling
   private async refreshAuthToken(): Promise<boolean> {
-    if (!this.refreshToken) {
+    if (!this.refreshTokenValue) {
       logger.warn('[TokenClient] No refresh token available');
       this.clearTokens();
       return false;
@@ -711,7 +772,7 @@ class UnifiedAPIClient {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refresh_token: this.refreshToken }),
+        body: JSON.stringify({ refresh_token: this.refreshTokenValue }),
         signal: controller.signal,
       });
 
@@ -800,7 +861,64 @@ class UnifiedAPIClient {
   }
 
   async getProfile(): Promise<ApiResponse<{ user: User; profile?: any }>> {
-    return this.request<{ user: User; profile?: any }>('/auth/profile/');
+    // Ensure token is loaded before making the request
+    this.loadTokensFromStorage();
+
+    logger.debug('[UnifiedAPI.getProfile] Fetching profile with token:', {
+      hasToken: !!this.token,
+      tokenLength: this.token?.length || 0
+    });
+
+    // Get user data from localStorage to determine role
+    let userRole: string | null = null;
+    try {
+      const userDataStr = localStorage.getItem('userData');
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr);
+        userRole = userData.role;
+        logger.debug('[UnifiedAPI.getProfile] User role from localStorage:', userRole);
+      }
+    } catch (error) {
+      logger.warn('[UnifiedAPI.getProfile] Failed to get user role from localStorage:', error);
+    }
+
+    // If no role found in localStorage, try to get it from token
+    if (!userRole) {
+      logger.warn('[UnifiedAPI.getProfile] No user role found in localStorage');
+      // Fallback: try common endpoint, backend will handle it
+      // Since we don't have role, we'll try the most generic approach
+      // by attempting to fetch from student endpoint (most common)
+      return this.request<{ user: User; profile?: any }>('/profile/student/').catch(async (error) => {
+        logger.warn('[UnifiedAPI.getProfile] Failed with /profile/student/, falling back to /profile/teacher/');
+        return this.request<{ user: User; profile?: any }>('/profile/teacher/');
+      });
+    }
+
+    // Route to correct endpoint based on role
+    const endpoint = this.getProfileEndpointForRole(userRole);
+    logger.debug('[UnifiedAPI.getProfile] Using endpoint:', endpoint);
+
+    return this.request<{ user: User; profile?: any }>(endpoint);
+  }
+
+  private getProfileEndpointForRole(role: string): string {
+    switch (role) {
+      case 'student':
+        return '/profile/student/';
+      case 'teacher':
+        return '/profile/teacher/';
+      case 'tutor':
+        return '/profile/tutor/';
+      case 'parent':
+        // Parent may not have a profile endpoint, fallback to student
+        return '/profile/student/';
+      case 'admin':
+        // Admin may not have a profile endpoint, fallback to student
+        return '/profile/student/';
+      default:
+        logger.warn(`[UnifiedAPI.getProfileEndpointForRole] Unknown role: ${role}, defaulting to student`);
+        return '/profile/student/';
+    }
   }
 
   async updateProfile(profileData: Partial<User>): Promise<ApiResponse<User>> {
@@ -827,7 +945,7 @@ class UnifiedAPIClient {
   }
 
   async getTeacherDashboard(): Promise<ApiResponse<TeacherDashboard>> {
-    return this.request<TeacherDashboard>('/dashboard/teacher/');
+    return this.request<TeacherDashboard>('/materials/teacher/');
   }
 
   async getParentDashboard(): Promise<ApiResponse<ParentDashboard>> {
@@ -936,6 +1054,61 @@ class UnifiedAPIClient {
 
   isAuthenticated(): boolean {
     return !!this.token;
+  }
+
+  // HTTP Method Wrappers (for use by API client classes like schedulingAPI)
+  async get<T = any>(endpoint: string, options?: RequestInit & { params?: Record<string, any> }): Promise<ApiResponse<T>> {
+    const params = options?.params;
+    let url = endpoint;
+
+    if (params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${queryString}`;
+      }
+    }
+
+    return this.request<T>(url, {
+      ...options,
+      method: 'GET',
+    });
+  }
+
+  async post<T = any>(endpoint: string, data?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'POST',
+      body: typeof data === 'string' ? data : JSON.stringify(data),
+    });
+  }
+
+  async patch<T = any>(endpoint: string, data?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: typeof data === 'string' ? data : JSON.stringify(data),
+    });
+  }
+
+  async put<T = any>(endpoint: string, data?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PUT',
+      body: typeof data === 'string' ? data : JSON.stringify(data),
+    });
+  }
+
+  async delete<T = any>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'DELETE',
+    });
   }
 
   // WebSocket Connection (placeholder for future implementation)

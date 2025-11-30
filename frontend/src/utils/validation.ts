@@ -19,23 +19,69 @@ export const validatePassword = (password: string): { isValid: boolean; message?
   return { isValid: true };
 };
 
+/**
+ * Валидация телефонного номера
+ * Синхронизировано с backend regex: ^\+?[1-9][\d]{4,15}$
+ * Допускает: +79991234567, 79991234567, +7 (999) 123-45-67
+ */
 export const validatePhone = (phone: string): { isValid: boolean; message?: string } => {
   if (!phone) {
     return { isValid: false, message: "Телефон обязателен" };
   }
-  
-  // Валидация в соответствии с Django (RegexValidator: ^\+?1?\d{9,15}$)
-  const phoneRegex = /^\+?1?\d{9,15}$/;
-  const isValid = phoneRegex.test(phone);
-  
+
+  // Удаляем все символы кроме цифр и +
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
+
+  // Валидация в соответствии с Django (RegexValidator: ^\+?[1-9][\d]{4,15}$)
+  const phoneRegex = /^\+?[1-9][\d]{4,15}$/;
+  const isValid = phoneRegex.test(cleanPhone);
+
   if (!isValid) {
-    return { 
-      isValid: false, 
-      message: "Номер телефона должен быть в формате: '+79991234567'. До 15 цифр." 
+    return {
+      isValid: false,
+      message: "Номер телефона должен быть в формате: '+79991234567' или '+7 (999) 123-45-67'"
     };
   }
-  
+
   return { isValid: true };
+};
+
+/**
+ * Форматирует номер телефона в человеческий вид
+ * Поддерживает форматы: +7 (999) 123-45-67 и международные номера
+ */
+export const formatPhoneNumber = (phone: string): string => {
+  if (!phone) return '';
+
+  // Удаляем все символы кроме цифр и +
+  let cleaned = phone.replace(/[^\d+]/g, '');
+
+  // Если нет +, добавляем его в начало (предполагаем Россию)
+  if (!cleaned.startsWith('+') && cleaned.length >= 10) {
+    if (cleaned.startsWith('7') && cleaned.length === 11) {
+      cleaned = '+' + cleaned;
+    } else if (cleaned.startsWith('8') && cleaned.length === 11) {
+      cleaned = '+7' + cleaned.substring(1);
+    } else if (!cleaned.startsWith('8') && !cleaned.startsWith('7')) {
+      // Для других стран
+      cleaned = '+' + cleaned;
+    }
+  }
+
+  // Форматируем российские номера: +7 (999) 123-45-67
+  if (cleaned.startsWith('+7') && cleaned.length === 12) {
+    return `${cleaned.slice(0, 2)} (${cleaned.slice(2, 5)}) ${cleaned.slice(5, 8)}-${cleaned.slice(8, 10)}-${cleaned.slice(10, 12)}`;
+  }
+
+  // Для остальных возвращаем как есть
+  return cleaned;
+};
+
+/**
+ * Возвращает отформатированное значение для отправки на backend (без форматирования)
+ */
+export const getCleanPhone = (phone: string): string => {
+  return phone.replace(/[^\d+]/g, '');
 };
 
 export const validateName = (name: string): { isValid: boolean; message?: string } => {

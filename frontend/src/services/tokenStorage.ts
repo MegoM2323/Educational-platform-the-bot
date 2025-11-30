@@ -15,10 +15,18 @@ export const tokenStorage = {
       return { accessToken: null, refreshToken: null };
     }
 
-    return {
-      accessToken: localStorage.getItem(TOKEN_KEY),
-      refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY),
-    };
+    const accessToken = localStorage.getItem(TOKEN_KEY);
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+
+    if (accessToken) {
+      console.debug('[tokenStorage.getTokens]', {
+        hasAccessToken: true,
+        accessTokenLength: accessToken.length,
+        hasRefreshToken: !!refreshToken
+      });
+    }
+
+    return { accessToken, refreshToken };
   },
 
   /**
@@ -31,6 +39,12 @@ export const tokenStorage = {
     if (refreshToken) {
       localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     }
+
+    console.debug('[tokenStorage.saveTokens]', {
+      tokenLength: token.length,
+      hasRefreshToken: !!refreshToken,
+      refreshTokenLength: refreshToken?.length || 0
+    });
   },
 
   /**

@@ -8,7 +8,7 @@ const cspPlugin = (mode: string) => {
     name: 'csp-headers',
     transformIndexHtml(html: string) {
       const isDev = mode === 'development';
-      
+
       // Для development - полностью удаляем CSP из HTML
       // Vite dev server требует слишком много разрешений для HMR и модулей
       // CSP будет установлен только в production через build
@@ -19,10 +19,10 @@ const cspPlugin = (mode: string) => {
           ''
         );
       }
-      
+
       // Для production - CSP с поддержкой WebAssembly
       const prodCSP = "script-src 'self' 'unsafe-inline' https: 'wasm-unsafe-eval' 'unsafe-eval' 'report-sample' https://static.yoomoney.ru; object-src 'none'; base-uri 'self';";
-      
+
       return html.replace(
         /<!-- CSP будет установлен через Vite плагин для поддержки development режима -->/,
         `<meta http-equiv="Content-Security-Policy" content="${prodCSP}" />`
@@ -35,11 +35,12 @@ const cspPlugin = (mode: string) => {
 export default defineConfig(({ mode }) => {
   // Загружаем переменные окружения из корневого .env файла
   const env = loadEnv(mode, process.cwd() + "/..", "");
-  
+
   return {
+    appType: 'spa',
     server: {
-      host: "::",
-      port: 5173,
+      host: '127.0.0.1',
+      port: 8080,
       fs: {
         strict: false,
       },
@@ -53,6 +54,7 @@ export default defineConfig(({ mode }) => {
     define: {
       // Передаем переменные окружения в приложение
       "import.meta.env.VITE_DJANGO_API_URL": JSON.stringify(env.VITE_DJANGO_API_URL),
+      "import.meta.env.VITE_WEBSOCKET_URL": JSON.stringify(env.VITE_WEBSOCKET_URL),
     },
     build: {
       // Оптимизации для продакшена

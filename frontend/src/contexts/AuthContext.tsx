@@ -101,9 +101,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const result = await authService.login(credentials);
+
+      console.log('AuthContext.login: setting user after successful login', {
+        userId: result.user?.id,
+        role: result.user?.role,
+      });
+
       setUser(result.user);
+
+      // Small delay to ensure token is properly set before any subsequent operations
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       return result;
     } catch (error) {
+      console.error('AuthContext.login: login failed', error);
       setUser(null);
       throw error;
     } finally {
@@ -116,10 +127,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       await authService.logout();
       setUser(null);
+      // Ensure navigation to auth page after successful logout
+      if (typeof window !== 'undefined') {
+        window.location.href = '/auth';
+      }
     } catch (error) {
       console.error('Ошибка выхода:', error);
       // Даже если произошла ошибка, очищаем состояние
       setUser(null);
+      // Force navigation even on error
+      if (typeof window !== 'undefined') {
+        window.location.href = '/auth';
+      }
     } finally {
       setIsLoading(false);
     }

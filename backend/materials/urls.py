@@ -5,6 +5,7 @@ from . import student_dashboard_views
 from . import teacher_dashboard_views
 from . import parent_dashboard_views
 from . import tutor_dashboard_views
+from .subject_views import list_all_subjects
 
 router = DefaultRouter()
 router.register(r'subjects', views.SubjectViewSet)
@@ -16,6 +17,10 @@ router.register(r'feedback', views.MaterialFeedbackViewSet)
 
 urlpatterns = [
     # ВАЖНО: пути НЕ должны начинаться с 'materials/', т.к. это уже в config/urls.py
+
+    # Список всех предметов (для UI мультиселекта)
+    path('subjects/all/', list_all_subjects, name='list-all-subjects'),
+
     # Student dashboard endpoints (MUST be before router to avoid conflicts)
     path('student/subjects/', student_dashboard_views.student_subjects, name='student-subjects'),
     path('student/', student_dashboard_views.student_dashboard, name='student-dashboard-materials'),

@@ -5,6 +5,9 @@ from dotenv import dotenv_values
 from urllib.parse import urlparse
 from django.core.exceptions import ImproperlyConfigured
 
+# Import environment configuration service
+from core.environment import EnvConfig
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -33,15 +36,21 @@ YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 YOOKASSA_WEBHOOK_URL = os.getenv("YOOKASSA_WEBHOOK_URL")
 
-# Frontend URL for payment redirects
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '5.129.249.206', 'the-bot.ru', 'www.the-bot.ru']  # Добавлен публичный IP сервера и домены
+# Initialize environment configuration (must be after os.environ is populated from .env)
+env_config = EnvConfig()
+
+# Frontend URL for payment redirects and frontend configuration
+FRONTEND_URL = env_config.get_frontend_url()
+
+# Allowed hosts based on environment (development, production, or test)
+ALLOWED_HOSTS = env_config.get_allowed_hosts()
 
 # Telegram Bot settings
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")  # Backward compatibility / default chat
 TELEGRAM_PUBLIC_CHAT_ID = os.getenv("TELEGRAM_PUBLIC_CHAT_ID", TELEGRAM_CHAT_ID)
 TELEGRAM_LOG_CHAT_ID = os.getenv("TELEGRAM_LOG_CHAT_ID", TELEGRAM_CHAT_ID)
+TELEGRAM_DISABLED = os.getenv('ENVIRONMENT', 'production').lower() == 'test'
 
 # Supabase settings
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://sobptsqfzgycmauglqzk.supabase.co")
@@ -111,6 +120,7 @@ INSTALLED_APPS = [
     'core',
     'accounts',
     'materials',
+    'scheduling',  # Система бронирования расписания (должна быть ПОСЛЕ materials, т.к. импортирует Subject)
     'assignments',
     'chat',
     'reports',
@@ -135,7 +145,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -151,38 +161,55 @@ WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# ============================================================================
+# DATABASE CONFIGURATION WITH ENVIRONMENT SEPARATION
+# ============================================================================
+#
+# КРИТИЧЕСКИ ВАЖНАЯ СЕКЦИЯ: Обеспечивает абсолютную изоляцию продакшн БД
+# от development и test окружений
+#
+# Три режима работы (определяются через ENVIRONMENT в .env):
+#   1. production:  Supabase PostgreSQL (ТОЛЬКО на продакшн сервере!)
+#   2. development: Локальная SQLite БД (backend/db.sqlite3)
+#   3. test:        SQLite in-memory (:memory:) - полная изоляция
+#
+# ЗАЩИТА: При попытке использовать Supabase в dev/test - приложение упадет с ошибкой
+#
+# ============================================================================
 
-def _build_db_from_env() -> dict:
-    """Собирает конфиг БД из переменных окружения.
+def _build_production_db_config() -> dict:
+    """
+    Конфигурация продакшн БД: Supabase PostgreSQL.
 
-    Поддерживает два варианта:
-    1) DATABASE_URL (postgres URI)
-    2) Набор SUPABASE_DB_{NAME,USER,PASSWORD,HOST,PORT}
+    ТОЛЬКО для production окружения!
+    Используется DATABASE_URL или набор SUPABASE_DB_* переменных.
 
-    Если параметры не заданы — выбрасывает ImproperlyConfigured с понятным сообщением.
+    Returns:
+        dict: Конфигурация PostgreSQL БД для Django
+
+    Raises:
+        ImproperlyConfigured: Если параметры БД не заданы
     """
     # Настройки таймаутов для предотвращения зависания
-    connect_timeout = int(os.getenv('DB_CONNECT_TIMEOUT', '10'))  # 10 секунд по умолчанию
+    connect_timeout = int(os.getenv('DB_CONNECT_TIMEOUT', '60'))  # 60 секунд для продакшн
     sslmode = os.getenv('DB_SSLMODE', 'require')
-    
+
     # База данных опций с таймаутами
     db_options = {
         'connect_timeout': str(connect_timeout),
     }
-    
+
     # Добавляем SSL режим если указан
     if sslmode:
         db_options['sslmode'] = sslmode
-    
+
     database_url = os.getenv('DATABASE_URL')
     if database_url:
         parsed = urlparse(database_url)
         if parsed.scheme not in ('postgres', 'postgresql'):
             raise ImproperlyConfigured('DATABASE_URL должен быть Postgres URI (postgres:// или postgresql://)')
-        
-        # Если в URL уже есть параметры, добавляем timeout
+
+        # Парсим URL и создаем конфигурацию
         db_config = {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': parsed.path.lstrip('/'),
@@ -190,11 +217,12 @@ def _build_db_from_env() -> dict:
             'PASSWORD': parsed.password,
             'HOST': parsed.hostname,
             'PORT': str(parsed.port or '5432'),
-            'CONN_MAX_AGE': 0,  # Отключаем пул соединений
+            'CONN_MAX_AGE': 0,  # Отключаем пул соединений для избежания stale connections
             'OPTIONS': db_options.copy(),
         }
         return db_config
 
+    # Альтернатива: использовать отдельные SUPABASE_DB_* переменные
     name = os.getenv('SUPABASE_DB_NAME')
     user = os.getenv('SUPABASE_DB_USER')
     password = os.getenv('SUPABASE_DB_PASSWORD')
@@ -214,14 +242,143 @@ def _build_db_from_env() -> dict:
         }
 
     raise ImproperlyConfigured(
-        'Не заданы параметры подключения к БД. Установите DATABASE_URL (postgres URI) '
+        'Production режим требует настройки БД.\n'
+        'Установите DATABASE_URL (postgres URI) '
         'или переменные SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD, SUPABASE_DB_HOST, SUPABASE_DB_PORT.'
     )
 
 
-# Всегда используем PostgreSQL (Supabase) во всех средах
+def _build_development_db_config() -> dict:
+    """
+    Конфигурация development БД: Локальная SQLite.
+
+    Файл БД: backend/db.sqlite3
+
+    ЗАЩИТА: Если обнаружен DATABASE_URL с Supabase - падает с ошибкой!
+    Это защищает от случайного повреждения продакшн данных.
+
+    Returns:
+        dict: Конфигурация SQLite БД для Django
+
+    Raises:
+        ImproperlyConfigured: Если обнаружена попытка использовать продакшн БД
+    """
+    database_url = os.getenv('DATABASE_URL', '')
+
+    # ЗАЩИТА: Запретить Supabase в development
+    if 'supabase' in database_url.lower():
+        raise ImproperlyConfigured(
+            f"\n"
+            f"{'='*70}\n"
+            f"🚨 КРИТИЧЕСКАЯ ОШИБКА: Попытка использовать ПРОДАКШН БД в development!\n"
+            f"{'='*70}\n"
+            f"\n"
+            f"Обнаружен DATABASE_URL с Supabase в режиме ENVIRONMENT=development\n"
+            f"\n"
+            f"DATABASE_URL: {database_url[:50]}...\n"
+            f"\n"
+            f"РЕШЕНИЕ:\n"
+            f"1. Удалите DATABASE_URL из .env (или закомментируйте)\n"
+            f"2. Development режим автоматически использует локальную SQLite БД\n"
+            f"3. Продакшн БД доступна ТОЛЬКО при ENVIRONMENT=production\n"
+            f"\n"
+            f"Это защита от случайного повреждения продакшн данных!\n"
+            f"{'='*70}\n"
+        )
+
+    return {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+        'ATOMIC_REQUESTS': True,
+    }
+
+
+def _build_test_db_config() -> dict:
+    """
+    Конфигурация test БД: SQLite in-memory.
+
+    Полная изоляция от продакшн - каждый тест на чистой БД.
+    Используется :memory: для максимальной скорости.
+
+    ЗАЩИТА: Если обнаружен DATABASE_URL с Supabase - падает с ошибкой!
+
+    Returns:
+        dict: Конфигурация SQLite in-memory БД для Django
+
+    Raises:
+        ImproperlyConfigured: Если обнаружена попытка использовать продакшн БД
+    """
+    database_url = os.getenv('DATABASE_URL', '')
+
+    # ЗАЩИТА: Запретить Supabase в test
+    if 'supabase' in database_url.lower():
+        raise ImproperlyConfigured(
+            f"\n"
+            f"{'='*70}\n"
+            f"🚨🚨🚨 КРИТИЧЕСКАЯ ОШИБКА: ТЕСТЫ НА ПРОДАКШН БД! 🚨🚨🚨\n"
+            f"{'='*70}\n"
+            f"\n"
+            f"Обнаружена попытка запуска ТЕСТОВ на ПРОДАКШН Supabase БД!\n"
+            f"\n"
+            f"DATABASE_URL: {database_url[:50]}...\n"
+            f"\n"
+            f"ЭТО ПРИВЕДЕТ К УНИЧТОЖЕНИЮ ПРОДАКШН ДАННЫХ!\n"
+            f"\n"
+            f"РЕШЕНИЕ:\n"
+            f"1. Удалите DATABASE_URL из окружения при запуске тестов\n"
+            f"2. Используйте: ENVIRONMENT=test pytest\n"
+            f"3. Или запускайте через: ./scripts/run_tests.sh\n"
+            f"\n"
+            f"Тесты должны использовать ТОЛЬКО SQLite in-memory!\n"
+            f"{'='*70}\n"
+        )
+
+    return {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+        'TEST': {
+            'NAME': ':memory:',
+        },
+        'ATOMIC_REQUESTS': True,
+    }
+
+
+def _get_database_config() -> dict:
+    """
+    Выбирает конфигурацию БД на основе ENVIRONMENT.
+
+    КРИТИЧЕСКАЯ ФУНКЦИЯ: Обеспечивает абсолютную изоляцию продакшн БД от dev/test.
+
+    Режимы:
+    - production: Supabase PostgreSQL (DATABASE_URL или SUPABASE_DB_*)
+    - development: Локальная SQLite (backend/db.sqlite3)
+    - test: SQLite in-memory (:memory:) - полная изоляция
+
+    Returns:
+        dict: Конфигурация БД для текущего окружения
+
+    Raises:
+        ImproperlyConfigured: При невалидном значении ENVIRONMENT
+    """
+    environment = os.getenv('ENVIRONMENT', 'production').lower()
+
+    if environment == 'production':
+        return _build_production_db_config()
+    elif environment == 'development':
+        return _build_development_db_config()
+    elif environment == 'test':
+        return _build_test_db_config()
+    else:
+        raise ImproperlyConfigured(
+            f"❌ ОШИБКА: Недопустимое значение ENVIRONMENT='{environment}'\n"
+            f"Допустимые значения: production, development, test\n"
+            f"Установите правильное значение в .env файле"
+        )
+
+
+# Конфигурация БД с автоматическим выбором на основе ENVIRONMENT
 DATABASES = {
-    'default': _build_db_from_env(),
+    'default': _get_database_config()
 }
 
 # Применяем патч для установки таймаутов подключения
@@ -245,6 +402,90 @@ try:
 except (ImportError, AttributeError):
     # Если не удалось применить патч, продолжаем без него
     pass
+
+
+# ============================================================================
+# ЗАЩИТА ОТ СЛУЧАЙНОГО ИСПОЛЬЗОВАНИЯ ПРОДАКШН БД
+# ============================================================================
+
+import sys
+
+# Получаем текущее окружение и конфигурацию БД
+current_environment = os.getenv('ENVIRONMENT', 'production').lower()
+db_config = DATABASES['default']
+db_host = db_config.get('HOST', '')
+db_engine = db_config.get('ENGINE', '')
+
+# Проверка 1: Если запущены тесты (pytest или manage.py test)
+if 'pytest' in sys.modules or 'test' in sys.argv:
+    # Тесты ОБЯЗАНЫ использовать ENVIRONMENT=test
+    if current_environment != 'test':
+        raise ImproperlyConfigured(
+            f"\n"
+            f"{'='*70}\n"
+            f"🚨 ОШИБКА: Тесты запущены без ENVIRONMENT=test\n"
+            f"{'='*70}\n"
+            f"\n"
+            f"Текущее значение: ENVIRONMENT={current_environment or 'не установлено'}\n"
+            f"\n"
+            f"РЕШЕНИЕ: Установите ENVIRONMENT=test перед запуском тестов\n"
+            f"Или используйте скрипт: ./scripts/run_tests.sh\n"
+            f"{'='*70}\n"
+        )
+
+    # Тесты НЕ ДОЛЖНЫ использовать PostgreSQL или Supabase
+    if 'postgresql' in db_engine or 'supabase' in db_host.lower():
+        raise ImproperlyConfigured(
+            f"\n"
+            f"{'='*70}\n"
+            f"🚨🚨🚨 КРИТИЧЕСКАЯ ОШИБКА: ТЕСТЫ ИСПОЛЬЗУЮТ ПРОДАКШН БД! 🚨🚨🚨\n"
+            f"{'='*70}\n"
+            f"\n"
+            f"DB ENGINE: {db_engine}\n"
+            f"DB HOST: {db_host}\n"
+            f"\n"
+            f"Тесты должны использовать ТОЛЬКО SQLite in-memory!\n"
+            f"Проверьте файл .env и удалите DATABASE_URL\n"
+            f"{'='*70}\n"
+        )
+
+# Проверка 2: Development режим с Supabase (предупреждение, не ошибка)
+if current_environment == 'development' and 'supabase' in db_host.lower():
+    import warnings
+    warnings.warn(
+        f"\n"
+        f"{'='*70}\n"
+        f"⚠️  WARNING: Development режим использует ПРОДАКШН БД!\n"
+        f"{'='*70}\n"
+        f"\n"
+        f"DB HOST: {db_host}\n"
+        f"\n"
+        f"РЕКОМЕНДАЦИЯ: Используйте локальную SQLite БД для разработки\n"
+        f"Удалите DATABASE_URL из .env для автоматического переключения на SQLite\n"
+        f"{'='*70}\n",
+        RuntimeWarning,
+        stacklevel=2
+    )
+
+# Проверка 3: Production режим БЕЗ Supabase (предупреждение)
+if current_environment == 'production' and 'supabase' not in db_host.lower() and 'sqlite' not in db_engine:
+    import warnings
+    warnings.warn(
+        f"⚠️  Production режим, но БД не Supabase. HOST: {db_host}",
+        RuntimeWarning
+    )
+
+# Логирование текущей конфигурации (только в DEBUG режиме)
+if DEBUG:
+    print(f"\n{'='*70}")
+    print(f"🔧 Database Configuration:")
+    print(f"{'='*70}")
+    print(f"  ENVIRONMENT: {current_environment}")
+    print(f"  DB ENGINE: {db_engine}")
+    print(f"  DB NAME: {db_config.get('NAME', 'N/A')}")
+    if db_host:
+        print(f"  DB HOST: {db_host}")
+    print(f"{'='*70}\n")
 
 
 # Password validation
@@ -271,14 +512,14 @@ SESSION_COOKIE_AGE = 86400  # 24 hours
 # SESSION_COOKIE_SECURE управляется через условие DEBUG выше
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'  # Allow cookies on redirect from YooKassa (not 'Strict')
-SESSION_COOKIE_DOMAIN = '.the-bot.ru' if not DEBUG else None  # Allow cookies across subdomains in production
+SESSION_COOKIE_DOMAIN = env_config.get_session_cookie_domain()
 SESSION_SAVE_EVERY_REQUEST = True
 
 # CSRF settings
 CSRF_COOKIE_SAMESITE = 'Lax'  # Allow CSRF cookies on redirect from YooKassa
 # CSRF_COOKIE_SECURE управляется через условие DEBUG выше
 CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript access
-CSRF_COOKIE_DOMAIN = '.the-bot.ru' if not DEBUG else None  # Allow cookies across subdomains in production
+CSRF_COOKIE_DOMAIN = env_config.get_csrf_cookie_domain()
 
 
 # Internationalization
@@ -311,31 +552,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom user model
 AUTH_USER_MODEL = 'accounts.User'
 
-# CORS settings - динамически в зависимости от окружения
-if DEBUG:
-    # Development: разрешаем все localhost порты
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "http://localhost:8081",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:8081",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ]
-else:
-    # Production: только реальные домены (HTTP для редиректов, HTTPS для основной работы)
-    CORS_ALLOWED_ORIGINS = [
-        "https://the-bot.ru",
-        "https://www.the-bot.ru",
-        "http://the-bot.ru",   # Для редиректов с HTTP на HTTPS
-        "http://www.the-bot.ru",
-        "http://5.129.249.206",  # IP сервера (для прямого доступа)
-        "https://5.129.249.206",
-    ]
+# CORS settings - dynamically based on environment (development, production, or test)
+CORS_ALLOWED_ORIGINS = env_config.get_cors_allowed_origins()
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False  # Используем CORS_ALLOWED_ORIGINS вместо allow all
@@ -478,8 +696,8 @@ else:
         },
     }
 
-# WebSocket settings
-WEBSOCKET_URL = os.getenv('WEBSOCKET_URL', 'ws://localhost:8000/ws/')
+# WebSocket settings - environment-aware
+WEBSOCKET_URL = env_config.get_websocket_url()
 WEBSOCKET_AUTHENTICATION_TIMEOUT = 30  # seconds
 WEBSOCKET_MESSAGE_MAX_LENGTH = 1024 * 1024  # 1MB
 
@@ -529,7 +747,7 @@ if not DEBUG:
         raise ImproperlyConfigured(
             f"Production mode with localhost FRONTEND_URL is not allowed.\n"
             f"Current value: {FRONTEND_URL}\n"
-            f"Expected: https://the-bot.ru or similar production URL"
+            f"Expected: https://{env_config.PRODUCTION_DOMAIN} or similar production URL"
         )
 
     # 3. Проверка ALLOWED_HOSTS - должны быть заданы
@@ -537,7 +755,7 @@ if not DEBUG:
         raise ImproperlyConfigured(
             "ALLOWED_HOSTS must be properly configured in production.\n"
             "Current value: []\n"
-            "Expected: ['the-bot.ru', 'www.the-bot.ru', ...]"
+            f"Expected: ['{env_config.PRODUCTION_DOMAIN}', 'www.{env_config.PRODUCTION_DOMAIN}', ...]"
         )
 
     # 4. Информационное сообщение о режиме
@@ -550,4 +768,89 @@ if not DEBUG:
         print(f"   - Redis Channels: {'✅ Enabled' if USE_REDIS_CHANNELS else '❌ Disabled'}")
         print(f"   - Payment Mode: {'💰 Production (5000₽/week)' if not PAYMENT_DEVELOPMENT_MODE else '🧪 Development (1₽/10min)'}")
         print(f"   - Frontend URL: {FRONTEND_URL}")
-        print(f"   - Allowed Hosts: {', '.join(ALLOWED_HOSTS)}")
+
+
+# ==================== LOGGING CONFIGURATION ====================
+# Конфигурация логирования для мониторинга и аудита
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} {funcName}:{lineno} - {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+        'simple': {
+            'format': '[{levelname}] {asctime} {name} - {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+        'audit': {
+            'format': '[AUDIT] {asctime} {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'DEBUG',
+            'formatter': 'verbose'
+        },
+        'audit_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'audit.log'),
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,
+            'level': 'INFO',
+            'formatter': 'audit'
+        },
+        'admin_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'admin.log'),
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,
+            'level': 'INFO',
+            'formatter': 'simple'
+        }
+    },
+    'loggers': {
+        'audit': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'accounts.staff_views': {
+            'handlers': ['console', 'admin_file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'accounts.signals': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'DEBUG',
+            'propagate': False
+        },
+        'accounts.retry_logic': {
+            'handlers': ['console', 'admin_file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False
+        }
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO'
+    }
+}
+
+# Создаем директорию для логов если её нет
+import logging.handlers
+_logs_dir = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(_logs_dir):
+    os.makedirs(_logs_dir, exist_ok=True)

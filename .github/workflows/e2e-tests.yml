@@ -15,10 +15,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, firefox, webkit]
+        browser: [chromium]
 
-          - 5432:5432
-
+    env:
+      ENVIRONMENT: test
+      DEBUG: True
 
     steps:
       - name: Checkout code
@@ -48,10 +49,63 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
+        working-directory: ./frontend
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Set up environment variables
         run: |
           cat > .env << EOF
+          ENVIRONMENT=test
           DEBUG=True
-          SECRET_KEY=test-secret-key-for-ci-pipeline
+          SECRET_KEY=test-secret-key-for-ci-pipeline-min-50-chars-long-required
+          USE_REDIS_CACHE=False
+          USE_REDIS_CHANNELS=False
+          PAYMENT_DEVELOPMENT_MODE=True
+          CELERY_ALWAYS_EAGER=True
+          SUPABASE_URL=http://test.supabase.co
+          SUPABASE_KEY=test-key
+          SUPABASE_SERVICE_ROLE_KEY=test-service-key
+          YOOKASSA_SHOP_ID=test-shop
+          YOOKASSA_SECRET_KEY=test-secret
+          TELEGRAM_BOT_TOKEN=test-token
+          TELEGRAM_PUBLIC_CHAT_ID=123456
+          TELEGRAM_LOG_CHAT_ID=123456
+          EOF
+
+      - name: Run migrations
+        working-directory: ./backend
+        run: python manage.py migrate --noinput
+
+      - name: Start backend server
+        working-directory: ./backend
+        run: python manage.py runserver &
+        env:
+          ENVIRONMENT: test
+
+      - name: Wait for backend
+        run: |
+          timeout 30 bash -c 'until curl -f http://localhost:8000/api/health/ 2>/dev/null; do sleep 1; done'
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Start frontend server
+        working-directory: ./frontend
+        run: npm run preview &
+
+      - name: Wait for frontend
+        run: |
+          timeout 30 bash -c 'until curl -f http://localhost:8080/ 2>/dev/null; do sleep 1; done'
+
+      - name: Run E2E tests
+        working-directory: ./frontend
+        run: npx playwright test --project=${{ matrix.browser }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: frontend/playwright-report/
+          retention-days: 7

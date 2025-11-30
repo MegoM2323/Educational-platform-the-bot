@@ -76,6 +76,12 @@ class StudentProfileView(APIView):
         try:
             profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(user=request.user)
         except StudentProfile.DoesNotExist:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f'StudentProfile.DoesNotExist for user_id={request.user.id} '
+                f'(email={request.user.email}, role={request.user.role})'
+            )
             return Response(
                 {'error': 'Student profile not found'},
                 status=status.HTTP_404_NOT_FOUND

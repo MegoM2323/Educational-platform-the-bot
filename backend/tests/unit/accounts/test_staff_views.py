@@ -945,9 +945,9 @@ class TestUpdateStudentProfile:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        if 'profile' in response.data:
-            assert response.data['profile']['grade'] == '11A'
-            assert response.data['profile']['goal'] == 'Подготовка к ЕГЭ'
+        assert 'profile' in response.data
+        assert response.data['profile']['grade'] == '11A'
+        assert response.data['profile']['goal'] == 'Подготовка к ЕГЭ'
 
     def test_update_student_profile_assign_tutor(self, admin_client, student_user, tutor_user):
         """Тест назначения тьютора студенту"""
@@ -983,6 +983,7 @@ class TestUpdateStudentProfile:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert 'detail' in response.data
 
     def test_update_student_profile_forbidden(self, student_client, teacher_user):
         """Тест что студент не может обновлять профиль другого студента"""
@@ -1344,11 +1345,11 @@ class TestCreateStudent:
         # Проверяем profile данные
         assert response.data['profile']['grade'] == '10'
 
-        # Проверяем credentials
-        assert 'username' in response.data['credentials']
-        assert 'email' in response.data['credentials']
-        assert 'temporary_password' in response.data['credentials']
-        assert len(response.data['credentials']['temporary_password']) >= 12
+        # Проверяем credentials (API возвращает login и password, не username и temporary_password)
+        assert 'login' in response.data['credentials']
+        assert 'password' in response.data['credentials']
+        assert response.data['credentials']['login'] == 'newstudent@test.com'
+        assert len(response.data['credentials']['password']) >= 12
 
         # Проверяем что пользователь создан в базе
         user = User.objects.get(email='newstudent@test.com')
@@ -1401,7 +1402,7 @@ class TestCreateStudent:
         assert profile.parent == parent
 
         # Проверяем что пароль правильный (кастомный)
-        assert response.data['credentials']['temporary_password'] == 'CustomPass123'
+        assert response.data['credentials']['password'] == 'CustomPass123'
 
     def test_create_student_missing_required_fields(self, admin_client):
         """Создание студента без обязательных полей"""

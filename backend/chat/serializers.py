@@ -10,30 +10,53 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
     Сериализатор для списка чат-комнат
     """
     participants_count = serializers.SerializerMethodField()
+    participants = serializers.SerializerMethodField()
+    subject = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = ChatRoom
         fields = (
-            'id', 'name', 'description', 'type', 'participants_count',
-            'is_active', 'created_at', 'updated_at', 'last_message', 'unread_count'
+            'id', 'name', 'description', 'type', 'participants_count', 'participants',
+            'subject', 'is_active', 'created_at', 'updated_at', 'last_message', 'unread_count'
         )
-    
+
     def get_participants_count(self, obj):
         return obj.participants.count()
-    
+
+    def get_participants(self, obj):
+        """Return full participant objects for frontend ForumChat interface"""
+        return [{
+            'id': user.id,
+            'full_name': user.get_full_name(),
+            'role': user.role
+        } for user in obj.participants.all()]
+
+    def get_subject(self, obj):
+        """Return subject if chat is forum_subject type"""
+        if obj.type == ChatRoom.Type.FORUM_SUBJECT and obj.enrollment and obj.enrollment.subject:
+            return {
+                'id': obj.enrollment.subject.id,
+                'name': obj.enrollment.subject.name
+            }
+        return None
+
     def get_last_message(self, obj):
         last_msg = obj.last_message
         if last_msg:
             return {
                 'id': last_msg.id,
                 'content': last_msg.content[:100],
-                'sender': last_msg.sender.get_full_name(),
+                'sender': {
+                    'id': last_msg.sender.id,
+                    'full_name': last_msg.sender.get_full_name(),
+                    'role': last_msg.sender.role
+                },
                 'created_at': last_msg.created_at
             }
         return None
-    
+
     def get_unread_count(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
@@ -95,6 +118,7 @@ class MessageSerializer(serializers.ModelSerializer):
     """
     Сериализатор для сообщений
     """
+    sender = serializers.SerializerMethodField()
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
     sender_avatar = serializers.SerializerMethodField()
     sender_role = serializers.CharField(source='sender.role', read_only=True)
@@ -103,7 +127,7 @@ class MessageSerializer(serializers.ModelSerializer):
     thread_title = serializers.CharField(source='thread.title', read_only=True)
     file_url = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Message
         fields = (
@@ -112,6 +136,14 @@ class MessageSerializer(serializers.ModelSerializer):
             'reply_to', 'created_at', 'updated_at', 'is_read', 'replies_count'
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def get_sender(self, obj):
+        """Return full sender object for frontend ForumMessage interface"""
+        return {
+            'id': obj.sender.id,
+            'full_name': obj.sender.get_full_name(),
+            'role': obj.sender.role
+        }
     
     def get_sender_avatar(self, obj):
         if obj.sender.avatar:

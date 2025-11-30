@@ -16,10 +16,14 @@ class TelegramNotificationService:
     
     def send_payment_notification(self, payment):
         """Отправляет уведомление о успешном платеже"""
+        if settings.TELEGRAM_DISABLED:
+            logger.debug("Telegram notifications disabled in test environment")
+            return False
+
         if not self.bot_token or not self.chat_id:
             logger.warning("Telegram bot token or TELEGRAM_LOG_CHAT_ID not configured")
             return False
-        
+
         try:
             message = self._format_payment_message(payment)
             return self._send_message(message)
@@ -50,6 +54,10 @@ class TelegramNotificationService:
     
     def _send_message(self, message):
         """Отправляет сообщение в Telegram"""
+        if settings.TELEGRAM_DISABLED:
+            logger.debug("Telegram notifications disabled in test environment")
+            return False
+
         try:
             data = {
                 'chat_id': self.chat_id,
@@ -57,7 +65,7 @@ class TelegramNotificationService:
                 'parse_mode': 'Markdown',
                 'disable_web_page_preview': True
             }
-            
+
             response = requests.post(
                 self.api_url,
                 json=data,

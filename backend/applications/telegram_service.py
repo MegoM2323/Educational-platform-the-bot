@@ -24,14 +24,18 @@ class TelegramService:
     def send_message(self, text: str, parse_mode: str = "HTML", chat_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Отправляет сообщение в Telegram канал
-        
+
         Args:
             text: Текст сообщения
             parse_mode: Режим парсинга (HTML или Markdown)
-            
+
         Returns:
             Dict с ответом от Telegram API или None в случае ошибки
         """
+        if settings.TELEGRAM_DISABLED:
+            logger.debug("Telegram notifications disabled in test environment")
+            return None
+
         target_chat_id = chat_id or self.public_chat_id
         if not self.bot_token or not target_chat_id:
             logger.error("Telegram bot token или chat_id не настроены")
@@ -244,6 +248,10 @@ class TelegramNotificationService:
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
 
     def _send_message(self, chat_id: str, text: str, parse_mode: str = "HTML"):
+        if settings.TELEGRAM_DISABLED:
+            logger.debug("Telegram notifications disabled in test environment")
+            return None
+
         if not self.bot_token or not chat_id:
             logger.error("Telegram bot token или chat_id не настроены")
             return None

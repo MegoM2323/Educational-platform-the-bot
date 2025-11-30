@@ -225,7 +225,7 @@ class TestTeacherDashboardSubmissions:
         students = []
         for _ in range(3):
             student = StudentUserFactory()
-            StudentProfile.objects.create(user=student)
+            StudentProfile.objects.get_or_create(user=student)
             students.append(student)
 
         for student in students:
@@ -255,7 +255,7 @@ class TestTeacherDashboardSubmissions:
         from conftest import StudentUserFactory
         from accounts.models import StudentProfile
         student2 = StudentUserFactory()
-        StudentProfile.objects.create(user=student2)
+        StudentProfile.objects.get_or_create(user=student2)
 
         MaterialSubmission.objects.create(
             material=sample_material,
@@ -490,7 +490,7 @@ class TestTeacherDashboardBulkOperations:
         students = []
         for _ in range(5):
             student = StudentUserFactory()
-            StudentProfile.objects.create(user=student)
+            StudentProfile.objects.get_or_create(user=student)
             students.append(student)
 
         student_ids = [s.id for s in students]
@@ -511,10 +511,9 @@ class TestTeacherDashboardBulkOperations:
     def test_bulk_distribute_excludes_admins(self, db, teacher_user, sample_material, admin_user):
         """Bulk операция исключает админов"""
         from conftest import StudentUserFactory
-        from accounts.models import StudentProfile
 
         student = StudentUserFactory()
-        StudentProfile.objects.create(user=student)
+        # StudentProfile автоматически создается сигналом при создании пользователя
 
         # Пытаемся назначить материал студенту И админу
         student_ids = [student.id, admin_user.id]
@@ -538,7 +537,7 @@ class TestTeacherDashboardBulkOperations:
         students = []
         for _ in range(3):
             student = StudentUserFactory()
-            StudentProfile.objects.create(user=student)
+            StudentProfile.objects.get_or_create(user=student)
             students.append(student)
 
         student_ids = [s.id for s in students]
@@ -560,10 +559,9 @@ class TestTeacherDashboardBulkOperations:
     def test_bulk_material_distribution_invalid_material(self, teacher_user, db):
         """Попытка распределить несуществующий материал"""
         from conftest import StudentUserFactory
-        from accounts.models import StudentProfile
 
         student = StudentUserFactory()
-        StudentProfile.objects.create(user=student)
+        # StudentProfile автоматически создается сигналом при создании пользователя
 
         service = TeacherDashboardService(teacher_user)
         result = service.distribute_material(
@@ -661,7 +659,11 @@ class TestTeacherDashboardReports:
             report_data=report_data
         )
 
-        assert result['success'] is True
+        # Логируем результат для отладки если тест падает
+        if not result['success']:
+            print(f"Error: {result.get('message', 'Unknown error')}")
+
+        assert result['success'] is True, f"Expected success but got error: {result.get('message', 'Unknown')}"
         assert 'report_id' in result
 
     def test_get_teacher_reports(self, teacher_user, student_user):
@@ -828,10 +830,9 @@ class TestTeacherDashboardQueryOptimization:
 
             # Создаем профиль
             from accounts.models import StudentProfile
-            StudentProfile.objects.create(
+            StudentProfile.objects.get_or_create(
                 user=student,
-                grade='10',
-                goal='Подготовка к ОГЭ'
+                defaults={'grade': '10', 'goal': 'Подготовка к ОГЭ'}
             )
 
             # Зачисляем на предмет
@@ -859,3 +860,166 @@ class TestTeacherDashboardQueryOptimization:
             assert query_count <= 10, f"Слишком много запросов: {query_count}. Ожидалось <= 10"
 
         assert len(result) == 10
+
+
+# ===== NEW TESTS: Profile Auto-Creation and Error Handling =====
+
+@pytest.mark.unit
+@pytest.mark.django_db
+@pytest.mark.dashboard
+class TestTeacherDashboardProfileHandling:
+    """Тесты для автоматического создания и обработки ошибок профиля"""
+
+    def test_dashboard_auto_creates_teacher_profile(self, db):
+        """Дашборд автоматически создает TeacherProfile если его нет"""
+        from accounts.models import TeacherProfile
+        from conftest import TeacherUserFactory
+
+        # Создаем учителя напрямую (без использования fixture который уже создает профиль)
+        teacher = TeacherUserFactory()
+
+        # Удаляем профиль если был создан signal
+        TeacherProfile.objects.filter(user=teacher).delete()
+
+        # Проверяем что профиля нет
+        assert not TeacherProfile.objects.filter(user=teacher).exists()
+
+        # Делаем запрос к дашборду
+        client = APIClient()
+        client.force_authenticate(user=teacher)
+        response = client.get('/api/dashboard/teacher/')
+
+        # Проверяем что статус OK
+        assert response.status_code == 200
+
+        # Проверяем что профиль был создан
+        assert TeacherProfile.objects.filter(user=teacher).exists()
+        profile = TeacherProfile.objects.get(user=teacher)
+        assert profile.user == teacher
+
+    def test_dashboard_includes_profile_data(self, db):
+        """Дашборд включает данные профиля в ответ"""
+        from accounts.models import TeacherProfile
+        from conftest import TeacherUserFactory
+
+        teacher = TeacherUserFactory()
+        # Убедимся что профиль существует
+        TeacherProfile.objects.get_or_create(user=teacher)
+
+        client = APIClient()
+        client.force_authenticate(user=teacher)
+        response = client.get('/api/dashboard/teacher/')
+
+        assert response.status_code == 200
+        assert 'profile' in response.data
+        assert response.data['profile'] is not None
+
+    def test_dashboard_returns_default_profile_on_error(self, db, mocker):
+        """Дашборд возвращает структурированный объект при ошибке профиля"""
+        from conftest import TeacherUserFactory
+
+        teacher = TeacherUserFactory()
+
+        # Mock ошибку при получении профиля
+        mocker.patch(
+            'materials.teacher_dashboard_views.TeacherProfile.objects.get_or_create',
+            side_effect=Exception("Database error")
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=teacher)
+        response = client.get('/api/dashboard/teacher/')
+
+        # Дашборд все еще возвращает 200 (не блокирует весь дашборд)
+        assert response.status_code == 200
+
+        # Профиль содержит default значения вместо None
+        assert 'profile' in response.data
+        profile = response.data['profile']
+        assert profile['bio'] == ''
+        assert profile['experience_years'] == 0
+        assert profile['subjects'] == []
+        assert profile['avatar_url'] is None
+
+    def test_signal_creates_teacher_profile_on_user_creation(self, db):
+        """Signal автоматически создает TeacherProfile при создании User с ролью teacher"""
+        from accounts.models import TeacherProfile
+
+        # Создаем пользователя с ролью teacher
+        teacher = User.objects.create_user(
+            username='signal_test_teacher',
+            email='signal_teacher@test.com',
+            password='testpass123',
+            role=User.Role.TEACHER,
+            first_name='Test',
+            last_name='Teacher'
+        )
+
+        # Проверяем что профиль был создан signal
+        profile = TeacherProfile.objects.filter(user=teacher).first()
+        assert profile is not None
+        assert profile.user == teacher
+        assert profile.bio == ''
+        assert profile.experience_years == 0
+
+    def test_signal_logs_profile_creation(self, db):
+        """Signal автоматически логирует создание профиля"""
+        from accounts.models import TeacherProfile
+
+        # Просто проверяем что профиль был создан сигналом
+        # Логирование проверяется через stderr в процессе разработки
+        teacher = User.objects.create_user(
+            username='log_test_teacher',
+            email='log_teacher@test.com',
+            password='testpass123',
+            role=User.Role.TEACHER
+        )
+
+        # Проверяем что профиль был создан signal обработчиком
+        assert TeacherProfile.objects.filter(user=teacher).exists()
+        profile = TeacherProfile.objects.get(user=teacher)
+        assert profile.user == teacher
+
+    def test_dashboard_handles_missing_profile_gracefully(self, db):
+        """Дашборд корректно обрабатывает отсутствующий профиль"""
+        from accounts.models import TeacherProfile
+        from conftest import TeacherUserFactory
+
+        teacher = TeacherUserFactory()
+
+        # Удаляем профиль
+        TeacherProfile.objects.filter(user=teacher).delete()
+
+        client = APIClient()
+        client.force_authenticate(user=teacher)
+
+        # Первый запрос - профиля нет, будет создан
+        response1 = client.get('/api/dashboard/teacher/')
+        assert response1.status_code == 200
+
+        # Второй запрос - профиль уже существует
+        response2 = client.get('/api/dashboard/teacher/')
+        assert response2.status_code == 200
+
+        # Оба запроса должны вернуть профиль
+        assert response1.data['profile'] is not None
+        assert response2.data['profile'] is not None
+
+    def test_get_or_create_idempotency(self, db):
+        """get_or_create для профиля идемпотентен"""
+        from accounts.models import TeacherProfile
+        from conftest import TeacherUserFactory
+
+        teacher = TeacherUserFactory()
+
+        # Удаляем профиль если существует
+        TeacherProfile.objects.filter(user=teacher).delete()
+
+        # Первое создание
+        profile1, created1 = TeacherProfile.objects.get_or_create(user=teacher)
+        assert created1 is True
+
+        # Второе получение
+        profile2, created2 = TeacherProfile.objects.get_or_create(user=teacher)
+        assert created2 is False
+        assert profile1.id == profile2.id

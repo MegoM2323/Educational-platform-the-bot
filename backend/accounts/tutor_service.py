@@ -8,7 +8,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.db import transaction
 
-from materials.models import Subject, SubjectEnrollment
 from .models import StudentProfile, ParentProfile, TutorStudentCreation
 from notifications.notification_service import NotificationService
 
@@ -174,11 +173,11 @@ class SubjectAssignmentService:
     """
 
     @staticmethod
-    def get_available_teachers(subject: Subject):
+    def get_available_teachers(subject: 'materials.Subject'):
         """Возвращает список доступных преподавателей для предмета.
         Сначала проверяем связь через TeacherSubject, если нет - возвращаем всех преподавателей.
         """
-        from materials.models import TeacherSubject
+        from materials.models import TeacherSubject, Subject
         
         # Ищем преподавателей, которые ведут этот предмет
         teacher_ids_list = list(TeacherSubject.objects.filter(
@@ -194,20 +193,22 @@ class SubjectAssignmentService:
             return User.objects.filter(role=User.Role.TEACHER, is_active=True).order_by('id')
     
     @staticmethod
-    def get_or_create_subject(subject_name: str) -> Subject:
+    def get_or_create_subject(subject_name: str) -> 'materials.Subject':
         """Получает существующий предмет по названию или создает новый.
-        
+
         Args:
             subject_name: Название предмета (должно быть уже валидировано и обрезано)
-            
+
         Returns:
             Существующий или созданный предмет
         """
+        from materials.models import Subject
+
         if not subject_name or not subject_name.strip():
             raise ValueError("Название предмета не может быть пустым")
-        
+
         subject_name = subject_name.strip()
-        
+
         # Ищем предмет по названию (без учета регистра)
         subject = Subject.objects.filter(name__iexact=subject_name).first()
         
@@ -222,7 +223,9 @@ class SubjectAssignmentService:
         return subject
 
     @staticmethod
-    def assign_subject(*, tutor: User, student: User, subject: Subject, teacher: User | None = None) -> SubjectEnrollment:
+    def assign_subject(*, tutor: User, student: User, subject: 'materials.Subject', teacher: User | None = None) -> 'materials.SubjectEnrollment':
+        from materials.models import SubjectEnrollment
+
         # Разрешаем назначение предметов тьюторам или администраторам
         if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
             raise PermissionError("Только тьютор или администратор может назначать предметы")
@@ -319,7 +322,8 @@ class SubjectAssignmentService:
         return enrollment
 
     @staticmethod
-    def unassign_subject(*, tutor: User, student: User, subject: Subject) -> None:
+    def unassign_subject(*, tutor: User, student: User, subject: 'materials.Subject') -> None:
+        from materials.models import SubjectEnrollment
         # Разрешаем отмену назначений тьюторам или администраторам
         if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
             raise PermissionError("Только тьютор или администратор может отменять назначения")

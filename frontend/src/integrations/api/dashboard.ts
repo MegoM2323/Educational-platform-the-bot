@@ -21,16 +21,64 @@ export interface StudentDashboard {
 }
 
 export interface TeacherDashboard {
-  total_students: number;
-  total_materials: number;
-  pending_reports: number;
-  recent_activity: Array<{
+  teacher_info?: {
     id: number;
-    student_name: string;
-    material_title: string;
-    action: string;
-    timestamp: string;
+    name: string;
+    role: string;
+    avatar?: string;
+  };
+  students: Array<{
+    id: number;
+    name: string;
+    profile?: {
+      grade: string;
+      progress_percentage: number;
+    };
+    subjects?: Array<{
+      id: number;
+      name: string;
+      color: string;
+      enrollment_id: number;
+      enrolled_at: string;
+    }>;
   }>;
+  materials: Array<{
+    id: number;
+    title: string;
+    description: string;
+    subject: {
+      id: number;
+      name: string;
+      color: string;
+    };
+    status: 'active' | 'draft';
+    assigned_count: number;
+    created_at: string;
+    file_url?: string;
+  }>;
+  progress_overview: {
+    total_students: number;
+    total_materials: number;
+    total_assignments: number;
+    completed_assignments: number;
+  };
+  reports: Array<{
+    id: number;
+    title: string;
+    student_name: string;
+    subject: string;
+    created_at: string;
+    status: 'draft' | 'sent';
+  }>;
+  general_chat?: {
+    id: number;
+    name: string;
+  };
+  profile?: {
+    experience: number;
+    subjects?: Array<string | { id: number; name: string }>;
+    avatar_url?: string;
+  };
 }
 
 export interface ParentDashboard {

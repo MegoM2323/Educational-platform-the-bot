@@ -12,6 +12,7 @@ import logging
 from .parent_dashboard_service import ParentDashboardService
 from .serializers import ParentDashboardSerializer, ChildSubjectsSerializer, PaymentInitiationSerializer
 from accounts.staff_views import CSRFExemptSessionAuthentication
+from accounts.serializers import get_profile_serializer
 
 logger = logging.getLogger(__name__)
 
@@ -57,16 +58,33 @@ class ParentDashboardView(generics.RetrieveAPIView):
                 return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
             
             # Проверяем связь родитель-ребенок
-            service = ParentDashboardService(request.user, request)
+            user = request.user
+            service = ParentDashboardService(user, request)
             dashboard_data = service.get_dashboard_data()
             logger.info(f"[ParentDashboardView.get] Dashboard data children count: {len(dashboard_data.get('children', []))}")
             logger.info(f"[ParentDashboardView.get] Dashboard data keys: {list(dashboard_data.keys())}")
             logger.info(f"[ParentDashboardView.get] Children data: {dashboard_data.get('children', [])}")
-            
+
+            # Получаем профиль родителя (ParentProfile пока не имеет приватных полей)
+            try:
+                profile = user.parent_profile
+
+                # Выбираем serializer (для parent пока нет приватных полей, но используем единый подход)
+                ProfileSerializer = get_profile_serializer(profile, user, user)
+                serialized_profile = ProfileSerializer(profile).data
+
+                # Добавляем профиль в dashboard_data
+                dashboard_data['profile'] = serialized_profile
+
+            except Exception as profile_error:
+                logger.warning(f"Could not load parent profile: {profile_error}")
+                # Не блокируем весь dashboard если не удалось загрузить профиль
+                dashboard_data['profile'] = None
+
             # Логируем полный ответ для отладки
             import json
             logger.info(f"[ParentDashboardView.get] Full dashboard data (first 2000 chars): {json.dumps(dashboard_data, default=str, ensure_ascii=False)[:2000]}")
-            
+
             return Response(dashboard_data, status=status.HTTP_200_OK)
         except ValueError as e:
             logger.error(f"Validation error in parent dashboard: {e}")

@@ -16,7 +16,8 @@ class TransactionType(Enum):
     """Типы критических операций"""
     USER_CREATION = "user_creation"
     PAYMENT_PROCESSING = "payment_processing"
-    APPLICATION_APPROVAL = "application_approval"
+    APPLICATION_SUBMISSION = "application_submission"  # Creating new application
+    APPLICATION_APPROVAL = "application_approval"  # Approving submitted application
     MATERIAL_CREATION = "material_creation"
     PARENT_CHILD_LINKING = "parent_child_linking"
 

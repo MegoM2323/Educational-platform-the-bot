@@ -1,6 +1,9 @@
 import re
+import logging
 from rest_framework import serializers
 from .models import Application
+
+logger = logging.getLogger(__name__)
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
@@ -34,23 +37,39 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
         fields = [
             'first_name', 'last_name', 'email', 'phone', 'telegram_id',
             'applicant_type', 'grade', 'subject', 'experience', 'motivation',
-            'parent_first_name', 'parent_last_name', 'parent_email', 
+            'parent_first_name', 'parent_last_name', 'parent_email',
             'parent_phone', 'parent_telegram_id'
         ]
-    
+
+    def validate_email(self, value):
+        """
+        Validate email is unique across applications
+        """
+        if not value:
+            raise serializers.ValidationError("Email is required")
+
+        if Application.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already registered for an application")
+
+        return value
+
     def validate_phone(self, value):
         """
-        Validate phone number format
+        Validate phone number format (allows spaces, hyphens, parentheses)
         """
         if not value:
             raise serializers.ValidationError("Phone number is required")
-        
-        # Simple phone validation
-        phone_pattern = r'^[\+]?[1-9][\d]{0,15}$'
+
+        # Clean phone number: remove spaces, hyphens, parentheses
         cleaned_phone = value.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+
+        # Simple phone validation: must have at least 5 digits and start with 1-9
+        phone_pattern = r'^[\+]?[1-9][\d]{4,15}$'
         if not re.match(phone_pattern, cleaned_phone):
-            raise serializers.ValidationError("Invalid phone number format")
-        
+            raise serializers.ValidationError(
+                "Invalid phone number format. Use format like +79999999999 or 89999999999"
+            )
+
         return value
     
     def validate_grade(self, value):
@@ -63,10 +82,10 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
     
     def validate(self, attrs):
         """
-        Cross-field validation
+        Cross-field validation with role-specific requirements
         """
         applicant_type = attrs.get('applicant_type')
-        
+
         # Validate required fields based on applicant type
         if applicant_type == Application.ApplicantType.STUDENT:
             if not attrs.get('grade'):
@@ -80,7 +99,9 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         field: f'{field.replace("_", " ").title()} is required for student applications'
                     })
-        
+            # Note: motivation is optional for students
+            logger.debug("Student application validated successfully")
+
         elif applicant_type == Application.ApplicantType.TEACHER:
             if not attrs.get('subject'):
                 raise serializers.ValidationError({
@@ -90,7 +111,16 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'experience': 'Experience description is required for teacher applications'
                 })
-        
+            # Note: motivation is optional for teachers
+            logger.debug("Teacher application validated successfully")
+
+        elif applicant_type == Application.ApplicantType.PARENT:
+            # Parent applications have minimal requirements
+            logger.debug("Parent application validated successfully")
+
+        # telegram_id is optional for all types
+        # If provided, it can be with or without @ prefix
+
         return attrs
 
 

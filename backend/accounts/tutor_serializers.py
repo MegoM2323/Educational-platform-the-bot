@@ -2,7 +2,6 @@ import logging
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from materials.models import Subject, SubjectEnrollment
 from .models import StudentProfile
 
 
@@ -98,6 +97,7 @@ class SubjectAssignSerializer(serializers.Serializer):
     teacher_id = serializers.IntegerField(required=True)
 
     def validate(self, attrs):
+        from materials.models import Subject
         subject_id = attrs.get('subject_id')
         subject_name = attrs.get('subject_name', '').strip() if attrs.get('subject_name') else ''
         teacher_id = attrs.get('teacher_id')
@@ -149,27 +149,38 @@ class SubjectAssignSerializer(serializers.Serializer):
         return attrs
 
 
-class SubjectEnrollmentSerializer(serializers.ModelSerializer):
+class SubjectEnrollmentSerializer(serializers.Serializer):
+    """Serializer for SubjectEnrollment - uses manual field declaration to avoid circular imports"""
+    id = serializers.IntegerField(read_only=True)
+    student = serializers.SerializerMethodField()
+    subject = serializers.SerializerMethodField()
     subject_name = serializers.SerializerMethodField()
     custom_subject_name = serializers.CharField(read_only=True)
+    teacher = serializers.SerializerMethodField()
     teacher_name = serializers.SerializerMethodField()
+    enrolled_at = serializers.DateTimeField(read_only=True)
+    is_active = serializers.BooleanField()
 
-    class Meta:
-        model = SubjectEnrollment
-        fields = (
-            'id', 'student', 'subject', 'subject_name', 'custom_subject_name', 'teacher', 'teacher_name',
-            'enrolled_at', 'is_active'
-        )
+    def get_student(self, obj):
+        """Возвращает ID студента"""
+        return obj.student.id if obj.student else None
+
+    def get_subject(self, obj):
+        """Возвращает ID предмета"""
+        return obj.subject.id if obj.subject else None
 
     def get_subject_name(self, obj):
         """Возвращает кастомное название или стандартное название предмета"""
         return obj.get_subject_name()
 
+    def get_teacher(self, obj):
+        """Возвращает ID преподавателя"""
+        return obj.teacher.id if obj.teacher else None
+
     def get_teacher_name(self, obj):
         if obj.teacher:
             return obj.teacher.get_full_name() or obj.teacher.username
         return None
-
 
 
 class SubjectBulkAssignItemSerializer(serializers.Serializer):
@@ -178,6 +189,7 @@ class SubjectBulkAssignItemSerializer(serializers.Serializer):
     teacher_id = serializers.IntegerField(required=True)
 
     def validate(self, attrs):
+        from materials.models import Subject
         subject_id = attrs.get('subject_id')
         subject_name = attrs.get('subject_name', '').strip() if attrs.get('subject_name') else ''
         teacher_id = attrs.get('teacher_id')

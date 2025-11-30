@@ -318,6 +318,17 @@ class TutorWeeklyReportViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'summary']
     ordering_fields = ['week_start', 'created_at', 'sent_at']
     ordering = ['-week_start', '-created_at']
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Override destroy to return JSON response with success message
+        """
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {'success': True, 'message': 'Отчет успешно удален'},
+            status=status.HTTP_200_OK
+        )
     
     def get_queryset(self):
         user = self.request.user
@@ -529,6 +540,17 @@ class TeacherWeeklyReportViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'summary']
     ordering_fields = ['week_start', 'created_at', 'sent_at']
     ordering = ['-week_start', '-created_at']
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Override destroy to return JSON response with success message
+        """
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {'success': True, 'message': 'Отчет успешно удален'},
+            status=status.HTTP_200_OK
+        )
     
     def get_queryset(self):
         user = self.request.user

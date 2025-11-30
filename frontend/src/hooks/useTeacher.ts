@@ -10,7 +10,24 @@ export const useTeacherDashboard = () => {
       if (response.error) {
         throw new Error(response.error);
       }
-      return response.data;
+
+      const data = response.data;
+
+      // Extract students and their subjects for scheduling
+      if (data?.students) {
+        // For each student, map subjects to include both student ID and subject info
+        data.students = data.students.map((student: any) => ({
+          ...student,
+          id: String(student.id), // Ensure ID is string for form compatibility
+          full_name: student.name,
+          subjects: (student.subjects || []).map((s: any) => ({
+            id: String(s.id),
+            name: s.name
+          }))
+        }));
+      }
+
+      return data;
     },
     staleTime: 60000, // 1 minute
     refetchOnWindowFocus: true,

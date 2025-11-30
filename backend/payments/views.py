@@ -14,17 +14,19 @@ from django.utils import timezone
 from .models import Payment
 from .telegram_service import TelegramNotificationService
 from core.transaction_utils import (
-    TransactionType, 
-    transaction_manager, 
+    TransactionType,
+    transaction_manager,
     log_critical_operation,
     DataIntegrityValidator
 )
 from core.json_utils import safe_json_parse, safe_json_response, safe_json_dumps
+from core.environment import EnvConfig
 from django.contrib.auth import get_user_model
 from notifications.notification_service import NotificationService
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+env_config = EnvConfig()
 
 SUCCESS_URL = "/payments/success/"
 FAIL_URL = "/payments/fail/"
@@ -126,8 +128,9 @@ def create_yookassa_payment(payment, request):
             'error_type': 'configuration_error',
             'technical_details': 'YOOKASSA credentials not configured'
         }
-    
-    url = "https://api.yookassa.ru/v3/payments"
+
+    # Use environment-aware YooKassa API URL
+    url = f"{env_config.get_yookassa_api_url()}/payments"
     
     # Валидация суммы
     if payment.amount <= 0:
@@ -154,7 +157,7 @@ def create_yookassa_payment(payment, request):
                 # Используем тот же домен, но убеждаемся, что используем правильный протокол
                 # Если FRONTEND_URL в настройках содержит правильный домен, используем его
                 # Иначе формируем на основе request
-                if 'the-bot.ru' in host or 'www.the-bot.ru' in host:
+                if env_config.PRODUCTION_DOMAIN in host or f'www.{env_config.PRODUCTION_DOMAIN}' in host:
                     frontend_url = f"{protocol}://{host.split(':')[0]}"  # Убираем порт если есть
                     logger.warning(f"FRONTEND_URL was localhost, but detected production domain. Using {frontend_url}. "
                                  f"Please set FRONTEND_URL in .env file for production!")
@@ -164,10 +167,10 @@ def create_yookassa_payment(payment, request):
     
     # Проверяем, что на продакшене не используется localhost
     allowed_hosts = getattr(settings, 'ALLOWED_HOSTS', [])
-    has_production_host = any('the-bot.ru' in str(h) for h in allowed_hosts) if allowed_hosts else False
+    has_production_host = any(env_config.PRODUCTION_DOMAIN in str(h) for h in allowed_hosts) if allowed_hosts else False
     if has_production_host and 'localhost' in frontend_url:
         logger.warning(f"WARNING: Production server detected, but FRONTEND_URL is set to localhost: {frontend_url}. "
-                      f"Please set FRONTEND_URL in .env file to your production frontend URL (e.g., https://the-bot.ru)")
+                      f"Please set FRONTEND_URL in .env file to your production frontend URL (e.g., https://{env_config.PRODUCTION_DOMAIN})")
     
     # Убеждаемся, что URL не заканчивается на слэш
     frontend_url = frontend_url.rstrip('/')

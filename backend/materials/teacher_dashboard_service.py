@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+import logging
 
 from .models import Material, MaterialProgress, Subject, SubjectEnrollment
 from chat.models import ChatRoom, Message
@@ -10,6 +11,7 @@ from reports.models import StudentReport, Report, ReportRecipient, AnalyticsData
 from .cache_utils import cache_dashboard_data, cache_material_data, DashboardCacheManager
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class TeacherDashboardService:

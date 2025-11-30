@@ -10,6 +10,8 @@ import { Suspense, lazy } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
 import StaffManagement from "@/pages/admin/StaffManagement";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import StudentManagement from "@/pages/admin/StudentManagement";
 
 // Импортируем критические компоненты напрямую
 import Index from "./pages/Index";
@@ -34,6 +36,7 @@ const TeacherReports = lazy(() => import("./pages/dashboard/teacher/Reports"));
 const StudyPlans = lazy(() => import("./pages/dashboard/teacher/StudyPlans"));
 const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissions"));
 const TeacherGeneralChat = lazy(() => import("./pages/dashboard/teacher/GeneralChat"));
+const AssignSubject = lazy(() => import("./pages/dashboard/teacher/AssignSubject"));
 const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
 const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
 const TutorGeneralChat = lazy(() => import("./pages/dashboard/tutor/GeneralChat"));
@@ -42,6 +45,19 @@ const ParentChildDetail = lazy(() => import("./pages/dashboard/parent/ChildDetai
 const ParentStatistics = lazy(() => import("./pages/dashboard/parent/Statistics"));
 const ParentReports = lazy(() => import("./pages/dashboard/parent/Reports"));
 const Chat = lazy(() => import("./pages/dashboard/Chat"));
+
+// Scheduling components
+const StudentSchedulePage = lazy(() => import("./pages/dashboard/StudentSchedulePage"));
+const TeacherSchedulePage = lazy(() => import("./pages/dashboard/TeacherSchedulePage"));
+
+// Forum page
+const Forum = lazy(() => import("./pages/dashboard/Forum"));
+
+// Profile pages
+const ProfilePage = lazy(() => import("./pages/profile/ProfilePage"));
+const StudentProfilePage = lazy(() => import("./pages/profile/StudentProfilePage"));
+const TeacherProfilePage = lazy(() => import("./pages/profile/TeacherProfilePage"));
+const TutorProfilePage = lazy(() => import("./pages/profile/TutorProfilePage"));
 
 // Configure React Query with default options
 const queryClient = new QueryClient({
@@ -75,10 +91,24 @@ const App = () => (
           <Route path="/application-status/:trackingToken" element={<ApplicationStatus />} />
           
           {/* Admin Routes */}
+          <Route path="/admin" element={
+            <ProtectedAdminRoute>
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <AdminDashboard />
+              </Suspense>
+            </ProtectedAdminRoute>
+          } />
           <Route path="/admin/staff" element={
             <ProtectedAdminRoute>
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <StaffManagement />
+              </Suspense>
+            </ProtectedAdminRoute>
+          } />
+          <Route path="/admin/students" element={
+            <ProtectedAdminRoute>
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudentManagement />
               </Suspense>
             </ProtectedAdminRoute>
           } />
@@ -112,19 +142,27 @@ const App = () => (
             )
           } />
           <Route path="/dashboard/student/general-chat" element={
-            import.meta.env.MODE === 'development' ? (
+            <ProtectedRoute requiredRole="student">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <StudentGeneralChat />
               </Suspense>
-            ) : (
-              <ProtectedRoute requiredRole="student">
-                <Suspense fallback={<LoadingSpinner size="lg" />}>
-                  <StudentGeneralChat />
-                </Suspense>
-              </ProtectedRoute>
-            )
+            </ProtectedRoute>
           } />
-          
+          <Route path="/dashboard/student/schedule" element={
+            <ProtectedRoute requiredRole="student">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudentSchedulePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/student/forum" element={
+            <ProtectedRoute requiredRole="student">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <Forum />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+
           {/* Teacher Routes */}
           <Route path="/dashboard/teacher" element={
             <ProtectedRoute requiredRole="teacher">
@@ -189,7 +227,28 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
-          
+          <Route path="/dashboard/teacher/assign-subject" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <AssignSubject />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/schedule" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherSchedulePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/forum" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <Forum />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+
           {/* Tutor Routes */}
           <Route path="/dashboard/tutor" element={
             <ProtectedRoute requiredRole="tutor">
@@ -212,7 +271,14 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
-          <Route path="/dashboard/tutor/chat" element={
+          <Route path="/dashboard/tutor/forum" element={
+            <ProtectedRoute requiredRole="tutor">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <Forum />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/tutor/general-chat" element={
             <ProtectedRoute requiredRole="tutor">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TutorGeneralChat />
@@ -278,7 +344,44 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
-          
+          <Route path="/dashboard/parent/forum" element={
+            <ProtectedRoute requiredRole="parent">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <Forum />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+
+          {/* Profile Routes - Available to all authenticated users */}
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ProfilePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/student" element={
+            <ProtectedRoute requiredRole="student">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudentProfilePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/teacher" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherProfilePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/tutor" element={
+            <ProtectedRoute requiredRole="tutor">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TutorProfilePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
             </Routes>

@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from . import forum_views
 
 router = DefaultRouter()
 router.register(r'rooms', views.ChatRoomViewSet, basename='room')
@@ -8,6 +9,7 @@ router.register(r'messages', views.MessageViewSet, basename='message')
 router.register(r'participants', views.ChatParticipantViewSet, basename='participant')
 router.register(r'threads', views.MessageThreadViewSet, basename='thread')
 router.register(r'general', views.GeneralChatViewSet, basename='general-chat')
+router.register(r'forum', forum_views.ForumChatViewSet, basename='forum-chat')
 
 urlpatterns = [
     path('', include(router.urls)),

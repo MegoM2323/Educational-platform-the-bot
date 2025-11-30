@@ -1,6 +1,12 @@
 // Tutor API Service
 import { unifiedAPI } from './unifiedClient';
 
+/**
+ * TutorStudent интерфейс
+ *
+ * ВАЖНО: goal - ПРИВАТНОЕ поле (студент не видит, тьютор видит)
+ * Backend автоматически фильтрует это поле в зависимости от прав.
+ */
 export interface TutorStudent {
   id: number; // student profile or user id depending on backend
   user_id?: number;
@@ -8,7 +14,7 @@ export interface TutorStudent {
   first_name?: string;
   last_name?: string;
   grade?: string;
-  goal?: string;
+  goal?: string; // ПРИВАТНОЕ: студент не видит, тьютор видит
   parent_name?: string;
   created_at?: string;
   subjects?: Array<{

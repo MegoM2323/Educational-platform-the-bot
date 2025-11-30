@@ -13,6 +13,8 @@ from .teacher_dashboard_service import TeacherDashboardService
 from .models import Material, Subject, SubjectEnrollment, MaterialSubmission, MaterialProgress, StudyPlan, StudyPlanFile
 from .serializers import MaterialFeedbackSerializer, MaterialSubmissionSerializer, MaterialCreateSerializer, StudyPlanSerializer, StudyPlanCreateSerializer, StudyPlanListSerializer, StudyPlanFileSerializer
 from reports.models import Report
+from accounts.models import TeacherProfile
+from accounts.serializers import get_profile_serializer
 
 logger = logging.getLogger(__name__)
 
@@ -30,20 +32,51 @@ class CSRFExemptSessionAuthentication(SessionAuthentication):
 @permission_classes([IsAuthenticated])
 def teacher_dashboard(request):
     """
-    Получить данные дашборда преподавателя
+    Получить данные дашборда преподавателя.
+
+    Скрывает приватные поля профиля от самого преподавателя:
+    - bio (биография)
+    - experience_years (опыт работы)
     """
     if request.user.role != User.Role.TEACHER:
         return Response(
             {'error': 'Доступ запрещен. Требуется роль преподавателя.'},
             status=status.HTTP_403_FORBIDDEN
         )
-    
+
     try:
-        service = TeacherDashboardService(request.user, request)
+        user = request.user
+        service = TeacherDashboardService(user, request)
         dashboard_data = service.get_dashboard_data()
-        
+
+        # Получаем профиль преподавателя с автоматическим созданием
+        try:
+            # Используем get_or_create для гарантии наличия профиля
+            profile, created = TeacherProfile.objects.get_or_create(user=user)
+
+            if created:
+                logger.info(f"TeacherProfile auto-created for user {user.id} ({user.email})")
+
+            # Выбираем serializer в зависимости от прав
+            # Сам преподаватель НЕ видит приватные поля (bio, experience_years)
+            ProfileSerializer = get_profile_serializer(profile, user, user)
+            serialized_profile = ProfileSerializer(profile).data
+
+            # Добавляем профиль в dashboard_data
+            dashboard_data['profile'] = serialized_profile
+
+        except Exception as profile_error:
+            logger.error(f"Error loading teacher profile: {profile_error}", exc_info=True)
+            # Возвращаем структурированный объект вместо None при ошибке
+            dashboard_data['profile'] = {
+                'bio': '',
+                'experience_years': 0,
+                'subjects': [],
+                'avatar_url': None
+            }
+
         return Response(dashboard_data, status=status.HTTP_200_OK)
-        
+
     except ValueError as e:
         logger.error(f"Validation error in teacher dashboard: {e}")
         return Response(

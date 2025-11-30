@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Student Dashboard - User Flows', () => {
   test.beforeEach(async ({ page }) => {
     // Login as student
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
     await page.fill('input[type="email"]', 'student@test.com');
     await page.fill('input[type="password"]', 'TestPass123!');
     await page.click('button:has-text("Войти")');

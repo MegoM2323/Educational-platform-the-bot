@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, FileText, MessageCircle, Bell, TrendingUp, Calendar, CreditCard, AlertCircle, ExternalLink } from "lucide-react";
+import { Users, FileText, MessageCircle, TrendingUp, Calendar, CreditCard, AlertCircle, ExternalLink } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,8 @@ import { useErrorNotification, useSuccessNotification } from "@/components/Notif
 import { DashboardSkeleton, ErrorState, EmptyState } from "@/components/LoadingStates";
 import { PaymentStatusBadge, PaymentStatus } from "@/components/PaymentStatusBadge";
 import { useParentDashboard } from "@/hooks/useParent";
+import { ProfileCard } from "@/components/ProfileCard";
+import { useProfile } from "@/hooks/useProfile";
 
 // Интерфейсы для данных
 interface Child {
@@ -74,6 +76,13 @@ const ParentDashboard = () => {
     error: queryError,
     refetch
   } = useParentDashboard();
+
+  // Load profile data
+  const {
+    profileData: userProfile,
+    isLoading: profileLoading,
+    error: profileError
+  } = useProfile();
 
   const error = queryError?.message || null;
 
@@ -157,6 +166,25 @@ const ParentDashboard = () => {
     navigate(`/dashboard/parent/reports/${reportId}`);
   };
 
+  /**
+   * Подготовить данные профиля для родителя
+   */
+  const getParentProfileData = () => {
+    const childrenCount = dashboardData?.children?.length || 0;
+    const childrenNames = dashboardData?.children?.map((child) => child.name) || [];
+    const activeSubscriptions = dashboardData?.children?.reduce((count, child) => {
+      return count + (child.subjects?.filter((s) => s.has_subscription).length || 0);
+    }, 0) || 0;
+    const unreadReports = (dashboardData?.reports || []).length;
+
+    return {
+      childrenCount,
+      childrenNames,
+      activeSubscriptions,
+      unreadReports,
+    };
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -165,12 +193,6 @@ const ParentDashboard = () => {
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <div className="flex-1" />
-            <Button variant="outline" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground rounded-full text-xs flex items-center justify-center">
-                2
-              </span>
-            </Button>
           </header>
           <main className="p-6">
             <div className="space-y-6">
@@ -193,6 +215,30 @@ const ParentDashboard = () => {
               {/* Основной контент */}
               {!loading && !error && dashboardData && (
                 <>
+                  {/* Мой профиль - Profile Card */}
+                  {profileLoading ? (
+                    <Card className="p-6">
+                      <div className="space-y-4">
+                        <Skeleton className="h-32 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    </Card>
+                  ) : userProfile?.user ? (
+                    <ProfileCard
+                      userName={userProfile.user.full_name || userProfile.user.email.split('@')[0]}
+                      userEmail={userProfile.user.email}
+                      userRole="parent"
+                      avatarUrl={userProfile.user.avatar_url}
+                      profileData={getParentProfileData()}
+                    />
+                  ) : (
+                    <ErrorState
+                      error="Не удалось загрузить данные профиля"
+                      onRetry={() => window.location.reload()}
+                    />
+                  )}
+
                   {/* Children Profiles */}
                   <Card className="p-6">
                     <div className="flex items-center gap-3 mb-4">

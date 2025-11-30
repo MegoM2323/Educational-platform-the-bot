@@ -6,7 +6,6 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from materials.models import Subject
 from django.db.models import Q
 from .models import StudentProfile
 from .tutor_service import StudentCreationService, SubjectAssignmentService
@@ -367,6 +366,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             return Response({'detail': f'Ошибка получения ученика: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            from materials.models import Subject
             subject = Subject.objects.get(id=subject_id)
         except Subject.DoesNotExist:
             return Response({'detail': 'Предмет не найден'}, status=status.HTTP_404_NOT_FOUND)

@@ -58,18 +58,23 @@ class AuthService {
         isExpired: storedExpiry ? Date.now() >= storedExpiry : 'no expiry'
       });
 
-      if (storedToken && storedUser && storedExpiry) {
-        // Проверяем, не истек ли токен
-        if (Date.now() < storedExpiry) {
+      // If we have token and user, consider it valid authentication
+      // expiry is optional - if missing, use default 7 days
+      if (storedToken && storedUser) {
+        // Check if token is expired (if expiry is set)
+        const tokenExpired = storedExpiry && Date.now() >= storedExpiry;
+
+        if (!tokenExpired) {
           this.token = storedToken;
           this.user = storedUser;
           this.refreshToken = storedRefreshToken;
-          this.tokenExpiry = storedExpiry;
+          // If no expiry in storage, set default (7 days from now)
+          this.tokenExpiry = storedExpiry || (Date.now() + (7 * 24 * 60 * 60 * 1000));
           apiClient.setToken(storedToken);
           console.log('AuthService: user authenticated', this.user);
         } else {
           // Токен истек, пытаемся обновить
-          console.log('AuthService: token expired, refreshing');
+          console.log('AuthService: token expired, attempting refresh');
           this.isRefreshing = true;
           try {
             // Временно устанавливаем старый токен для refresh запроса
@@ -88,7 +93,7 @@ class AuthService {
           }
         }
       } else {
-        console.log('AuthService: no stored credentials');
+        console.log('AuthService: no stored credentials (missing token or user)');
       }
     } catch (error) {
       console.error('Ошибка инициализации аутентификации:', error);
@@ -97,11 +102,16 @@ class AuthService {
   }
 
   private getStoredToken(): string | null {
+    // First check tokenStorage key (auth_token) - used by unifiedClient
+    const tokenStorageKey = localStorage.getItem('auth_token');
+    if (tokenStorageKey) return tokenStorageKey;
+
     try {
+      // Second try secureStorage (bot_platform_auth_token with encryption)
       return secureStorage.getAuthToken();
     } catch (e) {
-      // Fallbacks for tests/local: support multiple key formats
-      // 1) Plain token
+      // Fallback for other key formats
+      // 1) Plain authToken key
       const plain = localStorage.getItem('authToken');
       if (plain) return plain;
       // 2) SecureStorage-like JSON under bot_platform_auth_token
@@ -173,49 +183,47 @@ class AuthService {
 
   public async login(credentials: LoginRequest): Promise<AuthResult> {
     try {
-      // Очищаем старые данные перед новым логином
-      this.clearStorage();
-      this.token = null;
-      this.user = null;
-      this.tokenExpiry = null;
-      
       const response = await apiClient.login(credentials);
-      
+
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Ошибка входа');
       }
 
       const { token, user } = response.data;
-      
+
       console.log('[AuthService.login] Login successful:', {
         username: user?.username,
         role: user?.role,
         tokenLength: token?.length
       });
-      
+
       // Устанавливаем токен и пользователя
       this.token = token;
       this.user = user;
       this.tokenExpiry = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 дней по умолчанию
 
-      // Сохраняем в безопасное хранилище
+      // CRITICAL: Убедиться, что токен установлен в API клиент ПЕРЕД тем, как сохранить
+      // Это гарантирует, что следующие запросы будут использовать правильный токен
+      apiClient.setToken(token);
+
+      // Сохраняем в безопасное хранилище (secureStorage)
+      // NOTE: unifiedClient.login() already saved token to tokenStorage (auth_token, refresh_token keys)
+      // We also save to secureStorage for backward compatibility
       const ttl = 7 * 24 * 60 * 60 * 1000; // 7 дней
       this.setStoredToken(token, ttl);
       this.setStoredUser(user, ttl);
       this.setStoredTokenExpiry(this.tokenExpiry);
-      
-      // Устанавливаем токен в API клиент
-      apiClient.setToken(token);
-      
+
       // Уведомляем подписчиков
       this.notifyAuthStateChange(user);
-      
-      console.log('[AuthService.login] User and token saved:', {
+
+      console.log('[AuthService.login] User and token saved to secureStorage:', {
         currentUser: this.user?.username,
         currentRole: this.user?.role,
-        hasToken: !!this.token
+        hasToken: !!this.token,
+        tokenInApiClient: !!apiClient.getToken()
       });
-      
+
       return {
         user,
         token,

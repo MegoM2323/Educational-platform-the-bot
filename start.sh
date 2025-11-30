@@ -1,10 +1,22 @@
 #!/bin/bash
+set -e
 
-# Единый скрипт для запуска THE BOT Platform
-# Автоматически убивает процессы на портах 8000 и 8080 перед запуском
+# ============================================================================
+# Development Mode: Локальная разработка с SQLite БД
+# ============================================================================
 
-echo "🚀 Запуск THE BOT Platform"
-echo "=================================================="
+# Принудительно устанавливаем development режим
+export ENVIRONMENT=development
+
+echo ""
+echo "======================================================================"
+echo "🚀 THE BOT Platform - Development Mode"
+echo "======================================================================"
+echo "  Режим: Development"
+echo "  База данных: SQLite (backend/db.sqlite3)"
+echo "  Защита: Продакшн БД недоступна в этом режиме"
+echo "======================================================================"
+echo ""
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT="$SCRIPT_DIR"
@@ -86,12 +98,23 @@ try:
     django.setup()
     from django.conf import settings
     db = settings.DATABASES['default']
-    required = ['ENGINE','NAME','USER','HOST']
+
+    # SQLite требует только ENGINE и NAME
+    if 'sqlite' in db.get('ENGINE', '').lower():
+        required = ['ENGINE', 'NAME']
+        db_type = 'SQLite'
+        db_info = db['NAME']
+    else:
+        # PostgreSQL/MySQL требуют все параметры
+        required = ['ENGINE','NAME','USER','HOST']
+        db_type = 'PostgreSQL'
+        db_info = f"{db.get('HOST')}:{db.get('PORT','')} / {db['NAME']}"
+
     missing = [k for k in required if not db.get(k)]
     if missing:
         print(f"❌ Недостаточно параметров БД: {missing}")
         sys.exit(2)
-    print(f"✅ БД: {db['HOST']}:{db.get('PORT','')} / {db['NAME']}")
+    print(f"✅ БД ({db_type}): {db_info}")
 except Exception as e:
     print("❌ Ошибка конфигурации БД:", e)
     sys.exit(2)

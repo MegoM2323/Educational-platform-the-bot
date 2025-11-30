@@ -14,7 +14,9 @@ class ChatRoom(models.Model):
         SUPPORT = 'support', 'Поддержка'
         CLASS = 'class', 'Класс'
         GENERAL = 'general', 'Общий форум'
-    
+        FORUM_SUBJECT = 'forum_subject', 'Форум по предмету'
+        FORUM_TUTOR = 'forum_tutor', 'Форум с тьютором'
+
     name = models.CharField(max_length=200, verbose_name='Название')
     description = models.TextField(blank=True, verbose_name='Описание')
     type = models.CharField(
@@ -22,6 +24,17 @@ class ChatRoom(models.Model):
         choices=Type.choices,
         default=Type.DIRECT,
         verbose_name='Тип'
+    )
+
+    # Связь с зачислением на предмет (для форума студент-преподаватель)
+    enrollment = models.ForeignKey(
+        'materials.SubjectEnrollment',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='forum_chats',
+        verbose_name='Зачисление на предмет',
+        help_text='Связь с зачислением студента на предмет (для forum_subject типа)'
     )
     
     participants = models.ManyToManyField(
@@ -53,6 +66,10 @@ class ChatRoom(models.Model):
         verbose_name = 'Чат-комната'
         verbose_name_plural = 'Чат-комнаты'
         ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['type', 'enrollment'], name='chat_type_enrollment_idx'),
+            models.Index(fields=['type', 'is_active'], name='chat_type_active_idx'),
+        ]
     
     def __str__(self):
         return self.name

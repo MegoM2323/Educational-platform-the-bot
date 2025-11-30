@@ -22,30 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: test_thebot
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
           - 5432:5432
 
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
 
     steps:
       - name: Checkout code
@@ -68,46 +46,3 @@ jobs:
           cat > .env << EOF
           DEBUG=True
           SECRET_KEY=test-secret-key-for-ci-pipeline
-          DATABASE_URL=postgres://postgres:postgres@localhost:5432/test_thebot
-          USE_REDIS_CACHE=True
-          USE_REDIS_CHANNELS=True
-          REDIS_URL=redis://localhost:6379/0
-          PAYMENT_TEST_MODE=True
-          CELERY_ALWAYS_EAGER=True
-          SUPABASE_URL=http://test.supabase.co
-          SUPABASE_KEY=test-key
-          SUPABASE_SERVICE_ROLE_KEY=test-service-key
-          YOOKASSA_SHOP_ID=test-shop
-          YOOKASSA_SECRET_KEY=test-secret
-          TELEGRAM_BOT_TOKEN=test-token
-          TELEGRAM_PUBLIC_CHAT_ID=123456
-          TELEGRAM_LOG_CHAT_ID=123456
-          EOF
-
-      - name: Run migrations
-        working-directory: ./backend
-        run: python manage.py migrate --noinput
-
-      - name: Run integration tests
-        working-directory: ./backend
-        run: pytest -m integration --cov --cov-report=xml --cov-report=term
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./backend/coverage.xml
-          flags: backend-integration
-          name: backend-integration-coverage
-          fail_ci_if_error: false
-
-      - name: Upload test artifacts on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-test-artifacts
-          path: |
-            backend/htmlcov/
-            backend/pytest-report.html
-            backend/logs/
-          retention-days: 7

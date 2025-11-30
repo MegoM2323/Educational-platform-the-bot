@@ -7,9 +7,11 @@ from core.media_views import serve_media_file, serve_media_file_download
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    
+
     # API endpoints
     path("api/auth/", include('accounts.urls')),
+    path("api/profile/", include('accounts.profile_urls')),  # Profile endpoints (NEW - for frontend compatibility)
+    path("api/admin/", include('accounts.urls')),  # Admin endpoints (profile management)
     path("api/tutor/", include('accounts.urls')),  # Tutor endpoints
     path("api/materials/", include('materials.urls')),
     path("api/student/", include('materials.student_urls')),
@@ -22,7 +24,8 @@ urlpatterns = [
     path("api/dashboard/", include('materials.urls')),  # Dashboard endpoints
     path("api/teacher/", include('materials.teacher_urls')),
     path("api/system/", include('core.urls')),  # System monitoring and management
-    
+    path("api/scheduling/", include('scheduling.urls')),  # Scheduling system
+
     # Compatibility aliases (non-API prefixed) used by tests and legacy frontend
     path("auth/", include('accounts.urls')),
     path("materials/", include('materials.urls')),
@@ -36,7 +39,7 @@ urlpatterns = [
     # Payment webhook (required for YooKassa)
     path("yookassa-webhook/", yookassa_webhook, name="yookassa_webhook"),
     path("api/check-payment/", check_payment_status, name="check_payment_status"),
-    
+
     # Media files serving (works in both development and production)
     # Все медиа файлы требуют авторизации
     re_path(r'^media/(?P<file_path>.*)$', serve_media_file, name='serve_media_file'),

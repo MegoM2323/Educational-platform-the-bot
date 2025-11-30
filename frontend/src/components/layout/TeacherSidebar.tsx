@@ -1,5 +1,5 @@
-import { Home, Send, FileText, MessageSquare, LogOut, User, CheckSquare, BookOpen, Calendar } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { Home, Send, FileText, MessageSquare, LogOut, CheckSquare, BookOpen, Calendar, CalendarDays, Clock, User } from "lucide-react";
+import { NavLink } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -20,9 +20,10 @@ const items = [
   { title: "Главная", url: "/dashboard/teacher", icon: Home },
   { title: "Распределение материалов", url: "/dashboard/teacher/materials", icon: Send },
   { title: "Планы занятий", url: "/dashboard/teacher/study-plans", icon: Calendar },
+  { title: "Управление расписанием", url: "/dashboard/teacher/schedule", icon: CalendarDays },
   { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },
-  { title: "Форум", url: "/dashboard/teacher/general-chat", icon: MessageSquare },
+  { title: "Чат", url: "/dashboard/teacher/general-chat", icon: MessageSquare },
 ];
 
 export function TeacherSidebar() {
@@ -48,7 +49,7 @@ export function TeacherSidebar() {
                       {state === "expanded" && (
                         <div className="flex items-center justify-between w-full">
                           <span>{item.title}</span>
-                          {item.title === "Общий чат" && <ChatNotificationBadge />}
+                          {item.title === "Чат" && <ChatNotificationBadge />}
                         </div>
                       )}
                     </NavLink>
@@ -63,7 +64,7 @@ export function TeacherSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink to="/dashboard/teacher/profile">
+              <NavLink to="/profile">
                 <User className="h-4 w-4" />
                 {state === "expanded" && <span>Профиль</span>}
               </NavLink>

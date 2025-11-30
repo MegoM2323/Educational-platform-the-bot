@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, ArrowLeft } from "lucide-react";
+import { BookOpen, ArrowLeft, ChevronRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { validateEmail, validateName, validatePhone } from "@/utils/validation";
@@ -181,7 +181,7 @@ const ApplicationForm = () => {
         <p className="text-muted-foreground">Укажите ваши основные данные</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="first_name">Имя *</Label>
           <Input
@@ -346,7 +346,7 @@ const ApplicationForm = () => {
 
       {applicationData.applicant_type === "student" && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="parent_first_name">Имя родителя *</Label>
               <Input
@@ -412,10 +412,10 @@ const ApplicationForm = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-muted/20 to-background">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm">
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="flex items-center gap-2">
+          <div className="flex items-center justify-between">
+            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div className="w-10 h-10 gradient-primary rounded-lg flex items-center justify-center">
                 <BookOpen className="w-6 h-6 text-primary-foreground" />
               </div>
@@ -423,7 +423,7 @@ const ApplicationForm = () => {
                 THE BOT
               </span>
             </Link>
-            <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors md:flex hidden">
               <ArrowLeft className="w-4 h-4" />
               <span>На главную</span>
             </Link>
@@ -431,22 +431,35 @@ const ApplicationForm = () => {
         </div>
       </header>
 
+      {/* Breadcrumbs */}
+      <nav className="border-b bg-card/20 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center gap-2 text-sm">
+            <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+              Главная
+            </Link>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <span className="text-foreground font-medium">Подача заявки</span>
+          </div>
+        </div>
+      </nav>
+
       {/* Progress Bar */}
       <div className="border-b bg-card/30">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Шаг {currentStep} из {totalSteps}</span>
             </div>
-            <div className="flex-1 max-w-md mx-4">
+            <div className="flex-1 max-w-sm">
               <div className="w-full bg-muted rounded-full h-2">
-                <div 
+                <div
                   className="bg-primary h-2 rounded-full transition-all duration-300"
                   style={{ width: `${(currentStep / totalSteps) * 100}%` }}
                 />
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground text-right">
               {Math.round((currentStep / totalSteps) * 100)}%
             </div>
           </div>
@@ -454,37 +467,43 @@ const ApplicationForm = () => {
       </div>
 
       {/* Form */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl p-8 shadow-lg">
-          {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderStep2()}
-          {currentStep === 3 && renderStep3()}
+      <div className="flex-1 flex items-center justify-center px-4 py-8 md:py-12">
+        <div className="w-full max-w-2xl">
+          <Card className="p-6 md:p-8 shadow-lg">
+            {currentStep === 1 && renderStep1()}
+            {currentStep === 2 && renderStep2()}
+            {currentStep === 3 && renderStep3()}
 
-          <div className="flex justify-between mt-8">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={currentStep === 1}
-            >
-              Назад
-            </Button>
-            
-            {currentStep < totalSteps ? (
-              <Button onClick={handleNext}>
-                Далее
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleSubmit}
-                disabled={isLoading}
-                className="gradient-primary shadow-glow"
+            <div className="flex flex-col-reverse sm:flex-row justify-between gap-4 mt-8">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentStep === 1}
+                className="w-full sm:w-auto"
               >
-                {isLoading ? "Отправка..." : "Подать заявку"}
+                Назад
               </Button>
-            )}
-          </div>
-        </Card>
+
+              {currentStep < totalSteps ? (
+                <Button
+                  onClick={handleNext}
+                  className="w-full sm:w-auto"
+                >
+                  Далее
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isLoading}
+                  className="w-full sm:w-auto gradient-primary shadow-glow"
+                >
+                  {isLoading ? "Отправка..." : "Подать заявку"}
+                </Button>
+              )}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

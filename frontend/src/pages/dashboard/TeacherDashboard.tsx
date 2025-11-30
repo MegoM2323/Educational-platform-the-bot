@@ -3,13 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, CheckCircle, FileText, MessageCircle, Bell, Plus, Clock, AlertCircle, ExternalLink, Users, TrendingUp } from "lucide-react";
+import { BookOpen, CheckCircle, FileText, MessageCircle, Plus, Clock, AlertCircle, ExternalLink, Users, TrendingUp } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
+import { ProfileCard } from "@/components/ProfileCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useTeacherDashboard, usePendingSubmissions } from "@/hooks/useTeacher";
+import { PendingSubmission } from "@/integrations/api/teacher";
+import { TeacherScheduleWidget } from "@/components/dashboard/TeacherScheduleWidget";
 
 // Интерфейсы для данных
 interface Material {
@@ -112,6 +115,27 @@ const TeacherDashboard = () => {
     navigate('/dashboard/teacher/general-chat');
   };
 
+  const handleEditProfile = () => {
+    navigate('/profile/teacher');
+  };
+
+  /**
+   * Подготавливаем данные профиля для ProfileCard
+   * На основе данных из dashboardData (единственный источник)
+   */
+  const getProfileData = () => {
+    return {
+      subjects: dashboardData?.profile?.subjects ?
+        (Array.isArray(dashboardData.profile.subjects) ?
+          dashboardData.profile.subjects.map((s: string | { id: number; name: string }) => typeof s === 'string' ? s : s.name)
+          : [])
+        : [],
+      experience: dashboardData?.profile?.experience ?? 0,
+      studentsCount: dashboardData?.progress_overview?.total_students ?? 0,
+      materialsCount: dashboardData?.progress_overview?.total_materials ?? 0,
+    };
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -120,13 +144,7 @@ const TeacherDashboard = () => {
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <div className="flex-1" />
-            <Button variant="outline" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground rounded-full text-xs flex items-center justify-center">
-                5
-              </span>
-            </Button>
-            <Button 
+            <Button
               className="gradient-primary shadow-glow"
               onClick={handleCreateMaterial}
             >
@@ -149,6 +167,32 @@ const TeacherDashboard = () => {
                   <div className="flex items-center gap-2 text-destructive">
                     <AlertCircle className="w-5 h-5" />
                     <span>{error}</span>
+                  </div>
+                </Card>
+              )}
+
+              {/* Профиль преподавателя */}
+              {!loading && !error && dashboardData && (
+                <ProfileCard
+                  userName={dashboardData.teacher_info?.name || user?.first_name || 'Преподаватель'}
+                  userEmail={user?.email || 'email@example.com'}
+                  userRole="teacher"
+                  avatarUrl={dashboardData.teacher_info?.avatar || dashboardData.profile?.avatar_url}
+                  profileData={getProfileData()}
+                  onEdit={handleEditProfile}
+                />
+              )}
+
+              {/* Скелетон для профиля */}
+              {loading && (
+                <Card className="p-6">
+                  <div className="flex gap-4 items-start">
+                    <Skeleton className="w-24 h-24 rounded-full" />
+                    <div className="flex-1 space-y-3">
+                      <Skeleton className="h-6 w-48" />
+                      <Skeleton className="h-4 w-64" />
+                      <Skeleton className="h-4 w-40" />
+                    </div>
                   </div>
                 </Card>
               )}
@@ -238,6 +282,9 @@ const TeacherDashboard = () => {
                     </Card>
                   </div>
 
+                  {/* Schedule Widget */}
+                  <TeacherScheduleWidget />
+
                   <div className="grid md:grid-cols-2 gap-6">
                     {/* Assignments to Check */}
                     <Card className="p-6">
@@ -249,7 +296,7 @@ const TeacherDashboard = () => {
                         <Badge variant="destructive">{pendingSubmissions.length}</Badge>
                       </div>
                       <div className="space-y-3">
-                        {pendingSubmissions.slice(0, 3).map((assignment: any) => (
+                        {pendingSubmissions.slice(0, 3).map((assignment: PendingSubmission) => (
                           <div 
                             key={assignment.id} 
                             className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"

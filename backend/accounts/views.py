@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.views import APIView
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import make_password
 from django.views.decorators.csrf import csrf_exempt
@@ -12,7 +13,7 @@ from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentPr
 from .serializers import (
     UserLoginSerializer, UserSerializer,
     StudentProfileSerializer, TeacherProfileSerializer, TutorProfileSerializer,
-    ParentProfileSerializer, ChangePasswordSerializer
+    ParentProfileSerializer, ChangePasswordSerializer, CurrentUserProfileSerializer
 )
 from .supabase_service import SupabaseAuthService
 
@@ -393,8 +394,147 @@ class ParentProfileView(generics.RetrieveUpdateAPIView):
     """
     serializer_class = ParentProfileSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_object(self):
         return self.request.user.parent_profile
+
+
+class CurrentUserProfileView(APIView):
+    """
+    API endpoint для получения профиля текущего авторизованного пользователя.
+
+    Поддерживает все 4 роли:
+    - Student (StudentProfile)
+    - Teacher (TeacherProfile)
+    - Tutor (TutorProfile)
+    - Parent (ParentProfile)
+
+    Методы:
+    - GET: Получить полный профиль текущего пользователя с соответствующими данными
+
+    Возвращает:
+    {
+        "data": {
+            "user": {
+                "id": int,
+                "email": str,
+                "first_name": str,
+                "last_name": str,
+                "role": str,
+                "role_display": str,
+                ...
+            },
+            "profile": {
+                // role-specific profile data
+                // или null если профиль не существует
+            }
+        },
+        "message": "Профиль успешно получен",
+        "errors": null
+    }
+
+    Возвращаемые статус коды:
+    - 200 OK: Профиль успешно получен
+    - 401 Unauthorized: Пользователь не авторизован
+    - 404 Not Found: Профиль пользователя не существует
+    """
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
+    def get(self, request):
+        """
+        Получить профиль текущего авторизованного пользователя.
+        Возвращает 404 если профиля нет (не создает автоматически).
+
+        Returns:
+            Response: JSON с профилем пользователя или 404 если профиля нет
+        """
+        try:
+            user = request.user
+
+            # Проверяем что пользователь существует
+            if not user or not user.is_authenticated:
+                return Response(
+                    {
+                        'data': None,
+                        'message': 'Пользователь не авторизован',
+                        'errors': 'Authentication required'
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+
+            # Получаем профиль с one query (БЕЗ автоматического создания)
+            profile_found = False
+            try:
+                if user.role == User.Role.STUDENT:
+                    profile = StudentProfile.objects.select_related('user').get(user=user)
+                elif user.role == User.Role.TEACHER:
+                    profile = TeacherProfile.objects.select_related('user').get(user=user)
+                elif user.role == User.Role.TUTOR:
+                    profile = TutorProfile.objects.select_related('user').get(user=user)
+                elif user.role == User.Role.PARENT:
+                    profile = ParentProfile.objects.select_related('user').get(user=user)
+                else:
+                    profile = None
+                profile_found = True
+            except (StudentProfile.DoesNotExist, TeacherProfile.DoesNotExist,
+                    TutorProfile.DoesNotExist, ParentProfile.DoesNotExist):
+                # Профиль не существует - возвращаем 404
+                profile = None
+                profile_found = False
+
+            # Prepare response data
+            user_serializer = UserSerializer(user)
+            user_data = user_serializer.data
+
+            if not profile_found:
+                # Profile not found - return 200 OK with None profile
+                return Response(
+                    {
+                        'data': {
+                            'user': user_data,
+                            'profile': None
+                        },
+                        'message': 'Профиль еще не создан',
+                        'errors': None
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            # Profile found - serialize it based on role
+            profile_data = None
+            if user.role == User.Role.STUDENT:
+                profile_data = StudentProfileSerializer(profile).data
+            elif user.role == User.Role.TEACHER:
+                profile_data = TeacherProfileSerializer(profile).data
+            elif user.role == User.Role.TUTOR:
+                profile_data = TutorProfileSerializer(profile).data
+            elif user.role == User.Role.PARENT:
+                profile_data = ParentProfileSerializer(profile).data
+
+            # Успешный ответ с найденным профилем
+            return Response(
+                {
+                    'data': {
+                        'user': user_data,
+                        'profile': profile_data
+                    },
+                    'message': 'Профиль успешно получен',
+                    'errors': None
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            print(f"[CurrentUserProfileView] Критическая ошибка: {str(e)}")
+            return Response(
+                {
+                    'data': None,
+                    'message': 'Ошибка при получении профиля',
+                    'errors': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 

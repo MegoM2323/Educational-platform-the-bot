@@ -11,37 +11,22 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Удаляем старые поля безопасно (проверяем существование через SQL)
-        migrations.SeparateDatabaseAndState(
-            database_operations=[
-                migrations.RunSQL(
-                    sql="""
-                    ALTER TABLE payments_payment DROP COLUMN IF EXISTS label;
-                    ALTER TABLE payments_payment DROP COLUMN IF EXISTS operation_id;
-                    ALTER TABLE payments_payment DROP COLUMN IF EXISTS payer;
-                    ALTER TABLE payments_payment DROP COLUMN IF EXISTS raw;
-                    """,
-                    reverse_sql=migrations.RunSQL.noop,
-                ),
-            ],
-            state_operations=[
-                migrations.RemoveField(
-                    model_name='payment',
-                    name='label',
-                ),
-                migrations.RemoveField(
-                    model_name='payment',
-                    name='operation_id',
-                ),
-                migrations.RemoveField(
-                    model_name='payment',
-                    name='payer',
-                ),
-                migrations.RemoveField(
-                    model_name='payment',
-                    name='raw',
-                ),
-            ],
+        # Удаляем старые поля через RemoveField (совместимо со всеми БД)
+        migrations.RemoveField(
+            model_name='payment',
+            name='label',
+        ),
+        migrations.RemoveField(
+            model_name='payment',
+            name='operation_id',
+        ),
+        migrations.RemoveField(
+            model_name='payment',
+            name='payer',
+        ),
+        migrations.RemoveField(
+            model_name='payment',
+            name='raw',
         ),
         
         # Добавляем новые поля

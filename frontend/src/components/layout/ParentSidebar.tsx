@@ -1,4 +1,4 @@
-import { Home, Users, FileText, CreditCard, BarChart3, LogOut, User } from "lucide-react";
+import { Home, Users, FileText, CreditCard, BarChart3, MessageSquare, LogOut, User } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
 
 const items = [
   { title: "Главная", url: "/dashboard/parent", icon: Home },
@@ -21,6 +22,7 @@ const items = [
   { title: "История платежей", url: "/dashboard/parent/payment-history", icon: CreditCard },
   { title: "Статистика", url: "/dashboard/parent/statistics", icon: BarChart3 },
   { title: "Отчёты", url: "/dashboard/parent/reports", icon: FileText },
+  { title: "Чат", url: "/dashboard/parent/general-chat", icon: MessageSquare },
 ];
 
 export function ParentSidebar() {
@@ -43,7 +45,12 @@ export function ParentSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} className={({ isActive }) => isActive ? "bg-sidebar-accent" : ""}>
                       <item.icon className="h-4 w-4" />
-                      {state === "expanded" && <span>{item.title}</span>}
+                      {state === "expanded" && (
+                        <div className="flex items-center justify-between w-full">
+                          <span>{item.title}</span>
+                          {item.title === "Чат" && <ChatNotificationBadge />}
+                        </div>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -56,7 +63,7 @@ export function ParentSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink to="/dashboard/parent/profile">
+              <NavLink to="/profile">
                 <User className="h-4 w-4" />
                 {state === "expanded" && <span>Профиль</span>}
               </NavLink>

@@ -71,17 +71,19 @@ class StudentProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='student_profile'
     )
-    
+
     grade = models.CharField(
         max_length=10,
+        blank=True,
+        default='',
         verbose_name='Класс'
     )
-    
+
     goal = models.TextField(
         blank=True,
         verbose_name='Цель обучения'
     )
-    
+
     tutor = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -90,7 +92,7 @@ class StudentProfile(models.Model):
         related_name='tutored_students',
         verbose_name='Тьютор'
     )
-    
+
     parent = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -100,27 +102,27 @@ class StudentProfile(models.Model):
         limit_choices_to={'role': 'parent'},
         verbose_name='Родитель'
     )
-    
+
     progress_percentage = models.PositiveIntegerField(
         default=0,
         verbose_name='Прогресс (%)'
     )
-    
+
     streak_days = models.PositiveIntegerField(
         default=0,
         verbose_name='Дней подряд'
     )
-    
+
     total_points = models.PositiveIntegerField(
         default=0,
         verbose_name='Общие баллы'
     )
-    
+
     accuracy_percentage = models.PositiveIntegerField(
         default=0,
         verbose_name='Точность (%)'
     )
-    
+
     generated_username = models.CharField(
         max_length=150,
         blank=True,
@@ -130,6 +132,12 @@ class StudentProfile(models.Model):
         max_length=128,
         blank=True,
         verbose_name='Сгенерированный пароль'
+    )
+
+    telegram = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Telegram (например: @username)'
     )
 
     def __str__(self):
@@ -145,20 +153,28 @@ class TeacherProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='teacher_profile'
     )
-    
+
     subject = models.CharField(
         max_length=100,
+        blank=True,
+        default='',
         verbose_name='Предмет'
     )
-    
+
     experience_years = models.PositiveIntegerField(
         default=0,
         verbose_name='Опыт работы (лет)'
     )
-    
+
     bio = models.TextField(
         blank=True,
         verbose_name='Биография'
+    )
+
+    telegram = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Telegram (например: @username)'
     )
 
     def __str__(self):
@@ -174,20 +190,28 @@ class TutorProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='tutor_profile'
     )
-    
+
     specialization = models.CharField(
         max_length=200,
+        blank=True,
+        default='',
         verbose_name='Специализация'
     )
-    
+
     experience_years = models.PositiveIntegerField(
         default=0,
         verbose_name='Опыт работы (лет)'
     )
-    
+
     bio = models.TextField(
         blank=True,
         verbose_name='Биография'
+    )
+
+    telegram = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Telegram (например: @username)'
     )
 
     def __str__(self):
@@ -204,9 +228,15 @@ class ParentProfile(models.Model):
         related_name='parent_profile'
     )
 
+    telegram = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Telegram (например: @username)'
+    )
+
     def __str__(self):
         return f"Профиль родителя: {self.user.get_full_name()}"
-    
+
     @property
     def children(self):
         """

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Parent Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     // Вход под родителем
-    await page.goto('http://localhost:8080/auth');
+    await page.goto('/auth');
     await page.fill('input[type="email"]', 'parent@test.com');
     await page.fill('input[type="password"]', 'TestPass123!');
     await page.click('button:has-text("Войти")');

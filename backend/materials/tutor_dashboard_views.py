@@ -4,8 +4,12 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
+import logging
 
 from .tutor_dashboard_service import TutorDashboardService
+from accounts.serializers import get_profile_serializer
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -14,7 +18,11 @@ User = get_user_model()
 @permission_classes([IsAuthenticated])
 def tutor_dashboard(request):
     """
-    Получить полные данные дашборда тьютора
+    Получить полные данные дашборда тьютора.
+
+    Скрывает приватные поля профиля от самого тьютора:
+    - bio (биография)
+    - experience_years (опыт работы)
 
     GET /api/materials/dashboard/tutor/
     """
@@ -26,10 +34,30 @@ def tutor_dashboard(request):
         )
 
     try:
-        service = TutorDashboardService(request.user, request=request)
-        data = service.get_dashboard_data()
-        return Response(data, status=status.HTTP_200_OK)
+        user = request.user
+        service = TutorDashboardService(user, request=request)
+        dashboard_data = service.get_dashboard_data()
+
+        # Получаем профиль тьютора
+        try:
+            profile = user.tutor_profile
+
+            # Выбираем serializer в зависимости от прав
+            # Сам тьютор НЕ видит приватные поля (bio, experience_years)
+            ProfileSerializer = get_profile_serializer(profile, user, user)
+            serialized_profile = ProfileSerializer(profile).data
+
+            # Добавляем профиль в dashboard_data
+            dashboard_data['profile'] = serialized_profile
+
+        except Exception as profile_error:
+            logger.warning(f"Could not load tutor profile: {profile_error}")
+            # Не блокируем весь dashboard если не удалось загрузить профиль
+            dashboard_data['profile'] = None
+
+        return Response(dashboard_data, status=status.HTTP_200_OK)
     except Exception as e:
+        logger.error(f"Unexpected error in tutor dashboard: {e}", exc_info=True)
         return Response(
             {'error': f'Ошибка при получении данных дашборда: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

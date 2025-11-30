@@ -863,6 +863,9 @@ def update_user(request, user_id):
     return Response(response_data, status=status.HTTP_200_OK)
 
 
+@api_view(['PATCH'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsStaffOrAdmin])
 def update_student_profile(request, student_id):
     """
     Обновление профиля студента (admin-only)

@@ -66,13 +66,17 @@ export interface SendForumMessageResponse {
 
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
-    const response = await unifiedAPI.request<ForumChatsResponse>(
+    const response = await unifiedAPI.request<ForumChat[]>(
       '/chat/forum/'
     );
+
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data?.results || [];
+
+    // unifiedClient already extracts results array from paginated response
+    // So response.data is already ForumChat[], not ForumChatsResponse
+    return response.data || [];
   },
 
   getForumMessages: async (

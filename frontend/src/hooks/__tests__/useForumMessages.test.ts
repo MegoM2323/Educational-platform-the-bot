@@ -75,14 +75,8 @@ const mockForumMessages = [
   },
 ];
 
-const mockMessagesResponse = {
-  success: true,
-  chat_id: 1,
-  limit: 50,
-  offset: 0,
-  count: 3,
-  results: mockForumMessages,
-};
+// API returns ForumMessage[] directly (unifiedAPI extracts results array)
+const mockMessagesResponse = mockForumMessages;
 
 describe('useForumMessages', () => {
   beforeEach(() => {
@@ -149,7 +143,7 @@ describe('useForumMessages', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    const messages = result.current.data?.results || [];
+    const messages = result.current.data || [];
     expect(messages[0].is_read).toBe(true);
     expect(messages[2].is_read).toBe(false);
   });
@@ -191,18 +185,8 @@ describe('useForumMessages', () => {
   });
 
   it('должен обновляться при изменении chatId', async () => {
-    const mockResponse1 = {
-      ...mockMessagesResponse,
-      chat_id: 1,
-      results: [mockForumMessages[0]],
-    };
-
-    const mockResponse2 = {
-      ...mockMessagesResponse,
-      chat_id: 2,
-      results: [mockForumMessages[1]],
-      count: 1,
-    };
+    const mockResponse1 = [mockForumMessages[0]];
+    const mockResponse2 = [mockForumMessages[1]];
 
     vi.mocked(forumAPI.getForumMessages)
       .mockResolvedValueOnce(mockResponse1)
@@ -218,14 +202,14 @@ describe('useForumMessages', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(result.current.data?.chat_id).toBe(1);
+    expect(result.current.data).toEqual(mockResponse1);
     expect(forumAPI.getForumMessages).toHaveBeenCalledWith(1, 50, 0);
 
     // Change chatId
     rerender({ chatId: 2 });
 
     await waitFor(() => {
-      expect(result.current.data?.chat_id).toBe(2);
+      expect(result.current.data).toEqual(mockResponse2);
     }, { timeout: 3000 });
 
     // After rerender, API should be called again with new chatId
@@ -235,14 +219,7 @@ describe('useForumMessages', () => {
   });
 
   it('должен вернуть пустой ответ если нет сообщений', async () => {
-    const emptyResponse = {
-      success: true,
-      chat_id: 1,
-      limit: 50,
-      offset: 0,
-      count: 0,
-      results: [],
-    };
+    const emptyResponse: typeof mockMessagesResponse = [];
 
     vi.mocked(forumAPI.getForumMessages).mockResolvedValue(emptyResponse);
 
@@ -252,8 +229,7 @@ describe('useForumMessages', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(result.current.data?.results).toHaveLength(0);
-    expect(result.current.data?.count).toBe(0);
+    expect(result.current.data).toHaveLength(0);
   });
 });
 
@@ -455,5 +431,85 @@ describe('useSendForumMessage', () => {
 
     // Cache invalidation for forum-chats should happen in onSuccess
     expect(result.current.isSuccess).toBe(true);
+  });
+
+  it('должен добавлять сообщение в кеш немедленно (optimistic update)', async () => {
+    const newMessage = {
+      id: 10,
+      content: 'Brand new message',
+      sender: {
+        id: 1,
+        full_name: 'John Student',
+        role: 'student',
+      },
+      created_at: '2025-01-15T12:00:00Z',
+      updated_at: '2025-01-15T12:00:00Z',
+      is_read: false,
+      message_type: 'text',
+    } as any;
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    // Pre-populate cache with existing messages
+    queryClient.setQueryData(['forum-messages', 1, 50, 0], mockForumMessages);
+
+    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useSendForumMessage(), { wrapper });
+
+    // Send message
+    result.current.mutate({
+      chatId: 1,
+      data: { content: 'Brand new message' },
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // Check that cache was updated with new message
+    const cachedMessages = queryClient.getQueryData<typeof mockForumMessages>(['forum-messages', 1, 50, 0]);
+    expect(cachedMessages).toBeDefined();
+    expect(cachedMessages).toHaveLength(mockForumMessages.length + 1);
+    expect(cachedMessages?.[cachedMessages.length - 1].content).toBe('Brand new message');
+  });
+
+  it('должен предотвращать дублирование сообщений в кеше', async () => {
+    const newMessage = mockForumMessages[0]; // Use existing message (same ID)
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    // Pre-populate cache with existing messages
+    queryClient.setQueryData(['forum-messages', 1, 50, 0], mockForumMessages);
+
+    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useSendForumMessage(), { wrapper });
+
+    // Send message with duplicate ID
+    result.current.mutate({
+      chatId: 1,
+      data: { content: newMessage.content },
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // Check that cache still has same number of messages (no duplicate)
+    const cachedMessages = queryClient.getQueryData<typeof mockForumMessages>(['forum-messages', 1, 50, 0]);
+    expect(cachedMessages).toHaveLength(mockForumMessages.length); // Should NOT increase
   });
 });

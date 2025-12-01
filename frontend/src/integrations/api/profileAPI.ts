@@ -483,13 +483,14 @@ export const profileAPI = {
 
   /**
    * Get current parent's profile
-   * GET /api/auth/profile/parent/me/
+   * GET /api/profile/parent/
+   * NEW ENDPOINT - Uses new profile API
    *
    * @returns Parent profile with role-specific data
    * @throws Error if not authenticated (401) or profile not found (404)
    */
   async getMyParentProfile(): Promise<ApiResponse<UserProfile>> {
-    const cacheKey = '/auth/profile/parent/me';
+    const cacheKey = '/profile/parent/';
 
     const cached = this._getCachedData(cacheKey);
     if (cached) {
@@ -501,7 +502,7 @@ export const profileAPI = {
     }
 
     try {
-      const response = await apiClient.request<UserProfile>('/auth/profile/parent/me/');
+      const response = await apiClient.request<UserProfile>('/profile/parent/');
 
       if (response.success && response.data) {
         this._setCachedData(cacheKey, response.data);
@@ -519,16 +520,19 @@ export const profileAPI = {
 
   /**
    * Update current parent's profile
-   * PATCH /api/auth/profile/parent/me/
+   * PATCH /api/profile/parent/
+   * NEW ENDPOINT - Uses new profile API with multipart/form-data support
    *
-   * @param data - Profile data to update
+   * @param data - Profile data to update (supports avatar file)
    * @returns Updated parent profile
    */
-  async updateParentProfile(data: ProfileUpdateData): Promise<ApiResponse<UserProfile>> {
+  async updateParentProfile(data: ProfileUpdateData | FormData): Promise<ApiResponse<UserProfile>> {
     try {
-      const response = await apiClient.request<UserProfile>('/auth/profile/parent/me/', {
+      const isFormData = data instanceof FormData;
+
+      const response = await apiClient.request<UserProfile>('/profile/parent/', {
         method: 'PATCH',
-        body: JSON.stringify(data),
+        body: isFormData ? data : JSON.stringify(data),
       });
 
       if (response.success) {
@@ -547,8 +551,8 @@ export const profileAPI = {
 
   /**
    * Upload parent avatar
-   * PATCH /api/auth/profile/parent/ with FormData
-   * Note: Parent profile may use old endpoint format
+   * PATCH /api/profile/parent/ with FormData
+   * NEW ENDPOINT - Uses new profile API
    *
    * @param file - Avatar file to upload
    * @returns Updated parent profile with new avatar URL
@@ -558,7 +562,7 @@ export const profileAPI = {
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const response = await apiClient.request<UserProfile>('/auth/profile/parent/', {
+      const response = await apiClient.request<UserProfile>('/profile/parent/', {
         method: 'PATCH',
         body: formData,
       });

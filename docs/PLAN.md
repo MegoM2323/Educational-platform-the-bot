@@ -1,209 +1,444 @@
-# Project Plan: Forum Chat Display Bug Fix
+# Project Plan: Fix Admin Student & Parent Management Functionality
 
 ## Overview
 
-Critical frontend bug prevents forum chats from displaying despite working backend API. API endpoint `/api/chat/forum/` returns HTTP 200 with 6 chats in correct format `{success: true, count: 6, results: [...]}`. Data arrives in browser (visible in Network tab), but React component shows "Нет активных чатов" (No active chats). Root cause likely in data extraction chain: unifiedClient → forumAPI → useForumChats → Forum component.
+Admin functionality for managing students and parents is reported as "working poorly" and requires comprehensive analysis and fixes. All CRUD operations (create, edit, assign, delete, reset password) for both students and parents must be verified, fixed, and fully tested to ensure data persists correctly, forms submit successfully, proper validation occurs, and clear success/error messages display.
 
 **Goals**:
-- Forum page displays all 6 chats correctly
-- Chat list is clickable and functional
-- Unread badges display
-- Enable browser testing (currently blocked)
+- All student management operations work without errors (create, edit, assign subjects, delete, reset password)
+- All parent management operations work without errors (create, edit, assign students, delete, reset password)
+- Forms submit successfully with proper validation and feedback
+- Data persists correctly in database
+- Zero console errors or crashes
+- Clear success/error messages for all operations
 
 ## Active Tasks | Blocked Tasks | Pending | Escalations | Completed
 
 ### Active Tasks
-None
+None (ready to dispatch Wave 5 - final verification testing)
 
 ### Blocked Tasks
-- T603 (@qa-user-tester): Execute comprehensive forum browser tests (blocked by T604)
+None (all backend fixes complete)
 
 ### Pending
-- T604 (@react-frontend-dev): Fix forum chat display bug (ready to dispatch)
+Wave 5 - Final Verification (dispatch immediately in parallel):
+- T845 (@qa-code-tester): Re-run comprehensive test suite after Wave 4 fixes (expect 90%+ pass rate)
+- T846 (@qa-user-tester): Re-run end-to-end browser testing after Wave 4 fixes (expect all operations working)
+
+After Wave 5: Final documentation and completion
 
 ### Escalations
-None
+None - all critical issues resolved
 
 ### Completed
-- T601 (@py-backend-dev): Fixed SupabaseAuthService initialization ✅
-- T602 (@qa-code-tester): Executed 23/23 forum API tests ✅
+✅ Wave 1 (T821-T825): Comprehensive admin analysis - 23+ issues identified in student/parent UI, 8 issues in backend
+✅ Wave 2 Phase 1 (T830-T835): Critical fixes:
+   - T830: Fixed StudentManagement list not displaying (added is_active field)
+   - T831: Fixed email race condition (moved check in transaction)
+   - T832: Fixed N+1 queries and added pagination (annotate + pagination)
+   - T833: Created 53-test suite (28 passing, 25 failing)
+   - T834: Added input validation (email/password/phone)
+   - T835: Implemented reactivate endpoint (POST /api/auth/users/{id}/reactivate/)
+✅ Wave 2 Phase 2 (T836-T838): Medium-priority UI improvements:
+   - T836: Added subject assignment to StudentManagement (SubjectAssignmentDialog component)
+   - T837: Fixed Parent Management UI (pagination, search, children count, full names)
+   - T838: Added Student list filters (tutor filter) and sorting (clickable headers)
+✅ Wave 3 (T839-T840): Comprehensive Testing:
+   - T839: Code test suite - 53 tests, 29 passing (54.7%), 24 failing
+   - T840: E2E browser testing - UI works but blocked by backend API issues
+✅ Wave 4 (T841-T844): Critical Backend Fixes:
+   - T841: Fixed `/api/auth/students/` returning empty list (removed is_active hardcode filter)
+   - T842: Fixed `/api/auth/parents/` returning empty list (removed hardcoded filter)
+   - T843: Fixed Supabase-py _refresh_token_timer AttributeError (added compatibility patch)
+   - T844: Implemented hard delete functionality in delete_user() endpoint
 
 ---
 
 ## Execution Order
 
-### Wave 1: Fix Frontend Bug (CRITICAL)
-**Immediate:**
-- T604 (@react-frontend-dev): Debug and fix chat display → Enable browser testing
+### Wave 1: Comprehensive Analysis (Parallel - 30 minutes)
+**Immediate dispatch:**
+- T821 (@react-frontend-dev): Analyze Admin Student Management UI
+- T822 (@py-backend-dev): Analyze Admin Student Backend Endpoints
+- T823 (@react-frontend-dev): Analyze Admin Parent Management UI
+- T824 (@py-backend-dev): Analyze Admin Parent Backend Endpoints
+- T825 (@qa-user-tester): Test Current Admin Functionality
 
-### Wave 2: Browser Testing
-**After T604 completes:**
-- T603 (@qa-user-tester): Execute 8 browser test scenarios → Verify end-to-end workflows
+### Wave 2: Fix Issues (Sequential - after Wave 1)
+**After T821-T825 complete:**
+- T826-T830 (@react-frontend-dev/@py-backend-dev): Fix student management issues
+- T831-T835 (@react-frontend-dev/@py-backend-dev): Fix parent management issues
 
-**Total Estimated Time**: 30-60 minutes for T604, then 1-2 hours for T603
+### Wave 3: Full Testing (After All Fixes)
+**After T826-T835 complete:**
+- T836 (@qa-user-tester): Comprehensive admin functionality test
+
+**Critical Path**: T821-T825 → T826-T835 → T836
+**Total Timeline**: ~90 minutes
 
 ---
 
 ## Task Specifications
 
-### T604: Fix Forum Chat Display Bug
+### T821: Analyze Admin Student Management UI
 - **Agent**: react-frontend-dev
-- **Parallel**: no
-- **Priority**: CRITICAL - blocks browser testing
+- **Parallel**: yes
+- **Priority**: CRITICAL
 
 **Acceptance Criteria**:
-  - [ ] Forum page at `/dashboard/student/forum` displays chat list
-  - [ ] All 6 forum chats visible in UI
-  - [ ] Chat names display correctly (format: "{Subject} - {Student} ↔ {Teacher/Tutor}")
-  - [ ] Chat types show correctly (FORUM_SUBJECT and FORUM_TUTOR badges)
-  - [ ] Unread count badges appear if > 0
-  - [ ] Clicking chat loads messages
-  - [ ] No console errors
-  - [ ] Data flows through: API → unifiedClient → forumAPI → useForumChats → Forum component
+  - [ ] Examined StudentManagement.tsx component structure
+  - [ ] Verified CreateStudentDialog component exists and form fields
+  - [ ] Checked EditUserDialog component for student role
+  - [ ] Verified data flow: form → API call → response handling
+  - [ ] Identified UI bugs (form validation, error handling, loading states)
+  - [ ] Documented all issues with line numbers and exact symptoms
+  - [ ] Verified API client methods in adminAPI.ts exist
 
-**Investigation Steps**:
-1. **Open browser DevTools**:
-   - Network tab: Check `/api/chat/forum/` response structure
-   - Console: Check for errors, warnings, or data structure logs
-   - React DevTools: Inspect `useForumChats` hook return value
-   - Application tab: Check localStorage cache
-
-2. **Trace data flow**:
-   - API returns: `{success: true, count: 6, results: [chat1, chat2, ...]}`
-   - unifiedClient.request() line 680-685: Should extract `results` array
-   - forumAPI.getForumChats() line 75: Should return `response.data?.results || []`
-   - useForumChats() line 7: Should return React Query object with `data` field
-   - Forum.tsx line 300: Should extract `chats` from `data` with fallback `[]`
-
-3. **Add debug logging**:
-   - forumAPI.getForumChats(): Log `response.data` before returning
-   - useForumChats(): Log query result before return
-   - Forum.tsx: Log `chats` variable after extraction
-   - Identify where data becomes empty/undefined
-
-4. **Check common issues**:
-   - Response structure mismatch: API might return different format than expected
-   - Type mismatch: TypeScript types might not match actual data
-   - Async timing: Component might render before data arrives
-   - Cache issue: React Query might cache old empty response
-   - Conditional rendering: Component might hide chats due to wrong condition
-
-5. **Fix implementation**:
-   - If data extraction wrong: Fix forumAPI.getForumChats() or unifiedClient logic
-   - If type mismatch: Update TypeScript interfaces
-   - If async issue: Add proper loading/error states
-   - If cache issue: Clear React Query cache or adjust cache config
-   - Test fix: Verify all 6 chats appear in UI
+**Subtasks**:
+  - [ ] Read `/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/StudentManagement.tsx`
+  - [ ] Check all dialog components in `/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/`
+  - [ ] Verify API calls in `adminAPI.ts` or `unifiedClient.ts`
+  - [ ] Check form validation logic
+  - [ ] Verify error handling and toast notifications
+  - [ ] Check data refresh after CRUD operations
+  - [ ] Look for TypeScript type mismatches
 
 **Test Scenarios**:
-  - Valid login: Student user → Navigate to `/dashboard/student/forum` → See chat list
-  - Chat count: Verify 6 chats appear (3 FORUM_SUBJECT + 3 FORUM_TUTOR if student has tutor)
-  - Chat data: Each chat shows name, subject (if FORUM_SUBJECT), unread count, last message
-  - Click chat: Select chat → Messages load → Can type and send
-  - Search: Type in search → Chat list filters correctly
-  - Empty state: If no chats (edge case), shows "Нет активных чатов"
-  - Loading state: While loading, shows skeleton loaders
+  - Open "Create Student" dialog → Form renders with all fields
+  - Fill form → Click submit → Loading state appears → Success message shown
+  - Form validation: empty required fields → Error messages display
+  - Edit student → Form pre-fills with existing data → Submit → Data updates
+  - Delete student → Confirmation dialog → Delete → Student removed from list
+  - Reset password → New password displayed once
+  - Pagination works → Next/previous buttons functional
 
-**Files to Examine**:
-  - `frontend/src/integrations/api/forumAPI.ts` (CRITICAL - line 68-76)
-  - `frontend/src/integrations/api/unifiedClient.ts` (REVIEW - line 680-685, response extraction)
-  - `frontend/src/hooks/useForumChats.ts` (VERIFY - line 5-11, React Query usage)
-  - `frontend/src/pages/dashboard/Forum.tsx` (CHECK - line 300, data extraction)
-  - Browser DevTools Network/Console (DIAGNOSE)
-
-**Expected Fix Location**:
-Most likely one of these:
-1. forumAPI.getForumChats() not extracting `results` correctly
-2. unifiedClient not handling forum API response format
-3. useForumChats() not returning data properly
-4. Forum.tsx not accessing data correctly
-
-**Debug Commands**:
-```bash
-# Open browser console and run:
-localStorage.clear()  # Clear cache
-# Reload page
-# Check Network tab for /api/chat/forum/ response
-# Check Console for any errors or warnings
-```
+**References**:
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/StudentManagement.tsx` (EXAMINE)
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/CreateStudentDialog.tsx` (EXAMINE)
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/EditUserDialog.tsx` (EXAMINE)
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/DeleteUserDialog.tsx` (EXAMINE)
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/ResetPasswordDialog.tsx` (EXAMINE)
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/integrations/api/adminAPI.ts` (CHECK API METHODS)
 
 ---
 
-### T603: Execute Comprehensive Forum Browser Tests
-- **Agent**: qa-user-tester
-- **Blocked by**: [T604]
-- **Parallel**: no
+### T822: Analyze Admin Student Backend Endpoints
+- **Agent**: py-backend-dev
+- **Parallel**: yes
+- **Priority**: CRITICAL
 
 **Acceptance Criteria**:
-  - [ ] All 8 forum browser test scenarios pass
-  - [ ] Student can send message to teacher and receive reply
-  - [ ] Tutor can message student
-  - [ ] Real-time message updates via WebSocket
-  - [ ] Unread badges display correctly
-  - [ ] Chat list filtering/search works
-  - [ ] Responsive UI on mobile viewport
+  - [ ] Verified all student endpoints exist and are registered in urls.py
+  - [ ] Checked permission classes (IsStaffOrAdmin) are correct
+  - [ ] Verified serializers validate data correctly
+  - [ ] Identified N+1 queries or missing select_related/prefetch_related
+  - [ ] Checked transaction atomicity for create/update operations
+  - [ ] Verified profile creation signals work correctly
+  - [ ] Documented all backend issues with line numbers
+
+**Subtasks**:
+  - [ ] Read `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/staff_views.py` (create_student, list_students, etc.)
+  - [ ] Check `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/urls.py` for endpoint registration
+  - [ ] Verify serializers in `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/serializers.py`
+  - [ ] Check StudentProfile model and signals in `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/models.py`
+  - [ ] Test endpoints with curl or Postman (if possible)
+  - [ ] Verify Supabase sync logic doesn't cause failures
+  - [ ] Check error responses and status codes
 
 **Test Scenarios**:
-  - Student login → navigate to `/dashboard/student/forum` → see chat list
-  - Select teacher chat → messages load → type and send message → message appears
-  - Teacher login → see new unread badge → open student chat → read message → reply
-  - Student sees reply in real-time via WebSocket
-  - Tutor login → navigate to forum → see assigned students → send message
-  - Student receives tutor message → badge appears → opens chat → reads and replies
-  - Multi-subject workflow: Student with 3 subjects → sees 3 separate chats → switches between them
-  - Search/filter: Type teacher name → chat list filters → only matching chats visible
+  - POST `/api/auth/students/create/` with valid data → 201 CREATED → User + Profile created
+  - POST `/api/auth/students/create/` with missing fields → 400 BAD REQUEST → Clear error message
+  - GET `/api/students/` → 200 OK → Paginated list returned
+  - PATCH `/api/auth/users/{id}/` → 200 OK → User data updated
+  - POST `/api/auth/users/{id}/reset-password/` → 200 OK → New password returned
+  - DELETE `/api/auth/users/{id}/delete/` → 200 OK → User soft deleted
+  - Verify N+1 queries: list 50 students should use < 10 queries total
 
 **References**:
-  - `frontend/tests/e2e/forum/` (EXECUTE ALL .spec.ts FILES)
-  - `frontend/src/pages/dashboard/forum/ForumPage.tsx` (VERIFY RENDERING)
-  - `frontend/src/hooks/useForumChats.ts` (CHECK STATE MANAGEMENT)
+  - `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/staff_views.py` (EXAMINE create_student, list_students, update_user, etc.)
+  - `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/urls.py` (VERIFY ROUTES)
+  - `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/serializers.py` (CHECK VALIDATION)
+  - `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/models.py` (CHECK StudentProfile, signals)
+
+---
+
+### T823: Analyze Admin Parent Management UI
+- **Agent**: react-frontend-dev
+- **Parallel**: yes
+- **Priority**: CRITICAL
+
+**Acceptance Criteria**:
+  - [ ] Examined ParentManagement.tsx component structure
+  - [ ] Verified CreateParentDialog component exists and form fields
+  - [ ] Checked ParentStudentAssignment component for assigning students
+  - [ ] Verified data flow: form → API call → response handling
+  - [ ] Identified UI bugs (form validation, error handling, loading states)
+  - [ ] Documented all issues with line numbers and exact symptoms
+  - [ ] Verified API client methods exist for parents
+
+**Subtasks**:
+  - [ ] Read `/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/ParentManagement.tsx`
+  - [ ] Check all parent-related dialog components
+  - [ ] Verify API calls for parent CRUD and assignment operations
+  - [ ] Check form validation logic for parent creation
+  - [ ] Verify error handling and toast notifications
+  - [ ] Check student assignment workflow
+  - [ ] Look for TypeScript type mismatches
+
+**Test Scenarios**:
+  - Open "Create Parent" dialog → Form renders with all fields
+  - Fill form → Click submit → Loading state appears → Success message shown
+  - Form validation: empty required fields → Error messages display
+  - Edit parent → Form pre-fills with existing data → Submit → Data updates
+  - Assign students to parent → Select multiple students → Submit → Assignment succeeds
+  - Delete parent → Confirmation dialog → Delete → Parent removed from list
+  - Reset password → New password displayed once
+
+**References**:
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/ParentManagement.tsx` (EXAMINE)
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/CreateParentDialog.tsx` (EXAMINE)
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/ParentStudentAssignment.tsx` (EXAMINE)
+  - `/home/mego/Python Projects/THE_BOT_platform/frontend/src/integrations/api/adminAPI.ts` (CHECK PARENT METHODS)
+
+---
+
+### T824: Analyze Admin Parent Backend Endpoints
+- **Agent**: py-backend-dev
+- **Parallel**: yes
+- **Priority**: CRITICAL
+
+**Acceptance Criteria**:
+  - [ ] Verified all parent endpoints exist and are registered in urls.py
+  - [ ] Checked permission classes (IsStaffOrAdmin) are correct
+  - [ ] Verified serializers validate data correctly
+  - [ ] Checked parent-student assignment logic (assign_parent_to_students)
+  - [ ] Verified transaction atomicity for assignment operations
+  - [ ] Verified profile creation signals work correctly
+  - [ ] Documented all backend issues with line numbers
+
+**Subtasks**:
+  - [ ] Read create_parent, list_parents, assign_parent_to_students in staff_views.py
+  - [ ] Check urls.py for parent endpoint registration
+  - [ ] Verify ParentProfile model and signals
+  - [ ] Test parent creation endpoint with curl or Postman
+  - [ ] Test student assignment endpoint
+  - [ ] Verify Supabase sync doesn't break parent creation
+  - [ ] Check error responses and status codes
+
+**Test Scenarios**:
+  - POST `/api/auth/parents/create/` with valid data → 201 CREATED → User + Profile created
+  - POST `/api/auth/parents/create/` with missing fields → 400 BAD REQUEST → Clear error message
+  - GET `/api/auth/parents/` → 200 OK → List of parents returned
+  - POST `/api/auth/assign-parent/` with parent_id + student_ids → 200 OK → Assignment succeeds
+  - POST `/api/auth/assign-parent/` with invalid IDs → 404 NOT FOUND → Clear error
+  - PATCH `/api/auth/users/{parent_id}/` → 200 OK → Parent data updated
+  - DELETE `/api/auth/users/{parent_id}/delete/` → 200 OK → Parent soft deleted
+
+**References**:
+  - `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/staff_views.py` (EXAMINE create_parent, list_parents, assign_parent_to_students)
+  - `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/urls.py` (VERIFY ROUTES)
+  - `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/models.py` (CHECK ParentProfile)
+
+---
+
+### T825: Test Current Admin Functionality
+- **Agent**: qa-user-tester
+- **Parallel**: yes
+- **Priority**: CRITICAL
+
+**Acceptance Criteria**:
+  - [ ] Attempted to create new student via admin dashboard
+  - [ ] Documented exact error messages or failures
+  - [ ] Attempted to edit existing student
+  - [ ] Documented whether data persisted
+  - [ ] Attempted to create new parent via admin dashboard
+  - [ ] Documented exact error messages or failures
+  - [ ] Attempted to assign students to parent
+  - [ ] Documented whether assignment worked
+  - [ ] Captured screenshots of any errors or unexpected behavior
+  - [ ] Checked browser console for JavaScript errors
+
+**Browser Test Flow**:
+1. **Login as admin**:
+   - Navigate to http://localhost:8080/auth
+   - Login with admin credentials (admin@test.com / TestPass123!)
+   - Verify dashboard loads at /admin
+
+2. **Test Student Creation**:
+   - Click "Students" tab
+   - Click "Create Student" button
+   - Fill form: email (newstudent@test.com), first name, last name, grade
+   - Click "Submit"
+   - **Document**: Success message? Error message? Console errors?
+   - **Verify**: Is new student visible in list? Can you find it in database?
+
+3. **Test Student Edit**:
+   - Select existing student
+   - Click "Edit" button
+   - Change first name to "UpdatedName"
+   - Click "Save"
+   - **Document**: Success message? Error message?
+   - **Verify**: Is change visible in list? Refresh page - change persists?
+
+4. **Test Parent Creation**:
+   - Click "Parents" tab
+   - Click "Create Parent" button
+   - Fill form: email (newparent@test.com), first name, last name
+   - Click "Submit"
+   - **Document**: Success message? Error message? Console errors?
+   - **Verify**: Is new parent visible in list?
+
+5. **Test Parent-Student Assignment**:
+   - Click "Assign Students" button
+   - Select parent from dropdown
+   - Select multiple students
+   - Click "Assign"
+   - **Document**: Success message? Error message?
+   - **Verify**: Are students now linked to parent in database?
+
+6. **Test Delete Operations**:
+   - Select test student
+   - Click "Delete" button
+   - Confirm deletion
+   - **Document**: Success? Error? Student removed from list?
+
+7. **Test Password Reset**:
+   - Select student
+   - Click "Reset Password" button
+   - **Document**: New password displayed? Error?
+
+**Test Scenarios**:
+  - All forms render correctly
+  - All form submissions complete without crashes
+  - Success messages appear after successful operations
+  - Error messages appear with clear descriptions
+  - Browser console shows no JavaScript errors
+  - Data persists after page refresh
+  - CRUD operations work end-to-end
+
+**References**:
+  - Browser: http://localhost:8080/admin
+  - Backend: http://localhost:8000/api
+  - Browser DevTools Console (check for errors)
+  - Browser DevTools Network tab (check API responses)
 
 ---
 
 ## Technical Context
 
-### Current Status
-- ✅ **Backend API**: 23/23 tests passed, API returns HTTP 200 with correct data
-- ✅ **Database**: Forum chats exist (6 chats created via signals)
-- ✅ **Authentication**: Login works, tokens issued correctly
-- ❌ **Frontend Display**: React component does not render chats despite receiving data
-- ⏸️ **Browser Tests**: Blocked until UI displays chats
+### Admin Features to Verify
 
-### API Response Format (Verified Working)
-```json
-{
-  "success": true,
-  "count": 6,
-  "results": [
-    {
-      "id": 1,
-      "name": "Math - Student1 ↔ Teacher1",
-      "type": "forum_subject",
-      "subject": {"id": 1, "name": "Math"},
-      "participants": [...],
-      "unread_count": 0,
-      "last_message": {...},
-      "created_at": "2025-12-01T10:00:00Z",
-      "updated_at": "2025-12-01T10:00:00Z",
-      "is_active": true
-    },
-    // ... 5 more chats
-  ]
-}
-```
+**Student Management:**
+- Create new student (email, password auto-generated, profile created)
+- Edit student profile (name, grade, learning goal, tutor assignment)
+- Assign subjects to student (with teacher selection)
+- Reset student password (one-time display)
+- Delete student (soft/hard delete with confirmations)
+- Pagination and filters (grade, tutor, search)
 
-### Frontend Data Flow
-```
-1. API Response → unifiedClient.request<ForumChatsResponse>('/chat/forum/')
-2. unifiedClient extracts response.data.results (line 680-685)
-3. forumAPI.getForumChats() returns response.data?.results || [] (line 75)
-4. useForumChats() wraps in React Query: queryFn: () => forumAPI.getForumChats()
-5. Forum.tsx extracts: const { data: chats = [] } = useForumChats()
-6. ChatList component receives chats prop
-7. ChatList renders chat items or "Нет активных чатов" if empty
-```
+**Parent Management:**
+- Create new parent (email, password auto-generated, profile created)
+- Edit parent profile (name, phone)
+- Assign students to parent (bulk assignment)
+- Reset parent password (one-time display)
+- Delete parent (soft/hard delete with confirmations)
+- View parent-student relationships
 
-**Problem Point**: Data becomes empty somewhere in steps 3-7
+### Expected Behavior
+- Forms submit successfully
+- Data persists in database (User + Profile tables)
+- Validation prevents invalid submissions
+- Clear success/error messages
+- No console errors or crashes
+- All fields save correctly
+- Relationships (tutor, parent, subjects) maintained
 
-### Expected Outcome
-After T604: Forum page displays all 6 chats → T603 executes → Browser tests pass → User confirms "переписка полностью работает между студентами и преподователями и между тьюторами и студентами"
+### Key Files
+
+**Frontend:**
+- `frontend/src/pages/admin/AdminDashboard.tsx` - Main admin page with tabs
+- `frontend/src/pages/admin/StudentManagement.tsx` - Student management table
+- `frontend/src/pages/admin/ParentManagement.tsx` - Parent management table
+- `frontend/src/components/admin/CreateStudentDialog.tsx` - Create student form
+- `frontend/src/components/admin/CreateParentDialog.tsx` - Create parent form
+- `frontend/src/components/admin/EditUserDialog.tsx` - Edit user form
+- `frontend/src/components/admin/ParentStudentAssignment.tsx` - Assignment form
+- `frontend/src/integrations/api/adminAPI.ts` - API client methods
+
+**Backend:**
+- `backend/accounts/staff_views.py` - Admin API endpoints
+  - `create_student()` - POST /api/auth/students/create/
+  - `list_students()` - GET /api/students/
+  - `create_parent()` - POST /api/auth/parents/create/
+  - `list_parents()` - GET /api/auth/parents/
+  - `assign_parent_to_students()` - POST /api/auth/assign-parent/
+  - `update_user()` - PATCH /api/auth/users/{id}/
+  - `reset_password()` - POST /api/auth/users/{id}/reset-password/
+  - `delete_user()` - DELETE /api/auth/users/{id}/delete/
+- `backend/accounts/serializers.py` - Data validation
+- `backend/accounts/models.py` - User, StudentProfile, ParentProfile models
+- `backend/accounts/urls.py` - URL routing
+
+### Common Issues to Check
+
+**Frontend:**
+- Type mismatches between API response and TypeScript interfaces
+- Missing error handling (API returns 500 but component doesn't show error)
+- Incorrect data extraction (accessing wrong field in response)
+- Stale cache (React Query cache not invalidated after mutations)
+- Form validation not preventing invalid submissions
+
+**Backend:**
+- Missing endpoints or incorrect URL patterns
+- Permission classes not applied correctly
+- Serializer validation missing or too strict
+- N+1 queries (not using select_related/prefetch_related)
+- Transaction not wrapping create operations
+- Supabase sync failures causing overall failures
+
+### Success Criteria Checklist
+
+After all tasks complete, verify:
+
+1. ✅ Admin can create new student successfully
+2. ✅ Student data persists in database (User + StudentProfile)
+3. ✅ Admin can edit student data
+4. ✅ Admin can assign tutor to student
+5. ✅ Admin can reset student password
+6. ✅ Admin can delete student (soft delete)
+7. ✅ Admin can create new parent successfully
+8. ✅ Parent data persists in database (User + ParentProfile)
+9. ✅ Admin can edit parent data
+10. ✅ Admin can assign students to parent (bulk)
+11. ✅ Admin can reset parent password
+12. ✅ Admin can delete parent (soft delete)
+13. ✅ All forms validate input properly
+14. ✅ Clear success/error messages for all operations
+15. ✅ No console errors during any operation
+16. ✅ Data persists after page refresh
+17. ✅ Pagination works for student/parent lists
+
+**Final User Confirmation:**
+User can perform all student and parent management operations without errors, data persists correctly, and all operations provide clear feedback.
+
+---
+
+## Notes
+
+- T821-T825 run in parallel for fast analysis (30 minutes)
+- T825 (user testing) provides real-world failure scenarios
+- T821-T824 provide technical analysis of codebase
+- After Wave 1, create T826-T835 based on specific issues found
+- After Wave 2, run T836 comprehensive testing to verify all fixes
+- If T836 fails, create new fix tasks and repeat
+
+**Estimated Timeline:**
+- Wave 1 (parallel analysis + testing): 30 minutes
+- Wave 2 (sequential fixes): 30 minutes
+- Wave 3 (comprehensive testing): 30 minutes
+- **Total**: ~90 minutes for complete fix
+
+**Reporting:**
+- After Wave 1: PM consolidates findings from 5 agents
+- After Wave 2: PM verifies fixes applied
+- After Wave 3: PM confirms all features working

@@ -64,11 +64,19 @@ export const CreateStudentDialog = ({ open, onOpenChange, onSuccess }: CreateStu
       ]);
 
       if (tutorsResponse.success && tutorsResponse.data) {
-        setTutors(tutorsResponse.data);
+        // Backend returns { results: [...] }, extract the array
+        const tutorsArray = Array.isArray(tutorsResponse.data)
+          ? tutorsResponse.data
+          : (tutorsResponse.data as any).results || [];
+        setTutors(tutorsArray);
       }
 
       if (parentsResponse.success && parentsResponse.data) {
-        setParents(parentsResponse.data);
+        // Backend returns { results: [...] }, extract the array
+        const parentsArray = Array.isArray(parentsResponse.data)
+          ? parentsResponse.data
+          : (parentsResponse.data as any).results || [];
+        setParents(parentsArray);
       }
     } catch (err) {
       console.error('Error loading selection data:', err);

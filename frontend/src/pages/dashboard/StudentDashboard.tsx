@@ -122,14 +122,6 @@ const StudentDashboard = () => {
     navigate(`/dashboard/student/materials/${materialId}`);
   };
 
-  const handleChatClick = () => {
-    navigate('/dashboard/chat');
-  };
-
-  const handleAssignmentClick = (assignmentId: number) => {
-    navigate(`/dashboard/student/assignments/${assignmentId}`);
-  };
-
   const handleProfileEdit = () => {
     navigate('/profile/student');
   };
@@ -359,10 +351,9 @@ const StudentDashboard = () => {
                     </div>
                     <div className="space-y-3">
                       {(dashboardData?.recent_activity || []).slice(0, 3).map((assignment) => (
-                        <div 
-                          key={assignment.id} 
-                          className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
-                          onClick={() => handleAssignmentClick(assignment.id)}
+                        <div
+                          key={assignment.id}
+                          className="flex items-center justify-between p-3 bg-muted rounded-lg"
                         >
                           <div className="flex-1">
                             <div className="font-medium">{assignment.title}</div>
@@ -372,12 +363,12 @@ const StudentDashboard = () => {
                             </div>
                           </div>
                           <Badge variant={
-                            assignment.status === "completed" ? "default" : 
-                            assignment.status === "overdue" ? "destructive" : 
+                            assignment.status === "completed" ? "default" :
+                            assignment.status === "overdue" ? "destructive" :
                             "outline"
                           }>
-                            {assignment.status === "completed" ? "Выполнено" : 
-                             assignment.status === "overdue" ? "Просрочено" : 
+                            {assignment.status === "completed" ? "Выполнено" :
+                             assignment.status === "overdue" ? "Просрочено" :
                              "В процессе"}
                           </Badge>
                         </div>
@@ -390,50 +381,27 @@ const StudentDashboard = () => {
                         />
                       )}
                     </div>
-                    <Button 
-                      variant="outline" 
-                      className="w-full mt-4"
-                      onClick={() => navigate('/dashboard/student/assignments')}
-                    >
-                      Все задания
-                    </Button>
                   </Card>
 
                   {/* Quick Actions */}
                   <Card className="p-6">
                     <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <Button 
-                        variant="outline" 
-                        className="h-auto flex-col gap-2 py-6"
-                        onClick={handleChatClick}
-                      >
-                        <MessageCircle className="w-6 h-6" />
-                        <span>Общий чат</span>
-                      </Button>
-                      <Button 
-                        variant="outline" 
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Button
+                        variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/student/materials')}
                       >
                         <BookOpen className="w-6 h-6" />
                         <span>Материалы</span>
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="h-auto flex-col gap-2 py-6"
-                        onClick={() => navigate('/dashboard/student/progress')}
+                        onClick={() => navigate('/dashboard/student/forum')}
                       >
-                        <Target className="w-6 h-6" />
-                        <span>Мой прогресс</span>
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="h-auto flex-col gap-2 py-6"
-                        onClick={() => navigate('/dashboard/student/assignments')}
-                      >
-                        <CheckCircle className="w-6 h-6" />
-                        <span>Задания</span>
+                        <MessageCircle className="w-6 h-6" />
+                        <span>Форум</span>
                       </Button>
                     </div>
                   </Card>

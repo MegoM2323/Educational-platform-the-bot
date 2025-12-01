@@ -13,7 +13,9 @@ export const useForumMessages = (chatId: number | null, limit: number = 50, offs
       return messages;
     },
     enabled: !!chatId,
-    staleTime: Infinity, // Rely on WebSocket for real-time updates, no polling
+    staleTime: 1000 * 60, // Consider data stale after 1 minute, allow refetching
+    refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: false, // Don't refetch on window focus to reduce server load
     retry: 2,
   });
 
@@ -27,6 +29,22 @@ export const useSendForumMessage = () => {
     mutationFn: ({ chatId, data }: { chatId: number; data: SendForumMessageRequest }) =>
       forumAPI.sendForumMessage(chatId, data),
     onSuccess: (message, variables) => {
+      // Optimistic update: immediately add the message to the cache
+      queryClient.setQueryData<ForumMessage[]>(
+        ['forum-messages', variables.chatId, 50, 0],
+        (oldData) => {
+          if (!oldData) return [message];
+
+          // Check if message already exists (avoid duplicates)
+          const exists = oldData.some((msg) => msg.id === message.id);
+          if (exists) return oldData;
+
+          // Add new message to the end (chronological order)
+          return [...oldData, message];
+        }
+      );
+
+      // Also invalidate to refetch latest data from server
       queryClient.invalidateQueries({ queryKey: ['forum-messages', variables.chatId] });
       queryClient.invalidateQueries({ queryKey: ['forum-chats'] });
       toast.success('Сообщение отправлено');

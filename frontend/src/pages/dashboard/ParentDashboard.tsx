@@ -513,10 +513,10 @@ const ParentDashboard = () => {
                         <Users className="w-6 h-6" />
                         <span>Управление детьми</span>
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="h-auto flex-col gap-2 py-6"
-                        onClick={() => navigate('/dashboard/parent/payments')}
+                        onClick={() => navigate('/dashboard/parent/payment-history')}
                       >
                         <CreditCard className="w-6 h-6" />
                         <span>Оплаты</span>

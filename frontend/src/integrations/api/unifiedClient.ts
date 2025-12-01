@@ -122,21 +122,122 @@ export interface TokenResponse {
 
 // Dashboard Types
 export interface StudentDashboard {
-  materials_count: number;
-  completed_materials: number;
-  progress_percentage: number;
-  recent_materials: Array<{
+  student_info: {
     id: number;
-    title: string;
-    subject: string;
-    assigned_date: string;
-    completion_status: string;
+    name: string;
+    username: string;
+    role: string;
+    avatar?: string;
+  };
+  subjects: Array<{
+    id: number;
+    name: string;
+    description: string;
+    color: string;
+    teacher: {
+      id: number;
+      name: string;
+      username: string;
+    };
+    enrolled_at: string;
+    enrollment_id: number;
   }>;
-  upcoming_deadlines: Array<{
+  materials_by_subject: {
+    [subjectName: string]: {
+      subject_info: {
+        id: number;
+        name: string;
+        color?: string;
+      };
+      materials: Array<{
+        id: number;
+        title: string;
+        description?: string;
+        type?: string;
+        difficulty_level?: string;
+        subject: {
+          id: number;
+          name: string;
+          color?: string;
+        };
+        author: {
+          id: number;
+          name: string;
+          role: string;
+        };
+        file_url?: string;
+        video_url?: string;
+        tags?: string[];
+        created_at: string;
+        published_at?: string;
+        status?: string;
+        progress_percentage?: number;
+        progress?: {
+          is_completed: boolean;
+          progress_percentage: number;
+          time_spent: number;
+          started_at?: string;
+          completed_at?: string;
+          last_accessed?: string;
+        };
+      }>;
+    };
+  };
+  stats: {
+    total_materials: number;
+    completed_materials: number;
+    in_progress_materials: number;
+    not_started_materials: number;
+    completion_percentage: number;
+    average_progress: number;
+    total_time_spent: number;
+    subject_statistics: {
+      [subjectName: string]: {
+        total: number;
+        completed: number;
+        in_progress: number;
+        not_started: number;
+      };
+    };
+  };
+  progress_statistics: {
+    total_materials: number;
+    completed_materials: number;
+    in_progress_materials: number;
+    not_started_materials: number;
+    completion_percentage: number;
+    average_progress: number;
+    total_time_spent: number;
+    overall_percentage?: number;
+    completed_tasks?: number;
+    total_tasks?: number;
+    streak_days?: number;
+    accuracy_percentage?: number;
+    subject_statistics: {
+      [subjectName: string]: {
+        total: number;
+        completed: number;
+        in_progress: number;
+        not_started: number;
+      };
+    };
+  };
+  recent_activity: Array<{
     id: number;
+    type: string;
     title: string;
     deadline: string;
+    status: 'pending' | 'completed' | 'overdue';
+    description?: string;
+    timestamp?: string;
+    data?: {
+      material_id?: number;
+      subject_id?: number;
+      progress_percentage?: number;
+      time_spent?: number;
+    };
   }>;
+  profile?: any;
 }
 
 export interface TeacherDashboard {
@@ -655,8 +756,9 @@ class UnifiedAPIClient {
       // 1. Массив напрямую: [item1, item2, ...] - это самый частый случай для list endpoints
       // 2. Объект: {field: value, ...}
       // 3. Объект с вложенными данными: {data: [...], message: "..."}
+      // 4. Пагинированный объект: {count, results, next, previous}
       let responseData: any;
-      
+
       // result.data уже содержит распарсенный JSON ответ от сервера
       // Если сервер вернул массив напрямую, result.data будет массивом
       if (Array.isArray(result.data)) {
@@ -677,11 +779,12 @@ class UnifiedAPIClient {
           if (isStaffEndpoint) {
             logger.debug('[unifiedClient] Using result.data.data');
           }
-        } else if (Array.isArray(result.data.results)) {
-          // Если есть поле results (пагинация), используем его
-          responseData = result.data.results;
+        } else if ('count' in result.data && 'results' in result.data) {
+          // ВАЖНО: Для пагинированных endpoints используем весь объект, не только results!
+          // Фронтенд ожидает {count, results, next, previous}, а не только массив results
+          responseData = result.data;
           if (isStaffEndpoint) {
-            logger.debug('[unifiedClient] Using result.data.results, length:', responseData.length);
+            logger.debug('[unifiedClient] Using full paginated response with count:', result.data.count);
           }
         } else {
           // Иначе используем весь объект
@@ -910,8 +1013,7 @@ class UnifiedAPIClient {
       case 'tutor':
         return '/profile/tutor/';
       case 'parent':
-        // Parent may not have a profile endpoint, fallback to student
-        return '/profile/student/';
+        return '/profile/parent/';
       case 'admin':
         // Admin may not have a profile endpoint, fallback to student
         return '/profile/student/';
@@ -941,11 +1043,11 @@ class UnifiedAPIClient {
 
   // Dashboard Methods
   async getStudentDashboard(): Promise<ApiResponse<StudentDashboard>> {
-    return this.request<StudentDashboard>('/materials/student/');
+    return this.request<StudentDashboard>('/dashboard/student/');
   }
 
   async getTeacherDashboard(): Promise<ApiResponse<TeacherDashboard>> {
-    return this.request<TeacherDashboard>('/materials/teacher/');
+    return this.request<TeacherDashboard>('/dashboard/teacher/');
   }
 
   async getParentDashboard(): Promise<ApiResponse<ParentDashboard>> {

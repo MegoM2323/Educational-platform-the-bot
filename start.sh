@@ -161,9 +161,9 @@ else
     echo "⚠️  Файл .env не найден (Telegram интеграция пропущена)"
 fi
 
-# Запускаем Django сервер в фоне
-echo "🌐 Запуск Django сервера на порту 8000..."
-"$VENV_DIR/bin/python" manage.py runserver 8000 &
+# Запускаем Django ASGI сервер (Daphne) для WebSocket поддержки
+echo "🌐 Запуск Django ASGI сервера (Daphne) на порту 8000..."
+"$VENV_DIR/bin/daphne" -b 0.0.0.0 -p 8000 config.asgi:application &
 DJANGO_PID=$!
 
 # Ждем немного, чтобы Django запустился

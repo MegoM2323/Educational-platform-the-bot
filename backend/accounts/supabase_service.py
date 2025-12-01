@@ -32,9 +32,17 @@ class SupabaseAuthService:
             # Клиент для обычных операций (с ограниченными правами)
             self.client: Client = create_client(self.url, self.key)
 
+            # Патч для совместимости с различными версиями supabase-py
+            # Некоторые версии не инициализируют _refresh_token_timer
+            if hasattr(self.client, 'auth') and not hasattr(self.client.auth, '_refresh_token_timer'):
+                self.client.auth._refresh_token_timer = None
+
             # Клиент с правами сервиса (для административных операций)
             if self.service_key:
                 self.service_client: Client = create_client(self.url, self.service_key)
+                # Патч для service_client тоже
+                if hasattr(self.service_client, 'auth') and not hasattr(self.service_client.auth, '_refresh_token_timer'):
+                    self.service_client.auth._refresh_token_timer = None
             else:
                 self.service_client = self.client
 

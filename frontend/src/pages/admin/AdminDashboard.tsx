@@ -87,13 +87,15 @@ export default function AdminDashboard() {
 
   return (
     <div className="container mx-auto p-4">
-      {/* Заголовок */}
-      <div className="flex justify-between items-center mb-6">
+      {/* Заголовок с кнопкой выхода в углу */}
+      <div className="relative mb-6">
         <h1 className="text-3xl font-bold">Администратор</h1>
         <Button
-          variant="destructive"
+          variant="outline"
+          size="sm"
           onClick={handleLogout}
           disabled={isLogoutLoading}
+          className="absolute top-0 right-0 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
         >
           <LogOut className="h-4 w-4 mr-2" />
           {isLogoutLoading ? 'Выход...' : 'Выйти'}

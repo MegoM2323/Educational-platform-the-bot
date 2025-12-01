@@ -57,7 +57,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'id', 'email', 'first_name', 'last_name', 'role', 'role_display',
-            'phone', 'avatar', 'is_verified', 'is_staff', 'date_joined', 'full_name'
+            'phone', 'avatar', 'is_verified', 'is_active', 'is_staff', 'date_joined', 'full_name'
         )
         read_only_fields = ('id', 'date_joined', 'is_verified', 'is_staff')
     
@@ -135,12 +135,24 @@ class ParentProfileSerializer(serializers.ModelSerializer):
     """
     user = UserSerializer(read_only=True)
     children = UserSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = ParentProfile
         fields = (
             'id', 'user', 'children'
         )
+
+
+class ParentProfileListSerializer(serializers.ModelSerializer):
+    """
+    Optimized serializer for parent list view (without children details to avoid N+1)
+    """
+    user = UserSerializer(read_only=True)
+    children_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = ParentProfile
+        fields = ('id', 'user', 'children_count')
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -892,14 +904,27 @@ class StudentCreateSerializer(serializers.Serializer):
     password = serializers.CharField(required=False, allow_blank=True, min_length=8)
 
     def validate_email(self, value):
-        """Проверка уникальности email"""
+        """
+        Проверка формата email.
+
+        NOTE: Uniqueness check moved to view inside transaction to prevent race conditions.
+        """
         value = value.strip().lower()
+        return value
 
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError(
-                "Пользователь с таким email уже существует"
-            )
+    def validate_phone(self, value):
+        """Проверка формата телефона согласно User model"""
+        if value:
+            # Apply User's phone validator
+            phone_field = User._meta.get_field('phone')
+            for validator in phone_field.validators:
+                validator(value)
+        return value
 
+    def validate_password(self, value):
+        """Проверка требований к паролю Django"""
+        if value:
+            validate_password(value)
         return value
 
     def validate_tutor_id(self, value):
@@ -928,6 +953,60 @@ class StudentCreateSerializer(serializers.Serializer):
             except User.DoesNotExist:
                 raise serializers.ValidationError("Родитель не найден")
 
+        return value
+
+
+class ParentCreateSerializer(serializers.Serializer):
+    """
+    Serializer для создания родителя через админ-панель.
+
+    Обязательные поля:
+    - email: Email родителя (уникальный, RFC 5322 compliant)
+    - first_name: Имя
+    - last_name: Фамилия
+
+    Опциональные поля:
+    - phone: Телефон (валидируется согласно User model regex)
+    - password: Пароль (если не указан - генерируется автоматически, проверяется на сложность)
+    """
+    # Обязательные поля
+    email = serializers.EmailField(required=True)
+    first_name = serializers.CharField(required=True, max_length=150)
+    last_name = serializers.CharField(required=True, max_length=150)
+
+    # Опциональные поля
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
+    password = serializers.CharField(required=False, allow_blank=True, min_length=8)
+
+    def validate_email(self, value):
+        """
+        Проверка email на формат.
+        EmailField уже валидирует формат по RFC 5322.
+
+        NOTE: Uniqueness check moved to view inside transaction to prevent race conditions.
+        """
+        value = value.strip().lower()
+        return value
+
+    def validate_phone(self, value):
+        r"""
+        Проверка формата телефона согласно User model.
+        Применяет RegexValidator из модели User: ^\+?1?\d{9,15}$
+        """
+        if value:
+            # Apply User's phone validator
+            phone_field = User._meta.get_field('phone')
+            for validator in phone_field.validators:
+                validator(value)
+        return value
+
+    def validate_password(self, value):
+        """
+        Проверка требований к паролю Django.
+        Использует встроенные валидаторы из AUTH_PASSWORD_VALIDATORS.
+        """
+        if value:
+            validate_password(value)
         return value
 
 

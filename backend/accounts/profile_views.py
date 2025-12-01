@@ -20,11 +20,12 @@ from rest_framework.exceptions import AuthenticationFailed
 from django.db import transaction
 from typing import Dict, Any
 
-from .models import User, StudentProfile, TeacherProfile, TutorProfile
+from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentProfile
 from .profile_serializers import (
     StudentProfileDetailSerializer,
     TeacherProfileDetailSerializer,
     TutorProfileDetailSerializer,
+    ParentProfileDetailSerializer,
     UserProfileUpdateSerializer
 )
 from .profile_service import ProfileService
@@ -478,6 +479,136 @@ class TutorProfileView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class ParentProfileView(APIView):
+    """
+    API endpoint для управления профилем родителя.
+
+    GET /api/profile/parent/
+    - Возвращает объединенные данные User + ParentProfile
+
+    PATCH /api/profile/parent/
+    - Обновляет данные User и/или ParentProfile
+    - Поддерживает загрузку аватара
+    - Поля User: first_name, last_name, email, phone, avatar
+    - Поля Profile: (parent profile has no specific fields currently)
+    """
+
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request) -> Response:
+        """Получить данные профиля родителя"""
+        if request.user.role != 'parent':
+            return Response(
+                {'error': 'Only parents can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            profile = ParentProfile.objects.select_related('user').get(user=request.user)
+        except ParentProfile.DoesNotExist:
+            return Response(
+                {'error': 'Parent profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        user_data = {
+            'id': request.user.id,
+            'email': request.user.email,
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'phone': request.user.phone,
+            'avatar': request.user.avatar.url if request.user.avatar else None,
+            'role': request.user.role,
+        }
+
+        profile_serializer = ParentProfileDetailSerializer(profile)
+
+        return Response({
+            'user': user_data,
+            'profile': profile_serializer.data
+        })
+
+    @transaction.atomic
+    def patch(self, request) -> Response:
+        """Обновить данные профиля родителя"""
+        if request.user.role != 'parent':
+            return Response(
+                {'error': 'Only parents can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            profile = ParentProfile.objects.select_related('user').get(user=request.user)
+        except ParentProfile.DoesNotExist:
+            return Response(
+                {'error': 'Parent profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        user_fields = ['first_name', 'last_name', 'email', 'phone']
+        profile_fields = ['telegram']  # ParentProfile has telegram field
+
+        user_data = {k: v for k, v in request.data.items() if k in user_fields}
+        profile_data = {k: v for k, v in request.data.items() if k in profile_fields}
+
+        try:
+            if user_data:
+                user_serializer = UserProfileUpdateSerializer(
+                    request.user,
+                    data=user_data,
+                    partial=True
+                )
+                if user_serializer.is_valid(raise_exception=True):
+                    user_serializer.save()
+
+            if 'avatar' in request.FILES:
+                ProfileService.validate_avatar(request.FILES['avatar'])
+                avatar_path = ProfileService.handle_avatar_upload(
+                    profile=request.user,
+                    file=request.FILES['avatar']
+                )
+                request.user.avatar = avatar_path
+                request.user.save(update_fields=['avatar'])
+
+            if profile_data:
+                profile_serializer = ParentProfileDetailSerializer(
+                    profile,
+                    data=profile_data,
+                    partial=True
+                )
+                if profile_serializer.is_valid(raise_exception=True):
+                    profile_serializer.save()
+
+            profile.refresh_from_db()
+            request.user.refresh_from_db()
+
+            user_data = {
+                'id': request.user.id,
+                'email': request.user.email,
+                'first_name': request.user.first_name,
+                'last_name': request.user.last_name,
+                'phone': request.user.phone,
+                'avatar': request.user.avatar.url if request.user.avatar else None,
+                'role': request.user.role,
+            }
+
+            profile_serializer = ParentProfileDetailSerializer(profile)
+
+            return Response({
+                'message': 'Profile updated successfully',
+                'user': user_data,
+                'profile': profile_serializer.data
+            })
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 
 class ProfileReactivationView(APIView):
     """

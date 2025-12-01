@@ -7,10 +7,10 @@ from .staff_views import (
     update_teacher_subjects, update_user, update_student_profile,
     update_teacher_profile, update_tutor_profile, update_parent_profile,
     reset_password, delete_user, create_user_with_profile, create_student,
-    create_parent, assign_parent_to_students, list_parents
+    create_parent, assign_parent_to_students, list_parents, reactivate_user
 )
 from .profile_views import (
-    StudentProfileView, TeacherProfileView, TutorProfileView,
+    StudentProfileView, TeacherProfileView, TutorProfileView, ParentProfileView,
     AdminTeacherProfileEditView, AdminTutorProfileEditView
 )
 
@@ -34,6 +34,7 @@ urlpatterns = [
     path('profile/student/', StudentProfileView.as_view(), name='student_profile_api'),
     path('profile/teacher/', TeacherProfileView.as_view(), name='teacher_profile_api'),
     path('profile/tutor/', TutorProfileView.as_view(), name='tutor_profile_api'),
+    path('profile/parent/', ParentProfileView.as_view(), name='parent_profile_api'),
 
     # Список пользователей (для тьюторов и администраторов)
     path('users/', views.list_users, name='list_users'),  # ?role=teacher|tutor|student|parent
@@ -66,6 +67,7 @@ urlpatterns = [
     path('users/<int:user_id>/', update_user, name='admin_update_user'),
     path('users/<int:user_id>/reset-password/', reset_password, name='admin_reset_password'),
     path('users/<int:user_id>/delete/', delete_user, name='admin_delete_user'),
+    path('users/<int:user_id>/reactivate/', reactivate_user, name='admin_reactivate_user'),
     path('users/create/', create_user_with_profile, name='admin_create_user'),
 
     # Admin-only profile management

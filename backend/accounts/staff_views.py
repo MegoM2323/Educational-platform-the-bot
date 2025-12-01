@@ -1,7 +1,7 @@
 from typing import Any, Dict
 import logging
 
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils.crypto import get_random_string
 from django.db.models import Count, Q, Prefetch
 from django.conf import settings
@@ -554,11 +554,12 @@ def list_students(request):
         enrollments_count=Count('user__subject_enrollments')
     )
 
-    # Фильтр по активности пользователя
+    # Фильтр по активности пользователя (по умолчанию показываем всех)
     is_active = request.query_params.get('is_active')
     if is_active is not None:
         is_active_bool = is_active.lower() == 'true'
         queryset = queryset.filter(user__is_active=is_active_bool)
+    # Если is_active не указан - показываем всех пользователей (включая неактивных)
 
     # Фильтр по тьютору
     tutor_id = request.query_params.get('tutor_id')
@@ -1177,11 +1178,11 @@ def delete_user(request, user_id):
         user_id: ID пользователя
 
     Query params:
-        - permanent: true/false (по умолчанию false - soft delete)
+        - soft: true/false (по умолчанию false - hard delete)
 
     Логика:
-        - Soft delete (по умолчанию): is_active = False
-        - Hard delete (permanent=true): удаление из БД
+        - Hard delete (по умолчанию): полное удаление из БД
+        - Soft delete (soft=true): is_active = False
 
     Проверки:
         - Нельзя удалить самого себя
@@ -1192,11 +1193,12 @@ def delete_user(request, user_id):
         - SubjectEnrollment
         - Payment (помечаются как archived)
         - Report
+        - Удаление из Supabase (если настроен)
 
     Returns:
         {
             "success": true,
-            "message": "Пользователь успешно удален (деактивирован)" | "Пользователь полностью удален"
+            "message": "Пользователь полностью удален из системы" | "Пользователь деактивирован (soft delete)"
         }
 
     Raises:
@@ -1225,12 +1227,19 @@ def delete_user(request, user_id):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    # Проверяем режим удаления
-    permanent = request.query_params.get('permanent', 'false').lower() == 'true'
+    # Проверяем режим удаления (по умолчанию - HARD DELETE, как ожидается фронтендом)
+    # Soft delete только если явно указан параметр soft=true
+    soft_delete = request.query_params.get('soft', 'false').lower() == 'true'
 
     with transaction.atomic():
-        if permanent:
-            # Hard delete: полное удаление из БД
+        if soft_delete:
+            # Soft delete: деактивация аккаунта
+            user.is_active = False
+            user.save(update_fields=['is_active'])
+            message = 'Пользователь деактивирован (soft delete)'
+            logger.info(f"[delete_user] Soft deleted user {user.id} ({user.email})")
+        else:
+            # Hard delete: полное удаление из БД (по умолчанию)
 
             # Удаление из Supabase (если используется)
             if hasattr(settings, 'SUPABASE_URL') and settings.SUPABASE_URL:
@@ -1244,20 +1253,18 @@ def delete_user(request, user_id):
                             "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
                         }
                         requests.delete(admin_url, headers=headers)
+                        logger.info(f"[delete_user] Deleted user from Supabase: {user.id}")
                 except Exception as e:
                     logger.warning(f"Не удалось удалить пользователя из Supabase: {e}")
 
             # Каскадное удаление в Django происходит автоматически благодаря CASCADE
             # models: Profile, SubjectEnrollment, Payment, Report
+            user_id = user.id
+            user_email = user.email
             user.delete()
 
+            logger.info(f"[delete_user] Hard deleted user {user_id} ({user_email}) from database")
             message = 'Пользователь полностью удален из системы'
-        else:
-            # Soft delete: деактивация аккаунта
-            user.is_active = False
-            user.save(update_fields=['is_active'])
-
-            message = 'Пользователь деактивирован (soft delete)'
 
     return Response({
         'success': True,
@@ -1585,6 +1592,13 @@ def create_student(request):
 
     try:
         with transaction.atomic():
+            # Проверка уникальности email ВНУТРИ транзакции для предотвращения race condition
+            if User.objects.filter(email=email).exists():
+                return Response(
+                    {'detail': 'Пользователь с таким email уже существует'},
+                    status=status.HTTP_409_CONFLICT
+                )
+
             django_user = None
 
             # Попытка создать в Supabase с retry logic
@@ -1707,6 +1721,20 @@ def create_student(request):
                 f"grade={grade} tutor_id={tutor_id} parent_id={parent_id} created_by={request.user.id}"
             )
 
+    except IntegrityError as exc:
+        # Ловим race condition: два параллельных запроса создали пользователя с одним email
+        logger.warning(f"[create_student] IntegrityError (race condition?) for email {email}: {exc}")
+        if 'email' in str(exc).lower() or 'unique' in str(exc).lower():
+            return Response(
+                {'detail': 'Пользователь с таким email уже существует'},
+                status=status.HTTP_409_CONFLICT
+            )
+        # Если IntegrityError не связан с email, пробрасываем дальше
+        logger.error(f"[create_student] Unexpected IntegrityError: {exc}")
+        return Response(
+            {'detail': f'Ошибка целостности данных: {exc}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     except Exception as exc:
         import traceback
         logger.error(f"[create_student] Error creating student: {exc}")
@@ -1772,24 +1800,25 @@ def create_parent(request):
         Временный пароль возвращается ТОЛЬКО ОДИН РАЗ при создании.
         username будет установлен равным email для упрощения входа.
     """
-    # Валидация обязательных полей
-    payload: Dict[str, Any] = request.data or {}
-    email = (payload.get('email') or '').strip().lower()
-    first_name = (payload.get('first_name') or '').strip()
-    last_name = (payload.get('last_name') or '').strip()
-    phone = (payload.get('phone') or '').strip()
+    from accounts.serializers import ParentCreateSerializer
 
-    if not email:
-        return Response({'detail': 'email обязателен'}, status=status.HTTP_400_BAD_REQUEST)
-    if not first_name or not last_name:
-        return Response({'detail': 'first_name и last_name обязательны'}, status=status.HTTP_400_BAD_REQUEST)
+    # Валидация данных через serializer
+    serializer = ParentCreateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-    # Проверка уникальности email
-    if User.objects.filter(email=email).exists():
-        return Response({'detail': 'Пользователь с этим email уже существует'}, status=status.HTTP_409_CONFLICT)
+    # Извлекаем валидированные данные
+    validated_data = serializer.validated_data
+    email = validated_data['email']
+    first_name = validated_data['first_name']
+    last_name = validated_data['last_name']
+    phone = validated_data.get('phone', '')
 
     # Генерация пароля если не указан
-    password = payload.get('password')
+    password = validated_data.get('password')
     if not password:
         password = get_random_string(length=12)
 
@@ -1802,6 +1831,13 @@ def create_parent(request):
 
     try:
         with transaction.atomic():
+            # Проверка уникальности email ВНУТРИ транзакции для предотвращения race condition
+            if User.objects.filter(email=email).exists():
+                return Response(
+                    {'detail': 'Пользователь с таким email уже существует'},
+                    status=status.HTTP_409_CONFLICT
+                )
+
             django_user = None
 
             # Попытка создать в Supabase с retry logic
@@ -1896,6 +1932,20 @@ def create_parent(request):
                 f"created_by={request.user.id}"
             )
 
+    except IntegrityError as exc:
+        # Ловим race condition: два параллельных запроса создали пользователя с одним email
+        logger.warning(f"[create_parent] IntegrityError (race condition?) for email {email}: {exc}")
+        if 'email' in str(exc).lower() or 'unique' in str(exc).lower():
+            return Response(
+                {'detail': 'Пользователь с таким email уже существует'},
+                status=status.HTTP_409_CONFLICT
+            )
+        # Если IntegrityError не связан с email, пробрасываем дальше
+        logger.error(f"[create_parent] Unexpected IntegrityError: {exc}")
+        return Response(
+            {'detail': f'Ошибка целостности данных: {exc}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     except Exception as exc:
         import traceback
         logger.error(f"[create_parent] Error creating parent: {exc}")
@@ -2003,6 +2053,9 @@ def list_parents(request):
 
     Returns:
         {
+            "count": 100,
+            "next": "http://...",
+            "previous": "http://...",
             "results": [
                 {
                     "id": 1,
@@ -2012,19 +2065,91 @@ def list_parents(request):
             ]
         }
     """
-    from .serializers import ParentProfileSerializer
+    from django.db.models import Count
+    from .serializers import ParentProfileListSerializer
 
-    parents = ParentProfile.objects.select_related('user').filter(
-        user__is_active=True
-    ).order_by('-user__date_joined', '-user__id')
+    # Annotate children_count in single query instead of N+1
+    # Показываем всех родителей (включая неактивных), если не указан фильтр is_active
+    parents_queryset = ParentProfile.objects.select_related('user').annotate(
+        children_count=Count('user__children_students')
+    )
 
-    results = []
-    for parent_profile in parents:
-        parent_data = ParentProfileSerializer(parent_profile).data
-        # Добавляем количество детей
-        children_count = StudentProfile.objects.filter(parent=parent_profile.user).count()
-        parent_data['children_count'] = children_count
-        results.append(parent_data)
+    # Фильтр по активности (опциональный)
+    is_active = request.query_params.get('is_active')
+    if is_active is not None:
+        is_active_bool = is_active.lower() == 'true'
+        parents_queryset = parents_queryset.filter(user__is_active=is_active_bool)
 
-    return Response({'results': results})
+    parents_queryset = parents_queryset.order_by('-user__date_joined', '-user__id')
+
+    # Apply pagination
+    paginator = StudentPagination()
+    page = paginator.paginate_queryset(parents_queryset, request)
+
+    if page is not None:
+        serializer = ParentProfileListSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    # Fallback if pagination fails
+    serializer = ParentProfileListSerializer(parents_queryset, many=True)
+    return Response({'results': serializer.data})
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsStaffOrAdmin])
+def reactivate_user(request, user_id):
+    """
+    Реактивация деактивированного пользователя (admin-only)
+
+    Args:
+        user_id: ID пользователя
+
+    Returns:
+        {
+            "success": true,
+            "message": "Student user@test.com has been reactivated"
+        }
+
+    Raises:
+        - 400: Пользователь уже активен
+        - 404: Пользователь не найден
+
+    Примечание:
+        Реактивирует пользователя (устанавливает is_active=True).
+        Логирует операцию в audit log.
+    """
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {'detail': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Проверка: пользователь уже активен
+    if user.is_active:
+        return Response(
+            {'detail': 'User is already active'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Реактивация пользователя
+    user.is_active = True
+    user.save(update_fields=['is_active'])
+
+    # Логирование в audit log
+    audit_logger.info(
+        f"action=reactivate_user user_id={user.id} email={user.email} role={user.role} "
+        f"reactivated_by={request.user.id} reactivated_by_email={request.user.email}"
+    )
+    logger.info(f"[reactivate_user] User {user.email} (id={user.id}) reactivated by {request.user.email}")
+
+    return Response(
+        {
+            'success': True,
+            'message': f'{user.role.title()} {user.email} has been reactivated'
+        },
+        status=status.HTTP_200_OK
+    )
 

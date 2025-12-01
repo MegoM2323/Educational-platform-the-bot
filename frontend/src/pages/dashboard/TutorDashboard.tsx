@@ -105,22 +105,18 @@ const TutorDashboard = () => {
       {/* Быстрые действия */}
       <Card className="p-6">
         <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Button variant="outline" className="h-auto flex-col gap-2 py-6" onClick={() => navigate('/dashboard/tutor/students')}>
             <Users className="w-6 h-6" />
             <span>Мои ученики</span>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-6" onClick={() => navigate('/dashboard/tutor/students')}>
-            <Users className="w-6 h-6" />
-            <span>Назначить предмет</span>
           </Button>
           <Button variant="outline" className="h-auto flex-col gap-2 py-6" onClick={() => navigate('/dashboard/tutor/reports')}>
             <FileText className="w-6 h-6" />
             <span>Отчёты</span>
           </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-6" onClick={() => navigate('/dashboard/tutor/chat')}>
+          <Button variant="outline" className="h-auto flex-col gap-2 py-6" onClick={() => navigate('/dashboard/tutor/forum')}>
             <MessageCircle className="w-6 h-6" />
-            <span>Общий чат</span>
+            <span>Форум</span>
           </Button>
         </div>
       </Card>

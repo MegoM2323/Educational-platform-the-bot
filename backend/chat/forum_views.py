@@ -88,15 +88,22 @@ class ForumChatViewSet(viewsets.ViewSet):
                 ).order_by('-updated_at')
 
             elif user.role == 'teacher':
-                # Teacher sees FORUM_SUBJECT chats where they're the teacher
+                # Teacher sees ONLY FORUM_SUBJECT chats where they are the assigned teacher
                 chats = base_queryset.filter(
-                    type=ChatRoom.Type.FORUM_SUBJECT
+                    type=ChatRoom.Type.FORUM_SUBJECT,
+                    enrollment__teacher=user  # Verify teacher is assigned via enrollment
                 ).order_by('-updated_at')
 
             elif user.role == 'tutor':
-                # Tutor sees FORUM_TUTOR chats where they're the tutor
+                # Tutor sees ONLY FORUM_TUTOR chats for students they are assigned to
+                # Get students this tutor is assigned to
+                from accounts.models import User as UserModel
+                tutored_students = UserModel.objects.filter(
+                    student_profile__tutor=user
+                )
                 chats = base_queryset.filter(
-                    type=ChatRoom.Type.FORUM_TUTOR
+                    type=ChatRoom.Type.FORUM_TUTOR,
+                    participants__in=tutored_students  # Only chats with their assigned students
                 ).order_by('-updated_at')
 
             else:

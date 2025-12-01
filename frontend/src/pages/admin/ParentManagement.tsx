@@ -5,6 +5,8 @@ import { adminAPI } from '@/integrations/api/adminAPI';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
@@ -12,11 +14,12 @@ import { ResetPasswordDialog } from '@/components/admin/ResetPasswordDialog';
 import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
 import { CreateParentDialog } from '@/components/admin/CreateParentDialog';
 import { ParentStudentAssignment } from '@/components/admin/ParentStudentAssignment';
-import { User as UserIcon, Key, Trash2, Plus, LogOut, RotateCcw, Link2 } from 'lucide-react';
+import { User as UserIcon, Key, Trash2, Plus, LogOut, RotateCcw, Link2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ParentItem {
   id: number;
   user: User;
+  children_count?: number;
 }
 
 interface ParentManagementProps {
@@ -27,9 +30,13 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [parents, setParents] = useState<ParentItem[]>([]);
+  const [filteredParents, setFilteredParents] = useState<ParentItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLogoutLoading, setIsLogoutLoading] = useState(false);
   const [createDialog, setCreateDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [editUserDialog, setEditUserDialog] = useState<{
     open: boolean;
     item: ParentItem | null;
@@ -52,10 +59,12 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
   const loadParents = async () => {
     setIsLoading(true);
     try {
-      // Используем endpoint для получения списка родителей
-      const response = await unifiedAPI.request<ParentItem[]>('/auth/parents/');
+      // Используем endpoint для получения списка родителей с children_count
+      const response = await adminAPI.listParents();
       if (response.success && response.data) {
-        setParents(response.data);
+        const parentsList = response.data.results || [];
+        setParents(parentsList);
+        setFilteredParents(parentsList);
       } else {
         toast.error(response.error || 'Ошибка загрузки списка родителей');
       }
@@ -69,6 +78,24 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
   useEffect(() => {
     loadParents();
   }, []);
+
+  // Filter parents by search term
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredParents(parents);
+      setCurrentPage(1);
+      return;
+    }
+
+    const lowercaseSearch = searchTerm.toLowerCase();
+    const filtered = parents.filter((parent) => {
+      const fullName = parent.user.full_name?.toLowerCase() || '';
+      const email = parent.user.email?.toLowerCase() || '';
+      return fullName.includes(lowercaseSearch) || email.includes(lowercaseSearch);
+    });
+    setFilteredParents(filtered);
+    setCurrentPage(1);
+  }, [searchTerm, parents]);
 
   const handleLogout = async () => {
     setIsLogoutLoading(true);
@@ -105,6 +132,12 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
     }
   };
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredParents.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedParents = filteredParents.slice(startIndex, endIndex);
+
   const cardContent = (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -134,6 +167,43 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
         </div>
       </CardHeader>
       <CardContent>
+        {/* Поиск и фильтры */}
+        <div className="mb-6 space-y-4">
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Label className="text-sm">Поиск</Label>
+              <div className="flex gap-2 mt-2">
+                <Input
+                  placeholder="ФИО или email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1"
+                />
+                <Button variant="outline" size="icon">
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm">Показывать по</Label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(parseInt(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="w-[120px] mt-2 h-10 px-3 border border-input bg-background rounded-md text-sm"
+              >
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Таблица */}
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -141,6 +211,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
                 <th className="py-2 pr-4">ФИО</th>
                 <th className="py-2 pr-4">Email</th>
                 <th className="py-2 pr-4">Телефон</th>
+                <th className="py-2 pr-4">Количество детей</th>
                 <th className="py-2 pr-4">Дата регистрации</th>
                 <th className="py-2 pr-4">Действия</th>
               </tr>
@@ -148,22 +219,23 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="py-4" colSpan={5}>
+                  <td className="py-4" colSpan={6}>
                     Загрузка...
                   </td>
                 </tr>
-              ) : parents.length === 0 ? (
+              ) : paginatedParents.length === 0 ? (
                 <tr>
-                  <td className="py-4" colSpan={5}>
-                    Родители не найдены
+                  <td className="py-4" colSpan={6}>
+                    {searchTerm ? 'Родители не найдены по запросу' : 'Родители не найдены'}
                   </td>
                 </tr>
               ) : (
-                parents.map((parent) => (
+                paginatedParents.map((parent) => (
                   <tr key={parent.id} className="border-b">
                     <td className="py-2 pr-4">{parent.user.full_name}</td>
                     <td className="py-2 pr-4">{parent.user.email}</td>
                     <td className="py-2 pr-4">{parent.user.phone || '-'}</td>
+                    <td className="py-2 pr-4">{parent.children_count || 0}</td>
                     <td className="py-2 pr-4">
                       {new Date(parent.user.date_joined).toLocaleDateString('ru-RU')}
                     </td>
@@ -211,6 +283,38 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
             </tbody>
           </table>
         </div>
+
+        {/* Пагинация */}
+        {filteredParents.length > 0 && (
+          <div className="flex items-center justify-between mt-6 pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Показано {startIndex + 1}-{Math.min(endIndex, filteredParents.length)} из {filteredParents.length} родителей
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">
+                  Страница {currentPage} из {totalPages || 1}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

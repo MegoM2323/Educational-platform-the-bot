@@ -66,7 +66,7 @@ export interface SendForumMessageResponse {
 
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
-    const response = await unifiedAPI.request<ForumChat[]>(
+    const response = await unifiedAPI.request<any>(
       '/chat/forum/'
     );
 
@@ -74,9 +74,20 @@ export const forumAPI = {
       throw new Error(response.error);
     }
 
-    // unifiedClient already extracts results array from paginated response
-    // So response.data is already ForumChat[], not ForumChatsResponse
-    return response.data || [];
+    // Backend returns paginated response: {count, results, next, previous}
+    // unifiedClient returns the full paginated object, not just the array
+    // We need to extract the results array
+    if (response.data && typeof response.data === 'object') {
+      if (Array.isArray(response.data.results)) {
+        return response.data.results;
+      }
+      // Fallback: if response.data is already an array (unlikely but safe)
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+    }
+
+    return [];
   },
 
   getForumMessages: async (
@@ -91,15 +102,26 @@ export const forumAPI = {
     const queryString = params.toString();
     const url = `/chat/forum/${chatId}/messages/${queryString ? '?' + queryString : ''}`;
 
-    const response = await unifiedAPI.request<ForumMessage[]>(url);
+    const response = await unifiedAPI.request<any>(url);
 
     if (response.error) {
       throw new Error(response.error);
     }
 
-    // unifiedAPI already extracts the results array from paginated responses
-    // So response.data is already ForumMessage[], not ForumMessagesResponse
-    return response.data || [];
+    // Backend returns paginated response: {count, results, next, previous}
+    // unifiedClient returns the full paginated object, not just the array
+    // We need to extract the results array
+    if (response.data && typeof response.data === 'object') {
+      if (Array.isArray(response.data.results)) {
+        return response.data.results;
+      }
+      // Fallback: if response.data is already an array (unlikely but safe)
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+    }
+
+    return [];
   },
 
   sendForumMessage: async (

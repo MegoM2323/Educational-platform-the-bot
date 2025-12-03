@@ -5,8 +5,8 @@ These are mounted at /api/profile/ for frontend compatibility.
 
 from django.urls import path
 from .profile_views import (
-    StudentProfileView, TeacherProfileView, TutorProfileView, CurrentUserProfileView,
-    ProfileReactivationView
+    StudentProfileView, TeacherProfileView, TutorProfileView, ParentProfileView,
+    CurrentUserProfileView, ProfileReactivationView
 )
 
 urlpatterns = [
@@ -17,6 +17,7 @@ urlpatterns = [
     path('student/', StudentProfileView.as_view(), name='profile_student_api'),
     path('teacher/', TeacherProfileView.as_view(), name='profile_teacher_api'),
     path('tutor/', TutorProfileView.as_view(), name='profile_tutor_api'),
+    path('parent/', ParentProfileView.as_view(), name='profile_parent_api'),
 
     # Profile reactivation endpoint
     path('reactivate/', ProfileReactivationView.as_view(), name='profile_reactivate'),

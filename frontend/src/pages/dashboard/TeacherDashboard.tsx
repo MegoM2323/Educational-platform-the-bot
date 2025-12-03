@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTeacherDashboard, usePendingSubmissions } from "@/hooks/useTeacher";
 import { PendingSubmission } from "@/integrations/api/teacher";
 import { TeacherScheduleWidget } from "@/components/dashboard/TeacherScheduleWidget";
+import { useEffect } from "react";
 
 // Интерфейсы для данных
 interface Material {
@@ -72,6 +73,7 @@ const TeacherDashboard = () => {
     data: dashboardData,
     isLoading: dashboardLoading,
     error: dashboardError,
+    refetch: refetchDashboard,
   } = useTeacherDashboard();
 
   const {
@@ -81,6 +83,20 @@ const TeacherDashboard = () => {
 
   const loading = dashboardLoading || submissionsLoading;
   const error = dashboardError?.message || null;
+
+  // Debug logging for "CANNOT ENTER" issue
+  useEffect(() => {
+    if (dashboardError) {
+      console.error('[TeacherDashboard] Dashboard fetch error:', dashboardError);
+      console.error('[TeacherDashboard] Error message:', dashboardError.message);
+      console.error('[TeacherDashboard] Full error:', JSON.stringify(dashboardError, null, 2));
+    }
+    if (dashboardData) {
+      console.log('[TeacherDashboard] Dashboard data loaded:', dashboardData);
+      console.log('[TeacherDashboard] Profile data:', dashboardData.profile);
+      console.log('[TeacherDashboard] Teacher info:', dashboardData.teacher_info);
+    }
+  }, [dashboardError, dashboardData]);
 
   const handleMaterialClick = (materialId: number) => {
     // Детальной страницы пока нет — ведём на список материалов
@@ -122,18 +138,40 @@ const TeacherDashboard = () => {
   /**
    * Подготавливаем данные профиля для ProfileCard
    * На основе данных из dashboardData (единственный источник)
+   * With defensive programming to prevent crashes if data format is unexpected
    */
   const getProfileData = () => {
-    return {
-      subjects: dashboardData?.profile?.subjects ?
-        (Array.isArray(dashboardData.profile.subjects) ?
-          dashboardData.profile.subjects.map((s: string | { id: number; name: string }) => typeof s === 'string' ? s : s.name)
-          : [])
-        : [],
-      experience: dashboardData?.profile?.experience ?? 0,
-      studentsCount: dashboardData?.progress_overview?.total_students ?? 0,
-      materialsCount: dashboardData?.progress_overview?.total_materials ?? 0,
-    };
+    try {
+      const subjects = dashboardData?.profile?.subjects;
+      let subjectsArray: string[] = [];
+
+      if (subjects) {
+        if (Array.isArray(subjects)) {
+          subjectsArray = subjects.map((s: any) => {
+            if (typeof s === 'string') return s;
+            if (s && typeof s === 'object' && s.name) return s.name;
+            return String(s);
+          });
+        } else if (typeof subjects === 'string') {
+          subjectsArray = [subjects];
+        }
+      }
+
+      return {
+        subjects: subjectsArray,
+        experience: Number(dashboardData?.profile?.experience) || 0,
+        studentsCount: Number(dashboardData?.progress_overview?.total_students) || 0,
+        materialsCount: Number(dashboardData?.progress_overview?.total_materials) || 0,
+      };
+    } catch (err) {
+      console.error('[TeacherDashboard] Error extracting profile data:', err);
+      return {
+        subjects: [],
+        experience: 0,
+        studentsCount: 0,
+        materialsCount: 0,
+      };
+    }
   };
 
   return (
@@ -163,10 +201,18 @@ const TeacherDashboard = () => {
 
               {/* Обработка ошибок */}
               {error && (
-                <Card className="p-4 border-destructive bg-destructive/10">
-                  <div className="flex items-center gap-2 text-destructive">
-                    <AlertCircle className="w-5 h-5" />
-                    <span>{error}</span>
+                <Card className="p-6 border-destructive bg-destructive/10">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <AlertCircle className="w-5 h-5" />
+                      <div className="flex-1">
+                        <div className="font-medium">Не удалось загрузить данные дашборда</div>
+                        <div className="text-sm mt-1">{error}</div>
+                      </div>
+                    </div>
+                    <Button onClick={() => refetchDashboard()} variant="outline" size="sm">
+                      Повторить попытку
+                    </Button>
                   </div>
                 </Card>
               )}

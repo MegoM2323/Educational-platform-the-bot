@@ -95,6 +95,13 @@ const TutorDashboard = () => {
                   {s.goal ? (
                     <div className="text-sm text-muted-foreground mb-1">Цель: {s.goal}</div>
                   ) : null}
+                  {s.subjects && s.subjects.length > 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      Предметы: {s.subjects.map((subj: any) => subj.name).join(', ')}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">Предметы не назначены</div>
+                  )}
                 </div>
               </div>
             </Card>

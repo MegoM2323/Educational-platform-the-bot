@@ -30,6 +30,7 @@ const TutorDashboard = lazy(() => import("./pages/dashboard/TutorDashboard"));
 const StudentMaterials = lazy(() => import("./pages/dashboard/student/Materials"));
 const StudentSubjects = lazy(() => import("./pages/dashboard/student/Subjects"));
 const StudentGeneralChat = lazy(() => import("./pages/dashboard/student/GeneralChat"));
+const StudentAssignments = lazy(() => import("./pages/dashboard/student/Assignments"));
 const TeacherMaterials = lazy(() => import("./pages/dashboard/teacher/Materials"));
 const CreateMaterial = lazy(() => import("./pages/dashboard/teacher/CreateMaterial"));
 const TeacherReports = lazy(() => import("./pages/dashboard/teacher/Reports"));
@@ -37,6 +38,7 @@ const StudyPlans = lazy(() => import("./pages/dashboard/teacher/StudyPlans"));
 const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissions"));
 const TeacherGeneralChat = lazy(() => import("./pages/dashboard/teacher/GeneralChat"));
 const AssignSubject = lazy(() => import("./pages/dashboard/teacher/AssignSubject"));
+const TeacherAssignments = lazy(() => import("./pages/dashboard/teacher/Assignments"));
 const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
 const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
 const TutorGeneralChat = lazy(() => import("./pages/dashboard/tutor/GeneralChat"));
@@ -49,6 +51,8 @@ const Chat = lazy(() => import("./pages/dashboard/Chat"));
 // Scheduling components
 const StudentSchedulePage = lazy(() => import("./pages/dashboard/StudentSchedulePage"));
 const TeacherSchedulePage = lazy(() => import("./pages/dashboard/TeacherSchedulePage"));
+const TutorSchedulePage = lazy(() => import("./pages/dashboard/TutorSchedulePage"));
+const ParentSchedulePage = lazy(() => import("./pages/dashboard/ParentSchedulePage"));
 
 // Forum page
 const Forum = lazy(() => import("./pages/dashboard/Forum"));
@@ -162,6 +166,13 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
+          <Route path="/dashboard/student/assignments" element={
+            <ProtectedRoute requiredRole="student">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <StudentAssignments />
+              </Suspense>
+            </ProtectedRoute>
+          } />
 
           {/* Teacher Routes */}
           <Route path="/dashboard/teacher" element={
@@ -248,6 +259,13 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
+          <Route path="/dashboard/teacher/assignments" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherAssignments />
+              </Suspense>
+            </ProtectedRoute>
+          } />
 
           {/* Tutor Routes */}
           <Route path="/dashboard/tutor" element={
@@ -285,7 +303,14 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
-          
+          <Route path="/dashboard/tutor/schedule" element={
+            <ProtectedRoute requiredRole="tutor">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TutorSchedulePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+
           {/* Parent Routes */}
           <Route path="/dashboard/parent" element={
             <ProtectedRoute requiredRole="parent">
@@ -348,6 +373,13 @@ const App = () => (
             <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <Forum />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/parent/schedule" element={
+            <ProtectedRoute requiredRole="parent">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentSchedulePage />
               </Suspense>
             </ProtectedRoute>
           } />

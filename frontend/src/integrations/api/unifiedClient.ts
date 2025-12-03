@@ -1043,15 +1043,15 @@ class UnifiedAPIClient {
 
   // Dashboard Methods
   async getStudentDashboard(): Promise<ApiResponse<StudentDashboard>> {
-    return this.request<StudentDashboard>('/dashboard/student/');
+    return this.request<StudentDashboard>('/materials/student/');
   }
 
   async getTeacherDashboard(): Promise<ApiResponse<TeacherDashboard>> {
-    return this.request<TeacherDashboard>('/dashboard/teacher/');
+    return this.request<TeacherDashboard>('/materials/teacher/');
   }
 
   async getParentDashboard(): Promise<ApiResponse<ParentDashboard>> {
-    return this.request<ParentDashboard>('/dashboard/parent/');
+    return this.request<ParentDashboard>('/materials/parent/');
   }
 
   // Chat Methods

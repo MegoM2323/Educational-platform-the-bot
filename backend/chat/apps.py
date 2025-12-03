@@ -7,4 +7,7 @@ class ChatConfig(AppConfig):
 
     def ready(self) -> None:
         """Import signal handlers when app is ready."""
-        import chat.signals  # noqa: F401
+        try:
+            import chat.signals  # noqa: F401
+        except Exception as e:
+            print(f"Warning: Could not import chat.signals: {e}")

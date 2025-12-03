@@ -12,12 +12,15 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
 from chat.routing import websocket_urlpatterns
+from chat.middleware import TokenAuthMiddleware
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AllowedHostsOriginValidator(
-        AuthMiddlewareStack(
-            URLRouter(websocket_urlpatterns)
+        TokenAuthMiddleware(  # Extract token from query parameter
+            AuthMiddlewareStack(  # Fallback to session auth if no token
+                URLRouter(websocket_urlpatterns)
+            )
         )
     ),
 })

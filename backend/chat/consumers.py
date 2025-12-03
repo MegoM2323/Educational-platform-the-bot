@@ -19,14 +19,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f'chat_{self.room_id}'
-        
+
+        # DEBUG: Log connection attempt
+        logger.warning(f'[ChatConsumer] Connection attempt: room={self.room_id}, user={self.scope["user"]}, authenticated={self.scope["user"].is_authenticated}')
+
         # Проверяем, что пользователь аутентифицирован
         if not self.scope['user'].is_authenticated:
+            logger.warning(f'[ChatConsumer] Connection rejected: user not authenticated')
             await self.close()
             return
-        
+
         # Проверяем, что пользователь имеет доступ к комнате
-        if not await self.check_room_access():
+        has_access = await self.check_room_access()
+        logger.warning(f'[ChatConsumer] Room access check: {has_access}')
+        if not has_access:
+            logger.warning(f'[ChatConsumer] Connection rejected: no room access')
             await self.close()
             return
         

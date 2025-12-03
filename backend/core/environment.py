@@ -225,10 +225,12 @@ class EnvConfig:
                 f'http://localhost:5173',
                 f'http://localhost:8080',
                 f'http://localhost:8081',
+                f'http://localhost:8082',
                 f'http://{self.DEV_LOOPBACK}:3000',
                 f'http://{self.DEV_LOOPBACK}:5173',
                 f'http://{self.DEV_LOOPBACK}:8080',
                 f'http://{self.DEV_LOOPBACK}:8081',
+                f'http://{self.DEV_LOOPBACK}:8082',
                 f'http://localhost:8000',
                 f'http://{self.DEV_LOOPBACK}:8000',
             ]

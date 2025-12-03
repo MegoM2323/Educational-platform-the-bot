@@ -323,7 +323,7 @@ describe('schedulingAPI', () => {
 
       const result = await schedulingAPI.getMySchedule();
 
-      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/my-schedule/', {
+      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/my_schedule/', {
         params: undefined,
       });
       expect(result).toHaveLength(1);
@@ -345,7 +345,7 @@ describe('schedulingAPI', () => {
 
       const result = await schedulingAPI.getMySchedule(filters);
 
-      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/my-schedule/', {
+      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/my_schedule/', {
         params: filters,
       });
     });

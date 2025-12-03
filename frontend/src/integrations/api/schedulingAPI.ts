@@ -11,11 +11,13 @@ export const schedulingAPI = {
   },
 
   getLessons: async (filters?: Record<string, any>): Promise<Lesson[]> => {
-    const response = await unifiedAPI.get<Lesson[]>('/scheduling/lessons/', { params: filters });
+    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/', { params: filters });
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data as Lesson[];
+    // Backend returns {results: [...]} with pagination
+    const data = response.data;
+    return Array.isArray(data) ? data : (data as { results: Lesson[] }).results;
   },
 
   getLesson: async (id: string): Promise<Lesson> => {
@@ -42,28 +44,34 @@ export const schedulingAPI = {
   },
 
   getMySchedule: async (filters?: Record<string, any>): Promise<Lesson[]> => {
-    const response = await unifiedAPI.get<Lesson[]>('/scheduling/lessons/my-schedule/', { params: filters });
+    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/my_schedule/', { params: filters });
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data as Lesson[];
+    // Backend returns {results: [...]} with pagination
+    const data = response.data;
+    return Array.isArray(data) ? data : (data as { results: Lesson[] }).results;
   },
 
   getStudentSchedule: async (studentId: string, filters?: Record<string, any>): Promise<Lesson[]> => {
-    const response = await unifiedAPI.get<Lesson[]>('/scheduling/lessons/student_schedule/', {
+    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/student_schedule/', {
       params: { student_id: studentId, ...filters }
     });
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data as Lesson[];
+    // Backend returns {results: [...]} with pagination
+    const data = response.data;
+    return Array.isArray(data) ? data : (data as { results: Lesson[] }).results;
   },
 
   getUpcomingLessons: async (limit: number = 10): Promise<Lesson[]> => {
-    const response = await unifiedAPI.get<Lesson[]>('/scheduling/lessons/upcoming/', { params: { limit } });
+    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/upcoming/', { params: { limit } });
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data as Lesson[];
+    // Backend returns {results: [...]} with pagination
+    const data = response.data;
+    return Array.isArray(data) ? data : (data as { results: Lesson[] }).results;
   }
 };

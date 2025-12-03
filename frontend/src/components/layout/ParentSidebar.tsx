@@ -22,7 +22,7 @@ const items = [
   { title: "История платежей", url: "/dashboard/parent/payment-history", icon: CreditCard },
   { title: "Статистика", url: "/dashboard/parent/statistics", icon: BarChart3 },
   { title: "Отчёты", url: "/dashboard/parent/reports", icon: FileText },
-  { title: "Чат", url: "/dashboard/parent/general-chat", icon: MessageSquare },
+  { title: "Форум", url: "/dashboard/parent/forum", icon: MessageSquare },
 ];
 
 export function ParentSidebar() {
@@ -48,7 +48,7 @@ export function ParentSidebar() {
                       {state === "expanded" && (
                         <div className="flex items-center justify-between w-full">
                           <span>{item.title}</span>
-                          {item.title === "Чат" && <ChatNotificationBadge />}
+                          {item.title === "Форум" && <ChatNotificationBadge />}
                         </div>
                       )}
                     </NavLink>

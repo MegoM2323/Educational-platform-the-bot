@@ -23,7 +23,7 @@ const items = [
   { title: "Управление расписанием", url: "/dashboard/teacher/schedule", icon: CalendarDays },
   { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },
-  { title: "Чат", url: "/dashboard/teacher/general-chat", icon: MessageSquare },
+  { title: "Форум", url: "/dashboard/teacher/forum", icon: MessageSquare },
 ];
 
 export function TeacherSidebar() {
@@ -49,7 +49,7 @@ export function TeacherSidebar() {
                       {state === "expanded" && (
                         <div className="flex items-center justify-between w-full">
                           <span>{item.title}</span>
-                          {item.title === "Чат" && <ChatNotificationBadge />}
+                          {item.title === "Форум" && <ChatNotificationBadge />}
                         </div>
                       )}
                     </NavLink>

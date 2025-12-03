@@ -20,7 +20,7 @@ const items = [
   { title: "Главная", url: "/dashboard/tutor", icon: Home },
   { title: "Мои ученики", url: "/dashboard/tutor/students", icon: Users },
   { title: "Отчёты", url: "/dashboard/tutor/reports", icon: FileText },
-  { title: "Чат", url: "/dashboard/tutor/general-chat", icon: MessageSquare },
+  { title: "Форум", url: "/dashboard/tutor/forum", icon: MessageSquare },
 ];
 
 export function TutorSidebar() {
@@ -46,7 +46,7 @@ export function TutorSidebar() {
                       {state === "expanded" && (
                         <div className="flex items-center justify-between w-full">
                           <span>{item.title}</span>
-                          {item.title === "Чат" && <ChatNotificationBadge />}
+                          {item.title === "Форум" && <ChatNotificationBadge />}
                         </div>
                       )}
                     </NavLink>

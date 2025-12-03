@@ -127,8 +127,8 @@ const TeacherDashboard = () => {
   };
 
   const handleChatClick = () => {
-    // Для преподавателя используем маршрут общего чата преподавателя
-    navigate('/dashboard/teacher/general-chat');
+    // Для преподавателя используем маршрут форума
+    navigate('/dashboard/teacher/forum');
   };
 
   const handleEditProfile = () => {
@@ -578,13 +578,13 @@ const TeacherDashboard = () => {
                         <FileText className="w-6 h-6" />
                         <span>Создать отчёт</span>
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={handleChatClick}
                       >
                         <MessageCircle className="w-6 h-6" />
-                        <span>Общий чат</span>
+                        <span>Форум</span>
                       </Button>
                       <Button 
                         variant="outline" 

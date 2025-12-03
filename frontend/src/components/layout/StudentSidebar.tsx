@@ -21,7 +21,7 @@ const items = [
   { title: "Предметы", url: "/dashboard/student/subjects", icon: BookOpen },
   { title: "Материалы", url: "/dashboard/student/materials", icon: BookOpen },
   { title: "Расписание", url: "/dashboard/student/schedule", icon: Calendar },
-  { title: "Чат", url: "/dashboard/student/general-chat", icon: MessageSquare },
+  { title: "Форум", url: "/dashboard/student/forum", icon: MessageSquare },
 ];
 
 export function StudentSidebar() {
@@ -51,7 +51,7 @@ export function StudentSidebar() {
                       {state === "expanded" && (
                         <div className="flex items-center justify-between w-full">
                           <span>{item.title}</span>
-                          {item.title === "Чат" && <ChatNotificationBadge />}
+                          {item.title === "Форум" && <ChatNotificationBadge />}
                         </div>
                       )}
                     </NavLink>

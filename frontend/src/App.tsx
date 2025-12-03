@@ -29,19 +29,16 @@ const TeacherDashboard = lazy(() => import("./pages/dashboard/TeacherDashboard")
 const TutorDashboard = lazy(() => import("./pages/dashboard/TutorDashboard"));
 const StudentMaterials = lazy(() => import("./pages/dashboard/student/Materials"));
 const StudentSubjects = lazy(() => import("./pages/dashboard/student/Subjects"));
-const StudentGeneralChat = lazy(() => import("./pages/dashboard/student/GeneralChat"));
 const StudentAssignments = lazy(() => import("./pages/dashboard/student/Assignments"));
 const TeacherMaterials = lazy(() => import("./pages/dashboard/teacher/Materials"));
 const CreateMaterial = lazy(() => import("./pages/dashboard/teacher/CreateMaterial"));
 const TeacherReports = lazy(() => import("./pages/dashboard/teacher/Reports"));
 const StudyPlans = lazy(() => import("./pages/dashboard/teacher/StudyPlans"));
 const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissions"));
-const TeacherGeneralChat = lazy(() => import("./pages/dashboard/teacher/GeneralChat"));
 const AssignSubject = lazy(() => import("./pages/dashboard/teacher/AssignSubject"));
 const TeacherAssignments = lazy(() => import("./pages/dashboard/teacher/Assignments"));
 const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
 const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
-const TutorGeneralChat = lazy(() => import("./pages/dashboard/tutor/GeneralChat"));
 const ParentChildren = lazy(() => import("./pages/dashboard/parent/Children"));
 const ParentChildDetail = lazy(() => import("./pages/dashboard/parent/ChildDetail"));
 const ParentStatistics = lazy(() => import("./pages/dashboard/parent/Statistics"));
@@ -145,13 +142,6 @@ const App = () => (
               </ProtectedRoute>
             )
           } />
-          <Route path="/dashboard/student/general-chat" element={
-            <ProtectedRoute requiredRole="student">
-              <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <StudentGeneralChat />
-              </Suspense>
-            </ProtectedRoute>
-          } />
           <Route path="/dashboard/student/schedule" element={
             <ProtectedRoute requiredRole="student">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
@@ -224,13 +214,6 @@ const App = () => (
               </ProtectedRoute>
             )
           } />
-          <Route path="/dashboard/teacher/general-chat" element={
-            <ProtectedRoute requiredRole="teacher">
-              <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <TeacherGeneralChat />
-              </Suspense>
-            </ProtectedRoute>
-          } />
           <Route path="/dashboard/teacher/submissions/pending" element={
             <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
@@ -293,13 +276,6 @@ const App = () => (
             <ProtectedRoute requiredRole="tutor">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <Forum />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          <Route path="/dashboard/tutor/general-chat" element={
-            <ProtectedRoute requiredRole="tutor">
-              <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <TutorGeneralChat />
               </Suspense>
             </ProtectedRoute>
           } />

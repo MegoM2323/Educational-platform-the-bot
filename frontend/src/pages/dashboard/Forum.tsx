@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,12 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, Send, Search, Loader2 } from 'lucide-react';
+import { MessageCircle, Send, Search, Loader2, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
 import { ForumChat, ForumMessage } from '@/integrations/api/forumAPI';
 import { Skeleton } from '@/components/ui/skeleton';
-import { chatWebSocketService, ChatMessage } from '@/services/chatWebSocketService';
+import { chatWebSocketService, ChatMessage, TypingUser } from '@/services/chatWebSocketService';
+import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
 
 interface ChatListProps {
   chats: ForumChat[];
@@ -28,6 +30,10 @@ interface ChatWindowProps {
   isLoadingMessages: boolean;
   isSending: boolean;
   onSendMessage: (content: string) => void;
+  isConnected: boolean;
+  typingUsers: TypingUser[];
+  error: string | null;
+  onRetryConnection: () => void;
 }
 
 const ChatListItem = ({ chat, selected, onClick }: { chat: ForumChat; selected: boolean; onClick: () => void }) => {
@@ -152,6 +158,10 @@ const ChatWindow = ({
   isLoadingMessages,
   isSending,
   onSendMessage,
+  isConnected,
+  typingUsers,
+  error,
+  onRetryConnection,
 }: ChatWindowProps) => {
   const [messageInput, setMessageInput] = useState('');
 
@@ -159,6 +169,16 @@ const ChatWindow = ({
     if (messageInput.trim() && !isSending) {
       onSendMessage(messageInput.trim());
       setMessageInput('');
+    }
+  };
+
+  const handleMessageChange = (value: string) => {
+    setMessageInput(value);
+
+    // Send typing indicator if connected
+    if (value.trim() && isConnected && chat) {
+      chatWebSocketService.sendTyping(chat.id);
+      chatWebSocketService.startTypingTimer(chat.id);
     }
   };
 
@@ -187,6 +207,24 @@ const ChatWindow = ({
 
   return (
     <Card className="p-6 md:col-span-2 flex flex-col h-full">
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-destructive" />
+          <div className="flex-1">
+            <p className="text-sm text-destructive font-medium">{error}</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onRetryConnection}
+            className="text-xs"
+          >
+            Повторить
+          </Button>
+        </div>
+      )}
+
       {/* Chat Header */}
       <div className="flex items-center gap-3 pb-4 border-b">
         <Avatar className="w-10 h-10">
@@ -199,7 +237,27 @@ const ChatWindow = ({
           </AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <div className="font-bold text-sm">{displayName}</div>
+          <div className="flex items-center gap-2">
+            <div className="font-bold text-sm">{displayName}</div>
+            {/* Connection Status Indicator */}
+            <div className="flex items-center gap-1">
+              {isConnected ? (
+                <Wifi className="w-3 h-3 text-green-500" />
+              ) : (
+                <WifiOff className="w-3 h-3 text-red-500" />
+              )}
+              <span
+                className={cn(
+                  'text-xs px-2 py-0.5 rounded-full',
+                  isConnected
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                )}
+              >
+                {isConnected ? 'Онлайн' : 'Оффлайн'}
+              </span>
+            </div>
+          </div>
           {chat.subject && (
             <div className="text-xs text-muted-foreground">{chat.subject.name}</div>
           )}
@@ -226,42 +284,64 @@ const ChatWindow = ({
               <p className="text-sm text-muted-foreground">Начните общение с первого сообщения</p>
             </div>
           ) : (
-            messages.map((msg) => {
-              const isOwn = msg.sender.id === parseInt(localStorage.getItem('user_id') || '0');
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                >
+            <>
+              {messages.map((msg) => {
+                const isOwn = msg.sender.id === parseInt(localStorage.getItem('user_id') || '0');
+                return (
                   <div
-                    className={`max-w-[70%] p-3 rounded-lg ${
-                      isOwn
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    }`}
+                    key={msg.id}
+                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                   >
-                    {!isOwn && (
-                      <p className="text-xs font-medium mb-1 opacity-75">
-                        {msg.sender.full_name}
-                      </p>
-                    )}
-                    <p className="text-sm break-words">{msg.content}</p>
                     <div
-                      className={`text-xs mt-1 ${
+                      className={`max-w-[70%] p-3 rounded-lg ${
                         isOwn
-                          ? 'text-primary-foreground/70'
-                          : 'text-muted-foreground'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
                       }`}
                     >
-                      {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {!isOwn && (
+                        <p className="text-xs font-medium mb-1 opacity-75">
+                          {msg.sender.full_name}
+                        </p>
+                      )}
+                      <p className="text-sm break-words">{msg.content}</p>
+                      <div
+                        className={`text-xs mt-1 ${
+                          isOwn
+                            ? 'text-primary-foreground/70'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+
+              {/* Typing Indicator */}
+              {typingUsers.length > 0 && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <div className="flex -space-x-1">
+                    {typingUsers.slice(0, 3).map((user) => (
+                      <Avatar key={user.id} className="w-6 h-6 border-2 border-background">
+                        <AvatarFallback className="text-xs">
+                          {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                  </div>
+                  <span>
+                    {typingUsers.length === 1
+                      ? `${typingUsers[0].first_name} печатает...`
+                      : `${typingUsers.length} пользователя печатают...`}
+                  </span>
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
       </ScrollArea>
@@ -271,7 +351,7 @@ const ChatWindow = ({
         <Input
           placeholder="Введите сообщение..."
           value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
+          onChange={(e) => handleMessageChange(e.target.value)}
           onKeyPress={handleKeyPress}
           disabled={isSending}
           className="text-sm"
@@ -288,13 +368,24 @@ const ChatWindow = ({
           )}
         </Button>
       </div>
+
+      {/* Offline Notice */}
+      {!isConnected && (
+        <div className="pt-2 text-xs text-muted-foreground text-center">
+          Сообщения будут отправлены при восстановлении соединения
+        </div>
+      )}
     </Card>
   );
 };
 
 export default function Forum() {
+  const { user } = useAuth();
   const [selectedChat, setSelectedChat] = useState<ForumChat | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isConnected, setIsConnected] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: chats = [], isLoading: isLoadingChats } = useForumChats();
@@ -303,14 +394,12 @@ export default function Forum() {
   );
   const sendMessageMutation = useSendForumMessage();
 
-  // WebSocket integration for real-time messages
-  useEffect(() => {
-    if (!selectedChat) return;
+  // WebSocket handlers (memoized)
+  const handleWebSocketMessage = useCallback(
+    (wsMessage: ChatMessage) => {
+      if (!selectedChat) return;
 
-    const chatId = selectedChat.id;
-
-    const handlers = {
-      onMessage: (wsMessage: ChatMessage) => {
+      try {
         // Transform WebSocket message to ForumMessage format
         const forumMessage: ForumMessage = {
           id: wsMessage.id,
@@ -328,7 +417,7 @@ export default function Forum() {
 
         // Update TanStack Query cache with new message
         queryClient.setQueryData(
-          ['forum-messages', chatId, 50, 0],
+          ['forum-messages', selectedChat.id, 50, 0],
           (oldData: ForumMessage[] | undefined) => {
             if (!oldData) {
               return [forumMessage];
@@ -346,29 +435,116 @@ export default function Forum() {
 
         // Also invalidate chat list to update last_message and unread_count
         queryClient.invalidateQueries({ queryKey: ['forum-chats'] });
-      },
+
+        // Clear any errors on successful message
+        setError(null);
+      } catch (err) {
+        console.error('Error handling WebSocket message:', err);
+        setError('Ошибка обработки сообщения');
+      }
+    },
+    [selectedChat, queryClient]
+  );
+
+  const handleTyping = useCallback((user: TypingUser) => {
+    setTypingUsers((prev) => {
+      const filtered = prev.filter((u) => u.id !== user.id);
+      return [...filtered, user];
+    });
+
+    // Remove user from typing list after 3 seconds
+    setTimeout(() => {
+      setTypingUsers((prev) => prev.filter((u) => u.id !== user.id));
+    }, 3000);
+  }, []);
+
+  const handleTypingStop = useCallback((user: TypingUser) => {
+    setTypingUsers((prev) => prev.filter((u) => u.id !== user.id));
+  }, []);
+
+  const handleError = useCallback((errorMessage: string) => {
+    console.error('WebSocket error:', errorMessage);
+    setError(errorMessage);
+  }, []);
+
+  // WebSocket connection management
+  useEffect(() => {
+    if (!selectedChat || !user) return;
+
+    const chatId = selectedChat.id;
+
+    const handlers = {
+      onMessage: handleWebSocketMessage,
+      onTyping: handleTyping,
+      onTypingStop: handleTypingStop,
+      onError: handleError,
     };
 
     // Connect to WebSocket for this chat room
     chatWebSocketService.connectToRoom(chatId, handlers);
 
+    // Subscribe to connection state changes
+    const connectionCallback = (connected: boolean) => {
+      setIsConnected(connected);
+      if (!connected) {
+        setError('Соединение потеряно. Попытка переподключения...');
+      } else {
+        setError(null);
+      }
+    };
+
+    chatWebSocketService.onConnectionChange(connectionCallback);
+
     // Cleanup: disconnect when chat changes or component unmounts
     return () => {
       chatWebSocketService.disconnectFromRoom(chatId);
+      setTypingUsers([]);
     };
-  }, [selectedChat, queryClient]);
+  }, [selectedChat, user, handleWebSocketMessage, handleTyping, handleTypingStop, handleError]);
 
   const handleSelectChat = (chat: ForumChat) => {
     setSelectedChat(chat);
     setSearchQuery('');
+    setError(null);
+    setTypingUsers([]);
   };
 
-  const handleSendMessage = (content: string) => {
-    if (selectedChat) {
-      sendMessageMutation.mutate({
+  const handleSendMessage = async (content: string) => {
+    if (!selectedChat) return;
+
+    try {
+      setError(null);
+
+      // Try to send via WebSocket for real-time delivery (non-critical)
+      try {
+        if (isConnected) {
+          chatWebSocketService.sendRoomMessage(selectedChat.id, content);
+        }
+      } catch (wsError) {
+        console.warn('WebSocket send failed, falling back to API:', wsError);
+      }
+
+      // Always send via API to persist in database
+      await sendMessageMutation.mutateAsync({
         chatId: selectedChat.id,
         data: { content },
       });
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      const errorMessage = error?.message || 'Ошибка отправки сообщения';
+      setError(errorMessage);
+    }
+  };
+
+  const handleRetryConnection = () => {
+    setError(null);
+    if (selectedChat) {
+      // Force reconnect by toggling chat
+      const chat = selectedChat;
+      setSelectedChat(null);
+      setTimeout(() => {
+        setSelectedChat(chat);
+      }, 100);
     }
   };
 
@@ -395,6 +571,10 @@ export default function Forum() {
           isLoadingMessages={isLoadingMessages}
           isSending={sendMessageMutation.isPending}
           onSendMessage={handleSendMessage}
+          isConnected={isConnected}
+          typingUsers={typingUsers}
+          error={error}
+          onRetryConnection={handleRetryConnection}
         />
       </div>
     </div>

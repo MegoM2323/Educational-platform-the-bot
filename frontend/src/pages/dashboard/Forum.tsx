@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, Send, Search, Loader2, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { MessageCircle, Send, Search, Loader2, Wifi, WifiOff, AlertCircle, LogOut } from 'lucide-react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
 import { ForumChat, ForumMessage } from '@/integrations/api/forumAPI';
@@ -14,6 +16,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { chatWebSocketService, ChatMessage, TypingUser } from '@/services/chatWebSocketService';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { StudentSidebar } from '@/components/layout/StudentSidebar';
+import { TeacherSidebar } from '@/components/layout/TeacherSidebar';
+import { TutorSidebar } from '@/components/layout/TutorSidebar';
+import { ParentSidebar } from '@/components/layout/ParentSidebar';
 
 interface ChatListProps {
   chats: ForumChat[];
@@ -379,8 +385,25 @@ const ChatWindow = ({
   );
 };
 
+// Helper function to get the appropriate sidebar component based on role
+const getSidebarComponent = (role: string) => {
+  switch (role) {
+    case 'student':
+      return StudentSidebar;
+    case 'teacher':
+      return TeacherSidebar;
+    case 'tutor':
+      return TutorSidebar;
+    case 'parent':
+      return ParentSidebar;
+    default:
+      return null;
+  }
+};
+
 export default function Forum() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [selectedChat, setSelectedChat] = useState<ForumChat | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -562,35 +585,72 @@ export default function Forum() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('Forum sign out error:', error);
+    }
+  };
+
+  // Get the appropriate sidebar component based on user role
+  const SidebarComponent = getSidebarComponent(user?.role || '');
+
+  if (!SidebarComponent) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-muted-foreground">Неизвестная роль пользователя</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 h-full">
-      <div>
-        <h1 className="text-3xl font-bold">Форум</h1>
-        <p className="text-muted-foreground">Общайтесь с преподавателями и тьюторами</p>
-      </div>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full">
+        <SidebarComponent />
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
+            <SidebarTrigger />
+            <h1 className="text-2xl font-bold ml-4">Форум</h1>
+            <div className="flex-1" />
+            <Button variant="outline" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Выйти
+            </Button>
+          </header>
+          <main className="flex-1 overflow-auto p-6">
+            <div className="space-y-6">
+              <div>
+                <p className="text-muted-foreground">Общайтесь с преподавателями и тьюторами</p>
+              </div>
 
-      <div className="grid md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-        <ChatList
-          chats={chats}
-          selectedChat={selectedChat}
-          onSelectChat={handleSelectChat}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          isLoading={isLoadingChats}
-        />
+              <div className="grid md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+                <ChatList
+                  chats={chats}
+                  selectedChat={selectedChat}
+                  onSelectChat={handleSelectChat}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  isLoading={isLoadingChats}
+                />
 
-        <ChatWindow
-          chat={selectedChat}
-          messages={messages}
-          isLoadingMessages={isLoadingMessages}
-          isSending={sendMessageMutation.isPending}
-          onSendMessage={handleSendMessage}
-          isConnected={isConnected}
-          typingUsers={typingUsers}
-          error={error}
-          onRetryConnection={handleRetryConnection}
-        />
+                <ChatWindow
+                  chat={selectedChat}
+                  messages={messages}
+                  isLoadingMessages={isLoadingMessages}
+                  isSending={sendMessageMutation.isPending}
+                  onSendMessage={handleSendMessage}
+                  isConnected={isConnected}
+                  typingUsers={typingUsers}
+                  error={error}
+                  onRetryConnection={handleRetryConnection}
+                />
+              </div>
+            </div>
+          </main>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

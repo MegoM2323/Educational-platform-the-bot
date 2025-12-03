@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import { apiClient } from './client';
 
 export interface Assignment {
   id: number;

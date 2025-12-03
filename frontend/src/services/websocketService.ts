@@ -36,6 +36,7 @@ export class WebSocketService {
   private isConnecting = false;
   private connectionState: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
   private connectionCallbacks: ((connected: boolean) => void)[] = [];
+  private currentUrl: string | null = null;
 
   constructor(config: WebSocketConfig) {
     this.config = {
@@ -45,13 +46,25 @@ export class WebSocketService {
       messageQueueSize: 100,
       ...config
     };
+    this.currentUrl = config.url;
   }
 
   /**
-   * Подключение к WebSocket серверу
+   * Подключение к WebSocket серверу с опциональным URL
+   * @param url - Опциональный URL для подключения. Если не указан, используется текущий URL
    */
-  async connect(): Promise<void> {
+  async connect(url?: string): Promise<void> {
+    // If URL provided, disconnect first if connected to different URL
+    if (url && this.currentUrl !== url) {
+      console.log(`[WebSocket] Switching URL from ${this.currentUrl} to ${url}`);
+      this.disconnect();
+      this.currentUrl = url;
+    }
+
+    const targetUrl = this.currentUrl || this.config.url;
+
     if (this.isConnecting || this.connectionState === 'connected') {
+      console.log('[WebSocket] Already connecting or connected to:', targetUrl);
       return;
     }
 
@@ -59,11 +72,13 @@ export class WebSocketService {
     this.connectionState = 'connecting';
     this.notifyConnectionChange(false);
 
+    console.log('[WebSocket] Connecting to:', targetUrl);
+
     try {
-      this.ws = new WebSocket(this.config.url);
-      
+      this.ws = new WebSocket(targetUrl);
+
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('[WebSocket] Connected successfully to:', targetUrl);
         this.connectionState = 'connected';
         this.reconnectAttempts = 0;
         this.isConnecting = false;
@@ -87,12 +102,12 @@ export class WebSocketService {
           } catch {}
           this.handleMessage(message);
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('[WebSocket] Error parsing message:', error);
         }
       };
 
       this.ws.onclose = (event) => {
-        console.log('WebSocket disconnected:', event.code, event.reason);
+        console.log('[WebSocket] Disconnected:', event.code, event.reason);
         this.connectionState = 'disconnected';
         this.isConnecting = false;
         this.notifyConnectionChange(false);
@@ -101,14 +116,14 @@ export class WebSocketService {
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('[WebSocket] Connection error:', error);
         this.isConnecting = false;
         this.connectionState = 'disconnected';
         this.notifyConnectionChange(false);
       };
 
     } catch (error) {
-      console.error('Error creating WebSocket connection:', error);
+      console.error('[WebSocket] Failed to create connection:', error);
       this.isConnecting = false;
       this.connectionState = 'disconnected';
       this.notifyConnectionChange(false);
@@ -324,36 +339,36 @@ export class WebSocketService {
 }
 
 /**
- * Gets WebSocket chat URL using auto-detection logic from unifiedClient.ts
+ * Gets base WebSocket URL (without specific path like /chat/XXX/)
  * This consolidates the URL detection logic (no duplication)
  */
-function getChatWebSocketUrl(): string {
-  // Use auto-detection logic similar to unifiedClient.ts
+export function getWebSocketBaseUrl(): string {
   // Priority 1: Environment variable
   const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL);
   if (envUrl && envUrl !== 'undefined') {
-    const url = envUrl.replace(/\/$/, '') + '/chat/general/';
-    console.log('[WebSocket Config] Using URL from VITE_WEBSOCKET_URL env var:', url);
+    const url = envUrl.replace(/\/$/, '');
+    console.log('[WebSocket Config] Using base URL from VITE_WEBSOCKET_URL env var:', url);
     return url;
   }
 
   // Priority 2: Auto-detect from current location
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${window.location.host}/ws/chat/general/`;
-    console.log('[WebSocket Config] Using auto-detected URL from window.location:', url);
+    const url = `${protocol}//${window.location.host}/ws`;
+    console.log('[WebSocket Config] Using auto-detected base URL from window.location:', url);
     return url;
   }
 
   // Fallback 3: SSR or build-time only
-  console.log('[WebSocket Config] Using fallback URL (SSR/build-time)');
-  return 'ws://localhost:8000/ws/chat/general/';
+  console.log('[WebSocket Config] Using fallback base URL (SSR/build-time)');
+  return 'ws://localhost:8000/ws';
 }
 
-const WEBSOCKET_URL = getChatWebSocketUrl();
+// Initialize with a placeholder URL - actual URL will be provided when connecting
+const WEBSOCKET_BASE_URL = getWebSocketBaseUrl();
 
 export const websocketService = new WebSocketService({
-  url: WEBSOCKET_URL,
+  url: `${WEBSOCKET_BASE_URL}/chat/general/`, // Default fallback URL
   reconnectInterval: 5000,
   maxReconnectAttempts: 10,
   heartbeatInterval: 30000,

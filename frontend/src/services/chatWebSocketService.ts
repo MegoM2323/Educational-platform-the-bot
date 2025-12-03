@@ -3,7 +3,7 @@
  * Обеспечивает real-time обмен сообщениями, индикаторы печати и уведомления
  */
 
-import { websocketService, WebSocketMessage } from './websocketService';
+import { websocketService, WebSocketMessage, getWebSocketBaseUrl } from './websocketService';
 
 export interface ChatMessage {
   id: number;
@@ -66,16 +66,19 @@ export class ChatWebSocketService {
    */
   connectToGeneralChat(handlers: ChatEventHandlers): void {
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
-    
+
     const subscriptionId = websocketService.subscribe('general_chat', (message: WebSocketMessage) => {
       this.handleChatMessage(message);
     });
-    
+
     this.subscriptions.set('general_chat', subscriptionId);
-    
+
     // Подключаемся к WebSocket если еще не подключены
     if (!websocketService.isConnected()) {
-      websocketService.connect();
+      const baseUrl = getWebSocketBaseUrl();
+      const fullUrl = `${baseUrl}/chat/general/`;
+      console.log('[ChatWebSocket] Connecting to general chat:', fullUrl);
+      websocketService.connect(fullUrl);
     }
   }
 
@@ -84,18 +87,19 @@ export class ChatWebSocketService {
    */
   connectToRoom(roomId: number, handlers: ChatEventHandlers): void {
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
-    
+
     const channel = `chat_${roomId}`;
     const subscriptionId = websocketService.subscribe(channel, (message: WebSocketMessage) => {
       this.handleChatMessage(message);
     });
-    
+
     this.subscriptions.set(channel, subscriptionId);
-    
-    // Подключаемся к WebSocket если еще не подключены
-    if (!websocketService.isConnected()) {
-      websocketService.connect();
-    }
+
+    // Подключаемся к WebSocket с room-specific URL
+    const baseUrl = getWebSocketBaseUrl();
+    const fullUrl = `${baseUrl}/chat/${roomId}/`;
+    console.log('[ChatWebSocket] Connecting to room:', roomId, 'URL:', fullUrl);
+    websocketService.connect(fullUrl);
   }
 
   /**

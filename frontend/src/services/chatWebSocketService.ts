@@ -4,6 +4,7 @@
  */
 
 import { websocketService, WebSocketMessage, getWebSocketBaseUrl } from './websocketService';
+import { tokenStorage } from './tokenStorage';
 
 export interface ChatMessage {
   id: number;
@@ -76,7 +77,9 @@ export class ChatWebSocketService {
     // Подключаемся к WebSocket если еще не подключены
     if (!websocketService.isConnected()) {
       const baseUrl = getWebSocketBaseUrl();
-      const fullUrl = `${baseUrl}/chat/general/`;
+      const { accessToken } = tokenStorage.getTokens();
+      const tokenParam = accessToken ? `?token=${accessToken}` : '';
+      const fullUrl = `${baseUrl}/chat/general/${tokenParam}`;
       console.log('[ChatWebSocket] Connecting to general chat:', fullUrl);
       websocketService.connect(fullUrl);
     }
@@ -97,7 +100,9 @@ export class ChatWebSocketService {
 
     // Подключаемся к WebSocket с room-specific URL
     const baseUrl = getWebSocketBaseUrl();
-    const fullUrl = `${baseUrl}/chat/${roomId}/`;
+    const { accessToken } = tokenStorage.getTokens();
+    const tokenParam = accessToken ? `?token=${accessToken}` : '';
+    const fullUrl = `${baseUrl}/chat/${roomId}/${tokenParam}`;
     console.log('[ChatWebSocket] Connecting to room:', roomId, 'URL:', fullUrl);
     websocketService.connect(fullUrl);
   }

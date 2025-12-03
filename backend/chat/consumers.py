@@ -42,7 +42,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
-        
+        logger.warning(f'[GroupAdd] Room={self.room_id}, Group={self.room_group_name}, Channel={self.channel_name}, User={self.scope["user"].username}')
+
         await self.accept()
         
         # Отправляем историю сообщений
@@ -61,6 +62,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             }
         )
+        logger.warning(f'[ChatConsumer] Broadcasting user_joined to {self.room_group_name}')
     
     async def disconnect(self, close_code):
         # Покидаем группу комнаты
@@ -68,6 +70,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
+        logger.warning(f'[GroupDiscard] Group={self.room_group_name}, Channel={self.channel_name}')
         
         # Уведомляем других участников об отключении
         await self.channel_layer.group_send(
@@ -112,11 +115,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         content = data.get('content', '').strip()
         if not content:
             return
-        
+
         # Создаем сообщение
         message = await self.create_message(content)
+        logger.warning(f'[HandleChatMessage] Created message: {message}')
         if message:
             # Отправляем сообщение всем участникам группы
+            logger.warning(f'[HandleChatMessage] Broadcasting to group {self.room_group_name}, message_id={message.get("id", "unknown")}')
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -124,6 +129,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'message': message
                 }
             )
+            logger.warning(f'[HandleChatMessage] Broadcast completed for message_id={message.get("id", "unknown")}')
     
     async def handle_typing(self, data):
         """Обработка индикатора печати"""
@@ -158,13 +164,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_id = data.get('message_id')
         if message_id:
             await self.mark_message_read(message_id)
-    
+
     async def chat_message(self, event):
         """Отправка сообщения клиенту"""
+        logger.warning(f'[ChatMessage Handler] CALLED! Event={event}')
         await self.send(text_data=json.dumps({
             'type': 'chat_message',
             'message': event['message']
         }))
+        logger.warning(f'[ChatMessage Handler] SENT to client! message_id={event["message"].get("id", "unknown")}')
     
     async def typing(self, event):
         """Отправка индикатора печати клиенту"""
@@ -230,15 +238,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             pass
     
     @database_sync_to_async
-    def send_room_history(self):
-        """Отправка истории сообщений комнаты"""
+    def get_room_history(self):
+        """Получение истории сообщений комнаты из БД"""
         try:
             room = ChatRoom.objects.get(id=self.room_id)
             messages = room.messages.select_related('sender').order_by('-created_at')[:50]
             return [MessageSerializer(msg).data for msg in reversed(messages)]
         except ObjectDoesNotExist:
             return []
-    
+
     async def send_room_history(self):
         """Отправка истории сообщений клиенту"""
         messages = await self.get_room_history()
@@ -246,16 +254,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'type': 'room_history',
             'messages': messages
         }))
-    
-    @database_sync_to_async
-    def get_room_history(self):
-        """Получение истории сообщений комнаты"""
-        try:
-            room = ChatRoom.objects.get(id=self.room_id)
-            messages = room.messages.select_related('sender').order_by('-created_at')[:50]
-            return [MessageSerializer(msg).data for msg in reversed(messages)]
-        except ObjectDoesNotExist:
-            return []
 
 
 class GeneralChatConsumer(AsyncWebsocketConsumer):

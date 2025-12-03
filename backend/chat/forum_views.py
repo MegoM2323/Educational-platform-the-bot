@@ -9,9 +9,12 @@ Provides endpoints for:
 """
 
 import logging
+import json
 from typing import List
 
 from django.db.models import Q, Count, Max, Prefetch
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -260,6 +263,26 @@ class ForumChatViewSet(viewsets.ViewSet):
 
                 # Update chat's updated_at timestamp
                 chat.save(update_fields=['updated_at'])
+
+                # Broadcast message to all connected WebSocket clients in this chat room
+                try:
+                    channel_layer = get_channel_layer()
+                    message_data = MessageSerializer(
+                        message,
+                        context={'request': request}
+                    ).data
+
+                    room_group_name = f'chat_{chat.id}'
+                    async_to_sync(channel_layer.group_send)(
+                        room_group_name,
+                        {
+                            'type': 'chat_message',
+                            'message': message_data
+                        }
+                    )
+                    logger.info(f'Broadcasted message {message.id} to group {room_group_name}')
+                except Exception as e:
+                    logger.error(f'Failed to broadcast message via WebSocket: {str(e)}')
 
                 return Response({
                     'success': True,

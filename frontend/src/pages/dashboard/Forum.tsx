@@ -397,7 +397,17 @@ export default function Forum() {
   // WebSocket handlers (memoized)
   const handleWebSocketMessage = useCallback(
     (wsMessage: ChatMessage) => {
-      if (!selectedChat) return;
+      console.log('[Forum] WebSocket message received in component handler:', {
+        messageId: wsMessage.id,
+        content: wsMessage.content.substring(0, 50),
+        senderId: wsMessage.sender.id,
+        selectedChatId: selectedChat?.id
+      });
+
+      if (!selectedChat) {
+        console.warn('[Forum] Received message but no chat selected');
+        return;
+      }
 
       try {
         // Transform WebSocket message to ForumMessage format
@@ -415,20 +425,24 @@ export default function Forum() {
           message_type: wsMessage.message_type,
         };
 
+        console.log('[Forum] Updating TanStack Query cache for chat:', selectedChat.id);
         // Update TanStack Query cache with new message
         queryClient.setQueryData(
           ['forum-messages', selectedChat.id, 50, 0],
           (oldData: ForumMessage[] | undefined) => {
             if (!oldData) {
+              console.log('[Forum] No existing data, creating new array with message');
               return [forumMessage];
             }
 
             // Check if message already exists (avoid duplicates)
             const exists = oldData.some((msg: ForumMessage) => msg.id === forumMessage.id);
             if (exists) {
+              console.log('[Forum] Message already exists in cache, skipping');
               return oldData;
             }
 
+            console.log('[Forum] Adding new message to cache');
             return [...oldData, forumMessage];
           }
         );

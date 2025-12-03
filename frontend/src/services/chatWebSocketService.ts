@@ -193,43 +193,56 @@ export class ChatWebSocketService {
    * Обработка входящих сообщений чата
    */
   private handleChatMessage(message: WebSocketMessage): void {
+    console.log('[ChatWebSocketService] Received message:', {
+      type: message.type,
+      hasMessage: !!message.message,
+      messageId: message.message?.id,
+      hasHandler: !!this.eventHandlers.onMessage
+    });
+
     switch (message.type) {
       case 'chat_message':
         if (message.message && this.eventHandlers.onMessage) {
+          console.log('[ChatWebSocketService] Calling onMessage handler for message ID:', message.message.id);
           this.eventHandlers.onMessage(message.message);
+        } else {
+          console.warn('[ChatWebSocketService] chat_message received but no handler or message data:', {
+            hasMessage: !!message.message,
+            hasHandler: !!this.eventHandlers.onMessage
+          });
         }
         break;
-        
+
       case 'typing':
         if (message.user && this.eventHandlers.onTyping) {
           this.eventHandlers.onTyping(message.user);
         }
         break;
-        
+
       case 'typing_stop':
         if (message.user && this.eventHandlers.onTypingStop) {
           this.eventHandlers.onTypingStop(message.user);
         }
         break;
-        
+
       case 'user_joined':
         if (message.user && this.eventHandlers.onUserJoined) {
           this.eventHandlers.onUserJoined(message.user);
         }
         break;
-        
+
       case 'user_left':
         if (message.user && this.eventHandlers.onUserLeft) {
           this.eventHandlers.onUserLeft(message.user);
         }
         break;
-        
+
       case 'room_history':
         if (message.messages && this.eventHandlers.onRoomHistory) {
           this.eventHandlers.onRoomHistory(message.messages);
         }
         break;
-        
+
       case 'error':
         if (message.error && this.eventHandlers.onError) {
           this.eventHandlers.onError(message.error);

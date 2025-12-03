@@ -90,6 +90,12 @@ export class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('[WebSocketService] Raw WebSocket message received:', {
+            type: message.type,
+            hasMessage: !!message.message,
+            messageId: message.message?.id,
+            fullPayload: message
+          });
           // Тестовая интеграция: сохраняем сообщения в window.__wsMessages для Playwright-тестов
           try {
             if (typeof window !== 'undefined') {
@@ -240,9 +246,11 @@ export class WebSocketService {
       return;
     }
 
+    console.log('[WebSocketService] Broadcasting to', this.subscriptions.size, 'subscriptions');
     // Уведомляем подписчиков
     this.subscriptions.forEach((subscription) => {
       try {
+        console.log('[WebSocketService] Calling subscription callback for channel:', subscription.channel);
         subscription.callback(message);
       } catch (error) {
         console.error('Error in subscription callback:', error);

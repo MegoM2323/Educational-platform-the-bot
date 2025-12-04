@@ -14,7 +14,7 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
   const createMutation = useMutation({
     mutationFn: (payload: LessonCreatePayload) => schedulingAPI.createLesson(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
       toast.success('Урок успешно создан');
     }
   });
@@ -23,7 +23,7 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     mutationFn: ({ id, payload }: { id: string; payload: LessonUpdatePayload }) =>
       schedulingAPI.updateLesson(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
       toast.success('Урок успешно обновлён');
     }
   });
@@ -31,7 +31,7 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => schedulingAPI.deleteLesson(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
       toast.success('Урок успешно удалён');
     }
   });

@@ -25,12 +25,14 @@ class TutorStudentSerializer(serializers.ModelSerializer):
     parent_name = serializers.SerializerMethodField()
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     full_name = serializers.SerializerMethodField()
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
     subjects = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
         fields = (
-            'id', 'user_id', 'full_name', 'grade', 'goal', 'tutor', 'tutor_name',
+            'id', 'user_id', 'full_name', 'first_name', 'last_name', 'grade', 'goal', 'tutor', 'tutor_name',
             'parent', 'parent_name', 'progress_percentage', 'subjects'
         )
 
@@ -50,22 +52,26 @@ class TutorStudentSerializer(serializers.ModelSerializer):
     def get_subjects(self, obj):
         """Возвращает список назначенных предметов студента с кастомными названиями"""
         from materials.models import SubjectEnrollment
-        
+
         # Получаем ID пользователя для гарантии свежих данных
         user_id = obj.user.id if hasattr(obj.user, 'id') else obj.user.pk
-        
-        # Получаем свежие данные из базы каждый раз
-        # Используем student_id вместо student для избежания проблем с кешированием
-        # Используем явный запрос к базе, чтобы гарантировать получение актуальных данных
-        enrollments_queryset = SubjectEnrollment.objects.filter(
-            student_id=user_id,
-            is_active=True
-        ).select_related('subject', 'teacher').order_by('-enrolled_at', '-id')
-        
-        # Преобразуем в список, чтобы выполнить запрос сразу и получить свежие данные
-        # Это гарантирует, что мы получаем актуальные данные из базы данных
-        enrollments = list(enrollments_queryset)
-        
+
+        # Пробуем использовать prefetched data если доступно
+        # Это избегает N+1 queries при использовании prefetch_related в view
+        if hasattr(obj.user, '_prefetched_objects_cache') and 'subject_enrollments' in obj.user._prefetched_objects_cache:
+            # Используем prefetched data - NO дополнительных запросов
+            enrollments = [e for e in obj.user.subject_enrollments.all() if e.is_active]
+            logger.debug(f"Using prefetched subject_enrollments for student {user_id}")
+        else:
+            # Fallback: делаем запрос если prefetch не был использован
+            # Это происходит при прямых вызовах сериализатора без prefetch
+            enrollments_queryset = SubjectEnrollment.objects.filter(
+                student_id=user_id,
+                is_active=True
+            ).select_related('subject', 'teacher').order_by('-enrolled_at', '-id')
+            enrollments = list(enrollments_queryset)
+            logger.debug(f"Querying subject_enrollments for student {user_id} (prefetch not available)")
+
         result = [
             {
                 'id': enrollment.subject.id,

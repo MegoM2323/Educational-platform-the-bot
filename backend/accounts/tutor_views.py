@@ -6,7 +6,7 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from .models import StudentProfile
 from .tutor_service import StudentCreationService, SubjectAssignmentService
 from .tutor_serializers import (
@@ -92,11 +92,21 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         # Используем общий фильтр, который работает и для тьюторов, и для администраторов
         # Принудительно получаем свежие данные из базы, не используя кеш
 
-        # Сначала получаем queryset
+        # Импортируем SubjectEnrollment для Prefetch
+        from materials.models import SubjectEnrollment
+
+        # Создаем Prefetch для subject_enrollments с оптимизацией
+        enrollments_prefetch = Prefetch(
+            'user__subject_enrollments',
+            queryset=SubjectEnrollment.objects.filter(is_active=True).select_related('subject', 'teacher').order_by('-enrolled_at', '-id')
+        )
+
+        # Сначала получаем queryset с оптимизацией
         students_queryset = (
             StudentProfile.objects
             .filter(Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             .select_related('user', 'tutor', 'parent')
+            .prefetch_related(enrollments_prefetch)
             .distinct()  # Избегаем дубликатов, если оба условия выполнены
             .order_by('-user__date_joined')  # Сортируем по дате создания (новые первыми)
         )

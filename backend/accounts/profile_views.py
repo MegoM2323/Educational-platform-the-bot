@@ -207,6 +207,48 @@ class TeacherProfileView(APIView):
     - Поля User: first_name, last_name, email, phone, avatar
     - Поля Profile: subject, experience_years, bio, telegram
     - Дополнительно: subject_ids (список ID предметов из materials.Subject)
+
+    PRODUCTION DEPLOYMENT CHECKS:
+    ===========================
+
+    Если возникает 404 ошибка на /api/profile/teacher/ в продакшене, проверьте:
+
+    1. Python Version Compatibility (CRITICAL):
+       - Python 3.13+ имеет breaking change: collections.MutableSet → collections.abc.MutableSet
+       - Проверка: python --version
+       - Решение: используйте Python 3.11 или 3.12, или обновите hyperframe пакет
+
+    2. Nginx/Apache Configuration:
+       - Проверьте что /api/profile/ проксируется в Django (не статические файлы)
+       - Пример Nginx:
+         location /api/ {
+             proxy_pass http://localhost:8000;
+             proxy_set_header Host $host;
+             proxy_set_header X-Real-IP $remote_addr;
+         }
+
+    3. ASGI Server (Daphne) Running:
+       - Проверка: ps aux | grep daphne
+       - Должен быть запущен: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+       - НЕ используйте runserver в продакшене (не поддерживает WebSocket)
+
+    4. Token Authentication:
+       - Проверьте что токены синхронизированы с БД
+       - Тест: curl -H "Authorization: Token <TOKEN>" https://the-bot.ru/api/profile/teacher/
+       - Должен быть 200 OK, не 404
+
+    5. Django URL Configuration:
+       - config/urls.py должен содержать: path('api/profile/', include('accounts.profile_urls'))
+       - accounts/profile_urls.py должен содержать: path('teacher/', TeacherProfileView.as_view())
+
+    6. Логи (для отладки):
+       - Все запросы логируются с уровнем INFO
+       - Автосоздание профиля логируется с WARNING/INFO
+       - Ошибки доступа (неверная роль) - WARNING
+       - Проверка: grep "TeacherProfileView" /var/log/django/app.log
+
+    Если эндпоинт работает в development но не в production, проблема НЕ в коде Django,
+    а в окружении (Python version, nginx config, ASGI server).
     """
 
     authentication_classes = [CustomTokenAuthentication]
@@ -214,7 +256,17 @@ class TeacherProfileView(APIView):
 
     def get(self, request) -> Response:
         """Получить данные профиля преподавателя"""
+        # Production debugging: log request start
+        logger.info(
+            f"[TeacherProfileView] GET request from user_id={request.user.id} "
+            f"email={request.user.email} role={request.user.role}"
+        )
+
         if request.user.role != 'teacher':
+            logger.warning(
+                f"[TeacherProfileView] Access denied for non-teacher user_id={request.user.id} "
+                f"role={request.user.role}"
+            )
             return Response(
                 {'error': 'Only teachers can access this endpoint'},
                 status=status.HTTP_403_FORBIDDEN
@@ -222,6 +274,10 @@ class TeacherProfileView(APIView):
 
         try:
             profile = TeacherProfile.objects.select_related('user').get(user=request.user)
+            logger.debug(
+                f"[TeacherProfileView] TeacherProfile found for user_id={request.user.id} "
+                f"profile_id={profile.id}"
+            )
         except TeacherProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
             logger.warning(
@@ -230,7 +286,8 @@ class TeacherProfileView(APIView):
             )
             profile = TeacherProfile.objects.create(user=request.user)
             logger.info(
-                f"[TeacherProfileView] TeacherProfile auto-created for user_id={request.user.id}"
+                f"[TeacherProfileView] TeacherProfile auto-created for user_id={request.user.id} "
+                f"profile_id={profile.id}"
             )
 
         user_data = {
@@ -245,6 +302,9 @@ class TeacherProfileView(APIView):
 
         profile_serializer = TeacherProfileDetailSerializer(profile)
 
+        logger.info(
+            f"[TeacherProfileView] Successfully returning profile for user_id={request.user.id}"
+        )
         return Response({
             'user': user_data,
             'profile': profile_serializer.data

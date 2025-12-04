@@ -131,7 +131,7 @@ const TeacherSchedulePage: React.FC = () => {
       };
 
       // Call mutation (hook handles success/error toasts and query invalidation)
-      updateLesson({ id: editingId, data: payload });
+      updateLesson({ id: editingId, payload });
 
       // Close dialog immediately (optimistic UI)
       setEditingId(null);

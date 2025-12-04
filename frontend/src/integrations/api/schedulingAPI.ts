@@ -54,13 +54,14 @@ export const schedulingAPI = {
   },
 
   getStudentSchedule: async (studentId: string, filters?: Record<string, any>): Promise<Lesson[]> => {
-    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/student-schedule/', {
-      params: { student_id: studentId, ...filters }
-    });
+    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>(
+      `/materials/dashboard/tutor/students/${studentId}/schedule/`,
+      { params: filters }
+    );
     if (response.error) {
       throw new Error(response.error);
     }
-    // Backend returns {results: [...]} with pagination
+    // Backend returns array directly (not paginated)
     const data = response.data;
     return Array.isArray(data) ? data : (data as { results: Lesson[] }).results;
   },

@@ -381,9 +381,10 @@ describe('schedulingAPI', () => {
 
       const result = await schedulingAPI.getStudentSchedule(studentId);
 
-      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/student_schedule/', {
-        params: { student_id: studentId },
-      });
+      expect(unifiedAPI.get).toHaveBeenCalledWith(
+        `/materials/dashboard/tutor/students/${studentId}/schedule/`,
+        { params: undefined }
+      );
       expect(result).toHaveLength(1);
       expect(result[0].student).toBe(studentId);
     });
@@ -403,9 +404,10 @@ describe('schedulingAPI', () => {
 
       const result = await schedulingAPI.getStudentSchedule(studentId, filters);
 
-      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/student_schedule/', {
-        params: { student_id: studentId, ...filters },
-      });
+      expect(unifiedAPI.get).toHaveBeenCalledWith(
+        `/materials/dashboard/tutor/students/${studentId}/schedule/`,
+        { params: filters }
+      );
     });
 
     it('should throw error if fetch fails', async () => {

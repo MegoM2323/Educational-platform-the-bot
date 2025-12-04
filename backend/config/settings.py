@@ -1,3 +1,10 @@
+# CRITICAL: Apply Python 3.13 compatibility patch FIRST
+# Должен быть импортирован до любых других библиотек
+try:
+    from config import hyperframe_patch
+except ImportError:
+    pass
+
 from pathlib import Path
 import os
 from decimal import Decimal

@@ -67,7 +67,7 @@ export interface SendForumMessageResponse {
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
     const response = await unifiedAPI.request<any>(
-      '/chat/forum/'
+      '/api/chat/forum/'
     );
 
     if (response.error) {
@@ -100,7 +100,7 @@ export const forumAPI = {
     if (offset) params.append('offset', String(offset));
 
     const queryString = params.toString();
-    const url = `/chat/forum/${chatId}/messages/${queryString ? '?' + queryString : ''}`;
+    const url = `/api/chat/forum/${chatId}/messages/${queryString ? '?' + queryString : ''}`;
 
     const response = await unifiedAPI.request<any>(url);
 
@@ -129,7 +129,7 @@ export const forumAPI = {
     data: SendForumMessageRequest
   ): Promise<ForumMessage> => {
     const response = await unifiedAPI.request<SendForumMessageResponse>(
-      `/chat/forum/${chatId}/send_message/`,
+      `/api/chat/forum/${chatId}/send_message/`,
       {
         method: 'POST',
         body: JSON.stringify(data),

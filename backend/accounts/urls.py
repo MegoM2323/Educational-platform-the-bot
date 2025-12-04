@@ -16,8 +16,8 @@ from .profile_views import (
 
 # Router for ViewSets
 router = DefaultRouter()
-# Tutor-specific endpoints через роутер
-router.register(r'tutor/students', TutorStudentsViewSet, basename='tutor-students')
+# Tutor-specific endpoints через роутер (будет доступен как /api/tutor/my-students/)
+router.register(r'my-students', TutorStudentsViewSet, basename='tutor-students')
 
 urlpatterns = [
     # Основные API endpoints для аутентификации (должны быть ПЕРЕД роутером)
@@ -44,17 +44,17 @@ urlpatterns = [
     path('staff/create/', create_staff, name='staff_create'),
     path('staff/teachers/<int:teacher_id>/subjects/', update_teacher_subjects, name='update_teacher_subjects'),
 
-    # Admin-only student management (ВАЖНО: должны быть ПЕРЕД роутером)
+    # Admin-only student management (доступен только через /api/admin/students/)
     path('students/', list_students, name='admin_list_students'),  # GET - список студентов
     path('students/create/', create_student, name='admin_create_student'),  # POST - создание студента (legacy)
     path('students/<int:student_id>/', get_student_detail, name='admin_student_detail'),
 
     # Admin-only parent management
     path('parents/', list_parents, name='admin_list_parents'),  # GET - список родителей
-    path('parents/create/', create_parent, name='admin_create_parent'),  # POST - создание родителя (legacy)
+    path('parents/create/', create_parent, name='admin_create_student'),  # POST - создание родителя (legacy)
     path('assign-parent/', assign_parent_to_students, name='admin_assign_parent'),  # POST - назначение родителя
 
-    # Router URLs должны быть ПОСЛЕ специфичных URL
+    # Router URLs (ViewSet endpoints) - ПОСЛЕ admin endpoints
     path('', include(router.urls)),
 
     # Admin-only user management (CRUD)

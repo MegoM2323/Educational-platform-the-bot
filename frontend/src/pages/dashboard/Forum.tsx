@@ -61,6 +61,7 @@ const ChatListItem = ({ chat, selected, onClick }: { chat: ForumChat; selected: 
   return (
     <div
       onClick={onClick}
+      data-testid="chat-item"
       className={`p-3 rounded-lg cursor-pointer transition-colors border ${
         selected
           ? 'bg-primary/10 border-primary'
@@ -117,7 +118,7 @@ const ChatList = ({
   }, [chats, searchQuery]);
 
   return (
-    <Card className="p-4 md:col-span-1 flex flex-col h-full">
+    <Card className="p-4 md:col-span-1 flex flex-col h-full" data-testid="chat-list">
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -125,18 +126,19 @@ const ChatList = ({
           className="pl-10 text-sm"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
+          data-testid="chat-search"
         />
       </div>
       <ScrollArea className="flex-1">
         <div className="space-y-2 pr-4">
           {isLoading ? (
             <>
-              <Skeleton className="h-20 rounded-lg" />
-              <Skeleton className="h-20 rounded-lg" />
-              <Skeleton className="h-20 rounded-lg" />
+              <Skeleton className="h-20 rounded-lg" data-testid="chat-list-skeleton" />
+              <Skeleton className="h-20 rounded-lg" data-testid="chat-list-skeleton" />
+              <Skeleton className="h-20 rounded-lg" data-testid="chat-list-skeleton" />
             </>
           ) : filteredChats.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="flex flex-col items-center justify-center py-8 text-center" data-testid="no-chats-message">
               <MessageCircle className="w-8 h-8 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">
                 {searchQuery ? 'Чатов не найдено' : 'Нет активных чатов'}
@@ -197,7 +199,7 @@ const ChatWindow = ({
 
   if (!chat) {
     return (
-      <Card className="p-6 md:col-span-2 flex flex-col items-center justify-center h-full">
+      <Card className="p-6 md:col-span-2 flex flex-col items-center justify-center h-full" data-testid="chat-window-empty">
         <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Выберите чат для начала общения</p>
       </Card>
@@ -212,7 +214,7 @@ const ChatWindow = ({
   const displayName = chat.name || otherParticipants || 'Чат';
 
   return (
-    <Card className="p-6 md:col-span-2 flex flex-col h-full">
+    <Card className="p-6 md:col-span-2 flex flex-col h-full" data-testid="chat-window">
       {/* Error Banner */}
       {error && (
         <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3">
@@ -232,7 +234,7 @@ const ChatWindow = ({
       )}
 
       {/* Chat Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
+      <div className="flex items-center gap-3 pb-4 border-b" data-testid="chat-header">
         <Avatar className="w-10 h-10">
           <AvatarFallback className="gradient-primary text-primary-foreground">
             {chat.participants

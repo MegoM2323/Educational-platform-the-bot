@@ -61,12 +61,16 @@ export const SubjectAssignmentDialog = ({
   const loadData = async () => {
     try {
       const [subjectsRes, teachersRes] = await Promise.all([
-        unifiedAPI.request<Subject[]>('/materials/subjects/all/'),
+        unifiedAPI.request<{ success: boolean; count: number; results: Subject[] }>('/materials/subjects/all/'),
         unifiedAPI.request<Teacher[]>('/auth/staff/?role=teacher'),
       ]);
 
       if (subjectsRes.success && subjectsRes.data) {
-        setSubjects(subjectsRes.data);
+        // Backend returns {success: true, count: 5, results: [...]}
+        // Extract the results array
+        const subjectsData = subjectsRes.data as any;
+        const subjectsArray = Array.isArray(subjectsData) ? subjectsData : (subjectsData.results || []);
+        setSubjects(subjectsArray);
       }
 
       if (teachersRes.success && teachersRes.data) {

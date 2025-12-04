@@ -98,10 +98,10 @@ class ForumChatViewSet(viewsets.ViewSet):
                 ).order_by('-updated_at')
 
             elif user.role == 'tutor':
-                # Tutor sees ONLY FORUM_TUTOR chats for students they are assigned to
+                # Tutor sees ONLY FORUM_TUTOR chats where they are a participant
+                # base_queryset already filters by participants=user, so just filter by type
                 chats = base_queryset.filter(
-                    type=ChatRoom.Type.FORUM_TUTOR,
-                    enrollment__student__student_profile__tutor=user  # Verify tutor via enrollment
+                    type=ChatRoom.Type.FORUM_TUTOR
                 ).order_by('-updated_at')
 
             else:

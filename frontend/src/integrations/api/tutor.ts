@@ -54,16 +54,16 @@ export interface AssignSubjectRequest {
 export const tutorAPI = {
   listStudents: async (): Promise<TutorStudent[]> => {
     console.log('[tutorAPI.listStudents] Starting request');
-    
+
     const token = unifiedAPI.getToken();
     console.log('[tutorAPI.listStudents] Current token:', token ? 'EXISTS' : 'MISSING');
-    
+
     if (!token) {
       console.error('[tutorAPI.listStudents] No token available!');
       throw new Error('Authentication required. Please login again.');
     }
-    
-    const resp = await unifiedAPI.request<any>('/tutor/students/');
+
+    const resp = await unifiedAPI.request<any>('/tutor/my-students/');
     
     console.log('[tutorAPI.listStudents] Response status:', resp.success);
     console.log('[tutorAPI.listStudents] Response data:', resp.data);
@@ -99,7 +99,7 @@ export const tutorAPI = {
       throw new Error('HTTP 403: Forbidden - Authentication required');
     }
     
-    const resp = await unifiedAPI.request<CreateStudentResponse>('/tutor/students/', {
+    const resp = await unifiedAPI.request<CreateStudentResponse>('/tutor/my-students/', {
       method: 'POST',
       body: JSON.stringify(data),
     });

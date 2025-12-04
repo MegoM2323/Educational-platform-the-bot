@@ -281,3 +281,81 @@ def tutor_reports(request):
             {'error': f'Ошибка при получении отчетов: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def tutor_student_schedule(request, student_id):
+    """
+    Получить расписание занятий конкретного студента (только будущие)
+
+    GET /api/materials/dashboard/tutor/students/<student_id>/schedule/
+
+    Query parameters:
+    - date_from: Filter by start date (optional)
+    - date_to: Filter by end date (optional)
+    - subject_id: Filter by subject (optional)
+    - status: Filter by status (optional)
+
+    Returns list of lessons for the specified student.
+    Only works if tutor manages that student.
+    """
+    if request.user.role != User.Role.TUTOR:
+        return Response(
+            {'error': 'Только тьюторы могут получить доступ к этому ресурсу'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        # Import here to avoid circular imports
+        from scheduling.services.lesson_service import LessonService
+        from scheduling.serializers import LessonSerializer
+        from django.utils import timezone
+        from django.core.exceptions import ValidationError
+
+        # Get lessons (validates tutor manages student)
+        queryset = LessonService.get_tutor_student_lessons(
+            tutor=request.user,
+            student_id=student_id
+        )
+
+        # Filter by date >= today (future lessons only)
+        today = timezone.now().date()
+        queryset = queryset.filter(date__gte=today)
+
+        # Apply optional query parameter filters
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        subject_id = request.query_params.get('subject_id')
+        status_filter = request.query_params.get('status')
+
+        if date_from:
+            queryset = queryset.filter(date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(date__lte=date_to)
+        if subject_id:
+            queryset = queryset.filter(subject_id=subject_id)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        # Serialize and return
+        serializer = LessonSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except ValidationError as e:
+        # ValidationError from LessonService means permission denied
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    except PermissionDenied as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    except Exception as e:
+        logger.error(f"Error fetching student schedule: {e}", exc_info=True)
+        return Response(
+            {'error': f'Ошибка при получении расписания студента: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

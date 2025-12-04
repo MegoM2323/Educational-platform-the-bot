@@ -67,13 +67,16 @@ export const staffService = {
   },
 
   async getAllSubjects(): Promise<Subject[]> {
-    const res = await apiClient.request<Subject[]>('/materials/subjects/all/', {
+    const res = await apiClient.request<{ success: boolean; count: number; results: Subject[] }>('/materials/subjects/all/', {
       method: 'GET',
     });
     if (!res.success) {
       throw new Error(res.error || 'Не удалось загрузить предметы');
     }
-    return res.data as Subject[];
+    // Backend returns {success: true, count: 5, results: [...]}
+    // Extract the results array
+    const data = res.data as any;
+    return Array.isArray(data) ? data : (data.results || []);
   },
 
   async updateTeacherSubjects(teacherId: number, subjectIds: number[]): Promise<void> {

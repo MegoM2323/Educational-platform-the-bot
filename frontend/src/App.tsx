@@ -19,6 +19,7 @@ import Auth from "./pages/Auth";
 import ApplicationForm from "./pages/ApplicationForm";
 import ApplicationStatus from "./pages/ApplicationStatus";
 import NotFound from "./pages/NotFound";
+import Unauthorized from "./pages/Unauthorized";
 import ParentDashboard from "./pages/dashboard/ParentDashboard";
 const ParentPaymentHistory = lazy(() => import("./pages/dashboard/parent/PaymentHistory"));
 const ParentPaymentSuccess = lazy(() => import("./pages/dashboard/parent/PaymentSuccess"));
@@ -389,6 +390,9 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
+
+          {/* Unauthorized Route */}
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

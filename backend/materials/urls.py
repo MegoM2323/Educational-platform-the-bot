@@ -84,6 +84,7 @@ urlpatterns = [
     path('tutor/students/', tutor_dashboard_views.tutor_students, name='tutor-students'),
     path('tutor/students/<int:student_id>/subjects/', tutor_dashboard_views.tutor_student_subjects, name='tutor-student-subjects'),
     path('tutor/students/<int:student_id>/progress/', tutor_dashboard_views.tutor_student_progress, name='tutor-student-progress'),
+    path('tutor/students/<int:student_id>/schedule/', tutor_dashboard_views.tutor_student_schedule, name='tutor-student-schedule'),
     path('tutor/students/assign-subject/', tutor_dashboard_views.tutor_assign_subject, name='tutor-assign-subject'),
     path('tutor/reports/create/', tutor_dashboard_views.tutor_create_report, name='tutor-create-report'),
     path('tutor/reports/', tutor_dashboard_views.tutor_reports, name='tutor-reports'),

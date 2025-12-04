@@ -31,11 +31,14 @@ export const TeacherProfilePage = () => {
   const { data: allSubjects } = useQuery({
     queryKey: ['allSubjects'],
     queryFn: async () => {
-      const response = await unifiedAPI.request<Subject[]>('/materials/subjects/all/');
+      const response = await unifiedAPI.request<{ success: boolean; count: number; results: Subject[] }>('/materials/subjects/all/');
       if (!response.success || !response.data) {
         throw new Error('Failed to load subjects');
       }
-      return response.data;
+      // Backend returns {success: true, count: 5, results: [...]}
+      // Extract the results array
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data.results || []);
     },
   });
 
@@ -68,7 +71,7 @@ export const TeacherProfilePage = () => {
       });
       setCharCount(profile.profile?.bio?.length || 0);
 
-      if (profile.profile?.subjects_list && Array.isArray(allSubjects)) {
+      if (profile.profile?.subjects_list && allSubjects && Array.isArray(allSubjects)) {
         const subjectNames = profile.profile.subjects_list;
         const subjectIds = allSubjects
           .filter((s) => subjectNames.includes(s.name))
@@ -188,7 +191,8 @@ export const TeacherProfilePage = () => {
   const currentAvatar = avatarPreview || profile?.user?.avatar;
 
   const getSubjectNameById = (id: number) => {
-    return allSubjects?.find((s) => s.id === id)?.name || 'Unknown';
+    if (!Array.isArray(allSubjects)) return 'Unknown';
+    return allSubjects.find((s) => s.id === id)?.name || 'Unknown';
   };
 
   return (
@@ -388,7 +392,7 @@ export const TeacherProfilePage = () => {
                           <SelectValue placeholder="Выберите предмет" />
                         </SelectTrigger>
                         <SelectContent>
-                          {allSubjects?.map((subject) => (
+                          {Array.isArray(allSubjects) && allSubjects.map((subject) => (
                             <SelectItem key={subject.id} value={String(subject.id)}>
                               {subject.name}
                             </SelectItem>

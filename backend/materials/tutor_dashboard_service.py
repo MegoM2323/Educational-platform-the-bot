@@ -1,4 +1,4 @@
-from django.db.models import Q, Count, Avg, Sum
+from django.db.models import Q, Count, Avg, Sum, Prefetch
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
@@ -48,14 +48,21 @@ class TutorDashboardService:
         Returns:
             Список словарей с информацией о студентах
         """
+        # Оптимизированный queryset для активных enrollments
+        active_enrollments = SubjectEnrollment.objects.filter(
+            is_active=True
+        ).select_related('subject', 'teacher')
+
         # Получаем студентов тьютора через StudentProfile
         students = User.objects.filter(
             role=User.Role.STUDENT,
             student_profile__tutor=self.tutor,
             is_active=True
-        ).select_related('student_profile').prefetch_related(
-            'subject_enrollments__subject',
-            'subject_enrollments__teacher',
+        ).select_related(
+            'student_profile',
+            'student_profile__parent'  # Избегаем N+1 для родителей
+        ).prefetch_related(
+            Prefetch('subject_enrollments', queryset=active_enrollments, to_attr='active_enrollments'),
             'assigned_materials'
         ).distinct()
 
@@ -82,8 +89,9 @@ class TutorDashboardService:
                     'accuracy_percentage': 0
                 }
 
-            # Получаем предметы студента
-            enrollments = student.subject_enrollments.filter(is_active=True)
+            # Получаем предметы студента из prefetched данных
+            # Используем active_enrollments (to_attr из Prefetch) вместо .filter()
+            enrollments = student.active_enrollments if hasattr(student, 'active_enrollments') else []
             subjects = [
                 {
                     'id': enrollment.subject.id,

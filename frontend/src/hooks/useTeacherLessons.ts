@@ -16,6 +16,11 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
       toast.success('Урок успешно создан');
+    },
+    onError: (error: any) => {
+      const errorMessage = error.message || 'Ошибка при создании урока';
+      toast.error(errorMessage);
+      console.error('Create lesson error:', error);
     }
   });
 
@@ -25,6 +30,11 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
       toast.success('Урок успешно обновлён');
+    },
+    onError: (error: any) => {
+      const errorMessage = error.message || 'Ошибка при обновлении урока';
+      toast.error(errorMessage);
+      console.error('Update lesson error:', error);
     }
   });
 
@@ -33,6 +43,11 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
       toast.success('Урок успешно удалён');
+    },
+    onError: (error: any) => {
+      const errorMessage = error.message || 'Ошибка при удалении урока';
+      toast.error(errorMessage);
+      console.error('Delete lesson error:', error);
     }
   });
 

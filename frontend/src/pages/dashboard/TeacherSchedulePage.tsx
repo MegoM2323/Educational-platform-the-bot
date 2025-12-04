@@ -86,22 +86,9 @@ const TeacherSchedulePage: React.FC = () => {
     }
   };
 
-  const handleDeleteLesson = async (lessonId: string) => {
-    try {
-      deleteLesson(lessonId);
-      toast({
-        title: 'Success',
-        description: 'Lesson deleted successfully',
-        variant: 'default',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to delete lesson',
-        variant: 'destructive',
-      });
-    }
+  const handleDeleteLesson = (lessonId: string) => {
+    // Mutation handles success/error toasts and query invalidation
+    deleteLesson(lessonId);
   };
 
   const handleEditLesson = (lesson: any) => {

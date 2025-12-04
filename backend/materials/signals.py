@@ -9,6 +9,7 @@ from .cache_utils import DashboardCacheManager
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+audit_logger = logging.getLogger('audit')
 
 
 # ============================================================================
@@ -269,6 +270,98 @@ def invalidate_user_cache(sender, instance, **kwargs):
             cache_manager.invalidate_parent_cache(instance.id)
     except Exception:
         pass  # Игнорируем ошибки Redis
+
+
+# ============================================================================
+# FORUM CHAT AUTO-CREATION SIGNALS
+# ============================================================================
+
+@receiver(post_save, sender=SubjectEnrollment)
+def create_subject_forum_chat(sender, instance: SubjectEnrollment, created: bool, update_fields, **kwargs) -> None:
+    """
+    Auto-create FORUM_SUBJECT chat when student is enrolled in subject with teacher.
+
+    This signal creates a private forum chat between student and teacher for a specific subject.
+    The chat is created only when:
+    - SubjectEnrollment is newly created (not updated)
+    - Enrollment is active (is_active=True)
+
+    The signal is idempotent - checks for existing chats before creating.
+
+    Chat naming convention: "{subject_name} - {student_name} ↔ {teacher_name}"
+    Participants: student + teacher
+    Created by: student (follows forum convention)
+
+    Args:
+        sender: SubjectEnrollment model class
+        instance: The SubjectEnrollment instance being saved
+        created: Boolean indicating if instance was just created
+        update_fields: Set of field names that were updated (None if all fields)
+        **kwargs: Additional keyword arguments from signal
+    """
+    # Only proceed on creation of new enrollment
+    if not created:
+        return
+
+    # Only create chat for active enrollments
+    if not instance.is_active:
+        logger.debug(
+            f"[Signal] Skipping FORUM_SUBJECT chat creation for inactive enrollment {instance.id}"
+        )
+        return
+
+    try:
+        # Import here to avoid circular imports
+        from chat.models import ChatRoom
+
+        # Check if FORUM_SUBJECT chat already exists for this enrollment
+        # Use get_or_create for idempotency
+        existing_chat = ChatRoom.objects.filter(
+            type=ChatRoom.Type.FORUM_SUBJECT,
+            enrollment=instance
+        ).first()
+
+        if existing_chat:
+            logger.debug(
+                f"[Signal] FORUM_SUBJECT chat already exists for enrollment {instance.id}, skipping"
+            )
+            return
+
+        # Build chat name: "{subject_name} - {student_name} ↔ {teacher_name}"
+        student_name = instance.student.get_full_name()
+        subject_name = instance.get_subject_name()  # Respects custom_subject_name if set
+        teacher_name = instance.teacher.get_full_name()
+
+        chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
+
+        # Create FORUM_SUBJECT chat
+        forum_chat = ChatRoom.objects.create(
+            name=chat_name,
+            type=ChatRoom.Type.FORUM_SUBJECT,
+            enrollment=instance,
+            created_by=instance.student,
+            description=f"Forum for {subject_name} between {student_name} and teacher {teacher_name}"
+        )
+
+        # Add student and teacher as participants
+        forum_chat.participants.add(instance.student, instance.teacher)
+
+        logger.info(
+            f"[Signal] Created FORUM_SUBJECT chat '{forum_chat.name}' (id={forum_chat.id}) for enrollment {instance.id}"
+        )
+
+        # Audit log
+        audit_logger.info(
+            f"action=create_forum_subject_chat chat_id={forum_chat.id} enrollment_id={instance.id} "
+            f"student_id={instance.student.id} teacher_id={instance.teacher.id} subject_id={instance.subject.id}"
+        )
+
+    except Exception as e:
+        logger.error(
+            f"[Signal] Error creating FORUM_SUBJECT chat for enrollment {instance.id}: {str(e)}",
+            exc_info=True
+        )
+        # Don't raise - allow SubjectEnrollment save to succeed
 
 
 # ============================================================================

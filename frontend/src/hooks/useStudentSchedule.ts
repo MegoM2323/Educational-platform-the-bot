@@ -8,7 +8,9 @@ export const useStudentSchedule = (filters?: LessonFilters) => {
     queryKey: ['lessons', 'student', filters],
     queryFn: async () => {
       try {
-        return await schedulingAPI.getMySchedule(filters);
+        // Используем getLessons() - backend автоматически фильтрует уроки по роли
+        // Студенты видят только свои уроки через get_queryset() в LessonViewSet
+        return await schedulingAPI.getLessons(filters);
       } catch (error) {
         console.error('Error fetching student schedule:', error);
         throw error;

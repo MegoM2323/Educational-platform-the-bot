@@ -108,7 +108,7 @@ class TutorDashboardService:
             result.append({
                 'id': student.id,
                 'username': student.username,
-                'name': student.get_full_name() or student.username,
+                'full_name': student.get_full_name() or student.username,
                 'first_name': student.first_name,
                 'last_name': student.last_name,
                 'email': student.email or '',

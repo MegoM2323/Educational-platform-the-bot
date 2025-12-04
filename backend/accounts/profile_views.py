@@ -82,8 +82,6 @@ class StudentProfileView(APIView):
             profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(user=request.user)
         except StudentProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"[StudentProfileView] StudentProfile not found for user_id={request.user.id} "
                 f"email={request.user.email}, auto-creating..."
@@ -123,8 +121,6 @@ class StudentProfileView(APIView):
             profile = StudentProfile.objects.select_related('user').get(user=request.user)
         except StudentProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"[StudentProfileView] StudentProfile not found for user_id={request.user.id} "
                 f"email={request.user.email}, auto-creating..."
@@ -190,8 +186,6 @@ class StudentProfileView(APIView):
             })
 
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f'StudentProfileView.patch - {str(e)}', exc_info=True)
             return Response(
                 {'error': str(e)},
@@ -403,8 +397,6 @@ class TutorProfileView(APIView):
             profile = TutorProfile.objects.select_related('user').get(user=request.user)
         except TutorProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"[TutorProfileView] TutorProfile not found for user_id={request.user.id} "
                 f"email={request.user.email}, auto-creating..."
@@ -444,8 +436,6 @@ class TutorProfileView(APIView):
             profile = TutorProfile.objects.select_related('user').get(user=request.user)
         except TutorProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"[TutorProfileView] TutorProfile not found for user_id={request.user.id} "
                 f"email={request.user.email}, auto-creating..."
@@ -546,8 +536,6 @@ class ParentProfileView(APIView):
             profile = ParentProfile.objects.select_related('user').get(user=request.user)
         except ParentProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"[ParentProfileView] ParentProfile not found for user_id={request.user.id} "
                 f"email={request.user.email}, auto-creating..."
@@ -587,8 +575,6 @@ class ParentProfileView(APIView):
             profile = ParentProfile.objects.select_related('user').get(user=request.user)
         except ParentProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"[ParentProfileView] ParentProfile not found for user_id={request.user.id} "
                 f"email={request.user.email}, auto-creating..."

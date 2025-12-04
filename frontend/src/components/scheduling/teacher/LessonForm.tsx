@@ -192,7 +192,8 @@ export const LessonForm: React.FC<LessonFormProps> = ({
                     selected={field.value ? new Date(field.value) : undefined}
                     onSelect={(date) => {
                       if (date) {
-                        field.onChange(date.toISOString().split('T')[0]);
+                        // Используем date-fns для корректного форматирования без смещения timezone
+                        field.onChange(format(date, 'yyyy-MM-dd'));
                       }
                     }}
                     disabled={(date) => {

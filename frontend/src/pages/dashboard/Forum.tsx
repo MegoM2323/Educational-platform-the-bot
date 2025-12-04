@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { MessageCircle, Send, Search, Loader2, Wifi, WifiOff, AlertCircle, LogOut } from 'lucide-react';
+import { MessageCircle, Send, Search, Loader2, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
 import { ForumChat, ForumMessage } from '@/integrations/api/forumAPI';
@@ -580,14 +580,6 @@ export default function Forum() {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate('/auth', { replace: true });
-    } catch (error) {
-      console.error('Forum sign out error:', error);
-    }
-  };
 
   // Get the appropriate sidebar component based on user role
   const SidebarComponent = getSidebarComponent(user?.role || '');
@@ -609,10 +601,6 @@ export default function Forum() {
             <SidebarTrigger />
             <h1 className="text-2xl font-bold ml-4">Форум</h1>
             <div className="flex-1" />
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Выйти
-            </Button>
           </header>
           <main className="flex-1 overflow-auto p-6">
             <div className="space-y-6">

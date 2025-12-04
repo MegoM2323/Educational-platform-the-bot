@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, FileText, MessageCircle, LogOut, AlertCircle, RotateCcw } from "lucide-react";
+import { Users, FileText, MessageCircle, AlertCircle, RotateCcw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TutorSidebar } from "@/components/layout/TutorSidebar";
@@ -39,15 +39,6 @@ const TutorDashboard = () => {
 
   const error = queryError?.message || null;
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate('/auth', { replace: true });
-    } catch (error) {
-      showError('Не удалось завершить сессию. Попробуйте ещё раз.');
-      console.error('TutorDashboard sign out error:', error);
-    }
-  };
 
   const handleProfileEdit = () => {
     navigate('/profile/tutor');
@@ -65,10 +56,6 @@ const TutorDashboard = () => {
           <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <h1 className="text-2xl font-bold">Мои студенты</h1>
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Выйти
-            </Button>
           </header>
           <main className="p-6">
             <div className="space-y-6">

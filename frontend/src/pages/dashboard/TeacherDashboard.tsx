@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, CheckCircle, FileText, MessageCircle, Plus, Clock, AlertCircle, ExternalLink, Users, TrendingUp, LogOut } from "lucide-react";
+import { BookOpen, CheckCircle, FileText, MessageCircle, Plus, Clock, AlertCircle, ExternalLink, Users, TrendingUp } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { ProfileCard } from "@/components/ProfileCard";
@@ -135,19 +135,6 @@ const TeacherDashboard = () => {
     navigate('/profile/teacher');
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate('/auth', { replace: true });
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось завершить сессию. Попробуйте ещё раз.",
-        variant: "destructive",
-      });
-      console.error('TeacherDashboard sign out error:', error);
-    }
-  };
 
   /**
    * Подготавливаем данные профиля для ProfileCard
@@ -203,10 +190,6 @@ const TeacherDashboard = () => {
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Создать материал
-              </Button>
-              <Button variant="outline" onClick={handleSignOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Выйти
               </Button>
             </div>
           </header>

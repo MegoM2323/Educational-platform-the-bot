@@ -25,6 +25,14 @@ export async function safeJsonParse<T = any>(
       };
     }
 
+    // Обработка 204 No Content и других статусов без тела ответа
+    if (response.status === 204 || response.status === 205) {
+      return {
+        success: true,
+        data: defaultValue as T
+      };
+    }
+
     // Проверяем Content-Type
     const contentType = response.headers.get('content-type');
     if (contentType && !contentType.includes('application/json') && !contentType.includes('text/json')) {
@@ -33,19 +41,19 @@ export async function safeJsonParse<T = any>(
 
     // Получаем текст ответа
     const text = await response.text();
-    
+
     // Проверяем, что текст не пустой
     if (!text.trim()) {
+      // Пустой ответ для успешного запроса считаем успехом (например, DELETE без тела)
       return {
-        success: false,
-        error: 'Empty response',
-        data: defaultValue
+        success: true,
+        data: defaultValue as T
       };
     }
 
     // Парсим JSON
     const data = JSON.parse(text);
-    
+
     return {
       success: true,
       data
@@ -53,7 +61,7 @@ export async function safeJsonParse<T = any>(
 
   } catch (error) {
     console.error('JSON parse error:', error);
-    
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown JSON parse error',

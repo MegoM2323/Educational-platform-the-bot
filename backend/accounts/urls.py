@@ -39,12 +39,6 @@ urlpatterns = [
     # Список пользователей (для тьюторов и администраторов)
     path('users/', views.list_users, name='list_users'),  # ?role=teacher|tutor|student|parent
 
-    # Профили по ролям
-    path('student-profile/', views.StudentProfileView.as_view(), name='student_profile'),
-    path('teacher-profile/', views.TeacherProfileView.as_view(), name='teacher_profile'),
-    path('tutor-profile/', views.TutorProfileView.as_view(), name='tutor_profile'),
-    path('parent-profile/', views.ParentProfileView.as_view(), name='parent_profile'),
-
     # Admin-only staff management
     path('staff/', list_staff, name='staff_list'),  # ?role=teacher|tutor
     path('staff/create/', create_staff, name='staff_create'),

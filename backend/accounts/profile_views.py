@@ -11,6 +11,7 @@ API Views для управления профилями пользовател�
 - PATCH - обновить свой профиль (User + Profile данные + avatar upload)
 """
 
+import logging
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
@@ -29,6 +30,9 @@ from .profile_serializers import (
     UserProfileUpdateSerializer
 )
 from .profile_service import ProfileService
+
+# Logger for profile operations
+logger = logging.getLogger(__name__)
 
 
 class CustomTokenAuthentication(TokenAuthentication):
@@ -77,15 +81,16 @@ class StudentProfileView(APIView):
         try:
             profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(user=request.user)
         except StudentProfile.DoesNotExist:
+            # Auto-create profile if missing (fallback for signal issues)
             import logging
             logger = logging.getLogger(__name__)
-            logger.error(
-                f'StudentProfile.DoesNotExist for user_id={request.user.id} '
-                f'(email={request.user.email}, role={request.user.role})'
+            logger.warning(
+                f"[StudentProfileView] StudentProfile not found for user_id={request.user.id} "
+                f"email={request.user.email}, auto-creating..."
             )
-            return Response(
-                {'error': 'Student profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            profile = StudentProfile.objects.create(user=request.user)
+            logger.info(
+                f"[StudentProfileView] StudentProfile auto-created for user_id={request.user.id}"
             )
 
         user_data = {
@@ -117,9 +122,16 @@ class StudentProfileView(APIView):
         try:
             profile = StudentProfile.objects.select_related('user').get(user=request.user)
         except StudentProfile.DoesNotExist:
-            return Response(
-                {'error': 'Student profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            # Auto-create profile if missing (fallback for signal issues)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"[StudentProfileView] StudentProfile not found for user_id={request.user.id} "
+                f"email={request.user.email}, auto-creating..."
+            )
+            profile = StudentProfile.objects.create(user=request.user)
+            logger.info(
+                f"[StudentProfileView] StudentProfile auto-created for user_id={request.user.id}"
             )
 
         user_fields = ['first_name', 'last_name', 'email', 'phone']
@@ -217,9 +229,14 @@ class TeacherProfileView(APIView):
         try:
             profile = TeacherProfile.objects.select_related('user').get(user=request.user)
         except TeacherProfile.DoesNotExist:
-            return Response(
-                {'error': 'Teacher profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            # Auto-create profile if missing (fallback for signal issues)
+            logger.warning(
+                f"[TeacherProfileView] TeacherProfile not found for user_id={request.user.id} "
+                f"email={request.user.email}, auto-creating..."
+            )
+            profile = TeacherProfile.objects.create(user=request.user)
+            logger.info(
+                f"[TeacherProfileView] TeacherProfile auto-created for user_id={request.user.id}"
             )
 
         user_data = {
@@ -251,9 +268,14 @@ class TeacherProfileView(APIView):
         try:
             profile = TeacherProfile.objects.select_related('user').get(user=request.user)
         except TeacherProfile.DoesNotExist:
-            return Response(
-                {'error': 'Teacher profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            # Auto-create profile if missing (fallback for signal issues)
+            logger.warning(
+                f"[TeacherProfileView] TeacherProfile not found for user_id={request.user.id} "
+                f"email={request.user.email}, auto-creating..."
+            )
+            profile = TeacherProfile.objects.create(user=request.user)
+            logger.info(
+                f"[TeacherProfileView] TeacherProfile auto-created for user_id={request.user.id}"
             )
 
         user_fields = ['first_name', 'last_name', 'email', 'phone']
@@ -380,9 +402,16 @@ class TutorProfileView(APIView):
         try:
             profile = TutorProfile.objects.select_related('user').get(user=request.user)
         except TutorProfile.DoesNotExist:
-            return Response(
-                {'error': 'Tutor profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            # Auto-create profile if missing (fallback for signal issues)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"[TutorProfileView] TutorProfile not found for user_id={request.user.id} "
+                f"email={request.user.email}, auto-creating..."
+            )
+            profile = TutorProfile.objects.create(user=request.user)
+            logger.info(
+                f"[TutorProfileView] TutorProfile auto-created for user_id={request.user.id}"
             )
 
         user_data = {
@@ -414,9 +443,16 @@ class TutorProfileView(APIView):
         try:
             profile = TutorProfile.objects.select_related('user').get(user=request.user)
         except TutorProfile.DoesNotExist:
-            return Response(
-                {'error': 'Tutor profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            # Auto-create profile if missing (fallback for signal issues)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"[TutorProfileView] TutorProfile not found for user_id={request.user.id} "
+                f"email={request.user.email}, auto-creating..."
+            )
+            profile = TutorProfile.objects.create(user=request.user)
+            logger.info(
+                f"[TutorProfileView] TutorProfile auto-created for user_id={request.user.id}"
             )
 
         user_fields = ['first_name', 'last_name', 'email', 'phone']
@@ -509,9 +545,16 @@ class ParentProfileView(APIView):
         try:
             profile = ParentProfile.objects.select_related('user').get(user=request.user)
         except ParentProfile.DoesNotExist:
-            return Response(
-                {'error': 'Parent profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            # Auto-create profile if missing (fallback for signal issues)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"[ParentProfileView] ParentProfile not found for user_id={request.user.id} "
+                f"email={request.user.email}, auto-creating..."
+            )
+            profile = ParentProfile.objects.create(user=request.user)
+            logger.info(
+                f"[ParentProfileView] ParentProfile auto-created for user_id={request.user.id}"
             )
 
         user_data = {
@@ -543,9 +586,16 @@ class ParentProfileView(APIView):
         try:
             profile = ParentProfile.objects.select_related('user').get(user=request.user)
         except ParentProfile.DoesNotExist:
-            return Response(
-                {'error': 'Parent profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            # Auto-create profile if missing (fallback for signal issues)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"[ParentProfileView] ParentProfile not found for user_id={request.user.id} "
+                f"email={request.user.email}, auto-creating..."
+            )
+            profile = ParentProfile.objects.create(user=request.user)
+            logger.info(
+                f"[ParentProfileView] ParentProfile auto-created for user_id={request.user.id}"
             )
 
         user_fields = ['first_name', 'last_name', 'email', 'phone']

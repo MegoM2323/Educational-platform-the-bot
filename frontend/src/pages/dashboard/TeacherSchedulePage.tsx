@@ -60,7 +60,18 @@ const TeacherSchedulePage: React.FC = () => {
 
   const handleCreateLesson = async (formData: LessonFormData) => {
     try {
-      createLesson(formData);
+      // Convert HH:MM to HH:MM:SS for backend compatibility
+      const payload = {
+        ...formData,
+        start_time: formData.start_time.includes(':') && formData.start_time.split(':').length === 2
+          ? formData.start_time + ':00'
+          : formData.start_time,
+        end_time: formData.end_time.includes(':') && formData.end_time.split(':').length === 2
+          ? formData.end_time + ':00'
+          : formData.end_time,
+      };
+
+      createLesson(payload);
       // Form will reset on success due to mutation onSuccess invalidating cache
       // Toast will be shown by the form's error handling
       setIsFormOpen(false);

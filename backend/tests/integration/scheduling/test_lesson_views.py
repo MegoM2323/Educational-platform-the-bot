@@ -175,6 +175,29 @@ class TestLessonCreateEndpoint:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_create_lesson_with_hh_mm_time_format(self, api_client, teacher_user, student_user, math_subject, subject_enrollment):
+        """Creating lesson with HH:MM format auto-converts to HH:MM:SS."""
+        api_client.force_authenticate(user=teacher_user)
+
+        future_date = timezone.now().date() + timedelta(days=3)
+        data = {
+            'student': str(student_user.id),
+            'subject': str(math_subject.id),
+            'date': str(future_date),
+            'start_time': '09:00',  # HH:MM format
+            'end_time': '10:00',    # HH:MM format
+            'description': 'Test lesson with HH:MM format'
+        }
+
+        response = api_client.post('/api/scheduling/lessons/', data, format='json')
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # Verify lesson was created with correct times
+        lesson = Lesson.objects.get(id=response.data['id'])
+        assert lesson.start_time == time(9, 0, 0)
+        assert lesson.end_time == time(10, 0, 0)
+
 
 class TestLessonListEndpoint:
     """Test GET /api/scheduling/lessons/"""

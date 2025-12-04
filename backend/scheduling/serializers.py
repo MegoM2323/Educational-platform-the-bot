@@ -102,6 +102,18 @@ class LessonCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError('Subject not found')
         return value
 
+    def validate_start_time(self, value):
+        """Convert HH:MM format to HH:MM:SS if needed."""
+        if isinstance(value, str) and value.count(':') == 1:
+            value = value + ':00'
+        return value
+
+    def validate_end_time(self, value):
+        """Convert HH:MM format to HH:MM:SS if needed."""
+        if isinstance(value, str) and value.count(':') == 1:
+            value = value + ':00'
+        return value
+
     def validate(self, data):
         """Validate lesson creation."""
         # Validate time range
@@ -150,6 +162,18 @@ class LessonUpdateSerializer(serializers.Serializer):
         choices=['pending', 'confirmed', 'completed', 'cancelled'],
         required=False
     )
+
+    def validate_start_time(self, value):
+        """Convert HH:MM format to HH:MM:SS if needed."""
+        if isinstance(value, str) and value.count(':') == 1:
+            value = value + ':00'
+        return value
+
+    def validate_end_time(self, value):
+        """Convert HH:MM format to HH:MM:SS if needed."""
+        if isinstance(value, str) and value.count(':') == 1:
+            value = value + ':00'
+        return value
 
     def validate(self, data):
         """Validate update data."""

@@ -552,16 +552,9 @@ export default function Forum() {
     try {
       setError(null);
 
-      // Try to send via WebSocket for real-time delivery (non-critical)
-      try {
-        if (isConnected) {
-          chatWebSocketService.sendRoomMessage(selectedChat.id, content);
-        }
-      } catch (wsError) {
-        console.warn('WebSocket send failed, falling back to API:', wsError);
-      }
-
-      // Always send via API to persist in database
+      // Send ONLY via REST API to persist in database
+      // Backend will broadcast via WebSocket to other connected users
+      // This prevents duplicate sends and ensures message persistence
       await sendMessageMutation.mutateAsync({
         chatId: selectedChat.id,
         data: { content },

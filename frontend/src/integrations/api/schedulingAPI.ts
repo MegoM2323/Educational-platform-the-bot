@@ -44,7 +44,7 @@ export const schedulingAPI = {
   },
 
   getMySchedule: async (filters?: Record<string, any>): Promise<Lesson[]> => {
-    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/my_schedule/', { params: filters });
+    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/my-schedule/', { params: filters });
     if (response.error) {
       throw new Error(response.error);
     }
@@ -54,7 +54,7 @@ export const schedulingAPI = {
   },
 
   getStudentSchedule: async (studentId: string, filters?: Record<string, any>): Promise<Lesson[]> => {
-    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/student_schedule/', {
+    const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>('/scheduling/lessons/student-schedule/', {
       params: { student_id: studentId, ...filters }
     });
     if (response.error) {

@@ -84,10 +84,10 @@ class ForumChatViewSet(viewsets.ViewSet):
 
             # Filter by chat type and user role
             if user.role == 'student':
-                # Student sees FORUM_SUBJECT and FORUM_TUTOR chats they're in
+                # Student sees ONLY their own FORUM_SUBJECT and FORUM_TUTOR chats
                 chats = base_queryset.filter(
-                    Q(type=ChatRoom.Type.FORUM_SUBJECT) |
-                    Q(type=ChatRoom.Type.FORUM_TUTOR)
+                    Q(type=ChatRoom.Type.FORUM_SUBJECT, enrollment__student=user) |
+                    Q(type=ChatRoom.Type.FORUM_TUTOR, enrollment__student=user)
                 ).order_by('-updated_at')
 
             elif user.role == 'teacher':
@@ -99,14 +99,9 @@ class ForumChatViewSet(viewsets.ViewSet):
 
             elif user.role == 'tutor':
                 # Tutor sees ONLY FORUM_TUTOR chats for students they are assigned to
-                # Get students this tutor is assigned to
-                from accounts.models import User as UserModel
-                tutored_students = UserModel.objects.filter(
-                    student_profile__tutor=user
-                )
                 chats = base_queryset.filter(
                     type=ChatRoom.Type.FORUM_TUTOR,
-                    participants__in=tutored_students  # Only chats with their assigned students
+                    enrollment__student__student_profile__tutor=user  # Verify tutor via enrollment
                 ).order_by('-updated_at')
 
             else:
@@ -170,7 +165,7 @@ class ForumChatViewSet(viewsets.ViewSet):
             limit = min(int(request.query_params.get('limit', 50)), 100)
             offset = int(request.query_params.get('offset', 0))
 
-            # Fetch messages with optimization
+            # Fetch messages with optimization (chronological order, oldest first)
             messages = Message.objects.filter(
                 room=chat
             ).select_related(
@@ -179,10 +174,7 @@ class ForumChatViewSet(viewsets.ViewSet):
             ).prefetch_related(
                 'replies',
                 'read_by'
-            ).order_by('-created_at')[offset:offset + limit]
-
-            # Reverse to show chronological order
-            messages = list(reversed(messages))
+            ).order_by('created_at')[offset:offset + limit]
 
             serializer = MessageSerializer(
                 messages,

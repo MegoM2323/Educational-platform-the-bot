@@ -25,6 +25,7 @@ const TeacherSchedulePage: React.FC = () => {
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [lessonToEdit, setLessonToEdit] = useState<any | null>(null);
 
   const {
     lessons,
@@ -98,6 +99,48 @@ const TeacherSchedulePage: React.FC = () => {
         title: 'Error',
         description:
           error instanceof Error ? error.message : 'Failed to delete lesson',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEditLesson = (lesson: any) => {
+    // Convert HH:MM:SS to HH:MM for form compatibility
+    const lessonData = {
+      ...lesson,
+      start_time: lesson.start_time.substring(0, 5), // HH:MM:SS -> HH:MM
+      end_time: lesson.end_time.substring(0, 5), // HH:MM:SS -> HH:MM
+    };
+    setEditingId(lesson.id);
+    setLessonToEdit(lessonData);
+  };
+
+  const handleUpdateLesson = async (formData: LessonFormData) => {
+    if (!editingId) return;
+
+    try {
+      // Convert HH:MM to HH:MM:SS for backend compatibility
+      const payload = {
+        ...formData,
+        start_time: formData.start_time.includes(':') && formData.start_time.split(':').length === 2
+          ? formData.start_time + ':00'
+          : formData.start_time,
+        end_time: formData.end_time.includes(':') && formData.end_time.split(':').length === 2
+          ? formData.end_time + ':00'
+          : formData.end_time,
+      };
+
+      // Call mutation (hook handles success/error toasts and query invalidation)
+      updateLesson({ id: editingId, data: payload });
+
+      // Close dialog immediately (optimistic UI)
+      setEditingId(null);
+      setLessonToEdit(null);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to update lesson',
         variant: 'destructive',
       });
     }
@@ -186,7 +229,7 @@ const TeacherSchedulePage: React.FC = () => {
                       <LessonRow
                         key={lesson.id}
                         lesson={lesson}
-                        onEdit={() => setEditingId(lesson.id)}
+                        onEdit={() => handleEditLesson(lesson)}
                         onDelete={() => handleDeleteLesson(lesson.id)}
                         isDeleting={isDeleting}
                       />
@@ -196,6 +239,32 @@ const TeacherSchedulePage: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Edit lesson dialog */}
+          {editingId && lessonToEdit && (
+            <Dialog
+              open={editingId !== null}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setEditingId(null);
+                  setLessonToEdit(null);
+                }
+              }}
+            >
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Edit Lesson</DialogTitle>
+                </DialogHeader>
+                <LessonForm
+                  onSubmit={handleUpdateLesson}
+                  initialData={lessonToEdit}
+                  isLoading={isUpdating}
+                  students={students}
+                  subjects={subjects}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
         </SidebarInset>
       </div>
     </SidebarProvider>

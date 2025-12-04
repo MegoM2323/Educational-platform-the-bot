@@ -338,6 +338,104 @@ def log_student_profile_creation(sender, instance: StudentProfile, created: bool
         logger.error(f"[Signal] Error logging StudentProfile creation: {exc}")
 
 
+@receiver(post_save, sender=StudentProfile)
+def create_tutor_chats_on_tutor_assignment(sender, instance: StudentProfile, created: bool, update_fields, **kwargs) -> None:
+    """
+    Create FORUM_TUTOR chats for all existing enrollments when tutor is assigned to student.
+
+    This signal handles the case when a tutor is assigned AFTER enrollments already exist.
+    It creates FORUM_TUTOR chats for each active enrollment of the student.
+
+    The signal is idempotent - it checks for existing chats before creating new ones.
+
+    Args:
+        sender: StudentProfile model class
+        instance: The StudentProfile instance being saved
+        created: Boolean indicating if instance was just created
+        update_fields: Set of field names that were updated (None if all fields)
+        **kwargs: Additional keyword arguments from signal
+    """
+    # Only proceed if tutor was assigned (either on creation or update)
+    if not instance.tutor:
+        return
+
+    # Check if tutor field was actually changed
+    # On creation, always proceed if tutor is set
+    # On update, only proceed if 'tutor' is in update_fields or update_fields is None (all fields updated)
+    if not created:
+        if update_fields is not None and 'tutor' not in update_fields:
+            return
+
+    try:
+        # Import here to avoid circular imports
+        from materials.models import SubjectEnrollment
+        from chat.models import ChatRoom
+
+        # Get all active enrollments for this student
+        enrollments = SubjectEnrollment.objects.filter(
+            student=instance.user,
+            is_active=True
+        ).select_related('subject', 'teacher')
+
+        if not enrollments.exists():
+            logger.info(
+                f"[Signal] No active enrollments found for student {instance.user.id} when assigning tutor {instance.tutor.id}"
+            )
+            return
+
+        created_count = 0
+        skipped_count = 0
+
+        for enrollment in enrollments:
+            # Check if FORUM_TUTOR chat already exists for this enrollment
+            existing_chat = ChatRoom.objects.filter(
+                type=ChatRoom.Type.FORUM_TUTOR,
+                enrollment=enrollment
+            ).first()
+
+            if existing_chat:
+                skipped_count += 1
+                logger.debug(
+                    f"[Signal] FORUM_TUTOR chat already exists for enrollment {enrollment.id}, skipping"
+                )
+                continue
+
+            # Create FORUM_TUTOR chat
+            subject_name = enrollment.get_subject_name()
+            student_name = instance.user.get_full_name()
+            tutor_name = instance.tutor.get_full_name()
+
+            tutor_chat_name = f"{subject_name} - {student_name} ↔ {tutor_name}"
+
+            tutor_chat = ChatRoom.objects.create(
+                name=tutor_chat_name,
+                type=ChatRoom.Type.FORUM_TUTOR,
+                enrollment=enrollment,
+                created_by=instance.user,
+                description=f"Forum for {subject_name} between {student_name} and {tutor_name}"
+            )
+
+            # Add student and tutor as participants
+            tutor_chat.participants.add(instance.user, instance.tutor)
+
+            created_count += 1
+            logger.info(
+                f"[Signal] Created FORUM_TUTOR chat '{tutor_chat.name}' for enrollment {enrollment.id}"
+            )
+
+        logger.info(
+            f"[Signal] Tutor assignment for student {instance.user.id}: "
+            f"created {created_count} FORUM_TUTOR chats, skipped {skipped_count} existing"
+        )
+
+    except Exception as e:
+        logger.error(
+            f"[Signal] Error creating FORUM_TUTOR chats for student {instance.user.id}: {str(e)}",
+            exc_info=True
+        )
+        # Don't raise - allow StudentProfile save to succeed
+
+
 @receiver(post_save, sender=TeacherProfile)
 def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool, **kwargs) -> None:
     """

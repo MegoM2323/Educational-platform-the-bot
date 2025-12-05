@@ -5,8 +5,10 @@ export const useForumChats = () => {
   return useQuery({
     queryKey: ['forum-chats'],
     queryFn: () => forumAPI.getForumChats(),
-    staleTime: 300000, // 5 minutes
+    staleTime: 60000, // 1 minute (reduced from 5 minutes for more frequent updates)
     retry: 2,
+    refetchOnMount: true, // Explicitly enable refetch on component mount
+    refetchOnWindowFocus: false,
   });
 };
 

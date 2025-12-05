@@ -413,7 +413,7 @@ export default function Forum() {
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: chats = [], isLoading: isLoadingChats } = useForumChats();
+  const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useForumChats();
   const { data: messages = [], isLoading: isLoadingMessages } = useForumMessages(
     selectedChat?.id || null
   );

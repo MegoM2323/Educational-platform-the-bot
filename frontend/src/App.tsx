@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorHandlingProvider } from "@/components/ErrorHandlingProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -12,6 +12,9 @@ import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
 import StaffManagement from "@/pages/admin/StaffManagement";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import StudentManagement from "@/pages/admin/StudentManagement";
+import AdminLayout from "@/pages/admin/AdminLayout";
+import AccountManagement from "@/pages/admin/AccountManagement";
+import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
 
 // Импортируем критические компоненты напрямую
 import Index from "./pages/Index";
@@ -93,13 +96,26 @@ const App = () => (
           <Route path="/application-status/:trackingToken" element={<ApplicationStatus />} />
           
           {/* Admin Routes */}
+          {/* Admin Routes with Layout */}
           <Route path="/admin" element={
             <ProtectedAdminRoute>
               <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <AdminDashboard />
+                <AdminLayout />
               </Suspense>
             </ProtectedAdminRoute>
-          } />
+          }>
+            <Route index element={<Navigate to="/admin/accounts" replace />} />
+            <Route path="accounts" element={
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <AccountManagement />
+              </Suspense>
+            } />
+            <Route path="schedule" element={
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <AdminSchedulePage />
+              </Suspense>
+            } />
+          </Route>
           <Route path="/admin/staff" element={
             <ProtectedAdminRoute>
               <Suspense fallback={<LoadingSpinner size="lg" />}>

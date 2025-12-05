@@ -382,4 +382,76 @@ export const adminAPI = {
       }),
     });
   },
+
+  /**
+   * Get admin schedule with filters
+   */
+  async getSchedule(params?: {
+    teacher_id?: string;
+    subject_id?: string;
+    student_id?: string;
+    date_from?: string;
+    date_to?: string;
+    status?: string;
+  }): Promise<ApiResponse<{
+    success: boolean;
+    count: number;
+    lessons: Array<{
+      id: string;
+      date: string;
+      start_time: string;
+      end_time: string;
+      teacher: number;
+      teacher_name: string;
+      student: number;
+      student_name: string;
+      subject: number;
+      subject_name: string;
+      status: string;
+      description?: string;
+      telemost_link?: string;
+      created_at: string;
+      updated_at: string;
+    }>;
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value);
+        }
+      });
+    }
+
+    const url = `/admin/schedule/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return apiClient.request(url);
+  },
+
+  /**
+   * Get schedule statistics
+   */
+  async getScheduleStats(): Promise<ApiResponse<{
+    success: boolean;
+    stats: {
+      total_lessons: number;
+      today_lessons: number;
+      week_ahead_lessons: number;
+      pending_lessons: number;
+      completed_lessons: number;
+      cancelled_lessons: number;
+    };
+  }>> {
+    return apiClient.request('/admin/schedule/stats/');
+  },
+
+  /**
+   * Get schedule filter options
+   */
+  async getScheduleFilters(): Promise<ApiResponse<{
+    success: boolean;
+    teachers: Array<{ id: number; name: string }>;
+    subjects: Array<{ id: number; name: string }>;
+  }>> {
+    return apiClient.request('/admin/schedule/filters/');
+  },
 };

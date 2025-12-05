@@ -214,3 +214,35 @@ class LessonHistorySerializer(serializers.ModelSerializer):
             'old_values', 'new_values', 'timestamp'
         ]
         read_only_fields = ['id', 'timestamp']
+
+
+class AdminLessonSerializer(serializers.ModelSerializer):
+    """Serializer for admin lesson view with full details."""
+
+    teacher_name = serializers.SerializerMethodField()
+    student_name = serializers.SerializerMethodField()
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+
+    class Meta:
+        model = Lesson
+        fields = [
+            'id', 'date', 'start_time', 'end_time',
+            'teacher', 'teacher_name',
+            'student', 'student_name',
+            'subject', 'subject_name',
+            'description', 'telemost_link', 'status',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_teacher_name(self, obj):
+        """Get full teacher name."""
+        if obj.teacher.first_name or obj.teacher.last_name:
+            return f"{obj.teacher.first_name} {obj.teacher.last_name}".strip()
+        return obj.teacher.email
+
+    def get_student_name(self, obj):
+        """Get full student name."""
+        if obj.student.first_name or obj.student.last_name:
+            return f"{obj.student.first_name} {obj.student.last_name}".strip()
+        return obj.student.email

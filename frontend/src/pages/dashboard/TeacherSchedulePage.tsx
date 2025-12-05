@@ -23,7 +23,7 @@ const TeacherSchedulePage: React.FC = () => {
   const { user } = useAuth();
   const { data: dashboardData, isLoading: dashboardLoading } = useTeacherDashboard();
   const { toast } = useToast();
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [lessonToEdit, setLessonToEdit] = useState<any | null>(null);
 
@@ -133,6 +133,10 @@ const TeacherSchedulePage: React.FC = () => {
     }
   };
 
+  const handleOpenForm = () => {
+    setIsFormOpen(true);
+  };
+
   const sortedLessons = [...lessons].sort((a, b) => {
     return new Date(a.date).getTime() - new Date(b.date).getTime();
   });
@@ -154,9 +158,10 @@ const TeacherSchedulePage: React.FC = () => {
                   <CardTitle>Create Lesson</CardTitle>
                   {!isFormOpen && (
                     <Button
-                      onClick={() => setIsFormOpen(true)}
+                      onClick={handleOpenForm}
                       size="sm"
                       variant="outline"
+                      type="button"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Lesson

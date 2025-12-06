@@ -137,27 +137,18 @@ class TestForumVisibilityFiltersComprehensive:
         math_subject = users['subjects']['math']
 
         # Create enrollment to establish teacher relationship
-        SubjectEnrollment.objects.create(
+        enrollment = SubjectEnrollment.objects.create(
             student=student1,
             subject=math_subject,
             teacher=teacher1,
             is_active=True
         )
 
-        # Create FORUM_SUBJECT chat
-        chat = ChatRoom.objects.create(
+        # Get the auto-created FORUM_SUBJECT chat (created by signal)
+        chat = ChatRoom.objects.get(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name=f'Math - {student1.username} ↔ {teacher1.username}'
+            enrollment=enrollment
         )
-        chat.participants.add(student1, teacher1)
-
-        # Create enrollment relationship for chat
-        chat.enrollment = SubjectEnrollment.objects.filter(
-            student=student1,
-            subject=math_subject,
-            teacher=teacher1
-        ).first()
-        chat.save()
 
         # Student should see this chat when filtering
         # (In real API call, this would be filtered by forum_views.py)
@@ -173,7 +164,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create FORUM_TUTOR chat
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_TUTOR,
-            name=f'Tutor - {student1.username} ↔ {tutor1.username}'
+            name=f'Tutor - {student1.username} ↔ {tutor1.username}',
+            created_by=student1
         )
         chat.participants.add(student1, tutor1)
 
@@ -200,7 +192,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create chat for student2 only
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name=f'Math - {student2.username} ↔ {teacher1.username}'
+            name=f'Math - {student2.username} ↔ {teacher1.username}',
+            created_by=student2
         )
         chat.participants.add(student2, teacher1)
 
@@ -218,7 +211,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create chat for student3 with their tutor
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_TUTOR,
-            name=f'Tutor - {student3.username} ↔ {tutor2.username}'
+            name=f'Tutor - {student3.username} ↔ {tutor2.username}',
+            created_by=student3
         )
         chat.participants.add(student3, tutor2)
 
@@ -245,7 +239,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create FORUM_SUBJECT chat
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name=f'Math - {student1.username} ↔ {teacher1.username}'
+            name=f'Math - {student1.username} ↔ {teacher1.username}',
+            created_by=student1
         )
         chat.participants.add(student1, teacher1)
 
@@ -263,7 +258,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create FORUM_TUTOR chat
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_TUTOR,
-            name=f'Tutor - {student1.username} ↔ {tutor1.username}'
+            name=f'Tutor - {student1.username} ↔ {tutor1.username}',
+            created_by=student1
         )
         chat.participants.add(student1, tutor1)
 
@@ -290,7 +286,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create chat with teacher2
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name=f'Math - {student3.username} ↔ {teacher2.username}'
+            name=f'Math - {student3.username} ↔ {teacher2.username}',
+            created_by=student3
         )
         chat.participants.add(student3, teacher2)
 
@@ -308,7 +305,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create FORUM_TUTOR chat
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_TUTOR,
-            name=f'Tutor - {student1.username} ↔ {tutor1.username}'
+            name=f'Tutor - {student1.username} ↔ {tutor1.username}',
+            created_by=student1
         )
         chat.participants.add(student1, tutor1)
 
@@ -334,7 +332,8 @@ class TestForumVisibilityFiltersComprehensive:
 
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name=f'Math - {student1.username} ↔ {teacher1.username}'
+            name=f'Math - {student1.username} ↔ {teacher1.username}',
+            created_by=student1
         )
         chat.participants.add(student1, teacher1)
 
@@ -351,7 +350,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create FORUM_TUTOR chat with tutor2
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_TUTOR,
-            name=f'Tutor - {student3.username} ↔ {tutor2.username}'
+            name=f'Tutor - {student3.username} ↔ {tutor2.username}',
+            created_by=student3
         )
         chat.participants.add(student3, tutor2)
 
@@ -369,7 +369,8 @@ class TestForumVisibilityFiltersComprehensive:
         # Create FORUM_SUBJECT chat
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name='Test Chat'
+            name='Test Chat',
+            created_by=student1
         )
         chat.participants.add(student1, teacher1)
 
@@ -381,10 +382,12 @@ class TestForumVisibilityFiltersComprehensive:
     def test_forum_subject_chat_type(self, setup_forum_users):
         """Scenario: FORUM_SUBJECT chat type correctly set"""
         users = setup_forum_users
+        student1 = users['students']['student1']
 
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name='Test Chat'
+            name='Test Chat',
+            created_by=student1
         )
 
         assert chat.type == ChatRoom.Type.FORUM_SUBJECT
@@ -393,10 +396,12 @@ class TestForumVisibilityFiltersComprehensive:
     def test_forum_tutor_chat_type(self, setup_forum_users):
         """Scenario: FORUM_TUTOR chat type correctly set"""
         users = setup_forum_users
+        tutor1 = users['tutors']['tutor1']
 
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_TUTOR,
-            name='Test Chat'
+            name='Test Chat',
+            created_by=tutor1
         )
 
         assert chat.type == ChatRoom.Type.FORUM_TUTOR
@@ -415,7 +420,7 @@ class TestForumVisibilityFiltersComprehensive:
         tutor2 = users['tutors']['tutor2']
         math_subject = users['subjects']['math']
 
-        # Create enrollment
+        # Create enrollment (triggers auto-creation of forum chats via signal)
         enrollment = SubjectEnrollment.objects.create(
             student=student1,
             subject=math_subject,
@@ -423,21 +428,27 @@ class TestForumVisibilityFiltersComprehensive:
             is_active=True
         )
 
-        # Create FORUM_SUBJECT chat
-        forum_subject_chat = ChatRoom.objects.create(
+        # Get the auto-created FORUM_SUBJECT chat
+        forum_subject_chat = ChatRoom.objects.get(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name='Student1-Teacher1'
+            enrollment=enrollment
         )
-        forum_subject_chat.participants.add(student1, teacher1)
-        forum_subject_chat.enrollment = enrollment
-        forum_subject_chat.save()
 
-        # Create FORUM_TUTOR chat
-        forum_tutor_chat = ChatRoom.objects.create(
-            type=ChatRoom.Type.FORUM_TUTOR,
-            name='Student1-Tutor1'
-        )
-        forum_tutor_chat.participants.add(student1, tutor1)
+        # Get the auto-created FORUM_TUTOR chat (if tutor assigned to student1)
+        try:
+            forum_tutor_chat = ChatRoom.objects.get(
+                type=ChatRoom.Type.FORUM_TUTOR,
+                enrollment=enrollment
+            )
+        except ChatRoom.DoesNotExist:
+            # Create tutor chat manually if student1 has no tutor
+            forum_tutor_chat = ChatRoom.objects.create(
+                type=ChatRoom.Type.FORUM_TUTOR,
+                name='Student1-Tutor1',
+                created_by=student1,
+                enrollment=enrollment
+            )
+            forum_tutor_chat.participants.add(student1, tutor1)
 
         # Verify visibility rules
         # student1 can see both
@@ -466,9 +477,13 @@ class TestForumVisibilityFiltersComprehensive:
 
     def test_chat_type_is_enum(self, setup_forum_users):
         """Scenario: Chat type is proper enum value"""
+        users = setup_forum_users
+        tutor1 = users['tutors']['tutor1']
+
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name='Test'
+            name='Test',
+            created_by=tutor1
         )
 
         # Should be valid enum value
@@ -500,13 +515,15 @@ class TestForumVisibilityFiltersComprehensive:
         # Create separate chats for each student
         chat1 = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name=f'Math - {student1.username}'
+            name=f'Math - {student1.username}',
+            created_by=student1
         )
         chat1.participants.add(student1, teacher1)
 
         chat2 = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name=f'Math - {student2.username}'
+            name=f'Math - {student2.username}',
+            created_by=student2
         )
         chat2.participants.add(student2, teacher1)
 

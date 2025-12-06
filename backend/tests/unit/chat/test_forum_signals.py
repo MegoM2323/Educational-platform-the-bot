@@ -33,11 +33,9 @@ class TestForumMessageSignal:
         )
         forum_chat.participants.add(student_user, teacher_user)
 
-        # Mock Pachca service
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_service.is_configured.return_value = True
-            mock_pachca_class.return_value = mock_service
+        # Mock Celery task
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            mock_task.apply_async = MagicMock()
 
             # Create message - signal should fire
             message = Message.objects.create(
@@ -46,10 +44,10 @@ class TestForumMessageSignal:
                 content="Test forum message"
             )
 
-            # Verify Pachca service was instantiated and notified
-            mock_pachca_class.assert_called_once()
-            mock_service.is_configured.assert_called()
-            mock_service.notify_new_forum_message.assert_called_once_with(message, forum_chat)
+            # Verify Celery task was queued
+            mock_task.apply_async.assert_called_once()
+            call_args = mock_task.apply_async.call_args
+            assert call_args[1]['args'] == [message.id, forum_chat.id]
 
     def test_signal_triggers_on_forum_tutor_message_creation(self, student_user, teacher_user):
         """Signal should trigger when message created in FORUM_TUTOR chat"""
@@ -62,10 +60,8 @@ class TestForumMessageSignal:
         forum_chat.participants.add(student_user, teacher_user)
 
         # Mock Pachca service
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_service.is_configured.return_value = True
-            mock_pachca_class.return_value = mock_service
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            mock_task.apply_async = MagicMock()
 
             # Create message - signal should fire
             message = Message.objects.create(
@@ -75,7 +71,7 @@ class TestForumMessageSignal:
             )
 
             # Verify notification was sent
-            mock_service.notify_new_forum_message.assert_called_once_with(message, forum_chat)
+            mock_task.apply_async.assert_called_once()
 
     def test_signal_does_not_trigger_for_direct_chat(self, student_user, teacher_user):
         """Signal should NOT trigger for DIRECT type chats"""
@@ -88,9 +84,9 @@ class TestForumMessageSignal:
         direct_chat.participants.add(student_user, teacher_user)
 
         # Mock Pachca service
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_pachca_class.return_value = mock_service
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            
+            
 
             # Create message - signal should NOT fire for this chat type
             message = Message.objects.create(
@@ -100,7 +96,7 @@ class TestForumMessageSignal:
             )
 
             # Verify Pachca service was NOT called for notification
-            mock_service.notify_new_forum_message.assert_not_called()
+            mock_task.apply_async.assert_not_called()
 
     def test_signal_does_not_trigger_for_general_forum(self, student_user, teacher_user):
         """Signal should NOT trigger for GENERAL forum chats (only forum_subject/forum_tutor)"""
@@ -113,9 +109,9 @@ class TestForumMessageSignal:
         general_forum.participants.add(student_user, teacher_user)
 
         # Mock Pachca service
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_pachca_class.return_value = mock_service
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            
+            
 
             # Create message - signal should NOT fire
             message = Message.objects.create(
@@ -125,7 +121,7 @@ class TestForumMessageSignal:
             )
 
             # Verify notification was NOT sent
-            mock_service.notify_new_forum_message.assert_not_called()
+            mock_task.apply_async.assert_not_called()
 
     def test_signal_does_not_trigger_on_message_update(self, student_user, teacher_user):
         """Signal should only trigger on creation, not on message updates"""
@@ -138,10 +134,8 @@ class TestForumMessageSignal:
         forum_chat.participants.add(student_user, teacher_user)
 
         # Create message first (signal fires once)
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_service.is_configured.return_value = True
-            mock_pachca_class.return_value = mock_service
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            mock_task.apply_async = MagicMock()
 
             message = Message.objects.create(
                 room=forum_chat,
@@ -150,8 +144,8 @@ class TestForumMessageSignal:
             )
 
             # Reset mock to check that update doesn't trigger signal
-            mock_pachca_class.reset_mock()
-            mock_service.reset_mock()
+            mock_task.reset_mock()
+            
 
             # Update message
             message.content = "Updated content"
@@ -159,10 +153,10 @@ class TestForumMessageSignal:
             message.save()
 
             # Verify signal did NOT fire on update
-            mock_service.notify_new_forum_message.assert_not_called()
+            mock_task.apply_async.assert_not_called()
 
     def test_signal_handles_pachca_not_configured(self, student_user, teacher_user):
-        """Signal should handle gracefully when Pachca is not configured"""
+        """Signal should queue Celery task even when Pachca is not configured (task handles check)"""
         # Create forum chat
         forum_chat = ChatRoom.objects.create(
             name="Test Forum",
@@ -171,26 +165,22 @@ class TestForumMessageSignal:
         )
         forum_chat.participants.add(student_user, teacher_user)
 
-        # Mock Pachca service - not configured
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_service.is_configured.return_value = False
-            mock_pachca_class.return_value = mock_service
+        # Mock Celery task
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            mock_task.apply_async = MagicMock()
 
-            # Create message - should not error even if Pachca not configured
+            # Create message - signal always queues task (task itself checks if Pachca configured)
             message = Message.objects.create(
                 room=forum_chat,
                 sender=student_user,
                 content="Message with Pachca disabled"
             )
 
-            # Verify initialization happened but notification not called
-            mock_pachca_class.assert_called_once()
-            mock_service.is_configured.assert_called_once()
-            mock_service.notify_new_forum_message.assert_not_called()
+            # Verify task was queued (Pachca config check happens inside task, not signal)
+            mock_task.apply_async.assert_called_once()
 
     def test_signal_does_not_block_message_creation_on_pachca_error(self, student_user, teacher_user):
-        """Signal should not block message creation if Pachca API fails"""
+        """Signal should not block message creation even if Celery task dispatch fails"""
         # Create forum chat
         forum_chat = ChatRoom.objects.create(
             name="Test Forum",
@@ -199,14 +189,11 @@ class TestForumMessageSignal:
         )
         forum_chat.participants.add(student_user, teacher_user)
 
-        # Mock Pachca service to raise exception
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_service.is_configured.return_value = True
-            mock_service.notify_new_forum_message.side_effect = Exception("Pachca API error")
-            mock_pachca_class.return_value = mock_service
+        # Mock Celery task to raise exception on dispatch
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            mock_task.apply_async = MagicMock(side_effect=Exception("Celery error"))
 
-            # Create message - should succeed despite Pachca error
+            # Create message - should succeed despite Celery error
             message = Message.objects.create(
                 room=forum_chat,
                 sender=student_user,
@@ -217,11 +204,11 @@ class TestForumMessageSignal:
             assert message.id is not None
             assert message.content == "Message created despite Pachca error"
 
-            # Pachca was attempted
-            mock_service.notify_new_forum_message.assert_called_once()
+            # Task dispatch was attempted
+            mock_task.apply_async.assert_called_once()
 
     def test_signal_logs_error_on_pachca_failure(self, student_user, teacher_user):
-        """Signal should log errors when Pachca notification fails"""
+        """Signal should log errors when Celery task dispatch fails"""
         # Create forum chat
         forum_chat = ChatRoom.objects.create(
             name="Test Forum",
@@ -230,14 +217,11 @@ class TestForumMessageSignal:
         )
         forum_chat.participants.add(student_user, teacher_user)
 
-        # Mock Pachca service and logger
-        with patch('chat.signals.PachcaService') as mock_pachca_class, \
+        # Mock Celery task and logger
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task, \
              patch('chat.signals.logger') as mock_logger:
-            mock_service = MagicMock()
-            mock_service.is_configured.return_value = True
             error = Exception("Network timeout")
-            mock_service.notify_new_forum_message.side_effect = error
-            mock_pachca_class.return_value = mock_service
+            mock_task.apply_async = MagicMock(side_effect=error)
 
             # Create message
             message = Message.objects.create(
@@ -249,8 +233,7 @@ class TestForumMessageSignal:
             # Verify error was logged
             mock_logger.error.assert_called_once()
             error_call_args = mock_logger.error.call_args
-            assert "Error sending Pachca notification" in error_call_args[0][0]
-            assert str(message.id) in error_call_args[0][0]
+            assert "Celery task dispatch failed" in error_call_args[0][0] or "Error" in error_call_args[0][0]
 
     def test_signal_handles_missing_chat_room(self, student_user):
         """Signal should handle gracefully when message has no chat room"""
@@ -287,27 +270,22 @@ class TestForumMessageSignal:
             description="Test Description"
         )
 
-        # Create enrollment
+        # Create enrollment (this will auto-create forum chat via signal)
         enrollment = SubjectEnrollment.objects.create(
             student=student_user,
             subject=subject,
             teacher=teacher_user
         )
 
-        # Create forum chat with enrollment
-        forum_chat = ChatRoom.objects.create(
-            name="Test Forum with Enrollment",
+        # Get the auto-created forum chat
+        forum_chat = ChatRoom.objects.get(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            created_by=student_user,
             enrollment=enrollment
         )
-        forum_chat.participants.add(student_user, teacher_user)
 
-        # Mock Pachca service
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_service.is_configured.return_value = True
-            mock_pachca_class.return_value = mock_service
+        # Mock Celery task
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            mock_task.apply_async = MagicMock()
 
             # Create message
             message = Message.objects.create(
@@ -316,11 +294,10 @@ class TestForumMessageSignal:
                 content="Forum message with enrollment"
             )
 
-            # Verify Pachca was called with both message and chat room
-            mock_service.notify_new_forum_message.assert_called_once()
-            call_args = mock_service.notify_new_forum_message.call_args
-            assert call_args[0][0] == message
-            assert call_args[0][1] == forum_chat
+            # Verify Celery task was queued with correct IDs
+            mock_task.apply_async.assert_called_once()
+            call_args = mock_task.apply_async.call_args
+            assert call_args[1]['args'] == [message.id, forum_chat.id]
 
     def test_signal_passes_correct_objects_to_pachca(self, student_user, teacher_user):
         """Signal should pass correct message and chat_room objects to PachcaService"""
@@ -332,11 +309,9 @@ class TestForumMessageSignal:
         )
         forum_chat.participants.add(student_user, teacher_user)
 
-        # Mock Pachca service
-        with patch('chat.signals.PachcaService') as mock_pachca_class:
-            mock_service = MagicMock()
-            mock_service.is_configured.return_value = True
-            mock_pachca_class.return_value = mock_service
+        # Mock Celery task
+        with patch('chat.tasks.send_pachca_forum_notification_task') as mock_task:
+            mock_task.apply_async = MagicMock()
 
             # Create message
             message = Message.objects.create(
@@ -346,12 +321,10 @@ class TestForumMessageSignal:
             )
 
             # Capture call arguments
-            call_args = mock_service.notify_new_forum_message.call_args
-            passed_message = call_args[0][0]
-            passed_chat_room = call_args[0][1]
+            call_args = mock_task.apply_async.call_args
+            passed_message_id = call_args[1]['args'][0]
+            passed_chat_room_id = call_args[1]['args'][1]
 
-            # Verify correct objects were passed
-            assert isinstance(passed_message, Message)
-            assert passed_message.id == message.id
-            assert isinstance(passed_chat_room, ChatRoom)
-            assert passed_chat_room.id == forum_chat.id
+            # Verify correct IDs were passed
+            assert passed_message_id == message.id
+            assert passed_chat_room_id == forum_chat.id

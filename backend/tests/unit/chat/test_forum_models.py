@@ -52,11 +52,15 @@ class TestChatRoomForumModels:
 
     def test_forum_chat_with_subject_enrollment(self, student_user, teacher_user, enrollment):
         """Test creating forum chat linked to SubjectEnrollment"""
-        chat = ChatRoom.objects.create(
-            name=f"{enrollment.get_subject_name()} - {student_user.get_full_name()} ↔ {teacher_user.get_full_name()}",
+        # Use get_or_create to avoid UNIQUE constraint violation
+        # (enrollment fixture may have already created chat via signal)
+        chat, created = ChatRoom.objects.get_or_create(
             type=ChatRoom.Type.FORUM_SUBJECT,
             enrollment=enrollment,
-            created_by=student_user
+            defaults={
+                'name': f"{enrollment.get_subject_name()} - {student_user.get_full_name()} ↔ {teacher_user.get_full_name()}",
+                'created_by': student_user
+            }
         )
 
         assert chat.id is not None
@@ -181,11 +185,14 @@ class TestMessageInForumChat:
 
     def test_message_in_forum_subject_chat(self, student_user, teacher_user, enrollment):
         """Test message in FORUM_SUBJECT type chat"""
-        chat = ChatRoom.objects.create(
-            name="Subject Forum",
+        # Use get_or_create to avoid UNIQUE constraint violation
+        chat, created = ChatRoom.objects.get_or_create(
             type=ChatRoom.Type.FORUM_SUBJECT,
             enrollment=enrollment,
-            created_by=student_user
+            defaults={
+                'name': "Subject Forum",
+                'created_by': student_user
+            }
         )
         chat.participants.add(student_user, teacher_user)
 

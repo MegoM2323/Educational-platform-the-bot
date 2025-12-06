@@ -57,7 +57,8 @@ class TestForumMessageSendingComprehensive:
         # Create chat room
         chat = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name='Test Chat'
+            name='Test Chat',
+            created_by=teacher
         )
         chat.participants.add(teacher, student)
 
@@ -77,14 +78,14 @@ class TestForumMessageSendingComprehensive:
 
         # Act: Create message
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Hello, teacher!'
         )
 
         # Assert
         assert message.id is not None
-        assert message.chat_room == chat
+        assert message.room == chat
         assert message.sender == student
         assert message.content == 'Hello, teacher!'
         assert message.created_at is not None
@@ -97,7 +98,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act: Create message
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Test message'
         )
@@ -118,7 +119,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Test'
         )
@@ -147,7 +148,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act: Create message
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Message'
         )
@@ -170,7 +171,7 @@ class TestForumMessageSendingComprehensive:
         # Act: Create multiple messages
         for i in range(3):
             message = Message.objects.create(
-                chat_room=chat,
+                room=chat,
                 sender=student if i % 2 == 0 else teacher,
                 content=f'Message {i}'
             )
@@ -179,7 +180,7 @@ class TestForumMessageSendingComprehensive:
 
         # Assert
         chat.refresh_from_db()
-        messages = Message.objects.filter(chat_room=chat)
+        messages = Message.objects.filter(room=chat)
         assert messages.count() == 3
         # Chat should have been updated multiple times
         assert chat.updated_at is not None
@@ -195,7 +196,7 @@ class TestForumMessageSendingComprehensive:
         # Act & Assert: Empty content should fail validation
         data = {
             'content': '',
-            'chat_room_id': chat.id
+            'room_id': chat.id
         }
         serializer = MessageCreateSerializer(data=data)
         assert not serializer.is_valid()
@@ -210,7 +211,7 @@ class TestForumMessageSendingComprehensive:
         # Act & Assert
         data = {
             'content': '   ',
-            'chat_room_id': chat.id
+            'room_id': chat.id
         }
         serializer = MessageCreateSerializer(data=data)
         # Should fail or be cleaned to empty
@@ -224,7 +225,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='This is a valid message'
         )
@@ -246,7 +247,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act: Create message
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Test'
         )
@@ -290,7 +291,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act: Create message
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Test'
         )
@@ -298,28 +299,28 @@ class TestForumMessageSendingComprehensive:
         # Assert: Message was created (signal would run here)
         assert message.id is not None
 
-    @patch('chat.signals.get_channel_layer')
-    def test_message_broadcast_channel_group(self, mock_channel, setup_chat_users):
-        """Scenario: Message sending → broadcasts to WebSocket group"""
+    @patch('chat.tasks.send_pachca_forum_notification_task')
+    def test_message_broadcast_channel_group(self, mock_task, setup_chat_users):
+        """Scenario: Message sending → triggers Celery task for async broadcast"""
         users = setup_chat_users
         student = users['student']
         chat = users['chat']
 
-        # Mock channel layer
-        mock_channel_layer = MagicMock()
-        mock_channel.return_value = mock_channel_layer
+        # Mock Celery task
+        mock_task.apply_async = MagicMock()
 
-        # Act: Create message (would trigger broadcast in signal)
+        # Act: Create message (triggers Celery task in signal)
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Broadcast test'
         )
 
-        # Assert: In real code, signal would call channel_layer.group_send
-        # Here we just verify message was created
+        # Assert: Message was created and Celery task was queued
         assert message.id is not None
         assert message.content == 'Broadcast test'
+        # Celery task should be queued for async notification
+        mock_task.apply_async.assert_called_once()
 
     # ========== Multiple Messages Tests ==========
 
@@ -335,7 +336,7 @@ class TestForumMessageSendingComprehensive:
         for i in range(5):
             sender = student if i % 2 == 0 else teacher
             msg = Message.objects.create(
-                chat_room=chat,
+                room=chat,
                 sender=sender,
                 content=f'Message {i}'
             )
@@ -343,7 +344,7 @@ class TestForumMessageSendingComprehensive:
 
         # Assert
         assert len(messages) == 5
-        chat_messages = Message.objects.filter(chat_room=chat)
+        chat_messages = Message.objects.filter(room=chat)
         assert chat_messages.count() == 5
 
     def test_message_ordering_by_creation(self, setup_chat_users):
@@ -353,12 +354,12 @@ class TestForumMessageSendingComprehensive:
         chat = users['chat']
 
         # Act: Create messages
-        msg1 = Message.objects.create(chat_room=chat, sender=student, content='First')
-        msg2 = Message.objects.create(chat_room=chat, sender=student, content='Second')
-        msg3 = Message.objects.create(chat_room=chat, sender=student, content='Third')
+        msg1 = Message.objects.create(room=chat, sender=student, content='First')
+        msg2 = Message.objects.create(room=chat, sender=student, content='Second')
+        msg3 = Message.objects.create(room=chat, sender=student, content='Third')
 
         # Assert: Messages in correct order
-        messages = list(Message.objects.filter(chat_room=chat).order_by('created_at'))
+        messages = list(Message.objects.filter(room=chat).order_by('created_at'))
         assert messages[0].content == 'First'
         assert messages[1].content == 'Second'
         assert messages[2].content == 'Third'
@@ -373,8 +374,8 @@ class TestForumMessageSendingComprehensive:
         chat = users['chat']
 
         # Act: Different senders
-        msg1 = Message.objects.create(chat_room=chat, sender=student, content='From student')
-        msg2 = Message.objects.create(chat_room=chat, sender=teacher, content='From teacher')
+        msg1 = Message.objects.create(room=chat, sender=student, content='From student')
+        msg2 = Message.objects.create(room=chat, sender=teacher, content='From teacher')
 
         # Assert: Correct senders recorded
         assert msg1.sender == student
@@ -389,7 +390,7 @@ class TestForumMessageSendingComprehensive:
         # Creating message with user is required (enforced by model/serializer)
         # This tests that sender field is properly validated
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=users['student'],
             content='Test'
         )
@@ -407,14 +408,14 @@ class TestForumMessageSendingComprehensive:
 
         # Act
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Test'
         )
 
         # Assert
-        assert message.chat_room == chat
-        assert message.chat_room_id == chat.id
+        assert message.room == chat
+        assert message.room_id == chat.id
 
     def test_message_linked_to_only_one_chat(self, setup_chat_users):
         """Scenario: Each message linked to exactly one chat"""
@@ -425,18 +426,19 @@ class TestForumMessageSendingComprehensive:
         # Create another chat
         chat2 = ChatRoom.objects.create(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            name='Another Chat'
+            name='Another Chat',
+            created_by=student
         )
         chat2.participants.add(student)
 
         # Act: Create messages in different chats
-        msg1 = Message.objects.create(chat_room=chat1, sender=student, content='In chat1')
-        msg2 = Message.objects.create(chat_room=chat2, sender=student, content='In chat2')
+        msg1 = Message.objects.create(room=chat1, sender=student, content='In chat1')
+        msg2 = Message.objects.create(room=chat2, sender=student, content='In chat2')
 
         # Assert: Messages linked to correct chats
-        assert msg1.chat_room == chat1
-        assert msg2.chat_room == chat2
-        assert msg1.chat_room != msg2.chat_room
+        assert msg1.room == chat1
+        assert msg2.room == chat2
+        assert msg1.room != msg2.room
 
     # ========== Data Integrity Tests ==========
 
@@ -450,7 +452,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content=original_content
         )
@@ -466,7 +468,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Test'
         )
@@ -487,7 +489,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Test'
         )
@@ -505,7 +507,7 @@ class TestForumMessageSendingComprehensive:
 
         # Act
         message = Message.objects.create(
-            chat_room=chat,
+            room=chat,
             sender=student,
             content='Test'
         )

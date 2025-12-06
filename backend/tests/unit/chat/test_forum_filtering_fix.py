@@ -104,6 +104,8 @@ class TestForumChatFilteringFix:
         Privacy requirement: Tutors should not see chats for students assigned to other tutors.
         """
         # Create another tutor and student
+        from accounts.models import TutorProfile, StudentProfile
+
         other_tutor = User.objects.create_user(
             username='other_tutor',
             email='other_tutor@test.com',
@@ -111,6 +113,8 @@ class TestForumChatFilteringFix:
             first_name='Other',
             last_name='Tutor'
         )
+        TutorProfile.objects.create(user=other_tutor)
+
         other_student = User.objects.create_user(
             username='other_student',
             email='other_student@test.com',
@@ -118,6 +122,7 @@ class TestForumChatFilteringFix:
             first_name='Other',
             last_name='Student'
         )
+        StudentProfile.objects.create(user=other_student)
 
         # Assign tutors to students
         student_user.student_profile.tutor = tutor_user

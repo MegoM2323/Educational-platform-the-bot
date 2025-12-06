@@ -3,6 +3,8 @@
  * Управление JWT токенами в localStorage
  */
 
+import { logger } from '@/utils/logger';
+
 const TOKEN_KEY = 'auth_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 

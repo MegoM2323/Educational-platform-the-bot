@@ -1,4 +1,4 @@
-import { Home, Send, FileText, MessageSquare, LogOut, CheckSquare, BookOpen, Calendar, CalendarDays, Clock, User } from "lucide-react";
+import { Home, Send, FileText, MessageSquare, LogOut, CheckSquare, BookOpen, Calendar, CalendarDays, Clock, User, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -20,6 +20,7 @@ const items = [
   { title: "Главная", url: "/dashboard/teacher", icon: Home },
   { title: "Распределение материалов", url: "/dashboard/teacher/materials", icon: Send },
   { title: "Планы занятий", url: "/dashboard/teacher/study-plans", icon: Calendar },
+  { title: "AI Генератор планов", url: "/dashboard/teacher/study-plan-generator", icon: Sparkles },
   { title: "Управление расписанием", url: "/dashboard/teacher/schedule", icon: CalendarDays },
   { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },

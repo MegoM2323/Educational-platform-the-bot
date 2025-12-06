@@ -41,6 +41,7 @@ const StudyPlans = lazy(() => import("./pages/dashboard/teacher/StudyPlans"));
 const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissions"));
 const AssignSubject = lazy(() => import("./pages/dashboard/teacher/AssignSubject"));
 const TeacherAssignments = lazy(() => import("./pages/dashboard/teacher/Assignments"));
+const TeacherStudyPlanGenerator = lazy(() => import("./pages/dashboard/TeacherStudyPlanGeneratorPage"));
 const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
 const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
 const ParentChildren = lazy(() => import("./pages/dashboard/parent/Children"));
@@ -263,6 +264,13 @@ const App = () => (
             <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TeacherAssignments />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/study-plan-generator" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TeacherStudyPlanGenerator />
               </Suspense>
             </ProtectedRoute>
           } />

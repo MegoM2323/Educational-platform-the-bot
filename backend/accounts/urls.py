@@ -51,7 +51,7 @@ urlpatterns = [
 
     # Admin-only parent management
     path('parents/', list_parents, name='admin_list_parents'),  # GET - список родителей
-    path('parents/create/', create_parent, name='admin_create_student'),  # POST - создание родителя (legacy)
+    path('parents/create/', create_parent, name='admin_create_parent'),  # POST - создание родителя (legacy)
     path('assign-parent/', assign_parent_to_students, name='admin_assign_parent'),  # POST - назначение родителя
 
     # Router URLs (ViewSet endpoints) - ПОСЛЕ admin endpoints

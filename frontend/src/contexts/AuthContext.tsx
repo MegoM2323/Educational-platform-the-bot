@@ -30,8 +30,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       try {
-        // Ждем завершения инициализации authService (включая refresh токена если нужно)
-        await authService.waitForInitialization();
+        // Ждем завершения инициализации authService с timeout protection (6 секунд)
+        await Promise.race([
+          authService.waitForInitialization(),
+          new Promise((resolve) =>
+            setTimeout(() => {
+              logger.warn('AuthContext: initialization timeout, continuing without auth');
+              resolve(null);
+            }, 6000)
+          ),
+        ]);
 
         const currentUser = authService.getCurrentUser();
         const isAuth = authService.isAuthenticated();

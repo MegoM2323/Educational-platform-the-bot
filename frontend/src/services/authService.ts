@@ -82,7 +82,13 @@ class AuthService {
             this.token = storedToken;
             apiClient.setToken(storedToken);
 
-            await this.refreshTokenIfNeeded();
+            // Добавляем timeout protection (5 секунд)
+            await Promise.race([
+              this.refreshTokenIfNeeded(),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Token refresh timeout after 5s')), 5000)
+              ),
+            ]);
             logger.debug('AuthService: token refreshed successfully during init');
           } catch (err) {
             logger.error('AuthService: Failed to refresh token during init:', err);

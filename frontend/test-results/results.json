@@ -9,7 +9,7 @@
     "globalTimeout": 0,
     "grep": {},
     "grepInvert": null,
-    "maxFailures": 0,
+    "maxFailures": 1,
     "metadata": {
       "actualWorkers": 1
     },
@@ -124,620 +124,1324 @@
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
     "version": "1.57.0",
-    "workers": 12,
+    "workers": 1,
     "webServer": null
   },
   "suites": [
     {
-      "title": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-      "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
+      "title": "e2e/forum/forum-navigation.spec.ts",
+      "file": "e2e/forum/forum-navigation.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Scheduling E2E Tests - All Roles",
-          "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-          "line": 50,
+          "title": "Forum Navigation - Student",
+          "file": "e2e/forum/forum-navigation.spec.ts",
+          "line": 15,
           "column": 6,
-          "specs": [],
-          "suites": [
+          "specs": [
             {
-              "title": "Student Scheduling Tests",
-              "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-              "line": 52,
-              "column": 8,
-              "specs": [
+              "title": "should have Forum link in student sidebar",
+              "ok": false,
+              "tags": [],
+              "tests": [
                 {
-                  "title": "Student should access schedule page",
-                  "ok": false,
-                  "tags": [],
-                  "tests": [
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
                     {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 651,
+                      "error": {
+                        "message": "Error: Login failed for student: Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8080/auth\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8080/auth\", waiting until \"load\"\u001b[22m\n",
+                        "stack": "Error: Login failed for student: Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8080/auth\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8080/auth\", waiting until \"load\"\u001b[22m\n\n    at loginAs (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/helpers/auth.ts:99:11)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/forum/forum-navigation.spec.ts:18:5",
+                        "location": {
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/helpers/auth.ts",
+                          "column": 11,
+                          "line": 99
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39me2e/helpers/auth.ts:99\n\n   97 |     await page.screenshot({ path: `/tmp/login-failed-${userKey}.png`, fullPage: true });\n   98 |\n>  99 |     throw new Error(`Login failed for ${userKey}: ${error}`);\n      |           ^\n  100 |   }\n  101 | }\n  102 |"
+                      },
+                      "errors": [
                         {
-                          "workerIndex": 0,
-                          "parallelIndex": 0,
-                          "status": "failed",
-                          "duration": 6870,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[class*=\"schedule\"], [class*=\"calendar\"]').first()\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('[class*=\"schedule\"], [class*=\"calendar\"]').first()\u001b[22m\n",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[class*=\"schedule\"], [class*=\"calendar\"]').first()\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('[class*=\"schedule\"], [class*=\"calendar\"]').first()\u001b[22m\n\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:61:33",
-                            "location": {
-                              "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                              "column": 33,
-                              "line": 61
-                            },
-                            "snippet": "  59 |       // Check page loads\n  60 |       const pageContent = await page.locator('[class*=\"schedule\"], [class*=\"calendar\"]').first();\n> 61 |       await expect(pageContent).toBeVisible();\n     |                                 ^\n  62 |\n  63 |       console.log('✅ Student schedule page loaded');\n  64 |     });"
+                          "location": {
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/helpers/auth.ts",
+                            "column": 11,
+                            "line": 99
                           },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                                "column": 33,
-                                "line": 61
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[class*=\"schedule\"], [class*=\"calendar\"]').first()\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('[class*=\"schedule\"], [class*=\"calendar\"]').first()\u001b[22m\n\n\n  59 |       // Check page loads\n  60 |       const pageContent = await page.locator('[class*=\"schedule\"], [class*=\"calendar\"]').first();\n> 61 |       await expect(pageContent).toBeVisible();\n     |                                 ^\n  62 |\n  63 |       console.log('✅ Student schedule page loaded');\n  64 |     });\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:61:33"
-                            }
-                          ],
-                          "stdout": [],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:27:42.921Z",
-                          "annotations": [],
-                          "attachments": [
-                            {
-                              "name": "screenshot",
-                              "contentType": "image/png",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-d8308-should-access-schedule-page-chromium/test-failed-1.png"
-                            },
-                            {
-                              "name": "video",
-                              "contentType": "video/webm",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-d8308-should-access-schedule-page-chromium/video.webm"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                            "column": 33,
-                            "line": 61
-                          }
+                          "message": "Error: Login failed for student: Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8080/auth\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8080/auth\", waiting until \"load\"\u001b[22m\n\n\n   at e2e/helpers/auth.ts:99\n\n   97 |     await page.screenshot({ path: `/tmp/login-failed-${userKey}.png`, fullPage: true });\n   98 |\n>  99 |     throw new Error(`Login failed for ${userKey}: ${error}`);\n      |           ^\n  100 |   }\n  101 | }\n  102 |\n    at loginAs (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/helpers/auth.ts:99:11)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/forum/forum-navigation.spec.ts:18:5"
                         }
                       ],
-                      "status": "unexpected"
-                    }
-                  ],
-                  "id": "211e1d0cdddfee2d1356-c20fe09782b2c7330529",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 53,
-                  "column": 5
-                },
-                {
-                  "title": "Student schedule page has tabs or filtering",
-                  "ok": true,
-                  "tags": [],
-                  "tests": [
-                    {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
+                      "stdout": [],
+                      "stderr": [
                         {
-                          "workerIndex": 1,
-                          "parallelIndex": 0,
-                          "status": "passed",
-                          "duration": 1317,
-                          "errors": [],
-                          "stdout": [
-                            {
-                              "text": "Found 0 tab/filter elements\n"
-                            }
-                          ],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:27:50.436Z",
-                          "annotations": [],
-                          "attachments": []
+                          "text": "Failed to login as student: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8080/auth\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8080/auth\", waiting until \"load\"\u001b[22m\n\n    at loginAs \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mtests/e2e/helpers/auth.ts:65:16\u001b[90m)\u001b[39m\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mtests/e2e/forum/forum-navigation.spec.ts:18:11 {\n  name: \u001b[32m'Error'\u001b[39m,\n  [\u001b[32mSymbol(step)\u001b[39m]: {\n    location: {\n      file: \u001b[32m'/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/helpers/auth.ts'\u001b[39m,\n      line: \u001b[33m65\u001b[39m,\n      column: \u001b[33m16\u001b[39m,\n      function: \u001b[32m'loginAs'\u001b[39m\n    },\n    category: \u001b[32m'pw:api'\u001b[39m,\n    title: \u001b[32m'Navigate to \"/auth\"'\u001b[39m,\n    apiName: \u001b[32m'page.goto'\u001b[39m,\n    params: { url: \u001b[32m'/auth'\u001b[39m, waitUntil: \u001b[32m'load'\u001b[39m, timeout: \u001b[33m30000\u001b[39m },\n    group: \u001b[90mundefined\u001b[39m,\n    stepId: \u001b[32m'pw:api@36'\u001b[39m,\n    boxedStack: \u001b[90mundefined\u001b[39m,\n    steps: [],\n    attachmentIndices: [],\n    info: TestStepInfoImpl {\n      annotations: [],\n      _testInfo: \u001b[36m[TestInfoImpl]\u001b[39m,\n      _stepId: \u001b[32m'pw:api@36'\u001b[39m,\n      _title: \u001b[32m'Navigate to \"/auth\"'\u001b[39m,\n      _parentStep: \u001b[36m[TestStepInfoImpl]\u001b[39m,\n      skip: \u001b[36m[Function (anonymous)]\u001b[39m\n    },\n    complete: \u001b[36m[Function: complete]\u001b[39m,\n    endWallTime: \u001b[33m1765042956881\u001b[39m,\n    error: {\n      message: \u001b[32m'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8080/auth\\n'\u001b[39m +\n        \u001b[32m'Call log:\\n'\u001b[39m +\n        \u001b[32m'\\x1B[2m  - navigating to \"http://localhost:8080/auth\", waiting until \"load\"\\x1B[22m\\n'\u001b[39m,\n      stack: \u001b[32m'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8080/auth\\n'\u001b[39m +\n        \u001b[32m'Call log:\\n'\u001b[39m +\n        \u001b[32m'\\x1B[2m  - navigating to \"http://localhost:8080/auth\", waiting until \"load\"\\x1B[22m\\n'\u001b[39m +\n        \u001b[32m'\\n'\u001b[39m +\n        \u001b[32m'    at loginAs (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/helpers/auth.ts:65:16)\\n'\u001b[39m +\n        \u001b[32m'    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/forum/forum-navigation.spec.ts:18:11'\u001b[39m,\n      cause: \u001b[90mundefined\u001b[39m\n    }\n  }\n}\n"
                         }
                       ],
-                      "status": "expected"
+                      "retry": 0,
+                      "startTime": "2025-12-06T17:42:36.333Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-forum-forum-navigation-49a17-rum-link-in-student-sidebar-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-forum-forum-navigation-49a17-rum-link-in-student-sidebar-chromium/video.webm"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/helpers/auth.ts",
+                        "column": 11,
+                        "line": 99
+                      }
                     }
                   ],
-                  "id": "211e1d0cdddfee2d1356-e777db96319bd2dd95d9",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 66,
-                  "column": 5
+                  "status": "unexpected"
                 }
-              ]
+              ],
+              "id": "79d89ff0e649995b3bd1-fc3850492c9901b70145",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 21,
+              "column": 3
             },
             {
-              "title": "Teacher Scheduling Tests",
-              "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-              "line": 77,
-              "column": 8,
-              "specs": [
+              "title": "clicking Forum navigates to forum page",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "title": "Teacher should access schedule page",
-                  "ok": false,
-                  "tags": [],
-                  "tests": [
-                    {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
-                        {
-                          "workerIndex": 1,
-                          "parallelIndex": 0,
-                          "status": "failed",
-                          "duration": 1238,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:87:25",
-                            "location": {
-                              "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                              "column": 25,
-                              "line": 87
-                            },
-                            "snippet": "  85 |       const pageContent = await page.locator('body');\n  86 |       const isVisible = await pageContent.isVisible();\n> 87 |       expect(isVisible).toBeTruthy();\n     |                         ^\n  88 |\n  89 |       console.log('✅ Teacher schedule page loaded');\n  90 |     });"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                                "column": 25,
-                                "line": 87
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  85 |       const pageContent = await page.locator('body');\n  86 |       const isVisible = await pageContent.isVisible();\n> 87 |       expect(isVisible).toBeTruthy();\n     |                         ^\n  88 |\n  89 |       console.log('✅ Teacher schedule page loaded');\n  90 |     });\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:87:25"
-                            }
-                          ],
-                          "stdout": [],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:27:51.838Z",
-                          "annotations": [],
-                          "attachments": [
-                            {
-                              "name": "screenshot",
-                              "contentType": "image/png",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-94cf5-should-access-schedule-page-chromium/test-failed-1.png"
-                            },
-                            {
-                              "name": "video",
-                              "contentType": "video/webm",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-94cf5-should-access-schedule-page-chromium/video.webm"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                            "column": 25,
-                            "line": 87
-                          }
-                        }
-                      ],
-                      "status": "unexpected"
-                    }
-                  ],
-                  "id": "211e1d0cdddfee2d1356-cb2225859339d8c98b0a",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 78,
-                  "column": 5
-                },
-                {
-                  "title": "Teacher should see Add Lesson button",
-                  "ok": true,
-                  "tags": [],
-                  "tests": [
-                    {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
-                        {
-                          "workerIndex": 2,
-                          "parallelIndex": 0,
-                          "status": "passed",
-                          "duration": 1256,
-                          "errors": [],
-                          "stdout": [
-                            {
-                              "text": "Found 0 add button(s)\n"
-                            }
-                          ],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:27:53.789Z",
-                          "annotations": [],
-                          "attachments": []
-                        }
-                      ],
-                      "status": "expected"
-                    }
-                  ],
-                  "id": "211e1d0cdddfee2d1356-8c5cf91404aac24d38fb",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 92,
-                  "column": 5
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
                 }
-              ]
+              ],
+              "id": "79d89ff0e649995b3bd1-1b4797f9dd3f3c7d4607",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 36,
+              "column": 3
             },
             {
-              "title": "Tutor Scheduling Tests",
-              "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-              "line": 106,
-              "column": 8,
-              "specs": [
+              "title": "forum page has proper layout",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "title": "Tutor should access dashboard and view students",
-                  "ok": false,
-                  "tags": [],
-                  "tests": [
-                    {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
-                        {
-                          "workerIndex": 2,
-                          "parallelIndex": 0,
-                          "status": "failed",
-                          "duration": 1227,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:116:25",
-                            "location": {
-                              "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                              "column": 25,
-                              "line": 116
-                            },
-                            "snippet": "  114 |       const pageContent = await page.locator('body');\n  115 |       const isVisible = await pageContent.isVisible();\n> 116 |       expect(isVisible).toBeTruthy();\n      |                         ^\n  117 |\n  118 |       console.log('✅ Tutor dashboard loaded');\n  119 |     });"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                                "column": 25,
-                                "line": 116
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  114 |       const pageContent = await page.locator('body');\n  115 |       const isVisible = await pageContent.isVisible();\n> 116 |       expect(isVisible).toBeTruthy();\n      |                         ^\n  117 |\n  118 |       console.log('✅ Tutor dashboard loaded');\n  119 |     });\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:116:25"
-                            }
-                          ],
-                          "stdout": [],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:27:55.131Z",
-                          "annotations": [],
-                          "attachments": [
-                            {
-                              "name": "screenshot",
-                              "contentType": "image/png",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-a1142-dashboard-and-view-students-chromium/test-failed-1.png"
-                            },
-                            {
-                              "name": "video",
-                              "contentType": "video/webm",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-a1142-dashboard-and-view-students-chromium/video.webm"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                            "column": 25,
-                            "line": 116
-                          }
-                        }
-                      ],
-                      "status": "unexpected"
-                    }
-                  ],
-                  "id": "211e1d0cdddfee2d1356-32d49bb814c6df769de9",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 107,
-                  "column": 5
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
                 }
-              ]
+              ],
+              "id": "79d89ff0e649995b3bd1-4b3d004c9e1f7b4322c6",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 59,
+              "column": 3
             },
             {
-              "title": "Parent Scheduling Tests",
-              "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-              "line": 123,
-              "column": 8,
-              "specs": [
+              "title": "can navigate away from forum and back",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "title": "Parent should access dashboard and view children",
-                  "ok": false,
-                  "tags": [],
-                  "tests": [
-                    {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
-                        {
-                          "workerIndex": 3,
-                          "parallelIndex": 0,
-                          "status": "failed",
-                          "duration": 1248,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:133:25",
-                            "location": {
-                              "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                              "column": 25,
-                              "line": 133
-                            },
-                            "snippet": "  131 |       const pageContent = await page.locator('body');\n  132 |       const isVisible = await pageContent.isVisible();\n> 133 |       expect(isVisible).toBeTruthy();\n      |                         ^\n  134 |\n  135 |       console.log('✅ Parent dashboard loaded');\n  136 |     });"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                                "column": 25,
-                                "line": 133
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  131 |       const pageContent = await page.locator('body');\n  132 |       const isVisible = await pageContent.isVisible();\n> 133 |       expect(isVisible).toBeTruthy();\n      |                         ^\n  134 |\n  135 |       console.log('✅ Parent dashboard loaded');\n  136 |     });\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:133:25"
-                            }
-                          ],
-                          "stdout": [],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:27:56.922Z",
-                          "annotations": [],
-                          "attachments": [
-                            {
-                              "name": "screenshot",
-                              "contentType": "image/png",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-08b0a-dashboard-and-view-children-chromium/test-failed-1.png"
-                            },
-                            {
-                              "name": "video",
-                              "contentType": "video/webm",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-08b0a-dashboard-and-view-children-chromium/video.webm"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                            "column": 25,
-                            "line": 133
-                          }
-                        }
-                      ],
-                      "status": "unexpected"
-                    }
-                  ],
-                  "id": "211e1d0cdddfee2d1356-19efee94d88adcab1bf9",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 124,
-                  "column": 5
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
                 }
-              ]
+              ],
+              "id": "79d89ff0e649995b3bd1-3fc44d1330372c13eefc",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 78,
+              "column": 3
             },
             {
-              "title": "Responsive Design Tests",
-              "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-              "line": 140,
-              "column": 8,
-              "specs": [
+              "title": "should have Forum link in student sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "title": "Desktop viewport (1920x1080) - Student schedule",
-                  "ok": false,
-                  "tags": [],
-                  "tests": [
-                    {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
-                        {
-                          "workerIndex": 4,
-                          "parallelIndex": 0,
-                          "status": "failed",
-                          "duration": 1151,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:148:41",
-                            "location": {
-                              "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                              "column": 41,
-                              "line": 148
-                            },
-                            "snippet": "  146 |\n  147 |       const content = await page.locator('body');\n> 148 |       expect(await content.isVisible()).toBeTruthy();\n      |                                         ^\n  149 |\n  150 |       console.log('✅ Desktop viewport test passed');\n  151 |       await page.close();"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                                "column": 41,
-                                "line": 148
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  146 |\n  147 |       const content = await page.locator('body');\n> 148 |       expect(await content.isVisible()).toBeTruthy();\n      |                                         ^\n  149 |\n  150 |       console.log('✅ Desktop viewport test passed');\n  151 |       await page.close();\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:148:41"
-                            }
-                          ],
-                          "stdout": [],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:27:58.813Z",
-                          "annotations": [],
-                          "attachments": [
-                            {
-                              "name": "screenshot",
-                              "contentType": "image/png",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-de3a4-920x1080---Student-schedule-chromium/test-failed-1.png"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                            "column": 41,
-                            "line": 148
-                          }
-                        }
-                      ],
-                      "status": "unexpected"
-                    }
-                  ],
-                  "id": "211e1d0cdddfee2d1356-f7baa71448ba3397a701",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 141,
-                  "column": 5
-                },
-                {
-                  "title": "Tablet viewport (768x1024) - Student schedule",
-                  "ok": false,
-                  "tags": [],
-                  "tests": [
-                    {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
-                        {
-                          "workerIndex": 5,
-                          "parallelIndex": 0,
-                          "status": "failed",
-                          "duration": 1115,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:161:41",
-                            "location": {
-                              "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                              "column": 41,
-                              "line": 161
-                            },
-                            "snippet": "  159 |\n  160 |       const content = await page.locator('body');\n> 161 |       expect(await content.isVisible()).toBeTruthy();\n      |                                         ^\n  162 |\n  163 |       console.log('✅ Tablet viewport test passed');\n  164 |       await page.close();"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                                "column": 41,
-                                "line": 161
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  159 |\n  160 |       const content = await page.locator('body');\n> 161 |       expect(await content.isVisible()).toBeTruthy();\n      |                                         ^\n  162 |\n  163 |       console.log('✅ Tablet viewport test passed');\n  164 |       await page.close();\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:161:41"
-                            }
-                          ],
-                          "stdout": [],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:28:00.601Z",
-                          "annotations": [],
-                          "attachments": [
-                            {
-                              "name": "screenshot",
-                              "contentType": "image/png",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-8fc10-768x1024---Student-schedule-chromium/test-failed-1.png"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                            "column": 41,
-                            "line": 161
-                          }
-                        }
-                      ],
-                      "status": "unexpected"
-                    }
-                  ],
-                  "id": "211e1d0cdddfee2d1356-95037e897ac115fcf57f",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 154,
-                  "column": 5
-                },
-                {
-                  "title": "Mobile viewport (375x667) - Student schedule",
-                  "ok": false,
-                  "tags": [],
-                  "tests": [
-                    {
-                      "timeout": 30000,
-                      "annotations": [],
-                      "expectedStatus": "passed",
-                      "projectId": "chromium",
-                      "projectName": "chromium",
-                      "results": [
-                        {
-                          "workerIndex": 6,
-                          "parallelIndex": 0,
-                          "status": "failed",
-                          "duration": 1122,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:174:41",
-                            "location": {
-                              "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                              "column": 41,
-                              "line": 174
-                            },
-                            "snippet": "  172 |\n  173 |       const content = await page.locator('body');\n> 174 |       expect(await content.isVisible()).toBeTruthy();\n      |                                         ^\n  175 |\n  176 |       console.log('✅ Mobile viewport test passed');\n  177 |       await page.close();"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                                "column": 41,
-                                "line": 174
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  172 |\n  173 |       const content = await page.locator('body');\n> 174 |       expect(await content.isVisible()).toBeTruthy();\n      |                                         ^\n  175 |\n  176 |       console.log('✅ Mobile viewport test passed');\n  177 |       await page.close();\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts:174:41"
-                            }
-                          ],
-                          "stdout": [],
-                          "stderr": [],
-                          "retry": 0,
-                          "startTime": "2025-12-06T17:28:02.358Z",
-                          "annotations": [],
-                          "attachments": [
-                            {
-                              "name": "screenshot",
-                              "contentType": "image/png",
-                              "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-scheduling-e2e-test-al-d7721--375x667---Student-schedule-chromium/test-failed-1.png"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/scheduling/e2e-test-all-roles.spec.ts",
-                            "column": 41,
-                            "line": 174
-                          }
-                        }
-                      ],
-                      "status": "unexpected"
-                    }
-                  ],
-                  "id": "211e1d0cdddfee2d1356-f3a04757d25548043e3f",
-                  "file": "e2e/scheduling/e2e-test-all-roles.spec.ts",
-                  "line": 167,
-                  "column": 5
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
                 }
-              ]
+              ],
+              "id": "79d89ff0e649995b3bd1-477e1c389fe431fb693d",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 21,
+              "column": 3
+            },
+            {
+              "title": "clicking Forum navigates to forum page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-3fccfc20d55e9caadb13",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 36,
+              "column": 3
+            },
+            {
+              "title": "forum page has proper layout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-e572a34bf107b56ca69b",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 59,
+              "column": 3
+            },
+            {
+              "title": "can navigate away from forum and back",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-ae1bdb4e535acbdbb847",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 78,
+              "column": 3
+            },
+            {
+              "title": "should have Forum link in student sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-680ff6d5b07e59bf4320",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 21,
+              "column": 3
+            },
+            {
+              "title": "clicking Forum navigates to forum page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-0995fdd9960dff5f2e7a",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 36,
+              "column": 3
+            },
+            {
+              "title": "forum page has proper layout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-824ab33b71a7f92721fd",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 59,
+              "column": 3
+            },
+            {
+              "title": "can navigate away from forum and back",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-55a9f63dac5f7c34acb3",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 78,
+              "column": 3
+            },
+            {
+              "title": "should have Forum link in student sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-89cda8017830b990931b",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 21,
+              "column": 3
+            },
+            {
+              "title": "clicking Forum navigates to forum page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-a45fb219746a552312de",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 36,
+              "column": 3
+            },
+            {
+              "title": "forum page has proper layout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-e57fa773ce28126ca9e6",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 59,
+              "column": 3
+            },
+            {
+              "title": "can navigate away from forum and back",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-5019e68613a872f8dcef",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 78,
+              "column": 3
+            },
+            {
+              "title": "should have Forum link in student sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-f5d9c7999076236a2d28",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 21,
+              "column": 3
+            },
+            {
+              "title": "clicking Forum navigates to forum page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-d57f439300958ec26ab1",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 36,
+              "column": 3
+            },
+            {
+              "title": "forum page has proper layout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-a667d1cd017fb088bbf5",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 59,
+              "column": 3
+            },
+            {
+              "title": "can navigate away from forum and back",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-2a035dbdbef9b2d39a8e",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 78,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Forum Navigation - Teacher",
+          "file": "e2e/forum/forum-navigation.spec.ts",
+          "line": 98,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should have Forum link in teacher sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-7ff06449718585458c56",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 104,
+              "column": 3
+            },
+            {
+              "title": "teacher forum navigates to correct URL",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-b2cd2740ff0299c0935d",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 119,
+              "column": 3
+            },
+            {
+              "title": "teacher forum shows different chat list than student",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-b1ffd602bb078bbcf65f",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 135,
+              "column": 3
+            },
+            {
+              "title": "should have Forum link in teacher sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-442a499b3cd4a402bd43",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 104,
+              "column": 3
+            },
+            {
+              "title": "teacher forum navigates to correct URL",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-196d6b7465b59f0ba33d",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 119,
+              "column": 3
+            },
+            {
+              "title": "teacher forum shows different chat list than student",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-17ec180a213d76edbe7f",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 135,
+              "column": 3
+            },
+            {
+              "title": "should have Forum link in teacher sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-ef3d91c01da53e862487",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 104,
+              "column": 3
+            },
+            {
+              "title": "teacher forum navigates to correct URL",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-7cd1fdde1e1e78d507dd",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 119,
+              "column": 3
+            },
+            {
+              "title": "teacher forum shows different chat list than student",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-b0584af2d369eec4973b",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 135,
+              "column": 3
+            },
+            {
+              "title": "should have Forum link in teacher sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-c317784c3dc8d167d21a",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 104,
+              "column": 3
+            },
+            {
+              "title": "teacher forum navigates to correct URL",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-1df52a2d9b8468aefc79",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 119,
+              "column": 3
+            },
+            {
+              "title": "teacher forum shows different chat list than student",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-6995d73c72656e1918d7",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 135,
+              "column": 3
+            },
+            {
+              "title": "should have Forum link in teacher sidebar",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-eea3b88bb61ca3b4c3d0",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 104,
+              "column": 3
+            },
+            {
+              "title": "teacher forum navigates to correct URL",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-fdb7e5e80d801b709890",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 119,
+              "column": 3
+            },
+            {
+              "title": "teacher forum shows different chat list than student",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-7352c8d4d5ff67e5ad9e",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 135,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Forum Navigation - Tutor",
+          "file": "e2e/forum/forum-navigation.spec.ts",
+          "line": 169,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should navigate to tutor forum",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-5b07436443bb8012427e",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 175,
+              "column": 3
+            },
+            {
+              "title": "tutor sees assigned student chats",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-f76947f1041bc8a9664d",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 194,
+              "column": 3
+            },
+            {
+              "title": "should navigate to tutor forum",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-b5b58b48a7d60e6de8f3",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 175,
+              "column": 3
+            },
+            {
+              "title": "tutor sees assigned student chats",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-d2d7c15da5dd640750e4",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 194,
+              "column": 3
+            },
+            {
+              "title": "should navigate to tutor forum",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-c5b5f34df9b5651683a8",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 175,
+              "column": 3
+            },
+            {
+              "title": "tutor sees assigned student chats",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-7beeaea6dc1a0dbec7e6",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 194,
+              "column": 3
+            },
+            {
+              "title": "should navigate to tutor forum",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-954275d3783fe2cb76c3",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 175,
+              "column": 3
+            },
+            {
+              "title": "tutor sees assigned student chats",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-b875db4374f8a0cee185",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 194,
+              "column": 3
+            },
+            {
+              "title": "should navigate to tutor forum",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-4401f201dadd1d1bc4fd",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 175,
+              "column": 3
+            },
+            {
+              "title": "tutor sees assigned student chats",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-6402dd2cae6c7dc57a0b",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 194,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Forum Navigation - Parent",
+          "file": "e2e/forum/forum-navigation.spec.ts",
+          "line": 211,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should navigate to parent forum if applicable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-e6447e557a18bfd9eedd",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 217,
+              "column": 3
+            },
+            {
+              "title": "should navigate to parent forum if applicable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-52541fdd8e3112cf62a6",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 217,
+              "column": 3
+            },
+            {
+              "title": "should navigate to parent forum if applicable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-e820033bdfec345e53c8",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 217,
+              "column": 3
+            },
+            {
+              "title": "should navigate to parent forum if applicable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-aede77f96fb8cc53ebe2",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 217,
+              "column": 3
+            },
+            {
+              "title": "should navigate to parent forum if applicable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-2f0904a4fba3cbdd4b6b",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 217,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Forum Navigation - Cross-Role",
+          "file": "e2e/forum/forum-navigation.spec.ts",
+          "line": 245,
+          "column": 6,
+          "specs": [
+            {
+              "title": "forum link uses MessageCircle icon (consistent across roles)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-e47ee9b3691691f84a7e",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 246,
+              "column": 3
+            },
+            {
+              "title": "forum page is accessible from all dashboards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-9d255afb3fb9eac65782",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 275,
+              "column": 3
+            },
+            {
+              "title": "forum link uses MessageCircle icon (consistent across roles)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-87adf9be4e8f85a136d9",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 246,
+              "column": 3
+            },
+            {
+              "title": "forum page is accessible from all dashboards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-6d8901c263eba3a848cc",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 275,
+              "column": 3
+            },
+            {
+              "title": "forum link uses MessageCircle icon (consistent across roles)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-489fbeea37c50a443c10",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 246,
+              "column": 3
+            },
+            {
+              "title": "forum page is accessible from all dashboards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-05581c672175151a8f8f",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 275,
+              "column": 3
+            },
+            {
+              "title": "forum link uses MessageCircle icon (consistent across roles)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-8ad0605e4cab7e934975",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 246,
+              "column": 3
+            },
+            {
+              "title": "forum page is accessible from all dashboards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-67e054d36f3ceee4a2a7",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 275,
+              "column": 3
+            },
+            {
+              "title": "forum link uses MessageCircle icon (consistent across roles)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-9e16d3be53816a1290fd",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 246,
+              "column": 3
+            },
+            {
+              "title": "forum page is accessible from all dashboards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79d89ff0e649995b3bd1-5bb4f65b5390fac06203",
+              "file": "e2e/forum/forum-navigation.spec.ts",
+              "line": 275,
+              "column": 3
             }
           ]
         }
       ]
     }
   ],
-  "errors": [],
+  "errors": [
+    {
+      "message": "\u001b[31mTesting stopped early after 1 maximum allowed failures.\u001b[39m"
+    }
+  ],
   "stats": {
-    "startTime": "2025-12-06T17:27:42.167Z",
-    "duration": 21425.936,
-    "expected": 2,
-    "skipped": 0,
-    "unexpected": 7,
+    "startTime": "2025-12-06T17:42:35.724Z",
+    "duration": 1593.714,
+    "expected": 0,
+    "skipped": 59,
+    "unexpected": 1,
     "flaky": 0
   }
 }

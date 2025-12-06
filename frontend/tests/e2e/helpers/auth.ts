@@ -54,26 +54,49 @@ export const TEST_USERS: Record<string, TestUser> = {
 
 /**
  * Вход в систему от имени пользователя
+ * Uses UI-based authentication with data-testid selectors for reliability
  */
 export async function loginAs(page: Page, userKey: keyof typeof TEST_USERS): Promise<void> {
   const user = TEST_USERS[userKey];
 
-  await page.goto('/auth');
+  // UI-based login (fallback approach - works even when API is unavailable)
+  try {
+    // Navigate to auth page
+    await page.goto('/auth');
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
-  // Заполняем форму
-  await page.fill('input[type="email"]', user.email);
-  await page.fill('input[type="password"]', user.password);
+    // Fill email/username field using data-testid
+    const emailInput = page.locator('[data-testid="login-email-input"]');
+    await emailInput.waitFor({ state: 'visible', timeout: 5000 });
+    await emailInput.fill(user.email);
 
-  // Отправляем форму
-  await page.click('button[type="submit"]');
+    // Fill password field using data-testid
+    const passwordInput = page.locator('[data-testid="login-password-input"]');
+    await passwordInput.waitFor({ state: 'visible', timeout: 5000 });
+    await passwordInput.fill(user.password);
 
-  // Ждем редиректа на дашборд
-  await page.waitForURL(`**${user.dashboardPath}`, { timeout: 15000 });
+    // Click submit button using data-testid
+    const submitButton = page.locator('[data-testid="login-submit-button"]');
+    await submitButton.click();
 
-  // Проверяем что токен сохранен
-  const token = await page.evaluate(() => localStorage.getItem('authToken'));
-  if (!token) {
-    throw new Error(`Failed to login as ${userKey}: no auth token found`);
+    // Wait for redirect to dashboard
+    await page.waitForURL(`**${user.dashboardPath}`, { timeout: 15000 });
+
+    // Verify token is stored
+    const token = await page.evaluate(() => localStorage.getItem('authToken'));
+    if (!token) {
+      throw new Error(`Failed to login as ${userKey}: no auth token found in localStorage after login`);
+    }
+
+    console.log(`✓ Successfully logged in as ${userKey} (${user.role})`);
+
+  } catch (error) {
+    console.error(`Failed to login as ${userKey}:`, error);
+
+    // Take screenshot for debugging
+    await page.screenshot({ path: `/tmp/login-failed-${userKey}.png`, fullPage: true });
+
+    throw new Error(`Login failed for ${userKey}: ${error}`);
   }
 }
 

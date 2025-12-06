@@ -149,8 +149,10 @@ export const useProfile = () => {
     // Конфигурация обработки ошибок
     throwOnError: true, // Выбрасываем ошибку, чтобы она была доступна в error
 
-    // Не запускаем запрос пока не загрузится AuthContext
-    enabled: !isAuthLoading && !!authUser,
+    // Запускаем запрос как только AuthContext загрузится (даже если user=null)
+    // Если токена нет - API вернет 401, обработаем в queryFn
+    // Это решает race condition: login → navigate → ProtectedRoute монтируется до обновления AuthContext
+    enabled: !isAuthLoading,
   });
 
   return {

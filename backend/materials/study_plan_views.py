@@ -15,10 +15,11 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from materials.models import Subject, SubjectEnrollment
+from materials.models import Subject, SubjectEnrollment, StudyPlanGeneration
 from materials.services.study_plan_generator_service import StudyPlanGeneratorService
 from materials.services.openrouter_service import OpenRouterError
 from materials.services.latex_compiler import LaTeXCompilationError
+from materials.tasks import generate_study_plan_async
 
 
 logger = logging.getLogger(__name__)
@@ -189,45 +190,65 @@ def generate_study_plan(request):
             'video_language': request.data.get('video_language', 'русский')
         }
 
-        # Вызов сервиса генерации
+        # Создание записи StudyPlanGeneration (статус pending)
         logger.info(
-            f"Инициирована генерация учебного плана | "
+            f"Инициирована асинхронная генерация учебного плана | "
             f"teacher={request.user.email} | "
             f"student={student.email} | "
             f"subject={subject.name}"
         )
 
-        service = StudyPlanGeneratorService()
-        generation = service.generate_study_plan(
+        # Находим enrollment для валидации
+        try:
+            enrollment = SubjectEnrollment.objects.get(
+                teacher=request.user,
+                student=student,
+                subject=subject,
+                is_active=True
+            )
+        except SubjectEnrollment.DoesNotExist:
+            return Response(
+                {
+                    'success': False,
+                    'error': f'Студент {student.get_full_name()} не зачислен на предмет {subject.name} к вам'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Создаём запись на генерацию
+        generation = StudyPlanGeneration.objects.create(
             teacher=request.user,
             student=student,
             subject=subject,
-            params=params
+            enrollment=enrollment,
+            parameters=params,
+            status=StudyPlanGeneration.Status.PENDING,
+            progress_message='Ожидает обработки...'
         )
 
-        # Формирование ответа с файлами
-        files = []
-        for generated_file in generation.generated_files.filter(
-            status='compiled'
-        ).order_by('file_type'):
-            files.append({
-                'type': generated_file.file_type,
-                'url': generated_file.file.url if generated_file.file else None
-            })
+        # Запускаем асинхронную задачу Celery
+        generate_study_plan_async.delay(generation.id)
 
+        logger.info(
+            f"Celery задача запущена | "
+            f"generation_id={generation.id} | "
+            f"teacher={request.user.email}"
+        )
+
+        # Возвращаем немедленный ответ с generation_id для polling
         return Response(
             {
                 'success': True,
                 'generation_id': generation.id,
                 'status': generation.status,
-                'files': files
+                'progress_message': generation.progress_message
             },
             status=status.HTTP_200_OK
         )
 
     except ValidationError as e:
         logger.warning(
-            f"Ошибка валидации при генерации учебного плана | "
+            f"Ошибка валидации при инициировании генерации учебного плана | "
             f"teacher={request.user.email} | "
             f"error={str(e)}"
         )
@@ -239,9 +260,9 @@ def generate_study_plan(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    except OpenRouterError as e:
+    except Exception as e:
         logger.error(
-            f"Ошибка OpenRouter API при генерации учебного плана | "
+            f"Непредвиденная ошибка при инициировании генерации учебного плана | "
             f"teacher={request.user.email} | "
             f"error={str(e)}",
             exc_info=True
@@ -249,30 +270,97 @@ def generate_study_plan(request):
         return Response(
             {
                 'success': False,
-                'error': f'Ошибка AI сервиса: {str(e)}'
+                'error': f'Внутренняя ошибка сервера: {str(e)}'
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-    except LaTeXCompilationError as e:
-        logger.error(
-            f"Ошибка компиляции LaTeX при генерации учебного плана | "
-            f"teacher={request.user.email} | "
-            f"error={str(e)}",
-            exc_info=True
-        )
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def generation_status(request, generation_id):
+    """
+    Получение статуса генерации учебного плана
+
+    GET /api/materials/study-plan/generation/{generation_id}/
+
+    Response:
+    {
+        "success": true,
+        "generation_id": int,
+        "status": "pending" | "processing" | "completed" | "failed",
+        "progress_message": str,
+        "error_message": str (если failed),
+        "files": [
+            {"type": "problem_set", "url": "/media/..."},
+            ...
+        ],
+        "created_at": str,
+        "updated_at": str,
+        "completed_at": str (если completed/failed)
+    }
+    """
+    try:
+        # Получение записи генерации
+        generation = StudyPlanGeneration.objects.select_related(
+            'teacher', 'student', 'subject'
+        ).get(id=generation_id)
+
+        # Проверка прав доступа (только teacher который создал генерацию)
+        if request.user != generation.teacher:
+            return Response(
+                {
+                    'success': False,
+                    'error': 'Доступ запрещён. Вы не являетесь автором этой генерации.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Формирование ответа с файлами (если есть)
+        files = []
+        if generation.status == StudyPlanGeneration.Status.COMPLETED:
+            for generated_file in generation.generated_files.filter(
+                status='compiled'
+            ).order_by('file_type'):
+                files.append({
+                    'type': generated_file.file_type,
+                    'url': generated_file.file.url if generated_file.file else None
+                })
+
+        response_data = {
+            'success': True,
+            'generation_id': generation.id,
+            'status': generation.status,
+            'progress_message': generation.progress_message,
+            'files': files,
+            'created_at': generation.created_at.isoformat(),
+            'updated_at': generation.updated_at.isoformat()
+        }
+
+        # Добавляем ошибку если failed
+        if generation.status == StudyPlanGeneration.Status.FAILED:
+            response_data['error_message'] = generation.error_message
+
+        # Добавляем completed_at если завершено
+        if generation.completed_at:
+            response_data['completed_at'] = generation.completed_at.isoformat()
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    except StudyPlanGeneration.DoesNotExist:
         return Response(
             {
                 'success': False,
-                'error': f'Ошибка компиляции LaTeX: {str(e)}'
+                'error': f'Генерация с ID {generation_id} не найдена'
             },
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            status=status.HTTP_404_NOT_FOUND
         )
 
     except Exception as e:
         logger.error(
-            f"Непредвиденная ошибка при генерации учебного плана | "
-            f"teacher={request.user.email} | "
+            f"Ошибка при получении статуса генерации | "
+            f"generation_id={generation_id} | "
             f"error={str(e)}",
             exc_info=True
         )

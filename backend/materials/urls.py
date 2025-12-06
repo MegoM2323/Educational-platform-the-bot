@@ -68,6 +68,7 @@ urlpatterns = [
 
     # AI Study Plan Generation endpoints
     path('study-plan/generate/', study_plan_views.generate_study_plan, name='generate-study-plan'),
+    path('study-plan/generation/<int:generation_id>/', study_plan_views.generation_status, name='generation-status'),
 
     # Parent dashboard endpoints
     path('parent/', parent_dashboard_views.ParentDashboardView.as_view(), name='parent-dashboard'),

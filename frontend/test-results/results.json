@@ -10,9 +10,7 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {
-      "actualWorkers": 1
-    },
+    "metadata": {},
     "preserveOutput": "always",
     "reporter": [
       [
@@ -42,9 +40,7 @@
         "outputDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "chromium",
         "name": "chromium",
         "testDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
@@ -58,9 +54,7 @@
         "outputDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "firefox",
         "name": "firefox",
         "testDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
@@ -74,9 +68,7 @@
         "outputDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "webkit",
         "name": "webkit",
         "testDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
@@ -90,9 +82,7 @@
         "outputDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
         "testDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
@@ -106,9 +96,7 @@
         "outputDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Mobile Safari",
         "name": "Mobile Safari",
         "testDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
@@ -129,21 +117,21 @@
   },
   "suites": [
     {
-      "title": "browser-diagnosis/test-student-schedule-fix.spec.ts",
-      "file": "browser-diagnosis/test-student-schedule-fix.spec.ts",
+      "title": "e2e/study-plan-generator.spec.ts",
+      "file": "e2e/study-plan-generator.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "T007: Student Schedule Fix Verification",
-          "file": "browser-diagnosis/test-student-schedule-fix.spec.ts",
-          "line": 10,
+          "title": "Study Plan Generator - Full Workflow",
+          "file": "e2e/study-plan-generator.spec.ts",
+          "line": 163,
           "column": 6,
           "specs": [
             {
-              "title": "Student can view schedule without 404 error",
-              "ok": false,
+              "title": "T015.1 - Full generation workflow with all files downloaded",
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -152,77 +140,2733 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 11116,
-                      "error": {
-                        "message": "TimeoutError: page.fill: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[type=\"email\"]')\u001b[22m\n",
-                        "stack": "TimeoutError: page.fill: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[type=\"email\"]')\u001b[22m\n\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/browser-diagnosis/test-student-schedule-fix.spec.ts:51:16",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/browser-diagnosis/test-student-schedule-fix.spec.ts",
-                          "column": 16,
-                          "line": 51
-                        },
-                        "snippet": "  49 |     // 2. Login as student\n  50 |     console.log('2. Logging in as student...');\n> 51 |     await page.fill('input[type=\"email\"]', studentCredentials.email);\n     |                ^\n  52 |     await page.fill('input[type=\"password\"]', studentCredentials.password);\n  53 |\n  54 |     await Promise.all(["
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/browser-diagnosis/test-student-schedule-fix.spec.ts",
-                            "column": 16,
-                            "line": 51
-                          },
-                          "message": "TimeoutError: page.fill: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[type=\"email\"]')\u001b[22m\n\n\n  49 |     // 2. Login as student\n  50 |     console.log('2. Logging in as student...');\n> 51 |     await page.fill('input[type=\"email\"]', studentCredentials.email);\n     |                ^\n  52 |     await page.fill('input[type=\"password\"]', studentCredentials.password);\n  53 |\n  54 |     await Promise.all([\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/browser-diagnosis/test-student-schedule-fix.spec.ts:51:16"
-                        }
-                      ],
-                      "stdout": [
-                        {
-                          "text": "\n=== T007: Testing Student Schedule Fix ===\n\n"
-                        },
-                        {
-                          "text": "1. Navigating to login page...\n"
-                        },
-                        {
-                          "text": "2. Logging in as student...\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-12-04T17:37:28.863Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/browser-diagnosis-test-stu-78167--schedule-without-404-error-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/browser-diagnosis-test-stu-78167--schedule-without-404-error-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/browser-diagnosis-test-stu-78167--schedule-without-404-error-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/browser-diagnosis/test-student-schedule-fix.spec.ts",
-                        "column": 16,
-                        "line": 51
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
-              "id": "acf7cbd6e9580cb4f773-bb7581ae59b3f37f272c",
-              "file": "browser-diagnosis/test-student-schedule-fix.spec.ts",
-              "line": 20,
+              "id": "13042a8434228a27df2f-9c028b07fb224bd318b8",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 168,
+              "column": 3
+            },
+            {
+              "title": "T015.2 - Navigation to generator page from dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-af18884c90b6b07079e3",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 241,
+              "column": 3
+            },
+            {
+              "title": "T015.1 - Full generation workflow with all files downloaded",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-74f9a5e77f902b0ecb75",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 168,
+              "column": 3
+            },
+            {
+              "title": "T015.2 - Navigation to generator page from dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-0846f8d260825c01dc09",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 241,
+              "column": 3
+            },
+            {
+              "title": "T015.1 - Full generation workflow with all files downloaded",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-1c3e8f1534a23fd5034f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 168,
+              "column": 3
+            },
+            {
+              "title": "T015.2 - Navigation to generator page from dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-49334ca789109319fa44",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 241,
+              "column": 3
+            },
+            {
+              "title": "T015.1 - Full generation workflow with all files downloaded",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-84ad5008f9395bd0549f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 168,
+              "column": 3
+            },
+            {
+              "title": "T015.2 - Navigation to generator page from dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-6ff5ad9d1934150780c9",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 241,
+              "column": 3
+            },
+            {
+              "title": "T015.1 - Full generation workflow with all files downloaded",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-61712e524ef2e4fec749",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 168,
+              "column": 3
+            },
+            {
+              "title": "T015.2 - Navigation to generator page from dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-55a81281624d37af49eb",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 241,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Study Plan Generator - Form Validation",
+          "file": "e2e/study-plan-generator.spec.ts",
+          "line": 264,
+          "column": 6,
+          "specs": [
+            {
+              "title": "T015.3 - Missing student selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-dd06a5090425cf116d46",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 271,
+              "column": 3
+            },
+            {
+              "title": "T015.4 - Missing subject selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-15a2bcca10193024f7e2",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 280,
+              "column": 3
+            },
+            {
+              "title": "T015.5 - Missing grade input shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-8946b221f892f8a5ac2d",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 295,
+              "column": 3
+            },
+            {
+              "title": "T015.6 - Invalid grade range shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-03c6919e021e00fd5cc4",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 316,
+              "column": 3
+            },
+            {
+              "title": "T015.7 - Missing topic shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-44e3fbd107ef4c5cd1b5",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 346,
+              "column": 3
+            },
+            {
+              "title": "T015.8 - Missing subtopics shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-c4b65bb0e8cd582bb983",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 374,
+              "column": 3
+            },
+            {
+              "title": "T015.9 - Missing goal selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-75bf5a17503c22b5086d",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 405,
+              "column": 3
+            },
+            {
+              "title": "T015.10 - Invalid task count (out of range) shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-6ad37a50d9080c949695",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 434,
+              "column": 3
+            },
+            {
+              "title": "T015.11 - Toast shows validation summary on multiple errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-4223dd33c511f05801f9",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "T015.3 - Missing student selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-84123af45b094cb2947a",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 271,
+              "column": 3
+            },
+            {
+              "title": "T015.4 - Missing subject selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-22aa478833b372220cb6",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 280,
+              "column": 3
+            },
+            {
+              "title": "T015.5 - Missing grade input shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-20373a5d0653b215e963",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 295,
+              "column": 3
+            },
+            {
+              "title": "T015.6 - Invalid grade range shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-1cd9afea2986c54cb8ed",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 316,
+              "column": 3
+            },
+            {
+              "title": "T015.7 - Missing topic shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-1783c85c6d934fa5367b",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 346,
+              "column": 3
+            },
+            {
+              "title": "T015.8 - Missing subtopics shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-39ab54ace019bcd1681c",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 374,
+              "column": 3
+            },
+            {
+              "title": "T015.9 - Missing goal selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-b5067766c9f5b84d2a1a",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 405,
+              "column": 3
+            },
+            {
+              "title": "T015.10 - Invalid task count (out of range) shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-423df50857afdd7929ad",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 434,
+              "column": 3
+            },
+            {
+              "title": "T015.11 - Toast shows validation summary on multiple errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-f6f9ecea8d8eb39999c4",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "T015.3 - Missing student selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-177c34da9bd915f9e529",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 271,
+              "column": 3
+            },
+            {
+              "title": "T015.4 - Missing subject selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-a66a26f9c99925b71397",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 280,
+              "column": 3
+            },
+            {
+              "title": "T015.5 - Missing grade input shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-7a86ca52d3544ddb71f3",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 295,
+              "column": 3
+            },
+            {
+              "title": "T015.6 - Invalid grade range shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-58951471da12d738cd1e",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 316,
+              "column": 3
+            },
+            {
+              "title": "T015.7 - Missing topic shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-3feba42eac952f7489d8",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 346,
+              "column": 3
+            },
+            {
+              "title": "T015.8 - Missing subtopics shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-3d631359215813ce02e9",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 374,
+              "column": 3
+            },
+            {
+              "title": "T015.9 - Missing goal selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-9e5f9e855589c95edd10",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 405,
+              "column": 3
+            },
+            {
+              "title": "T015.10 - Invalid task count (out of range) shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-574714b28a44f73cb862",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 434,
+              "column": 3
+            },
+            {
+              "title": "T015.11 - Toast shows validation summary on multiple errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-24ba9ee34966717b8dda",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "T015.3 - Missing student selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-e40c8779fc6b9c764dc2",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 271,
+              "column": 3
+            },
+            {
+              "title": "T015.4 - Missing subject selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-67ff88905a6868792372",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 280,
+              "column": 3
+            },
+            {
+              "title": "T015.5 - Missing grade input shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-f49657c48a1c2e75879e",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 295,
+              "column": 3
+            },
+            {
+              "title": "T015.6 - Invalid grade range shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-51490d046e0ef9828622",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 316,
+              "column": 3
+            },
+            {
+              "title": "T015.7 - Missing topic shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-e85f271e7d594574536f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 346,
+              "column": 3
+            },
+            {
+              "title": "T015.8 - Missing subtopics shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-b987acd0235bf5fc128a",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 374,
+              "column": 3
+            },
+            {
+              "title": "T015.9 - Missing goal selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-46ac43c8c1cdc49cdbbc",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 405,
+              "column": 3
+            },
+            {
+              "title": "T015.10 - Invalid task count (out of range) shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-3e3d6c7511661e00ff0c",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 434,
+              "column": 3
+            },
+            {
+              "title": "T015.11 - Toast shows validation summary on multiple errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-e63884595d8abf79d9f3",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "T015.3 - Missing student selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-61c3951bb08af3487ca4",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 271,
+              "column": 3
+            },
+            {
+              "title": "T015.4 - Missing subject selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-e7837e0598be9369ae7c",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 280,
+              "column": 3
+            },
+            {
+              "title": "T015.5 - Missing grade input shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-5e20b16555262c2f98bf",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 295,
+              "column": 3
+            },
+            {
+              "title": "T015.6 - Invalid grade range shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-89fb2051fdffa83599aa",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 316,
+              "column": 3
+            },
+            {
+              "title": "T015.7 - Missing topic shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-80f1c27e07697a62cbe8",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 346,
+              "column": 3
+            },
+            {
+              "title": "T015.8 - Missing subtopics shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-6f7cc5414d2e0dacedb2",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 374,
+              "column": 3
+            },
+            {
+              "title": "T015.9 - Missing goal selection shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-94c752c3297e7571463c",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 405,
+              "column": 3
+            },
+            {
+              "title": "T015.10 - Invalid task count (out of range) shows validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-c0e81c0a42ba8a412cbb",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 434,
+              "column": 3
+            },
+            {
+              "title": "T015.11 - Toast shows validation summary on multiple errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-6674d8ef511718591af0",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 475,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Study Plan Generator - API Error Handling",
+          "file": "e2e/study-plan-generator.spec.ts",
+          "line": 486,
+          "column": 6,
+          "specs": [
+            {
+              "title": "T015.12 - Generation API error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-99062d0e3916796e9fab",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 493,
+              "column": 3
+            },
+            {
+              "title": "T015.13 - Generation status error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-d42a8d07f0574ad9232f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 529,
+              "column": 3
+            },
+            {
+              "title": "T015.14 - Submit button disabled during generation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-7926a7ae4be339961cb3",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 575,
+              "column": 3
+            },
+            {
+              "title": "T015.12 - Generation API error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-ee23ac0629d9226048bb",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 493,
+              "column": 3
+            },
+            {
+              "title": "T015.13 - Generation status error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-74feb94d58e379452f61",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 529,
+              "column": 3
+            },
+            {
+              "title": "T015.14 - Submit button disabled during generation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-5d82c161f57b5708091c",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 575,
+              "column": 3
+            },
+            {
+              "title": "T015.12 - Generation API error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-667ed114411b60bea96a",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 493,
+              "column": 3
+            },
+            {
+              "title": "T015.13 - Generation status error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-a50ab281c2dbaf7a29d4",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 529,
+              "column": 3
+            },
+            {
+              "title": "T015.14 - Submit button disabled during generation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-09479041c00464b38e1f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 575,
+              "column": 3
+            },
+            {
+              "title": "T015.12 - Generation API error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-edf4c3bb782718aee550",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 493,
+              "column": 3
+            },
+            {
+              "title": "T015.13 - Generation status error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-d22750e74076e2adc74b",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 529,
+              "column": 3
+            },
+            {
+              "title": "T015.14 - Submit button disabled during generation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-4795d9684225fa67feb9",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 575,
+              "column": 3
+            },
+            {
+              "title": "T015.12 - Generation API error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-0d3f626d8755c4ed1603",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 493,
+              "column": 3
+            },
+            {
+              "title": "T015.13 - Generation status error shows error message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-365ebb686f21e791b3c3",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 529,
+              "column": 3
+            },
+            {
+              "title": "T015.14 - Submit button disabled during generation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-7c88809c60f4cdfdc0df",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 575,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Study Plan Generator - Responsive Design",
+          "file": "e2e/study-plan-generator.spec.ts",
+          "line": 616,
+          "column": 6,
+          "specs": [
+            {
+              "title": "T015.15 - Form is usable on desktop viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-46bb017c8667fe0cc519",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 623,
+              "column": 3
+            },
+            {
+              "title": "T015.16 - Form is usable on tablet viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-a020ff0b275db7dcf545",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 643,
+              "column": 3
+            },
+            {
+              "title": "T015.17 - Form is usable on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-ca065dbc1bb627fd1463",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 661,
+              "column": 3
+            },
+            {
+              "title": "T015.18 - Download buttons are responsive on mobile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-218e0a3b575d71e87f98",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 683,
+              "column": 3
+            },
+            {
+              "title": "T015.19 - Navigation is accessible on all viewports",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-7bb40d55dcd9800842d9",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 732,
+              "column": 3
+            },
+            {
+              "title": "T015.15 - Form is usable on desktop viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-c63f95e67925866603ae",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 623,
+              "column": 3
+            },
+            {
+              "title": "T015.16 - Form is usable on tablet viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-956e08cc452edd81d082",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 643,
+              "column": 3
+            },
+            {
+              "title": "T015.17 - Form is usable on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-c8dfb2cbcb13b8dd3e42",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 661,
+              "column": 3
+            },
+            {
+              "title": "T015.18 - Download buttons are responsive on mobile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-00c96b81a9cb18d52417",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 683,
+              "column": 3
+            },
+            {
+              "title": "T015.19 - Navigation is accessible on all viewports",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-326f274482fe572b57c3",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 732,
+              "column": 3
+            },
+            {
+              "title": "T015.15 - Form is usable on desktop viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-9da42bdbbf043863321d",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 623,
+              "column": 3
+            },
+            {
+              "title": "T015.16 - Form is usable on tablet viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-475f073a111a0d738deb",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 643,
+              "column": 3
+            },
+            {
+              "title": "T015.17 - Form is usable on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-ded0116fb42c5d6532b1",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 661,
+              "column": 3
+            },
+            {
+              "title": "T015.18 - Download buttons are responsive on mobile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-f82ef9121779221fe993",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 683,
+              "column": 3
+            },
+            {
+              "title": "T015.19 - Navigation is accessible on all viewports",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-ef555009cba59b8c8a6f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 732,
+              "column": 3
+            },
+            {
+              "title": "T015.15 - Form is usable on desktop viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-d9caca6f0b660bc2d079",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 623,
+              "column": 3
+            },
+            {
+              "title": "T015.16 - Form is usable on tablet viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-b2d33ae009ed9ab6bc8f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 643,
+              "column": 3
+            },
+            {
+              "title": "T015.17 - Form is usable on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-0ed8d04fcaf9d74fca47",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 661,
+              "column": 3
+            },
+            {
+              "title": "T015.18 - Download buttons are responsive on mobile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-83922df3817641ab04f8",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 683,
+              "column": 3
+            },
+            {
+              "title": "T015.19 - Navigation is accessible on all viewports",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-8cb4e870ff63ba43700d",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 732,
+              "column": 3
+            },
+            {
+              "title": "T015.15 - Form is usable on desktop viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-5dad1c4e8c5e65ac8035",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 623,
+              "column": 3
+            },
+            {
+              "title": "T015.16 - Form is usable on tablet viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-c5cf975875a3308166e5",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 643,
+              "column": 3
+            },
+            {
+              "title": "T015.17 - Form is usable on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-7fd791d3b0eeded74163",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 661,
+              "column": 3
+            },
+            {
+              "title": "T015.18 - Download buttons are responsive on mobile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-040bb48296723feca154",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 683,
+              "column": 3
+            },
+            {
+              "title": "T015.19 - Navigation is accessible on all viewports",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-d011b2c456eaf30fd46e",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 732,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Study Plan Generator - Additional Features",
+          "file": "e2e/study-plan-generator.spec.ts",
+          "line": 755,
+          "column": 6,
+          "specs": [
+            {
+              "title": "T015.20 - Grade auto-populates when student is selected",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-6bd1efba4027e596ee2f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 762,
+              "column": 3
+            },
+            {
+              "title": "T015.21 - Optional fields (constraints) can be left empty",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-111559b376981b3e4a1e",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 781,
+              "column": 3
+            },
+            {
+              "title": "T015.22 - Tooltip help text is displayed for complex fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-c70d102512ccdea675b5",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 822,
+              "column": 3
+            },
+            {
+              "title": "T015.23 - Default values are set for optional parameters",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-843439fd3a1063dd6c2d",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 838,
+              "column": 3
+            },
+            {
+              "title": "T015.24 - Form preserves data on validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-9c8ac2d843d41b32aa76",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 858,
+              "column": 3
+            },
+            {
+              "title": "T015.25 - Console shows no critical errors on page load",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-4fe75251198e2c6694bd",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 876,
+              "column": 3
+            },
+            {
+              "title": "T015.20 - Grade auto-populates when student is selected",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-08ac1dc6046b7a886715",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 762,
+              "column": 3
+            },
+            {
+              "title": "T015.21 - Optional fields (constraints) can be left empty",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-96c86eefe2cd878123d3",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 781,
+              "column": 3
+            },
+            {
+              "title": "T015.22 - Tooltip help text is displayed for complex fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-dcf51f457f9e5783f7c5",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 822,
+              "column": 3
+            },
+            {
+              "title": "T015.23 - Default values are set for optional parameters",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-96aa6bb7fb356a646a60",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 838,
+              "column": 3
+            },
+            {
+              "title": "T015.24 - Form preserves data on validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-bbe82d7f439526ba1360",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 858,
+              "column": 3
+            },
+            {
+              "title": "T015.25 - Console shows no critical errors on page load",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-6abf8bc3465c1fa93d66",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 876,
+              "column": 3
+            },
+            {
+              "title": "T015.20 - Grade auto-populates when student is selected",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-19b76c5621dbac2d4b10",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 762,
+              "column": 3
+            },
+            {
+              "title": "T015.21 - Optional fields (constraints) can be left empty",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-3f35b9fd74132bdbe895",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 781,
+              "column": 3
+            },
+            {
+              "title": "T015.22 - Tooltip help text is displayed for complex fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-b9569e8ea769e3ab2829",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 822,
+              "column": 3
+            },
+            {
+              "title": "T015.23 - Default values are set for optional parameters",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-ed29c271776c54a67df3",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 838,
+              "column": 3
+            },
+            {
+              "title": "T015.24 - Form preserves data on validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-a049f51fc6982bb63975",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 858,
+              "column": 3
+            },
+            {
+              "title": "T015.25 - Console shows no critical errors on page load",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-8a797c95490f988b773c",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 876,
+              "column": 3
+            },
+            {
+              "title": "T015.20 - Grade auto-populates when student is selected",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-d597f8b1f46bba6db23d",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 762,
+              "column": 3
+            },
+            {
+              "title": "T015.21 - Optional fields (constraints) can be left empty",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-111ed4e8001078bce83f",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 781,
+              "column": 3
+            },
+            {
+              "title": "T015.22 - Tooltip help text is displayed for complex fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-bb9a53ea9166c3fd3156",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 822,
+              "column": 3
+            },
+            {
+              "title": "T015.23 - Default values are set for optional parameters",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-30aa2fed2851c6077221",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 838,
+              "column": 3
+            },
+            {
+              "title": "T015.24 - Form preserves data on validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-53174385f1e81298b619",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 858,
+              "column": 3
+            },
+            {
+              "title": "T015.25 - Console shows no critical errors on page load",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-966f7e642fc346f7c573",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 876,
+              "column": 3
+            },
+            {
+              "title": "T015.20 - Grade auto-populates when student is selected",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-cc929cc8497ad34abe7e",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 762,
+              "column": 3
+            },
+            {
+              "title": "T015.21 - Optional fields (constraints) can be left empty",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-c22743ba1067631f3263",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 781,
+              "column": 3
+            },
+            {
+              "title": "T015.22 - Tooltip help text is displayed for complex fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-258fd0b0eb5adcc3170e",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 822,
+              "column": 3
+            },
+            {
+              "title": "T015.23 - Default values are set for optional parameters",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-b081c5005fac6fafa8b7",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 838,
+              "column": 3
+            },
+            {
+              "title": "T015.24 - Form preserves data on validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-42b2f88ae426aac2d651",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 858,
+              "column": 3
+            },
+            {
+              "title": "T015.25 - Console shows no critical errors on page load",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-1725c670eef4ab46eda6",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 876,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Study Plan Generator - Authorization & Access Control",
+          "file": "e2e/study-plan-generator.spec.ts",
+          "line": 900,
+          "column": 6,
+          "specs": [
+            {
+              "title": "T015.26 - Non-teacher cannot access generator page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-54ada78b4cfa2c4ecf11",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 901,
+              "column": 3
+            },
+            {
+              "title": "T015.27 - Unauthenticated user redirects to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-274c8aa9d9be01543f47",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 926,
+              "column": 3
+            },
+            {
+              "title": "T015.26 - Non-teacher cannot access generator page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-557e5af0d77723255c65",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 901,
+              "column": 3
+            },
+            {
+              "title": "T015.27 - Unauthenticated user redirects to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-a1d204b025452ee49042",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 926,
+              "column": 3
+            },
+            {
+              "title": "T015.26 - Non-teacher cannot access generator page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-ca94518a8fb142ee9a38",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 901,
+              "column": 3
+            },
+            {
+              "title": "T015.27 - Unauthenticated user redirects to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-d9f956065930cc36cd4e",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 926,
+              "column": 3
+            },
+            {
+              "title": "T015.26 - Non-teacher cannot access generator page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-b2a2394c077973122055",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 901,
+              "column": 3
+            },
+            {
+              "title": "T015.27 - Unauthenticated user redirects to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-380d4b0bf1ef9c497061",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 926,
+              "column": 3
+            },
+            {
+              "title": "T015.26 - Non-teacher cannot access generator page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-ba5b3a81111fa14ef770",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 901,
+              "column": 3
+            },
+            {
+              "title": "T015.27 - Unauthenticated user redirects to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "13042a8434228a27df2f-c72323c5e61650d15d77",
+              "file": "e2e/study-plan-generator.spec.ts",
+              "line": 926,
               "column": 3
             }
           ]
@@ -232,11 +2876,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-12-04T17:37:28.477Z",
-    "duration": 11589.028999999999,
+    "startTime": "2025-12-06T15:06:26.756Z",
+    "duration": 46.877000000000066,
     "expected": 0,
-    "skipped": 0,
-    "unexpected": 1,
+    "skipped": 135,
+    "unexpected": 0,
     "flaky": 0
   }
 }

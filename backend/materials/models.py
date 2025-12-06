@@ -756,6 +756,15 @@ class StudyPlanGeneration(models.Model):
         verbose_name='Статус'
     )
 
+    # Сообщение о прогрессе (для отображения пользователю во время генерации)
+    progress_message = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name='Сообщение о прогрессе',
+        help_text='Отображается во время генерации (например, "Генерация задачника...")'
+    )
+
     # Сообщение об ошибке (если failed)
     error_message = models.TextField(
         null=True,

@@ -3,6 +3,7 @@
 Оркеструет процесс: OpenRouter API → LaTeX compilation → 4 файла
 """
 import logging
+import os
 from typing import Dict, Any
 from pathlib import Path
 from datetime import datetime
@@ -46,10 +47,60 @@ class StudyPlanGeneratorService:
     6. Обновление статуса StudyPlanGeneration
     """
 
+    # Ограничения безопасности
+    MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
+    ALLOWED_EXTENSIONS = {'.pdf', '.md', '.txt'}
+
     def __init__(self):
         """Инициализация сервисов"""
         self.openrouter_service = OpenRouterService()
         self.latex_compiler = LatexCompilerService()
+
+    def _sanitize_filename(self, filename: str) -> str:
+        """
+        Санитизирует имя файла для предотвращения directory traversal атак
+
+        Args:
+            filename: Исходное имя файла
+
+        Returns:
+            str: Безопасное имя файла без path components
+
+        Security:
+            - Удаляет все directory separators (/, \\)
+            - Блокирует ../ и ..\\ атаки
+            - Использует os.path.basename для дополнительной защиты
+        """
+        # Убираем все path components
+        safe_name = os.path.basename(filename)
+
+        # Дополнительная защита: заменяем опасные символы
+        safe_name = safe_name.replace('..', '')
+        safe_name = safe_name.replace('/', '_')
+        safe_name = safe_name.replace('\\', '_')
+
+        return safe_name
+
+    def _validate_file_size(self, file_path: str) -> None:
+        """
+        Проверяет что размер файла не превышает лимит
+
+        Args:
+            file_path: Путь к файлу
+
+        Raises:
+            ValidationError: Если файл слишком большой
+        """
+        if not os.path.exists(file_path):
+            raise ValidationError(f"Файл не найден: {file_path}")
+
+        file_size = os.path.getsize(file_path)
+
+        if file_size > self.MAX_PDF_SIZE:
+            raise ValidationError(
+                f"Файл слишком большой: {file_size} bytes "
+                f"(максимум {self.MAX_PDF_SIZE} bytes / {self.MAX_PDF_SIZE // 1024 // 1024} MB)"
+            )
 
     def generate_study_plan(
         self,
@@ -210,13 +261,29 @@ class StudyPlanGeneratorService:
 
             # Компиляция LaTeX → PDF
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"problem_set_{generation.id}_{timestamp}.pdf"
+            raw_filename = f"problem_set_{generation.id}_{timestamp}.pdf"
+
+            # SECURITY: Санитизация имени файла (защита от directory traversal)
+            filename = self._sanitize_filename(raw_filename)
+
             temp_path = Path(settings.MEDIA_ROOT) / 'study_plans' / 'generated' / filename
+
+            # Проверка что путь не выходит за пределы allowed directory
+            media_root_normalized = os.path.normpath(settings.MEDIA_ROOT)
+            temp_path_normalized = os.path.normpath(str(temp_path))
+
+            if not temp_path_normalized.startswith(media_root_normalized):
+                raise ValidationError(
+                    f"Invalid file path detected (directory traversal attempt): {filename}"
+                )
 
             pdf_path = self.latex_compiler.compile_to_pdf(
                 latex_code=latex_code,
                 output_path=str(temp_path)
             )
+
+            # SECURITY: Валидация размера PDF файла
+            self._validate_file_size(pdf_path)
 
             # Сохраняем PDF в GeneratedFile
             with open(pdf_path, 'rb') as pdf_file:
@@ -294,13 +361,29 @@ class StudyPlanGeneratorService:
 
             # Компиляция LaTeX → PDF
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"reference_guide_{generation.id}_{timestamp}.pdf"
+            raw_filename = f"reference_guide_{generation.id}_{timestamp}.pdf"
+
+            # SECURITY: Санитизация имени файла
+            filename = self._sanitize_filename(raw_filename)
+
             temp_path = Path(settings.MEDIA_ROOT) / 'study_plans' / 'generated' / filename
+
+            # Проверка path traversal
+            media_root_normalized = os.path.normpath(settings.MEDIA_ROOT)
+            temp_path_normalized = os.path.normpath(str(temp_path))
+
+            if not temp_path_normalized.startswith(media_root_normalized):
+                raise ValidationError(
+                    f"Invalid file path detected (directory traversal attempt): {filename}"
+                )
 
             pdf_path = self.latex_compiler.compile_to_pdf(
                 latex_code=latex_code,
                 output_path=str(temp_path)
             )
+
+            # SECURITY: Валидация размера PDF
+            self._validate_file_size(pdf_path)
 
             # Сохраняем PDF в GeneratedFile
             with open(pdf_path, 'rb') as pdf_file:
@@ -378,7 +461,14 @@ class StudyPlanGeneratorService:
 
             # Сохранение Markdown в .md файл
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"video_list_{generation.id}_{timestamp}.md"
+            raw_filename = f"video_list_{generation.id}_{timestamp}.md"
+
+            # SECURITY: Санитизация имени файла
+            filename = self._sanitize_filename(raw_filename)
+
+            # SECURITY: Проверка расширения файла
+            if not filename.endswith('.md'):
+                raise ValidationError(f"Invalid file extension for video list: {filename}")
 
             generated_file.file.save(
                 filename,
@@ -459,7 +549,14 @@ class StudyPlanGeneratorService:
 
             # Сохранение текста в .txt файл
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"weekly_plan_{generation.id}_{timestamp}.txt"
+            raw_filename = f"weekly_plan_{generation.id}_{timestamp}.txt"
+
+            # SECURITY: Санитизация имени файла
+            filename = self._sanitize_filename(raw_filename)
+
+            # SECURITY: Проверка расширения файла
+            if not filename.endswith('.txt'):
+                raise ValidationError(f"Invalid file extension for weekly plan: {filename}")
 
             generated_file.file.save(
                 filename,

@@ -45,6 +45,10 @@ def check_file_access_permission(user, file_path):
         # Файлы планов занятий - проверяем через модель StudyPlanFile
         return _check_study_plan_file_access(user, file_path)
 
+    elif file_path.startswith('study_plans/generated/'):
+        # Сгенерированные файлы учебных планов через AI
+        return _check_generated_file_access(user, file_path)
+
     else:
         # Для остальных файлов требуется явная проверка
         logger.warning(f"Unknown file path type: {file_path}")
@@ -154,6 +158,61 @@ def _check_study_plan_file_access(user, file_path):
 
     except Exception as e:
         logger.error(f"Error checking study plan file access: {e}")
+        return False, f"Ошибка проверки доступа: {str(e)}"
+
+
+def _check_generated_file_access(user, file_path):
+    """
+    Проверка доступа к сгенерированным файлам учебных планов (AI-генерация)
+
+    Файлы в study_plans/generated/ создаются через StudyPlanGeneratorService.
+    Доступ имеют: teacher (создатель), student (получатель), tutor, parent.
+    """
+    from materials.models import GeneratedFile
+
+    try:
+        # Извлекаем имя файла из пути
+        filename = file_path.split('/')[-1]
+
+        # Ищем GeneratedFile по имени файла
+        generated_file = GeneratedFile.objects.select_related(
+            'generation__teacher',
+            'generation__student',
+            'generation__student__student_profile'
+        ).filter(
+            file__icontains=filename
+        ).first()
+
+        if not generated_file:
+            return False, "Сгенерированный файл не найден"
+
+        generation = generated_file.generation
+
+        # Преподаватель, который создал генерацию
+        if generation.teacher_id == user.id:
+            return True, None
+
+        # Студент, для которого создана генерация
+        if generation.student_id == user.id:
+            return True, None
+
+        # Тьютор студента
+        try:
+            if hasattr(generation.student, 'student_profile'):
+                student_profile = generation.student.student_profile
+                if student_profile.tutor_id == user.id:
+                    return True, None
+
+                # Родитель студента
+                if student_profile.parent_id == user.id:
+                    return True, None
+        except Exception as e:
+            logger.warning(f"Error checking student profile for generated file: {e}")
+
+        return False, "Нет доступа к этому сгенерированному файлу"
+
+    except Exception as e:
+        logger.error(f"Error checking generated file access: {e}")
         return False, f"Ошибка проверки доступа: {str(e)}"
 
 

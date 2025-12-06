@@ -7,7 +7,7 @@ Tests cover:
 - GET /api/scheduling/lessons/{id}/ - Retrieve lesson
 - PATCH /api/scheduling/lessons/{id}/ - Update lesson
 - DELETE /api/scheduling/lessons/{id}/ - Delete lesson
-- GET /api/scheduling/lessons/my-schedule/ - Current user schedule
+- GET /api/scheduling/lessons/my_schedule/ - Current user schedule
 - GET /api/scheduling/lessons/student_schedule/ - Tutor view of student schedule
 - GET /api/scheduling/lessons/upcoming/ - Upcoming lessons
 - GET /api/scheduling/lessons/{id}/history/ - Lesson history
@@ -21,6 +21,13 @@ from rest_framework import status
 
 from scheduling.models import Lesson, LessonHistory
 from accounts.models import StudentProfile
+
+
+def get_results(response_data):
+    """Extract results from paginated or non-paginated response."""
+    if isinstance(response_data, dict) and 'results' in response_data:
+        return response_data['results']
+    return response_data
 
 
 @pytest.fixture
@@ -122,7 +129,8 @@ class TestLessonCreateEndpoint:
 
         response = api_client.post('/api/scheduling/lessons/', data, format='json')
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        # DRF returns 403 for unauthenticated when IsAuthenticated is used
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_create_lesson_validation_no_enrollment(self, api_client, teacher_user, another_student_user, math_subject):
         """Cannot create lesson for student without enrollment."""
@@ -208,6 +216,7 @@ class TestLessonListEndpoint:
 
         # Create lesson by different teacher
         from accounts.models import User, TeacherProfile
+        from materials.models import SubjectEnrollment
         other_teacher = User.objects.create_user(
             username='other_teacher@test.com',
             email='other_teacher@test.com',
@@ -215,6 +224,14 @@ class TestLessonListEndpoint:
             role='teacher'
         )
         TeacherProfile.objects.create(user=other_teacher)
+
+        # Create enrollment for other_teacher
+        other_enrollment = SubjectEnrollment.objects.create(
+            student=another_enrollment.student,
+            teacher=other_teacher,
+            subject=another_enrollment.subject,
+            is_active=True
+        )
 
         other_lesson = Lesson.objects.create(
             teacher=other_teacher,
@@ -228,7 +245,8 @@ class TestLessonListEndpoint:
         response = api_client.get('/api/scheduling/lessons/')
 
         assert response.status_code == status.HTTP_200_OK
-        ids = [l['id'] for l in response.data]
+        results = get_results(response.data)
+        ids = [l['id'] for l in results]
         assert str(lesson.id) in ids
         assert str(other_lesson.id) not in ids
 
@@ -266,7 +284,8 @@ class TestLessonListEndpoint:
         response = api_client.get('/api/scheduling/lessons/')
 
         assert response.status_code == status.HTTP_200_OK
-        ids = [l['id'] for l in response.data]
+        results = get_results(response.data)
+        ids = [l['id'] for l in results]
         assert str(lesson.id) in ids
         assert str(other_lesson.id) not in ids
 
@@ -281,9 +300,12 @@ class TestLessonListEndpoint:
         response = api_client.get('/api/scheduling/lessons/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert str(lesson.id) in [l['id'] for l in response.data]
+        results = get_results(response.data)
+        assert len(results) >= 1
+        results = get_results(response.data)
+        assert str(lesson.id) in [l['id'] for l in results]
 
+    @pytest.mark.django_db
     def test_list_returns_empty_for_no_access(self, api_client):
         """User with no lessons sees empty list."""
         from accounts.models import User, TeacherProfile
@@ -300,7 +322,9 @@ class TestLessonListEndpoint:
         response = api_client.get('/api/scheduling/lessons/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == []
+        # Paginated response with empty results
+        results = get_results(response.data)
+        assert results == []
 
 
 class TestLessonRetrieveEndpoint:
@@ -390,11 +414,14 @@ class TestLessonUpdateEndpoint:
 
         response = api_client.patch(f'/api/scheduling/lessons/{lesson.id}/', data, format='json')
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Returns 404 because queryset filtering excludes lessons by other teachers
+        # This is correct - don't reveal existence of resources user can't access
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_update_past_lesson_fails(self, api_client, teacher_user, subject_enrollment):
         """Cannot update past lesson."""
-        past_lesson = Lesson.objects.create(
+        # Create past lesson with skip_validation to bypass date check
+        past_lesson = Lesson(
             teacher=teacher_user,
             student=subject_enrollment.student,
             subject=subject_enrollment.subject,
@@ -402,6 +429,7 @@ class TestLessonUpdateEndpoint:
             start_time=time(10, 0),
             end_time=time(11, 0)
         )
+        past_lesson.save(skip_validation=True)
 
         api_client.force_authenticate(user=teacher_user)
 
@@ -462,26 +490,29 @@ class TestLessonDeleteEndpoint:
 
 
 class TestLessonMyScheduleEndpoint:
-    """Test GET /api/scheduling/lessons/my-schedule/"""
+    """Test GET /api/scheduling/lessons/my_schedule/"""
 
     def test_teacher_gets_own_schedule(self, api_client, teacher_user, lesson):
         """Teacher can get their schedule."""
         api_client.force_authenticate(user=teacher_user)
 
-        response = api_client.get('/api/scheduling/lessons/my-schedule/')
+        response = api_client.get('/api/scheduling/lessons/my_schedule/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert str(lesson.id) in [l['id'] for l in response.data]
+        results = get_results(response.data)
+        assert len(results) >= 1
+        results = get_results(response.data)
+        assert str(lesson.id) in [l['id'] for l in results]
 
     def test_student_gets_own_schedule(self, api_client, student_user, lesson):
         """Student can get their schedule."""
         api_client.force_authenticate(user=student_user)
 
-        response = api_client.get('/api/scheduling/lessons/my-schedule/')
+        response = api_client.get('/api/scheduling/lessons/my_schedule/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert str(lesson.id) in [l['id'] for l in response.data]
+        results = get_results(response.data)
+        assert str(lesson.id) in [l['id'] for l in results]
 
     def test_my_schedule_with_date_filter(self, api_client, teacher_user, student_user, math_subject, subject_enrollment):
         """Can filter my-schedule by date."""
@@ -508,9 +539,10 @@ class TestLessonMyScheduleEndpoint:
 
         api_client.force_authenticate(user=teacher_user)
 
-        response = api_client.get(f'/api/scheduling/lessons/my-schedule/?date_from={date2}')
+        response = api_client.get(f'/api/scheduling/lessons/my_schedule/?date_from={date2}')
 
-        ids = [l['id'] for l in response.data]
+        results = get_results(response.data)
+        ids = [l['id'] for l in results]
         assert str(lesson2.id) in ids
         assert str(lesson1.id) not in ids
 
@@ -536,9 +568,10 @@ class TestLessonMyScheduleEndpoint:
 
         api_client.force_authenticate(user=teacher_user)
 
-        response = api_client.get(f'/api/scheduling/lessons/my-schedule/?subject_id={math_subject.id}')
+        response = api_client.get(f'/api/scheduling/lessons/my_schedule/?subject_id={math_subject.id}')
 
-        ids = [l['id'] for l in response.data]
+        results = get_results(response.data)
+        ids = [l['id'] for l in results]
         assert str(lesson1.id) in ids
         assert str(lesson2.id) not in ids
 
@@ -556,8 +589,10 @@ class TestLessonStudentScheduleEndpoint:
         response = api_client.get(f'/api/scheduling/lessons/student_schedule/?student_id={student_user.id}')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert str(lesson.id) in [l['id'] for l in response.data]
+        results = get_results(response.data)
+        assert len(results) >= 1
+        results = get_results(response.data)
+        assert str(lesson.id) in [l['id'] for l in results]
 
     def test_teacher_cannot_view_student_schedule(self, api_client, teacher_user, student_user):
         """Teacher cannot view student schedule."""
@@ -604,7 +639,8 @@ class TestLessonUpcomingEndpoint:
         response = api_client.get('/api/scheduling/lessons/upcoming/')
 
         assert response.status_code == status.HTTP_200_OK
-        ids = [l['id'] for l in response.data]
+        results = get_results(response.data)
+        ids = [l['id'] for l in results]
         assert str(future.id) in ids
 
     def test_student_gets_upcoming_lessons(self, api_client, student_user, teacher_user, math_subject, subject_enrollment):
@@ -624,7 +660,8 @@ class TestLessonUpcomingEndpoint:
         response = api_client.get('/api/scheduling/lessons/upcoming/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
+        results = get_results(response.data)
+        assert len(results) >= 1
 
 
 class TestLessonHistoryEndpoint:
@@ -650,6 +687,14 @@ class TestLessonHistoryEndpoint:
         """History entries ordered by timestamp descending."""
         from scheduling.services.lesson_service import LessonService
 
+        # Create initial history entry (simulating lesson creation via service)
+        LessonHistory.objects.create(
+            lesson=lesson,
+            action='created',
+            performed_by=teacher_user
+        )
+
+        # Update lesson to create second history entry
         LessonService.update_lesson(
             lesson=lesson,
             updates={'description': 'Updated'},
@@ -661,6 +706,7 @@ class TestLessonHistoryEndpoint:
         response = api_client.get(f'/api/scheduling/lessons/{lesson.id}/history/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 2
-        # Most recent should be update
-        assert response.data[0]['action'] == 'updated'
+        results = get_results(response.data)
+        assert len(results) >= 2
+        # Most recent should be update (history is ordered by -timestamp)
+        assert results[0]['action'] == 'updated'

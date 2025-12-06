@@ -5,6 +5,7 @@ from . import student_dashboard_views
 from . import teacher_dashboard_views
 from . import parent_dashboard_views
 from . import tutor_dashboard_views
+from . import study_plan_views
 from .subject_views import list_all_subjects
 
 router = DefaultRouter()
@@ -64,7 +65,10 @@ urlpatterns = [
     path('teacher/study-plans/<int:plan_id>/send/', teacher_dashboard_views.send_study_plan, name='send-study-plan'),
     path('teacher/study-plans/<int:plan_id>/files/', teacher_dashboard_views.upload_study_plan_file, name='upload-study-plan-file'),
     path('teacher/study-plans/<int:plan_id>/files/<int:file_id>/', teacher_dashboard_views.delete_study_plan_file, name='delete-study-plan-file'),
-    
+
+    # AI Study Plan Generation endpoints
+    path('study-plan/generate/', study_plan_views.generate_study_plan, name='generate-study-plan'),
+
     # Parent dashboard endpoints
     path('parent/', parent_dashboard_views.ParentDashboardView.as_view(), name='parent-dashboard'),
     path('parent/children/', parent_dashboard_views.ParentChildrenView.as_view(), name='parent-children'),

@@ -167,7 +167,8 @@ class TestLessonDeleteValidation:
         now = timezone.now()
         past_time = now - timedelta(days=1)
 
-        lesson = Lesson.objects.create(
+        # Use skip_validation to bypass past date check
+        lesson = Lesson(
             teacher=self.teacher,
             student=self.student,
             subject=self.subject,
@@ -176,6 +177,7 @@ class TestLessonDeleteValidation:
             end_time=(past_time + timedelta(hours=1)).time(),
             status='completed'
         )
+        lesson.save(skip_validation=True)
 
         # Authenticate as teacher
         self.client.force_authenticate(user=self.teacher)
@@ -333,7 +335,8 @@ class TestLessonDeleteValidation:
         assert lesson_cancelled.can_cancel is False
 
         # Case 4: Completed lesson (can_cancel = False)
-        lesson_completed = Lesson.objects.create(
+        # Use skip_validation to bypass past date check
+        lesson_completed = Lesson(
             teacher=self.teacher,
             student=self.student,
             subject=self.subject,
@@ -342,4 +345,5 @@ class TestLessonDeleteValidation:
             end_time=(now - timedelta(days=1, hours=-1)).time(),
             status='completed'
         )
+        lesson_completed.save(skip_validation=True)
         assert lesson_completed.can_cancel is False

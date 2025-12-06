@@ -659,41 +659,230 @@ class StudyPlanFile(models.Model):
         related_name='files',
         verbose_name='План занятий'
     )
-    
+
     file = models.FileField(
         upload_to='study_plans/files/',
         verbose_name='Файл'
     )
-    
+
     name = models.CharField(
         max_length=255,
         verbose_name='Название файла'
     )
-    
+
     file_size = models.PositiveIntegerField(
         verbose_name='Размер файла (байт)'
     )
-    
+
     uploaded_by = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='uploaded_study_plan_files',
         verbose_name='Загрузил'
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата загрузки')
-    
+
     class Meta:
         verbose_name = 'Файл плана занятий'
         verbose_name_plural = 'Файлы планов занятий'
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"{self.name} ({self.study_plan.title})"
-    
+
     def save(self, *args, **kwargs):
         if self.file and not self.name:
             self.name = self.file.name
         if self.file and not self.file_size:
             self.file_size = self.file.size
         super().save(*args, **kwargs)
+
+
+class StudyPlanGeneration(models.Model):
+    """
+    Запросы на генерацию учебных планов через AI
+    Хранит параметры запроса и статус генерации
+    """
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Ожидает обработки'
+        PROCESSING = 'processing', 'Обрабатывается'
+        COMPLETED = 'completed', 'Завершено'
+        FAILED = 'failed', 'Ошибка'
+
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='study_plan_generations',
+        limit_choices_to={'role': 'teacher'},
+        verbose_name='Преподаватель'
+    )
+
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='generated_study_plans',
+        limit_choices_to={'role': 'student'},
+        verbose_name='Студент'
+    )
+
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='study_plan_generations',
+        verbose_name='Предмет'
+    )
+
+    # Связь с зачислением для валидации
+    enrollment = models.ForeignKey(
+        SubjectEnrollment,
+        on_delete=models.CASCADE,
+        related_name='study_plan_generations',
+        verbose_name='Зачисление на предмет'
+    )
+
+    # Параметры генерации (JSON)
+    # Содержит: subject, grade, topic, subtopics, goal, constraints
+    parameters = models.JSONField(
+        verbose_name='Параметры генерации',
+        help_text='Содержит предмет, класс, тему, подтемы, цель, ограничения'
+    )
+
+    # Статус генерации
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name='Статус'
+    )
+
+    # Сообщение об ошибке (если failed)
+    error_message = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Сообщение об ошибке'
+    )
+
+    # Временные метки
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата завершения')
+
+    class Meta:
+        verbose_name = 'Генерация учебного плана'
+        verbose_name_plural = 'Генерации учебных планов'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['teacher', 'created_at']),
+            models.Index(fields=['student', 'subject']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f"Генерация плана {self.student.get_full_name()} - {self.subject.name} ({self.status})"
+
+    def clean(self):
+        """
+        Валидация перед сохранением
+        Проверяет что студент зачислен на предмет к данному преподавателю
+        """
+        if self.enrollment:
+            if self.enrollment.student != self.student:
+                raise ValidationError('Студент в enrollment не совпадает')
+            if self.enrollment.subject != self.subject:
+                raise ValidationError('Предмет в enrollment не совпадает')
+            if self.enrollment.teacher != self.teacher:
+                raise ValidationError('Преподаватель в enrollment не совпадает')
+            if not self.enrollment.is_active:
+                raise ValidationError('Зачисление неактивно')
+
+    def save(self, *args, **kwargs):
+        # Автоматически установить completed_at при переходе в COMPLETED или FAILED
+        if self.status in [self.Status.COMPLETED, self.Status.FAILED] and not self.completed_at:
+            from django.utils import timezone
+            self.completed_at = timezone.now()
+
+        # Валидация enrollment если не указан
+        if not self.enrollment:
+            try:
+                self.enrollment = SubjectEnrollment.objects.get(
+                    student=self.student,
+                    subject=self.subject,
+                    teacher=self.teacher,
+                    is_active=True
+                )
+            except SubjectEnrollment.DoesNotExist:
+                raise ValidationError('Студент не зачислен на этот предмет к данному преподавателю')
+
+        super().save(*args, **kwargs)
+
+
+class GeneratedFile(models.Model):
+    """
+    Файлы, сгенерированные в рамках учебного плана
+    Один запрос генерации создает 4 файла: задачник, методичка, видео-подборка, недельный план
+    """
+    class FileType(models.TextChoices):
+        PROBLEM_SET = 'problem_set', 'Задачник'
+        REFERENCE_GUIDE = 'reference_guide', 'Методичка'
+        VIDEO_LIST = 'video_list', 'Видео-подборка'
+        WEEKLY_PLAN = 'weekly_plan', 'Недельный план'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Ожидает генерации'
+        GENERATING = 'generating', 'Генерируется'
+        COMPILED = 'compiled', 'Скомпилирован'
+        FAILED = 'failed', 'Ошибка'
+
+    generation = models.ForeignKey(
+        StudyPlanGeneration,
+        on_delete=models.CASCADE,
+        related_name='generated_files',
+        verbose_name='Запрос на генерацию'
+    )
+
+    # Тип файла
+    file_type = models.CharField(
+        max_length=20,
+        choices=FileType.choices,
+        verbose_name='Тип файла'
+    )
+
+    # Путь к сгенерированному файлу
+    file = models.FileField(
+        upload_to='study_plans/generated/',
+        null=True,
+        blank=True,
+        verbose_name='Файл'
+    )
+
+    # Статус генерации файла
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name='Статус'
+    )
+
+    # Сообщение об ошибке (если failed)
+    error_message = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Сообщение об ошибке'
+    )
+
+    # Временные метки
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+
+    class Meta:
+        verbose_name = 'Сгенерированный файл'
+        verbose_name_plural = 'Сгенерированные файлы'
+        ordering = ['generation', 'file_type']
+        unique_together = ['generation', 'file_type']
+        indexes = [
+            models.Index(fields=['generation', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_file_type_display()} - {self.generation} ({self.status})"

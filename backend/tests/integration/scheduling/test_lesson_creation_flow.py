@@ -64,14 +64,18 @@ class TestLessonCreationIntegration:
         api_client.force_authenticate(user=teacher_user)
         list_response = api_client.get('/api/scheduling/lessons/')
         assert list_response.status_code == status.HTTP_200_OK
-        lesson_ids = [l['id'] for l in list_response.data]
+        # Handle paginated response
+        results = list_response.data.get('results', list_response.data) if isinstance(list_response.data, dict) else list_response.data
+        lesson_ids = [l['id'] for l in results]
         assert lesson_id in lesson_ids
 
         # Step 4: Verify lesson appears in student's lesson list
         api_client.force_authenticate(user=student_user)
         student_list_response = api_client.get('/api/scheduling/lessons/')
         assert student_list_response.status_code == status.HTTP_200_OK
-        student_lesson_ids = [l['id'] for l in student_list_response.data]
+        # Handle paginated response
+        student_results = student_list_response.data.get('results', student_list_response.data) if isinstance(student_list_response.data, dict) else student_list_response.data
+        student_lesson_ids = [l['id'] for l in student_results]
         assert lesson_id in student_lesson_ids
 
     def test_lesson_creation_creates_history_record(self, api_client, teacher_user, student_user, math_subject, subject_enrollment):
@@ -97,7 +101,7 @@ class TestLessonCreationIntegration:
         history = LessonHistory.objects.filter(lesson=lesson, action='created')
         assert history.exists()
         assert history.count() == 1
-        assert history.first().created_by == teacher_user
+        assert history.first().performed_by == teacher_user
 
     def test_lesson_response_contains_all_fields(self, api_client, teacher_user, student_user, math_subject, subject_enrollment):
         """Lesson creation response contains all expected fields"""
@@ -274,9 +278,11 @@ class TestLessonListingFiltering:
         response = api_client.get('/api/scheduling/lessons/')
         assert response.status_code == status.HTTP_200_OK
 
-        lesson_ids = [l['id'] for l in response.data]
-        assert lesson1.id in lesson_ids
-        assert lesson2.id not in lesson_ids  # Should not see teacher2's lessons
+        # Handle paginated response
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        lesson_ids = [str(l['id']) for l in results]
+        assert str(lesson1.id) in lesson_ids
+        assert str(lesson2.id) not in lesson_ids  # Should not see teacher2's lessons
 
     def test_student_sees_only_their_lessons(self, api_client, student_user, teacher_user, math_subject, subject_enrollment):
         """Student sees only lessons assigned to them"""
@@ -324,6 +330,8 @@ class TestLessonListingFiltering:
         response = api_client.get('/api/scheduling/lessons/')
         assert response.status_code == status.HTTP_200_OK
 
-        lesson_ids = [l['id'] for l in response.data]
-        assert lesson1.id in lesson_ids
-        assert lesson2.id not in lesson_ids  # Should not see other student's lessons
+        # Handle paginated response
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        lesson_ids = [str(l['id']) for l in results]
+        assert str(lesson1.id) in lesson_ids
+        assert str(lesson2.id) not in lesson_ids  # Should not see other student's lessons

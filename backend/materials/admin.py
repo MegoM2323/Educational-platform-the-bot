@@ -2,7 +2,11 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Subject, Material, MaterialProgress, MaterialComment, SubjectEnrollment, SubjectPayment, SubjectSubscription, StudyPlan, StudyPlanFile
+from .models import (
+    Subject, Material, MaterialProgress, MaterialComment, SubjectEnrollment,
+    SubjectPayment, SubjectSubscription, StudyPlan, StudyPlanFile,
+    StudyPlanGeneration, GeneratedFile
+)
 
 
 @admin.register(Subject)
@@ -381,7 +385,7 @@ class StudyPlanFileAdmin(admin.ModelAdmin):
     list_filter = ['created_at', 'study_plan__subject']
     search_fields = ['name', 'study_plan__title', 'uploaded_by__username']
     readonly_fields = ['created_at', 'file_size']
-    
+
     fieldsets = (
         ('Основная информация', {
             'fields': ('study_plan', 'file', 'name', 'uploaded_by')
@@ -390,7 +394,7 @@ class StudyPlanFileAdmin(admin.ModelAdmin):
             'fields': ('file_size', 'created_at')
         }),
     )
-    
+
     def file_size_display(self, obj):
         if obj.file_size < 1024:
             return f"{obj.file_size} B"
@@ -399,3 +403,195 @@ class StudyPlanFileAdmin(admin.ModelAdmin):
         else:
             return f"{obj.file_size / (1024 * 1024):.2f} MB"
     file_size_display.short_description = 'Размер файла'
+
+
+class GeneratedFileInline(admin.TabularInline):
+    """
+    Инлайн для отображения сгенерированных файлов
+    """
+    model = GeneratedFile
+    extra = 0
+    readonly_fields = ['created_at', 'updated_at']
+    fields = ['file_type', 'status', 'file', 'error_message', 'created_at']
+
+
+@admin.register(StudyPlanGeneration)
+class StudyPlanGenerationAdmin(admin.ModelAdmin):
+    """
+    Админка для генерации учебных планов
+    """
+    list_display = [
+        'id', 'teacher', 'student', 'subject', 'status_badge',
+        'files_progress', 'created_at', 'completed_at'
+    ]
+    list_filter = ['status', 'created_at', 'subject', 'teacher']
+    search_fields = ['teacher__username', 'student__username', 'subject__name']
+    readonly_fields = ['created_at', 'updated_at', 'completed_at']
+    inlines = [GeneratedFileInline]
+
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('teacher', 'student', 'subject', 'enrollment')
+        }),
+        ('Параметры генерации', {
+            'fields': ('parameters',)
+        }),
+        ('Статус', {
+            'fields': ('status', 'error_message')
+        }),
+        ('Временные метки', {
+            'fields': ('created_at', 'updated_at', 'completed_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def status_badge(self, obj):
+        """
+        Цветной бейдж статуса генерации
+        """
+        colors = {
+            StudyPlanGeneration.Status.PENDING: 'gray',
+            StudyPlanGeneration.Status.PROCESSING: 'blue',
+            StudyPlanGeneration.Status.COMPLETED: 'green',
+            StudyPlanGeneration.Status.FAILED: 'red'
+        }
+
+        emojis = {
+            StudyPlanGeneration.Status.PENDING: '⏳',
+            StudyPlanGeneration.Status.PROCESSING: '⚙️',
+            StudyPlanGeneration.Status.COMPLETED: '✅',
+            StudyPlanGeneration.Status.FAILED: '❌'
+        }
+
+        color = colors.get(obj.status, 'gray')
+        emoji = emojis.get(obj.status, '⏳')
+
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{} {}</span>',
+            color,
+            emoji,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Статус'
+
+    def files_progress(self, obj):
+        """
+        Прогресс генерации файлов
+        """
+        total = obj.generated_files.count()
+        compiled = obj.generated_files.filter(status=GeneratedFile.Status.COMPILED).count()
+
+        if total == 0:
+            return format_html(
+                '<span style="color: gray;">Файлы не созданы</span>'
+            )
+
+        color = 'green' if compiled == total else 'orange'
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}/{}</span>',
+            color,
+            compiled,
+            total
+        )
+    files_progress.short_description = 'Файлы'
+
+
+@admin.register(GeneratedFile)
+class GeneratedFileAdmin(admin.ModelAdmin):
+    """
+    Админка для сгенерированных файлов
+    """
+    list_display = [
+        'id', 'generation', 'file_type_badge', 'status_badge',
+        'file_link', 'created_at'
+    ]
+    list_filter = ['file_type', 'status', 'created_at']
+    search_fields = [
+        'generation__teacher__username',
+        'generation__student__username',
+        'generation__subject__name'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('generation', 'file_type')
+        }),
+        ('Файл', {
+            'fields': ('file', 'status', 'error_message')
+        }),
+        ('Временные метки', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def file_type_badge(self, obj):
+        """
+        Цветной бейдж типа файла
+        """
+        colors = {
+            GeneratedFile.FileType.PROBLEM_SET: 'blue',
+            GeneratedFile.FileType.REFERENCE_GUIDE: 'green',
+            GeneratedFile.FileType.VIDEO_LIST: 'red',
+            GeneratedFile.FileType.WEEKLY_PLAN: 'purple'
+        }
+
+        emojis = {
+            GeneratedFile.FileType.PROBLEM_SET: '📝',
+            GeneratedFile.FileType.REFERENCE_GUIDE: '📚',
+            GeneratedFile.FileType.VIDEO_LIST: '🎥',
+            GeneratedFile.FileType.WEEKLY_PLAN: '📅'
+        }
+
+        color = colors.get(obj.file_type, 'gray')
+        emoji = emojis.get(obj.file_type, '📄')
+
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{} {}</span>',
+            color,
+            emoji,
+            obj.get_file_type_display()
+        )
+    file_type_badge.short_description = 'Тип файла'
+
+    def status_badge(self, obj):
+        """
+        Цветной бейдж статуса файла
+        """
+        colors = {
+            GeneratedFile.Status.PENDING: 'gray',
+            GeneratedFile.Status.GENERATING: 'blue',
+            GeneratedFile.Status.COMPILED: 'green',
+            GeneratedFile.Status.FAILED: 'red'
+        }
+
+        emojis = {
+            GeneratedFile.Status.PENDING: '⏳',
+            GeneratedFile.Status.GENERATING: '⚙️',
+            GeneratedFile.Status.COMPILED: '✅',
+            GeneratedFile.Status.FAILED: '❌'
+        }
+
+        color = colors.get(obj.status, 'gray')
+        emoji = emojis.get(obj.status, '⏳')
+
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{} {}</span>',
+            color,
+            emoji,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Статус'
+
+    def file_link(self, obj):
+        """
+        Ссылка на файл если он существует
+        """
+        if obj.file:
+            return format_html(
+                '<a href="{}" target="_blank">📥 Скачать</a>',
+                obj.file.url
+            )
+        return format_html('<span style="color: gray;">Нет файла</span>')
+    file_link.short_description = 'Файл'

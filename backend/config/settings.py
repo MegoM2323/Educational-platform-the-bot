@@ -60,8 +60,8 @@ TELEGRAM_LOG_CHAT_ID = os.getenv("TELEGRAM_LOG_CHAT_ID", TELEGRAM_CHAT_ID)
 TELEGRAM_DISABLED = os.getenv('ENVIRONMENT', 'production').lower() == 'test'
 
 # Supabase settings
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://sobptsqfzgycmauglqzk.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvYnB0c3Fmemd5Y21hdWdscXprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMDYxNzEsImV4cCI6MjA3Njc4MjE3MX0.OTJTYuazN2AEbcFlnHrt5ux7w-syOB90lTx3FLT2s4k")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 # Quick-start development settings - unsuitable for production
@@ -117,7 +117,7 @@ if not DEBUG:
 # Application definition
 
 INSTALLED_APPS = [
-    # 'daphne',  # ASGI server для WebSocket - TEMPORARILY DISABLED FOR TESTING (Twisted/OpenSSL compatibility issue)
+    'daphne',  # ASGI server для WebSocket
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -128,7 +128,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'django_filters',
-    # 'channels',  # Django Channels для WebSocket - TEMPORARILY DISABLED FOR TESTING
+    'channels',  # Django Channels для WebSocket
     'core',
     'accounts',
     'materials',

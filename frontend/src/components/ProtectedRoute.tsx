@@ -32,10 +32,10 @@ interface ProtectedRouteProps {
  */
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, user, error } = useIsAuthenticated();
-  const authContextUser = useAuth().user;
+  const { user: authContextUser, isLoading: authContextLoading } = useAuth();
 
-  // Загрузка - показываем spinner
-  if (isLoading) {
+  // Загрузка - показываем spinner (ждём пока AuthContext инициализируется ИЛИ profile загрузится)
+  if (isLoading || authContextLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
         <div className="text-center">
@@ -47,12 +47,14 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   // Ошибка при загрузке профиля (например, сессия истекла)
-  if (error) {
+  // НО: если есть user в AuthContext, ошибка профиля не критична (используем fallback)
+  if (error && !authContextUser) {
     return <Navigate to="/auth" replace />;
   }
 
   // Не авторизован - перенаправляем на страницу входа
-  if (!isAuthenticated) {
+  // FALLBACK: если useProfile не загрузился, но AuthContext имеет user - считаем авторизованным
+  if (!isAuthenticated && !authContextUser) {
     return <Navigate to="/auth" replace />;
   }
 

@@ -66,14 +66,12 @@ export const useProfile = () => {
           const errorMessage = response.error || 'Не удалось загрузить профиль';
 
           // При 401 - профиль недоступен (пользователь не авторизован или токен истёк)
+          // UnifiedClient уже попробовал обновить токен, если это не сработало - сессия истекла
           if (errorMessage.includes('401') || errorMessage.includes('Authentication')) {
-            logger.warn('[useProfile] Authentication error (401), clearing cache');
+            logger.warn('[useProfile] Authentication error (401), clearing profile cache');
 
-            // Очищаем кеш профиля
+            // Очищаем только кеш профиля, не все запросы (предотвращаем каскадные рефетчи)
             queryClient.removeQueries({ queryKey: ['profile'] });
-
-            // Очищаем кеш других связанных данных
-            queryClient.clear();
 
             // Выбрасываем ошибку, чтобы ProtectedRoute/компоненты обработали редирект
             throw new Error('Сессия истекла. Пожалуйста, авторизуйтесь снова');
@@ -85,7 +83,7 @@ export const useProfile = () => {
             throw new Error('Профиль пользователя не найден');
           }
 
-          // Другие ошибки
+          // Другие ошибки (сеть, сервер)
           logger.error('[useProfile] Error loading profile:', errorMessage);
           throw new Error(errorMessage || 'Неизвестная ошибка при загрузке профиля');
         }
@@ -113,7 +111,35 @@ export const useProfile = () => {
     // Конфигурация кеширования
     staleTime: 1000 * 60 * 5, // 5 минут - данные свежие в течение 5 минут
     gcTime: 1000 * 60 * 10, // 10 минут - кеш хранится 10 минут
-    retry: 1, // Повторить 1 раз при ошибке
+
+    // Конфигурация повторов с учётом типа ошибки
+    retry: (failureCount, error) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // 401/403 - не повторяем (токен невалиден или истёк, refresh уже попробован в unifiedClient)
+      if (errorMessage.includes('401') || errorMessage.includes('Authentication') ||
+          errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+        logger.debug('[useProfile] Auth error detected, no retries');
+        return false;
+      }
+
+      // 404 - не повторяем (профиль не существует)
+      if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        logger.debug('[useProfile] Not found error, no retries');
+        return false;
+      }
+
+      // Сетевые/серверные ошибки - повторяем до 3 раз
+      if (failureCount < 3) {
+        logger.debug('[useProfile] Network/server error, retry attempt:', failureCount + 1);
+        return true;
+      }
+
+      return false;
+    },
+
+    // Экспоненциальная задержка между повторами: 1s, 2s, 4s
+    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 10000),
 
     // Конфигурация рефетча
     refetchOnWindowFocus: false, // Не обновляем при фокусе на окно (профиль медленно меняется)
@@ -144,7 +170,7 @@ export const useProfile = () => {
  *
  * @example
  * const user = useProfileUser();
- * console.log(user?.full_name);
+ * logger.debug(user?.full_name);
  */
 export const useProfileUser = (): User | undefined => {
   const { user } = useProfile();

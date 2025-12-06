@@ -484,7 +484,7 @@ class TestForumMessageSending:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    @patch('chat.signals.send_forum_notification_to_pachca.apply_async')
+    @patch('chat.signals.send_forum_notification')
     def test_pachca_notification_signal_triggered(self, mock_pachca, api_client, student_user, teacher_user, subject):
         """Sending message triggers Pachca notification signal"""
         enrollment = SubjectEnrollment.objects.create(
@@ -570,4 +570,7 @@ class TestForumMessageSending:
         assert response.status_code == status.HTTP_201_CREATED
         # Response wraps message in 'message' key
         message_response = response.data.get('message', response.data)
-        assert message_response['sender'] == teacher_user.id
+        # 'sender' is either an int (ID) or object with 'id' field
+        sender = message_response['sender']
+        sender_id = sender['id'] if isinstance(sender, dict) else sender
+        assert sender_id == teacher_user.id

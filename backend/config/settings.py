@@ -59,6 +59,9 @@ TELEGRAM_PUBLIC_CHAT_ID = os.getenv("TELEGRAM_PUBLIC_CHAT_ID", TELEGRAM_CHAT_ID)
 TELEGRAM_LOG_CHAT_ID = os.getenv("TELEGRAM_LOG_CHAT_ID", TELEGRAM_CHAT_ID)
 TELEGRAM_DISABLED = os.getenv('ENVIRONMENT', 'production').lower() == 'test'
 
+# OpenRouter API settings (for study plan generation)
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
+
 # Supabase settings
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -89,6 +92,18 @@ if not DEBUG:
         raise ImproperlyConfigured("ALLOWED_HOSTS must be set in production")
     if SECRET_KEY.startswith('django-insecure-'):
         raise ImproperlyConfigured("SECRET_KEY must not use the default insecure key in production")
+
+# Development warning for missing OpenRouter API key
+if DEBUG and not OPENROUTER_API_KEY and environment != 'test':
+    import warnings
+    warnings.warn(
+        "\n⚠️  OpenRouter API key not configured.\n"
+        "Study plan generation will not work without OPENROUTER_API_KEY.\n"
+        "Get your API key from https://openrouter.ai/keys\n"
+        "Set OPENROUTER_API_KEY in .env file",
+        RuntimeWarning,
+        stacklevel=2
+    )
 
 # Security settings for HTTPS behind reverse proxy (nginx)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -833,7 +848,15 @@ if not DEBUG:
                 f"Production CORS must only allow production frontend URL."
             )
 
-    # 7. Информационное сообщение о режиме
+    # 7. Проверка OpenRouter API key - критично для генерации планов обучения
+    if not OPENROUTER_API_KEY:
+        raise ImproperlyConfigured(
+            "OPENROUTER_API_KEY is required in production mode.\n"
+            "Get your API key from https://openrouter.ai/keys\n"
+            "Set OPENROUTER_API_KEY in .env file"
+        )
+
+    # 8. Информационное сообщение о режиме
     import sys
     if 'runserver' in sys.argv or 'test' in sys.argv:
         pass  # Не выводим при тестах или runserver
@@ -846,6 +869,7 @@ if not DEBUG:
         print(f"   - Payment Mode: {'💰 Production (5000₽/week)' if not PAYMENT_DEVELOPMENT_MODE else '🧪 Development (1₽/10min)'}")
         print(f"   - Frontend URL: {FRONTEND_URL}")
         print(f"   - CORS Origins: {len(CORS_ALLOWED_ORIGINS)} configured")
+        print(f"   - OpenRouter API: {'✅ Configured' if OPENROUTER_API_KEY else '❌ Missing'}")
 
 
 # ==================== LOGGING CONFIGURATION ====================

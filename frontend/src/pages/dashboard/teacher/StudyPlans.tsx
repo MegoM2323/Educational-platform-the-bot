@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -118,8 +119,8 @@ export default function StudyPlans() {
 
       if (response.data) {
         const plansData = response.data.study_plans || [];
-        console.log('Loaded plans:', plansData);
-        console.log('Plans with files:', plansData.filter(p => p.files && p.files.length > 0));
+        logger.debug('Loaded plans:', plansData);
+        logger.debug('Plans with files:', plansData.filter(p => p.files && p.files.length > 0));
         setPlans(plansData);
       } else {
         const errorMessage = response.error || 'Ошибка загрузки планов';
@@ -130,7 +131,7 @@ export default function StudyPlans() {
       const errorMessage = 'Произошла ошибка при загрузке планов';
       setError(errorMessage);
       showError(errorMessage);
-      console.error('Study plans fetch error:', err);
+      logger.error('Study plans fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -157,7 +158,7 @@ export default function StudyPlans() {
         }
       }
     } catch (err) {
-      console.error('Subjects fetch error:', err);
+      logger.error('Subjects fetch error:', err);
       showError('Ошибка загрузки предметов');
     }
   };
@@ -165,24 +166,24 @@ export default function StudyPlans() {
   // Загрузка студентов по предмету
   const fetchStudentsForSubject = async (subjectId: number) => {
     try {
-      console.log('[StudyPlans] Fetching students for subject:', subjectId);
+      logger.debug('[StudyPlans] Fetching students for subject:', subjectId);
       const response = await apiClient.request<{ students: Array<{id: number; name: string; email: string}> }>(
         `/materials/teacher/subjects/${subjectId}/students/`
       );
-      console.log('[StudyPlans] Students response:', response);
+      logger.debug('[StudyPlans] Students response:', response);
       if (response.data?.students) {
         const students = response.data.students.map(s => ({
           id: s.id,
           name: s.name,
           email: s.email
         }));
-        console.log('[StudyPlans] Available students:', students);
+        logger.debug('[StudyPlans] Available students:', students);
         return students;
       }
-      console.warn('[StudyPlans] No students found in response');
+      logger.warn('[StudyPlans] No students found in response');
       return [];
     } catch (err) {
-      console.error('[StudyPlans] Students fetch error:', err);
+      logger.error('[StudyPlans] Students fetch error:', err);
       return [];
     }
   };
@@ -201,7 +202,7 @@ export default function StudyPlans() {
           setStudents(response.data.students);
         }
       } catch (err) {
-        console.error('Students fetch error:', err);
+        logger.error('Students fetch error:', err);
       }
     };
     loadAllStudents();
@@ -211,16 +212,16 @@ export default function StudyPlans() {
   useEffect(() => {
     const loadStudentsForSubject = async () => {
       if (formData.subject && formData.subject !== '') {
-        console.log('[StudyPlans] Loading students for selected subject:', formData.subject);
+        logger.debug('[StudyPlans] Loading students for selected subject:', formData.subject);
         setLoadingStudents(true);
         const studentsList = await fetchStudentsForSubject(parseInt(formData.subject));
-        console.log('[StudyPlans] Students loaded, count:', studentsList.length);
+        logger.debug('[StudyPlans] Students loaded, count:', studentsList.length);
         setAvailableStudents(studentsList);
         setLoadingStudents(false);
         // Сбрасываем выбранного студента при смене предмета
         setFormData(prev => ({...prev, student: ''}));
       } else {
-        console.log('[StudyPlans] No subject selected, clearing students');
+        logger.debug('[StudyPlans] No subject selected, clearing students');
         setAvailableStudents([]);
       }
     };
@@ -239,8 +240,8 @@ export default function StudyPlans() {
     if (!formData.week_start_date) missingFields.push('Дата начала недели');
 
     if (missingFields.length > 0) {
-      console.log('[StudyPlans] Missing fields:', missingFields);
-      console.log('[StudyPlans] Form data:', formData);
+      logger.debug('[StudyPlans] Missing fields:', missingFields);
+      logger.debug('[StudyPlans] Form data:', formData);
       showError(`Заполните все обязательные поля: ${missingFields.join(', ')}`);
       return;
     }
@@ -311,7 +312,7 @@ export default function StudyPlans() {
               }
             }
           } catch (fileErr: any) {
-            console.error('Error uploading files:', fileErr);
+            logger.error('Error uploading files:', fileErr);
             showError('План создан, но не все файлы удалось загрузить');
           }
         }
@@ -340,7 +341,7 @@ export default function StudyPlans() {
       }
     } catch (err: any) {
       showError('Произошла ошибка при создании плана');
-      console.error('Create plan error:', err);
+      logger.error('Create plan error:', err);
     } finally {
       setUploadingCreateFiles(false);
     }
@@ -378,7 +379,7 @@ export default function StudyPlans() {
       }
     } catch (err: any) {
       showError('Произошла ошибка при обновлении плана');
-      console.error('Edit plan error:', err);
+      logger.error('Edit plan error:', err);
     }
   };
 
@@ -409,7 +410,7 @@ export default function StudyPlans() {
       }
     } catch (err: any) {
       showError('Произошла ошибка при загрузке деталей плана');
-      console.error('Load plan details error:', err);
+      logger.error('Load plan details error:', err);
     }
   };
 
@@ -454,7 +455,7 @@ export default function StudyPlans() {
       }
     } catch (err: any) {
       showError('Произошла ошибка при загрузке файла');
-      console.error('Upload file error:', err);
+      logger.error('Upload file error:', err);
     } finally {
       setUploadingFile(null);
     }
@@ -485,7 +486,7 @@ export default function StudyPlans() {
       }
     } catch (err: any) {
       showError('Произошла ошибка при удалении файла');
-      console.error('Delete file error:', err);
+      logger.error('Delete file error:', err);
     } finally {
       setDeletingFile(null);
     }
@@ -515,7 +516,7 @@ export default function StudyPlans() {
       }
     } catch (err: any) {
       showError('Произошла ошибка при отправке плана');
-      console.error('Send plan error:', err);
+      logger.error('Send plan error:', err);
     } finally {
       setSendingPlanId(null);
     }
@@ -531,7 +532,7 @@ export default function StudyPlans() {
           return response.data.students;
         }
       } catch (err) {
-        console.error('Students fetch error:', err);
+        logger.error('Students fetch error:', err);
       }
       return [];
     }
@@ -873,7 +874,7 @@ export default function StudyPlans() {
                               }
                             } catch (err: any) {
                               showError('Произошла ошибка при загрузке деталей плана');
-                              console.error('Load plan details error:', err);
+                              logger.error('Load plan details error:', err);
                             }
                           }}
                         >

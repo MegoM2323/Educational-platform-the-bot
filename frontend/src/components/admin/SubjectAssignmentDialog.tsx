@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -77,7 +78,7 @@ export const SubjectAssignmentDialog = ({
         setTeachers(teachersRes.data);
       }
     } catch (err) {
-      console.error('Error loading data:', err);
+      logger.error('Error loading data:', err);
       toast.error('Ошибка загрузки данных');
     }
   };

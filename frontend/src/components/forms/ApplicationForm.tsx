@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -85,7 +86,7 @@ export const ApplicationForm = () => {
         setDisplayPhone(parsed.phone);
         setDisplayParentPhone(parsed.parentPhone);
       } catch (error) {
-        console.error("Ошибка при загрузке сохраненных данных:", error);
+        logger.error("Ошибка при загрузке сохраненных данных:", error);
       }
     }
   }, []);
@@ -228,7 +229,7 @@ export const ApplicationForm = () => {
 
       const response = await djangoAPI.createApplication(applicationData);
 
-      console.log("Application submitted:", response);
+      logger.debug("Application submitted:", response);
 
       // Проверяем успешность ответа
       if (!response.success) {
@@ -270,7 +271,7 @@ export const ApplicationForm = () => {
       setDisplayParentPhone("");
       setCurrentStep(1);
     } catch (error: any) {
-      console.error("Error submitting application:", error);
+      logger.error("Error submitting application:", error);
 
       // Определяем тип ошибки и показываем соответствующее сообщение
       let errorMessage = "Произошла ошибка при отправке заявки. Попробуйте еще раз.";

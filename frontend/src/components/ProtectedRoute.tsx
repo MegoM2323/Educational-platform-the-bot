@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { logger } from '@/utils/logger';
 import { Navigate } from 'react-router-dom';
 import { useIsAuthenticated } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,7 +61,7 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
 
   // DEBUG: логирование
   if (requiredRole) {
-    console.log('[ProtectedRoute] Role check:', {
+    logger.debug('[ProtectedRoute] Role check:', {
       requiredRole,
       userFromProfile: user?.role,
       userFromContext: authContextUser?.role,

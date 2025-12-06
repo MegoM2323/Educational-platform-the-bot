@@ -1,4 +1,5 @@
 // Error Handling Provider
+import { logger } from '@/utils/logger';
 // Integrates all error handling systems and provides them to the app
 
 import React, { createContext, useContext, useEffect, useCallback } from 'react';
@@ -172,7 +173,7 @@ export const useErrorReporter = () => {
   
   return {
     reportError: (error: Error, context?: any) => {
-      console.error('Error reported:', error, context);
+      logger.error('Error reported:', error, context);
       reportError(error, context);
     },
     reportNetworkError: (error: Error, context?: any) => {

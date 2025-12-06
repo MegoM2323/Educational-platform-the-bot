@@ -1,4 +1,5 @@
 /**
+import { logger } from '@/utils/logger';
  * Profile API Integration Test Examples
  *
  * These are manual integration tests to verify the profileAPI works correctly
@@ -15,23 +16,23 @@ import { unifiedAPI } from './unifiedClient';
  * Should return profile data for authenticated user
  */
 export async function testGetCurrentProfile() {
-  console.log('TEST 1: Get Current User Profile');
-  console.log('================================\n');
+  logger.debug('TEST 1: Get Current User Profile');
+  logger.debug('================================\n');
 
   try {
     const response = await profileAPI.getCurrentUserProfile();
 
     if (response.success && response.data) {
-      console.log('✓ Success');
-      console.log('User:', response.data.user);
-      console.log('Profile:', response.data.profile);
+      logger.debug('✓ Success');
+      logger.debug('User:', response.data.user);
+      logger.debug('Profile:', response.data.profile);
       return true;
     } else {
-      console.error('✗ Failed:', response.error);
+      logger.error('✗ Failed:', response.error);
       return false;
     }
   } catch (error) {
-    console.error('✗ Exception:', error);
+    logger.error('✗ Exception:', error);
     return false;
   }
 }
@@ -41,23 +42,23 @@ export async function testGetCurrentProfile() {
  * Should return profile for the specified user ID
  */
 export async function testGetUserProfile(userId: number) {
-  console.log(`TEST 2: Get User Profile (ID: ${userId})`);
-  console.log('================================\n');
+  logger.debug(`TEST 2: Get User Profile (ID: ${userId})`);
+  logger.debug('================================\n');
 
   try {
     const response = await profileAPI.getUserProfile(userId);
 
     if (response.success && response.data) {
-      console.log('✓ Success');
-      console.log('User:', response.data.user);
-      console.log('Profile:', response.data.profile);
+      logger.debug('✓ Success');
+      logger.debug('User:', response.data.user);
+      logger.debug('Profile:', response.data.profile);
       return true;
     } else {
-      console.error('✗ Failed:', response.error);
+      logger.error('✗ Failed:', response.error);
       return false;
     }
   } catch (error) {
-    console.error('✗ Exception:', error);
+    logger.error('✗ Exception:', error);
     return false;
   }
 }
@@ -67,9 +68,9 @@ export async function testGetUserProfile(userId: number) {
  * Should update user's first name and return updated data
  */
 export async function testUpdateCurrentProfile(newFirstName: string) {
-  console.log(`TEST 3: Update Current Profile`);
-  console.log('================================');
-  console.log(`Updating first_name to: ${newFirstName}\n`);
+  logger.debug(`TEST 3: Update Current Profile`);
+  logger.debug('================================');
+  logger.debug(`Updating first_name to: ${newFirstName}\n`);
 
   try {
     const response = await profileAPI.updateCurrentProfile({
@@ -77,15 +78,15 @@ export async function testUpdateCurrentProfile(newFirstName: string) {
     });
 
     if (response.success && response.data) {
-      console.log('✓ Success');
-      console.log('Updated User:', response.data.user);
+      logger.debug('✓ Success');
+      logger.debug('Updated User:', response.data.user);
       return true;
     } else {
-      console.error('✗ Failed:', response.error);
+      logger.error('✗ Failed:', response.error);
       return false;
     }
   } catch (error) {
-    console.error('✗ Exception:', error);
+    logger.error('✗ Exception:', error);
     return false;
   }
 }
@@ -95,24 +96,24 @@ export async function testUpdateCurrentProfile(newFirstName: string) {
  * Should return list of all students
  */
 export async function testGetProfilesByRole(role: 'student' | 'teacher' | 'tutor' | 'parent') {
-  console.log(`TEST 4: Get Profiles by Role (${role})`);
-  console.log('================================\n');
+  logger.debug(`TEST 4: Get Profiles by Role (${role})`);
+  logger.debug('================================\n');
 
   try {
     const response = await profileAPI.getProfilesByRole(role);
 
     if (response.success && response.data) {
-      console.log(`✓ Success - Found ${response.data.length} ${role}(s)`);
+      logger.debug(`✓ Success - Found ${response.data.length} ${role}(s)`);
       response.data.forEach((profile, index) => {
-        console.log(`  ${index + 1}. ${profile.user.full_name} (${profile.user.email})`);
+        logger.debug(`  ${index + 1}. ${profile.user.full_name} (${profile.user.email})`);
       });
       return true;
     } else {
-      console.error('✗ Failed:', response.error);
+      logger.error('✗ Failed:', response.error);
       return false;
     }
   } catch (error) {
-    console.error('✗ Exception:', error);
+    logger.error('✗ Exception:', error);
     return false;
   }
 }
@@ -122,53 +123,53 @@ export async function testGetProfilesByRole(role: 'student' | 'teacher' | 'tutor
  * First load should be fresh, second should be from cache
  */
 export async function testCaching() {
-  console.log('TEST 5: Cache Validation');
-  console.log('================================\n');
+  logger.debug('TEST 5: Cache Validation');
+  logger.debug('================================\n');
 
   try {
     // First load - should be fresh
-    console.log('First load...');
+    logger.debug('First load...');
     const start1 = performance.now();
     const response1 = await profileAPI.getCurrentUserProfile();
     const duration1 = performance.now() - start1;
 
     if (!response1.success) {
-      console.error('✗ First load failed');
+      logger.error('✗ First load failed');
       return false;
     }
 
-    console.log(`✓ First load successful (${duration1.toFixed(2)}ms)`);
+    logger.debug(`✓ First load successful (${duration1.toFixed(2)}ms)`);
 
     // Second load - should be from cache
-    console.log('Second load (should be cached)...');
+    logger.debug('Second load (should be cached)...');
     const start2 = performance.now();
     const response2 = await profileAPI.getCurrentUserProfile();
     const duration2 = performance.now() - start2;
 
-    console.log(`✓ Second load successful (${duration2.toFixed(2)}ms)`);
+    logger.debug(`✓ Second load successful (${duration2.toFixed(2)}ms)`);
 
     if (duration2 < duration1) {
-      console.log('✓ Cache is working (second load faster)');
+      logger.debug('✓ Cache is working (second load faster)');
     } else {
-      console.warn('⚠ Cache may not be working (second load slower)');
+      logger.warn('⚠ Cache may not be working (second load slower)');
     }
 
     // Clear cache
-    console.log('Clearing cache...');
+    logger.debug('Clearing cache...');
     profileAPI.invalidateCache();
-    console.log('✓ Cache cleared');
+    logger.debug('✓ Cache cleared');
 
     // Third load - should be fresh again
-    console.log('Third load (after cache clear)...');
+    logger.debug('Third load (after cache clear)...');
     const start3 = performance.now();
     const response3 = await profileAPI.getCurrentUserProfile();
     const duration3 = performance.now() - start3;
 
-    console.log(`✓ Third load successful (${duration3.toFixed(2)}ms)`);
+    logger.debug(`✓ Third load successful (${duration3.toFixed(2)}ms)`);
 
     return true;
   } catch (error) {
-    console.error('✗ Exception:', error);
+    logger.error('✗ Exception:', error);
     return false;
   }
 }
@@ -178,8 +179,8 @@ export async function testCaching() {
  * Should handle missing token gracefully
  */
 export async function testUnauthorizedError() {
-  console.log('TEST 6: Error Handling - 401 Unauthorized');
-  console.log('================================\n');
+  logger.debug('TEST 6: Error Handling - 401 Unauthorized');
+  logger.debug('================================\n');
 
   try {
     // Save current token
@@ -188,29 +189,29 @@ export async function testUnauthorizedError() {
     // Clear token to simulate unauthorized state
     unifiedAPI.setToken('');
 
-    console.log('Making request without token...');
+    logger.debug('Making request without token...');
     const response = await profileAPI.getCurrentUserProfile();
 
     if (!response.success) {
-      console.log('✓ Got expected error response');
-      console.log('Error:', response.error);
+      logger.debug('✓ Got expected error response');
+      logger.debug('Error:', response.error);
 
       if (response.error?.includes('401') || response.error?.includes('authentication')) {
-        console.log('✓ Error type is correct (authentication/401)');
+        logger.debug('✓ Error type is correct (authentication/401)');
       }
     } else {
-      console.warn('⚠ Expected error but got success response');
+      logger.warn('⚠ Expected error but got success response');
     }
 
     // Restore token
     if (savedToken) {
       unifiedAPI.setToken(savedToken);
-      console.log('✓ Token restored');
+      logger.debug('✓ Token restored');
     }
 
     return true;
   } catch (error) {
-    console.error('✗ Exception:', error);
+    logger.error('✗ Exception:', error);
     return false;
   }
 }
@@ -220,14 +221,14 @@ export async function testUnauthorizedError() {
  * Should return profile with expected structure for each role
  */
 export async function testProfileStructure() {
-  console.log('TEST 7: Profile Data Structure Validation');
-  console.log('================================\n');
+  logger.debug('TEST 7: Profile Data Structure Validation');
+  logger.debug('================================\n');
 
   try {
     const response = await profileAPI.getCurrentUserProfile();
 
     if (!response.success || !response.data) {
-      console.error('✗ Failed to load profile');
+      logger.error('✗ Failed to load profile');
       return false;
     }
 
@@ -235,20 +236,20 @@ export async function testProfileStructure() {
     const user = profile.user;
 
     // Validate user object
-    console.log('Validating User object...');
+    logger.debug('Validating User object...');
     const userFields = ['id', 'email', 'first_name', 'last_name', 'full_name', 'role', 'role_display'];
     const missingUserFields = userFields.filter((field) => !(field in user));
 
     if (missingUserFields.length === 0) {
-      console.log('✓ All required user fields present');
+      logger.debug('✓ All required user fields present');
     } else {
-      console.warn(`⚠ Missing user fields: ${missingUserFields.join(', ')}`);
+      logger.warn(`⚠ Missing user fields: ${missingUserFields.join(', ')}`);
     }
 
     // Validate profile object
-    console.log(`Validating ${user.role} profile object...`);
+    logger.debug(`Validating ${user.role} profile object...`);
     if (profile.profile) {
-      console.log('✓ Profile object exists');
+      logger.debug('✓ Profile object exists');
 
       // Role-specific validation
       if (user.role === 'student') {
@@ -256,26 +257,26 @@ export async function testProfileStructure() {
         const studentFields = ['id', 'grade'];
         const missingFields = studentFields.filter((field) => !(field in studentProfile));
         if (missingFields.length === 0) {
-          console.log('✓ All expected student profile fields present');
+          logger.debug('✓ All expected student profile fields present');
         } else {
-          console.warn(`⚠ Missing student fields: ${missingFields.join(', ')}`);
+          logger.warn(`⚠ Missing student fields: ${missingFields.join(', ')}`);
         }
       } else if (user.role === 'teacher') {
         const teacherProfile = profile.profile;
         const teacherFields = ['id'];
         const missingFields = teacherFields.filter((field) => !(field in teacherProfile));
         if (missingFields.length === 0) {
-          console.log('✓ All expected teacher profile fields present');
+          logger.debug('✓ All expected teacher profile fields present');
         }
       }
     } else {
-      console.log('ℹ No profile object returned (may be normal for some roles)');
+      logger.debug('ℹ No profile object returned (may be normal for some roles)');
     }
 
-    console.log('✓ Structure validation complete');
+    logger.debug('✓ Structure validation complete');
     return true;
   } catch (error) {
-    console.error('✗ Exception:', error);
+    logger.error('✗ Exception:', error);
     return false;
   }
 }
@@ -285,37 +286,37 @@ export async function testProfileStructure() {
  * Test extractProfileData and isProfileComplete methods
  */
 export async function testUtilityMethods() {
-  console.log('TEST 8: Utility Methods');
-  console.log('================================\n');
+  logger.debug('TEST 8: Utility Methods');
+  logger.debug('================================\n');
 
   try {
     const response = await profileAPI.getCurrentUserProfile();
 
     if (!response.success || !response.data) {
-      console.error('✗ Failed to load profile');
+      logger.error('✗ Failed to load profile');
       return false;
     }
 
     const profile = response.data;
 
     // Test extractProfileData
-    console.log('Testing extractProfileData()...');
+    logger.debug('Testing extractProfileData()...');
     const profileData = profileAPI.extractProfileData(profile);
     if (profileData) {
-      console.log('✓ Profile data extracted successfully');
-      console.log('Extracted data:', profileData);
+      logger.debug('✓ Profile data extracted successfully');
+      logger.debug('Extracted data:', profileData);
     } else {
-      console.warn('⚠ extractProfileData returned null');
+      logger.warn('⚠ extractProfileData returned null');
     }
 
     // Test isProfileComplete
-    console.log('\nTesting isProfileComplete()...');
+    logger.debug('\nTesting isProfileComplete()...');
     const isComplete = profileAPI.isProfileComplete(profile);
-    console.log(`✓ Profile complete: ${isComplete}`);
+    logger.debug(`✓ Profile complete: ${isComplete}`);
 
     return true;
   } catch (error) {
-    console.error('✗ Exception:', error);
+    logger.error('✗ Exception:', error);
     return false;
   }
 }
@@ -325,64 +326,64 @@ export async function testUtilityMethods() {
  * Useful for comprehensive testing
  */
 export async function runAllTests() {
-  console.log('\n');
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║          PROFILE API INTEGRATION TESTS                         ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  logger.debug('\n');
+  logger.debug('╔════════════════════════════════════════════════════════════════╗');
+  logger.debug('║          PROFILE API INTEGRATION TESTS                         ║');
+  logger.debug('╚════════════════════════════════════════════════════════════════╝\n');
 
   const results: Record<string, boolean> = {};
 
   // Test 1
   results['Test 1: Get Current Profile'] = await testGetCurrentProfile();
-  console.log('\n');
+  logger.debug('\n');
 
   // Test 2 - requires knowing a valid user ID
   // Uncomment and provide valid ID if needed
   // results['Test 2: Get User Profile'] = await testGetUserProfile(1);
-  // console.log('\n');
+  // logger.debug('\n');
 
   // Test 3 - updates profile
   // Uncomment if you want to test updates
   // results['Test 3: Update Profile'] = await testUpdateCurrentProfile('TestName');
-  // console.log('\n');
+  // logger.debug('\n');
 
   // Test 4
   results['Test 4: Get Profiles by Role (student)'] = await testGetProfilesByRole('student');
-  console.log('\n');
+  logger.debug('\n');
 
   // Test 5
   results['Test 5: Cache Validation'] = await testCaching();
-  console.log('\n');
+  logger.debug('\n');
 
   // Test 6
   // results['Test 6: Unauthorized Error'] = await testUnauthorizedError();
-  // console.log('\n');
+  // logger.debug('\n');
 
   // Test 7
   results['Test 7: Profile Structure'] = await testProfileStructure();
-  console.log('\n');
+  logger.debug('\n');
 
   // Test 8
   results['Test 8: Utility Methods'] = await testUtilityMethods();
-  console.log('\n');
+  logger.debug('\n');
 
   // Print summary
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║                       TEST SUMMARY                             ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  logger.debug('╔════════════════════════════════════════════════════════════════╗');
+  logger.debug('║                       TEST SUMMARY                             ║');
+  logger.debug('╚════════════════════════════════════════════════════════════════╝\n');
 
   let passCount = 0;
   let failCount = 0;
 
   Object.entries(results).forEach(([testName, passed]) => {
     const status = passed ? '✓ PASS' : '✗ FAIL';
-    console.log(`${status}: ${testName}`);
+    logger.debug(`${status}: ${testName}`);
     if (passed) passCount++;
     else failCount++;
   });
 
-  console.log('\n');
-  console.log(`Total: ${passCount} passed, ${failCount} failed\n`);
+  logger.debug('\n');
+  logger.debug(`Total: ${passCount} passed, ${failCount} failed\n`);
 
   return failCount === 0;
 }
@@ -392,7 +393,7 @@ export async function runAllTests() {
  * Useful for quick verification
  */
 export async function quickTest() {
-  console.log('Running quick profile test...\n');
+  logger.debug('Running quick profile test...\n');
   return await testGetCurrentProfile();
 }
 

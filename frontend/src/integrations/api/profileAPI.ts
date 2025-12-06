@@ -1,4 +1,5 @@
 import { unifiedAPI as apiClient, ApiResponse, User } from './unifiedClient';
+import { logger } from '@/utils/logger';
 
 // Re-export ApiResponse type for use in other modules
 export type { ApiResponse } from './unifiedClient';
@@ -146,11 +147,11 @@ export const profileAPI = {
    * try {
    *   const response = await profileAPI.getCurrentUserProfile();
    *   if (response.success && response.data) {
-   *     console.log('User:', response.data.user);
-   *     console.log('Profile:', response.data.profile);
+   *     logger.debug('User:', response.data.user);
+   *     logger.debug('Profile:', response.data.profile);
    *   }
    * } catch (error) {
-   *   console.error('Failed to load profile:', error);
+   *   logger.error('Failed to load profile:', error);
    * }
    */
   async getCurrentUserProfile(): Promise<ApiResponse<UserProfile>> {
@@ -591,7 +592,7 @@ export const profileAPI = {
    * @example
    * const response = await profileAPI.getUserProfile(123);
    * if (response.success) {
-   *   console.log('User profile:', response.data);
+   *   logger.debug('User profile:', response.data);
    * }
    */
   async getUserProfile(userId: number): Promise<ApiResponse<UserProfile>> {
@@ -707,7 +708,7 @@ export const profileAPI = {
    * @example
    * const response = await profileAPI.getProfilesByRole('teacher');
    * if (response.success && response.data) {
-   *   console.log('Teachers:', response.data);
+   *   logger.debug('Teachers:', response.data);
    * }
    */
   async getProfilesByRole(

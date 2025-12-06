@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { Badge } from '@/components/ui/badge';
 import { useChatNotifications } from '@/hooks/useChatNotifications';
 import { notificationWebSocketService, Notification } from '@/services/notificationWebSocketService';
@@ -25,7 +26,7 @@ export function ChatNotificationBadge({ className, showZero = false }: ChatNotif
           }
         },
         onError: (error) => {
-          console.error('WebSocket notification error:', error);
+          logger.error('WebSocket notification error:', error);
         }
       });
 

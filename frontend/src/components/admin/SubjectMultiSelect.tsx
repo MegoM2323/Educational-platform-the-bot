@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -44,7 +45,7 @@ export const SubjectMultiSelect = ({ value, onChange, disabled }: SubjectMultiSe
         const subjectsArray = Array.isArray(data) ? data : (data.results || []);
         setSubjects(subjectsArray);
       } catch (err: any) {
-        console.error('Error loading subjects:', err);
+        logger.error('Error loading subjects:', err);
         setError(err.message || 'Не удалось загрузить список предметов');
       } finally {
         setLoading(false);

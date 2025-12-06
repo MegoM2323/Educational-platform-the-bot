@@ -1,4 +1,5 @@
 // Supabase клиент для аутентификации
+import { logger } from '@/utils/logger';
 import { createClient, SupabaseClient, User as SupabaseUser, AuthError } from '@supabase/supabase-js';
 import { User } from '@/integrations/api/unifiedClient';
 
@@ -29,7 +30,7 @@ class SupabaseAuthServiceImpl implements SupabaseAuthService {
 
   private initializeSupabase(): void {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      console.warn('Supabase credentials не найдены. Supabase аутентификация недоступна.');
+      logger.warn('Supabase credentials не найдены. Supabase аутентификация недоступна.');
       return;
     }
 
@@ -42,7 +43,7 @@ class SupabaseAuthServiceImpl implements SupabaseAuthService {
         this.notifyAuthStateChange(user);
       });
     } catch (error) {
-      console.error('Ошибка инициализации Supabase:', error);
+      logger.error('Ошибка инициализации Supabase:', error);
     }
   }
 
@@ -67,7 +68,7 @@ class SupabaseAuthServiceImpl implements SupabaseAuthService {
       try {
         callback(user);
       } catch (error) {
-        console.error('Ошибка в callback Supabase аутентификации:', error);
+        logger.error('Ошибка в callback Supabase аутентификации:', error);
       }
     });
   }
@@ -178,7 +179,7 @@ class SupabaseAuthServiceImpl implements SupabaseAuthService {
       }
       return null;
     } catch (error) {
-      console.error('Ошибка получения текущего пользователя:', error);
+      logger.error('Ошибка получения текущего пользователя:', error);
       return null;
     }
   }

@@ -19,7 +19,7 @@ export const tokenStorage = {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
 
     if (accessToken) {
-      console.debug('[tokenStorage.getTokens]', {
+      logger.debug('[tokenStorage.getTokens]', {
         hasAccessToken: true,
         accessTokenLength: accessToken.length,
         hasRefreshToken: !!refreshToken
@@ -40,7 +40,7 @@ export const tokenStorage = {
       localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     }
 
-    console.debug('[tokenStorage.saveTokens]', {
+    logger.debug('[tokenStorage.saveTokens]', {
       tokenLength: token.length,
       hasRefreshToken: !!refreshToken,
       refreshTokenLength: refreshToken?.length || 0

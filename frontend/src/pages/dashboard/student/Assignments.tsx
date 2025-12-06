@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { logger } from '@/utils/logger';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/layout/StudentSidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,7 +58,7 @@ const StudentAssignments: React.FC = () => {
       setFile(null);
       setSelectedAssignment(null);
     } catch (error) {
-      console.error('Failed to submit assignment:', error);
+      logger.error('Failed to submit assignment:', error);
     }
   };
 

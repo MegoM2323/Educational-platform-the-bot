@@ -1,4 +1,5 @@
 // React Context для управления состоянием аутентификации
+import { logger } from '@/utils/logger';
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { authService, AuthResult, LoginRequest, User } from '@/services/authService';
 
@@ -35,7 +36,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const currentUser = authService.getCurrentUser();
         const isAuth = authService.isAuthenticated();
 
-        console.log('AuthContext init:', {
+        logger.debug('AuthContext init:', {
           currentUser,
           isAuth,
           hasUser: !!currentUser,
@@ -44,17 +45,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (isAuth && currentUser) {
           setUser(currentUser);
-          console.log('AuthContext: user set', currentUser);
+          logger.debug('AuthContext: user set', currentUser);
         } else {
           setUser(null);
-          console.log('AuthContext: user not authenticated');
+          logger.debug('AuthContext: user not authenticated');
         }
       } catch (error) {
-        console.error('Ошибка инициализации аутентификации:', error);
+        logger.error('Ошибка инициализации аутентификации:', error);
         setUser(null);
       } finally {
         setIsLoading(false);
-        console.log('AuthContext: isLoading set to false');
+        logger.debug('AuthContext: isLoading set to false');
       }
     };
 
@@ -102,7 +103,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const result = await authService.login(credentials);
 
-      console.log('AuthContext.login: setting user after successful login', {
+      logger.debug('AuthContext.login: setting user after successful login', {
         userId: result.user?.id,
         role: result.user?.role,
       });
@@ -114,7 +115,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       return result;
     } catch (error) {
-      console.error('AuthContext.login: login failed', error);
+      logger.error('AuthContext.login: login failed', error);
       setUser(null);
       throw error;
     } finally {
@@ -132,7 +133,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         window.location.href = '/auth';
       }
     } catch (error) {
-      console.error('Ошибка выхода:', error);
+      logger.error('Ошибка выхода:', error);
       // Даже если произошла ошибка, очищаем состояние
       setUser(null);
       // Force navigation even on error
@@ -148,7 +149,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       return await authService.refreshTokenIfNeeded();
     } catch (error) {
-      console.error('Ошибка обновления токена:', error);
+      logger.error('Ошибка обновления токена:', error);
       setUser(null);
       return null;
     }

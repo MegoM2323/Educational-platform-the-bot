@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { logger } from '@/utils/logger';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -128,7 +129,7 @@ export default function StudentMaterials() {
       const errorMessage = 'Произошла ошибка при загрузке материалов';
       setError(errorMessage);
       showError(errorMessage);
-      console.error('Materials fetch error:', err);
+      logger.error('Materials fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -142,7 +143,7 @@ export default function StudentMaterials() {
         setSubjects(response.data);
       }
     } catch (err) {
-      console.error('Subjects fetch error:', err);
+      logger.error('Subjects fetch error:', err);
     }
   };
 
@@ -164,7 +165,7 @@ export default function StudentMaterials() {
         setStudyPlans(response.data.study_plans || []);
       }
     } catch (err) {
-      console.error('Study plans fetch error:', err);
+      logger.error('Study plans fetch error:', err);
     } finally {
       setStudyPlansLoading(false);
     }
@@ -215,7 +216,7 @@ export default function StudentMaterials() {
       showSuccess('Файл успешно скачан');
     } catch (err: any) {
       showError('Ошибка при скачивании файла');
-      console.error('Download error:', err);
+      logger.error('Download error:', err);
     }
   };
 
@@ -245,7 +246,7 @@ export default function StudentMaterials() {
           : material
       ));
     } catch (err) {
-      console.error('Progress update error:', err);
+      logger.error('Progress update error:', err);
     }
   };
 
@@ -347,7 +348,7 @@ export default function StudentMaterials() {
                                 }
                               } catch (err: any) {
                                 showError('Произошла ошибка при загрузке деталей плана');
-                                console.error('Load plan details error:', err);
+                                logger.error('Load plan details error:', err);
                               }
                             }}
                             className="ml-4"

@@ -1,4 +1,5 @@
 // Performance Monitoring Service
+import { logger } from '@/utils/logger';
 // Tracks API response times, network performance, and system health
 
 export interface PerformanceMetric {
@@ -39,7 +40,7 @@ class PerformanceMonitoringService {
   endTimer(id: string, metadata?: Record<string, any>): number {
     const startTime = this.activeTimers.get(id);
     if (!startTime) {
-      console.warn(`Timer ${id} not found`);
+      logger.warn(`Timer ${id} not found`);
       return 0;
     }
 
@@ -117,7 +118,7 @@ class PerformanceMonitoringService {
 
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.log(`📊 Performance: ${metric.name} - ${metric.duration.toFixed(2)}ms`);
+      logger.debug(`📊 Performance: ${metric.name} - ${metric.duration.toFixed(2)}ms`);
     }
 
     // Send to server in production
@@ -136,7 +137,7 @@ class PerformanceMonitoringService {
       //   body: JSON.stringify(metric),
       // });
     } catch (error) {
-      console.error('Failed to send slow metric to server:', error);
+      logger.error('Failed to send slow metric to server:', error);
     }
   }
 
@@ -246,7 +247,7 @@ class PerformanceMonitoringService {
 
       observer.observe({ type: 'largest-contentful-paint', buffered: true });
     } catch (e) {
-      console.warn('Web Vitals LCP tracking not supported:', e);
+      logger.warn('Web Vitals LCP tracking not supported:', e);
     }
 
     // Track First Input Delay (FID)
@@ -270,7 +271,7 @@ class PerformanceMonitoringService {
 
       observer.observe({ type: 'first-input', buffered: true });
     } catch (e) {
-      console.warn('Web Vitals FID tracking not supported:', e);
+      logger.warn('Web Vitals FID tracking not supported:', e);
     }
   }
 }

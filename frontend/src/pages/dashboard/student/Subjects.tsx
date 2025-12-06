@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +42,7 @@ const Subjects = () => {
         const data = await studentDashboardAPI.getSubjects();
         setSubjects(data);
       } catch (error: any) {
-        console.error('Error fetching subjects:', error);
+        logger.error('Error fetching subjects:', error);
         toast({
           title: "Ошибка загрузки",
           description: error.message || "Не удалось загрузить предметы",

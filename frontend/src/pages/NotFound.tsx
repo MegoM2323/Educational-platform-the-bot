@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import { logger } from '@/utils/logger';
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,7 +12,7 @@ const NotFound = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    logger.error("404 Error: User attempted to access non-existent route:", location.pathname);
   }, [location.pathname]);
 
   const handleBackClick = () => {

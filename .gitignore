@@ -75,6 +75,9 @@ coverage.xml
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 
 # Flask stuff:
 instance/
@@ -111,6 +114,8 @@ __pypackages__/
 
 # Celery stuff
 celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
 celerybeat.pid
 
 # SageMath parsed files
@@ -118,6 +123,10 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+.env.production
+.env.development
+.env.local
 .venv
 env/
 venv/
@@ -125,6 +134,14 @@ ENV/
 env.bak/
 venv.bak/
 .cursor/
+
+# Security - Never commit these
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.*
+secrets.*
 
 # Spyder project settings
 .spyderproject

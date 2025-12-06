@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { logger } from '@/utils/logger';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -84,7 +85,7 @@ const TeacherAssignments: React.FC = () => {
       setCreateDialogOpen(false);
       resetForm();
     } catch (error) {
-      console.error('Failed to create assignment:', error);
+      logger.error('Failed to create assignment:', error);
     }
   };
 
@@ -119,7 +120,7 @@ const TeacherAssignments: React.FC = () => {
       setFeedback('');
       setSelectedSubmission(null);
     } catch (error) {
-      console.error('Failed to grade submission:', error);
+      logger.error('Failed to grade submission:', error);
     }
   };
 

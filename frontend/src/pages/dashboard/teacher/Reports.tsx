@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,22 +58,22 @@ export default function TeacherReports() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('[Teacher Reports] Loading data...');
+      logger.debug('[Teacher Reports] Loading data...');
       const [reportsData, studentsData] = await Promise.all([
         teacherWeeklyReportsAPI.getReports(),
         teacherWeeklyReportsAPI.getAvailableStudents(),
       ]);
-      console.log('[Teacher Reports] Reports loaded:', reportsData);
-      console.log('[Teacher Reports] Students loaded:', studentsData);
+      logger.debug('[Teacher Reports] Reports loaded:', reportsData);
+      logger.debug('[Teacher Reports] Students loaded:', studentsData);
       const reportsArray = Array.isArray(reportsData) ? reportsData : [];
       const studentsArray = Array.isArray(studentsData) ? studentsData : [];
-      console.log('[Teacher Reports] Setting reports:', reportsArray.length);
-      console.log('[Teacher Reports] Setting students:', studentsArray.length);
+      logger.debug('[Teacher Reports] Setting reports:', reportsArray.length);
+      logger.debug('[Teacher Reports] Setting students:', studentsArray.length);
       setReports(reportsArray);
       setStudents(studentsArray);
     } catch (error: any) {
-      console.error('[Teacher Reports] Error loading reports data:', error);
-      console.error('[Teacher Reports] Error details:', {
+      logger.error('[Teacher Reports] Error loading reports data:', error);
+      logger.error('[Teacher Reports] Error details:', {
         message: error?.message,
         response: error?.response,
         stack: error?.stack,
@@ -113,7 +114,7 @@ export default function TeacherReports() {
 
     try {
       setLoading(true);
-      console.log('Creating teacher report with data:', {
+      logger.debug('Creating teacher report with data:', {
         student: formData.student,
         subject: formData.subject,
         week_start: formData.week_start,
@@ -122,7 +123,7 @@ export default function TeacherReports() {
         title: formData.title,
       });
       const createdReport = await teacherWeeklyReportsAPI.createReport(formData);
-      console.log('Report created successfully:', createdReport);
+      logger.debug('Report created successfully:', createdReport);
       
       // Добавляем созданный отчет в список сразу
       if (createdReport && createdReport.id) {
@@ -147,11 +148,11 @@ export default function TeacherReports() {
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/teacher-weekly-reports/');
       // Обновляем данные в фоне для синхронизации
-      loadData().catch(err => console.error('Error refreshing data:', err));
+      loadData().catch(err => logger.error('Error refreshing data:', err));
     } catch (error: any) {
-      console.error('Error creating teacher report:', error);
+      logger.error('Error creating teacher report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || error?.response?.data?.error || 'Не удалось создать отчет';
-      console.error('Error details:', {
+      logger.error('Error details:', {
         message: errorMessage,
         response: error?.response?.data,
         status: error?.response?.status,
@@ -169,9 +170,9 @@ export default function TeacherReports() {
   const handleSendReport = async (reportId: number) => {
     try {
       setLoading(true);
-      console.log('Sending teacher report:', reportId);
+      logger.debug('Sending teacher report:', reportId);
       await teacherWeeklyReportsAPI.sendReport(reportId);
-      console.log('Report sent successfully');
+      logger.debug('Report sent successfully');
 
       // Обновляем статус отчета в состоянии немедленно
       setReports(prev => prev.map(r =>
@@ -187,7 +188,7 @@ export default function TeacherReports() {
       cacheService.delete('/reports/teacher-weekly-reports/');
       await loadData();
     } catch (error: any) {
-      console.error('Error sending teacher report:', error);
+      logger.error('Error sending teacher report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || error?.response?.data?.error || 'Не удалось отправить отчет';
       toast({
         title: 'Ошибка',
@@ -236,9 +237,9 @@ export default function TeacherReports() {
 
     try {
       setLoading(true);
-      console.log('Updating teacher report:', editingReport.id, formData);
+      logger.debug('Updating teacher report:', editingReport.id, formData);
       const updatedReport = await teacherWeeklyReportsAPI.updateReport(editingReport.id, formData);
-      console.log('Report updated successfully:', updatedReport);
+      logger.debug('Report updated successfully:', updatedReport);
 
       // Обновляем отчет в состоянии немедленно
       setReports(prev => prev.map(r =>
@@ -257,7 +258,7 @@ export default function TeacherReports() {
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/teacher-weekly-reports/');
     } catch (error: any) {
-      console.error('Error updating teacher report:', error);
+      logger.error('Error updating teacher report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось обновить отчет';
       toast({
         title: 'Ошибка',
@@ -272,9 +273,9 @@ export default function TeacherReports() {
   const handleDeleteReport = async (reportId: number) => {
     try {
       setLoading(true);
-      console.log('Deleting teacher report:', reportId);
+      logger.debug('Deleting teacher report:', reportId);
       await teacherWeeklyReportsAPI.deleteReport(reportId);
-      console.log('Report deleted successfully');
+      logger.debug('Report deleted successfully');
 
       // Удаляем отчет из состояния немедленно
       setReports(prev => prev.filter(r => r.id !== reportId));
@@ -289,7 +290,7 @@ export default function TeacherReports() {
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/teacher-weekly-reports/');
     } catch (error: any) {
-      console.error('Error deleting teacher report:', error);
+      logger.error('Error deleting teacher report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось удалить отчет';
       toast({
         title: 'Ошибка',
@@ -367,7 +368,7 @@ export default function TeacherReports() {
         end: sunday.toISOString().split('T')[0],
       };
     } catch (error) {
-      console.error('Error calculating current week:', error);
+      logger.error('Error calculating current week:', error);
       // Fallback на текущую дату
       const today = new Date();
       return {
@@ -385,7 +386,7 @@ export default function TeacherReports() {
           setFormData(prev => ({ ...prev, week_start: week.start, week_end: week.end }));
         }
       } catch (error) {
-        console.error('Error setting week dates:', error);
+        logger.error('Error setting week dates:', error);
       }
     }
   }, [showCreateForm]);

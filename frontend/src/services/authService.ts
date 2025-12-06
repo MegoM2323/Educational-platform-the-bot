@@ -1,6 +1,7 @@
 // Унифицированный сервис аутентификации
 import { unifiedAPI as apiClient, User } from '@/integrations/api/unifiedClient';
 import { secureStorage } from '@/utils/secureStorage';
+import { logger } from '@/utils/logger';
 
 export interface AuthResult {
   user: User;
@@ -49,7 +50,7 @@ class AuthService {
       const storedRefreshToken = this.getStoredRefreshToken();
       const storedExpiry = this.getStoredTokenExpiry();
 
-      console.log('AuthService init:', {
+      logger.debug('AuthService init:', {
         hasToken: !!storedToken,
         hasUser: !!storedUser,
         hasExpiry: !!storedExpiry,
@@ -71,10 +72,10 @@ class AuthService {
           // If no expiry in storage, set default (7 days from now)
           this.tokenExpiry = storedExpiry || (Date.now() + (7 * 24 * 60 * 60 * 1000));
           apiClient.setToken(storedToken);
-          console.log('AuthService: user authenticated', this.user);
+          logger.debug('AuthService: user authenticated', this.user);
         } else {
           // Токен истек, пытаемся обновить
-          console.log('AuthService: token expired, attempting refresh');
+          logger.debug('AuthService: token expired, attempting refresh');
           this.isRefreshing = true;
           try {
             // Временно устанавливаем старый токен для refresh запроса
@@ -82,9 +83,9 @@ class AuthService {
             apiClient.setToken(storedToken);
 
             await this.refreshTokenIfNeeded();
-            console.log('AuthService: token refreshed successfully during init');
+            logger.debug('AuthService: token refreshed successfully during init');
           } catch (err) {
-            console.error('AuthService: Failed to refresh token during init:', err);
+            logger.error('AuthService: Failed to refresh token during init:', err);
             this.clearStorage();
             this.user = null;
             this.token = null;
@@ -93,10 +94,10 @@ class AuthService {
           }
         }
       } else {
-        console.log('AuthService: no stored credentials (missing token or user)');
+        logger.debug('AuthService: no stored credentials (missing token or user)');
       }
     } catch (error) {
-      console.error('Ошибка инициализации аутентификации:', error);
+      logger.error('Ошибка инициализации аутентификации:', error);
       this.clearStorage();
     }
   }
@@ -191,7 +192,7 @@ class AuthService {
 
       const { token, user } = response.data;
 
-      console.log('[AuthService.login] Login successful:', {
+      logger.debug('[AuthService.login] Login successful:', {
         username: user?.username,
         role: user?.role,
         tokenLength: token?.length
@@ -217,7 +218,7 @@ class AuthService {
       // Уведомляем подписчиков
       this.notifyAuthStateChange(user);
 
-      console.log('[AuthService.login] User and token saved to secureStorage:', {
+      logger.debug('[AuthService.login] User and token saved to secureStorage:', {
         currentUser: this.user?.username,
         currentRole: this.user?.role,
         hasToken: !!this.token,
@@ -230,7 +231,7 @@ class AuthService {
         expires_at: new Date(this.tokenExpiry).toISOString()
       };
     } catch (error) {
-      console.error('Ошибка входа:', error);
+      logger.error('Ошибка входа:', error);
       throw error;
     }
   }
@@ -239,7 +240,7 @@ class AuthService {
     try {
       await apiClient.logout();
     } catch (error) {
-      console.error('Ошибка выхода:', error);
+      logger.error('Ошибка выхода:', error);
     } finally {
       // Очищаем состояние независимо от результата запроса
       this.token = null;
@@ -280,7 +281,7 @@ class AuthService {
   public async refreshTokenIfNeeded(): Promise<string | null> {
     // Если нет токена или срока действия, возвращаем null
     if (!this.token || !this.tokenExpiry) {
-      console.log('[AuthService.refreshTokenIfNeeded] No token or expiry');
+      logger.debug('[AuthService.refreshTokenIfNeeded] No token or expiry');
       return null;
     }
 
@@ -288,7 +289,7 @@ class AuthService {
     const refreshThreshold = 5 * 60 * 1000; // 5 минут
     const timeUntilExpiry = this.tokenExpiry - Date.now();
 
-    console.log('[AuthService.refreshTokenIfNeeded]', {
+    logger.debug('[AuthService.refreshTokenIfNeeded]', {
       timeUntilExpiry,
       refreshThreshold,
       needsRefresh: timeUntilExpiry < refreshThreshold
@@ -299,7 +300,7 @@ class AuthService {
     }
 
     try {
-      console.log('[AuthService.refreshTokenIfNeeded] Token expiring soon, refreshing...');
+      logger.debug('[AuthService.refreshTokenIfNeeded] Token expiring soon, refreshing...');
 
       // Вызываем API для обновления токена
       const response = await apiClient.refreshToken();
@@ -324,14 +325,14 @@ class AuthService {
       // Устанавливаем новый токен в API клиент
       apiClient.setToken(token);
 
-      console.log('[AuthService.refreshTokenIfNeeded] Token refreshed successfully');
+      logger.debug('[AuthService.refreshTokenIfNeeded] Token refreshed successfully');
 
       // Уведомляем подписчиков
       this.notifyAuthStateChange(user);
 
       return this.token;
     } catch (error) {
-      console.error('[AuthService.refreshTokenIfNeeded] Error refreshing token:', error);
+      logger.error('[AuthService.refreshTokenIfNeeded] Error refreshing token:', error);
       // При ошибке обновления выполняем logout
       await this.logout();
       return null;
@@ -355,7 +356,7 @@ class AuthService {
       try {
         callback(user);
       } catch (error) {
-        console.error('Ошибка в callback аутентификации:', error);
+        logger.error('Ошибка в callback аутентификации:', error);
       }
     });
   }

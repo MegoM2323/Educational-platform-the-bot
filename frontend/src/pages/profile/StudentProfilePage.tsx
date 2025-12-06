@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { useStudentProfile } from '@/hooks/useStudentProfile';
 import { useAuth } from '@/hooks/useAuth';
@@ -162,7 +163,7 @@ export const StudentProfilePage = () => {
       setAvatarFile(null);
       setAvatarPreview(null);
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      logger.error('Failed to update profile:', error);
     }
   };
 

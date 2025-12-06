@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,7 @@ const AssignSubject = () => {
           setStudents(filteredStudents);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        logger.error('Error fetching data:', error);
         toast({
           title: "Ошибка загрузки данных",
           description: "Не удалось загрузить предметы и студентов",
@@ -146,7 +147,7 @@ const AssignSubject = () => {
       // Возвращаемся на дашборд
       navigate('/dashboard/teacher');
     } catch (error: any) {
-      console.error('Error assigning subject:', error);
+      logger.error('Error assigning subject:', error);
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось назначить предмет",

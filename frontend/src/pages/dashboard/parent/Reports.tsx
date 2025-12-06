@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Eye, Calendar, CheckCircle, Trash2 } from "lucide-react";
@@ -60,27 +61,27 @@ export default function ParentReports() {
   const loadReports = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('[Parent Reports] Loading reports, selectedChild:', selectedChild);
+      logger.debug('[Parent Reports] Loading reports, selectedChild:', selectedChild);
       // Backend автоматически фильтрует отчеты по родителю
       const allReports = await tutorWeeklyReportsAPI.getReports();
-      console.log('[Parent Reports] Reports loaded:', allReports);
+      logger.debug('[Parent Reports] Reports loaded:', allReports);
       const reportsArray = Array.isArray(allReports) ? allReports : [];
-      console.log('[Parent Reports] Reports array length:', reportsArray.length);
+      logger.debug('[Parent Reports] Reports array length:', reportsArray.length);
       
       // Если выбран конкретный ребенок, фильтруем на фронтенде
       // Иначе показываем все отчеты о всех детях
       if (selectedChild) {
         const beforeFilter = reportsArray.length;
         const childReports = reportsArray.filter(r => r.student === selectedChild);
-        console.log('[Parent Reports] Filtered reports:', beforeFilter, '->', childReports.length);
+        logger.debug('[Parent Reports] Filtered reports:', beforeFilter, '->', childReports.length);
         setReports(childReports);
       } else {
-        console.log('[Parent Reports] Setting all reports:', reportsArray.length);
+        logger.debug('[Parent Reports] Setting all reports:', reportsArray.length);
         setReports(reportsArray);
       }
     } catch (error: any) {
-      console.error('[Parent Reports] Error loading reports:', error);
-      console.error('[Parent Reports] Error details:', {
+      logger.error('[Parent Reports] Error loading reports:', error);
+      logger.error('[Parent Reports] Error details:', {
         message: error?.message,
         response: error?.response,
         stack: error?.stack,
@@ -143,9 +144,9 @@ export default function ParentReports() {
   const handleDeleteReport = async (reportId: number) => {
     try {
       setLoading(true);
-      console.log('Deleting tutor report:', reportId);
+      logger.debug('Deleting tutor report:', reportId);
       await tutorWeeklyReportsAPI.deleteReport(reportId);
-      console.log('Report deleted successfully');
+      logger.debug('Report deleted successfully');
 
       // Удаляем отчет из состояния немедленно
       setReports(prev => prev.filter(r => r.id !== reportId));
@@ -160,7 +161,7 @@ export default function ParentReports() {
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/tutor-weekly-reports/');
     } catch (error: any) {
-      console.error('Error deleting tutor report:', error);
+      logger.error('Error deleting tutor report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось удалить отчет';
       toast({
         title: 'Ошибка',

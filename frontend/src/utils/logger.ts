@@ -26,6 +26,7 @@ class Logger {
       enabled: import.meta.env.DEV || import.meta.env.VITE_ENABLE_LOGGING === 'true',
       level: (import.meta.env.VITE_LOG_LEVEL as LogLevel) || 'info',
       prefix: config.prefix || '[App]',
+      ...config,
     };
   }
 

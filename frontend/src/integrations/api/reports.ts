@@ -1,4 +1,5 @@
 // Reports API Service
+import { logger } from '@/utils/logger';
 import { unifiedAPI } from './unifiedClient';
 
 export interface StudentReport {
@@ -167,15 +168,15 @@ export interface TeacherStudent {
 export const tutorWeeklyReportsAPI = {
   // Получить все отчеты тьютора
   getReports: async (): Promise<TutorWeeklyReport[]> => {
-    console.log('[API] Fetching tutor weekly reports...');
+    logger.debug('[API] Fetching tutor weekly reports...');
     const response = await unifiedAPI.request<TutorWeeklyReport[]>('/reports/tutor-weekly-reports/');
-    console.log('[API] Tutor weekly reports response:', response);
+    logger.debug('[API] Tutor weekly reports response:', response);
     if (response.error) {
-      console.error('[API] Tutor weekly reports error:', response.error);
+      logger.error('[API] Tutor weekly reports error:', response.error);
       throw new Error(response.error);
     }
     const data = response.data || [];
-    console.log('[API] Tutor weekly reports data:', data, 'length:', data.length);
+    logger.debug('[API] Tutor weekly reports data:', data, 'length:', data.length);
     return data;
   },
 
@@ -311,15 +312,15 @@ export const tutorWeeklyReportsAPI = {
 
   // Получить список доступных студентов
   getAvailableStudents: async (): Promise<TutorStudent[]> => {
-    console.log('[API] Fetching tutor available students...');
+    logger.debug('[API] Fetching tutor available students...');
     const response = await unifiedAPI.request<{ students: TutorStudent[] }>('/reports/tutor-weekly-reports/available_students/');
-    console.log('[API] Tutor available students response:', response);
+    logger.debug('[API] Tutor available students response:', response);
     if (response.error) {
-      console.error('[API] Tutor available students error:', response.error);
+      logger.error('[API] Tutor available students error:', response.error);
       throw new Error(response.error);
     }
     const data = response.data?.students || [];
-    console.log('[API] Tutor available students data:', data, 'length:', data.length);
+    logger.debug('[API] Tutor available students data:', data, 'length:', data.length);
     return data;
   },
 };
@@ -328,15 +329,15 @@ export const tutorWeeklyReportsAPI = {
 export const teacherWeeklyReportsAPI = {
   // Получить все отчеты преподавателя
   getReports: async (): Promise<TeacherWeeklyReport[]> => {
-    console.log('[API] Fetching teacher weekly reports...');
+    logger.debug('[API] Fetching teacher weekly reports...');
     const response = await unifiedAPI.request<TeacherWeeklyReport[]>('/reports/teacher-weekly-reports/');
-    console.log('[API] Teacher weekly reports response:', response);
+    logger.debug('[API] Teacher weekly reports response:', response);
     if (response.error) {
-      console.error('[API] Teacher weekly reports error:', response.error);
+      logger.error('[API] Teacher weekly reports error:', response.error);
       throw new Error(response.error);
     }
     const data = response.data || [];
-    console.log('[API] Teacher weekly reports data:', data, 'length:', data.length);
+    logger.debug('[API] Teacher weekly reports data:', data, 'length:', data.length);
     return data;
   },
 
@@ -470,15 +471,15 @@ export const teacherWeeklyReportsAPI = {
 
   // Получить список доступных студентов
   getAvailableStudents: async (): Promise<TeacherStudent[]> => {
-    console.log('[API] Fetching teacher available students...');
+    logger.debug('[API] Fetching teacher available students...');
     const response = await unifiedAPI.request<{ students: TeacherStudent[] }>('/reports/teacher-weekly-reports/available_students/');
-    console.log('[API] Teacher available students response:', response);
+    logger.debug('[API] Teacher available students response:', response);
     if (response.error) {
-      console.error('[API] Teacher available students error:', response.error);
+      logger.error('[API] Teacher available students error:', response.error);
       throw new Error(response.error);
     }
     const data = response.data?.students || [];
-    console.log('[API] Teacher available students data:', data, 'length:', data.length);
+    logger.debug('[API] Teacher available students data:', data, 'length:', data.length);
     return data;
   },
 

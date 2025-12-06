@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -45,7 +46,7 @@ const ApplicationStatus = () => {
       }
     } catch (error) {
       toast.error("Произошла ошибка при загрузке статуса заявки");
-      console.error('Status fetch error:', error);
+      logger.error('Status fetch error:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

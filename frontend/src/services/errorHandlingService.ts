@@ -1,4 +1,5 @@
 // Enhanced Error Handling Service
+import { logger } from '@/utils/logger';
 // Provides user-friendly error messages and recovery options
 
 import { errorLoggingService } from './errorLoggingService';
@@ -33,7 +34,7 @@ class ErrorHandlingService {
       // This will be set when the notification context is available
       this.notificationService = null;
     } catch (error) {
-      console.warn('Notification service not available:', error);
+      logger.warn('Notification service not available:', error);
     }
   }
 

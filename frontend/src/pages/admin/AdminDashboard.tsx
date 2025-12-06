@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,7 +56,7 @@ export default function AdminDashboard() {
       toast.success('Вы вышли из системы');
       navigate('/auth');
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
       toast.error('Ошибка при выходе');
     } finally {
       setIsLogoutLoading(false);

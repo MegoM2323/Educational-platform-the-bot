@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { logger } from '@/utils/logger';
 import { useMemo } from 'react';
 import { schedulingAPI } from '@/integrations/api/schedulingAPI';
 import { Lesson, LessonFilters } from '@/types/scheduling';
@@ -12,7 +13,7 @@ export const useStudentSchedule = (filters?: LessonFilters) => {
         // Студенты видят только свои уроки через get_queryset() в LessonViewSet
         return await schedulingAPI.getLessons(filters);
       } catch (error) {
-        console.error('Error fetching student schedule:', error);
+        logger.error('Error fetching student schedule:', error);
         throw error;
       }
     },

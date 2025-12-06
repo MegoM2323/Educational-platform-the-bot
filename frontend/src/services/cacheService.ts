@@ -1,4 +1,5 @@
 // Cache Service for API response caching and data management
+import { logger } from '@/utils/logger';
 // Implements TTL-based caching with browser storage
 
 export interface CacheEntry<T = any> {
@@ -73,7 +74,7 @@ class CacheService {
         }
       }
     } catch (error) {
-      console.error('Failed to load cache from storage:', error);
+      logger.error('Failed to load cache from storage:', error);
     }
   }
 
@@ -84,7 +85,7 @@ class CacheService {
       const storageKey = this.getStorageKey(key);
       this.storage.setItem(storageKey, JSON.stringify(entry));
     } catch (error) {
-      console.error('Failed to save cache to storage:', error);
+      logger.error('Failed to save cache to storage:', error);
       // Storage might be full, try to clear old entries
       this.cleanupOldEntries();
     }
@@ -97,7 +98,7 @@ class CacheService {
       const storageKey = this.getStorageKey(key);
       this.storage.removeItem(storageKey);
     } catch (error) {
-      console.error('Failed to remove cache from storage:', error);
+      logger.error('Failed to remove cache from storage:', error);
     }
   }
 

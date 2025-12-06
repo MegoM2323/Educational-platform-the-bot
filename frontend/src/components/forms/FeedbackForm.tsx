@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,7 +131,7 @@ export default function FeedbackForm({ submission, onSuccess, onCancel }: Feedba
         throw new Error(response.error || 'Ошибка отправки фидбэка');
       }
     } catch (error: any) {
-      console.error('Feedback error:', error);
+      logger.error('Feedback error:', error);
       toast({
         title: "Ошибка",
         description: error.message || "Произошла ошибка при отправке фидбэка",

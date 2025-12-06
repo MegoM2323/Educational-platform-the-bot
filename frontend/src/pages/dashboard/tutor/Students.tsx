@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { TutorSidebar } from '@/components/layout/TutorSidebar';
 import { Button } from '@/components/ui/button';
@@ -32,14 +33,14 @@ export default function TutorStudentsPage() {
   useEffect(() => {
     if (students) {
       const totalSubjects = students.reduce((sum, s) => sum + (s.subjects?.length || 0), 0);
-      console.log(`[TutorStudentsPage] Rendered with ${students.length} students, ${totalSubjects} total subjects`);
+      logger.debug(`[TutorStudentsPage] Rendered with ${students.length} students, ${totalSubjects} total subjects`);
       
       students.forEach(s => {
         const subjectsCount = s.subjects?.length || 0;
-        console.log(`[TutorStudentsPage] - Student ${s.id} (${s.full_name}): ${subjectsCount} subjects`);
+        logger.debug(`[TutorStudentsPage] - Student ${s.id} (${s.full_name}): ${subjectsCount} subjects`);
         if (subjectsCount > 0) {
           s.subjects?.forEach(subj => {
-            console.log(`    * ${subj.name} (teacher: ${subj.teacher_name})`);
+            logger.debug(`    * ${subj.name} (teacher: ${subj.teacher_name})`);
           });
         }
       });
@@ -95,9 +96,9 @@ export default function TutorStudentsPage() {
     }
 
     try {
-      console.log('Submitting student creation form:', form);
+      logger.debug('Submitting student creation form:', form);
       const res = await createMutation.mutateAsync(form);
-      console.log('Student created successfully:', res);
+      logger.debug('Student created successfully:', res);
       
       setGeneratedCreds(res.credentials);
       setOpen(false);
@@ -118,10 +119,10 @@ export default function TutorStudentsPage() {
       
       // Данные уже обновляются через onSuccess в useCreateTutorStudent
       // Toast показывается в хуке useCreateTutorStudent
-      console.log('[Students] Student created, data should be refreshed automatically');
+      logger.debug('[Students] Student created, data should be refreshed automatically');
     } catch (error: any) {
       // Ошибка уже обрабатывается в onError хука useCreateTutorStudent
-      console.error('Error creating student:', error);
+      logger.error('Error creating student:', error);
     }
   };
 
@@ -191,7 +192,7 @@ export default function TutorStudentsPage() {
 
                           <div className="pt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
                             <Button variant="secondary" size="sm" onClick={() => {
-                              console.log('[Students] Opening assign dialog for student:', s.id);
+                              logger.debug('[Students] Opening assign dialog for student:', s.id);
                               setSelectedStudentId(s.id);
                               setAssignOpen(true);
                             }}>Назначить предмет</Button>

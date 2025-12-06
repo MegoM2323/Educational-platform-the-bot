@@ -138,7 +138,9 @@ class Lesson(models.Model):
             from materials.models import SubjectEnrollment
 
             try:
-                enrollment = SubjectEnrollment.objects.get(
+                enrollment = SubjectEnrollment.objects.select_related(
+                    'teacher', 'student', 'subject'
+                ).get(
                     student=self.student,
                     teacher=self.teacher,
                     subject=self.subject,
@@ -149,6 +151,18 @@ class Lesson(models.Model):
                     f'Teacher {self.teacher.get_full_name()} does not teach '
                     f'{self.subject.name} to student {self.student.get_full_name()}'
                 )
+
+    def save(self, *args, skip_validation=False, **kwargs):
+        """
+        Override save to enforce validation.
+
+        Args:
+            skip_validation: Set to True to bypass validation (for tests/migrations only)
+        """
+        if not skip_validation:
+            # Запускаем полную валидацию перед сохранением
+            self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class LessonHistory(models.Model):

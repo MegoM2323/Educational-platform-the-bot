@@ -1,4 +1,5 @@
 /**
+import { logger } from '@/utils/logger';
  * WebSocket Service для real-time коммуникации
  * Поддерживает автоматическое переподключение, управление подписками и очереди сообщений
  */
@@ -56,7 +57,7 @@ export class WebSocketService {
   async connect(url?: string): Promise<void> {
     // If URL provided, disconnect first if connected to different URL
     if (url && this.currentUrl !== url) {
-      console.log(`[WebSocket] Switching URL from ${this.currentUrl} to ${url}`);
+      logger.debug(`[WebSocket] Switching URL from ${this.currentUrl} to ${url}`);
       this.disconnect();
       this.currentUrl = url;
     }
@@ -64,7 +65,7 @@ export class WebSocketService {
     const targetUrl = this.currentUrl || this.config.url;
 
     if (this.isConnecting || this.connectionState === 'connected') {
-      console.log('[WebSocket] Already connecting or connected to:', targetUrl);
+      logger.debug('[WebSocket] Already connecting or connected to:', targetUrl);
       return;
     }
 
@@ -72,13 +73,13 @@ export class WebSocketService {
     this.connectionState = 'connecting';
     this.notifyConnectionChange(false);
 
-    console.log('[WebSocket] Connecting to:', targetUrl);
+    logger.debug('[WebSocket] Connecting to:', targetUrl);
 
     try {
       this.ws = new WebSocket(targetUrl);
 
       this.ws.onopen = () => {
-        console.log('[WebSocket] Connected successfully to:', targetUrl);
+        logger.debug('[WebSocket] Connected successfully to:', targetUrl);
         this.connectionState = 'connected';
         this.reconnectAttempts = 0;
         this.isConnecting = false;
@@ -90,7 +91,7 @@ export class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          console.log('[WebSocketService] Raw WebSocket message received:', {
+          logger.debug('[WebSocketService] Raw WebSocket message received:', {
             type: message.type,
             hasMessage: !!message.message,
             messageId: message.message?.id,
@@ -108,12 +109,12 @@ export class WebSocketService {
           } catch {}
           this.handleMessage(message);
         } catch (error) {
-          console.error('[WebSocket] Error parsing message:', error);
+          logger.error('[WebSocket] Error parsing message:', error);
         }
       };
 
       this.ws.onclose = (event) => {
-        console.log('[WebSocket] Disconnected:', event.code, event.reason);
+        logger.debug('[WebSocket] Disconnected:', event.code, event.reason);
         this.connectionState = 'disconnected';
         this.isConnecting = false;
         this.notifyConnectionChange(false);
@@ -122,14 +123,14 @@ export class WebSocketService {
       };
 
       this.ws.onerror = (error) => {
-        console.error('[WebSocket] Connection error:', error);
+        logger.error('[WebSocket] Connection error:', error);
         this.isConnecting = false;
         this.connectionState = 'disconnected';
         this.notifyConnectionChange(false);
       };
 
     } catch (error) {
-      console.error('[WebSocket] Failed to create connection:', error);
+      logger.error('[WebSocket] Failed to create connection:', error);
       this.isConnecting = false;
       this.connectionState = 'disconnected';
       this.notifyConnectionChange(false);
@@ -162,7 +163,7 @@ export class WebSocketService {
       try {
         this.ws.send(JSON.stringify(message));
       } catch (error) {
-        console.error('Error sending WebSocket message:', error);
+        logger.error('Error sending WebSocket message:', error);
         this.queueMessage(message);
       }
     } else {
@@ -242,18 +243,18 @@ export class WebSocketService {
     }
 
     if (message.type === 'error') {
-      console.error('WebSocket server error:', message.error);
+      logger.error('WebSocket server error:', message.error);
       return;
     }
 
-    console.log('[WebSocketService] Broadcasting to', this.subscriptions.size, 'subscriptions');
+    logger.debug('[WebSocketService] Broadcasting to', this.subscriptions.size, 'subscriptions');
     // Уведомляем подписчиков
     this.subscriptions.forEach((subscription) => {
       try {
-        console.log('[WebSocketService] Calling subscription callback for channel:', subscription.channel);
+        logger.debug('[WebSocketService] Calling subscription callback for channel:', subscription.channel);
         subscription.callback(message);
       } catch (error) {
-        console.error('Error in subscription callback:', error);
+        logger.error('Error in subscription callback:', error);
       }
     });
   }
@@ -263,14 +264,14 @@ export class WebSocketService {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts!) {
-      console.error('Max reconnection attempts reached');
+      logger.error('Max reconnection attempts reached');
       return;
     }
 
     this.reconnectAttempts++;
     const delay = this.config.reconnectInterval! * Math.pow(2, this.reconnectAttempts - 1);
     
-    console.log(`Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`);
+    logger.debug(`Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`);
     
     this.reconnectTimer = setTimeout(() => {
       this.connect();
@@ -340,7 +341,7 @@ export class WebSocketService {
       try {
         callback(connected);
       } catch (error) {
-        console.error('Error in connection change callback:', error);
+        logger.error('Error in connection change callback:', error);
       }
     });
   }
@@ -355,7 +356,7 @@ export function getWebSocketBaseUrl(): string {
   const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL);
   if (envUrl && envUrl !== 'undefined') {
     const url = envUrl.replace(/\/$/, '');
-    console.log('[WebSocket Config] Using base URL from VITE_WEBSOCKET_URL env var:', url);
+    logger.debug('[WebSocket Config] Using base URL from VITE_WEBSOCKET_URL env var:', url);
     return url;
   }
 
@@ -363,12 +364,12 @@ export function getWebSocketBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${window.location.host}/ws`;
-    console.log('[WebSocket Config] Using auto-detected base URL from window.location:', url);
+    logger.debug('[WebSocket Config] Using auto-detected base URL from window.location:', url);
     return url;
   }
 
   // Fallback 3: SSR or build-time only
-  console.log('[WebSocket Config] Using fallback base URL (SSR/build-time)');
+  logger.debug('[WebSocket Config] Using fallback base URL (SSR/build-time)');
   return 'ws://localhost:8000/ws';
 }
 

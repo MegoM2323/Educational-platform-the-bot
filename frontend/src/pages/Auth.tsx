@@ -1,4 +1,5 @@
 import { useState, memo } from "react";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,8 +34,9 @@ const Auth = memo(() => {
 
     try {
       // Вход через AuthContext (по умолчанию ВСЕГДА обращаемся к backend)
-      // Dev bypass возможен только при явном флаге VITE_AUTH_DEV_BYPASS === 'true'
-      if (import.meta.env.VITE_AUTH_DEV_BYPASS === 'true') {
+      // Dev bypass возможен только в development mode И при явном флаге VITE_AUTH_DEV_BYPASS === 'true'
+      // SECURITY: import.meta.env.DEV предотвращает bypass в production build
+      if (import.meta.env.DEV && import.meta.env.VITE_AUTH_DEV_BYPASS === 'true') {
         const email = loginData.emailOrUsername.trim().toLowerCase();
         const role = email.includes('parent') ? 'parent' : email.includes('teacher') ? 'teacher' : email.includes('tutor') ? 'tutor' : 'student';
         const mockUser = {
@@ -106,7 +108,7 @@ const Auth = memo(() => {
           navigate('/dashboard/student');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       const msg = (error as any)?.message?.toString()?.toLowerCase() || '';
       if (
         msg.includes('неверн') || // Russian: неверные учетные данные

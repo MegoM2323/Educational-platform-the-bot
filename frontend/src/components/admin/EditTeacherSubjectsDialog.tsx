@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -48,7 +49,7 @@ export const EditTeacherSubjectsDialog = ({
       onSuccess();
       onOpenChange(false);
     } catch (err: any) {
-      console.error('Error updating teacher subjects:', err);
+      logger.error('Error updating teacher subjects:', err);
       setError(err.message || 'Ошибка сохранения предметов');
     } finally {
       setLoading(false);

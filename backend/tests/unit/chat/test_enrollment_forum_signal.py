@@ -344,6 +344,111 @@ class TestForumChatSignalCreation:
 
 @pytest.mark.unit
 @pytest.mark.django_db
+class TestForumSignalConcurrency:
+    """Tests for concurrent signal execution and database constraint protection"""
+
+    def test_concurrent_saves_prevented_by_database_constraint(
+        self, student_user, teacher_user, subject
+    ):
+        """Test that database unique constraint prevents duplicate chats from concurrent saves"""
+        from django.db import IntegrityError
+
+        # Create enrollment first
+        enrollment = SubjectEnrollment.objects.create(
+            student=student_user,
+            subject=subject,
+            teacher=teacher_user
+        )
+
+        # Verify one chat created
+        initial_count = ChatRoom.objects.filter(
+            type=ChatRoom.Type.FORUM_SUBJECT,
+            enrollment=enrollment
+        ).count()
+        assert initial_count == 1
+
+        # Try to manually create a duplicate chat (simulating race condition bypass)
+        # This should raise IntegrityError due to unique constraint
+        with pytest.raises(IntegrityError):
+            ChatRoom.objects.create(
+                name=f"{subject.name} - Duplicate",
+                type=ChatRoom.Type.FORUM_SUBJECT,
+                enrollment=enrollment,
+                created_by=student_user
+            )
+
+    def test_database_constraint_applies_only_to_forum_types(
+        self, student_user, teacher_user, subject
+    ):
+        """Test that constraint only applies to chats with enrollment (forum types)"""
+        # Create enrollment
+        enrollment = SubjectEnrollment.objects.create(
+            student=student_user,
+            subject=subject,
+            teacher=teacher_user
+        )
+
+        # Create DIRECT chat without enrollment (should work - no constraint)
+        direct_chat = ChatRoom.objects.create(
+            name="Direct Chat",
+            type=ChatRoom.Type.DIRECT,
+            created_by=student_user
+        )
+        assert direct_chat.enrollment is None
+
+        # Create another DIRECT chat (should work - no constraint on null enrollments)
+        direct_chat2 = ChatRoom.objects.create(
+            name="Another Direct Chat",
+            type=ChatRoom.Type.DIRECT,
+            created_by=teacher_user
+        )
+        assert direct_chat2.enrollment is None
+
+    def test_different_enrollment_types_allowed(
+        self, student_user, teacher_user, tutor_user, subject
+    ):
+        """Test that FORUM_SUBJECT and FORUM_TUTOR can coexist for same enrollment"""
+        # Assign tutor to student
+        student_profile = student_user.student_profile
+        student_profile.tutor = tutor_user
+        student_profile.save()
+
+        # Create enrollment - should create both forum types
+        enrollment = SubjectEnrollment.objects.create(
+            student=student_user,
+            subject=subject,
+            teacher=teacher_user
+        )
+
+        # Verify both chat types exist
+        forum_subject = ChatRoom.objects.filter(
+            type=ChatRoom.Type.FORUM_SUBJECT,
+            enrollment=enrollment
+        )
+        forum_tutor = ChatRoom.objects.filter(
+            type=ChatRoom.Type.FORUM_TUTOR,
+            enrollment=enrollment
+        )
+
+        assert forum_subject.exists()
+        assert forum_tutor.exists()
+        assert forum_subject.count() == 1
+        assert forum_tutor.count() == 1
+
+    def test_unique_constraint_name_matches_model(self):
+        """Verify constraint name is as expected for debugging"""
+        from chat.models import ChatRoom
+
+        # Check Meta.constraints exists
+        assert hasattr(ChatRoom._meta, 'constraints')
+
+        # Find our constraint
+        constraint_names = [c.name for c in ChatRoom._meta.constraints]
+        assert 'unique_forum_per_enrollment' in constraint_names
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
 class TestForumSignalEdgeCases:
     """Tests for edge cases and error handling in forum signals"""
 

@@ -105,7 +105,7 @@ class TestStudentProfileIntegration:
         }
 
         response = api_client.patch(
-            '/api/auth/profile/student/me/',
+            '/api/auth/profile/student/',
             update_data,
             format='json'
         )
@@ -114,12 +114,12 @@ class TestStudentProfileIntegration:
 
     def test_student_cannot_get_profile_without_auth(self, api_client):
         """Студент не может получить профиль без аутентификации"""
-        response = api_client.get('/api/auth/profile/student/me/')
+        response = api_client.get('/api/auth/profile/student/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
     def test_student_profile_requires_auth(self, api_client):
         """Требуется аутентификация для доступа к профилю"""
-        response = api_client.get('/api/auth/profile/student/me/')
+        response = api_client.get('/api/auth/profile/student/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
     def test_student_profile_partial_update(self, api_client, student_user):
@@ -130,7 +130,7 @@ class TestStudentProfileIntegration:
         update_data = {'grade': '12А'}
 
         response = api_client.patch(
-            '/api/auth/profile/student/me/',
+            '/api/auth/profile/student/',
             update_data,
             format='json'
         )
@@ -146,7 +146,7 @@ class TestStudentProfileIntegration:
         update_data = {'grade': new_grade}
 
         response = api_client.patch(
-            '/api/auth/profile/student/me/',
+            '/api/auth/profile/student/',
             update_data,
             format='json'
         )
@@ -172,7 +172,7 @@ class TestTeacherProfileIntegration:
         }
 
         response = api_client.patch(
-            '/api/auth/profile/teacher/me/',
+            '/api/auth/profile/teacher/',
             update_data,
             format='json'
         )
@@ -181,7 +181,7 @@ class TestTeacherProfileIntegration:
 
     def test_teacher_profile_requires_auth(self, api_client):
         """Требуется аутентификация для доступа к профилю"""
-        response = api_client.get('/api/auth/profile/teacher/me/')
+        response = api_client.get('/api/auth/profile/teacher/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
     def test_teacher_partial_update(self, api_client, teacher_user):
@@ -192,7 +192,7 @@ class TestTeacherProfileIntegration:
         update_data = {'subject': 'Химия'}
 
         response = api_client.patch(
-            '/api/auth/profile/teacher/me/',
+            '/api/auth/profile/teacher/',
             update_data,
             format='json'
         )
@@ -214,7 +214,7 @@ class TestTutorProfileIntegration:
         }
 
         response = api_client.patch(
-            '/api/auth/profile/tutor/me/',
+            '/api/auth/profile/tutor/',
             update_data,
             format='json'
         )
@@ -223,7 +223,7 @@ class TestTutorProfileIntegration:
 
     def test_tutor_profile_requires_auth(self, api_client):
         """Требуется аутентификация для доступа к профилю"""
-        response = api_client.get('/api/auth/profile/tutor/me/')
+        response = api_client.get('/api/auth/profile/tutor/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
 
@@ -240,7 +240,7 @@ class TestParentProfileIntegration:
         }
 
         response = api_client.patch(
-            '/api/auth/profile/parent/me/',
+            '/api/auth/profile/parent/',
             update_data,
             format='json'
         )
@@ -249,7 +249,7 @@ class TestParentProfileIntegration:
 
     def test_parent_profile_requires_auth(self, api_client):
         """Требуется аутентификация для доступа к профилю"""
-        response = api_client.get('/api/auth/profile/parent/me/')
+        response = api_client.get('/api/auth/profile/parent/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
 
@@ -260,12 +260,12 @@ class TestProfileErrorHandling:
         """Невалидный токен возвращает ошибку"""
         api_client.credentials(HTTP_AUTHORIZATION='Token invalid_token')
 
-        response = api_client.get('/api/auth/profile/student/me/')
+        response = api_client.get('/api/auth/profile/student/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
     def test_missing_auth_header_returns_error(self, api_client):
         """Отсутствие заголовка авторизации возвращает ошибку"""
-        response = api_client.get('/api/auth/profile/student/me/')
+        response = api_client.get('/api/auth/profile/student/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
     def test_wrong_role_access(self, api_client, student_user):
@@ -273,7 +273,7 @@ class TestProfileErrorHandling:
         token = Token.objects.create(user=student_user)
         api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
 
-        response = api_client.get('/api/auth/profile/teacher/me/')
+        response = api_client.get('/api/auth/profile/teacher/')
         assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
 
 
@@ -288,7 +288,7 @@ class TestProfileCrossRoles:
         # Студент обновляет свой профиль
         api_client.credentials(HTTP_AUTHORIZATION=f'Token {student_token.key}')
         student_response = api_client.patch(
-            '/api/auth/profile/student/me/',
+            '/api/auth/profile/student/',
             {'grade': '11А'},
             format='json'
         )
@@ -296,7 +296,7 @@ class TestProfileCrossRoles:
         # Преподаватель обновляет свой профиль
         api_client.credentials(HTTP_AUTHORIZATION=f'Token {teacher_token.key}')
         teacher_response = api_client.patch(
-            '/api/auth/profile/teacher/me/',
+            '/api/auth/profile/teacher/',
             {'subject': 'Физика'},
             format='json'
         )
@@ -313,7 +313,7 @@ class TestProfileCrossRoles:
         # Тьютор обновляет свой профиль
         api_client.credentials(HTTP_AUTHORIZATION=f'Token {tutor_token.key}')
         tutor_response = api_client.patch(
-            '/api/auth/profile/tutor/me/',
+            '/api/auth/profile/tutor/',
             {'bio': 'Опытный тьютор'},
             format='json'
         )
@@ -321,7 +321,7 @@ class TestProfileCrossRoles:
         # Родитель обновляет свой профиль
         api_client.credentials(HTTP_AUTHORIZATION=f'Token {parent_token.key}')
         parent_response = api_client.patch(
-            '/api/auth/profile/parent/me/',
+            '/api/auth/profile/parent/',
             {'notification_preference': 'telegram'},
             format='json'
         )
@@ -343,7 +343,7 @@ class TestProfileDataValidation:
         invalid_data = {'progress_percentage': 150}
 
         response = api_client.patch(
-            '/api/auth/profile/student/me/',
+            '/api/auth/profile/student/',
             invalid_data,
             format='json'
         )
@@ -364,7 +364,7 @@ class TestProfileDataValidation:
         invalid_data = {'experience_years': -5}
 
         response = api_client.patch(
-            '/api/auth/profile/teacher/me/',
+            '/api/auth/profile/teacher/',
             invalid_data,
             format='json'
         )
@@ -393,7 +393,7 @@ class TestProfileConcurrency:
 
         for update in updates:
             response = api_client.patch(
-                '/api/auth/profile/student/me/',
+                '/api/auth/profile/student/',
                 update,
                 format='json'
             )

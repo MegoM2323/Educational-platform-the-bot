@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,22 +61,22 @@ export default function TutorReports() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('[Tutor Reports] Loading data...');
+      logger.debug('[Tutor Reports] Loading data...');
       const [reports, studentsData] = await Promise.all([
         tutorWeeklyReportsAPI.getReports(),
         tutorWeeklyReportsAPI.getAvailableStudents(),
       ]);
-      console.log('[Tutor Reports] Reports loaded:', reports);
-      console.log('[Tutor Reports] Students loaded:', studentsData);
+      logger.debug('[Tutor Reports] Reports loaded:', reports);
+      logger.debug('[Tutor Reports] Students loaded:', studentsData);
       const reportsArray = Array.isArray(reports) ? reports : [];
       const studentsArray = Array.isArray(studentsData) ? studentsData : [];
-      console.log('[Tutor Reports] Setting reports:', reportsArray.length);
-      console.log('[Tutor Reports] Setting students:', studentsArray.length);
+      logger.debug('[Tutor Reports] Setting reports:', reportsArray.length);
+      logger.debug('[Tutor Reports] Setting students:', studentsArray.length);
       setTutorReports(reportsArray);
       setStudents(studentsArray);
     } catch (error: any) {
-      console.error('[Tutor Reports] Error loading reports data:', error);
-      console.error('[Tutor Reports] Error details:', {
+      logger.error('[Tutor Reports] Error loading reports data:', error);
+      logger.error('[Tutor Reports] Error details:', {
         message: error?.message,
         response: error?.response,
         stack: error?.stack,
@@ -95,25 +96,25 @@ export default function TutorReports() {
   const loadTeacherReports = useCallback(async (studentId: number | null = null) => {
     try {
       setLoading(true);
-      console.log('[Tutor Reports] Loading teacher reports, studentId:', studentId);
+      logger.debug('[Tutor Reports] Loading teacher reports, studentId:', studentId);
       // Загружаем все отчеты преподавателей для тьютора
       const allReports = await teacherWeeklyReportsAPI.getReports();
-      console.log('[Tutor Reports] Teacher reports loaded:', allReports);
+      logger.debug('[Tutor Reports] Teacher reports loaded:', allReports);
       let reports = Array.isArray(allReports) ? allReports : [];
-      console.log('[Tutor Reports] Teacher reports array length:', reports.length);
+      logger.debug('[Tutor Reports] Teacher reports array length:', reports.length);
       
       // Если выбран конкретный студент, фильтруем на фронтенде
       if (studentId) {
         const beforeFilter = reports.length;
         reports = reports.filter(r => r.student === studentId);
-        console.log('[Tutor Reports] Filtered reports:', beforeFilter, '->', reports.length);
+        logger.debug('[Tutor Reports] Filtered reports:', beforeFilter, '->', reports.length);
       }
       
-      console.log('[Tutor Reports] Setting teacher reports:', reports.length);
+      logger.debug('[Tutor Reports] Setting teacher reports:', reports.length);
       setTeacherReports(reports);
     } catch (error: any) {
-      console.error('[Tutor Reports] Error loading teacher reports:', error);
-      console.error('[Tutor Reports] Error details:', {
+      logger.error('[Tutor Reports] Error loading teacher reports:', error);
+      logger.error('[Tutor Reports] Error details:', {
         message: error?.message,
         response: error?.response,
         stack: error?.stack,
@@ -161,7 +162,7 @@ export default function TutorReports() {
 
     try {
       setLoading(true);
-      console.log('Creating tutor report with data:', {
+      logger.debug('Creating tutor report with data:', {
         student: formData.student,
         week_start: formData.week_start,
         week_end: formData.week_end,
@@ -169,7 +170,7 @@ export default function TutorReports() {
         title: formData.title,
       });
       const createdReport = await tutorWeeklyReportsAPI.createReport(formData);
-      console.log('Report created successfully:', createdReport);
+      logger.debug('Report created successfully:', createdReport);
       
       // Добавляем созданный отчет в список сразу
       if (createdReport && createdReport.id) {
@@ -194,9 +195,9 @@ export default function TutorReports() {
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/tutor-weekly-reports/');
       // Обновляем данные в фоне для синхронизации
-      loadData().catch(err => console.error('Error refreshing data:', err));
+      loadData().catch(err => logger.error('Error refreshing data:', err));
     } catch (error: any) {
-      console.error('Error creating tutor report:', error);
+      logger.error('Error creating tutor report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось создать отчет';
       toast({
         title: 'Ошибка',
@@ -211,9 +212,9 @@ export default function TutorReports() {
   const handleSendReport = async (reportId: number) => {
     try {
       setLoading(true);
-      console.log('Sending tutor report:', reportId);
+      logger.debug('Sending tutor report:', reportId);
       await tutorWeeklyReportsAPI.sendReport(reportId);
-      console.log('Report sent successfully');
+      logger.debug('Report sent successfully');
 
       // Обновляем статус отчета в состоянии немедленно
       setTutorReports(prev => prev.map(r =>
@@ -234,7 +235,7 @@ export default function TutorReports() {
         await loadTeacherReports(selectedStudent);
       }
     } catch (error: any) {
-      console.error('Error sending tutor report:', error);
+      logger.error('Error sending tutor report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось отправить отчет';
       toast({
         title: 'Ошибка',
@@ -249,9 +250,9 @@ export default function TutorReports() {
   const handleMarkTeacherReportAsRead = async (reportId: number) => {
     try {
       setLoading(true);
-      console.log('Marking teacher report as read:', reportId);
+      logger.debug('Marking teacher report as read:', reportId);
       await teacherWeeklyReportsAPI.markAsRead(reportId);
-      console.log('Teacher report marked as read successfully');
+      logger.debug('Teacher report marked as read successfully');
 
       // Обновляем статус отчета в состоянии немедленно
       setTeacherReports(prev => prev.map(r =>
@@ -267,7 +268,7 @@ export default function TutorReports() {
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/teacher-weekly-reports/');
     } catch (error: any) {
-      console.error('Error marking teacher report as read:', error);
+      logger.error('Error marking teacher report as read:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось отметить отчет';
       toast({
         title: 'Ошибка',
@@ -314,9 +315,9 @@ export default function TutorReports() {
 
     try {
       setLoading(true);
-      console.log('Updating tutor report:', editingReport.id, formData);
+      logger.debug('Updating tutor report:', editingReport.id, formData);
       const updatedReport = await tutorWeeklyReportsAPI.updateReport(editingReport.id, formData);
-      console.log('Report updated successfully:', updatedReport);
+      logger.debug('Report updated successfully:', updatedReport);
 
       // Обновляем отчет в состоянии немедленно
       setTutorReports(prev => prev.map(r =>
@@ -335,7 +336,7 @@ export default function TutorReports() {
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/tutor-weekly-reports/');
     } catch (error: any) {
-      console.error('Error updating tutor report:', error);
+      logger.error('Error updating tutor report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось обновить отчет';
       toast({
         title: 'Ошибка',
@@ -350,9 +351,9 @@ export default function TutorReports() {
   const handleDeleteReport = async (reportId: number) => {
     try {
       setLoading(true);
-      console.log('Deleting tutor report:', reportId);
+      logger.debug('Deleting tutor report:', reportId);
       await tutorWeeklyReportsAPI.deleteReport(reportId);
-      console.log('Report deleted successfully');
+      logger.debug('Report deleted successfully');
 
       // Удаляем отчет из состояния немедленно
       setTutorReports(prev => prev.filter(r => r.id !== reportId));
@@ -367,7 +368,7 @@ export default function TutorReports() {
       const { cacheService } = await import('../../../services/cacheService');
       cacheService.delete('/reports/tutor-weekly-reports/');
     } catch (error: any) {
-      console.error('Error deleting tutor report:', error);
+      logger.error('Error deleting tutor report:', error);
       const errorMessage = error?.response?.data?.detail || error?.message || 'Не удалось удалить отчет';
       toast({
         title: 'Ошибка',
@@ -443,7 +444,7 @@ export default function TutorReports() {
           setFormData(prev => ({ ...prev, week_start: week.start, week_end: week.end }));
         }
       } catch (error) {
-        console.error('Error setting week dates:', error);
+        logger.error('Error setting week dates:', error);
       }
     }
   }, [showCreateForm]);

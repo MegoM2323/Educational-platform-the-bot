@@ -1,4 +1,5 @@
 /**
+import { logger } from '@/utils/logger';
  * ProfileCard Component Examples
  *
  * This file contains usage examples for the ProfileCard component
@@ -15,7 +16,7 @@ import ProfileCard, { ProfileCardProps } from "./ProfileCard";
  */
 export const StudentProfileExample: React.FC = () => {
   const handleEditStudent = () => {
-    console.log("Edit student profile");
+    logger.debug("Edit student profile");
   };
 
   const studentProps: ProfileCardProps = {
@@ -56,7 +57,7 @@ export const StudentProfileNoAvatarExample: React.FC = () => {
       progressPercentage: 62.3,
       subjectsCount: 5,
     },
-    onEdit: () => console.log("Edit student"),
+    onEdit: () => logger.debug("Edit student"),
   };
 
   return (
@@ -73,7 +74,7 @@ export const StudentProfileNoAvatarExample: React.FC = () => {
  */
 export const TeacherProfileExample: React.FC = () => {
   const handleEditTeacher = () => {
-    console.log("Edit teacher profile");
+    logger.debug("Edit teacher profile");
   };
 
   const teacherProps: ProfileCardProps = {
@@ -133,7 +134,7 @@ export const TeacherProfileWithSubjectsObjectsExample: React.FC = () => {
  */
 export const TutorProfileExample: React.FC = () => {
   const handleEditTutor = () => {
-    console.log("Edit tutor profile");
+    logger.debug("Edit tutor profile");
   };
 
   const tutorProps: ProfileCardProps = {
@@ -164,7 +165,7 @@ export const TutorProfileExample: React.FC = () => {
  */
 export const ParentProfileExample: React.FC = () => {
   const handleEditParent = () => {
-    console.log("Edit parent profile");
+    logger.debug("Edit parent profile");
   };
 
   const parentProps: ProfileCardProps = {
@@ -201,7 +202,7 @@ export const ParentProfileMinimalExample: React.FC = () => {
     profileData: {
       childrenCount: 1,
     },
-    onEdit: () => console.log("Edit parent"),
+    onEdit: () => logger.debug("Edit parent"),
   };
 
   return (
@@ -290,7 +291,7 @@ export const DashboardIntegrationExample: React.FC = () => {
 
   const handleProfileEdit = () => {
     // Navigate to edit profile page or open edit modal
-    console.log("Opening profile edit...");
+    logger.debug("Opening profile edit...");
   };
 
   return (

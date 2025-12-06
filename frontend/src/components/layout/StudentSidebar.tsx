@@ -1,4 +1,5 @@
 import { Home, BookOpen, MessageSquare, LogOut, User, Calendar, CalendarCheck } from "lucide-react";
+import { logger } from '@/utils/logger';
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -32,7 +33,7 @@ export function StudentSidebar() {
     try {
       await signOut();
     } catch (error) {
-      console.error('StudentSidebar sign out error:', error);
+      logger.error('StudentSidebar sign out error:', error);
     }
   };
 

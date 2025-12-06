@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -422,7 +423,7 @@ export default function Forum() {
   // WebSocket handlers (memoized)
   const handleWebSocketMessage = useCallback(
     (wsMessage: ChatMessage) => {
-      console.log('[Forum] WebSocket message received in component handler:', {
+      logger.debug('[Forum] WebSocket message received in component handler:', {
         messageId: wsMessage.id,
         content: wsMessage.content.substring(0, 50),
         senderId: wsMessage.sender.id,
@@ -430,7 +431,7 @@ export default function Forum() {
       });
 
       if (!selectedChat) {
-        console.warn('[Forum] Received message but no chat selected');
+        logger.warn('[Forum] Received message but no chat selected');
         return;
       }
 
@@ -450,24 +451,24 @@ export default function Forum() {
           message_type: wsMessage.message_type,
         };
 
-        console.log('[Forum] Updating TanStack Query cache for chat:', selectedChat.id);
+        logger.debug('[Forum] Updating TanStack Query cache for chat:', selectedChat.id);
         // Update TanStack Query cache with new message
         queryClient.setQueryData(
           ['forum-messages', selectedChat.id, 50, 0],
           (oldData: ForumMessage[] | undefined) => {
             if (!oldData) {
-              console.log('[Forum] No existing data, creating new array with message');
+              logger.debug('[Forum] No existing data, creating new array with message');
               return [forumMessage];
             }
 
             // Check if message already exists (avoid duplicates)
             const exists = oldData.some((msg: ForumMessage) => msg.id === forumMessage.id);
             if (exists) {
-              console.log('[Forum] Message already exists in cache, skipping');
+              logger.debug('[Forum] Message already exists in cache, skipping');
               return oldData;
             }
 
-            console.log('[Forum] Adding new message to cache');
+            logger.debug('[Forum] Adding new message to cache');
             return [...oldData, forumMessage];
           }
         );
@@ -478,7 +479,7 @@ export default function Forum() {
         // Clear any errors on successful message
         setError(null);
       } catch (err) {
-        console.error('Error handling WebSocket message:', err);
+        logger.error('Error handling WebSocket message:', err);
         setError('Ошибка обработки сообщения');
       }
     },
@@ -502,7 +503,7 @@ export default function Forum() {
   }, []);
 
   const handleError = useCallback((errorMessage: string) => {
-    console.error('WebSocket error:', errorMessage);
+    logger.error('WebSocket error:', errorMessage);
     setError(errorMessage);
   }, []);
 
@@ -562,7 +563,7 @@ export default function Forum() {
         data: { content },
       });
     } catch (error: any) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message:', error);
       const errorMessage = error?.message || 'Ошибка отправки сообщения';
       setError(errorMessage);
     }

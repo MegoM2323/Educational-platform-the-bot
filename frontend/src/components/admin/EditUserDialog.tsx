@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { User } from '@/integrations/api/unifiedClient';
 import {
   adminAPI,
@@ -120,7 +121,7 @@ export const EditUserDialog = ({ user, profile, open, onOpenChange, onSuccess }:
         setParents(parentsArray);
       }
     } catch (err) {
-      console.error('Error loading selection data:', err);
+      logger.error('Error loading selection data:', err);
     }
   };
 

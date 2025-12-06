@@ -59,7 +59,18 @@ export default defineConfig(({ mode }) => {
     build: {
       // Оптимизации для продакшена
       target: 'esnext',
-      minify: 'esbuild',
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          // Удаляем все console.* кроме console.error и console.warn в production
+          drop_console: false, // Don't drop all, use pure_funcs for selective removal
+          drop_debugger: true,
+          pure_funcs: ['console.log', 'console.debug', 'console.info'],
+        },
+        format: {
+          comments: false, // Remove comments from production build
+        },
+      },
       rollupOptions: {
         output: {
           manualChunks: {

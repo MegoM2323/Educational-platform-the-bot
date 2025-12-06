@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,7 +186,7 @@ export const ReportForm = ({
       
       showSuccess("Отчет успешно создан и отправлен родителям");
     } catch (error: any) {
-      console.error("Error submitting report:", error);
+      logger.error("Error submitting report:", error);
       const errorMessage = error?.message || "Ошибка создания отчета";
       setSubmitError(errorMessage);
       showError(errorMessage, {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -52,28 +53,28 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
     const load = async () => {
       setLoading(true);
       try {
-        console.log('[AssignSubjectDialog] Loading data...');
+        logger.debug('[AssignSubjectDialog] Loading data...');
         
         // Загружаем предметы и преподавателей параллельно
         // Запрашиваем всех преподавателей из базы данных (максимум 10000)
-        console.log('[AssignSubjectDialog] Making API requests...');
-        console.log('[AssignSubjectDialog] Token:', unifiedAPI.getToken() ? 'EXISTS' : 'MISSING');
+        logger.debug('[AssignSubjectDialog] Making API requests...');
+        logger.debug('[AssignSubjectDialog] Token:', unifiedAPI.getToken() ? 'EXISTS' : 'MISSING');
 
         const subjectsPromise = unifiedAPI.request<any>('/materials/subjects/');
         // Используем специальный endpoint для тьюторов для получения списка преподавателей
         const teachersPromise = unifiedAPI.request<any>('/tutor/teachers/');
         
         const [s, t] = await Promise.all([subjectsPromise, teachersPromise]);
-        console.log('[AssignSubjectDialog] API requests completed');
+        logger.debug('[AssignSubjectDialog] API requests completed');
         
-        console.log('[AssignSubjectDialog] Subjects response:', {
+        logger.debug('[AssignSubjectDialog] Subjects response:', {
           success: s?.success,
           hasData: !!s?.data,
           dataType: typeof s?.data,
           isArray: Array.isArray(s?.data),
           error: s?.error
         });
-        console.log('[AssignSubjectDialog] Teachers response:', {
+        logger.debug('[AssignSubjectDialog] Teachers response:', {
           success: t?.success,
           hasData: !!t?.data,
           dataType: typeof t?.data,
@@ -106,7 +107,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
         // Обработка ответа для преподавателей
         let teachersData: Teacher[] = [];
         if (t) {
-          console.log('[AssignSubjectDialog] Teachers response:', {
+          logger.debug('[AssignSubjectDialog] Teachers response:', {
             success: t.success,
             hasData: !!t.data,
             dataType: typeof t.data,
@@ -121,8 +122,8 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
 
           // Упрощенная проверка: если нет явной ошибки, пытаемся извлечь данные
           if (t.error) {
-            console.error('[AssignSubjectDialog] ✗ Teachers API returned error:', t.error);
-            console.error('[AssignSubjectDialog] Full error response:', t);
+            logger.error('[AssignSubjectDialog] ✗ Teachers API returned error:', t.error);
+            logger.error('[AssignSubjectDialog] Full error response:', t);
           } else {
             // Пытаемся извлечь данные из ответа
             const data = t.data;
@@ -136,14 +137,14 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
                   // Роль teacher уже отфильтрована на backend, но проверим для надежности
                   return teacher && teacher.id && (teacher.role === 'teacher' || teacher.role === undefined);
                 });
-                console.log('[AssignSubjectDialog] ✓ Teachers loaded from array:', teachersData.length, 'out of', data.length);
+                logger.debug('[AssignSubjectDialog] ✓ Teachers loaded from array:', teachersData.length, 'out of', data.length);
                 if (teachersData.length > 0) {
-                  console.log('[AssignSubjectDialog] Sample teacher:', teachersData[0]);
+                  logger.debug('[AssignSubjectDialog] Sample teacher:', teachersData[0]);
                 }
               } else if (data && typeof data === 'object') {
                 // Объект - проверяем возможные вложенные структуры
-                console.log('[AssignSubjectDialog] Teachers data is object, checking nested structures...');
-                console.log('[AssignSubjectDialog] Object keys:', Object.keys(data));
+                logger.debug('[AssignSubjectDialog] Teachers data is object, checking nested structures...');
+                logger.debug('[AssignSubjectDialog] Object keys:', Object.keys(data));
                 
                 // Пробуем разные варианты структуры ответа
                 let arrayData: any[] | null = null;
@@ -165,28 +166,28 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
                 
                 if (arrayData) {
                   teachersData = arrayData.filter((t: any) => t && t.id && (t.role === 'teacher' || t.role === undefined));
-                  console.log('[AssignSubjectDialog] Teachers extracted from object:', teachersData.length);
+                  logger.debug('[AssignSubjectDialog] Teachers extracted from object:', teachersData.length);
                 } else {
-                  console.warn('[AssignSubjectDialog] ⚠ Teachers data is object but no array found. Keys:', Object.keys(data));
-                  console.warn('[AssignSubjectDialog] Data structure:', JSON.stringify(data, null, 2).substring(0, 500));
+                  logger.warn('[AssignSubjectDialog] ⚠ Teachers data is object but no array found. Keys:', Object.keys(data));
+                  logger.warn('[AssignSubjectDialog] Data structure:', JSON.stringify(data, null, 2).substring(0, 500));
                 }
               } else {
-                console.warn('[AssignSubjectDialog] ⚠ Teachers data is not array or object:', typeof data);
-                console.warn('[AssignSubjectDialog] Data value:', data);
+                logger.warn('[AssignSubjectDialog] ⚠ Teachers data is not array or object:', typeof data);
+                logger.warn('[AssignSubjectDialog] Data value:', data);
               }
             } else {
-              console.warn('[AssignSubjectDialog] ⚠ Teachers response data is undefined or null');
-              console.warn('[AssignSubjectDialog] Response object:', JSON.stringify(t, null, 2).substring(0, 500));
+              logger.warn('[AssignSubjectDialog] ⚠ Teachers response data is undefined or null');
+              logger.warn('[AssignSubjectDialog] Response object:', JSON.stringify(t, null, 2).substring(0, 500));
             }
           }
         } else {
-          console.error('[AssignSubjectDialog] No teachers response received (t is null/undefined)');
+          logger.error('[AssignSubjectDialog] No teachers response received (t is null/undefined)');
         }
         
-        console.log('[AssignSubjectDialog] Parsed subjects:', subjectsData.length);
-        console.log('[AssignSubjectDialog] Parsed teachers:', teachersData.length);
+        logger.debug('[AssignSubjectDialog] Parsed subjects:', subjectsData.length);
+        logger.debug('[AssignSubjectDialog] Parsed teachers:', teachersData.length);
         if (teachersData.length > 0) {
-          console.log('[AssignSubjectDialog] First teacher sample:', teachersData[0]);
+          logger.debug('[AssignSubjectDialog] First teacher sample:', teachersData[0]);
         }
         
         setSubjects(subjectsData);
@@ -195,14 +196,14 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
         // Сразу устанавливаем всех преподавателей как доступных
         if (teachersData.length > 0) {
           setAvailableTeachers(teachersData);
-          console.log('[AssignSubjectDialog] Teachers set as available:', teachersData.length);
+          logger.debug('[AssignSubjectDialog] Teachers set as available:', teachersData.length);
         } else {
-          console.warn('[AssignSubjectDialog] No teachers response object received');
+          logger.warn('[AssignSubjectDialog] No teachers response object received');
           // Показываем предупреждение пользователю
           setAvailableTeachers([]);
         }
       } catch (error) {
-        console.error('[AssignSubjectDialog] Error loading data:', error);
+        logger.error('[AssignSubjectDialog] Error loading data:', error);
         setSubjects([]);
         setAllTeachers([]);
         setAvailableTeachers([]);
@@ -234,7 +235,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
       // Валидация
       if (subjectMode === 'existing' && !subjectId) {
         const msg = 'Пожалуйста, выберите предмет';
-        console.error(msg);
+        logger.error(msg);
         toast({
           title: 'Ошибка валидации',
           description: msg,
@@ -244,7 +245,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
       }
       if (subjectMode === 'custom' && !subjectName.trim()) {
         const msg = 'Пожалуйста, укажите название предмета';
-        console.error(msg);
+        logger.error(msg);
         toast({
           title: 'Ошибка валидации',
           description: msg,
@@ -254,7 +255,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
       }
       if (!teacherId || teacherId === '') {
         const msg = 'Пожалуйста, выберите преподавателя';
-        console.error(msg);
+        logger.error(msg);
         toast({
           title: 'Ошибка валидации',
           description: msg,
@@ -279,7 +280,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
       // который инвалидирует кеш и React Query автоматически обновит данные
       await assignMutation.mutateAsync(payload);
       
-      console.log('[AssignSubjectDialog] Subject assigned successfully');
+      logger.debug('[AssignSubjectDialog] Subject assigned successfully');
       
       // Сбрасываем форму
       setSubjectId('');
@@ -292,12 +293,12 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
       
       // Вызываем callback если передан (для дополнительной логики)
       if (onSuccess) {
-        console.log('[AssignSubjectDialog] Calling onSuccess callback');
+        logger.debug('[AssignSubjectDialog] Calling onSuccess callback');
         onSuccess();
       }
     } catch (error: any) {
       // Ошибка уже обрабатывается в хуке useAssignSubject через toast
-      console.error('[AssignSubjectDialog] Error submitting:', error);
+      logger.error('[AssignSubjectDialog] Error submitting:', error);
     }
   };
 
@@ -385,7 +386,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
                   
                   // Определяем список преподавателей для отображения
                   const teachersToShow = availableTeachers.length > 0 ? availableTeachers : allTeachers;
-                  console.log('[AssignSubjectDialog] Rendering teachers select:', {
+                  logger.debug('[AssignSubjectDialog] Rendering teachers select:', {
                     loading,
                     availableTeachersCount: availableTeachers.length,
                     allTeachersCount: allTeachers.length,

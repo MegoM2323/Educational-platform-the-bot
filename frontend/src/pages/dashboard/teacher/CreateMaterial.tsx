@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { unifiedAPI as apiClient } from "@/integrations/api/unifiedClient";
@@ -73,7 +74,7 @@ const CreateMaterial = () => {
         
         // Загружаем ВСЕХ студентов сразу
         const studentsResponse = await apiClient.request<{students: any[]}>('/materials/teacher/all-students/');
-        console.log('[CreateMaterial] Students response:', studentsResponse);
+        logger.debug('[CreateMaterial] Students response:', studentsResponse);
 
         if (studentsResponse.data?.students) {
           // Backend уже фильтрует только студентов (исключая админов)
@@ -90,7 +91,7 @@ const CreateMaterial = () => {
           })));
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        logger.error('Error fetching data:', error);
         toast({
           title: "Ошибка загрузки данных",
           description: "Не удалось загрузить предметы и студентов",
@@ -235,7 +236,7 @@ const CreateMaterial = () => {
         throw new Error(response.error || 'Ошибка создания материала');
       }
     } catch (error) {
-      console.error('Error creating material:', error);
+      logger.error('Error creating material:', error);
       toast({
         title: "Ошибка создания материала",
         description: error instanceof Error ? error.message : "Произошла неизвестная ошибка",

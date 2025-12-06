@@ -1,4 +1,5 @@
 /**
+import { logger } from '@/utils/logger';
  * Утилиты для безопасного парсинга JSON
  */
 
@@ -36,7 +37,7 @@ export async function safeJsonParse<T = any>(
     // Проверяем Content-Type
     const contentType = response.headers.get('content-type');
     if (contentType && !contentType.includes('application/json') && !contentType.includes('text/json')) {
-      console.warn(`Unexpected content type: ${contentType}`);
+      logger.warn(`Unexpected content type: ${contentType}`);
     }
 
     // Получаем текст ответа
@@ -60,7 +61,7 @@ export async function safeJsonParse<T = any>(
     };
 
   } catch (error) {
-    console.error('JSON parse error:', error);
+    logger.error('JSON parse error:', error);
 
     return {
       success: false,
@@ -94,7 +95,7 @@ export function safeJsonStringParse<T = any>(
     };
 
   } catch (error) {
-    console.error('JSON string parse error:', error);
+    logger.error('JSON string parse error:', error);
     
     return {
       success: false,
@@ -123,7 +124,7 @@ export function safeJsonStringify(data: any, defaultValue: string = '{}'): strin
   try {
     return JSON.stringify(data);
   } catch (error) {
-    console.error('JSON stringify error:', error);
+    logger.error('JSON stringify error:', error);
     return defaultValue;
   }
 }

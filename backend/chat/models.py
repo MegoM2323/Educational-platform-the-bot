@@ -70,6 +70,14 @@ class ChatRoom(models.Model):
             models.Index(fields=['type', 'enrollment'], name='chat_type_enrollment_idx'),
             models.Index(fields=['type', 'is_active'], name='chat_type_active_idx'),
         ]
+        # Предотвращение дубликатов при race conditions: один форум на (тип, зачисление)
+        constraints = [
+            models.UniqueConstraint(
+                fields=['type', 'enrollment'],
+                name='unique_forum_per_enrollment',
+                condition=models.Q(enrollment__isnull=False)
+            )
+        ]
     
     def __str__(self):
         return self.name

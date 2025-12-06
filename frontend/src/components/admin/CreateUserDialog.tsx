@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { adminAPI, UserCreateData, Tutor, Parent } from '@/integrations/api/adminAPI';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -78,7 +79,7 @@ export const CreateUserDialog = ({ open, onOpenChange, onSuccess }: CreateUserDi
         setParents(parentsArray);
       }
     } catch (err) {
-      console.error('Error loading selection data:', err);
+      logger.error('Error loading selection data:', err);
     }
   };
 

@@ -1,4 +1,5 @@
 import { useProfileUser } from '@/hooks/useProfile';
+import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Settings } from 'lucide-react';
 import { unifiedAPI } from '@/integrations/api/unifiedClient';
@@ -45,7 +46,7 @@ export const ProfileHeader = () => {
         throw new Error(response.error || 'Ошибка при выходе');
       }
     } catch (error) {
-      console.error('[ProfileHeader] Logout error:', error);
+      logger.error('[ProfileHeader] Logout error:', error);
       toast({
         title: "Ошибка",
         description: error instanceof Error ? error.message : 'Ошибка при выходе',

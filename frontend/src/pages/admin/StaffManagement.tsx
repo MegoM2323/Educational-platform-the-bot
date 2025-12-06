@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { staffService, CreateStaffPayload, StaffListItem } from '@/services/staffService';
 import { adminAPI } from '@/integrations/api/adminAPI';
@@ -134,7 +135,7 @@ export default function StaffManagement() {
         specialization: form.role === 'tutor' ? form.specialization : undefined,
       };
       const res = await staffService.create(payload);
-      console.log('[StaffManagement] User created:', res);
+      logger.debug('[StaffManagement] User created:', res);
       setCreatedCredentials(res.credentials);
       setIsCreateOpen(false);
       toast.success('Пользователь создан');
@@ -144,7 +145,7 @@ export default function StaffManagement() {
       await load();
     } catch (e: any) {
       toast.error(e?.message || 'Не удалось создать пользователя');
-      console.error('Error creating staff:', e);
+      logger.error('Error creating staff:', e);
     }
   };
 
@@ -155,7 +156,7 @@ export default function StaffManagement() {
       toast.success('Вы вышли из системы');
       navigate('/auth');
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
       toast.error('Ошибка при выходе');
     } finally {
       setIsLogoutLoading(false);

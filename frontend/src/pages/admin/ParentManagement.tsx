@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { unifiedAPI, User } from '@/integrations/api/unifiedClient';
 import { adminAPI } from '@/integrations/api/adminAPI';
@@ -104,7 +105,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
       toast.success('Вы вышли из системы');
       navigate('/auth');
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
       toast.error('Ошибка при выходе');
     } finally {
       setIsLogoutLoading(false);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -166,7 +167,7 @@ const ApplicationForm = () => {
         toast.error(response.error || "Ошибка при подаче заявки");
       }
     } catch (error: any) {
-      console.error('Application error:', error);
+      logger.error('Application error:', error);
       const errorMessage = error?.message || error?.error || "Произошла ошибка при подаче заявки";
       toast.error(errorMessage);
     } finally {

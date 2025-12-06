@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -176,7 +177,7 @@ export const PaymentButton = ({
             toast.info("Время проверки статуса платежа истекло. Используйте кнопку повтора или обновите страницу.");
           }
         } catch (error) {
-          console.error("Error checking payment status:", error);
+          logger.error("Error checking payment status:", error);
 
           // После 3 неудачных попыток останавливаем проверку
           if (attempts >= 3) {
@@ -248,7 +249,7 @@ export const PaymentButton = ({
         throw new Error("Не получена ссылка для оплаты от платежного сервиса");
       }
     } catch (error) {
-      console.error("Error creating payment:", error);
+      logger.error("Error creating payment:", error);
       
       let errorMessage = "Ошибка при создании платежа";
       
@@ -322,7 +323,7 @@ export const PaymentButton = ({
         onPaymentSuccess(updatedPayment);
       }
     } catch (error) {
-      console.error('Cancel subscription error:', error);
+      logger.error('Cancel subscription error:', error);
       toast.error("Не удалось отключить автосписание. Попробуйте позже.");
     } finally {
       setIsCancelling(false);
@@ -351,7 +352,7 @@ export const PaymentButton = ({
         toast.info("Платеж все еще обрабатывается. Попробуйте позже.");
       }
     } catch (error) {
-      console.error("Error retrying payment status check:", error);
+      logger.error("Error retrying payment status check:", error);
       toast.error("Не удалось проверить статус платежа. Попробуйте позже.");
     }
   };

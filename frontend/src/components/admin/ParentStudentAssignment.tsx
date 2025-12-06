@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { adminAPI, Parent } from '@/integrations/api/adminAPI';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,7 @@ export const ParentStudentAssignment = ({ open, onOpenChange, onSuccess }: Paren
         setStudents(studentsList);
       }
     } catch (err) {
-      console.error('Error loading data:', err);
+      logger.error('Error loading data:', err);
       setError('Не удалось загрузить данные');
     } finally {
       setLoading(false);

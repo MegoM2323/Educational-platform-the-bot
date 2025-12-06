@@ -370,7 +370,8 @@ class TestLessonServiceRetrieval:
             status='pending'
         )
 
-        past = Lesson.objects.create(
+        # Create past lesson with skip_validation for testing
+        past = Lesson(
             teacher=teacher_user,
             student=student_user,
             subject=math_subject,
@@ -379,6 +380,7 @@ class TestLessonServiceRetrieval:
             end_time=time(11, 0),
             status='completed'
         )
+        past.save(skip_validation=True)
 
         lessons = LessonService.get_upcoming_lessons(teacher_user)
 
@@ -502,7 +504,8 @@ class TestLessonServiceUpdate:
 
     def test_update_lesson_past_fails(self, teacher_user, student_user, math_subject, subject_enrollment):
         """Cannot update past lesson."""
-        past_lesson = Lesson.objects.create(
+        # Create past lesson with skip_validation for testing
+        past_lesson = Lesson(
             teacher=teacher_user,
             student=student_user,
             subject=math_subject,
@@ -510,6 +513,7 @@ class TestLessonServiceUpdate:
             start_time=time(10, 0),
             end_time=time(11, 0)
         )
+        past_lesson.save(skip_validation=True)
 
         with pytest.raises(ValidationError) as exc:
             LessonService.update_lesson(
@@ -647,7 +651,8 @@ class TestLessonServiceDelete:
 
     def test_delete_completed_lesson_fails(self, teacher_user, student_user, math_subject, subject_enrollment):
         """Cannot delete completed lesson."""
-        completed = Lesson.objects.create(
+        # Create completed lesson with skip_validation for testing
+        completed = Lesson(
             teacher=teacher_user,
             student=student_user,
             subject=math_subject,
@@ -656,6 +661,7 @@ class TestLessonServiceDelete:
             end_time=time(11, 0),
             status='completed'
         )
+        completed.save(skip_validation=True)
 
         with pytest.raises(ValidationError) as exc:
             LessonService.delete_lesson(lesson=completed, user=teacher_user)

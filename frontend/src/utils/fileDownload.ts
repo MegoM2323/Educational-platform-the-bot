@@ -1,4 +1,5 @@
 /**
+import { logger } from '@/utils/logger';
  * Утилиты для скачивания защищенных файлов с сервера
  */
 
@@ -25,13 +26,13 @@ export async function downloadProtectedFile(
           const parsed = JSON.parse(secureItem);
           token = parsed?.data || null;
         } catch (e) {
-          console.warn('[fileDownload] Failed to parse secure storage token');
+          logger.warn('[fileDownload] Failed to parse secure storage token');
         }
       }
     }
     
-    console.log('[fileDownload] Token check:', token ? 'Found' : 'NOT FOUND');
-    console.log('[fileDownload] localStorage keys:', Object.keys(localStorage));
+    logger.debug('[fileDownload] Token check:', token ? 'Found' : 'NOT FOUND');
+    logger.debug('[fileDownload] localStorage keys:', Object.keys(localStorage));
     
     if (!token) {
       throw new Error('Токен авторизации не найден. Пожалуйста, войдите в систему.');
@@ -41,12 +42,12 @@ export async function downloadProtectedFile(
     let finalUrl = url;
     if (window.location.protocol === 'https:' && url.startsWith('http://')) {
       finalUrl = url.replace('http://', 'https://');
-      console.log('[fileDownload] Fixed Mixed Content:', url, '→', finalUrl);
+      logger.debug('[fileDownload] Fixed Mixed Content:', url, '→', finalUrl);
     }
 
     // Делаем запрос с токеном
-    console.log('[fileDownload] Fetching:', finalUrl);
-    console.log('[fileDownload] Token:', token ? `${token.substring(0, 10)}...` : 'MISSING');
+    logger.debug('[fileDownload] Fetching:', finalUrl);
+    logger.debug('[fileDownload] Token:', token ? `${token.substring(0, 10)}...` : 'MISSING');
     
     const response = await fetch(finalUrl, {
       method: 'GET',
@@ -56,8 +57,8 @@ export async function downloadProtectedFile(
       credentials: 'include',
     });
 
-    console.log('[fileDownload] Response status:', response.status, response.statusText);
-    console.log('[fileDownload] Response headers:', Object.fromEntries(response.headers.entries()));
+    logger.debug('[fileDownload] Response status:', response.status, response.statusText);
+    logger.debug('[fileDownload] Response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -68,7 +69,7 @@ export async function downloadProtectedFile(
         throw new Error('Файл не найден на сервере');
       } else {
         const errorText = await response.text().catch(() => response.statusText);
-        console.error('[fileDownload] Error response:', errorText);
+        logger.error('[fileDownload] Error response:', errorText);
         throw new Error(`Ошибка загрузки файла (${response.status}): ${response.statusText}`);
       }
     }
@@ -119,7 +120,7 @@ export async function downloadProtectedFile(
       window.URL.revokeObjectURL(blobUrl);
     }
   } catch (error) {
-    console.error('Error downloading protected file:', error);
+    logger.error('Error downloading protected file:', error);
     throw error;
   }
 }
@@ -168,7 +169,7 @@ export async function handleProtectedFileClick(
   try {
     await downloadProtectedFile(fileUrl, filename, openInNewTab);
   } catch (error: any) {
-    console.error('Failed to open protected file:', error);
+    logger.error('Failed to open protected file:', error);
     alert(error.message || 'Ошибка при открытии файла');
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,7 +120,7 @@ export default function MaterialSubmissionForm({
         throw new Error(response.error || 'Ошибка отправки ответа');
       }
     } catch (error: any) {
-      console.error('Submission error:', error);
+      logger.error('Submission error:', error);
       toast({
         title: "Ошибка",
         description: error.message || "Произошла ошибка при отправке ответа",

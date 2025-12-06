@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,7 +92,7 @@ export default function StudentSubmissionsList({ materialId, materialTitle }: St
         setError('Ошибка загрузки ответов студентов');
       }
     } catch (err: any) {
-      console.error('Fetch submissions error:', err);
+      logger.error('Fetch submissions error:', err);
       setError('Ошибка загрузки ответов студентов');
     } finally {
       setLoading(false);

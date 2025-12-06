@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -87,14 +88,14 @@ const TeacherDashboard = () => {
   // Debug logging for "CANNOT ENTER" issue
   useEffect(() => {
     if (dashboardError) {
-      console.error('[TeacherDashboard] Dashboard fetch error:', dashboardError);
-      console.error('[TeacherDashboard] Error message:', dashboardError.message);
-      console.error('[TeacherDashboard] Full error:', JSON.stringify(dashboardError, null, 2));
+      logger.error('[TeacherDashboard] Dashboard fetch error:', dashboardError);
+      logger.error('[TeacherDashboard] Error message:', dashboardError.message);
+      logger.error('[TeacherDashboard] Full error:', JSON.stringify(dashboardError, null, 2));
     }
     if (dashboardData) {
-      console.log('[TeacherDashboard] Dashboard data loaded:', dashboardData);
-      console.log('[TeacherDashboard] Profile data:', dashboardData.profile);
-      console.log('[TeacherDashboard] Teacher info:', dashboardData.teacher_info);
+      logger.debug('[TeacherDashboard] Dashboard data loaded:', dashboardData);
+      logger.debug('[TeacherDashboard] Profile data:', dashboardData.profile);
+      logger.debug('[TeacherDashboard] Teacher info:', dashboardData.teacher_info);
     }
   }, [dashboardError, dashboardData]);
 
@@ -165,7 +166,7 @@ const TeacherDashboard = () => {
         materialsCount: Number(dashboardData?.progress_overview?.total_materials) || 0,
       };
     } catch (err) {
-      console.error('[TeacherDashboard] Error extracting profile data:', err);
+      logger.error('[TeacherDashboard] Error extracting profile data:', err);
       return {
         subjects: [],
         experience: 0,

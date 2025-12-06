@@ -207,7 +207,8 @@ class TestLessonServiceCreateComprehensive:
                 end_time=time(11, 0)
             )
 
-        assert 'enrollment' in str(exc.value).lower() or 'subject' in str(exc.value).lower()
+        # Error message contains "does not teach" from enrollment validation
+        assert 'does not teach' in str(exc.value).lower()
 
     def test_create_lesson_fails_with_inactive_enrollment(self, setup_users_and_subject):
         """Scenario: Inactive enrollment → lesson creation fails"""
@@ -465,8 +466,14 @@ class TestLessonServiceCreateComprehensive:
 
         future_date = timezone.now().date() + timedelta(days=3)
 
-        # Act: Should use ~5-6 queries (get user, check roles, get enrollment, create lesson, create history)
-        with django_assert_num_queries(6):
+        # Act: Should use ~8 queries:
+        # 1. Service validation: get enrollment
+        # 2-4. Model validation (full_clean): check ForeignKey constraints (teacher, student, subject)
+        # 5. Model validation: get enrollment with select_related (optimized)
+        # 6. Check UUID uniqueness
+        # 7. INSERT lesson
+        # 8. INSERT history
+        with django_assert_num_queries(8):
             lesson = LessonService.create_lesson(
                 teacher=teacher,
                 student=student,

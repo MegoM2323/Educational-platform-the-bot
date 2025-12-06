@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/utils/logger';
 import { schedulingAPI } from '@/integrations/api/schedulingAPI';
 import { Lesson, LessonCreatePayload, LessonUpdatePayload } from '@/types/scheduling';
 import { toast } from 'sonner';
@@ -20,7 +21,7 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     onError: (error: any) => {
       const errorMessage = error.message || 'Ошибка при создании урока';
       toast.error(errorMessage);
-      console.error('Create lesson error:', error);
+      logger.error('Create lesson error:', error);
     }
   });
 
@@ -34,7 +35,7 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     onError: (error: any) => {
       const errorMessage = error.message || 'Ошибка при обновлении урока';
       toast.error(errorMessage);
-      console.error('Update lesson error:', error);
+      logger.error('Update lesson error:', error);
     }
   });
 
@@ -47,7 +48,7 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     onError: (error: any) => {
       const errorMessage = error.message || 'Ошибка при удалении урока';
       toast.error(errorMessage);
-      console.error('Delete lesson error:', error);
+      logger.error('Delete lesson error:', error);
     }
   });
 

@@ -1,4 +1,5 @@
 import { Users, Calendar, LogOut } from "lucide-react";
+import { logger } from '@/utils/logger';
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -40,7 +41,7 @@ export function AdminSidebar() {
       await logout();
       toast.success('Вы вышли из системы');
     } catch (error) {
-      console.error('AdminSidebar logout error:', error);
+      logger.error('AdminSidebar logout error:', error);
       toast.error('Ошибка при выходе');
     }
   };

@@ -80,7 +80,7 @@ export class ChatWebSocketService {
       const { accessToken } = tokenStorage.getTokens();
       const tokenParam = accessToken ? `?token=${accessToken}` : '';
       const fullUrl = `${baseUrl}/chat/general/${tokenParam}`;
-      console.log('[ChatWebSocket] Connecting to general chat:', fullUrl);
+      logger.debug('[ChatWebSocket] Connecting to general chat:', fullUrl);
       websocketService.connect(fullUrl);
     }
   }
@@ -103,7 +103,7 @@ export class ChatWebSocketService {
     const { accessToken } = tokenStorage.getTokens();
     const tokenParam = accessToken ? `?token=${accessToken}` : '';
     const fullUrl = `${baseUrl}/chat/${roomId}/${tokenParam}`;
-    console.log('[ChatWebSocket] Connecting to room:', roomId, 'URL:', fullUrl);
+    logger.debug('[ChatWebSocket] Connecting to room:', roomId, 'URL:', fullUrl);
     websocketService.connect(fullUrl);
   }
 
@@ -193,7 +193,7 @@ export class ChatWebSocketService {
    * Обработка входящих сообщений чата
    */
   private handleChatMessage(message: WebSocketMessage): void {
-    console.log('[ChatWebSocketService] Received message:', {
+    logger.debug('[ChatWebSocketService] Received message:', {
       type: message.type,
       hasMessage: !!message.message,
       messageId: message.message?.id,
@@ -203,10 +203,10 @@ export class ChatWebSocketService {
     switch (message.type) {
       case 'chat_message':
         if (message.message && this.eventHandlers.onMessage) {
-          console.log('[ChatWebSocketService] Calling onMessage handler for message ID:', message.message.id);
+          logger.debug('[ChatWebSocketService] Calling onMessage handler for message ID:', message.message.id);
           this.eventHandlers.onMessage(message.message);
         } else {
-          console.warn('[ChatWebSocketService] chat_message received but no handler or message data:', {
+          logger.warn('[ChatWebSocketService] chat_message received but no handler or message data:', {
             hasMessage: !!message.message,
             hasHandler: !!this.eventHandlers.onMessage
           });

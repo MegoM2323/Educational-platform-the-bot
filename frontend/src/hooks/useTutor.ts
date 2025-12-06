@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/utils/logger';
 import { tutorAPI, CreateStudentRequest, AssignSubjectRequest, TutorStudent, CreateStudentResponse } from '@/integrations/api/tutor';
 import { useToast } from '@/hooks/use-toast';
 import { cacheService } from '@/services/cacheService';
@@ -7,16 +8,16 @@ export const useTutorStudents = () => {
   return useQuery<TutorStudent[]>({
     queryKey: ['tutor-students'],
     queryFn: async () => {
-      console.log('[useTutorStudents] Fetching students list...');
+      logger.debug('[useTutorStudents] Fetching students list...');
       const result = await tutorAPI.listStudents();
-      console.log('[useTutorStudents] Fetched', result.length, 'students');
+      logger.debug('[useTutorStudents] Fetched', result.length, 'students');
       // Логируем предметы для каждого студента
       result.forEach(s => {
         const subjectsCount = s.subjects?.length || 0;
-        console.log(`[useTutorStudents] Student ${s.id} (${s.full_name}) has ${subjectsCount} subjects`);
+        logger.debug(`[useTutorStudents] Student ${s.id} (${s.full_name}) has ${subjectsCount} subjects`);
         if (subjectsCount > 0) {
           s.subjects?.forEach(subj => {
-            console.log(`  - ${subj.name} (teacher: ${subj.teacher_name}, enrollment_id: ${subj.enrollment_id})`);
+            logger.debug(`  - ${subj.name} (teacher: ${subj.teacher_name}, enrollment_id: ${subj.enrollment_id})`);
           });
         }
       });
@@ -38,13 +39,13 @@ export const useCreateTutorStudent = () => {
   
   return useMutation<CreateStudentResponse, Error, CreateStudentRequest>({
     mutationFn: async (data) => {
-      console.log('[useCreateTutorStudent] Creating student with data:', data);
+      logger.debug('[useCreateTutorStudent] Creating student with data:', data);
       const result = await tutorAPI.createStudent(data);
-      console.log('[useCreateTutorStudent] Student created successfully:', result);
+      logger.debug('[useCreateTutorStudent] Student created successfully:', result);
       return result;
     },
     onSuccess: async (data) => {
-      console.log('[useCreateTutorStudent] onSuccess called, invalidating and refetching...');
+      logger.debug('[useCreateTutorStudent] onSuccess called, invalidating and refetching...');
       
       // Очищаем кеш в cacheService для списка студентов
       cacheService.delete('/tutor/students/');
@@ -60,7 +61,7 @@ export const useCreateTutorStudent = () => {
         type: 'active'
       });
       
-      console.log('[useCreateTutorStudent] Data refreshed successfully');
+      logger.debug('[useCreateTutorStudent] Data refreshed successfully');
       
       toast({
         title: "Успешно",
@@ -68,7 +69,7 @@ export const useCreateTutorStudent = () => {
       });
     },
     onError: (error: any) => {
-      console.error('[useCreateTutorStudent] Error:', error);
+      logger.error('[useCreateTutorStudent] Error:', error);
       const errorMessage = error?.message || 'Не удалось создать ученика';
       toast({
         title: "Ошибка",
@@ -85,12 +86,12 @@ export const useAssignSubject = (studentId: number) => {
   
   return useMutation<void, Error, AssignSubjectRequest>({
     mutationFn: async (data) => {
-      console.log('[useAssignSubject] Starting mutation for student:', studentId, 'data:', data);
+      logger.debug('[useAssignSubject] Starting mutation for student:', studentId, 'data:', data);
       await tutorAPI.assignSubject(studentId, data);
-      console.log('[useAssignSubject] Mutation completed successfully');
+      logger.debug('[useAssignSubject] Mutation completed successfully');
     },
     onSuccess: async () => {
-      console.log('[useAssignSubject] onSuccess called, invalidating cache...');
+      logger.debug('[useAssignSubject] onSuccess called, invalidating cache...');
       
       // Очищаем кеш в cacheService для списка студентов
       cacheService.delete('/tutor/students/');
@@ -110,7 +111,7 @@ export const useAssignSubject = (studentId: number) => {
         type: 'active'
       });
       
-      console.log('[useAssignSubject] Cache invalidated and data refreshed');
+      logger.debug('[useAssignSubject] Cache invalidated and data refreshed');
       
       toast({
         title: "Успешно",
@@ -119,7 +120,7 @@ export const useAssignSubject = (studentId: number) => {
     },
     onError: (error: any) => {
       const errorMessage = error?.message || error?.response?.data?.detail || 'Не удалось назначить предмет';
-      console.error('[useAssignSubject] Error:', errorMessage);
+      logger.error('[useAssignSubject] Error:', errorMessage);
       toast({
         title: "Ошибка",
         description: errorMessage,

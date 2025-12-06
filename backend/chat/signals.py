@@ -124,10 +124,15 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
 @receiver(post_save, sender=Message)
 def send_forum_notification(sender, instance: Message, created: bool, **kwargs) -> None:
     """
-    Send Pachca notification when new forum message is created.
+    Trigger Pachca notification when new forum message is created.
 
     Only triggers for forum chats (FORUM_SUBJECT and FORUM_TUTOR types).
-    Runs asynchronously - errors in Pachca notification do not block message creation.
+    Runs asynchronously via Celery task - errors do not block message creation.
+
+    Celery task handles:
+    - Exponential backoff retry (3 attempts: 1min, 2min, 4min delays)
+    - Structured logging with full context
+    - Monitoring for repeated failures
 
     Args:
         sender: Message model class
@@ -141,21 +146,42 @@ def send_forum_notification(sender, instance: Message, created: bool, **kwargs) 
     try:
         chat_room: ChatRoom | None = instance.room
         if not chat_room:
-            logger.warning(f"Message {instance.id} has no associated ChatRoom")
+            logger.warning(
+                f"Message {instance.id} has no associated ChatRoom",
+                extra={'message_id': instance.id}
+            )
             return
 
         # Only send notification for forum chats
         if chat_room.type not in (ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR):
             return
 
-        # Initialize Pachca service and send notification
-        pachca_service = PachcaService()
-        if pachca_service.is_configured():
-            pachca_service.notify_new_forum_message(instance, chat_room)
+        # Dispatch Celery task for async processing with retry
+        from chat.tasks import send_pachca_forum_notification_task
+
+        send_pachca_forum_notification_task.apply_async(
+            args=[instance.id, chat_room.id],
+            countdown=2,  # Wait 2 seconds before sending (debounce)
+        )
+
+        logger.info(
+            f"Pachca notification task queued for message {instance.id} in chat {chat_room.id}",
+            extra={
+                'message_id': instance.id,
+                'chat_room_id': chat_room.id,
+                'chat_type': chat_room.type
+            }
+        )
 
     except Exception as e:
+        # Critical: Celery task dispatch failed
         logger.error(
-            f"Error sending Pachca notification for message {instance.id}: {str(e)}",
-            exc_info=True
+            f"Error dispatching Pachca notification task for message {instance.id}: {str(e)}",
+            exc_info=True,
+            extra={
+                'message_id': instance.id,
+                'error_type': type(e).__name__,
+                'error': str(e)
+            }
         )
-        # Don't raise the exception - log it but let the message creation succeed
+        # Don't raise - log error but let message creation succeed

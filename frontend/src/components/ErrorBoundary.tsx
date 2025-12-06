@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { logger } from '@/utils/logger';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Home } from 'lucide-react';
@@ -40,7 +41,7 @@ class ErrorBoundaryClass extends Component<Props, State> {
     });
 
     // Логирование ошибки
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    logger.error('ErrorBoundary caught an error:', error, errorInfo);
     
     // Вызов пользовательского обработчика ошибок
     if (this.props.onError) {

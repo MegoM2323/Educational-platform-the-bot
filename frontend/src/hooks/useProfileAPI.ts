@@ -74,8 +74,8 @@ export const useStudentProfile = (): UseQueryResult<UserProfile, Error> => {
  *
  * const handleUpdate = async (data) => {
  *   mutate(data, {
- *     onSuccess: () => console.log('Updated!'),
- *     onError: (error) => console.error(error),
+ *     onSuccess: () => logger.debug('Updated!'),
+ *     onError: (error) => logger.error(error),
  *   });
  * };
  */
@@ -591,18 +591,18 @@ export const useUploadParentAvatar = () => {
  * const handleUpdate = async (data: ProfileUpdateData) => {
  *   try {
  *     const result = await updateProfile(data);
- *     console.log('Profile updated:', result);
+ *     logger.debug('Profile updated:', result);
  *   } catch (err) {
- *     console.error('Failed to update:', err);
+ *     logger.error('Failed to update:', err);
  *   }
  * };
  *
  * const handleAvatarUpload = async (file: File) => {
  *   try {
  *     const result = await uploadAvatar(file);
- *     console.log('Avatar uploaded:', result);
+ *     logger.debug('Avatar uploaded:', result);
  *   } catch (err) {
- *     console.error('Failed to upload:', err);
+ *     logger.error('Failed to upload:', err);
  *   }
  * };
  */
@@ -810,8 +810,8 @@ export const useProfileAPI = () => {
  *
  * const handleReactivate = () => {
  *   reactivate(undefined, {
- *     onSuccess: () => console.log('Profile reactivated!'),
- *     onError: (error) => console.error(error),
+ *     onSuccess: () => logger.debug('Profile reactivated!'),
+ *     onError: (error) => logger.error(error),
  *   });
  * };
  */

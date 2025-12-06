@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,7 +88,7 @@ export default function MaterialSubmissionStatus({
         setSubmission(null);
       }
     } catch (err: any) {
-      console.error('Fetch submission error:', err);
+      logger.error('Fetch submission error:', err);
       setError('Ошибка загрузки статуса ответа');
     } finally {
       setLoading(false);

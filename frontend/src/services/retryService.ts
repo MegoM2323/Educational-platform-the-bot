@@ -115,7 +115,7 @@ class RetryService {
 
       if (this.failureCount >= this.circuitBreakerConfig.failureThreshold) {
         this.circuitBreakerState = 'open';
-        console.warn('Circuit breaker opened due to repeated failures');
+        logger.warn('Circuit breaker opened due to repeated failures');
       }
     }
 
@@ -135,7 +135,7 @@ class RetryService {
       if (timeSinceLastFailure >= this.circuitBreakerConfig.recoveryTimeout) {
         this.circuitBreakerState = 'half-open';
         this.stats.circuitBreakerState = 'half-open';
-        console.log('Circuit breaker moved to half-open state');
+        logger.debug('Circuit breaker moved to half-open state');
         return true;
       }
 
@@ -174,7 +174,7 @@ class RetryService {
           this.stats.successfulAttempts;
 
         if (attempt > 1) {
-          console.log(`Operation succeeded on attempt ${attempt}${context ? ` (${context})` : ''}`);
+          logger.debug(`Operation succeeded on attempt ${attempt}${context ? ` (${context})` : ''}`);
         }
 
         return result;
@@ -185,7 +185,7 @@ class RetryService {
         // Check if we should retry
         if (attempt <= this.retryConfig.maxRetries && this.retryConfig.retryCondition(error)) {
           const delay = this.calculateDelay(attempt);
-          console.warn(
+          logger.warn(
             `Operation failed on attempt ${attempt}${context ? ` (${context})` : ''}, retrying in ${delay}ms:`,
             error
           );
@@ -276,7 +276,7 @@ class RetryService {
     this.failureCount = 0;
     this.lastFailureTime = undefined;
     this.stats.circuitBreakerState = 'closed';
-    console.log('Circuit breaker manually reset');
+    logger.debug('Circuit breaker manually reset');
   }
 
   // Get current stats

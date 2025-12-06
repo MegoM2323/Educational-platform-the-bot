@@ -145,9 +145,9 @@ def confirmed_lesson(db, teacher_user, student_user, math_subject, subject_enrol
 
 @pytest.fixture
 def past_lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
-    """Create a lesson in the past."""
+    """Create a lesson in the past (bypasses validation for testing)."""
     past_date = timezone.now().date() - timedelta(days=5)
-    return Lesson.objects.create(
+    lesson = Lesson(
         teacher=teacher_user,
         student=student_user,
         subject=math_subject,
@@ -157,6 +157,8 @@ def past_lesson(db, teacher_user, student_user, math_subject, subject_enrollment
         description='Прошлый урок',
         status='completed'
     )
+    lesson.save(skip_validation=True)  # Bypass validation for test data
+    return lesson
 
 
 @pytest.fixture

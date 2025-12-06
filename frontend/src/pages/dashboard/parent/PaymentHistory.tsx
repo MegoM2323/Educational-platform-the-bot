@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,7 +62,7 @@ const PaymentHistory = () => {
         // Calculate total pages
         setTotalPages(Math.ceil(data.length / pageSize));
       } catch (error: any) {
-        console.error('Error fetching payment history:', error);
+        logger.error('Error fetching payment history:', error);
         toast({
           title: "Ошибка загрузки",
           description: error.message || "Не удалось загрузить историю платежей",
@@ -125,7 +126,7 @@ const PaymentHistory = () => {
         throw new Error("Не получена ссылка для оплаты");
       }
     } catch (error: any) {
-      console.error("Error creating payment:", error);
+      logger.error("Error creating payment:", error);
       toast({
         title: "Ошибка оплаты",
         description: error.message || "Не удалось создать платеж",

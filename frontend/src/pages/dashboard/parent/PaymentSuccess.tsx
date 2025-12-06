@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { logger } from '@/utils/logger';
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -60,7 +61,7 @@ const PaymentSuccess = () => {
       try {
         setChecking(true);
         pollCount++;
-        console.log(`[Payment Check ${pollCount}] Retry ${retryCount + 1}/${MAX_RETRIES}`);
+        logger.debug(`[Payment Check ${pollCount}] Retry ${retryCount + 1}/${MAX_RETRIES}`);
 
         const response = await unifiedAPI.request(`/payments/check-payment-status/?payment_id=${paymentId}`);
 
@@ -70,11 +71,11 @@ const PaymentSuccess = () => {
 
           if (status === 'succeeded' || status === 'SUCCEEDED') {
             // Payment successful
-            console.log('[Payment Check] Status: SUCCEEDED');
+            logger.debug('[Payment Check] Status: SUCCEEDED');
             setPaymentStatus('success');
 
             // CRITICAL: Invalidate and refetch ALL related dashboard data
-            console.log('[Payment Success] Invalidating all parent dashboard caches...');
+            logger.debug('[Payment Success] Invalidating all parent dashboard caches...');
 
             // Invalidate first to mark queries as stale
             await queryClient.invalidateQueries({ queryKey: ['parent-dashboard'] });
@@ -84,11 +85,11 @@ const PaymentSuccess = () => {
             await queryClient.invalidateQueries({ queryKey: ['parent-subscriptions'] });
 
             // Then explicitly refetch to get fresh data
-            console.log('[Payment Success] Refetching parent dashboard data...');
+            logger.debug('[Payment Success] Refetching parent dashboard data...');
             await queryClient.refetchQueries({ queryKey: ['parent-dashboard'] });
             await queryClient.refetchQueries({ queryKey: ['parent-children'] });
             await queryClient.refetchQueries({ queryKey: ['parent-payments'] });
-            console.log('[Payment Success] All caches refreshed successfully');
+            logger.debug('[Payment Success] All caches refreshed successfully');
 
             toast({
               title: "Платеж успешно завершен!",
@@ -99,19 +100,19 @@ const PaymentSuccess = () => {
 
           } else if (status === 'pending' || status === 'PENDING' || status === 'waiting_for_capture') {
             // Payment still processing
-            console.log(`[Payment Check] Status: ${status} - continuing polling`);
+            logger.debug(`[Payment Check] Status: ${status} - continuing polling`);
             setPaymentStatus('pending');
 
             // Retry after 3 seconds (max 180 seconds = 3 minutes)
             if (retryCount < MAX_RETRIES) {
               // Логируем только каждый 5-й запрос чтобы не замусорить консоль
               if (retryCount % 5 === 0) {
-                console.log(`Payment pending, retry ${retryCount + 1}/${MAX_RETRIES}`);
+                logger.debug(`Payment pending, retry ${retryCount + 1}/${MAX_RETRIES}`);
               }
               checkPaymentTimeout = setTimeout(() => checkPayment(retryCount + 1), RETRY_DELAY);
             } else {
               // Максимум попыток исчерпан (3 минуты прошло)
-              console.log('[Payment Check] Max retries reached (3 minutes), stopping polling');
+              logger.debug('[Payment Check] Max retries reached (3 minutes), stopping polling');
               setPaymentStatus('pending'); // Оставляем "pending" статус
               toast({
                 title: "Платеж обрабатывается",
@@ -121,7 +122,7 @@ const PaymentSuccess = () => {
             }
 
           } else if (status === 'canceled' || status === 'CANCELED') {
-            console.log('[Payment Check] Status: CANCELED');
+            logger.debug('[Payment Check] Status: CANCELED');
             setPaymentStatus('failed');
             toast({
               title: "Платеж отменен",
@@ -131,7 +132,7 @@ const PaymentSuccess = () => {
           }
         }
       } catch (error: any) {
-        console.error('[Payment Check] Error:', error);
+        logger.error('[Payment Check] Error:', error);
         // При ошибке продолжаем polling, не прерываем
         setPaymentStatus('pending');
         if (retryCount < 30) {

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { adminAPI } from '@/integrations/api/adminAPI';
 import { User } from '@/integrations/api/unifiedClient';
@@ -166,7 +167,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
         setParents(parentsArray);
       }
     } catch (error) {
-      console.error('Error loading filter data:', error);
+      logger.error('Error loading filter data:', error);
     }
   }, []);
 
@@ -187,7 +188,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
       toast.success('Вы вышли из системы');
       navigate('/auth');
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
       toast.error('Ошибка при выходе');
     } finally {
       setIsLogoutLoading(false);

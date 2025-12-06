@@ -1,4 +1,5 @@
 /**
+import { logger } from '@/utils/logger';
  * Profile API Usage Examples - React Components
  *
  * This file contains practical examples of how to use the profileAPI client
@@ -346,7 +347,7 @@ export function ProfileUpdateFormWithQuery() {
         first_name: firstName,
       });
     } catch (error) {
-      console.error('Update failed:', error);
+      logger.error('Update failed:', error);
     }
   };
 

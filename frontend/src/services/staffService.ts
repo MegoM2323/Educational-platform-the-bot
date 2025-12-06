@@ -1,4 +1,5 @@
 import { unifiedAPI as apiClient, ApiResponse, User } from '@/integrations/api/unifiedClient';
+import { logger } from '@/utils/logger';
 
 export interface Subject {
   id: number;
@@ -41,7 +42,7 @@ export const staffService = {
     const timestamp = Date.now();
     const res = await apiClient.request<{ results: StaffListItem[] } | StaffListItem[]>(`/auth/staff/?role=${role}&_=${timestamp}`, { method: 'GET' });
     if (!res.success) {
-      console.error('Error loading staff list:', res.error);
+      logger.error('Error loading staff list:', res.error);
       throw new Error(res.error || 'Не удалось получить список');
     }
     // unifiedClient уже извлекает results из ответа, поэтому res.data может быть либо массивом, либо объектом с results
@@ -53,7 +54,7 @@ export const staffService = {
       // Если unifiedClient не извлек results (редкий случай), извлекаем вручную
       results = (res.data as any).results || [];
     }
-    console.log(`[staffService] Loaded ${results.length} ${role}s`, { dataType: typeof res.data, isArray: Array.isArray(res.data) });
+    logger.debug(`[staffService] Loaded ${results.length} ${role}s`, { dataType: typeof res.data, isArray: Array.isArray(res.data) });
     return results;
   },
 

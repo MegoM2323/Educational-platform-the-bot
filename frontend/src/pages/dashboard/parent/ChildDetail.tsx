@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import { logger } from '@/utils/logger';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { ParentSidebar } from '@/components/layout/ParentSidebar';
 import { useParams } from 'react-router-dom';
@@ -123,7 +124,7 @@ function PayButton({
               await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
               window.location.reload();
             } catch (err) {
-              console.error('Cancel subscription error:', err);
+              logger.error('Cancel subscription error:', err);
             }
           }}
         >

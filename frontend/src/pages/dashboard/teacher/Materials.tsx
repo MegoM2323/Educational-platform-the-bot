@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/utils/logger';
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { unifiedAPI as apiClient } from "@/integrations/api/unifiedClient";
@@ -91,7 +92,7 @@ const Materials = () => {
         }
       } catch (err) {
         setError('Произошла ошибка при загрузке данных');
-        console.error('Materials fetch error:', err);
+        logger.error('Materials fetch error:', err);
       } finally {
         setLoading(false);
       }
@@ -145,7 +146,7 @@ const Materials = () => {
         throw new Error(response.error || 'Ошибка удаления материала');
       }
     } catch (error) {
-      console.error('Error deleting material:', error);
+      logger.error('Error deleting material:', error);
       toast({
         title: "Ошибка удаления",
         description: error instanceof Error ? error.message : "Произошла неизвестная ошибка",
@@ -166,11 +167,11 @@ const Materials = () => {
       setSubjectStudents([]);
       setAssignedStudentIds([]);
       
-      console.log('[openDistributeDialog] Material:', material);
+      logger.debug('[openDistributeDialog] Material:', material);
       
       // Загружаем ВСЕХ студентов (не только по предмету)
       const studentsResp = await apiClient.request<{students: {id:number; name:string; email:string; username?:string; first_name?:string; last_name?:string; role?:string}[]}>('/materials/teacher/all-students/');
-      console.log('[openDistributeDialog] Students response:', studentsResp);
+      logger.debug('[openDistributeDialog] Students response:', studentsResp);
       
       if (studentsResp.data?.students) {
         // Backend уже фильтрует только студентов (исключая админов)
@@ -187,13 +188,13 @@ const Materials = () => {
       
       // Загружаем уже назначенных
       const assignedResp = await apiClient.request<{assigned_students: {id:number; name:string; email:string}[]}>(`/materials/teacher/materials/${material.id}/assignments/`);
-      console.log('[openDistributeDialog] Assigned response:', assignedResp);
+      logger.debug('[openDistributeDialog] Assigned response:', assignedResp);
       
       if (assignedResp.data?.assigned_students) {
         setAssignedStudentIds(assignedResp.data.assigned_students.map(s => s.id));
       }
     } catch (e) {
-      console.error('[openDistributeDialog] Error:', e);
+      logger.error('[openDistributeDialog] Error:', e);
       toast({ title: 'Ошибка', description: 'Не удалось загрузить список студентов/назначений', variant: 'destructive' });
     }
   };
@@ -207,15 +208,15 @@ const Materials = () => {
     try {
       setSavingDistribute(true);
       
-      console.log('[saveDistribute] Material ID:', selectedForDistribute.id);
-      console.log('[saveDistribute] Selected student IDs:', assignedStudentIds);
+      logger.debug('[saveDistribute] Material ID:', selectedForDistribute.id);
+      logger.debug('[saveDistribute] Selected student IDs:', assignedStudentIds);
       
       const resp = await apiClient.request<{assigned_count:number}>(`/materials/teacher/materials/${selectedForDistribute.id}/assignments/`, {
         method: 'PUT',
         body: JSON.stringify({ student_ids: assignedStudentIds }),
       });
       
-      console.log('[saveDistribute] Response:', resp);
+      logger.debug('[saveDistribute] Response:', resp);
       
       if (resp.data) {
         // Обновляем счётчик назначений локально

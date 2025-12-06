@@ -1,4 +1,5 @@
 // Tutor API Service
+import { logger } from '@/utils/logger';
 import { unifiedAPI } from './unifiedClient';
 
 /**
@@ -53,23 +54,23 @@ export interface AssignSubjectRequest {
 
 export const tutorAPI = {
   listStudents: async (): Promise<TutorStudent[]> => {
-    console.log('[tutorAPI.listStudents] Starting request');
+    logger.debug('[tutorAPI.listStudents] Starting request');
 
     const token = unifiedAPI.getToken();
-    console.log('[tutorAPI.listStudents] Current token:', token ? 'EXISTS' : 'MISSING');
+    logger.debug('[tutorAPI.listStudents] Current token:', token ? 'EXISTS' : 'MISSING');
 
     if (!token) {
-      console.error('[tutorAPI.listStudents] No token available!');
+      logger.error('[tutorAPI.listStudents] No token available!');
       throw new Error('Authentication required. Please login again.');
     }
 
     const resp = await unifiedAPI.request<any>('/tutor/my-students/');
     
-    console.log('[tutorAPI.listStudents] Response status:', resp.success);
-    console.log('[tutorAPI.listStudents] Response data:', resp.data);
+    logger.debug('[tutorAPI.listStudents] Response status:', resp.success);
+    logger.debug('[tutorAPI.listStudents] Response data:', resp.data);
     
     if (resp.error) {
-      console.error('[tutorAPI.listStudents] Error:', resp.error);
+      logger.error('[tutorAPI.listStudents] Error:', resp.error);
       throw new Error(resp.error);
     }
     
@@ -88,14 +89,14 @@ export const tutorAPI = {
   },
 
   createStudent: async (data: CreateStudentRequest): Promise<CreateStudentResponse> => {
-    console.log('[tutorAPI.createStudent] Starting request with data:', data);
+    logger.debug('[tutorAPI.createStudent] Starting request with data:', data);
     
     // Проверяем токен перед запросом
     const token = unifiedAPI.getToken();
-    console.log('[tutorAPI.createStudent] Current token:', token ? 'EXISTS' : 'MISSING');
+    logger.debug('[tutorAPI.createStudent] Current token:', token ? 'EXISTS' : 'MISSING');
     
     if (!token) {
-      console.error('[tutorAPI.createStudent] No token available!');
+      logger.error('[tutorAPI.createStudent] No token available!');
       throw new Error('HTTP 403: Forbidden - Authentication required');
     }
     
@@ -104,12 +105,12 @@ export const tutorAPI = {
       body: JSON.stringify(data),
     });
     
-    console.log('[tutorAPI.createStudent] Response success:', resp.success);
-    console.log('[tutorAPI.createStudent] Response error:', resp.error);
-    console.log('[tutorAPI.createStudent] Full response:', JSON.stringify(resp, null, 2));
+    logger.debug('[tutorAPI.createStudent] Response success:', resp.success);
+    logger.debug('[tutorAPI.createStudent] Response error:', resp.error);
+    logger.debug('[tutorAPI.createStudent] Full response:', JSON.stringify(resp, null, 2));
     
     if (resp.error) {
-      console.error('[tutorAPI.createStudent] Error:', resp.error);
+      logger.error('[tutorAPI.createStudent] Error:', resp.error);
       // Если ошибка содержит 403 или Forbidden, сохраняем это в сообщении
       if (resp.error.includes('403') || resp.error.includes('Forbidden')) {
         throw new Error('HTTP 403: Forbidden');
@@ -128,13 +129,13 @@ export const tutorAPI = {
 
   assignSubject: async (studentId: number, data: AssignSubjectRequest): Promise<void> => {
     try {
-      console.log('[tutorAPI.assignSubject] Starting request:', { studentId, data });
+      logger.debug('[tutorAPI.assignSubject] Starting request:', { studentId, data });
       const resp = await unifiedAPI.request(`/tutor/students/${studentId}/subjects/`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
       
-      console.log('[tutorAPI.assignSubject] Response:', {
+      logger.debug('[tutorAPI.assignSubject] Response:', {
         success: resp.success,
         error: resp.error,
         data: resp.data,
@@ -145,17 +146,17 @@ export const tutorAPI = {
       if (!resp.success || resp.error) {
         // Пытаемся извлечь детальное сообщение об ошибке
         const errorMessage = resp.error || resp.data?.detail || 'Не удалось назначить предмет';
-        console.error('[tutorAPI.assignSubject] Error:', errorMessage);
+        logger.error('[tutorAPI.assignSubject] Error:', errorMessage);
         throw new Error(errorMessage);
       }
       
       // Если запрос успешен, даже если данных нет в ответе, считаем что предмет назначен
-      console.log('[tutorAPI.assignSubject] Subject assigned successfully, status:', resp.status || 'OK');
+      logger.debug('[tutorAPI.assignSubject] Subject assigned successfully, status:', resp.status || 'OK');
       
       // Возвращаем void, так как данные будут загружены через отдельный запрос
       return;
     } catch (error: any) {
-      console.error('[tutorAPI.assignSubject] Exception:', error);
+      logger.error('[tutorAPI.assignSubject] Exception:', error);
       // Если это уже Error с сообщением, пробрасываем дальше
       if (error instanceof Error) {
         throw error;

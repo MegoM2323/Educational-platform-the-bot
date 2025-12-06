@@ -1,4 +1,5 @@
 // Утилиты для безопасного хранения токенов с шифрованием
+import { logger } from '@/utils/logger';
 import CryptoJS from 'crypto-js';
 
 const STORAGE_KEY_PREFIX = 'bot_platform_';
@@ -30,7 +31,7 @@ class SecureStorage {
     try {
       return CryptoJS.AES.encrypt(data, this.encryptionKey).toString();
     } catch (error) {
-      console.error('Ошибка шифрования:', error);
+      logger.error('Ошибка шифрования:', error);
       return data; // Возвращаем исходные данные в случае ошибки
     }
   }
@@ -47,13 +48,13 @@ class SecureStorage {
       
       // Проверяем, что расшифровка прошла успешно
       if (!decrypted || decrypted.trim() === '') {
-        console.warn('Расшифровка вернула пустую строку - возможно, неверный ключ или поврежденные данные');
+        logger.warn('Расшифровка вернула пустую строку - возможно, неверный ключ или поврежденные данные');
         return null;
       }
       
       return decrypted;
     } catch (error) {
-      console.error('Ошибка расшифровки:', error);
+      logger.error('Ошибка расшифровки:', error);
       // Если данные повреждены, возвращаем null
       return null;
     }
@@ -80,7 +81,7 @@ class SecureStorage {
       localStorage.setItem(`${STORAGE_KEY_PREFIX}${key}`, encryptedItem);
       return true;
     } catch (error) {
-      console.error('Ошибка сохранения в secure storage:', error);
+      logger.error('Ошибка сохранения в secure storage:', error);
       return false;
     }
   }
@@ -118,7 +119,7 @@ class SecureStorage {
       const decryptedItem = this.decrypt(encryptedItem);
       if (!decryptedItem) {
         // Расшифровка не удалась - очищаем данные
-        console.warn(`Failed to decrypt item with key: ${key}. Removing corrupted data.`);
+        logger.warn(`Failed to decrypt item with key: ${key}. Removing corrupted data.`);
         this.removeItem(key);
         return null;
       }
@@ -127,7 +128,7 @@ class SecureStorage {
       try {
         item = JSON.parse(decryptedItem);
       } catch (e) {
-        console.error(`Failed to parse decrypted item with key: ${key}`, e);
+        logger.error(`Failed to parse decrypted item with key: ${key}`, e);
         this.removeItem(key);
         return null;
       }
@@ -140,7 +141,7 @@ class SecureStorage {
 
       return item.data;
     } catch (error) {
-      console.error('Ошибка получения из secure storage:', error);
+      logger.error('Ошибка получения из secure storage:', error);
       return null;
     }
   }
@@ -151,7 +152,7 @@ class SecureStorage {
         localStorage.removeItem(`${STORAGE_KEY_PREFIX}${key}`);
       }
     } catch (error) {
-      console.error('Ошибка удаления из secure storage:', error);
+      logger.error('Ошибка удаления из secure storage:', error);
     }
   }
 
@@ -166,7 +167,7 @@ class SecureStorage {
         });
       }
     } catch (error) {
-      console.error('Ошибка очистки secure storage:', error);
+      logger.error('Ошибка очистки secure storage:', error);
     }
   }
 
@@ -203,7 +204,7 @@ class SecureStorage {
     try {
       return JSON.parse(data);
     } catch (error) {
-      console.error('Ошибка парсинга user data:', error);
+      logger.error('Ошибка парсинга user data:', error);
       return null;
     }
   }

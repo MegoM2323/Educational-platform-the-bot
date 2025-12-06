@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { logger } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -130,7 +131,7 @@ const ParentDashboard = () => {
         showError("Не удалось создать платеж. Проверьте настройки ЮКассы.");
       }
     } catch (err: any) {
-      console.error('Payment error:', err);
+      logger.error('Payment error:', err);
       showError(err.message || "Произошла ошибка при создании платежа");
     }
   };
@@ -152,7 +153,7 @@ const ParentDashboard = () => {
         await refetch();
       }
     } catch (err: any) {
-      console.error('Cancel subscription error:', err);
+      logger.error('Cancel subscription error:', err);
       const errorMessage = err.response?.data?.error || err.message || "Произошла ошибка при отмене подписки";
       showError(errorMessage);
     }
@@ -343,7 +344,7 @@ const ParentDashboard = () => {
                                             try {
                                               await handleCancelSubscription(child.id, subject.enrollment_id);
                                             } catch (err) {
-                                              console.error('Cancel subscription error:', err);
+                                              logger.error('Cancel subscription error:', err);
                                               showError("Произошла ошибка при отключении предмета");
                                             }
                                           }}

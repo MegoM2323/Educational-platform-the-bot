@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { unifiedAPI, User, ApiResponse } from '@/integrations/api/unifiedClient';
 import { logger } from '@/utils/logger';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Тип ответа для профиля пользователя
@@ -12,6 +13,12 @@ export interface ProfileResponse {
 
 /**
  * Custom hook для управления профилем пользователя с кешированием через TanStack Query
+ *
+ * Использует роль пользователя из AuthContext для определения правильного API endpoint:
+ * - student: /api/profile/student/
+ * - teacher: /api/profile/teacher/
+ * - tutor: /api/profile/tutor/
+ * - parent: /api/profile/parent/
  *
  * @returns {Object} Объект с данными профиля и функциями управления
  * @returns {ProfileResponse | undefined} profileData - Данные профиля пользователя
@@ -35,6 +42,7 @@ export interface ProfileResponse {
  */
 export const useProfile = () => {
   const queryClient = useQueryClient();
+  const { user: authUser, isLoading: isAuthLoading } = useAuth();
 
   const {
     data,
@@ -43,9 +51,12 @@ export const useProfile = () => {
     refetch,
     isError,
   } = useQuery({
-    queryKey: ['profile'],
+    queryKey: ['profile', authUser?.role],
     queryFn: async (): Promise<ProfileResponse> => {
-      logger.debug('[useProfile] Fetching profile...');
+      logger.debug('[useProfile] Fetching profile...', {
+        userRole: authUser?.role,
+        userId: authUser?.id,
+      });
 
       try {
         const response = await unifiedAPI.getProfile();
@@ -111,11 +122,14 @@ export const useProfile = () => {
 
     // Конфигурация обработки ошибок
     throwOnError: true, // Выбрасываем ошибку, чтобы она была доступна в error
+
+    // Не запускаем запрос пока не загрузится AuthContext
+    enabled: !isAuthLoading && !!authUser,
   });
 
   return {
     profileData: data,
-    isLoading,
+    isLoading: isLoading || isAuthLoading,
     error: error as Error | null,
     refetch,
     isError,

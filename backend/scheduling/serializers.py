@@ -90,7 +90,7 @@ class LessonCreateSerializer(serializers.Serializer):
         """Validate student exists and has role=student."""
         try:
             user = User.objects.get(id=value, role='student')
-        except User.DoesNotExist:
+        except (User.DoesNotExist, ValueError):
             raise serializers.ValidationError('Student not found')
         return value
 
@@ -98,7 +98,7 @@ class LessonCreateSerializer(serializers.Serializer):
         """Validate subject exists."""
         try:
             Subject.objects.get(id=value)
-        except Subject.DoesNotExist:
+        except (Subject.DoesNotExist, ValueError):
             raise serializers.ValidationError('Subject not found')
         return value
 

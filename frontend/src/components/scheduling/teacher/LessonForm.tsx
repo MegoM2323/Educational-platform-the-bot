@@ -176,7 +176,7 @@ export const LessonForm: React.FC<LessonFormProps> = ({
               <FormLabel>Date</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
+                  <Button type="button"
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
                   >

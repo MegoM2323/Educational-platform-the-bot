@@ -223,7 +223,7 @@ const ChatWindow = ({
           <div className="flex-1">
             <p className="text-sm text-destructive font-medium">{error}</p>
           </div>
-          <Button
+          <Button type="button"
             size="sm"
             variant="outline"
             onClick={onRetryConnection}
@@ -365,7 +365,7 @@ const ChatWindow = ({
           disabled={isSending}
           className="text-sm"
         />
-        <Button
+        <Button type="button"
           onClick={handleSend}
           disabled={!messageInput.trim() || isSending}
           className="gradient-primary"

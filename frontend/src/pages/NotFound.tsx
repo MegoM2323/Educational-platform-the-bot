@@ -47,7 +47,7 @@ const NotFound = () => {
 
           {/* Navigation Buttons */}
           <div className="flex flex-col gap-3 pt-4">
-            <Button
+            <Button type="button"
               onClick={handleBackClick}
               variant="outline"
               className="w-full gap-2"
@@ -56,7 +56,7 @@ const NotFound = () => {
               Вернуться назад
             </Button>
 
-            <Button
+            <Button type="button"
               onClick={() => navigate('/')}
               variant="default"
               className="w-full gap-2"
@@ -66,7 +66,7 @@ const NotFound = () => {
             </Button>
 
             {user && (
-              <Button
+              <Button type="button"
                 onClick={() => navigate(getDashboardRoute())}
                 className="w-full gap-2 gradient-primary shadow-glow"
               >

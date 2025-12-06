@@ -314,7 +314,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
 
           {/* Edit button */}
           {onEdit && (
-            <Button
+            <Button type="button"
               onClick={onEdit}
               variant="outline"
               size="sm"

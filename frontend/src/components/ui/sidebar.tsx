@@ -221,7 +221,7 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
     const { toggleSidebar } = useSidebar();
 
     return (
-      <Button
+      <Button type="button"
         ref={ref}
         data-sidebar="trigger"
         variant="ghost"

@@ -143,7 +143,7 @@ const StudentSchedulePage: React.FC = () => {
                         <p className="text-muted-foreground mb-6">
                           {error instanceof Error ? error.message : 'Не удалось загрузить расписание. Попробуйте обновить страницу.'}
                         </p>
-                        <Button
+                        <Button type="button"
                           onClick={() => window.location.reload()}
                           variant="outline"
                         >
@@ -164,7 +164,7 @@ const StudentSchedulePage: React.FC = () => {
                             : 'Ещё нет завершённых занятий'}
                         </p>
                         {activeTab === 'upcoming' && (
-                          <Button asChild>
+                          <Button type="button" asChild>
                             <a href="/dashboard/student/materials">Смотреть материалы</a>
                           </Button>
                         )}

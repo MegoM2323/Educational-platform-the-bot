@@ -78,10 +78,10 @@ export const ResetPasswordDialog = ({ user, open, onOpenChange }: ResetPasswordD
             )}
 
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose} disabled={loading}>
+              <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
                 Отмена
               </Button>
-              <Button onClick={handleReset} disabled={loading}>
+              <Button type="button" onClick={handleReset} disabled={loading}>
                 {loading ? 'Генерация...' : 'Сбросить пароль'}
               </Button>
             </DialogFooter>
@@ -100,7 +100,7 @@ export const ResetPasswordDialog = ({ user, open, onOpenChange }: ResetPasswordD
                 <p className="text-sm font-medium mb-2">Новый пароль:</p>
                 <div className="bg-muted p-4 rounded-md flex items-center justify-between">
                   <code className="text-lg font-mono font-bold">{newPassword}</code>
-                  <Button size="sm" variant="outline" onClick={copyToClipboard}>
+                  <Button type="button" size="sm" variant="outline" onClick={copyToClipboard}>
                     <Copy className="h-4 w-4 mr-1" />
                     Копировать
                   </Button>
@@ -120,7 +120,7 @@ export const ResetPasswordDialog = ({ user, open, onOpenChange }: ResetPasswordD
             </div>
 
             <DialogFooter>
-              <Button onClick={handleClose}>Закрыть</Button>
+              <Button type="button" onClick={handleClose}>Закрыть</Button>
             </DialogFooter>
           </>
         )}

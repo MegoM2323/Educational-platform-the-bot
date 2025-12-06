@@ -106,7 +106,7 @@ const TutorDashboard = () => {
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="flex items-center justify-between">
                     <span>Ошибка загрузки студентов: {error}</span>
-                    <Button
+                    <Button type="button"
                       onClick={() => refetch()}
                       size="sm"
                       variant="outline"
@@ -224,7 +224,7 @@ const TutorDashboard = () => {
               <Card className="p-6">
                 <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Button
+                  <Button type="button"
                     variant="outline"
                     className="h-auto flex-col gap-2 py-6"
                     onClick={() => navigate('/dashboard/tutor/students')}
@@ -232,7 +232,7 @@ const TutorDashboard = () => {
                     <Users className="w-6 h-6" />
                     <span>Мои ученики</span>
                   </Button>
-                  <Button
+                  <Button type="button"
                     variant="outline"
                     className="h-auto flex-col gap-2 py-6"
                     onClick={() => navigate('/dashboard/tutor/reports')}
@@ -240,7 +240,7 @@ const TutorDashboard = () => {
                     <FileText className="w-6 h-6" />
                     <span>Отчёты</span>
                   </Button>
-                  <Button
+                  <Button type="button"
                     variant="outline"
                     className="h-auto flex-col gap-2 py-6"
                     onClick={() => navigate('/dashboard/tutor/forum')}

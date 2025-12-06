@@ -214,7 +214,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         </div>
 
         {showRetry && onRetry && (
-          <Button onClick={onRetry} variant="outline">
+          <Button type="button" onClick={onRetry} variant="outline">
             <RefreshCw className="w-4 h-4 mr-2" />
             Попробовать снова
           </Button>

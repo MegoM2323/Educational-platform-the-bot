@@ -153,7 +153,7 @@ export default function MaterialSubmissionStatus({
         <CardContent className="p-6">
           <div className="text-center text-red-600">
             <p>{error}</p>
-            <Button 
+            <Button type="button" 
               variant="outline" 
               size="sm" 
               onClick={fetchSubmission}
@@ -233,7 +233,7 @@ export default function MaterialSubmissionStatus({
             <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
               <FileText className="w-4 h-4" />
               <span className="flex-1">{submission.submission_file.split('/').pop()}</span>
-              <Button
+              <Button type="button"
                 size="sm"
                 variant="outline"
                 onClick={() => handleDownloadFile(submission.submission_file!, submission.submission_file!.split('/').pop()!)}
@@ -276,7 +276,7 @@ export default function MaterialSubmissionStatus({
         {/* Кнопка редактирования для возвращенных ответов */}
         {submission.status === 'returned' && onEditSubmission && (
           <div className="pt-4">
-            <Button onClick={onEditSubmission} className="w-full">
+            <Button type="button" onClick={onEditSubmission} className="w-full">
               <RotateCcw className="w-4 h-4 mr-2" />
               Отправить исправленный ответ
             </Button>

@@ -137,7 +137,7 @@ const Auth = memo(() => {
               THE BOT
             </span>
           </Link>
-          <Button
+          <Button type="button"
             variant="ghost"
             onClick={() => navigate('/')}
             className="gap-2"
@@ -159,16 +159,14 @@ const Auth = memo(() => {
           <form onSubmit={handleLogin} className="space-y-4">
                 {/* Тoggle для выбора типа входа */}
                 <div className="flex gap-2 mb-4">
-                  <Button
-                    type="button"
+                  <Button type="button"
                     variant={loginType === "email" ? "default" : "outline"}
                     onClick={() => setLoginType("email")}
                     className="flex-1"
                   >
                     Email
                   </Button>
-                  <Button
-                    type="button"
+                  <Button type="button"
                     variant={loginType === "username" ? "default" : "outline"}
                     onClick={() => setLoginType("username")}
                     className="flex-1"

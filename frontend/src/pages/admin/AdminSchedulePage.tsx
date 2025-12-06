@@ -103,7 +103,7 @@ export default function AdminSchedulePage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-red-500">Ошибка загрузки расписания: {error}</p>
-            <Button onClick={() => refetch()} className="mt-4">
+            <Button type="button" onClick={() => refetch()} className="mt-4">
               Повторить
             </Button>
           </CardContent>
@@ -157,33 +157,33 @@ export default function AdminSchedulePage() {
           {/* Навигация по календарю */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={navigatePrev}>
+              <Button type="button" variant="outline" size="icon" onClick={navigatePrev}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <h2 className="text-xl font-semibold">
                 {format(currentDate, 'LLLL yyyy', { locale: ru })}
               </h2>
-              <Button variant="outline" size="icon" onClick={navigateNext}>
+              <Button type="button" variant="outline" size="icon" onClick={navigateNext}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
 
             <div className="flex gap-1">
-              <Button
+              <Button type="button"
                 variant={viewMode === 'month' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('month')}
               >
                 Месяц
               </Button>
-              <Button
+              <Button type="button"
                 variant={viewMode === 'week' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('week')}
               >
                 Неделя
               </Button>
-              <Button
+              <Button type="button"
                 variant={viewMode === 'day' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('day')}

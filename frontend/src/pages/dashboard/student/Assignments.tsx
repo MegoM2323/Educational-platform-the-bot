@@ -125,7 +125,7 @@ const StudentAssignments: React.FC = () => {
         </div>
 
         {assignment.status === 'published' && new Date(assignment.due_date) > now && (
-          <Button
+          <Button type="button"
             onClick={() => {
               setSelectedAssignment(assignment);
               setSubmitDialogOpen(true);
@@ -287,7 +287,7 @@ const StudentAssignments: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={() => {
                 setSubmitDialogOpen(false);
@@ -297,7 +297,7 @@ const StudentAssignments: React.FC = () => {
             >
               Отмена
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleSubmit}
               disabled={!content.trim() || submitMutation.isPending}
             >

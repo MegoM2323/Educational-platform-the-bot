@@ -43,8 +43,8 @@ export default function SubmissionDialog({ open, onOpenChange, materialId }: Pro
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
-          <Button onClick={submit} disabled={submitMutation.isPending}>Отправить</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
+          <Button type="button" onClick={submit} disabled={submitMutation.isPending}>Отправить</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

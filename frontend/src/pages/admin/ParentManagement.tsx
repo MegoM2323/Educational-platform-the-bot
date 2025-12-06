@@ -144,11 +144,11 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Управление родителями</CardTitle>
         <div className="flex gap-2">
-          <Button onClick={() => setCreateDialog(true)}>
+          <Button type="button" onClick={() => setCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Создать родителя
           </Button>
-          <Button
+          <Button type="button"
             variant="outline"
             onClick={() => setAssignmentDialog(true)}
           >
@@ -156,7 +156,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
             Назначить студентов
           </Button>
           {!embedded && (
-            <Button
+            <Button type="button"
               variant="destructive"
               onClick={handleLogout}
               disabled={isLogoutLoading}
@@ -180,7 +180,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="flex-1"
                 />
-                <Button variant="outline" size="icon">
+                <Button type="button" variant="outline" size="icon">
                   <Search className="h-4 w-4" />
                 </Button>
               </div>
@@ -242,7 +242,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
                     </td>
                     <td className="py-2 pr-4">
                       <div className="flex gap-1">
-                        <Button
+                        <Button type="button"
                           size="sm"
                           variant="outline"
                           onClick={() => setEditUserDialog({ open: true, item: parent })}
@@ -250,7 +250,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
                         >
                           <UserIcon className="h-4 w-4" />
                         </Button>
-                        <Button
+                        <Button type="button"
                           size="sm"
                           variant="outline"
                           onClick={() => setResetPasswordDialog({ open: true, item: parent })}
@@ -259,7 +259,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
                           <Key className="h-4 w-4" />
                         </Button>
                         {!parent.user.is_active && (
-                          <Button
+                          <Button type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => setReactivateDialog({ open: true, item: parent, isLoading: false })}
@@ -268,7 +268,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
                             <RotateCcw className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button
+                        <Button type="button"
                           size="sm"
                           variant="destructive"
                           onClick={() => setDeleteUserDialog({ open: true, item: parent })}
@@ -292,7 +292,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
               Показано {startIndex + 1}-{Math.min(endIndex, filteredParents.length)} из {filteredParents.length} родителей
             </div>
             <div className="flex gap-2">
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
@@ -305,7 +305,7 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
                   Страница {currentPage} из {totalPages || 1}
                 </span>
               </div>
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}
@@ -396,14 +396,14 @@ export default function ParentManagement({ embedded = false }: ParentManagementP
             </p>
           </div>
           <DialogFooter>
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={() => setReactivateDialog({ open: false, item: null, isLoading: false })}
               disabled={reactivateDialog.isLoading}
             >
               Отменить
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleReactivate}
               disabled={reactivateDialog.isLoading}
             >

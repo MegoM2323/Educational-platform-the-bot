@@ -187,7 +187,7 @@ export const ParentStudentAssignment = ({ open, onOpenChange, onSuccess }: Paren
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <Label>Студенты для назначения:</Label>
-                  <Button
+                  <Button type="button"
                     variant="ghost"
                     size="sm"
                     onClick={handleSelectAll}
@@ -239,10 +239,10 @@ export const ParentStudentAssignment = ({ open, onOpenChange, onSuccess }: Paren
 
         {!success && (
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={handleClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
               Отмена
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleSubmit}
               disabled={loading || !selectedParentId || selectedStudentIds.size === 0}
             >
@@ -253,7 +253,7 @@ export const ParentStudentAssignment = ({ open, onOpenChange, onSuccess }: Paren
 
         {success && (
           <DialogFooter>
-            <Button onClick={handleClose}>Закрыть</Button>
+            <Button type="button" onClick={handleClose}>Закрыть</Button>
           </DialogFooter>
         )}
       </DialogContent>

@@ -157,7 +157,7 @@ const TeacherSchedulePage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle>Create Lesson</CardTitle>
                   {!isFormOpen && (
-                    <Button
+                    <Button type="button"
                       onClick={handleOpenForm}
                       size="sm"
                       variant="outline"
@@ -177,7 +177,7 @@ const TeacherSchedulePage: React.FC = () => {
                     students={students}
                     subjects={subjects}
                   />
-                  <Button
+                  <Button type="button"
                     variant="ghost"
                     onClick={() => setIsFormOpen(false)}
                     className="w-full"

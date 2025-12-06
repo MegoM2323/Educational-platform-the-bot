@@ -201,7 +201,7 @@ const TutorSchedulePage: React.FC = () => {
                             <p className="text-muted-foreground mb-6">
                               {error instanceof Error ? error.message : 'Не удалось загрузить расписание. Попробуйте обновить страницу.'}
                             </p>
-                            <Button
+                            <Button type="button"
                               onClick={() => window.location.reload()}
                               variant="outline"
                             >

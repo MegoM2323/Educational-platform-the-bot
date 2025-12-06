@@ -476,8 +476,7 @@ const ApplicationForm = () => {
             {currentStep === 3 && renderStep3()}
 
             <div className="flex flex-col-reverse sm:flex-row justify-between gap-4 mt-8">
-              <Button
-                type="button"
+              <Button type="button"
                 variant="outline"
                 onClick={handlePrevious}
                 disabled={currentStep === 1}
@@ -487,14 +486,14 @@ const ApplicationForm = () => {
               </Button>
 
               {currentStep < totalSteps ? (
-                <Button
+                <Button type="button"
                   onClick={handleNext}
                   className="w-full sm:w-auto"
                 >
                   Далее
                 </Button>
               ) : (
-                <Button
+                <Button type="button"
                   onClick={handleSubmit}
                   disabled={isLoading}
                   className="w-full sm:w-auto gradient-primary shadow-glow"

@@ -180,8 +180,7 @@ export const SubjectAssignmentDialog = ({
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-medium">Назначение {index + 1}</h4>
                   {assignments.length > 1 && (
-                    <Button
-                      type="button"
+                    <Button type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => removeAssignment(index)}
@@ -242,8 +241,7 @@ export const SubjectAssignmentDialog = ({
               </div>
             ))}
 
-            <Button
-              type="button"
+            <Button type="button"
               variant="outline"
               size="sm"
               onClick={addAssignment}
@@ -263,7 +261,7 @@ export const SubjectAssignmentDialog = ({
           )}
 
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Отмена
             </Button>
             <Button type="submit" disabled={loading}>

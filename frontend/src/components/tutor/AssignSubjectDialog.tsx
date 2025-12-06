@@ -432,14 +432,14 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
           </div>
         </div>
         <DialogFooter>
-            <Button variant="outline" onClick={() => {
+            <Button type="button" variant="outline" onClick={() => {
               setSubjectId('');
               setSubjectName('');
               setTeacherId('');
               setSubjectMode('existing');
               onOpenChange(false);
             }}>Отмена</Button>
-          <Button 
+          <Button type="button" 
             onClick={submit} 
             disabled={
               assignMutation.isPending || 

@@ -185,7 +185,7 @@ const TeacherDashboard = () => {
             <SidebarTrigger />
             <div className="flex-1" />
             <div className="flex items-center gap-2">
-              <Button
+              <Button type="button"
                 className="gradient-primary shadow-glow"
                 onClick={handleCreateMaterial}
               >
@@ -214,7 +214,7 @@ const TeacherDashboard = () => {
                         <div className="text-sm mt-1">{error}</div>
                       </div>
                     </div>
-                    <Button onClick={() => refetchDashboard()} variant="outline" size="sm">
+                    <Button type="button" onClick={() => refetchDashboard()} variant="outline" size="sm">
                       Повторить попытку
                     </Button>
                   </div>
@@ -381,7 +381,7 @@ const TeacherDashboard = () => {
                           </div>
                         )}
                       </div>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="w-full mt-4"
                         onClick={() => navigate('/dashboard/teacher/submissions/pending')}
@@ -397,7 +397,7 @@ const TeacherDashboard = () => {
                           <BookOpen className="w-5 h-5 text-primary" />
                           <h3 className="text-xl font-bold">Опубликованные материалы</h3>
                         </div>
-                        <Button size="sm" variant="outline" onClick={handleCreateMaterial}>
+                        <Button type="button" size="sm" variant="outline" onClick={handleCreateMaterial}>
                           <Plus className="w-4 h-4 mr-1" />
                           Добавить
                         </Button>
@@ -436,7 +436,7 @@ const TeacherDashboard = () => {
                           </div>
                         )}
                       </div>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="w-full mt-4"
                         onClick={() => navigate('/dashboard/teacher/materials')}
@@ -502,7 +502,7 @@ const TeacherDashboard = () => {
                         </div>
                       ))}
                     </div>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="w-full mt-4"
                         onClick={() => navigate('/dashboard/teacher/materials')}
@@ -518,7 +518,7 @@ const TeacherDashboard = () => {
                         <FileText className="w-5 h-5 text-primary" />
                         <h3 className="text-xl font-bold">Отчёты</h3>
                       </div>
-                      <Button size="sm" variant="outline" onClick={handleCreateReport}>
+                      <Button type="button" size="sm" variant="outline" onClick={handleCreateReport}>
                         <Plus className="w-4 h-4 mr-1" />
                         Создать
                       </Button>
@@ -553,7 +553,7 @@ const TeacherDashboard = () => {
                         </div>
                       )}
                     </div>
-                    <Button 
+                    <Button type="button" 
                       variant="outline" 
                       className="w-full mt-4"
                       onClick={() => navigate('/dashboard/teacher/reports')}
@@ -566,7 +566,7 @@ const TeacherDashboard = () => {
                   <Card className="p-6">
                     <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
                     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="h-auto flex-col gap-2 py-6"
                         onClick={handleCreateMaterial}
@@ -574,7 +574,7 @@ const TeacherDashboard = () => {
                         <BookOpen className="w-6 h-6" />
                         <span>Создать материал</span>
                       </Button>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="h-auto flex-col gap-2 py-6"
                         onClick={handleCreateReport}
@@ -582,7 +582,7 @@ const TeacherDashboard = () => {
                         <FileText className="w-6 h-6" />
                         <span>Создать отчёт</span>
                       </Button>
-                      <Button
+                      <Button type="button"
                         variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={handleChatClick}
@@ -590,7 +590,7 @@ const TeacherDashboard = () => {
                         <MessageCircle className="w-6 h-6" />
                         <span>Форум</span>
                       </Button>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/teacher/assign-subject')}

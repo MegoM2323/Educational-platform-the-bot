@@ -371,7 +371,7 @@ export const ReportCard = ({
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-2">
             {/* View button */}
-            <Button
+            <Button type="button"
               variant="outline"
               size="sm"
               onClick={handleView}
@@ -384,7 +384,7 @@ export const ReportCard = ({
 
             {/* Download button for attachments */}
             {report.attachment && (
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
@@ -403,7 +403,7 @@ export const ReportCard = ({
               <>
                 {report.status === 'draft' && (
                   <>
-                    <Button
+                    <Button type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => onEdit?.(report)}
@@ -411,7 +411,7 @@ export const ReportCard = ({
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
-                    <Button
+                    <Button type="button"
                       variant="default"
                       size="sm"
                       onClick={() => onSend?.(report)}
@@ -422,7 +422,7 @@ export const ReportCard = ({
                     </Button>
                   </>
                 )}
-                <Button
+                <Button type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => onDelete?.(report)}
@@ -434,7 +434,7 @@ export const ReportCard = ({
             )}
 
             {userRole === 'parent' && report.status === 'sent' && !report.read_at && (
-              <Button
+              <Button type="button"
                 variant="default"
                 size="sm"
                 onClick={() => onMarkAsRead?.(report)}

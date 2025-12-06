@@ -285,7 +285,7 @@ const CreateMaterial = () => {
           </header>
           <main className="flex flex-1 flex-col gap-4 p-4">
             <div className="flex items-center gap-4">
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/dashboard/teacher/materials')}
@@ -483,16 +483,14 @@ const CreateMaterial = () => {
                       <div className="flex items-center justify-between">
                         <Label>Назначить студентам</Label>
                         <div className="flex gap-2">
-                          <Button
-                            type="button"
+                          <Button type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => setFormData(prev => ({ ...prev, assigned_to: students.map(s => s.id) }))}
                           >
                             Выбрать всех
                           </Button>
-                          <Button
-                            type="button"
+                          <Button type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => setFormData(prev => ({ ...prev, assigned_to: [] }))}
@@ -523,15 +521,13 @@ const CreateMaterial = () => {
 
                   {/* Кнопки действий */}
                   <div className="flex justify-end gap-3 pt-4 border-t">
-                    <Button
-                      type="button"
+                    <Button type="button"
                       variant="outline"
                       onClick={() => navigate('/dashboard/teacher/materials')}
                     >
                       Отмена
                     </Button>
-                    <Button
-                      type="submit"
+                    <Button type="submit"
                       disabled={submitting}
                       className="gradient-primary shadow-glow"
                     >

@@ -192,11 +192,11 @@ export default function StaffManagement() {
           <div className="flex gap-2">
             {(activeTab === 'teacher' || activeTab === 'tutor') && (
               <>
-                <Button onClick={() => openCreate('teacher')}>Создать преподавателя</Button>
-                <Button variant="secondary" onClick={() => openCreate('tutor')}>Создать тьютора</Button>
+                <Button type="button" onClick={() => openCreate('teacher')}>Создать преподавателя</Button>
+                <Button type="button" variant="secondary" onClick={() => openCreate('tutor')}>Создать тьютора</Button>
               </>
             )}
-            <Button
+            <Button type="button"
               variant="destructive"
               onClick={handleLogout}
               disabled={isLogoutLoading}
@@ -293,7 +293,7 @@ export default function StaffManagement() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={submitCreate}>Создать</Button>
+            <Button type="button" onClick={submitCreate}>Создать</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -310,7 +310,7 @@ export default function StaffManagement() {
               <div className="flex justify-between"><span className="font-medium">Пароль:</span> <span>{createdCredentials.password}</span></div>
               <p className="text-sm text-muted-foreground">Скопируйте эти данные и отправьте преподавателю/тьютору. После закрытия окна они больше не будут показаны.</p>
               <div className="flex gap-2">
-                <Button onClick={() => navigator.clipboard.writeText(`${createdCredentials.login} ${createdCredentials.password}`)}>Скопировать</Button>
+                <Button type="button" onClick={() => navigator.clipboard.writeText(`${createdCredentials.login} ${createdCredentials.password}`)}>Скопировать</Button>
               </div>
             </div>
           )}
@@ -418,14 +418,14 @@ export default function StaffManagement() {
             </p>
           </div>
           <DialogFooter>
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={() => setReactivateDialog({ open: false, item: null, isLoading: false })}
               disabled={reactivateDialog.isLoading}
             >
               Отменить
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleReactivate}
               disabled={reactivateDialog.isLoading}
             >
@@ -519,7 +519,7 @@ function StaffTable({
                 <td className="py-2 pr-4">
                   <div className="flex gap-1">
                     {type === 'teacher' && (
-                      <Button
+                      <Button type="button"
                         size="sm"
                         variant="outline"
                         onClick={() => onEditSubjects?.(item)}
@@ -528,7 +528,7 @@ function StaffTable({
                         <BookOpen className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button
+                    <Button type="button"
                       size="sm"
                       variant="outline"
                       onClick={() => onEdit?.(item)}
@@ -536,7 +536,7 @@ function StaffTable({
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
+                    <Button type="button"
                       size="sm"
                       variant="outline"
                       onClick={() => onResetPassword?.(item)}
@@ -545,7 +545,7 @@ function StaffTable({
                       <Key className="h-4 w-4" />
                     </Button>
                     {!item.user.is_active && (
-                      <Button
+                      <Button type="button"
                         size="sm"
                         variant="outline"
                         onClick={() => onReactivate?.(item)}
@@ -554,7 +554,7 @@ function StaffTable({
                         <RotateCcw className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button
+                    <Button type="button"
                       size="sm"
                       variant="destructive"
                       onClick={() => onDeleteUser?.(item)}

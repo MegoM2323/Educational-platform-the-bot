@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { formatDateOnly } from "@/utils/dateUtils";
 
 export default function TutorReports() {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -431,8 +432,8 @@ export default function TutorReports() {
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
     return {
-      start: monday.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0],
+      start: formatDateOnly(monday),
+      end: formatDateOnly(sunday),
     };
   };
 
@@ -461,7 +462,7 @@ export default function TutorReports() {
               <h1 className="text-lg font-semibold">Отчёты</h1>
             </div>
             <div className="ml-auto">
-              <Button
+              <Button type="button"
                 className="gradient-primary shadow-glow"
                 onClick={() => setShowCreateForm(true)}
                 disabled={students.length === 0}
@@ -520,7 +521,7 @@ export default function TutorReports() {
                         {getStatusBadge(report.status || 'draft')}
                       </div>
                       <div className="flex items-center gap-2 mt-4">
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => report && setSelectedReport(report)}
@@ -531,7 +532,7 @@ export default function TutorReports() {
                         </Button>
                         {report && report.status === 'draft' && (
                           <>
-                            <Button
+                            <Button type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditReport(report)}
@@ -540,7 +541,7 @@ export default function TutorReports() {
                               <Edit2 className="w-4 h-4 mr-2" />
                               Изменить
                             </Button>
-                            <Button
+                            <Button type="button"
                               size="sm"
                               onClick={() => handleSendReport(report.id)}
                               disabled={loading}
@@ -550,7 +551,7 @@ export default function TutorReports() {
                             </Button>
                           </>
                         )}
-                        <Button
+                        <Button type="button"
                           variant="destructive"
                           size="sm"
                           onClick={() => setDeleteConfirmReport(report)}
@@ -572,7 +573,7 @@ export default function TutorReports() {
                   <div className="flex items-center justify-between mb-2">
                     <Label>Фильтр по ученику</Label>
                     {selectedStudent && (
-                      <Button
+                      <Button type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => setSelectedStudent(null)}
@@ -667,7 +668,7 @@ export default function TutorReports() {
                           {getStatusBadge(report.status || 'draft')}
                         </div>
                         <div className="flex items-center gap-2 mt-4">
-                          <Button
+                          <Button type="button"
                             variant="outline"
                             size="sm"
                             className="flex-1"
@@ -678,7 +679,7 @@ export default function TutorReports() {
                             Просмотр
                           </Button>
                           {report && report.status === 'sent' && (
-                            <Button
+                            <Button type="button"
                               size="sm"
                               onClick={() => handleMarkTeacherReportAsRead(report.id)}
                               disabled={loading}
@@ -836,10 +837,10 @@ export default function TutorReports() {
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => { setShowCreateForm(false); resetForm(); }}>
+              <Button type="button" variant="outline" onClick={() => { setShowCreateForm(false); resetForm(); }}>
                 Отмена
               </Button>
-              <Button onClick={handleCreateReport} disabled={loading}>
+              <Button type="button" onClick={handleCreateReport} disabled={loading}>
                 <Send className="w-4 h-4 mr-2" />
                 Создать отчёт
               </Button>
@@ -981,7 +982,7 @@ export default function TutorReports() {
               </div>
               {selectedTeacherReport && selectedTeacherReport.status === 'sent' && (
                 <div className="flex justify-end pt-4 border-t">
-                  <Button
+                  <Button type="button"
                     onClick={() => {
                       handleMarkTeacherReportAsRead(selectedTeacherReport.id);
                       setSelectedTeacherReport(null);
@@ -1142,14 +1143,14 @@ export default function TutorReports() {
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => {
+              <Button type="button" variant="outline" onClick={() => {
                 setShowEditForm(false);
                 setEditingReport(null);
                 resetForm();
               }}>
                 Отмена
               </Button>
-              <Button onClick={handleUpdateReport} disabled={loading}>
+              <Button type="button" onClick={handleUpdateReport} disabled={loading}>
                 <Send className="w-4 h-4 mr-2" />
                 Сохранить изменения
               </Button>

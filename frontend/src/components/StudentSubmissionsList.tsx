@@ -150,7 +150,7 @@ export default function StudentSubmissionsList({ materialId, materialTitle }: St
         <CardContent className="p-6">
           <div className="text-center text-red-600">
             <p>{error}</p>
-            <Button 
+            <Button type="button" 
               variant="outline" 
               size="sm" 
               onClick={fetchSubmissions}
@@ -275,7 +275,7 @@ export default function StudentSubmissionsList({ materialId, materialTitle }: St
                     <div className="flex gap-2 ml-4">
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
+                          <Button type="button" variant="outline" size="sm">
                             <Eye className="w-4 h-4 mr-1" />
                             Просмотр
                           </Button>
@@ -346,7 +346,7 @@ export default function StudentSubmissionsList({ materialId, materialTitle }: St
                         </DialogContent>
                       </Dialog>
 
-                      <Button 
+                      <Button type="button" 
                         size="sm"
                         onClick={() => handleOpenFeedbackDialog(submission)}
                       >

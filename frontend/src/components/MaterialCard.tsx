@@ -306,7 +306,7 @@ export const MaterialCard = ({
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-2">
             {/* View button */}
-            <Button
+            <Button type="button"
               variant="outline"
               size="sm"
               onClick={handleView}
@@ -319,7 +319,7 @@ export const MaterialCard = ({
 
             {/* Download button for files */}
             {material.file && (
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
@@ -333,7 +333,7 @@ export const MaterialCard = ({
 
             {/* Video play button */}
             {material.video_url && (
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleView}
@@ -350,7 +350,7 @@ export const MaterialCard = ({
           <div className="flex items-center space-x-1">
             {userRole === 'teacher' && (
               <>
-                <Button
+                <Button type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => onEdit?.(material)}
@@ -358,7 +358,7 @@ export const MaterialCard = ({
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                <Button
+                <Button type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => onAssign?.(material)}
@@ -366,7 +366,7 @@ export const MaterialCard = ({
                 >
                   <Share2 className="h-4 w-4" />
                 </Button>
-                <Button
+                <Button type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => onDelete?.(material)}
@@ -378,7 +378,7 @@ export const MaterialCard = ({
             )}
 
             {userRole === 'student' && !material.progress?.is_completed && (
-              <Button
+              <Button type="button"
                 variant="default"
                 size="sm"
                 onClick={() => handleProgressUpdate(Math.min(progress + 25, 100))}

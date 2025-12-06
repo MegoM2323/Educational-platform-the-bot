@@ -129,7 +129,7 @@ const ApplicationStatus = () => {
             Заявка с указанным номером не найдена или была удалена.
           </p>
           <Link to="/application">
-            <Button>Подать новую заявку</Button>
+            <Button type="button">Подать новую заявку</Button>
           </Link>
         </Card>
       </div>
@@ -216,7 +216,7 @@ const ApplicationStatus = () => {
                 </p>
                 <div className="mt-4">
                   <Link to="/auth">
-                    <Button className="bg-green-600 hover:bg-green-700">
+                    <Button type="button" className="bg-green-600 hover:bg-green-700">
                       Войти в систему
                     </Button>
                   </Link>
@@ -241,7 +241,7 @@ const ApplicationStatus = () => {
                 </p>
                 <div className="mt-4">
                   <Link to="/application">
-                    <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                    <Button type="button" variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
                       Подать новую заявку
                     </Button>
                   </Link>
@@ -260,7 +260,7 @@ const ApplicationStatus = () => {
                   через Telegram. Обычно рассмотрение занимает 1-3 рабочих дня.
                 </p>
                 <div className="mt-4 flex gap-2">
-                  <Button 
+                  <Button type="button" 
                     variant="outline" 
                     onClick={handleRefresh}
                     disabled={isRefreshing}
@@ -279,7 +279,7 @@ const ApplicationStatus = () => {
                     )}
                   </Button>
                   <Link to="/application">
-                    <Button variant="outline">
+                    <Button type="button" variant="outline">
                       Подать новую заявку
                     </Button>
                   </Link>

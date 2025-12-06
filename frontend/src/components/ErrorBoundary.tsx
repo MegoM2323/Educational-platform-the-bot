@@ -114,7 +114,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onRetry }) => {
           )}
 
           <div className="flex space-x-2 w-full">
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={handleGoHome}
               className="flex-1"
@@ -122,7 +122,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onRetry }) => {
               <Home className="w-4 h-4 mr-2" />
               На главную
             </Button>
-            <Button
+            <Button type="button"
               onClick={onRetry}
               className="flex-1 gradient-primary"
             >

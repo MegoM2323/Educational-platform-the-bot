@@ -111,7 +111,7 @@ function PayButton({
           <Repeat className="h-4 w-4 text-green-600" />
           <Badge variant="secondary" className="text-xs">Автосписание активно</Badge>
         </div>
-        <Button 
+        <Button type="button" 
           size="sm" 
           variant="outline"
           onClick={async () => {
@@ -136,7 +136,7 @@ function PayButton({
   
   // Иначе показываем кнопку "Подключить предмет"
   return (
-    <Button 
+    <Button type="button" 
       size="sm" 
       onClick={() => payment.mutate()} 
       disabled={payment.isPending}

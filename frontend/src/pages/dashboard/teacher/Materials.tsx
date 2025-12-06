@@ -296,7 +296,7 @@ const Materials = () => {
                   Создавайте и управляйте учебными материалами
                 </p>
               </div>
-              <Button onClick={handleCreateMaterial} className="gradient-primary shadow-glow">
+              <Button type="button" onClick={handleCreateMaterial} className="gradient-primary shadow-glow">
                 <Plus className="h-4 w-4 mr-2" />
                 Создать материал
               </Button>
@@ -379,7 +379,7 @@ const Materials = () => {
                     }
                   </p>
                   {!searchTerm && !subjectFilter && !statusFilter && !typeFilter && (
-                    <Button onClick={handleCreateMaterial} className="gradient-primary shadow-glow">
+                    <Button type="button" onClick={handleCreateMaterial} className="gradient-primary shadow-glow">
                       <Plus className="h-4 w-4 mr-2" />
                       Создать материал
                     </Button>
@@ -430,35 +430,35 @@ const Materials = () => {
                       </div>
                       
                       <div className="flex items-center gap-2 ml-4">
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => handleViewMaterial(material.id)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => openDistributeDialog(material)}
                         >
                           <Users className="h-4 w-4" />
                         </Button>
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => handleViewSubmissions(material)}
                         >
                           <MessageSquare className="h-4 w-4" />
                         </Button>
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => handleEditMaterial(material.id)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteMaterial(material.id)}
@@ -523,8 +523,8 @@ const Materials = () => {
                 </div>
               </Card>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setDistributeDialogOpen(false)}>Отмена</Button>
-                <Button onClick={saveDistribute} disabled={savingDistribute} className="gradient-primary shadow-glow">
+                <Button type="button" variant="outline" onClick={() => setDistributeDialogOpen(false)}>Отмена</Button>
+                <Button type="button" onClick={saveDistribute} disabled={savingDistribute} className="gradient-primary shadow-glow">
                   {savingDistribute ? 'Сохранение...' : 'Сохранить'}
                 </Button>
               </div>

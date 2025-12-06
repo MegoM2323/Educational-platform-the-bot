@@ -144,7 +144,7 @@ export default function TutorStudentsPage() {
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <div className="flex-1" />
-            <Button onClick={() => setOpen(true)}>Создать ученика</Button>
+            <Button type="button" onClick={() => setOpen(true)}>Создать ученика</Button>
           </header>
           <main className="p-6">
             <div className="space-y-6">
@@ -191,7 +191,7 @@ export default function TutorStudentsPage() {
                           )}
 
                           <div className="pt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="secondary" size="sm" onClick={() => {
+                            <Button type="button" variant="secondary" size="sm" onClick={() => {
                               logger.debug('[Students] Opening assign dialog for student:', s.id);
                               setSelectedStudentId(s.id);
                               setAssignOpen(true);
@@ -309,8 +309,8 @@ export default function TutorStudentsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Отмена</Button>
-            <Button onClick={submit} disabled={createMutation.isPending}>Создать</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Отмена</Button>
+            <Button type="button" onClick={submit} disabled={createMutation.isPending}>Создать</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -335,7 +335,7 @@ export default function TutorStudentsPage() {
             </div>
           ) : null}
           <DialogFooter>
-            <Button onClick={() => setCredsOpen(false)}>Закрыть</Button>
+            <Button type="button" onClick={() => setCredsOpen(false)}>Закрыть</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -403,7 +403,7 @@ export default function TutorStudentsPage() {
                     </div>
                   )}
 
-                  <Button
+                  <Button type="button"
                     variant="secondary"
                     className="w-full"
                     onClick={() => {
@@ -423,7 +423,7 @@ export default function TutorStudentsPage() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setDetailsOpen(false)}>
               Закрыть
             </Button>
           </DialogFooter>

@@ -28,7 +28,7 @@ const Landing = () => {
               Подать заявку
             </a>
             <Link to="/auth">
-              <Button variant="outline" size="sm">
+              <Button type="button" variant="outline" size="sm">
                 Войти
               </Button>
             </Link>
@@ -47,12 +47,12 @@ const Landing = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/application">
-              <Button size="lg" className="gradient-primary shadow-glow hover:opacity-90 transition-opacity">
+              <Button type="button" size="lg" className="gradient-primary shadow-glow hover:opacity-90 transition-opacity">
                 Подать заявку
               </Button>
             </Link>
             <Link to="/auth">
-              <Button size="lg" variant="outline">
+              <Button type="button" size="lg" variant="outline">
                 Личный кабинет
               </Button>
             </Link>
@@ -117,7 +117,7 @@ const Landing = () => {
               После одобрения заявки вы получите данные для входа в систему через Telegram.
             </p>
             <Link to="/application">
-              <Button size="lg" className="gradient-primary shadow-glow">
+              <Button type="button" size="lg" className="gradient-primary shadow-glow">
                 Подать заявку
               </Button>
             </Link>

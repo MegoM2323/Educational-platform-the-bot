@@ -87,14 +87,14 @@ export const EditTeacherSubjectsDialog = ({
         )}
 
         <DialogFooter>
-          <Button
+          <Button type="button"
             variant="outline"
             onClick={handleCancel}
             disabled={loading}
           >
             Отмена
           </Button>
-          <Button
+          <Button type="button"
             onClick={handleSave}
             disabled={loading || selectedSubjects.length === 0}
           >

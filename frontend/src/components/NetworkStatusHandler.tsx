@@ -269,7 +269,7 @@ export const NetworkStatusHandler: React.FC<NetworkStatusHandlerProps> = ({
                   </span>
                 )}
                 
-                <Button
+                <Button type="button"
                   size="sm"
                   variant="outline"
                   onClick={retryConnection}

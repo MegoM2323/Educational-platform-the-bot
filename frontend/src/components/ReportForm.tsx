@@ -500,8 +500,7 @@ export const ReportForm = ({
                     placeholder="Значение"
                     className="flex-1"
                   />
-                  <Button
-                    type="button"
+                  <Button type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => removeCustomField(index)}
@@ -525,8 +524,7 @@ export const ReportForm = ({
                   placeholder="Значение"
                   className="flex-1"
                 />
-                <Button
-                  type="button"
+                <Button type="button"
                   variant="outline"
                   size="sm"
                   onClick={addCustomField}
@@ -540,8 +538,7 @@ export const ReportForm = ({
 
           {/* Form Actions */}
           <div className="flex items-center justify-end space-x-2 pt-6 border-t">
-            <Button
-              type="button"
+            <Button type="button"
               variant="outline"
               onClick={onCancel}
               disabled={isLoading}
@@ -550,8 +547,7 @@ export const ReportForm = ({
               Отмена
             </Button>
             
-            <Button
-              type="button"
+            <Button type="button"
               variant="outline"
               disabled={isLoading}
             >
@@ -559,8 +555,7 @@ export const ReportForm = ({
               Сохранить черновик
             </Button>
             
-            <Button
-              type="submit"
+            <Button type="submit"
               disabled={isLoading}
               className="gradient-primary shadow-glow hover:opacity-90 transition-opacity"
             >

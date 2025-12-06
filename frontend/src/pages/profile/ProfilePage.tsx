@@ -339,7 +339,7 @@ const ProfileFormWrapper = ({
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex items-center gap-4">
-          <Button
+          <Button type="button"
             variant="outline"
             size="sm"
             onClick={() => navigate(-1)}
@@ -356,7 +356,7 @@ const ProfileFormWrapper = ({
             </span>
           </nav>
           {isInactive && onReactivate && (
-            <Button
+            <Button type="button"
               variant="outline"
               size="sm"
               onClick={onReactivate}

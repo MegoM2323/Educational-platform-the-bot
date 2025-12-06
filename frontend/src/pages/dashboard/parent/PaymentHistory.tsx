@@ -198,7 +198,7 @@ const PaymentHistory = () => {
       <SidebarInset>
         <div className="flex flex-col gap-6 p-6">
           <div className="flex items-center gap-4">
-            <Button
+            <Button type="button"
               variant="ghost"
               size="icon"
               onClick={() => navigate('/dashboard/parent')}
@@ -285,7 +285,7 @@ const PaymentHistory = () => {
                         </div>
                       </div>
                       {(payment.status === 'pending' || payment.status === 'waiting_for_payment') && (
-                        <Button
+                        <Button type="button"
                           onClick={() => handlePayment(payment)}
                           disabled={payingPaymentId === payment.id}
                           size="sm"

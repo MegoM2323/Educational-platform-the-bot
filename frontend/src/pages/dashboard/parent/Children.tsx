@@ -81,7 +81,7 @@ const Children = () => {
                         )}
                       </div>
                       <div className="pt-2">
-                        <Button variant="outline" onClick={() => navigate(`/dashboard/parent/children/${child.id}`)}>Детали</Button>
+                        <Button type="button" variant="outline" onClick={() => navigate(`/dashboard/parent/children/${child.id}`)}>Детали</Button>
                       </div>
                     </Card>
                   ))}
@@ -159,7 +159,7 @@ function PayButton({
           Активен
         </Badge>
         {hasSubscription && (
-          <Button
+          <Button type="button"
             size="sm"
             variant="outline"
             onClick={async () => {
@@ -186,7 +186,7 @@ function PayButton({
   // СЛУЧАЙ 3: Платеж просрочен или доступ закончился - нужна новая оплата
   if (paymentStatus === 'overdue' || (paymentStatus === 'paid' && !isNextPaymentInFuture)) {
     return (
-      <Button
+      <Button type="button"
         size="sm"
         onClick={() => payment.mutate()}
         disabled={payment.isPending}
@@ -200,7 +200,7 @@ function PayButton({
 
   // СЛУЧАЙ 4: Нет платежа или ожидание платежа - подключить предмет
   return (
-    <Button
+    <Button type="button"
       size="sm"
       onClick={() => payment.mutate()}
       disabled={payment.isPending}

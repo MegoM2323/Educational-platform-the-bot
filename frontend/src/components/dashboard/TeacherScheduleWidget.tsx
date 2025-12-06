@@ -72,7 +72,7 @@ export const TeacherScheduleWidget = () => {
                   </div>
                 </div>
                 {lesson.telemost_link && (
-                  <Button size="sm" variant="outline" asChild className="whitespace-nowrap">
+                  <Button type="button" size="sm" variant="outline" asChild className="whitespace-nowrap">
                     <a href={lesson.telemost_link} target="_blank" rel="noopener noreferrer">
                       Присоединиться
                     </a>
@@ -84,7 +84,7 @@ export const TeacherScheduleWidget = () => {
         )}
       </CardContent>
       <div className="border-t px-6 py-4">
-        <Button variant="outline" asChild className="w-full">
+        <Button type="button" variant="outline" asChild className="w-full">
           <a href="/dashboard/teacher/schedule" className="flex items-center justify-center">
             Все занятия
             <ArrowRight className="w-4 h-4 ml-2" />

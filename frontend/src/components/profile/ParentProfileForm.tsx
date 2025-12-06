@@ -166,8 +166,7 @@ export const ParentProfileForm = ({
             />
 
             <div className="flex gap-2 pt-4">
-              <Button
-                type="submit"
+              <Button type="submit"
                 disabled={isLoading || isAutoSaving}
                 aria-label="Сохранить профиль"
               >

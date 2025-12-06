@@ -288,7 +288,7 @@ export default function ParentReports() {
                       {getStatusBadge(report.status || 'draft')}
                     </div>
                     <div className="flex items-center gap-2 mt-4">
-                      <Button
+                      <Button type="button"
                         variant="outline"
                         size="sm"
                         className="flex-1"
@@ -299,7 +299,7 @@ export default function ParentReports() {
                         Просмотр
                       </Button>
                       {report && report.status === 'sent' && report.id && (
-                        <Button
+                        <Button type="button"
                           size="sm"
                           variant="default"
                           onClick={() => handleMarkAsRead(report.id)}
@@ -309,7 +309,7 @@ export default function ParentReports() {
                           Прочитано
                         </Button>
                       )}
-                      <Button
+                      <Button type="button"
                         variant="destructive"
                         size="sm"
                         onClick={() => setDeleteConfirmReport(report)}
@@ -388,7 +388,7 @@ export default function ParentReports() {
               </div>
               {selectedReport && selectedReport.status === 'sent' && selectedReport.id && (
                 <div className="flex justify-end pt-4 border-t">
-                  <Button
+                  <Button type="button"
                     onClick={() => {
                       handleMarkAsRead(selectedReport.id);
                       setSelectedReport(null);

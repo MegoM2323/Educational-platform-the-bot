@@ -51,7 +51,7 @@ export default function TeacherSubmissionsPage() {
                         <div className="text-sm whitespace-pre-wrap">{s.submission_text}</div>
                       )}
                       {s.submission_file && (
-                        <Button variant="outline" onClick={(e) => handleProtectedFileClick(e as any, s.submission_file!, undefined, true)}>Открыть файл</Button>
+                        <Button type="button" variant="outline" onClick={(e) => handleProtectedFileClick(e as any, s.submission_file!, undefined, true)}>Открыть файл</Button>
                       )}
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                         <div className="md:col-span-3">
@@ -64,8 +64,8 @@ export default function TeacherSubmissionsPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button onClick={() => submitFeedback(s.id)} disabled={provideFeedback.isPending || updateStatus.isPending}>Отправить фидбэк</Button>
-                        <Button variant="outline" onClick={() => updateStatus.mutate({ submissionId: s.id, status: 'needs_changes' })} disabled={updateStatus.isPending}>Запросить доработку</Button>
+                        <Button type="button" onClick={() => submitFeedback(s.id)} disabled={provideFeedback.isPending || updateStatus.isPending}>Отправить фидбэк</Button>
+                        <Button type="button" variant="outline" onClick={() => updateStatus.mutate({ submissionId: s.id, status: 'needs_changes' })} disabled={updateStatus.isPending}>Запросить доработку</Button>
                       </div>
                     </Card>
                   ))}

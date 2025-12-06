@@ -40,14 +40,14 @@ export const Unauthorized = () => {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button
+          <Button type="button"
             onClick={handleGoBack}
             variant="outline"
             className="w-full sm:w-auto"
           >
             Назад
           </Button>
-          <Button
+          <Button type="button"
             onClick={handleGoHome}
             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
           >

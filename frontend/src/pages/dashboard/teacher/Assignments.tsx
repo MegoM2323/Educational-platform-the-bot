@@ -19,6 +19,7 @@ import { FileText, Plus, Clock, AlertCircle, CheckCircle, Trash2, Eye } from "lu
 import { Assignment, AssignmentSubmission, CreateAssignmentPayload } from "@/integrations/api/assignmentsAPI";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { formatDateOnly } from "@/utils/dateUtils";
 
 const TeacherAssignments: React.FC = () => {
   const { user } = useAuth();
@@ -177,7 +178,7 @@ const TeacherAssignments: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
+            <Button type="button"
               size="sm"
               variant="outline"
               onClick={() => viewSubmissions(assignment)}
@@ -185,7 +186,7 @@ const TeacherAssignments: React.FC = () => {
               <Eye className="w-4 h-4 mr-2" />
               Ответы
             </Button>
-            <Button
+            <Button type="button"
               size="sm"
               variant="destructive"
               onClick={() => handleDelete(assignment.id)}
@@ -212,7 +213,7 @@ const TeacherAssignments: React.FC = () => {
               Задания
             </h1>
             <div className="ml-auto">
-              <Button onClick={() => setCreateDialogOpen(true)}>
+              <Button type="button" onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Создать задание
               </Button>
@@ -265,7 +266,7 @@ const TeacherAssignments: React.FC = () => {
                         <p className="text-muted-foreground mb-4">
                           Вы еще не создали ни одного задания
                         </p>
-                        <Button onClick={() => setCreateDialogOpen(true)}>
+                        <Button type="button" onClick={() => setCreateDialogOpen(true)}>
                           <Plus className="w-4 h-4 mr-2" />
                           Создать первое задание
                         </Button>
@@ -402,7 +403,7 @@ const TeacherAssignments: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={() => {
                 setCreateDialogOpen(false);
@@ -411,7 +412,7 @@ const TeacherAssignments: React.FC = () => {
             >
               Отмена
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleCreate}
               disabled={!title.trim() || !description.trim() || !startDate || !dueDate || createMutation.isPending}
             >
@@ -452,7 +453,7 @@ const TeacherAssignments: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           {submission.status === 'submitted' && (
-                            <Button
+                            <Button type="button"
                               size="sm"
                               onClick={() => {
                                 setSelectedSubmission(submission);
@@ -520,7 +521,7 @@ const TeacherAssignments: React.FC = () => {
             )}
           </div>
           <DialogFooter>
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={() => {
                 setGradeDialogOpen(false);
@@ -531,7 +532,7 @@ const TeacherAssignments: React.FC = () => {
             >
               Отмена
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleGrade}
               disabled={gradeMutation.isPending}
             >

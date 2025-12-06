@@ -249,12 +249,12 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Управление студентами</CardTitle>
         <div className="flex gap-2">
-          <Button onClick={() => setCreateDialog(true)}>
+          <Button type="button" onClick={() => setCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Создать студента
           </Button>
           {!embedded && (
-            <Button
+            <Button type="button"
               variant="destructive"
               onClick={handleLogout}
               disabled={isLogoutLoading}
@@ -278,7 +278,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     className="flex-1"
                   />
-                  <Button variant="outline" size="icon">
+                  <Button type="button" variant="outline" size="icon">
                     <Search className="h-4 w-4" />
                   </Button>
                 </div>
@@ -342,7 +342,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                 </select>
               </div>
               <div className="flex-1" />
-              <Button variant="outline" onClick={clearFilters} className="mt-6">
+              <Button type="button" variant="outline" onClick={clearFilters} className="mt-6">
                 Сбросить фильтры
               </Button>
             </div>
@@ -410,7 +410,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                       </td>
                       <td className="py-2 pr-4">
                         <div className="flex gap-1">
-                          <Button
+                          <Button type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => setEditUserDialog({ open: true, item: student })}
@@ -418,7 +418,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                           >
                             <UserIcon className="h-4 w-4" />
                           </Button>
-                          <Button
+                          <Button type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => setSubjectAssignmentDialog({ open: true, item: student })}
@@ -426,7 +426,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                           >
                             <BookOpen className="h-4 w-4" />
                           </Button>
-                          <Button
+                          <Button type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => setResetPasswordDialog({ open: true, item: student })}
@@ -435,7 +435,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                             <Key className="h-4 w-4" />
                           </Button>
                           {!student.user.is_active && (
-                            <Button
+                            <Button type="button"
                               size="sm"
                               variant="outline"
                               onClick={() => setReactivateDialog({ open: true, item: student, isLoading: false })}
@@ -444,7 +444,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                               <RotateCcw className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button
+                          <Button type="button"
                             size="sm"
                             variant="destructive"
                             onClick={() => setDeleteUserDialog({ open: true, item: student })}
@@ -467,7 +467,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
               Показано {students?.length || 0} из {totalCount} студентов
             </div>
             <div className="flex gap-2">
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => loadStudents(currentPage - 1)}
@@ -480,7 +480,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                   Страница {currentPage} из {totalPages || 1}
                 </span>
               </div>
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => loadStudents(currentPage + 1)}
@@ -559,14 +559,14 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
             </p>
           </div>
           <DialogFooter>
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={() => setReactivateDialog({ open: false, item: null, isLoading: false })}
               disabled={reactivateDialog.isLoading}
             >
               Отменить
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleReactivate}
               disabled={reactivateDialog.isLoading}
             >
@@ -656,14 +656,14 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
             </p>
           </div>
           <DialogFooter>
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={() => setReactivateDialog({ open: false, item: null, isLoading: false })}
               disabled={reactivateDialog.isLoading}
             >
               Отменить
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleReactivate}
               disabled={reactivateDialog.isLoading}
             >

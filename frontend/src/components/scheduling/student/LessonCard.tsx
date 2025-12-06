@@ -82,7 +82,7 @@ export const LessonCard: React.FC<LessonCardProps> = ({ lesson }) => {
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
           {lesson.telemost_link && (
-            <Button
+            <Button type="button"
               asChild
               size="sm"
               className="flex-1"

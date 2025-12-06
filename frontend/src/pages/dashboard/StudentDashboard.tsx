@@ -288,7 +288,7 @@ const StudentDashboard = () => {
                           />
                         )}
                       </div>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="w-full mt-4"
                         onClick={() => navigate('/dashboard/student/materials')}
@@ -315,7 +315,7 @@ const StudentDashboard = () => {
                                   <div className="text-sm text-muted-foreground">Преподаватель: {subjectData.subject_info.teacher?.full_name || 'Не назначен'}</div>
                                   <div className="text-xs text-muted-foreground">Материалов: {subjectData.materials.length}</div>
                                 </div>
-                                <Button size="sm" onClick={() => navigate(`/dashboard/student/materials?subject=${subjectData.subject_info.id}`)}>Материалы</Button>
+                                <Button type="button" size="sm" onClick={() => navigate(`/dashboard/student/materials?subject=${subjectData.subject_info.id}`)}>Материалы</Button>
                               </div>
                             ))}
                           {Object.keys(dashboardData?.materials_by_subject || {}).length === 0 && (
@@ -374,7 +374,7 @@ const StudentDashboard = () => {
                   <Card className="p-6">
                     <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
                     <div className="grid sm:grid-cols-2 gap-4">
-                      <Button
+                      <Button type="button"
                         variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/student/materials')}
@@ -382,7 +382,7 @@ const StudentDashboard = () => {
                         <BookOpen className="w-6 h-6" />
                         <span>Материалы</span>
                       </Button>
-                      <Button
+                      <Button type="button"
                         variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/student/forum')}

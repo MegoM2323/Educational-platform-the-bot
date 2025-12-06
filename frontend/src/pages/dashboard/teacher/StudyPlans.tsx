@@ -618,7 +618,7 @@ export default function StudyPlans() {
                   }
                 }}>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button type="button">
                       <Plus className="w-4 h-4 mr-2" />
                       Создать план
                     </Button>
@@ -765,7 +765,7 @@ export default function StudyPlans() {
                                         </span>
                                       </div>
                                       {!uploadingCreateFiles && (
-                                        <Button
+                                        <Button type="button"
                                           variant="ghost"
                                           size="sm"
                                           onClick={() => {
@@ -793,10 +793,10 @@ export default function StudyPlans() {
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
                           Отмена
                         </Button>
-                        <Button onClick={handleCreatePlan} disabled={uploadingCreateFiles}>
+                        <Button type="button" onClick={handleCreatePlan} disabled={uploadingCreateFiles}>
                           {uploadingCreateFiles ? 'Создание...' : 'Создать'}
                         </Button>
                       </div>
@@ -859,7 +859,7 @@ export default function StudyPlans() {
                         )}
                       </div>
                       <div className="flex gap-2 ml-4">
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={async () => {
@@ -881,7 +881,7 @@ export default function StudyPlans() {
                           <FileText className="w-4 h-4 mr-2" />
                           Просмотр
                         </Button>
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => handleOpenEditDialog(plan)}
@@ -892,7 +892,7 @@ export default function StudyPlans() {
                           Редактировать
                         </Button>
                         {plan.status === 'draft' && (
-                          <Button
+                          <Button type="button"
                             variant="default"
                             size="sm"
                             onClick={() => handleSendPlan(plan.id)}
@@ -1094,7 +1094,7 @@ export default function StudyPlans() {
                                   </span>
                                 </div>
                                 {canDelete && (
-                                  <Button
+                                  <Button type="button"
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleDeleteFile(selectedPlan.id, file.id)}
@@ -1143,11 +1143,11 @@ export default function StudyPlans() {
                       </div>
                     )}
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                      <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
                         {selectedPlan.status === 'sent' || selectedPlan.status === 'archived' ? 'Закрыть' : 'Отмена'}
                       </Button>
                       {(selectedPlan.status === 'draft') && (
-                        <Button onClick={handleEditPlan}>
+                        <Button type="button" onClick={handleEditPlan}>
                           Сохранить
                         </Button>
                       )}

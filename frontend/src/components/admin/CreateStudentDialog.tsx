@@ -340,7 +340,7 @@ export const CreateStudentDialog = ({ open, onOpenChange, onSuccess }: CreateStu
               )}
 
               <DialogFooter>
-                <Button variant="outline" type="button" onClick={handleClose} disabled={loading}>
+                <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
                   Отмена
                 </Button>
                 <Button type="submit" disabled={loading}>
@@ -376,7 +376,7 @@ export const CreateStudentDialog = ({ open, onOpenChange, onSuccess }: CreateStu
                 </div>
               )}
 
-              <Button onClick={copyCredentials} variant="outline" className="w-full">
+              <Button type="button" onClick={copyCredentials} variant="outline" className="w-full">
                 <Copy className="h-4 w-4 mr-2" />
                 Копировать данные для входа
               </Button>
@@ -390,7 +390,7 @@ export const CreateStudentDialog = ({ open, onOpenChange, onSuccess }: CreateStu
             </div>
 
             <DialogFooter>
-              <Button onClick={handleFinish}>Закрыть</Button>
+              <Button type="button" onClick={handleFinish}>Закрыть</Button>
             </DialogFooter>
           </>
         )}

@@ -237,7 +237,7 @@ export default function FeedbackForm({ submission, onSuccess, onCancel }: Feedba
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                 <FileText className="w-4 h-4" />
                 <span className="flex-1">{submission.submission_file.split('/').pop()}</span>
-                <Button
+                <Button type="button"
                   size="sm"
                   variant="outline"
                   onClick={() => handleDownloadFile(submission.submission_file!, submission.submission_file!.split('/').pop()!)}
@@ -307,16 +307,14 @@ export default function FeedbackForm({ submission, onSuccess, onCancel }: Feedba
 
             {/* Кнопки */}
             <div className="flex gap-3 justify-end">
-              <Button
-                type="button"
+              <Button type="button"
                 variant="outline"
                 onClick={onCancel}
                 disabled={loading}
               >
                 Отмена
               </Button>
-              <Button
-                type="submit"
+              <Button type="submit"
                 disabled={loading || !feedbackData.feedback_text.trim()}
               >
                 {loading ? (

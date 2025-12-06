@@ -91,7 +91,7 @@ export const BookingWidget = () => {
                 </div>
 
                 {nextLesson.telemost_link && (
-                  <Button
+                  <Button type="button"
                     asChild
                     variant="secondary"
                     className="w-full text-sm"
@@ -151,7 +151,7 @@ export const BookingWidget = () => {
         )}
 
         {/* View All Button */}
-        <Button
+        <Button type="button"
           variant="outline"
           className="w-full"
           onClick={() => navigate('/dashboard/student/schedule')}

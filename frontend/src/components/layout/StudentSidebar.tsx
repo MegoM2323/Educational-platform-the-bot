@@ -74,7 +74,7 @@ export function StudentSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
+            <Button type="button" variant="ghost" className="w-full justify-start" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               {state === "expanded" && <span>Выход</span>}
             </Button>

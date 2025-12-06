@@ -181,7 +181,7 @@ const AssignSubject = () => {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button
+              <Button type="button"
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate('/dashboard/teacher')}
@@ -268,7 +268,7 @@ const AssignSubject = () => {
             </div>
 
             <div className="mb-4">
-              <Button
+              <Button type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleSelectAll}
@@ -315,13 +315,13 @@ const AssignSubject = () => {
 
           {/* Actions */}
           <div className="flex justify-end gap-4">
-            <Button
+            <Button type="button"
               variant="outline"
               onClick={() => navigate('/dashboard/teacher')}
             >
               Отмена
             </Button>
-            <Button
+            <Button type="button"
               onClick={handleSubmit}
               disabled={submitting || !selectedSubject || selectedStudents.length === 0}
             >

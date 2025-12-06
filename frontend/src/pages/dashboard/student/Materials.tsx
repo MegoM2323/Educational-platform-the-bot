@@ -333,7 +333,7 @@ export default function StudentMaterials() {
                               </div>
                             )}
                           </div>
-                          <Button
+                          <Button type="button"
                             variant="outline"
                             size="sm"
                             onClick={async () => {
@@ -507,7 +507,7 @@ export default function StudentMaterials() {
                   )}
 
                   <div className="flex gap-2">
-                    <Button 
+                    <Button type="button" 
                       size="sm" 
                       className="flex-1"
                       onClick={() => updateProgress(material.id, Math.min((material.progress?.progress_percentage || 0) + 25, 100))}
@@ -515,7 +515,7 @@ export default function StudentMaterials() {
                       <Eye className="w-4 h-4 mr-2" />
                       Изучить
                     </Button>
-                    <Button 
+                    <Button type="button" 
                       size="sm" 
                       variant="outline"
                       onClick={() => handleOpenSubmissionDialog(material)}
@@ -523,7 +523,7 @@ export default function StudentMaterials() {
                       <Send className="w-4 h-4 mr-1" />
                       Ответить
                     </Button>
-                    <Button 
+                    <Button type="button" 
                       size="sm" 
                       variant="outline"
                       onClick={() => handleOpenStatusDialog(material)}
@@ -531,7 +531,7 @@ export default function StudentMaterials() {
                       <MessageSquare className="w-4 h-4" />
                     </Button>
                     {material.file && (
-                      <Button 
+                      <Button type="button" 
                         size="sm" 
                         variant="outline"
                         onClick={() => handleDownload(material)}
@@ -540,7 +540,7 @@ export default function StudentMaterials() {
                       </Button>
                     )}
                     {material.video_url && (
-                      <Button 
+                      <Button type="button" 
                         size="sm" 
                         variant="outline"
                         onClick={() => window.open(material.video_url, '_blank')}
@@ -652,7 +652,7 @@ export default function StudentMaterials() {
                             {(file.file_size / 1024).toFixed(2)} KB
                           </span>
                         </div>
-                        <Button
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           onClick={(e) => {

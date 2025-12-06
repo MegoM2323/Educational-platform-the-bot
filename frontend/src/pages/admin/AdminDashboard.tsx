@@ -91,7 +91,7 @@ export default function AdminDashboard() {
       {/* Заголовок с кнопкой выхода в углу */}
       <div className="relative mb-6">
         <h1 className="text-3xl font-bold">Администратор</h1>
-        <Button
+        <Button type="button"
           variant="outline"
           size="sm"
           onClick={handleLogout}

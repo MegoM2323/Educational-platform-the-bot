@@ -729,8 +729,7 @@ export const ApplicationForm = () => {
         {/* Clear saved data button */}
         {localStorage.getItem(STORAGE_KEY) && (
           <div className="flex justify-end">
-            <Button
-              type="button"
+            <Button type="button"
               variant="ghost"
               size="sm"
               onClick={clearSavedData}
@@ -749,8 +748,7 @@ export const ApplicationForm = () => {
 
         {/* Navigation Buttons */}
         <div className="flex justify-between pt-4">
-          <Button
-            type="button"
+          <Button type="button"
             variant="outline"
             onClick={prevStep}
             disabled={currentStep === 1}
@@ -761,8 +759,7 @@ export const ApplicationForm = () => {
           </Button>
 
           {currentStep < totalSteps ? (
-            <Button
-              type="button"
+            <Button type="button"
               onClick={nextStep}
               disabled={!validateStep(currentStep)}
               className="flex items-center space-x-2"
@@ -771,8 +768,7 @@ export const ApplicationForm = () => {
               <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button
-              type="submit"
+            <Button type="submit"
               disabled={!validateStep(currentStep) || isSubmitting}
               className="flex items-center space-x-2 gradient-primary shadow-glow hover:opacity-90 transition-opacity"
             >

@@ -94,7 +94,7 @@ export default function ReportCreateForm({ onSubmit, availableStudents, classNam
         </div>
 
         <div className="flex justify-end">
-          <Button onClick={() => onSubmit(form)}>Создать отчёт</Button>
+          <Button type="button" onClick={() => onSubmit(form)}>Создать отчёт</Button>
         </div>
       </div>
     </div>

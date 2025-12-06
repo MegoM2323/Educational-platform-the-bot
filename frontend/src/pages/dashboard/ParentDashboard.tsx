@@ -325,7 +325,7 @@ const ParentDashboard = () => {
                                     <div className="flex gap-2 items-center">
                                       {subject.has_subscription && subject.payment_status === 'paid' ? (
                                         // Если есть активная подписка И платеж оплачен - показываем только кнопку "Остановить оплату"
-                                        <Button
+                                        <Button type="button"
                                           size="sm"
                                           variant="outline"
                                           onClick={async (e) => {
@@ -353,7 +353,7 @@ const ParentDashboard = () => {
                                         </Button>
                                       ) : (
                                         // Если нет подписки или платеж не оплачен - показываем кнопку "Оплатить"
-                                        <Button
+                                        <Button type="button"
                                           size="sm"
                                           variant={
                                             subject.payment_status === 'overdue' || subject.payment_status === 'no_payment'
@@ -458,7 +458,7 @@ const ParentDashboard = () => {
                           />
                         )}
                       </div>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="w-full mt-4"
                         onClick={() => navigate('/dashboard/parent/reports')}
@@ -506,7 +506,7 @@ const ParentDashboard = () => {
                   <Card className="p-6">
                     <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
                     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/parent/children')}
@@ -514,7 +514,7 @@ const ParentDashboard = () => {
                         <Users className="w-6 h-6" />
                         <span>Управление детьми</span>
                       </Button>
-                      <Button
+                      <Button type="button"
                         variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/parent/payment-history')}
@@ -522,7 +522,7 @@ const ParentDashboard = () => {
                         <CreditCard className="w-6 h-6" />
                         <span>Оплаты</span>
                       </Button>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/parent/reports')}
@@ -530,7 +530,7 @@ const ParentDashboard = () => {
                         <FileText className="w-6 h-6" />
                         <span>Отчёты</span>
                       </Button>
-                      <Button 
+                      <Button type="button" 
                         variant="outline" 
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/parent/statistics')}

@@ -127,10 +127,10 @@ export const DeleteUserDialog = ({ user, open, onOpenChange, onSuccess }: Delete
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
+          <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
             Отмена
           </Button>
-          <Button
+          <Button type="button"
             variant="destructive"
             onClick={handleDelete}
             disabled={loading || confirmEmail.toLowerCase().trim() !== user.email.toLowerCase().trim()}

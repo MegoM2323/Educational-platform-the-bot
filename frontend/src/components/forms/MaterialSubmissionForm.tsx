@@ -156,8 +156,7 @@ export default function MaterialSubmissionForm({
                 className="flex-1"
               />
               {selectedFile && (
-                <Button
-                  type="button"
+                <Button type="button"
                   variant="outline"
                   size="sm"
                   onClick={removeFile}
@@ -196,16 +195,14 @@ export default function MaterialSubmissionForm({
 
           {/* Кнопки */}
           <div className="flex gap-3 justify-end">
-            <Button
-              type="button"
+            <Button type="button"
               variant="outline"
               onClick={onCancel}
               disabled={loading}
             >
               Отмена
             </Button>
-            <Button
-              type="submit"
+            <Button type="submit"
               disabled={loading || (!selectedFile && !submissionData.submission_text.trim())}
             >
               {loading ? (

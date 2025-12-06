@@ -483,7 +483,7 @@ export const PaymentButton = ({
             )}
 
             {pollingTimedOut && (
-              <Button
+              <Button type="button"
                 onClick={handleRetryPolling}
                 variant="outline"
                 size={size}
@@ -495,7 +495,7 @@ export const PaymentButton = ({
             )}
 
             {hasSubscription && paymentStatus === 'paid' ? (
-              <Button
+              <Button type="button"
                 onClick={handleCancelSubscription}
                 disabled={isCancelling}
                 variant="outline"
@@ -515,7 +515,7 @@ export const PaymentButton = ({
                 )}
               </Button>
             ) : (
-              <Button
+              <Button type="button"
                 onClick={handlePayment}
                 disabled={(paymentStatus !== 'pending' && paymentStatus !== 'waiting_for_payment') || isLoading}
                 variant={(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? 'default' : 'outline'}
@@ -532,7 +532,7 @@ export const PaymentButton = ({
   }
 
   return (
-    <Button
+    <Button type="button"
       onClick={handlePayment}
       disabled={(paymentStatus !== 'pending' && paymentStatus !== 'waiting_for_payment') || isLoading}
       variant={(paymentStatus === 'pending' || paymentStatus === 'waiting_for_payment') ? variant : 'outline'}

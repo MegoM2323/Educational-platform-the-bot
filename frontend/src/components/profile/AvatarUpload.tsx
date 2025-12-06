@@ -194,8 +194,7 @@ export const AvatarUpload = ({
 
           {/* Кнопки действий */}
           <div className="flex gap-2 justify-center">
-            <Button
-              type="button"
+            <Button type="button"
               onClick={handleClick}
               disabled={isLoading}
               aria-label="Загрузить аватар"
@@ -205,8 +204,7 @@ export const AvatarUpload = ({
             </Button>
 
             {preview && (
-              <Button
-                type="button"
+              <Button type="button"
                 variant="outline"
                 onClick={handleClearPreview}
                 disabled={isLoading}

@@ -105,7 +105,7 @@ export const FallbackUI: React.FC<FallbackUIProps> = ({
 
           <div className="flex flex-col sm:flex-row gap-3 w-full">
             {showRetry && onRetry && (
-              <Button
+              <Button type="button"
                 onClick={onRetry}
                 className="flex-1"
                 variant={type === 'offline' ? 'default' : 'outline'}
@@ -116,7 +116,7 @@ export const FallbackUI: React.FC<FallbackUIProps> = ({
             )}
             
             {showHome && onGoHome && (
-              <Button
+              <Button type="button"
                 onClick={onGoHome}
                 variant="outline"
                 className="flex-1"
@@ -161,7 +161,7 @@ export const OfflineContent: React.FC<OfflineContentProps> = ({
             </p>
           </div>
           {onRetry && (
-            <Button size="sm" onClick={onRetry} className="ml-auto">
+            <Button type="button" size="sm" onClick={onRetry} className="ml-auto">
               <RefreshCw className="w-4 h-4 mr-2" />
               Обновить
             </Button>
@@ -312,7 +312,7 @@ export const ServiceUnavailable: React.FC<ServiceUnavailableProps> = ({
         </div>
 
         {onRetry && (
-          <Button onClick={onRetry} variant="outline" size="sm">
+          <Button type="button" onClick={onRetry} variant="outline" size="sm">
             <RefreshCw className="w-4 h-4 mr-2" />
             Попробовать снова
           </Button>

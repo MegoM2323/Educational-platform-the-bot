@@ -74,7 +74,7 @@ export const LessonRow: React.FC<LessonRowProps> = ({
 
         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           {lesson.telemost_link && (
-            <Button
+            <Button type="button"
               size="sm"
               variant="outline"
               asChild
@@ -86,7 +86,7 @@ export const LessonRow: React.FC<LessonRowProps> = ({
             </Button>
           )}
           {onEdit && (
-            <Button
+            <Button type="button"
               size="sm"
               variant="outline"
               onClick={onEdit}
@@ -97,7 +97,7 @@ export const LessonRow: React.FC<LessonRowProps> = ({
             </Button>
           )}
           {onDelete && (
-            <Button
+            <Button type="button"
               size="sm"
               variant="destructive"
               onClick={onDelete}

@@ -104,7 +104,7 @@ export default function Chat() {
 
           {/* Message Input */}
           <div className="flex gap-2 pt-4 border-t">
-            <Button variant="outline" size="icon">
+            <Button type="button" variant="outline" size="icon">
               <Paperclip className="w-4 h-4" />
             </Button>
             <Input
@@ -117,7 +117,7 @@ export default function Chat() {
                 }
               }}
             />
-            <Button className="gradient-primary">
+            <Button type="button" className="gradient-primary">
               <Send className="w-4 h-4" />
             </Button>
           </div>

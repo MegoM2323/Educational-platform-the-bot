@@ -236,10 +236,10 @@ const PaymentSuccess = () => {
                     </p>
                   )}
                   <div className="flex gap-4 justify-center">
-                    <Button onClick={() => navigate('/dashboard/parent')}>
+                    <Button type="button" onClick={() => navigate('/dashboard/parent')}>
                       Вернуться в личный кабинет
                     </Button>
-                    <Button variant="outline" onClick={() => navigate('/dashboard/parent/payment-history')}>
+                    <Button type="button" variant="outline" onClick={() => navigate('/dashboard/parent/payment-history')}>
                       История платежей
                     </Button>
                   </div>
@@ -256,7 +256,7 @@ const PaymentSuccess = () => {
                   <p className="text-sm text-muted-foreground mb-6">
                     Обработка может занять до 3 минут
                   </p>
-                  <Button onClick={() => navigate('/dashboard/parent')}>
+                  <Button type="button" onClick={() => navigate('/dashboard/parent')}>
                     Вернуться в личный кабинет
                   </Button>
                 </div>
@@ -270,10 +270,10 @@ const PaymentSuccess = () => {
                     Произошла ошибка при обработке платежа. Пожалуйста, попробуйте еще раз.
                   </p>
                   <div className="flex gap-4 justify-center">
-                    <Button onClick={() => navigate('/dashboard/parent')}>
+                    <Button type="button" onClick={() => navigate('/dashboard/parent')}>
                       Вернуться в личный кабинет
                     </Button>
-                    <Button variant="outline" onClick={() => window.history.back()}>
+                    <Button type="button" variant="outline" onClick={() => window.history.back()}>
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Назад
                     </Button>

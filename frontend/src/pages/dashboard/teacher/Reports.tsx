@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { formatDateOnly } from "@/utils/dateUtils";
 
 export default function TeacherReports() {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -364,16 +365,16 @@ export default function TeacherReports() {
       sunday.setDate(monday.getDate() + 6);
       sunday.setHours(23, 59, 59, 999);
       return {
-        start: monday.toISOString().split('T')[0],
-        end: sunday.toISOString().split('T')[0],
+        start: formatDateOnly(monday),
+        end: formatDateOnly(sunday),
       };
     } catch (error) {
       logger.error('Error calculating current week:', error);
       // Fallback на текущую дату
       const today = new Date();
       return {
-        start: today.toISOString().split('T')[0],
-        end: today.toISOString().split('T')[0],
+        start: formatDateOnly(today),
+        end: formatDateOnly(today),
       };
     }
   };
@@ -410,7 +411,7 @@ export default function TeacherReports() {
               <h1 className="text-lg font-semibold">Еженедельные отчёты тьютору</h1>
             </div>
             <div className="ml-auto">
-              <Button
+              <Button type="button"
                 className="gradient-primary shadow-glow"
                 onClick={() => setShowCreateForm(true)}
                 disabled={students.length === 0}
@@ -474,7 +475,7 @@ export default function TeacherReports() {
                       {getStatusBadge(report.status || 'draft')}
                     </div>
                     <div className="flex items-center gap-2 mt-4">
-                      <Button
+                      <Button type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => report && setSelectedReport(report)}
@@ -485,7 +486,7 @@ export default function TeacherReports() {
                       </Button>
                       {report && report.status === 'draft' && (
                         <>
-                          <Button
+                          <Button type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => handleEditReport(report)}
@@ -494,7 +495,7 @@ export default function TeacherReports() {
                             <Edit2 className="w-4 h-4 mr-2" />
                             Изменить
                           </Button>
-                          <Button
+                          <Button type="button"
                             size="sm"
                             onClick={() => handleSendReport(report.id)}
                             disabled={loading}
@@ -504,7 +505,7 @@ export default function TeacherReports() {
                           </Button>
                         </>
                       )}
-                      <Button
+                      <Button type="button"
                         variant="destructive"
                         size="sm"
                         onClick={() => setDeleteConfirmReport(report)}
@@ -696,10 +697,10 @@ export default function TeacherReports() {
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => { setShowCreateForm(false); resetForm(); }}>
+              <Button type="button" variant="outline" onClick={() => { setShowCreateForm(false); resetForm(); }}>
                 Отмена
               </Button>
-              <Button onClick={handleCreateReport} disabled={loading}>
+              <Button type="button" onClick={handleCreateReport} disabled={loading}>
                 <Send className="w-4 h-4 mr-2" />
                 Создать отчёт
               </Button>
@@ -960,14 +961,14 @@ export default function TeacherReports() {
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => {
+              <Button type="button" variant="outline" onClick={() => {
                 setShowEditForm(false);
                 setEditingReport(null);
                 resetForm();
               }}>
                 Отмена
               </Button>
-              <Button onClick={handleUpdateReport} disabled={loading}>
+              <Button type="button" onClick={handleUpdateReport} disabled={loading}>
                 <Send className="w-4 h-4 mr-2" />
                 Сохранить изменения
               </Button>

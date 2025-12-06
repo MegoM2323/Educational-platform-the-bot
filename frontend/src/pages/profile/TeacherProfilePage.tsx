@@ -200,7 +200,7 @@ export const TeacherProfilePage = () => {
     <div className="min-h-screen bg-[hsl(240,20%,99%)] py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex items-center gap-4">
-          <Button
+          <Button type="button"
             variant="outline"
             size="sm"
             onClick={() => navigate(-1)}
@@ -262,8 +262,7 @@ export const TeacherProfilePage = () => {
                       </label>
 
                       {avatarPreview && (
-                        <Button
-                          type="button"
+                        <Button type="button"
                           variant="outline"
                           size="sm"
                           className="w-full mt-2"
@@ -400,8 +399,7 @@ export const TeacherProfilePage = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Button
-                        type="button"
+                      <Button type="button"
                         variant="outline"
                         onClick={handleAddSubject}
                         disabled={!subjectToAdd}
@@ -463,8 +461,7 @@ export const TeacherProfilePage = () => {
                     )}
                   </div>
 
-                  <Button
-                    type="submit"
+                  <Button type="submit"
                     disabled={isUpdating}
                     className="bg-[hsl(250,70%,60%)] hover:bg-[hsl(250,70%,55%)] text-white shadow-sm hover:shadow-md transition-all"
                   >

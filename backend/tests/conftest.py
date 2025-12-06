@@ -69,6 +69,16 @@ class UserFactory(DjangoModelFactory):
     last_name = Faker('last_name')
     is_active = True
 
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        """Override to set password properly using set_password()"""
+        # Extract password or use default
+        password = kwargs.pop('password', 'testpass123')
+        user = super()._create(model_class, *args, **kwargs)
+        user.set_password(password)
+        user.save()
+        return user
+
 
 class StudentUserFactory(UserFactory):
     """Factory for creating Student users"""

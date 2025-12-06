@@ -188,11 +188,61 @@ def mock_supabase_db_error():
 
 
 @pytest.fixture(autouse=True)
+def mock_supabase_service(mocker, settings):
+    """
+    Automatically mock SupabaseAuthService for all tests.
+
+    This prevents real Supabase client initialization and provides
+    consistent mock responses for sign_in, sign_up, etc.
+
+    The mock returns proper structure matching SupabaseAuthService.sign_in():
+    - success: False (simulating "not configured" state)
+    - error: "Supabase не настроен"
+
+    Tests can override this by patching SupabaseAuthService explicitly.
+    """
+    # Set test ENV values (prevents any accidental real connections)
+    settings.SUPABASE_URL = ''
+    settings.SUPABASE_KEY = ''
+    settings.SUPABASE_SERVICE_ROLE_KEY = ''
+
+    # Mock the SupabaseAuthService class at its source
+    # This will affect all imports including from accounts.views
+    mock_service_class = mocker.patch('accounts.supabase_service.SupabaseAuthService')
+    mock_instance = MagicMock()
+
+    # Configure sign_in to return "not configured" response
+    mock_instance.sign_in.return_value = {
+        'success': False,
+        'error': 'Supabase не настроен. Используйте стандартную аутентификацию Django.'
+    }
+
+    # Configure sign_up to return "not configured" response
+    mock_instance.sign_up.return_value = {
+        'success': False,
+        'error': 'Supabase не настроен. Используйте стандартную аутентификацию Django.'
+    }
+
+    # Configure sign_out
+    mock_instance.sign_out.return_value = {
+        'success': False,
+        'error': 'Supabase не настроен. Используйте стандартную аутентификацию Django.'
+    }
+
+    # Make SupabaseAuthService() return our mock instance
+    mock_service_class.return_value = mock_instance
+
+    # Also make sign_in callable via getattr check in views.py
+    mock_instance.is_mock = True
+
+    return mock_instance
+
+
+@pytest.fixture(autouse=True)
 def disable_supabase_in_tests(settings):
     """
-    Automatically disable real Supabase connections in tests.
-    Use this with explicit mocks when you need Supabase functionality.
+    DEPRECATED: Use mock_supabase_service instead.
+
+    Kept for backwards compatibility with existing tests.
     """
-    settings.SUPABASE_URL = 'http://localhost:54321'
-    settings.SUPABASE_KEY = 'test-key'
-    settings.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key'
+    pass  # mock_supabase_service handles everything now

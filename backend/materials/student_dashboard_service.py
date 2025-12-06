@@ -1,4 +1,4 @@
-from django.db.models import Q, Count, Avg, Sum
+from django.db.models import Q, Count, Avg, Sum, Prefetch
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from typing import Dict, List, Optional, Any
@@ -57,33 +57,34 @@ class StudentDashboardService:
         ).values_list('subject_id', flat=True)
 
         # Базовый запрос для материалов по предметам студента
+        # Используем Prefetch для фильтрации прогресса на уровне базы данных
+        student_progress_prefetch = Prefetch(
+            'progress',
+            queryset=MaterialProgress.objects.filter(student=self.student),
+            to_attr='student_progress_list'
+        )
+
         materials_query = Material.objects.filter(
             Q(subject_id__in=enrolled_subject_ids) |
             Q(assigned_to=self.student) |
             Q(is_public=True),
             status=Material.Status.ACTIVE
         ).select_related('subject', 'author').prefetch_related(
-            'progress'  # Оптимизация для получения прогресса
+            student_progress_prefetch
         )
-        
+
         # Фильтрация по предмету, если указан
         if subject_id:
             materials_query = materials_query.filter(subject_id=subject_id)
-        
+
         materials = materials_query.order_by('-created_at')
-        
-        # Получаем все прогрессы студента одним запросом
-        progress_dict = {}
-        for material in materials:
-            for progress in material.progress.all():
-                if progress.student_id == self.student.id:
-                    progress_dict[material.id] = progress
-                    break
-        
+
         result = []
         for material in materials:
-            # Получаем прогресс студента по материалу из словаря
-            progress = progress_dict.get(material.id)
+            # Получаем прогресс студента из prefetched данных
+            student_progress_list = getattr(material, 'student_progress_list', [])
+            progress = student_progress_list[0] if student_progress_list else None
+
             if progress:
                 progress_data = {
                     'is_completed': progress.is_completed,

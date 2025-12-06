@@ -140,8 +140,9 @@ class TestTeacherProfileGetEndpoint:
         """Profile endpoint uses select_related to avoid N+1 queries"""
         api_client.force_authenticate(user=teacher_user)
 
-        # Should only query User and TeacherProfile (2 queries)
-        with django_assert_num_queries(2):
+        # Should only query User+TeacherProfile + TeacherSubjects (2 queries)
+        # SAVEPOINT/RELEASE wrapping adds 2 more (total 4)
+        with django_assert_num_queries(4):
             response = api_client.get('/api/profile/teacher/')
             assert response.status_code == status.HTTP_200_OK
 

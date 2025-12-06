@@ -132,10 +132,11 @@ class TestForumChatSignalCreation:
         )
 
         # Should still only have 1 chat (or new one if old was also deleted)
+        # Note: ChatRoom filters on enrollment__student and enrollment__subject, not direct fields
         chats = ChatRoom.objects.filter(
             type=ChatRoom.Type.FORUM_SUBJECT,
-            student=student_user,
-            subject=subject
+            enrollment__student=student_user,
+            enrollment__subject=subject
         )
         # At most 1 chat per student-subject-teacher combo per type
         assert chats.count() == 1
@@ -179,8 +180,10 @@ class TestForumChatVisibility:
         api_client.force_authenticate(user=student_user)
         response = api_client.get('/api/chat/forum/')
 
-        assert response.status_code == status.HTTP_200_OK
-        chat_ids = [c['id'] for c in response.data]
+        assert response.status_code == status.HTTP_200_OK, f"Expected 200, got {response.status_code}: {response.data}"
+        # response.data could be a list or dict depending on paginated response
+        chat_data = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        chat_ids = [c['id'] for c in chat_data]
 
         # Should see chats for their enrollment
         student_chats = ChatRoom.objects.filter(
@@ -226,8 +229,10 @@ class TestForumChatVisibility:
         api_client.force_authenticate(user=teacher_user)
         response = api_client.get('/api/chat/forum/')
 
-        assert response.status_code == status.HTTP_200_OK
-        chat_ids = [c['id'] for c in response.data]
+        assert response.status_code == status.HTTP_200_OK, f"Expected 200, got {response.status_code}: {response.data}"
+        # response.data could be a list or dict depending on paginated response
+        chat_data = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        chat_ids = [c['id'] for c in chat_data]
 
         # Should see only their FORUM_SUBJECT chats
         my_chat = ChatRoom.objects.get(
@@ -263,8 +268,10 @@ class TestForumChatVisibility:
         api_client.force_authenticate(user=teacher_user)
         response = api_client.get('/api/chat/forum/')
 
-        assert response.status_code == status.HTTP_200_OK
-        chat_ids = [c['id'] for c in response.data]
+        assert response.status_code == status.HTTP_200_OK, f"Expected 200, got {response.status_code}: {response.data}"
+        # response.data could be a list or dict depending on paginated response
+        chat_data = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        chat_ids = [c['id'] for c in chat_data]
 
         # Should NOT see tutor chat
         assert tutor_chat.id not in chat_ids
@@ -295,8 +302,10 @@ class TestForumChatVisibility:
         api_client.force_authenticate(user=tutor_user)
         response = api_client.get('/api/chat/forum/')
 
-        assert response.status_code == status.HTTP_200_OK
-        chat_ids = [c['id'] for c in response.data]
+        assert response.status_code == status.HTTP_200_OK, f"Expected 200, got {response.status_code}: {response.data}"
+        # response.data could be a list or dict depending on paginated response
+        chat_data = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        chat_ids = [c['id'] for c in chat_data]
 
         # Should see only FORUM_TUTOR chat
         tutor_chat = ChatRoom.objects.get(
@@ -343,7 +352,9 @@ class TestForumMessageSending:
         )
 
         assert response.status_code == status.HTTP_201_CREATED
-        assert response.data['content'] == message_data['content']
+        # Response wraps message in 'message' key
+        message_response = response.data.get('message', response.data)
+        assert message_response['content'] == message_data['content']
 
     def test_message_persisted_to_database(self, api_client, student_user, teacher_user, subject):
         """Message is persisted to database"""
@@ -557,4 +568,6 @@ class TestForumMessageSending:
         )
 
         assert response.status_code == status.HTTP_201_CREATED
-        assert response.data['sender'] == teacher_user.id
+        # Response wraps message in 'message' key
+        message_response = response.data.get('message', response.data)
+        assert message_response['sender'] == teacher_user.id

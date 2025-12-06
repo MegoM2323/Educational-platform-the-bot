@@ -32,7 +32,18 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         dry_run = options['dry_run']
 
-        logger.info(f"[process_subscription] Starting payment processing (dry_run={dry_run})")
+        # Создаем запись о выполнении задачи для мониторинга
+        from core.models import TaskExecutionLog
+        import uuid
+
+        task_id = str(uuid.uuid4())
+        execution_log = TaskExecutionLog.objects.create(
+            task_id=task_id,
+            task_name='process_subscription_payments',
+            status=TaskExecutionLog.Status.SUCCESS
+        )
+
+        logger.info(f"[process_subscription] Starting payment processing (dry_run={dry_run}, log_id={execution_log.id})")
 
         if dry_run:
             self.stdout.write(self.style.WARNING('Режим тестирования (dry-run)'))
@@ -308,6 +319,19 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(summary_message)
         )
+
+        # Завершаем запись о выполнении задачи
+        execution_log.complete(
+            result={
+                'processed': processed,
+                'errors': errors,
+                'total_queried': subscriptions_count,
+                'dry_run': dry_run
+            },
+            error=None if errors == 0 else f'{errors} subscriptions failed to process'
+        )
+
+        logger.info(f"[process_subscription] Execution logged (log_id={execution_log.id}, duration={execution_log.duration_seconds:.2f}s)")
 
     def _send_parent_notification(self, telegram_service, parent, student, enrollment, payment, amount, due_date):
         """

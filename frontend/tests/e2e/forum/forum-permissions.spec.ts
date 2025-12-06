@@ -286,9 +286,9 @@ test.describe('Forum Permissions - Edge Cases', () => {
     // Get auth token
     const token = await page.evaluate(() => localStorage.getItem('authToken'));
 
-    // Try to call forum API with valid token
+    // Try to call forum API with valid token (CORRECT URL: /api/chat/forum/)
     if (token) {
-      const response = await page.request.get('/api/forum/chats/', {
+      const response = await page.request.get('/api/chat/forum/', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -301,8 +301,8 @@ test.describe('Forum Permissions - Edge Cases', () => {
   });
 
   test('forum API requires authentication', async ({ page }) => {
-    // Call forum API without auth
-    const response = await page.request.get('/api/forum/chats/');
+    // Call forum API without auth (CORRECT URL: /api/chat/forum/)
+    const response = await page.request.get('/api/chat/forum/');
 
     // Should return 401 Unauthorized
     console.log(`Unauthenticated API call returns: ${response.status()}`);
@@ -315,8 +315,8 @@ test.describe('Forum Permissions - Edge Cases', () => {
     // Login as student
     await loginAs(page, 'student');
 
-    // Try to access non-existent chat
-    const response = await page.request.get('/api/forum/chats/999999/messages/');
+    // Try to access non-existent chat (CORRECT URL: /api/chat/forum/)
+    const response = await page.request.get('/api/chat/forum/999999/messages/');
 
     // Should return 404 Not Found
     console.log(`Invalid chat ID returns: ${response.status()}`);

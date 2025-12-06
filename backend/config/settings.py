@@ -743,7 +743,53 @@ from core.celery_config import CELERY_BEAT_SCHEDULE
 # ============================================
 # Проверяем критические настройки в production режиме
 if not DEBUG:
-    # 1. Проверка Redis - КРИТИЧНО для Celery и рекуррентных платежей
+    # Получаем ENVIRONMENT для проверки соответствия
+    current_env = os.getenv('ENVIRONMENT', 'production').lower()
+
+    # 1. Проверка ENVIRONMENT - должен быть 'production' при DEBUG=False
+    if current_env != 'production':
+        raise ImproperlyConfigured(
+            f"ENVIRONMENT must be 'production' when DEBUG=False.\n"
+            f"Current value: ENVIRONMENT={current_env}, DEBUG=False\n"
+            f"Expected: ENVIRONMENT=production, DEBUG=False\n"
+            f"This prevents accidental production mode with development database."
+        )
+
+    # 2. Проверка DATABASE_URL - должен быть задан для production
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        # Проверяем альтернативный вариант с SUPABASE_DB_*
+        if not all([
+            os.getenv('SUPABASE_DB_NAME'),
+            os.getenv('SUPABASE_DB_USER'),
+            os.getenv('SUPABASE_DB_PASSWORD'),
+            os.getenv('SUPABASE_DB_HOST')
+        ]):
+            raise ImproperlyConfigured(
+                "Production mode requires DATABASE_URL to be set.\n"
+                "Either set DATABASE_URL (recommended) or all SUPABASE_DB_* variables.\n"
+                "Production MUST use PostgreSQL (Supabase), NOT SQLite."
+            )
+    elif database_url:
+        # Проверяем что это PostgreSQL, а не SQLite
+        if database_url.startswith('sqlite'):
+            raise ImproperlyConfigured(
+                "Production mode cannot use SQLite database.\n"
+                f"Current DATABASE_URL: {database_url[:30]}...\n"
+                "Expected: PostgreSQL connection string (postgresql://...)"
+            )
+        # Проверяем что это не localhost
+        if 'localhost' in database_url.lower() or '127.0.0.1' in database_url:
+            import warnings
+            warnings.warn(
+                f"Production mode using localhost database is unusual.\n"
+                f"DATABASE_URL contains localhost or 127.0.0.1\n"
+                f"Ensure this is intentional for your deployment.",
+                RuntimeWarning,
+                stacklevel=2
+            )
+
+    # 3. Проверка Redis - КРИТИЧНО для Celery и рекуррентных платежей
     if not USE_REDIS_CACHE or not USE_REDIS_CHANNELS:
         import warnings
         warnings.warn(
@@ -754,7 +800,7 @@ if not DEBUG:
             stacklevel=2
         )
 
-    # 2. Проверка FRONTEND_URL - не должен быть localhost
+    # 4. Проверка FRONTEND_URL - не должен быть localhost
     if FRONTEND_URL and ('localhost' in FRONTEND_URL.lower() or '127.0.0.1' in FRONTEND_URL):
         raise ImproperlyConfigured(
             f"Production mode with localhost FRONTEND_URL is not allowed.\n"
@@ -762,24 +808,44 @@ if not DEBUG:
             f"Expected: https://{env_config.PRODUCTION_DOMAIN} or similar production URL"
         )
 
-    # 3. Проверка ALLOWED_HOSTS - должны быть заданы
+    # 5. Проверка ALLOWED_HOSTS - должны быть заданы
     if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['*']:
         raise ImproperlyConfigured(
             "ALLOWED_HOSTS must be properly configured in production.\n"
-            "Current value: []\n"
+            "Current value: [] or ['*']\n"
             f"Expected: ['{env_config.PRODUCTION_DOMAIN}', 'www.{env_config.PRODUCTION_DOMAIN}', ...]"
         )
 
-    # 4. Информационное сообщение о режиме
+    # 6. Проверка CORS_ALLOWED_ORIGINS - не должен быть пустым или содержать localhost
+    if not CORS_ALLOWED_ORIGINS:
+        raise ImproperlyConfigured(
+            "CORS_ALLOWED_ORIGINS must be configured in production.\n"
+            "Current value: []\n"
+            f"Expected: ['https://{env_config.PRODUCTION_DOMAIN}']"
+        )
+
+    # Проверяем что нет localhost в CORS
+    for origin in CORS_ALLOWED_ORIGINS:
+        if 'localhost' in origin.lower() or '127.0.0.1' in origin:
+            raise ImproperlyConfigured(
+                f"CORS_ALLOWED_ORIGINS contains localhost origin in production.\n"
+                f"Found: {origin}\n"
+                f"Production CORS must only allow production frontend URL."
+            )
+
+    # 7. Информационное сообщение о режиме
     import sys
     if 'runserver' in sys.argv or 'test' in sys.argv:
         pass  # Не выводим при тестах или runserver
     else:
         print(f"✅ Production mode active (DEBUG=False)")
+        print(f"   - Environment: {current_env}")
+        print(f"   - Database: {'PostgreSQL' if database_url and 'postgres' in database_url else 'Unknown'}")
         print(f"   - Redis Cache: {'✅ Enabled' if USE_REDIS_CACHE else '❌ Disabled'}")
         print(f"   - Redis Channels: {'✅ Enabled' if USE_REDIS_CHANNELS else '❌ Disabled'}")
         print(f"   - Payment Mode: {'💰 Production (5000₽/week)' if not PAYMENT_DEVELOPMENT_MODE else '🧪 Development (1₽/10min)'}")
         print(f"   - Frontend URL: {FRONTEND_URL}")
+        print(f"   - CORS Origins: {len(CORS_ALLOWED_ORIGINS)} configured")
 
 
 # ==================== LOGGING CONFIGURATION ====================
@@ -826,6 +892,14 @@ LOGGING = {
             'backupCount': 10,
             'level': 'INFO',
             'formatter': 'simple'
+        },
+        'celery_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'celery.log'),
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,
+            'level': 'INFO',
+            'formatter': 'verbose'
         }
     },
     'loggers': {
@@ -846,6 +920,26 @@ LOGGING = {
         },
         'accounts.retry_logic': {
             'handlers': ['console', 'admin_file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'celery': {
+            'handlers': ['console', 'celery_file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'celery.task': {
+            'handlers': ['console', 'celery_file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'core.tasks': {
+            'handlers': ['console', 'celery_file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'materials.management.commands.process_subscription_payments': {
+            'handlers': ['console', 'celery_file'],
             'level': 'INFO',
             'propagate': False
         },

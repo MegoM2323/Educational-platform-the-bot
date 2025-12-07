@@ -58,6 +58,37 @@ def tutor_user(db):
 
 
 @pytest.fixture
+def parent_user(db):
+    """Create a parent user for testing."""
+    from accounts.models import ParentProfile
+    user = User.objects.create_user(
+        username='test_parent@test.com',
+        email='test_parent@test.com',
+        password='TestPass123!',
+        first_name='Test',
+        last_name='Parent',
+        role='parent'
+    )
+    ParentProfile.objects.create(user=user)
+    return user
+
+
+@pytest.fixture
+def another_teacher_user(db):
+    """Create another teacher for testing multiple teachers."""
+    user = User.objects.create_user(
+        username='another_teacher@test.com',
+        email='another_teacher@test.com',
+        password='TestPass123!',
+        first_name='Another',
+        last_name='Teacher',
+        role='teacher'
+    )
+    TeacherProfile.objects.create(user=user)
+    return user
+
+
+@pytest.fixture
 def another_student_user(db):
     """Create another student for testing multiple students."""
     user = User.objects.create_user(

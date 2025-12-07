@@ -5,6 +5,7 @@
 
 import { websocketService, WebSocketMessage, getWebSocketBaseUrl } from './websocketService';
 import { tokenStorage } from './tokenStorage';
+import { logger } from '../utils/logger';
 
 export interface ChatMessage {
   id: number;

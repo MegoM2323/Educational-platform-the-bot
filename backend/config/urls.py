@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/auth/", include('accounts.urls')),
     path("api/profile/", include('accounts.profile_urls')),  # Profile endpoints (NEW - for frontend compatibility)
     path("api/admin/", include('accounts.urls')),  # Admin endpoints (profile management)
+    path("api/admin/schedule/", include('scheduling.admin_urls')),  # Admin schedule management
     path("api/tutor/", include('accounts.urls')),  # Tutor endpoints
     path("api/materials/", include('materials.urls')),
     path("api/student/", include('materials.student_urls')),

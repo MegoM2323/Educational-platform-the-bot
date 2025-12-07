@@ -454,4 +454,151 @@ export const adminAPI = {
   }>> {
     return apiClient.request('/admin/schedule/filters/');
   },
+
+  /**
+   * Chat Management - Admin API
+   * Read-only access to all chat rooms and messages
+   */
+
+  /**
+   * Get all chat rooms with participants and last message
+   */
+  async getChatRooms(): Promise<ApiResponse<{
+    success: boolean;
+    data: {
+      rooms: Array<{
+        id: number;
+        name: string;
+        description?: string;
+        type: 'forum_subject' | 'forum_tutor' | 'direct' | 'group' | 'general';
+        participants_count: number;
+        participants: Array<{
+          id: number;
+          full_name: string;
+          role: string;
+        }>;
+        subject?: {
+          id: number;
+          name: string;
+        };
+        last_message?: {
+          id: number;
+          content: string;
+          sender: {
+            id: number;
+            full_name: string;
+            role: string;
+          };
+          created_at: string;
+        };
+        unread_count: number;
+        is_active: boolean;
+        created_at: string;
+        updated_at: string;
+      }>;
+      count: number;
+    };
+  }>> {
+    return apiClient.request('/chat/admin/rooms/');
+  },
+
+  /**
+   * Get detailed information about a specific chat room
+   */
+  async getChatRoomDetail(roomId: number): Promise<ApiResponse<{
+    success: boolean;
+    data: {
+      room: {
+        id: number;
+        name: string;
+        description?: string;
+        type: string;
+        participants_count: number;
+        participants: Array<{
+          id: number;
+          full_name: string;
+          role: string;
+        }>;
+        subject?: {
+          id: number;
+          name: string;
+        };
+        is_active: boolean;
+        created_at: string;
+        updated_at: string;
+      };
+      participants_count: number;
+      messages_count: number;
+    };
+  }>> {
+    return apiClient.request(`/chat/admin/rooms/${roomId}/`);
+  },
+
+  /**
+   * Get messages for a specific chat room
+   */
+  async getChatMessages(
+    roomId: number,
+    params?: {
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<ApiResponse<{
+    success: boolean;
+    data: {
+      room_id: number;
+      messages: Array<{
+        id: number;
+        content: string;
+        sender: {
+          id: number;
+          full_name: string;
+          role: string;
+        };
+        sender_name: string;
+        sender_role: string;
+        sender_avatar?: string;
+        message_type?: string;
+        file_url?: string;
+        image_url?: string;
+        is_edited: boolean;
+        is_read: boolean;
+        created_at: string;
+        updated_at: string;
+        reply_to?: number;
+        replies_count: number;
+      }>;
+      count: number;
+      limit: number;
+      offset: number;
+    };
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.offset !== undefined) {
+      queryParams.append('offset', params.offset.toString());
+    }
+
+    const url = `/chat/admin/rooms/${roomId}/messages/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return apiClient.request(url);
+  },
+
+  /**
+   * Get chat statistics
+   */
+  async getChatStats(): Promise<ApiResponse<{
+    success: boolean;
+    data: {
+      total_rooms: number;
+      active_rooms: number;
+      total_messages: number;
+      forum_subject_rooms: number;
+      direct_rooms: number;
+      group_rooms: number;
+    };
+  }>> {
+    return apiClient.request('/chat/admin/stats/');
+  },
 };

@@ -389,9 +389,9 @@ export const EditProfileDialog = ({ user, profile, open, onOpenChange, onSuccess
           )}
 
           <DialogFooter>
-            <Button type="button"
-              variant="outline"
+            <Button
               type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >

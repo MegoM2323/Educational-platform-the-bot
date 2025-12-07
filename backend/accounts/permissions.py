@@ -300,3 +300,27 @@ class IsStaffOrAdmin(BasePermission):
             request.user.is_superuser or
             getattr(request.user, 'role', None) == 'tutor'
         )
+
+
+class IsAdminUser(BasePermission):
+    """
+    Разрешение только для пользователей с правами администратора.
+
+    Бизнес-правила:
+    - Только пользователи с is_staff=True или is_superuser=True имеют доступ
+    - Возвращает 403 Forbidden для всех остальных пользователей
+    - Используется для admin-only endpoints (schedule, chat management)
+
+    Примечание: Этот класс отличается от IsStaffOrAdmin тем, что НЕ включает тьюторов.
+    Только настоящие админы (staff/superuser) имеют доступ к админской панели.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        """Проверяет что пользователь имеет права администратора"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if not request.user.is_active:
+            return False
+
+        return request.user.is_staff or request.user.is_superuser

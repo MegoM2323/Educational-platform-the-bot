@@ -1,4 +1,4 @@
-import { Users, Calendar, LogOut } from "lucide-react";
+import { Users, Calendar, MessageCircle, LogOut } from "lucide-react";
 import { logger } from '@/utils/logger';
 import { NavLink } from "react-router-dom";
 import {
@@ -29,6 +29,12 @@ const items = [
     url: "/admin/schedule",
     icon: Calendar,
     description: "Календарь всех занятий"
+  },
+  {
+    title: "Все чаты",
+    url: "/admin/chats",
+    icon: MessageCircle,
+    description: "Все чаты в системе"
   },
 ];
 

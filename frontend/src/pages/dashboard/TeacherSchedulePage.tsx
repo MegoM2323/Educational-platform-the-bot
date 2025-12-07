@@ -157,11 +157,11 @@ const TeacherSchedulePage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle>Create Lesson</CardTitle>
                   {!isFormOpen && (
-                    <Button type="button"
+                    <Button
+                      type="button"
                       onClick={handleOpenForm}
                       size="sm"
                       variant="outline"
-                      type="button"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Lesson

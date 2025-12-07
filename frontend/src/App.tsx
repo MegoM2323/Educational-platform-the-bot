@@ -9,12 +9,10 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Suspense, lazy } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
-import StaffManagement from "@/pages/admin/StaffManagement";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import StudentManagement from "@/pages/admin/StudentManagement";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AccountManagement from "@/pages/admin/AccountManagement";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
+import AdminChatsPage from "@/pages/admin/AdminChatsPage";
 
 // Импортируем критические компоненты напрямую
 import Index from "./pages/Index";
@@ -96,7 +94,6 @@ const App = () => (
           <Route path="/application" element={<ApplicationForm />} />
           <Route path="/application-status/:trackingToken" element={<ApplicationStatus />} />
           
-          {/* Admin Routes */}
           {/* Admin Routes with Layout */}
           <Route path="/admin" element={
             <ProtectedAdminRoute>
@@ -116,21 +113,12 @@ const App = () => (
                 <AdminSchedulePage />
               </Suspense>
             } />
+            <Route path="chats" element={
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <AdminChatsPage />
+              </Suspense>
+            } />
           </Route>
-          <Route path="/admin/staff" element={
-            <ProtectedAdminRoute>
-              <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <StaffManagement />
-              </Suspense>
-            </ProtectedAdminRoute>
-          } />
-          <Route path="/admin/students" element={
-            <ProtectedAdminRoute>
-              <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <StudentManagement />
-              </Suspense>
-            </ProtectedAdminRoute>
-          } />
           
           {/* Student Routes */}
           <Route path="/dashboard/student" element={

@@ -4,10 +4,10 @@ Admin views for schedule management.
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from datetime import datetime
 
+from accounts.permissions import IsAdminUser
 from scheduling.admin_schedule_service import AdminScheduleService
 from scheduling.serializers import AdminLessonSerializer
 
@@ -19,16 +19,17 @@ def admin_schedule_view(request):
     Get all lessons for admin with optional filters.
 
     Query parameters:
-    - teacher_id: Filter by teacher ID
-    - subject_id: Filter by subject ID
-    - student_id: Filter by student ID
+    - teacher_id: Filter by teacher UUID
+    - subject_id: Filter by subject UUID
+    - student_id: Filter by student UUID
     - date_from: Start date (YYYY-MM-DD)
     - date_to: End date (YYYY-MM-DD)
     - status: Filter by status (pending, confirmed, completed, cancelled)
 
     Returns:
     - List of all lessons matching filters
-    - Includes teacher and student details
+    - Includes teacher_name, student_name, subject_name
+    - Ordered by date descending
     """
     try:
         # Parse query parameters
@@ -48,7 +49,7 @@ def admin_schedule_view(request):
                 date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
             except ValueError:
                 return Response(
-                    {'error': 'Invalid date_from format. Use YYYY-MM-DD'},
+                    {'success': False, 'error': 'Invalid date_from format. Use YYYY-MM-DD'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -57,11 +58,18 @@ def admin_schedule_view(request):
                 date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
             except ValueError:
                 return Response(
-                    {'error': 'Invalid date_to format. Use YYYY-MM-DD'},
+                    {'success': False, 'error': 'Invalid date_to format. Use YYYY-MM-DD'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-        # Get filtered lessons
+        # Validate date range
+        if date_from and date_to and date_from > date_to:
+            return Response(
+                {'success': False, 'error': 'date_from must be before or equal to date_to'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get filtered lessons (already optimized with select_related)
         lessons = AdminScheduleService.get_all_lessons(
             teacher_id=teacher_id,
             subject_id=subject_id,

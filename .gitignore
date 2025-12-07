@@ -11,6 +11,7 @@ blob-report/
 playwright/.cache/
 logs/
 .playwright-mcp/
+tests/
 
 
 # Byte-compiled / optimized / DLL files

@@ -6,11 +6,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLessonProgress } from '@/hooks/useLessonProgress';
+import { useAnswerSubmission } from '@/hooks/useAnswerSubmission';
 import { ElementCard, ElementCardSkeleton } from '@/components/knowledge-graph/ElementCard';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,6 +20,9 @@ import {
   Lock,
   ArrowLeft,
   Sparkles,
+  WifiOff,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/utils/logger';
@@ -74,6 +79,17 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
     onComplete,
   });
 
+  // Использовать hook для отправки ответов с offline поддержкой
+  const {
+    submitAnswer: submitAnswerWithOffline,
+    retry: retrySubmission,
+    isLoading: isSubmittingOffline,
+    status: submissionStatus,
+    error: submissionError,
+    pendingCount,
+    isNetworkOnline,
+  } = useAnswerSubmission();
+
   // Установить начальный индекс элемента при загрузке
   useEffect(() => {
     if (!isLoading && elementsWithProgress.length > 0) {
@@ -107,7 +123,7 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
     });
   };
 
-  // Обработчик отправки ответа
+  // Обработчик отправки ответа с offline поддержкой
   const handleSubmitAnswer = async (answer: any) => {
     if (!progress?.graph_lesson_id) {
       toast.error('Не удалось определить урок в графе');
@@ -123,15 +139,30 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
     logger.info('[LessonViewer] Submitting answer for element:', currentElement.id);
 
     try {
-      await submitAnswer({
+      // Использовать новый сервис с offline поддержкой
+      await submitAnswerWithOffline({
         elementId: currentElement.id,
-        data: {
-          answer,
-          graph_lesson_id: progress.graph_lesson_id,
-        },
+        answer,
+        lessonId,
+        graphId,
+        graphLessonId: progress.graph_lesson_id,
       });
 
-      setHasSubmittedCurrent(true);
+      // После успешной отправки или кэширования - обновить UI
+      if (submissionStatus === 'success' || submissionStatus === 'offline') {
+        setHasSubmittedCurrent(true);
+
+        // Если успешно отправлено - обновить прогресс через старый hook
+        if (submissionStatus === 'success') {
+          await submitAnswer({
+            elementId: currentElement.id,
+            data: {
+              answer,
+              graph_lesson_id: progress.graph_lesson_id,
+            },
+          });
+        }
+      }
     } catch (error) {
       logger.error('[LessonViewer] Submit answer error:', error);
       // Ошибка уже обработана в hook через toast
@@ -321,6 +352,35 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* Offline indicator */}
+      {!isNetworkOnline && (
+        <Alert variant="destructive" className="mb-4">
+          <WifiOff className="h-4 w-4" />
+          <AlertDescription>
+            Вы офлайн. Ответы будут сохранены локально и отправлены при подключении к сети.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Pending submissions indicator */}
+      {pendingCount > 0 && isNetworkOnline && (
+        <Alert className="mb-4 border-blue-500 bg-blue-50 dark:bg-blue-950">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Синхронизация {pendingCount} ответов...</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => retrySubmission()}
+              className="ml-4"
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Повторить
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header with breadcrumb and progress */}
       <div className="space-y-4 mb-6">
         <Button
@@ -352,11 +412,51 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
 
       {/* Current element card */}
       <div className="mb-6">
+        {/* Submission status indicator */}
+        {submissionStatus === 'loading' && (
+          <div className="mb-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Сохранение...</span>
+          </div>
+        )}
+
+        {submissionStatus === 'success' && (
+          <div className="mb-4 flex items-center justify-center gap-2 text-sm text-green-600 dark:text-green-400">
+            <CheckCircle className="h-4 w-4" />
+            <span>Сохранено ✓</span>
+          </div>
+        )}
+
+        {submissionStatus === 'offline' && (
+          <div className="mb-4">
+            <Badge variant="outline" className="w-full justify-center py-2">
+              <WifiOff className="h-3 w-3 mr-2" />
+              Сохранено локально. Будет отправлено при подключении к сети.
+            </Badge>
+          </div>
+        )}
+
+        {submissionStatus === 'error' && submissionError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription className="flex items-center justify-between">
+              <span>Ошибка: {submissionError}</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => retrySubmission()}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Повторить
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <ElementCard
           element={currentElement}
           progress={currentElement.progress}
           onSubmit={handleSubmitAnswer}
-          isLoading={isSubmitting}
+          isLoading={isSubmitting || isSubmittingOffline}
           readOnly={false}
         />
       </div>
@@ -385,7 +485,7 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
         {!isLastElement ? (
           <Button
             onClick={handleNext}
-            disabled={!currentElementCompleted}
+            disabled={!currentElementCompleted || isSubmittingOffline}
             className="flex-1 sm:flex-initial"
           >
             Далее
@@ -394,7 +494,7 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
         ) : (
           <Button
             onClick={handleNext}
-            disabled={!currentElementCompleted}
+            disabled={!currentElementCompleted || isSubmittingOffline}
             className="flex-1 sm:flex-initial"
             variant="default"
           >

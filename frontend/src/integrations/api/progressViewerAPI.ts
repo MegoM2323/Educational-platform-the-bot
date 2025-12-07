@@ -39,7 +39,12 @@ export interface ElementProgressDetail {
   element_id: number;
   element_type: 'text_problem' | 'quick_question' | 'theory' | 'video';
   element_title: string;
-  student_answer: any;
+  student_answer: {
+    text?: string;
+    choice?: number;
+    viewed?: boolean;
+    watched_until?: number;
+  } | null;
   score: number | null;
   max_score: number;
   status: 'not_started' | 'in_progress' | 'completed' | 'skipped';
@@ -178,6 +183,11 @@ export const progressViewerAPI = {
     if (response.error) {
       throw new Error(response.error);
     }
-    return (response.data as any).data;
+    // Backend wraps response in {success, data} structure
+    const wrappedResponse = response.data as {
+      success: boolean;
+      data: { id: number; student: number; subject: number };
+    };
+    return wrappedResponse.data;
   },
 };

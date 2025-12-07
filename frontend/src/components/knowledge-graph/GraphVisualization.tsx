@@ -4,6 +4,7 @@ import {
   GraphVisualizationProps,
   D3Node,
   D3Link,
+  ProgressNodeData,
 } from './graph-types';
 import {
   transformGraphData,
@@ -16,18 +17,30 @@ import {
   CONSTANTS,
   FORCE_CONFIG,
 } from './graph-utils';
+import {
+  getNodeColorByStatus,
+  getNodeOpacity as getProgressNodeOpacity,
+  formatProgressLabel,
+  getCurrentLessonGlow,
+  type ProgressData,
+} from './progressUtils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { ProgressLegend } from './ProgressLegend';
 
 export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   data,
+  progressData,
+  currentLessonId,
   onNodeClick,
   onNodeHover,
   isEditable = false,
   width,
   height,
   className = '',
+  showLegend = true,
+  animationDuration = 500,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,7 +99,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     svg.call(zoom);
     zoomRef.current = zoom;
 
-    // Создание определений для стрелок
+    // Создание определений для стрелок и фильтров
     const defs = svg.append('defs');
 
     // Стрелка для prerequisite
@@ -114,6 +127,23 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .append('path')
       .attr('d', 'M0,-5L10,0L0,5')
       .attr('fill', '#94a3b8');
+
+    // Фильтр свечения для текущего урока
+    const glowConfig = getCurrentLessonGlow();
+    const glowFilter = defs.append('filter')
+      .attr('id', 'glow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%');
+
+    glowFilter.append('feGaussianBlur')
+      .attr('stdDeviation', glowConfig.blur)
+      .attr('result', 'coloredBlur');
+
+    const feMerge = glowFilter.append('feMerge');
+    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
     // Создание силовой симуляции
     const simulation = d3.forceSimulation<D3Node>(nodes)
@@ -154,11 +184,45 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     // Круги узлов
     node.append('circle')
       .attr('r', CONSTANTS.NODE_RADIUS)
-      .attr('fill', d => getNodeColor(d.status, false))
-      .attr('opacity', d => getNodeOpacity(d.status))
-      .attr('stroke', '#fff')
-      .attr('stroke-width', CONSTANTS.STROKE_WIDTH)
+      .attr('fill', d => {
+        // Используем progressData если доступны
+        if (progressData && progressData[d.id]) {
+          const progress = progressData[d.id];
+          return getNodeColorByStatus(progress.status, progress.percentage, false);
+        }
+        return getNodeColor(d.status, false);
+      })
+      .attr('opacity', d => {
+        // Используем progressData если доступны
+        if (progressData && progressData[d.id]) {
+          const progress = progressData[d.id];
+          return getProgressNodeOpacity(progress.status === 'locked');
+        }
+        return getNodeOpacity(d.status);
+      })
+      .attr('stroke', d => {
+        // Золотая рамка для текущего урока
+        if (currentLessonId && d.id === currentLessonId) {
+          return '#fbbf24'; // amber-400
+        }
+        return '#fff';
+      })
+      .attr('stroke-width', d => {
+        // Толще рамка для текущего урока
+        if (currentLessonId && d.id === currentLessonId) {
+          return CONSTANTS.STROKE_WIDTH * 2;
+        }
+        return CONSTANTS.STROKE_WIDTH;
+      })
       .attr('cursor', 'pointer')
+      .attr('filter', d => {
+        // Свечение для текущего урока
+        if (currentLessonId && d.id === currentLessonId) {
+          return 'url(#glow)';
+        }
+        return 'none';
+      })
+      .style('transition', `all ${animationDuration}ms ease-in-out`)
       .on('mouseenter', handleNodeMouseEnter)
       .on('mouseleave', handleNodeMouseLeave)
       .on('click', handleNodeClick);
@@ -174,6 +238,27 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .text(d => truncateText(d.title, 15))
       .append('title')
       .text(d => d.title);
+
+    // Метки прогресса (если есть progressData)
+    if (progressData) {
+      node.append('text')
+        .attr('dy', 5)  // Центрировано по вертикали
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '11px')
+        .attr('font-weight', '600')
+        .attr('fill', '#fff')
+        .attr('pointer-events', 'none')
+        .text(d => {
+          const progress = progressData[d.id];
+          if (!progress) return '';
+          // Показываем процент только если не 0 и не 100
+          if (progress.percentage > 0 && progress.percentage < 100) {
+            return formatProgressLabel(progress.percentage);
+          }
+          return '';
+        })
+        .style('text-shadow', '0 1px 2px rgba(0,0,0,0.3)');
+    }
 
     // Функция обновления позиций при тике симуляции
     function ticked() {
@@ -192,8 +277,12 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       onNodeHover?.(d.id);
 
       // Подсветка узла
+      const hoverColor = progressData && progressData[d.id]
+        ? getNodeColorByStatus(progressData[d.id].status, progressData[d.id].percentage, true)
+        : getNodeColor(d.status, true);
+
       d3.select(event.currentTarget as SVGCircleElement)
-        .attr('fill', getNodeColor(d.status, true))
+        .attr('fill', hoverColor)
         .attr('stroke-width', CONSTANTS.HOVER_STROKE_WIDTH);
 
       // Подсветка связанных узлов
@@ -202,6 +291,9 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       node.selectAll('circle')
         .attr('opacity', (n: any) => {
           if (n.id === d.id || connectedIds.has(n.id)) {
+            if (progressData && progressData[n.id]) {
+              return getProgressNodeOpacity(progressData[n.id].status === 'locked');
+            }
             return getNodeOpacity(n.status);
           }
           return 0.3;
@@ -222,12 +314,25 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       onNodeHover?.(null);
 
       // Восстановление стилей
+      const normalColor = progressData && progressData[d.id]
+        ? getNodeColorByStatus(progressData[d.id].status, progressData[d.id].percentage, false)
+        : getNodeColor(d.status, false);
+
+      const normalStrokeWidth = currentLessonId && d.id === currentLessonId
+        ? CONSTANTS.STROKE_WIDTH * 2
+        : CONSTANTS.STROKE_WIDTH;
+
       d3.select(event.currentTarget as SVGCircleElement)
-        .attr('fill', getNodeColor(d.status, false))
-        .attr('stroke-width', CONSTANTS.STROKE_WIDTH);
+        .attr('fill', normalColor)
+        .attr('stroke-width', normalStrokeWidth);
 
       node.selectAll('circle')
-        .attr('opacity', (n: any) => getNodeOpacity(n.status));
+        .attr('opacity', (n: any) => {
+          if (progressData && progressData[n.id]) {
+            return getProgressNodeOpacity(progressData[n.id].status === 'locked');
+          }
+          return getNodeOpacity(n.status);
+        });
 
       link.attr('opacity', 0.6);
     }
@@ -269,7 +374,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, dimensions, isEditable, onNodeClick, onNodeHover]);
+  }, [data, dimensions, isEditable, onNodeClick, onNodeHover, progressData, currentLessonId, animationDuration]);
 
   // Функции управления зумом
   const handleZoomIn = useCallback(() => {
@@ -360,28 +465,16 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           </Button>
         </div>
 
-        {/* Легенда */}
-        <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur rounded-lg p-3 shadow-sm">
-          <div className="text-xs font-medium mb-2">Статус урока:</div>
-          <div className="flex flex-col gap-1.5 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#94a3b8' }} />
-              <span>Не начат</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
-              <span>В процессе</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#22c55e' }} />
-              <span>Завершен</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ef4444', opacity: 0.5 }} />
-              <span>Заблокирован</span>
-            </div>
-          </div>
-        </div>
+        {/* Легенда прогресса */}
+        {showLegend && (
+          <ProgressLegend
+            progressData={progressData as ProgressData | undefined}
+            visible={true}
+            position="bottom-left"
+            showStats={!!progressData}
+            collapsible={true}
+          />
+        )}
       </div>
     </Card>
   );

@@ -16,6 +16,7 @@ export type {
   GraphLink,
   GraphData,
   GraphVisualizationProps,
+  ProgressNodeData,
 } from './graph-types';
 export {
   transformGraphData,
@@ -24,3 +25,34 @@ export {
   CONSTANTS,
   NODE_COLORS,
 } from './graph-utils';
+
+// Progress Visualization
+export {
+  ProgressLegend,
+  ProgressLegendCompact,
+  ProgressLegendMobile,
+  ProgressLegendDesktop,
+} from './ProgressLegend';
+export type { ProgressLegendProps } from './ProgressLegend';
+export {
+  GraphStatistics,
+  GraphStatisticsCompact,
+} from './GraphStatistics';
+export type { GraphStatisticsProps } from './GraphStatistics';
+export {
+  getNodeColorByStatus,
+  getNodeOpacity as getProgressNodeOpacity,
+  formatProgressLabel,
+  getNodeSize,
+  animateProgressTransition,
+  getCurrentLessonGlow,
+  calculateOverallProgress,
+  getStatusText,
+  PROGRESS_COLORS,
+  PROGRESS_HOVER_COLORS,
+} from './progressUtils';
+export type {
+  ProgressData,
+  ProgressStatus,
+  ProgressTransition,
+} from './progressUtils';

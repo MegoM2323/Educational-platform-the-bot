@@ -21,14 +21,24 @@ export interface GraphData {
   links: GraphLink[];
 }
 
+export interface ProgressNodeData {
+  status: 'not_started' | 'in_progress' | 'completed' | 'locked';
+  percentage: number;
+  completedAt?: string;
+}
+
 export interface GraphVisualizationProps {
   data: GraphData;
+  progressData?: { [nodeId: string]: ProgressNodeData };
+  currentLessonId?: string;
   onNodeClick?: (nodeId: string) => void;
   onNodeHover?: (nodeId: string | null) => void;
   isEditable?: boolean;
   width?: number;
   height?: number;
   className?: string;
+  showLegend?: boolean;
+  animationDuration?: number;
 }
 
 export interface D3Node extends GraphNode {

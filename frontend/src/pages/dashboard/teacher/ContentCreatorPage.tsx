@@ -51,15 +51,47 @@ const ContentCreatorPage: React.FC = () => {
   const handleElementSubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
+      // Transform content to JSON object based on element type
+      const transformContent = (type: string, contentValue: any, options: any[] = [], correctAnswer: any = null) => {
+        switch (type) {
+          case 'text_problem':
+            // Текстовая задача - нужно содержимое с problem_text
+            return {
+              problem_text: contentValue || ''
+            };
+
+          case 'quick_question':
+            // Быстрый вопрос - нужны вопрос, варианты и правильный ответ
+            return {
+              question: contentValue || '',
+              choices: options && options.length > 0 ? options : ['', ''],
+              correct_answer: correctAnswer !== null ? correctAnswer : 0
+            };
+
+          case 'theory':
+            // Теория - просто текст
+            return {
+              content: contentValue || ''
+            };
+
+          case 'video':
+            // Видео - просто сохраняем информацию
+            return {
+              content: contentValue || ''
+            };
+
+          default:
+            return { content: contentValue || '' };
+        }
+      };
+
       // Map form data to API format
       const apiData = {
         title: data.title,
         description: data.description || '',
         element_type: data.type, // Map 'type' to 'element_type'
-        content: data.content || '',
+        content: transformContent(data.type, data.content, data.options, data.correct_answer),
         video_url: data.video_url || '',
-        options: data.options || [],
-        correct_answer: data.correct_answer || '',
         max_score: data.max_score || 0,
         difficulty: data.difficulty || 1,
         estimated_time_minutes: data.estimated_time_minutes || 5,

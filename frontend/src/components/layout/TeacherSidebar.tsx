@@ -1,4 +1,4 @@
-import { Home, Send, FileText, MessageSquare, LogOut, CheckSquare, BookOpen, Calendar, CalendarDays, Clock, User, Sparkles } from "lucide-react";
+import { Home, Send, FileText, MessageSquare, LogOut, CheckSquare, BookOpen, Calendar, CalendarDays, Clock, User, Sparkles, PenTool, Network, TrendingUp } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -25,6 +25,9 @@ const items = [
   { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },
   { title: "Форум", url: "/dashboard/teacher/forum", icon: MessageSquare },
+  { title: "Создание контента", url: "/dashboard/teacher/content-creator", icon: PenTool },
+  { title: "Редактор графа", url: "/dashboard/teacher/graph-editor", icon: Network },
+  { title: "Прогресс учеников", url: "/dashboard/teacher/progress", icon: TrendingUp },
 ];
 
 export function TeacherSidebar() {

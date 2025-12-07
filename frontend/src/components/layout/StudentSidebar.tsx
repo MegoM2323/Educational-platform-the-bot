@@ -1,4 +1,4 @@
-import { Home, BookOpen, MessageSquare, LogOut, User, Calendar, CalendarCheck } from "lucide-react";
+import { Home, BookOpen, MessageSquare, LogOut, User, Calendar, CalendarCheck, Network } from "lucide-react";
 import { logger } from '@/utils/logger';
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -23,6 +23,7 @@ const items = [
   { title: "Материалы", url: "/dashboard/student/materials", icon: BookOpen },
   { title: "Расписание", url: "/dashboard/student/schedule", icon: Calendar },
   { title: "Форум", url: "/dashboard/student/forum", icon: MessageSquare },
+  { title: "Граф знаний", url: "/dashboard/student/knowledge-graph", icon: Network },
 ];
 
 export function StudentSidebar() {

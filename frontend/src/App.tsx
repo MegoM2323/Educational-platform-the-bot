@@ -60,6 +60,12 @@ const Forum = lazy(() => import("./pages/dashboard/Forum"));
 // Lesson Viewer
 const LessonViewer = lazy(() => import("./pages/lessons/LessonViewer"));
 
+// Knowledge Graph components
+const KnowledgeGraphPage = lazy(() => import("./pages/dashboard/student/KnowledgeGraphPage"));
+const ContentCreatorPage = lazy(() => import("./pages/dashboard/teacher/ContentCreatorPage"));
+const GraphEditorPage = lazy(() => import("./pages/dashboard/teacher/GraphEditorPage"));
+const ProgressViewerPage = lazy(() => import("./pages/dashboard/teacher/ProgressViewerPage"));
+
 // Profile pages
 const ProfilePage = lazy(() => import("./pages/profile/ProfilePage"));
 const StudentProfilePage = lazy(() => import("./pages/profile/StudentProfilePage"));
@@ -172,6 +178,13 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
+          <Route path="/dashboard/student/knowledge-graph" element={
+            <ProtectedRoute requiredRole="student">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <KnowledgeGraphPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
           <Route path="/dashboard/student/lesson/:lessonId" element={
             <ProtectedRoute requiredRole="student">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
@@ -276,6 +289,27 @@ const App = () => (
             <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TeacherStudyPlanGenerator />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/content-creator" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ContentCreatorPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/graph-editor" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <GraphEditorPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/progress" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ProgressViewerPage />
               </Suspense>
             </ProtectedRoute>
           } />

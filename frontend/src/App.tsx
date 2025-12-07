@@ -57,6 +57,9 @@ const ParentSchedulePage = lazy(() => import("./pages/dashboard/ParentSchedulePa
 // Forum page
 const Forum = lazy(() => import("./pages/dashboard/Forum"));
 
+// Lesson Viewer
+const LessonViewer = lazy(() => import("./pages/lessons/LessonViewer"));
+
 // Profile pages
 const ProfilePage = lazy(() => import("./pages/profile/ProfilePage"));
 const StudentProfilePage = lazy(() => import("./pages/profile/StudentProfilePage"));
@@ -166,6 +169,20 @@ const App = () => (
             <ProtectedRoute requiredRole="student">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <StudentAssignments />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/student/lesson/:lessonId" element={
+            <ProtectedRoute requiredRole="student">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <LessonViewer />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/student/knowledge-graph/:graphId/lesson/:lessonId" element={
+            <ProtectedRoute requiredRole="student">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <LessonViewer />
               </Suspense>
             </ProtectedRoute>
           } />

@@ -124,3 +124,167 @@ export interface ElementTypeProps {
   isLoading?: boolean;
   readOnly?: boolean;
 }
+
+// ============================================
+// Lesson Types
+// ============================================
+
+export interface Lesson {
+  id: number;
+  title: string;
+  description: string;
+  subject: number;
+  subject_name?: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  is_public: boolean;
+  total_duration_minutes: number;
+  total_max_score: number;
+  elements_count?: number;
+}
+
+// ============================================
+// Knowledge Graph Types
+// ============================================
+
+export interface GraphLesson {
+  id: number;
+  lesson: Lesson;
+  position_x: number;
+  position_y: number;
+  is_unlocked: boolean;
+  unlocked_at?: string;
+  node_color: string;
+  node_size: number;
+  added_at: string;
+}
+
+export interface LessonDependency {
+  id: number;
+  from_lesson: number;
+  to_lesson: number;
+  dependency_type: 'prerequisite' | 'recommended' | 'related';
+  strength: number; // 1-10
+  created_at: string;
+}
+
+export interface KnowledgeGraph {
+  id: number;
+  student: number;
+  student_name?: string;
+  subject: number;
+  subject_name?: string;
+  lessons: GraphLesson[];
+  dependencies: LessonDependency[];
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+  allow_skip: boolean;
+}
+
+// ============================================
+// Teacher Management Types
+// ============================================
+
+export interface Student {
+  id: number;
+  email: string;
+  full_name: string;
+  role: 'student';
+}
+
+export interface TeacherStudent extends Student {
+  subjects: Array<{
+    id: number;
+    name: string;
+  }>;
+}
+
+// ============================================
+// API Request/Response Types
+// ============================================
+
+export interface AddLessonToGraphRequest {
+  lesson_id: number;
+  position_x?: number;
+  position_y?: number;
+}
+
+export interface UpdateLessonPositionRequest {
+  position_x: number;
+  position_y: number;
+}
+
+export interface BatchUpdateLessonsRequest {
+  lessons: Array<{
+    graph_lesson_id: number;
+    position_x: number;
+    position_y: number;
+  }>;
+}
+
+export interface AddDependencyRequest {
+  to_lesson_id: number;
+  dependency_type?: 'prerequisite' | 'recommended' | 'related';
+  strength?: number;
+}
+
+// ============================================
+// UI State Types for Graph Editor
+// ============================================
+
+export interface EditState {
+  modifiedPositions: Map<number, { x: number; y: number }>; // graph_lesson_id -> position
+  addedLessons: Set<number>; // lesson_ids
+  removedLessons: Set<number>; // graph_lesson_ids
+  addedDependencies: Array<{ from: number; to: number }>; // lesson_ids
+  removedDependencies: Set<number>; // dependency_ids
+}
+
+export interface ContextMenuAction {
+  label: string;
+  action: (lessonId: number) => void;
+  icon?: React.ReactNode;
+  danger?: boolean;
+  disabled?: boolean;
+}
+
+export interface GraphEditorMode {
+  mode: 'view' | 'edit';
+  selectedNodeId?: number; // graph_lesson_id
+  hoveredNodeId?: number;
+  draggedNodeId?: number;
+  creatingEdge?: {
+    fromLessonId: number;
+  };
+}
+
+// ============================================
+// Visualization Types
+// ============================================
+
+export interface GraphNode {
+  id: number; // graph_lesson_id
+  lessonId: number;
+  lesson: Lesson;
+  x: number;
+  y: number;
+  color: string;
+  size: number;
+  isLocked: boolean;
+}
+
+export interface GraphEdge {
+  id: number; // dependency_id
+  fromLessonId: number;
+  toLessonId: number;
+  type: 'prerequisite' | 'recommended' | 'related';
+  strength: number;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}

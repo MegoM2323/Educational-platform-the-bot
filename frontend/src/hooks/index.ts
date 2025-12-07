@@ -5,3 +5,5 @@ export * from './useReports';
 export * from './useChat';
 export * from './use-mobile';
 export * from './use-toast';
+export * from './useKnowledgeGraph';
+export * from './useLessonProgress';

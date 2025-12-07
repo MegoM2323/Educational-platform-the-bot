@@ -26,6 +26,7 @@ urlpatterns = [
     path("api/teacher/", include('materials.teacher_urls')),
     path("api/system/", include('core.urls')),  # System monitoring and management
     path("api/scheduling/", include('scheduling.urls')),  # Scheduling system
+    path("api/knowledge-graph/", include('knowledge_graph.urls')),  # Knowledge Graph system
 
     # Compatibility aliases (non-API prefixed) used by tests and legacy frontend
     path("auth/", include('accounts.urls')),

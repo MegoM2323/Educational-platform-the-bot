@@ -13,8 +13,18 @@ import sys
 #
 # ============================================================================
 
+# Set ENVIRONMENT=test FIRST and IMMEDIATELY
 os.environ['ENVIRONMENT'] = 'test'
+# Remove any production database settings
+if 'DATABASE_URL' in os.environ:
+    del os.environ['DATABASE_URL']
+if 'DIRECT_URL' in os.environ:
+    del os.environ['DIRECT_URL']
+
 os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings'
+
+# Disable Daphne/Twisted during tests to avoid SSL issues
+os.environ['DISABLE_DAPHNE_SSL'] = 'true'
 
 # Убедиться что не используется продакшн БД
 DATABASE_URL = os.environ.get('DATABASE_URL', '')

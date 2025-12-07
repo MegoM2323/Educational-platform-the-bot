@@ -132,7 +132,6 @@ if not DEBUG:
 # Application definition
 
 INSTALLED_APPS = [
-    'daphne',  # ASGI server для WebSocket
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -154,7 +153,12 @@ INSTALLED_APPS = [
     'notifications',
     'payments',
     'applications',
+    'knowledge_graph',  # Система графов знаний для обучения
 ]
+
+# Add daphne only if not in test mode (to avoid Twisted SSL issues during testing)
+if environment != 'test':
+    INSTALLED_APPS.insert(0, 'daphne')  # ASGI server для WebSocket
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -438,13 +442,18 @@ except (ImportError, AttributeError):
 import sys
 
 # Получаем текущее окружение и конфигурацию БД
+# Auto-detect test mode to allow pytest conftest.py to run first
+is_testing = 'pytest' in sys.modules or 'test' in sys.argv or any('pytest' in arg for arg in sys.argv)
+if is_testing and 'ENVIRONMENT' not in os.environ:
+    os.environ['ENVIRONMENT'] = 'test'
+
 current_environment = os.getenv('ENVIRONMENT', 'production').lower()
 db_config = DATABASES['default']
 db_host = db_config.get('HOST', '')
 db_engine = db_config.get('ENGINE', '')
 
 # Проверка 1: Если запущены тесты (pytest или manage.py test)
-if 'pytest' in sys.modules or 'test' in sys.argv:
+if is_testing:
     # Тесты ОБЯЗАНЫ использовать ENVIRONMENT=test
     if current_environment != 'test':
         raise ImproperlyConfigured(

@@ -100,7 +100,7 @@ export default defineConfig({
   ],
 
   // Run your local dev server before starting the tests
-  webServer: {
+  webServer: process.env.SKIP_WEB_SERVER ? undefined : {
     command: './start.sh',
     url: 'http://localhost:8080',
     reuseExistingServer: !process.env.CI,

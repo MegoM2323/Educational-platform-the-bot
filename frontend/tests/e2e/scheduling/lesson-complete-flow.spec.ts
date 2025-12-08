@@ -336,7 +336,7 @@ test.describe('Lesson System: Student Views Schedule', () => {
     await page.waitForLoadState('networkidle');
 
     // If there are lessons, verify they display correctly
-    const lessonCards = page.locator('article, div').filter({ has: page.locator('text=/:\\d{2}|time/) }).count();
+    const lessonCards = page.locator('article, div').filter({ has: page.locator('text=/:\\d{2}|time/') }).count();
 
     if (lessonCards > 0) {
       // Verify lesson cards have expected content

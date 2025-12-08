@@ -468,12 +468,14 @@ class TestLessonServiceCreateComprehensive:
 
         # Act: Should use ~8 queries:
         # 1. Service validation: get enrollment
-        # 2-4. Model validation (full_clean): check ForeignKey constraints (teacher, student, subject)
-        # 5. Model validation: get enrollment with select_related (optimized)
-        # 6. Check UUID uniqueness
-        # 7. INSERT lesson
-        # 8. INSERT history
-        with django_assert_num_queries(8):
+        # 2. Conflict check: teacher conflicts
+        # 3. Conflict check: student conflicts
+        # 4-6. Model validation (full_clean): check ForeignKey constraints (teacher, student, subject)
+        # 7. Model validation: get enrollment with select_related (optimized)
+        # 8. Check UUID uniqueness
+        # 9. INSERT lesson
+        # 10. INSERT history
+        with django_assert_num_queries(10):
             lesson = LessonService.create_lesson(
                 teacher=teacher,
                 student=student,

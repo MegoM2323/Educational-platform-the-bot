@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import make_password
 from django.views.decorators.csrf import csrf_exempt
+from django_ratelimit.decorators import ratelimit
 
 from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentProfile
 from .serializers import (
@@ -18,6 +19,7 @@ from .serializers import (
 from .supabase_service import SupabaseAuthService
 
 
+@ratelimit(key='ip', rate='5/m', method='POST')  # 5 попыток входа в минуту с одного IP
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @authentication_classes([])
@@ -27,20 +29,23 @@ def login_view(request):
     Вход пользователя через Django аутентификацию (поддерживает email и username)
     """
     try:
-        # Логируем входящие данные
-        print(f"Login attempt - Request data: {request.data}")
-        
+        # Логируем входящие данные БЕЗ пароля для безопасности
+        safe_data = {k: v for k, v in request.data.items() if k != 'password'}
+        print(f"Login attempt - Request data: {safe_data}")
+
         # Валидируем данные
         serializer = UserLoginSerializer(data=request.data)
         if not serializer.is_valid():
-            print(f"Validation errors: {serializer.errors}")
+            # Логируем ошибки БЕЗ пароля
+            safe_errors = {k: v for k, v in serializer.errors.items() if k != 'password'}
+            print(f"Validation errors: {safe_errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         email = serializer.validated_data.get('email')
         username = serializer.validated_data.get('username')
         password = serializer.validated_data['password']
-        
-        # Логируем попытку входа
+
+        # Логируем попытку входа с идентификатором (БЕЗ пароля)
         identifier = email or username
         print(f"Login attempt for: {identifier}")
         

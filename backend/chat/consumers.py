@@ -4,11 +4,15 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from django.conf import settings
 from .models import ChatRoom, Message, MessageRead, ChatParticipant
 from .serializers import MessageSerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+# WebSocket message size limit (default 1MB)
+WEBSOCKET_MESSAGE_MAX_LENGTH = getattr(settings, 'WEBSOCKET_MESSAGE_MAX_LENGTH', 1048576)
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -85,10 +89,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
     
     async def receive(self, text_data):
+        # Проверяем размер сообщения для защиты от DoS
+        if len(text_data) > WEBSOCKET_MESSAGE_MAX_LENGTH:
+            logger.warning(f"WebSocket message size exceeds limit: {len(text_data)} > {WEBSOCKET_MESSAGE_MAX_LENGTH}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Message too large'
+            }))
+            return
+
         try:
             data = json.loads(text_data)
             message_type = data.get('type')
-            
+
             if message_type == 'chat_message':
                 await self.handle_chat_message(data)
             elif message_type == 'typing':
@@ -97,7 +110,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_mark_read(data)
             elif message_type == 'typing_stop':
                 await self.handle_typing_stop(data)
-                
+
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
                 'type': 'error',

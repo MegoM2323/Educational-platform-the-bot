@@ -100,6 +100,18 @@ def subject_enrollment(db, student_user, teacher_user, math_subject):
 
 
 @pytest.fixture
+def enrolled_subject(db, student_user, teacher_user, math_subject):
+    """Create a subject with active enrollment (for conflict tests)."""
+    SubjectEnrollment.objects.create(
+        student=student_user,
+        teacher=teacher_user,
+        subject=math_subject,
+        is_active=True
+    )
+    return math_subject
+
+
+@pytest.fixture
 def another_enrollment(db, another_student_user, teacher_user, english_subject):
     """Create another SubjectEnrollment for different student."""
     return SubjectEnrollment.objects.create(

@@ -65,16 +65,19 @@ export const useProfile = () => {
         if (!response.success) {
           const errorMessage = response.error || 'Не удалось загрузить профиль';
 
-          // При 401 - профиль недоступен (пользователь не авторизован или токен истёк)
+          // При 401/403 - профиль недоступен (пользователь не авторизован, токен истёк или нет прав)
           // UnifiedClient уже попробовал обновить токен, если это не сработало - сессия истекла
-          if (errorMessage.includes('401') || errorMessage.includes('Authentication')) {
-            logger.warn('[useProfile] Authentication error (401), clearing profile cache');
+          if (errorMessage.includes('401') || errorMessage.includes('403') ||
+              errorMessage.includes('Authentication') || errorMessage.includes('Forbidden')) {
+            logger.warn('[useProfile] Authentication/Permission error (401/403), clearing profile cache', {
+              errorMessage,
+            });
 
             // Очищаем только кеш профиля, не все запросы (предотвращаем каскадные рефетчи)
             queryClient.removeQueries({ queryKey: ['profile'] });
 
             // Выбрасываем ошибку, чтобы ProtectedRoute/компоненты обработали редирект
-            throw new Error('Сессия истекла. Пожалуйста, авторизуйтесь снова');
+            throw new Error('Сессия истекла или нет прав доступа. Пожалуйста, авторизуйтесь снова');
           }
 
           // При 404 - профиль не найден

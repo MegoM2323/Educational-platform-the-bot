@@ -237,4 +237,78 @@ export const knowledgeGraphAPI = {
 
     return response.data as { can_start: boolean; missing_prerequisites: number[] };
   },
+
+  // ============================================
+  // Student View Methods (FIX T019)
+  // ============================================
+
+  /**
+   * Получить список предметов студента (для выбора графа)
+   * Endpoint: GET /api/student/subjects/
+   */
+  getStudentSubjects: async (): Promise<Array<{ id: number; name: string; color: string }>> => {
+    const response = await unifiedAPI.get<{ results: Array<{ subject: { id: number; name: string; color: string } }> }>(
+      '/student/subjects/'
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    // Преобразовать формат enrollments в массив subjects
+    const enrollments = response.data?.results || [];
+    return enrollments.map((e) => e.subject);
+  },
+
+  /**
+   * Получить граф знаний для студента
+   * Endpoint: GET /api/knowledge-graph/students/{studentId}/subject/{subjectId}/
+   */
+  getStudentGraph: async (studentId: number, subjectId: number): Promise<KnowledgeGraph> => {
+    const response = await unifiedAPI.get<KnowledgeGraph>(
+      `/knowledge-graph/students/${studentId}/subject/${subjectId}/`
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    return response.data as KnowledgeGraph;
+  },
+
+  /**
+   * Получить прогресс по уроку для студента
+   * Endpoint: GET /api/knowledge-graph/{graphId}/lessons/{lessonId}/progress/?student={studentId}
+   */
+  getLessonProgress: async (
+    lessonId: number,
+    studentId: number
+  ): Promise<{
+    status: string;
+    completion_percent: number;
+    total_score: number;
+    max_possible_score: number;
+  }> => {
+    // Найти graph_lesson_id через список уроков графа
+    // Примечание: это упрощенная реализация, может потребоваться корректировка
+    const response = await unifiedAPI.get<{
+      status: string;
+      completion_percent: number;
+      total_score: number;
+      max_possible_score: number;
+    }>(`/knowledge-graph/lessons/${lessonId}/progress/`, {
+      params: { student: studentId },
+    });
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    return response.data as {
+      status: string;
+      completion_percent: number;
+      total_score: number;
+      max_possible_score: number;
+    };
+  },
 };

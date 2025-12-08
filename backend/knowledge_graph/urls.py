@@ -2,7 +2,7 @@
 URL Configuration for Knowledge Graph API
 """
 from django.urls import path
-from . import element_views, lesson_views, graph_views, dependency_views, progress_views, teacher_progress_views
+from . import element_views, lesson_views, graph_views, dependency_views, progress_views, teacher_progress_views, element_file_views
 
 app_name = 'knowledge_graph'
 
@@ -12,6 +12,12 @@ urlpatterns = [
     # ============================================
     path('elements/', element_views.ElementListCreateView.as_view(), name='element-list-create'),
     path('elements/<int:pk>/', element_views.ElementRetrieveUpdateDestroyView.as_view(), name='element-detail'),
+
+    # ============================================
+    # T004: Element Files API
+    # ============================================
+    path('elements/<int:element_id>/files/', element_file_views.ElementFileListCreateView.as_view(), name='element-files'),
+    path('elements/<int:element_id>/files/<int:file_id>/', element_file_views.ElementFileDeleteView.as_view(), name='element-file-delete'),
 
     # ============================================
     # T202: Lessons Bank API

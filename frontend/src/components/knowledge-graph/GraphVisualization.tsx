@@ -35,6 +35,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   currentLessonId,
   onNodeClick,
   onNodeHover,
+  onNodeDrag,
   isEditable = false,
   width,
   height,
@@ -357,7 +358,17 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
 
       function dragEnded(event: d3.D3DragEvent<SVGGElement, D3Node, D3Node>) {
         if (!event.active) simulation.alphaTarget(0);
-        if (!isEditable) {
+
+        if (isEditable) {
+          // В режиме редактирования фиксируем узел и вызываем callback
+          const finalX = event.subject.x;
+          const finalY = event.subject.y;
+          event.subject.fx = finalX;
+          event.subject.fy = finalY;
+
+          // Вызываем callback с финальной позицией
+          onNodeDrag?.(event.subject.id, finalX, finalY);
+        } else {
           // Если не в режиме редактирования, освобождаем узел
           event.subject.fx = null;
           event.subject.fy = null;
@@ -374,7 +385,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, dimensions, isEditable, onNodeClick, onNodeHover, progressData, currentLessonId, animationDuration]);
+  }, [data, dimensions, isEditable, onNodeClick, onNodeHover, onNodeDrag, progressData, currentLessonId, animationDuration]);
 
   // Функции управления зумом
   const handleZoomIn = useCallback(() => {

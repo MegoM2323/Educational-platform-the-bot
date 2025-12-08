@@ -19,12 +19,14 @@ import { elementSchema, type ElementFormData } from '@/schemas/knowledge-graph';
 import { ElementTypeFields } from './ElementTypeFields';
 import { Loader2, CheckCircle2, X } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { ElementFileUpload } from './ElementFileUpload';
 
 interface CreateElementFormProps {
   onSubmit: (data: ElementFormData) => Promise<void>;
   onCancel?: () => void;
   initialData?: Partial<ElementFormData>;
   isLoading?: boolean;
+  createdElementId?: number | null;
 }
 
 export const CreateElementForm: React.FC<CreateElementFormProps> = ({
@@ -32,6 +34,7 @@ export const CreateElementForm: React.FC<CreateElementFormProps> = ({
   onCancel,
   initialData,
   isLoading = false,
+  createdElementId = null,
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -254,6 +257,17 @@ export const CreateElementForm: React.FC<CreateElementFormProps> = ({
             )}
           </form>
         </Form>
+
+        {/* File Upload Section - показываем после создания элемента */}
+        {createdElementId && (
+          <div className="mt-6 pt-6 border-t">
+            <h3 className="text-lg font-semibold mb-4">Файлы элемента</h3>
+            <ElementFileUpload
+              elementId={createdElementId}
+              disabled={isLoading || isSubmitting}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, GraduationCap, BookOpen, Activity } from 'lucide-react';
@@ -13,6 +14,9 @@ interface StatCard {
 }
 
 export default function AccountManagement() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') || 'students';
+
   const [stats, setStats] = useState({
     total_users: 0,
     total_students: 0,
@@ -86,7 +90,7 @@ export default function AccountManagement() {
       </div>
 
       {/* Основной контент с табами */}
-      <Tabs defaultValue="students" className="w-full">
+      <Tabs value={tabFromUrl} onValueChange={(value) => setSearchParams({ tab: value })} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="students">Студенты</TabsTrigger>
           <TabsTrigger value="staff">Преподаватели и Тьюторы</TabsTrigger>

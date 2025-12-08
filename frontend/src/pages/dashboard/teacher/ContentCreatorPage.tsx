@@ -18,6 +18,7 @@ const ContentCreatorPage: React.FC = () => {
   const [lessonFormOpen, setLessonFormOpen] = useState(false);
   const [editingElementId, setEditingElementId] = useState<number | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
+  const [createdElementId, setCreatedElementId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { toast } = useToast();
@@ -35,17 +36,20 @@ const ContentCreatorPage: React.FC = () => {
   // Handlers for element operations
   const handleCreateElement = () => {
     setEditingElementId(null);
+    setCreatedElementId(null);
     setElementFormOpen(true);
   };
 
   const handleEditElement = (id: number) => {
     setEditingElementId(id);
+    setCreatedElementId(id); // При редактировании показываем файлы существующего элемента
     setElementFormOpen(true);
   };
 
   const handleElementFormClose = () => {
     setElementFormOpen(false);
     setEditingElementId(null);
+    setCreatedElementId(null);
   };
 
   const handleElementSubmit = async (data: any) => {
@@ -99,22 +103,25 @@ const ContentCreatorPage: React.FC = () => {
       };
 
       if (editingElementId) {
-        await contentCreatorService.updateElement(editingElementId, apiData);
+        const response = await contentCreatorService.updateElement(editingElementId, apiData);
         toast({
           title: 'Успех',
           description: 'Элемент успешно обновлен',
         });
+        // При обновлении уже показываем файлы
+        setCreatedElementId(response.data.id);
       } else {
-        await contentCreatorService.createElement(apiData);
+        const response = await contentCreatorService.createElement(apiData);
         toast({
           title: 'Успех',
           description: 'Элемент успешно создан',
         });
+        // После создания сохраняем ID для показа секции файлов
+        setCreatedElementId(response.data.id);
       }
 
       // Refresh the elements list
       queryClient.invalidateQueries({ queryKey: ['content-creator', 'elements'] });
-      handleElementFormClose();
     } catch (error) {
       toast({
         title: 'Ошибка',
@@ -204,6 +211,7 @@ const ContentCreatorPage: React.FC = () => {
                   onSubmit={handleElementSubmit}
                   onCancel={handleElementFormClose}
                   isLoading={isSubmitting}
+                  createdElementId={createdElementId}
                 />
               </DialogContent>
             </Dialog>

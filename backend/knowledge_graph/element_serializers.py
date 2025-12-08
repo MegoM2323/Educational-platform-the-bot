@@ -3,7 +3,7 @@ Serializers for Element model (T201)
 """
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Element
+from .models import Element, ElementFile
 import re
 
 User = get_user_model()
@@ -18,6 +18,23 @@ class ElementCreatedBySerializer(serializers.Serializer):
 
     def get_name(self, obj):
         return obj.get_full_name()
+
+
+class ElementFileSerializer(serializers.ModelSerializer):
+    """Сериализатор для файлов элемента (T006)"""
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ElementFile
+        fields = ['id', 'original_filename', 'file_size', 'uploaded_at', 'file_url']
+        read_only_fields = ['id', 'original_filename', 'file_size', 'uploaded_at', 'file_url']
+
+    def get_file_url(self, obj):
+        """Возвращает полный URL файла"""
+        request = self.context.get('request')
+        if obj.file and request:
+            return request.build_absolute_uri(obj.file.url)
+        return None
 
 
 class ElementSerializer(serializers.ModelSerializer):
@@ -64,6 +81,8 @@ class ElementSerializer(serializers.ModelSerializer):
     """
     created_by = ElementCreatedBySerializer(read_only=True)
     element_type_display = serializers.CharField(source='get_element_type_display', read_only=True)
+    files = ElementFileSerializer(many=True, read_only=True)
+    files_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Element
@@ -82,8 +101,14 @@ class ElementSerializer(serializers.ModelSerializer):
             'created_by',
             'created_at',
             'updated_at',
+            'files',
+            'files_count',
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+    def get_files_count(self, obj):
+        """Возвращает количество файлов элемента"""
+        return obj.files.count()
 
     def validate_element_type(self, value):
         """Валидация типа элемента"""
@@ -195,6 +220,7 @@ class ElementListSerializer(serializers.ModelSerializer):
     """
     created_by = ElementCreatedBySerializer(read_only=True)
     element_type_display = serializers.CharField(source='get_element_type_display', read_only=True)
+    files_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Element
@@ -212,4 +238,9 @@ class ElementListSerializer(serializers.ModelSerializer):
             'created_by',
             'created_at',
             'updated_at',
+            'files_count',
         ]
+
+    def get_files_count(self, obj):
+        """Возвращает количество файлов элемента"""
+        return obj.files.count()

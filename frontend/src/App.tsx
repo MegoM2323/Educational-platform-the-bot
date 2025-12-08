@@ -119,6 +119,7 @@ const App = () => (
                 <AccountManagement />
               </Suspense>
             } />
+            <Route path="staff" element={<Navigate to="/admin/accounts?tab=staff" replace />} />
             <Route path="schedule" element={
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <AdminSchedulePage />

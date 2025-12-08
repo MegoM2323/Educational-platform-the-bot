@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 import json
 
@@ -87,6 +88,58 @@ class Element(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.get_element_type_display()})"
+
+
+class ElementFile(models.Model):
+    """
+    Файл, прикрепленный к элементу знаниевого графа
+    """
+    element = models.ForeignKey(
+        Element,
+        on_delete=models.CASCADE,
+        related_name='files',
+        verbose_name='Элемент'
+    )
+    file = models.FileField(
+        upload_to='elements/files/',
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=['pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png', 'mp4', 'zip']
+            )
+        ],
+        verbose_name='Файл'
+    )
+    original_filename = models.CharField(
+        max_length=255,
+        verbose_name='Оригинальное имя файла'
+    )
+    file_size = models.IntegerField(
+        verbose_name='Размер файла (байты)'
+    )
+    uploaded_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Загружено'
+    )
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Загружено пользователем'
+    )
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = 'Файл элемента'
+        verbose_name_plural = 'Файлы элементов'
+
+    def __str__(self):
+        return f"{self.original_filename} ({self.element.title})"
+
+    def clean(self):
+        """Валидация размера файла"""
+        if self.file and self.file.size > 10 * 1024 * 1024:  # 10MB
+            raise ValidationError('Размер файла не должен превышать 10MB')
 
 
 class Lesson(models.Model):

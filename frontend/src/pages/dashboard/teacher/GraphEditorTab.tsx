@@ -41,6 +41,9 @@ import {
   Users,
   BookOpen,
 } from 'lucide-react';
+import { GraphVisualization } from '@/components/knowledge-graph/GraphVisualization';
+import type { GraphData, GraphNode, GraphLink } from '@/components/knowledge-graph/graph-types';
+import type { KnowledgeGraph } from '@/types/knowledgeGraph';
 
 interface GraphEditorTabProps {
   subjectId: number;
@@ -83,6 +86,27 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [lessonBankOpen, setLessonBankOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Преобразование данных графа для компонента GraphVisualization
+  const transformToGraphData = useCallback((graphData: KnowledgeGraph | null): GraphData => {
+    if (!graphData) return { nodes: [], links: [] };
+
+    const nodes: GraphNode[] = graphData.lessons.map(gl => ({
+      id: gl.id.toString(),
+      title: gl.lesson.title,
+      status: gl.is_unlocked ? 'not_started' : 'locked',
+      x: gl.position_x || 0,
+      y: gl.position_y || 0,
+    }));
+
+    const links: GraphLink[] = graphData.dependencies.map(dep => ({
+      source: dep.from_lesson.toString(),
+      target: dep.to_lesson.toString(),
+      type: dep.dependency_type === 'prerequisite' ? 'prerequisite' : 'suggested',
+    }));
+
+    return { nodes, links };
+  }, []);
 
   // Filtered lessons (not already in graph)
   const graphLessonIds = new Set(graph?.lessons.map((gl) => gl.lesson.id) || []);
@@ -396,35 +420,17 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
               )}
             </div>
           ) : (
-            <div className="border rounded-lg p-4 bg-muted/10 min-h-[500px]">
-              <p className="text-center text-muted-foreground">
-                Компонент GraphVisualization будет интегрирован из T503
-              </p>
-              <div className="mt-4 space-y-2">
-                {graph.lessons.map((graphLesson) => (
-                  <div
-                    key={graphLesson.id}
-                    className="flex items-center justify-between p-3 bg-background rounded border"
-                  >
-                    <div>
-                      <p className="font-medium">{graphLesson.lesson.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Позиция: ({graphLesson.position_x.toFixed(0)}, {graphLesson.position_y.toFixed(0)})
-                      </p>
-                    </div>
-                    {mode === 'edit' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveLesson(graphLesson.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <GraphVisualization
+              data={transformToGraphData(graph)}
+              isEditable={mode === 'edit'}
+              onNodeClick={(nodeId) => {
+                // TODO T002: Implement lesson details/selection
+                console.log('Node clicked:', nodeId);
+              }}
+              width={800}
+              height={600}
+              showLegend={true}
+            />
           )}
         </CardContent>
       </Card>

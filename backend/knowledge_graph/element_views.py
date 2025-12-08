@@ -39,7 +39,8 @@ class ElementListCreateView(generics.ListCreateAPIView):
         - Элементы созданные текущим пользователем
         """
         user = self.request.user
-        queryset = Element.objects.select_related('created_by').filter(
+        # T006: prefetch files to avoid N+1 queries for files_count
+        queryset = Element.objects.select_related('created_by').prefetch_related('files').filter(
             Q(is_public=True) | Q(created_by=user)
         )
 
@@ -118,7 +119,8 @@ class ElementRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     PATCH /api/knowledge-graph/elements/{id}/ - обновить элемент (только владелец)
     DELETE /api/knowledge-graph/elements/{id}/ - удалить элемент (только владелец)
     """
-    queryset = Element.objects.select_related('created_by')
+    # T006: prefetch files to include in detail view
+    queryset = Element.objects.select_related('created_by').prefetch_related('files')
     serializer_class = ElementSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
 

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    Element, Lesson, LessonElement,
+    Element, ElementFile, Lesson, LessonElement,
     KnowledgeGraph, GraphLesson, LessonDependency,
     ElementProgress, LessonProgress
 )
@@ -10,6 +10,14 @@ from .models import (
 # ============================================
 # Element and Lesson Admin
 # ============================================
+
+class ElementFileInline(admin.TabularInline):
+    """Inline для редактирования файлов элемента"""
+    model = ElementFile
+    extra = 0
+    readonly_fields = ('uploaded_at', 'uploaded_by', 'file_size')
+    fields = ('file', 'original_filename', 'file_size', 'uploaded_at', 'uploaded_by')
+
 
 class LessonElementInline(admin.TabularInline):
     model = LessonElement
@@ -25,6 +33,7 @@ class ElementAdmin(admin.ModelAdmin):
     list_filter = ['element_type', 'difficulty', 'is_public', 'created_at']
     search_fields = ['title', 'description', 'tags']
     readonly_fields = ['created_at', 'updated_at']
+    inlines = [ElementFileInline]
 
     fieldsets = (
         ('Основная информация', {

@@ -33,6 +33,7 @@ export interface GraphVisualizationProps {
   currentLessonId?: string;
   onNodeClick?: (nodeId: string) => void;
   onNodeHover?: (nodeId: string | null) => void;
+  onNodeDrag?: (nodeId: string, x: number, y: number) => void;
   isEditable?: boolean;
   width?: number;
   height?: number;

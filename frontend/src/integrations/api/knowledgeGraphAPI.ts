@@ -24,7 +24,7 @@ export const knowledgeGraphAPI = {
    */
   getTeacherStudents: async (): Promise<Student[]> => {
     const response = await unifiedAPI.get<{ results: Student[] } | Student[]>(
-      '/materials/dashboard/teacher/students/'
+      '/materials/teacher/students/'
     );
 
     if (response.error) {

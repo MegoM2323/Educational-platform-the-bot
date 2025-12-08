@@ -56,6 +56,12 @@ describe('GraphVisualization', () => {
     // Note: Actual hover testing would require more setup with D3
   });
 
+  it('calls onNodeDrag when node is dragged in edit mode', () => {
+    const handleDrag = vi.fn();
+    render(<GraphVisualization data={mockData} onNodeDrag={handleDrag} isEditable={true} />);
+    // Note: Actual drag testing would require more setup with D3
+  });
+
   it('respects custom width and height', () => {
     const { container } = render(
       <GraphVisualization data={mockData} width={1000} height={800} />

@@ -130,6 +130,8 @@ class LessonCreateSerializer(serializers.Serializer):
 
         # Validate teacher teaches subject to student
         from materials.models import SubjectEnrollment
+        from scheduling.services.lesson_service import LessonService
+        from django.core.exceptions import ValidationError as DjangoValidationError
 
         teacher = self.context['request'].user
         student_id = data['student']
@@ -146,6 +148,19 @@ class LessonCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 'You do not teach this subject to this student'
             )
+
+        # Check for time conflicts
+        try:
+            student = User.objects.get(id=student_id)
+            LessonService._check_time_conflicts(
+                date=data['date'],
+                start_time=data['start_time'],
+                end_time=data['end_time'],
+                teacher=teacher,
+                student=student
+            )
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({'non_field_errors': str(e)})
 
         return data
 
@@ -190,6 +205,31 @@ class LessonUpdateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {'date': 'Cannot set lesson to the past'}
                 )
+
+        # Check for time conflicts if date/time changed
+        if any(field in data for field in ['date', 'start_time', 'end_time']):
+            from scheduling.services.lesson_service import LessonService
+            from django.core.exceptions import ValidationError as DjangoValidationError
+
+            # Get lesson from context (set in view)
+            lesson = self.context.get('lesson')
+            if lesson:
+                # Use updated or existing values
+                check_date = data.get('date', lesson.date)
+                check_start = data.get('start_time', lesson.start_time)
+                check_end = data.get('end_time', lesson.end_time)
+
+                try:
+                    LessonService._check_time_conflicts(
+                        date=check_date,
+                        start_time=check_start,
+                        end_time=check_end,
+                        teacher=lesson.teacher,
+                        student=lesson.student,
+                        exclude_lesson_id=lesson.id
+                    )
+                except DjangoValidationError as e:
+                    raise serializers.ValidationError({'non_field_errors': str(e)})
 
         return data
 

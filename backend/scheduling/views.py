@@ -160,7 +160,10 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonUpdateSerializer(data=request.data)
+        serializer = LessonUpdateSerializer(
+            data=request.data,
+            context={'lesson': lesson}
+        )
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -210,7 +213,11 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input (partial=True allows optional fields)
-        serializer = LessonUpdateSerializer(data=request.data, partial=True)
+        serializer = LessonUpdateSerializer(
+            data=request.data,
+            partial=True,
+            context={'lesson': lesson}
+        )
         serializer.is_valid(raise_exception=True)
 
         try:

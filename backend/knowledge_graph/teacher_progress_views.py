@@ -131,16 +131,22 @@ class StudentDetailedProgressView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Получить все уроки в графе с прогрессом
-            graph_lessons = GraphLesson.objects.filter(graph=graph).select_related('lesson')
+            # Получить все уроки в графе с прогрессом (FIX T019: устранение N+1 запросов)
+            from django.db.models import Prefetch
+
+            graph_lessons = GraphLesson.objects.filter(graph=graph).select_related('lesson').prefetch_related(
+                'lesson__elements',
+                Prefetch(
+                    'progress',
+                    queryset=LessonProgress.objects.filter(student=graph.student),
+                    to_attr='student_progress_list'
+                )
+            )
 
             lessons_data = []
             for gl in graph_lessons:
-                # Получить прогресс по этому уроку
-                progress = LessonProgress.objects.filter(
-                    student=graph.student,
-                    graph_lesson=gl
-                ).first()
+                # Получить прогресс из prefetch (без дополнительных запросов)
+                progress = gl.student_progress_list[0] if gl.student_progress_list else None
 
                 if progress:
                     lesson_data = {
@@ -234,20 +240,27 @@ class LessonDetailView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # Получить все элементы урока с прогрессом
+            # Получить все элементы урока с прогрессом (FIX T019: устранение N+1 запросов)
             from .models import LessonElement
+            from django.db.models import Prefetch
+
             lesson_elements = LessonElement.objects.filter(
                 lesson=graph_lesson.lesson
-            ).select_related('element').order_by('order')
+            ).select_related('element').prefetch_related(
+                Prefetch(
+                    'element__student_progress',
+                    queryset=ElementProgress.objects.filter(
+                        student=graph.student,
+                        graph_lesson=graph_lesson
+                    ),
+                    to_attr='student_progress_list'
+                )
+            ).order_by('order')
 
             elements_data = []
             for le in lesson_elements:
-                # Получить прогресс по элементу
-                progress = ElementProgress.objects.filter(
-                    student=graph.student,
-                    element=le.element,
-                    graph_lesson=graph_lesson
-                ).first()
+                # Получить прогресс из prefetch (без дополнительных запросов)
+                progress = le.element.student_progress_list[0] if le.element.student_progress_list else None
 
                 element_data = {
                     'element_id': le.element.id,

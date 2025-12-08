@@ -451,6 +451,7 @@ export const adminAPI = {
     success: boolean;
     teachers: Array<{ id: number; name: string }>;
     subjects: Array<{ id: number; name: string }>;
+    students: Array<{ id: number; name: string }>;
   }>> {
     return apiClient.request('/admin/schedule/filters/');
   },

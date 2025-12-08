@@ -363,25 +363,29 @@ class GraphLessonsListOrAddView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Получить все уроки с оптимизацией запросов
+            # Получить все уроки с оптимизацией запросов (FIX T019: устранение N+1 запросов)
+            from .models import LessonProgress
+            from django.db.models import Prefetch
+
             graph_lessons = GraphLesson.objects.filter(
                 graph=graph
             ).select_related('lesson', 'lesson__created_by', 'lesson__subject').prefetch_related(
-                'lesson__elements'
+                'lesson__elements',
+                Prefetch(
+                    'progress',
+                    queryset=LessonProgress.objects.filter(student=graph.student),
+                    to_attr='student_progress_list'
+                )
             ).order_by('added_at')
 
             # Для каждого урока получить прогресс студента
-            from .models import LessonProgress
             lessons_data = []
 
             for gl in graph_lessons:
                 lesson_data = GraphLessonSerializer(gl).data
 
-                # Получить прогресс
-                progress = LessonProgress.objects.filter(
-                    student=graph.student,
-                    graph_lesson=gl
-                ).first()
+                # Получить прогресс из prefetch (без дополнительных запросов)
+                progress = gl.student_progress_list[0] if gl.student_progress_list else None
 
                 if progress:
                     lesson_data['progress'] = {

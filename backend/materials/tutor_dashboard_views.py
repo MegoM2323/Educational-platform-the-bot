@@ -289,7 +289,7 @@ def tutor_student_schedule(request, student_id):
     """
     Получить расписание занятий конкретного студента (только будущие)
 
-    GET /api/materials/dashboard/tutor/students/<student_id>/schedule/
+    GET /api/materials/tutor/students/<student_id>/schedule/
 
     Query parameters:
     - date_from: Filter by start date (optional)

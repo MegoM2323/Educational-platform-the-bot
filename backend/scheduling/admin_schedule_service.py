@@ -124,3 +124,20 @@ class AdminScheduleService:
 
         subjects = Subject.objects.all().values('id', 'name')
         return list(subjects)
+
+    @staticmethod
+    def get_students_list() -> List[Dict[str, Any]]:
+        """
+        Get list of all students for filtering.
+
+        Returns:
+            List of student data with id and name
+        """
+        students = User.objects.filter(role='student').values('id', 'first_name', 'last_name', 'email')
+        return [
+            {
+                'id': s['id'],
+                'name': f"{s['first_name']} {s['last_name']}".strip() or s['email']
+            }
+            for s in students
+        ]

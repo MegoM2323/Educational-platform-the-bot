@@ -124,20 +124,23 @@ def admin_schedule_stats_view(request):
 @permission_classes([IsAdminUser])
 def admin_schedule_filters_view(request):
     """
-    Get filter options for schedule (teachers and subjects).
+    Get filter options for schedule (teachers, subjects, students).
 
     Returns:
     - List of teachers with id and name
     - List of subjects with id and name
+    - List of students with id and name
     """
     try:
         teachers = AdminScheduleService.get_teachers_list()
         subjects = AdminScheduleService.get_subjects_list()
+        students = AdminScheduleService.get_students_list()
 
         return Response({
             'success': True,
             'teachers': teachers,
-            'subjects': subjects
+            'subjects': subjects,
+            'students': students
         })
     except Exception as e:
         return Response(

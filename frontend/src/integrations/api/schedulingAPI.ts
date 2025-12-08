@@ -55,7 +55,7 @@ export const schedulingAPI = {
 
   getStudentSchedule: async (studentId: string, filters?: Record<string, any>): Promise<Lesson[]> => {
     const response = await unifiedAPI.get<{ results: Lesson[] } | Lesson[]>(
-      `/materials/dashboard/tutor/students/${studentId}/schedule/`,
+      `/materials/tutor/students/${studentId}/schedule/`,
       { params: filters }
     );
     if (response.error) {

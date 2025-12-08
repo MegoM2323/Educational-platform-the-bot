@@ -5,11 +5,12 @@ Handles lesson creation, retrieval, updates, and deletion with validation.
 """
 
 from typing import List, Optional, Dict, Any
-from datetime import timedelta
+from datetime import timedelta, datetime, date, time
 from django.utils import timezone
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from uuid import UUID
 
 from scheduling.models import Lesson, LessonHistory
 from materials.models import SubjectEnrollment
@@ -19,6 +20,71 @@ User = get_user_model()
 
 class LessonService:
     """Service layer for lesson management with business logic."""
+
+    @staticmethod
+    def _check_time_conflicts(
+        date: date,
+        start_time: time,
+        end_time: time,
+        teacher: Optional[User] = None,
+        student: Optional[User] = None,
+        exclude_lesson_id: Optional[UUID] = None
+    ) -> None:
+        """
+        Check for overlapping lessons for teacher or student.
+
+        Args:
+            date: lesson date
+            start_time, end_time: lesson time range
+            teacher: teacher to check for conflicts
+            student: student to check for conflicts
+            exclude_lesson_id: lesson to exclude from check (for updates)
+
+        Raises:
+            ValidationError if conflicts found
+        """
+        # Combine datetime для точной проверки пересечений
+        dt_start = datetime.combine(date, start_time)
+        dt_end = datetime.combine(date, end_time)
+
+        # Base queryset - уроки в тот же день, не отменённые
+        base_qs = Lesson.objects.filter(
+            date=date,
+            status__in=['pending', 'confirmed']
+        )
+        if exclude_lesson_id:
+            base_qs = base_qs.exclude(id=exclude_lesson_id)
+
+        # Проверка конфликтов для преподавателя
+        if teacher:
+            teacher_conflicts = base_qs.filter(teacher=teacher)
+            for existing in teacher_conflicts:
+                dt_existing_start = datetime.combine(existing.date, existing.start_time)
+                dt_existing_end = datetime.combine(existing.date, existing.end_time)
+
+                # Проверка пересечения: new.start < existing.end AND new.end > existing.start
+                if dt_start < dt_existing_end and dt_end > dt_existing_start:
+                    raise ValidationError(
+                        f'Преподаватель {teacher.get_full_name()} уже занят с '
+                        f'{existing.start_time.strftime("%H:%M")} до '
+                        f'{existing.end_time.strftime("%H:%M")} в этот день.'
+                    )
+
+        # Проверка конфликтов для студента
+        if student:
+            student_conflicts = base_qs.filter(student=student)
+            for existing in student_conflicts:
+                dt_existing_start = datetime.combine(existing.date, existing.start_time)
+                dt_existing_end = datetime.combine(existing.date, existing.end_time)
+
+                if dt_start < dt_existing_end and dt_end > dt_existing_start:
+                    raise ValidationError(
+                        f'Ученик {student.get_full_name()} уже запланирован на '
+                        f'{existing.start_time.strftime("%H:%M")}-'
+                        f'{existing.end_time.strftime("%H:%M")} в этот день '
+                        f'(предмет {existing.subject.name} с '
+                        f'{existing.teacher.get_full_name()}).'
+                    )
 
     @staticmethod
     def create_lesson(
@@ -79,6 +145,15 @@ class LessonService:
                 f'Teacher {teacher.get_full_name()} does not teach '
                 f'{subject.name} to student {student.get_full_name()}'
             )
+
+        # Check for time conflicts
+        LessonService._check_time_conflicts(
+            date=date,
+            start_time=start_time,
+            end_time=end_time,
+            teacher=teacher,
+            student=student
+        )
 
         # Create lesson
         lesson = Lesson.objects.create(
@@ -261,6 +336,9 @@ class LessonService:
         # Define allowed fields to update
         allowed_fields = ['date', 'start_time', 'end_time', 'description', 'telemost_link', 'status']
 
+        # Check if date/time changed for conflict detection
+        date_time_changed = any(field in updates for field in ['date', 'start_time', 'end_time'])
+
         for field, value in updates.items():
             if field not in allowed_fields:
                 continue
@@ -269,6 +347,17 @@ class LessonService:
             old_values[field] = str(old_value)
             new_values[field] = str(value)
             setattr(lesson, field, value)
+
+        # If date/time changed, check for conflicts
+        if date_time_changed:
+            LessonService._check_time_conflicts(
+                date=lesson.date,
+                start_time=lesson.start_time,
+                end_time=lesson.end_time,
+                teacher=lesson.teacher,
+                student=lesson.student,
+                exclude_lesson_id=lesson.id
+            )
 
         # Validate after setting values
         lesson.full_clean()

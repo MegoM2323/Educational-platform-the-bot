@@ -12,7 +12,7 @@ import logging
 import json
 from typing import List
 
-from django.db.models import Q, Count, Max, Prefetch
+from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, Case, When, IntegerField, Value, F, Exists
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import viewsets, status, permissions
@@ -107,6 +107,32 @@ class ForumChatViewSet(viewsets.ViewSet):
             else:
                 # Parent doesn't see forum chats
                 chats = ChatRoom.objects.none()
+
+            # Optimize N+1 queries: annotate unread_count and participants_count
+            # This prevents separate queries for each chat in the serializer
+            if chats.exists():
+                # Prefetch messages to allow unread_count calculation without N+1
+                # This prefetches all messages per chat, which unread_count property uses
+                messages_prefetch = Prefetch(
+                    'messages',
+                    queryset=Message.objects.select_related('sender').order_by('-created_at')
+                )
+
+                # Prefetch ChatParticipant for current user to avoid N+1
+                # This allows serializer to use participant.unread_count without extra queries
+                user_participant_prefetch = Prefetch(
+                    'room_participants',
+                    queryset=ChatParticipant.objects.filter(user=user).select_related('user'),
+                    to_attr='current_user_participant'
+                )
+
+                chats = chats.prefetch_related(
+                    messages_prefetch,
+                    user_participant_prefetch
+                ).annotate(
+                    # Count all participants (simple aggregation, no N+1)
+                    annotated_participants_count=Count('participants', distinct=True)
+                )
 
             # Serialize with unread counts
             serializer = ChatRoomListSerializer(

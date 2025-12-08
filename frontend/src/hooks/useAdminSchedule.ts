@@ -4,6 +4,7 @@ import { adminAPI } from '@/integrations/api/adminAPI';
 interface UseAdminScheduleParams {
   teacher_id?: string;
   subject_id?: string;
+  student_id?: string;
   date_from?: string;
   date_to?: string;
   status?: string;
@@ -24,6 +25,7 @@ export const useAdminSchedule = (params: UseAdminScheduleParams = {}) => {
   const {
     data: filtersData,
     isLoading: filtersLoading,
+    error: filtersError,
   } = useQuery({
     queryKey: ['admin', 'schedule', 'filters'],
     queryFn: () => adminAPI.getScheduleFilters(),
@@ -34,8 +36,10 @@ export const useAdminSchedule = (params: UseAdminScheduleParams = {}) => {
     lessons: scheduleData?.lessons || [],
     teachers: filtersData?.teachers || [],
     subjects: filtersData?.subjects || [],
+    students: filtersData?.students || [],
     isLoading: scheduleLoading || filtersLoading,
     error: scheduleError?.message,
+    filtersError: filtersError?.message,
     refetch: refetchSchedule,
   };
 };

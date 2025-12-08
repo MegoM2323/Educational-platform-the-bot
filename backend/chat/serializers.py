@@ -23,6 +23,10 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         )
 
     def get_participants_count(self, obj):
+        # Use annotated value from queryset to avoid N+1 query
+        if hasattr(obj, 'annotated_participants_count'):
+            return obj.annotated_participants_count
+        # Fallback for non-annotated querysets
         return obj.participants.count()
 
     def get_participants(self, obj):
@@ -58,6 +62,13 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         return None
 
     def get_unread_count(self, obj):
+        # Use prefetched participant to avoid N+1 query
+        # ForumChatViewSet prefetches 'current_user_participant'
+        if hasattr(obj, 'current_user_participant') and obj.current_user_participant:
+            participant = obj.current_user_participant[0]
+            return participant.unread_count
+
+        # Fallback for non-prefetched querysets (e.g., in tests, other views)
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             try:

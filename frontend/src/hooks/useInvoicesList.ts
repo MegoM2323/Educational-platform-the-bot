@@ -9,11 +9,12 @@
  * - useSendInvoice - отправка счета родителю
  * - useCancelInvoice - отмена счета
  * - useInvoiceDetail - детальная информация о счете
+ * - WebSocket real-time обновления статусов счетов
  *
  * Используется в: frontend/src/pages/dashboard/TutorInvoicesPage.tsx
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   invoiceAPI,
@@ -25,6 +26,7 @@ import {
 import type { InvoicesListResponse } from '@/types/invoice';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/utils/logger';
+import { invoiceWebSocketService } from '@/services/invoiceWebSocketService';
 
 /**
  * Локальные фильтры для UI.
@@ -63,6 +65,48 @@ export const useInvoicesList = (options?: UseInvoicesListOptions) => {
   });
 
   const [page, setPage] = useState(0);
+
+  // WebSocket real-time обновления
+  useEffect(() => {
+    logger.debug('[useInvoicesList] Connecting to invoice WebSocket');
+
+    invoiceWebSocketService.connect({
+      onInvoiceCreated: (data) => {
+        logger.info('[useInvoicesList] New invoice created:', data.invoice_id);
+        // Инвалидируем для обновления списка
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'tutor'] });
+      },
+      onStatusUpdate: (data) => {
+        logger.info(
+          '[useInvoicesList] Invoice status updated:',
+          data.invoice_id,
+          data.old_status,
+          '→',
+          data.new_status
+        );
+        // Инвалидируем для обновления списка
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'tutor'] });
+      },
+      onInvoicePaid: (data) => {
+        logger.info('[useInvoicesList] Invoice paid:', data.invoice_id);
+        // Инвалидируем для обновления
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'tutor'] });
+
+        toast({
+          title: 'Счёт оплачен',
+          description: 'Родитель оплатил счёт',
+        });
+      },
+      onError: (error) => {
+        logger.error('[useInvoicesList] WebSocket error:', error);
+      },
+    });
+
+    return () => {
+      logger.debug('[useInvoicesList] Disconnecting from invoice WebSocket');
+      invoiceWebSocketService.disconnect();
+    };
+  }, [queryClient, toast]);
 
   // Запрос списка счетов
   const {

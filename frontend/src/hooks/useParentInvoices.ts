@@ -5,12 +5,13 @@
  * - useParentInvoices - список счетов с фильтрами и статистикой
  * - useMarkInvoiceViewed - отметить счет как просмотренный
  * - useInitiateInvoicePayment - инициировать оплату
+ * - WebSocket real-time обновления статусов счетов
  *
  * Используется в: frontend/src/pages/dashboard/ParentInvoicesPage.tsx
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { logger } from '@/utils/logger';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -21,6 +22,7 @@ import {
   type InvoiceFilters as APIInvoiceFilters,
 } from '@/integrations/api/invoiceAPI';
 import type { InvoiceSummary } from '@/types/invoice';
+import { invoiceWebSocketService } from '@/services/invoiceWebSocketService';
 
 /**
  * Локальные фильтры для UI.
@@ -120,6 +122,58 @@ export const useParentInvoices = (options?: UseParentInvoicesOptions) => {
     staleTime: 60000,
   });
 
+  // Мутации для действий родителя
+  const markViewedMutation = useMarkInvoiceViewed();
+  const paymentMutation = useInitiateInvoicePayment();
+
+  // WebSocket real-time обновления
+  useEffect(() => {
+    logger.debug('[useParentInvoices] Connecting to invoice WebSocket');
+
+    invoiceWebSocketService.connect({
+      onInvoiceCreated: (data) => {
+        logger.info('[useParentInvoices] New invoice created:', data.invoice_id);
+        // Инвалидируем все запросы для обновления данных
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent', 'summary'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent', 'unpaid-count'] });
+      },
+      onStatusUpdate: (data) => {
+        logger.info(
+          '[useParentInvoices] Invoice status updated:',
+          data.invoice_id,
+          data.old_status,
+          '→',
+          data.new_status
+        );
+        // Инвалидируем для обновления списка и статистики
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent', 'summary'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent', 'unpaid-count'] });
+      },
+      onInvoicePaid: (data) => {
+        logger.info('[useParentInvoices] Invoice paid:', data.invoice_id);
+        // Инвалидируем для обновления
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent', 'summary'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices', 'parent', 'unpaid-count'] });
+
+        toast({
+          title: 'Счёт оплачен',
+          description: 'Платёж успешно обработан',
+        });
+      },
+      onError: (error) => {
+        logger.error('[useParentInvoices] WebSocket error:', error);
+      },
+    });
+
+    return () => {
+      logger.debug('[useParentInvoices] Disconnecting from invoice WebSocket');
+      invoiceWebSocketService.disconnect();
+    };
+  }, [queryClient, toast]);
+
   // Вычисляемые значения
   const invoices = useMemo(() => invoicesData?.results || [], [invoicesData]);
   const totalCount = invoicesData?.count || 0;
@@ -175,6 +229,12 @@ export const useParentInvoices = (options?: UseParentInvoicesOptions) => {
 
     // Перезагрузка
     refetch,
+
+    // Действия родителя
+    markAsViewed: markViewedMutation.mutate,
+    isMarkingViewed: markViewedMutation.isPending,
+    initiatePayment: paymentMutation.mutate,
+    isInitiatingPayment: paymentMutation.isPending,
   };
 };
 

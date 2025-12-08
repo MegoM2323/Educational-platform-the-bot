@@ -665,43 +665,63 @@ class LessonProgress(models.Model):
         ])
 
     def check_unlock_next(self):
-        """Проверить и разблокировать следующие уроки"""
-        if self.status == 'completed':
-            # Найти зависимые уроки
-            dependencies = LessonDependency.objects.filter(
-                from_lesson=self.graph_lesson,
-                dependency_type='required'
-            )
+        """
+        Проверить и разблокировать следующие уроки
+        FIX T019: добавлена защита от race condition через transaction.atomic
+        """
+        from django.db import transaction
+        import logging
 
-            for dep in dependencies:
-                # Проверить, выполнено ли условие по баллам
-                score_percent = (self.total_score / self.max_possible_score * 100) if self.max_possible_score > 0 else 0
+        logger = logging.getLogger(__name__)
 
-                if score_percent >= dep.min_score_percent:
-                    # Проверить все другие зависимости для целевого урока
-                    all_deps = LessonDependency.objects.filter(
-                        to_lesson=dep.to_lesson,
-                        dependency_type='required'
-                    )
+        if self.status != 'completed':
+            return
 
-                    all_met = True
-                    for other_dep in all_deps:
-                        other_progress = LessonProgress.objects.filter(
-                            student=self.student,
-                            graph_lesson=other_dep.from_lesson
-                        ).first()
+        try:
+            with transaction.atomic():
+                # Обновить состояние из БД (защита от race condition)
+                self.refresh_from_db()
 
-                        if not other_progress or other_progress.status != 'completed':
-                            all_met = False
-                            break
+                # Найти зависимые уроки с оптимизацией запросов
+                dependencies = LessonDependency.objects.filter(
+                    from_lesson=self.graph_lesson,
+                    dependency_type='required'
+                ).select_related('to_lesson', 'to_lesson__graph')
 
-                        other_score_percent = (
-                            other_progress.total_score / other_progress.max_possible_score * 100
-                        ) if other_progress.max_possible_score > 0 else 0
+                for dep in dependencies:
+                    # Проверить, выполнено ли условие по баллам
+                    score_percent = (self.total_score / self.max_possible_score * 100) if self.max_possible_score > 0 else 0
 
-                        if other_score_percent < other_dep.min_score_percent:
-                            all_met = False
-                            break
+                    if score_percent >= dep.min_score_percent:
+                        # Проверить все другие зависимости для целевого урока
+                        all_deps = LessonDependency.objects.filter(
+                            to_lesson=dep.to_lesson,
+                            dependency_type='required'
+                        ).select_related('from_lesson')
 
-                    if all_met:
-                        dep.to_lesson.unlock()
+                        all_met = True
+                        for other_dep in all_deps:
+                            other_progress = LessonProgress.objects.filter(
+                                student=self.student,
+                                graph_lesson=other_dep.from_lesson
+                            ).first()
+
+                            if not other_progress or other_progress.status != 'completed':
+                                all_met = False
+                                break
+
+                            other_score_percent = (
+                                other_progress.total_score / other_progress.max_possible_score * 100
+                            ) if other_progress.max_possible_score > 0 else 0
+
+                            if other_score_percent < other_dep.min_score_percent:
+                                all_met = False
+                                break
+
+                        if all_met:
+                            dep.to_lesson.unlock()
+
+        except Exception as e:
+            # Логировать ошибку, но не прерывать выполнение
+            # Прогресс записан, разблокировка - бонус
+            logger.error(f"Ошибка при проверке разблокировки урока {self.graph_lesson.id}: {e}", exc_info=True)

@@ -140,6 +140,13 @@ class StudentProfile(models.Model):
         verbose_name='Telegram (например: @username)'
     )
 
+    telegram_id = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Telegram Chat ID',
+        help_text='Числовой ID чата Telegram для отправки уведомлений (например: 123456789)'
+    )
+
     def __str__(self):
         return f"Профиль студента: {self.user.get_full_name()}"
 
@@ -175,6 +182,13 @@ class TeacherProfile(models.Model):
         max_length=100,
         blank=True,
         verbose_name='Telegram (например: @username)'
+    )
+
+    telegram_id = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Telegram Chat ID',
+        help_text='Числовой ID чата Telegram для отправки уведомлений (например: 123456789)'
     )
 
     def __str__(self):
@@ -214,6 +228,13 @@ class TutorProfile(models.Model):
         verbose_name='Telegram (например: @username)'
     )
 
+    telegram_id = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Telegram Chat ID',
+        help_text='Числовой ID чата Telegram для отправки уведомлений (например: 123456789)'
+    )
+
     def __str__(self):
         return f"Профиль тьютора: {self.user.get_full_name()}"
 
@@ -232,6 +253,13 @@ class ParentProfile(models.Model):
         max_length=100,
         blank=True,
         verbose_name='Telegram (например: @username)'
+    )
+
+    telegram_id = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Telegram Chat ID',
+        help_text='Числовой ID чата Telegram для отправки уведомлений (например: 123456789)'
     )
 
     def __str__(self):

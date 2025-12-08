@@ -23,6 +23,44 @@ class ElementCreatedBySerializer(serializers.Serializer):
 class ElementSerializer(serializers.ModelSerializer):
     """
     Сериализатор для Element с валидацией по типу
+
+    FIX T019: Документация структуры поля content
+
+    Поле content имеет разную структуру в зависимости от element_type:
+
+    1. text_problem (Текстовая задача):
+       {
+         "problem_text": "Текст задачи",
+         "answer_format": "short_text|number|formula|essay",
+         "hints": ["Подсказка 1", "Подсказка 2"],  // опционально
+         "solution": "Пример решения"  // опционально
+       }
+
+    2. quick_question (Быстрый вопрос):
+       {
+         "question": "Текст вопроса",
+         "choices": ["Вариант A", "Вариант B", "Вариант C"],
+         "correct_answer": 0,  // индекс правильного ответа (начиная с 0)
+         "explanation": "Объяснение правильного ответа"  // опционально
+       }
+
+    3. theory (Теория):
+       {
+         "text": "HTML-контент или Markdown",
+         "examples": ["Пример 1", "Пример 2"],  // опционально
+         "formulas": ["formula1", "formula2"]  // опционально (LaTeX)
+       }
+
+    4. video (Видео):
+       {
+         "url": "https://youtube.com/watch?v=...",
+         "platform": "youtube|vimeo|custom",
+         "description": "Описание видео",
+         "duration_seconds": 300,  // опционально
+         "thumbnail": "https://..."  // опционально
+       }
+
+    Валидация гарантирует корректность структуры для каждого типа.
     """
     created_by = ElementCreatedBySerializer(read_only=True)
     element_type_display = serializers.CharField(source='get_element_type_display', read_only=True)

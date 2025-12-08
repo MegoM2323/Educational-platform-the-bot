@@ -136,6 +136,26 @@ export default function TutorStudentsPage() {
     }
   };
 
+  // Guard against multiple dialogs open simultaneously
+  const handleOpenCreateDialog = () => {
+    if (credsOpen || assignOpen || detailsOpen) return;
+    setOpen(true);
+  };
+
+  const handleOpenAssignDialog = (studentId: number) => {
+    if (open || credsOpen || detailsOpen) return;
+    logger.debug('[Students] Opening assign dialog for student:', studentId);
+    setSelectedStudentId(studentId);
+    setAssignOpen(true);
+  };
+
+  const handleOpenDetailsDialog = (student: any) => {
+    if (open || credsOpen || assignOpen) return;
+    setSelectedStudentForDetails(student);
+    setDetailsTab('overview');
+    setDetailsOpen(true);
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -144,7 +164,7 @@ export default function TutorStudentsPage() {
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <div className="flex-1" />
-            <Button type="button" onClick={() => setOpen(true)}>Создать ученика</Button>
+            <Button type="button" onClick={handleOpenCreateDialog}>Создать ученика</Button>
           </header>
           <main className="p-6">
             <div className="space-y-6">
@@ -163,11 +183,7 @@ export default function TutorStudentsPage() {
                         <Card
                           key={s.id}
                           className="p-4 space-y-3 cursor-pointer hover:border-primary transition-colors"
-                          onClick={() => {
-                            setSelectedStudentForDetails(s);
-                            setDetailsTab('overview');
-                            setDetailsOpen(true);
-                          }}
+                          onClick={() => handleOpenDetailsDialog(s)}
                         >
                           <div className="font-medium">{s.full_name || `${s.first_name || ''} ${s.last_name || ''}`}</div>
                           <div className="text-sm text-muted-foreground">Класс: {s.grade || '-'}</div>
@@ -191,11 +207,7 @@ export default function TutorStudentsPage() {
                           )}
 
                           <div className="pt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Button type="button" variant="secondary" size="sm" onClick={() => {
-                              logger.debug('[Students] Opening assign dialog for student:', s.id);
-                              setSelectedStudentId(s.id);
-                              setAssignOpen(true);
-                            }}>Назначить предмет</Button>
+                            <Button type="button" variant="secondary" size="sm" onClick={() => handleOpenAssignDialog(s.id)}>Назначить предмет</Button>
                           </div>
                         </Card>
                       );
@@ -208,7 +220,23 @@ export default function TutorStudentsPage() {
         </SidebarInset>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(newOpen) => {
+        setOpen(newOpen);
+        if (!newOpen) {
+          // Reset form when closing
+          setForm({
+            first_name: '',
+            last_name: '',
+            grade: '',
+            goal: '',
+            parent_first_name: '',
+            parent_last_name: '',
+            parent_email: '',
+            parent_phone: '',
+          });
+          setValidationErrors({});
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Создание ученика</DialogTitle>
@@ -315,7 +343,12 @@ export default function TutorStudentsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={credsOpen} onOpenChange={setCredsOpen}>
+      <Dialog open={credsOpen} onOpenChange={(newOpen) => {
+        setCredsOpen(newOpen);
+        if (!newOpen) {
+          setGeneratedCreds(null);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Сгенерированные учетные данные</DialogTitle>
@@ -353,7 +386,13 @@ export default function TutorStudentsPage() {
         />
       )}
 
-      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+      <Dialog open={detailsOpen} onOpenChange={(newOpen) => {
+        setDetailsOpen(newOpen);
+        if (!newOpen) {
+          setSelectedStudentForDetails(null);
+          setDetailsTab('overview');
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -406,10 +445,7 @@ export default function TutorStudentsPage() {
                   <Button type="button"
                     variant="secondary"
                     className="w-full"
-                    onClick={() => {
-                      setSelectedStudentId(selectedStudentForDetails.id);
-                      setAssignOpen(true);
-                    }}
+                    onClick={() => handleOpenAssignDialog(selectedStudentForDetails.id)}
                   >
                     Назначить новый предмет
                   </Button>

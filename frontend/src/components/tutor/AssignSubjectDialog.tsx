@@ -47,14 +47,17 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
       setSubjectName('');
       setTeacherId('');
       setSubjectMode('existing');
+      setSubjects([]);
+      setAllTeachers([]);
+      setAvailableTeachers([]);
       return;
     }
-    
+
     const load = async () => {
       setLoading(true);
       try {
         logger.debug('[AssignSubjectDialog] Loading data...');
-        
+
         // Загружаем предметы и преподавателей параллельно
         // Запрашиваем всех преподавателей из базы данных (максимум 10000)
         logger.debug('[AssignSubjectDialog] Making API requests...');
@@ -63,7 +66,7 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
         const subjectsPromise = unifiedAPI.request<any>('/materials/subjects/');
         // Используем специальный endpoint для тьюторов для получения списка преподавателей
         const teachersPromise = unifiedAPI.request<any>('/tutor/teachers/');
-        
+
         const [s, t] = await Promise.all([subjectsPromise, teachersPromise]);
         logger.debug('[AssignSubjectDialog] API requests completed');
         
@@ -198,21 +201,35 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
           setAvailableTeachers(teachersData);
           logger.debug('[AssignSubjectDialog] Teachers set as available:', teachersData.length);
         } else {
-          logger.warn('[AssignSubjectDialog] No teachers response object received');
-          // Показываем предупреждение пользователю
+          logger.warn('[AssignSubjectDialog] No teachers loaded - showing error message to user');
           setAvailableTeachers([]);
+          toast({
+            title: 'Предупреждение',
+            description: 'Не удалось загрузить список преподавателей. Проверьте консоль браузера или обратитесь к администратору.',
+            variant: 'destructive',
+          });
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.error('[AssignSubjectDialog] Error loading data:', error);
+        logger.error('[AssignSubjectDialog] Error details:', {
+          message: error?.message,
+          response: error?.response,
+          stack: error?.stack,
+        });
         setSubjects([]);
         setAllTeachers([]);
         setAvailableTeachers([]);
+        toast({
+          title: 'Ошибка',
+          description: error?.message || 'Не удалось загрузить данные для назначения предмета',
+          variant: 'destructive',
+        });
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [open]);
+  }, [open, toast]);
 
   // Всегда показываем всех доступных преподавателей
   useEffect(() => {
@@ -304,7 +321,16 @@ function AssignSubjectDialog({ open, onOpenChange, studentId, onSuccess }: Props
 
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      onOpenChange(newOpen);
+      if (!newOpen) {
+        // Reset form when closing
+        setSubjectId('');
+        setSubjectName('');
+        setTeacherId('');
+        setSubjectMode('existing');
+      }
+    }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Назначить предмет</DialogTitle>

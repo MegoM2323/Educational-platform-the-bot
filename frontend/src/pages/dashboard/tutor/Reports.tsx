@@ -700,7 +700,13 @@ export default function TutorReports() {
       </div>
 
       {/* Диалог создания отчета */}
-      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+      <Dialog open={showCreateForm} onOpenChange={(newOpen) => {
+        setShowCreateForm(newOpen);
+        if (!newOpen) {
+          // Reset form when closing
+          resetForm();
+        }
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Создать еженедельный отчёт</DialogTitle>
@@ -850,7 +856,9 @@ export default function TutorReports() {
       </Dialog>
 
       {/* Диалог просмотра отчета тьютора */}
-      <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
+      <Dialog open={!!selectedReport} onOpenChange={(newOpen) => {
+        if (!newOpen) setSelectedReport(null);
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedReport?.title}</DialogTitle>
@@ -914,7 +922,9 @@ export default function TutorReports() {
       </Dialog>
 
       {/* Диалог просмотра отчета преподавателя */}
-      <Dialog open={!!selectedTeacherReport} onOpenChange={() => setSelectedTeacherReport(null)}>
+      <Dialog open={!!selectedTeacherReport} onOpenChange={(newOpen) => {
+        if (!newOpen) setSelectedTeacherReport(null);
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedTeacherReport?.title}</DialogTitle>

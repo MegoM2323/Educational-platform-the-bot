@@ -152,6 +152,7 @@ INSTALLED_APPS = [
     'reports',
     'notifications',
     'payments',
+    'invoices',  # Система выставления счетов (должна быть ПОСЛЕ materials и payments)
     'applications',
     'knowledge_graph',  # Система графов знаний для обучения
 ]

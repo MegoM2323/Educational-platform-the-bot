@@ -79,9 +79,17 @@ export class ChatWebSocketService {
     if (!websocketService.isConnected()) {
       const baseUrl = getWebSocketBaseUrl();
       const { accessToken } = tokenStorage.getTokens();
+
+      // CRITICAL FIX: Correctly form WebSocket URL with token
       const tokenParam = accessToken ? `?token=${accessToken}` : '';
       const fullUrl = `${baseUrl}/chat/general/${tokenParam}`;
-      logger.debug('[ChatWebSocket] Connecting to general chat:', fullUrl);
+
+      logger.info('[ChatWebSocket] Connecting to general chat with token:', {
+        hasToken: !!accessToken,
+        tokenStart: accessToken ? accessToken.substring(0, 10) : 'no-token',
+        fullUrl
+      });
+
       websocketService.connect(fullUrl);
     }
   }
@@ -102,9 +110,27 @@ export class ChatWebSocketService {
     // Подключаемся к WebSocket с room-specific URL
     const baseUrl = getWebSocketBaseUrl();
     const { accessToken } = tokenStorage.getTokens();
+
+    // CRITICAL FIX: Correctly form WebSocket URL with token
     const tokenParam = accessToken ? `?token=${accessToken}` : '';
     const fullUrl = `${baseUrl}/chat/${roomId}/${tokenParam}`;
-    logger.debug('[ChatWebSocket] Connecting to room:', roomId, 'URL:', fullUrl);
+
+    // Enhanced debug logging
+    logger.info('[ChatWebSocket] Token retrieval and URL formation:', {
+      roomId,
+      baseUrl,
+      hasToken: !!accessToken,
+      tokenLength: accessToken ? accessToken.length : 0,
+      tokenStart: accessToken ? accessToken.substring(0, 10) : 'NO-TOKEN',
+      tokenEnd: accessToken ? '...' + accessToken.substring(accessToken.length - 10) : 'NO-TOKEN',
+      tokenParam,
+      fullUrl,
+      localStorageCheck: {
+        auth_token: localStorage.getItem('auth_token')?.substring(0, 10) + '...' || 'NOT-FOUND',
+        user_id: localStorage.getItem('user_id') || 'NOT-FOUND'
+      }
+    });
+
     websocketService.connect(fullUrl);
   }
 

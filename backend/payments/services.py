@@ -423,3 +423,208 @@ def sync_payment_status(payment, yookassa_payment_data):
         logger.info(f"Payment {payment.id} status changed: {old_status} → {new_status}")
 
     return status_changed, old_status, new_status
+
+
+def create_invoice_payment(invoice, user, request):
+    """
+    Создает YooKassa платеж для оплаты счета.
+
+    Функция проверяет на существующие неоплаченные платежи (идемпотентность),
+    создает Payment запись с invoice_id в metadata, вызывает YooKassa API
+    и возвращает объект Payment с confirmation_url.
+
+    Args:
+        invoice: Invoice объект для оплаты
+        user: User объект (родитель, оплачивающий счет)
+        request: Django request object для построения return URLs
+
+    Returns:
+        Payment объект с данными YooKassa
+
+    Raises:
+        InvoicePaymentError: При ошибках создания платежа
+    """
+    from payments.models import Payment
+    from invoices.models import Invoice
+    from invoices.exceptions import InvoicePaymentError
+    from payments.views import create_yookassa_payment
+    from django.conf import settings
+
+    # Валидация: проверка что пользователь имеет право оплатить счет
+    if user.role != 'parent':
+        raise InvoicePaymentError('Только родители могут оплачивать счета')
+
+    if invoice.parent != user:
+        raise InvoicePaymentError('Этот счет не принадлежит вам')
+
+    # Валидация: проверка статуса счета
+    if invoice.status == Invoice.Status.PAID:
+        raise InvoicePaymentError('Счет уже оплачен')
+
+    if invoice.status == Invoice.Status.CANCELLED:
+        raise InvoicePaymentError('Невозможно оплатить отмененный счет')
+
+    # Валидация: проверка суммы
+    if invoice.amount <= 0:
+        raise InvoicePaymentError('Неверная сумма счета')
+
+    # Идемпотентность: проверяем на существующие неоплаченные платежи для этого счета
+    existing_payment = Payment.objects.filter(
+        metadata__invoice_id=invoice.id,
+        status__in=[Payment.Status.PENDING, Payment.Status.WAITING_FOR_CAPTURE]
+    ).first()
+
+    if existing_payment:
+        logger.info(
+            f"Idempotency: Found existing pending payment {existing_payment.id} "
+            f"for invoice {invoice.id}, returning existing payment"
+        )
+        return existing_payment
+
+    # Создаем Payment запись с metadata
+    try:
+        payment = Payment.objects.create(
+            amount=invoice.amount,
+            status=Payment.Status.PENDING,
+            description=f"Оплата счета #{invoice.id}: {invoice.description[:100]}",
+            service_name="Счет на обучение",
+            customer_fio=user.get_full_name(),
+            metadata={
+                'invoice_id': invoice.id,
+                'student_id': invoice.student.id,
+                'tutor_id': invoice.tutor.id,
+                'parent_id': user.id
+            }
+        )
+
+        logger.info(
+            f"Created Payment {payment.id} for invoice {invoice.id}, "
+            f"amount={invoice.amount}, parent={user.get_full_name()}"
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to create Payment record for invoice {invoice.id}: {e}", exc_info=True)
+        raise InvoicePaymentError(f"Ошибка создания платежа: {e}")
+
+    # Вызываем YooKassa API
+    yookassa_payment = create_yookassa_payment(payment, request)
+
+    # Обработка ответа YooKassa
+    if yookassa_payment and 'error' in yookassa_payment:
+        # Это ошибка - помечаем платеж как неудавшийся
+        error_info = yookassa_payment
+        logger.error(
+            f"YooKassa payment creation failed for invoice {invoice.id}: "
+            f"{error_info.get('error_type', 'unknown')} - {error_info.get('technical_details', 'N/A')}"
+        )
+
+        payment.status = Payment.Status.CANCELED
+        payment.raw_response = {
+            'error': error_info.get('error'),
+            'error_type': error_info.get('error_type'),
+            'technical_details': error_info.get('technical_details'),
+            'timestamp': timezone.now().isoformat()
+        }
+        payment.save(update_fields=['status', 'raw_response', 'updated'])
+
+        raise InvoicePaymentError(
+            error_info.get('error', 'Ошибка создания платежа в платежной системе')
+        )
+
+    elif yookassa_payment:
+        # Успешный ответ - обновляем платеж
+        payment.yookassa_payment_id = yookassa_payment.get('id')
+        payment.confirmation_url = yookassa_payment.get('confirmation', {}).get('confirmation_url')
+        payment.raw_response = yookassa_payment
+
+        # Определяем return_url с использованием EnvConfig
+        from core.environment import EnvConfig
+        env_config = EnvConfig()
+        frontend_url = env_config.get_frontend_url()
+
+        # Определяем роль для return URL
+        role = 'parent'  # Для invoice payments всегда родитель
+        payment.return_url = f"{frontend_url}/dashboard/{role}/invoices?payment_status=success&invoice_id={invoice.id}"
+
+        # Обновляем статус на основе ответа YooKassa
+        yookassa_status = yookassa_payment.get('status')
+        if yookassa_status == 'pending':
+            payment.status = Payment.Status.PENDING
+        elif yookassa_status == 'waiting_for_capture':
+            payment.status = Payment.Status.WAITING_FOR_CAPTURE
+        elif yookassa_status == 'succeeded':
+            payment.status = Payment.Status.SUCCEEDED
+            payment.paid_at = timezone.now()
+
+        payment.save(update_fields=['yookassa_payment_id', 'confirmation_url', 'return_url', 'raw_response', 'status', 'paid_at', 'updated'])
+
+        logger.info(
+            f"YooKassa payment created successfully: payment_id={payment.id}, "
+            f"yookassa_id={payment.yookassa_payment_id}, confirmation_url={payment.confirmation_url}"
+        )
+
+        return payment
+
+    else:
+        # Неожиданный случай - YooKassa вернула None/пустой ответ
+        logger.error(f"Unexpected: create_yookassa_payment returned None for invoice {invoice.id}")
+
+        payment.status = Payment.Status.CANCELED
+        payment.raw_response = {
+            'error': 'Неизвестная ошибка при создании платежа',
+            'timestamp': timezone.now().isoformat()
+        }
+        payment.save(update_fields=['status', 'raw_response', 'updated'])
+
+        raise InvoicePaymentError('Ошибка создания платежа в платежной системе')
+
+
+def mark_invoice_paid(invoice_id, payment):
+    """
+    Связывает платеж с счетом и обновляет статус счета на PAID.
+
+    Эта функция вызывается из webhook после успешной оплаты.
+    Использует InvoiceService.process_payment() для обновления статуса.
+
+    Args:
+        invoice_id: ID счета из payment.metadata['invoice_id']
+        payment: Payment объект (должен быть SUCCEEDED)
+
+    Returns:
+        Invoice объект с обновленным статусом
+
+    Raises:
+        InvoicePaymentError: При ошибках обработки
+    """
+    from invoices.models import Invoice
+    from invoices.services import InvoiceService
+    from invoices.exceptions import InvoicePaymentError, InvoiceNotFound, InvalidInvoiceStatus
+    from django.core.exceptions import ValidationError
+
+    try:
+        # Используем InvoiceService для обработки платежа
+        # Он автоматически проверяет статусы, создает историю, триггерит уведомления
+        invoice = InvoiceService.process_payment(invoice_id, payment)
+
+        logger.info(
+            f"Invoice {invoice_id} marked as paid via payment {payment.id}, "
+            f"paid_at={invoice.paid_at}"
+        )
+
+        return invoice
+
+    except InvoiceNotFound as e:
+        logger.error(f"Invoice {invoice_id} not found for payment {payment.id}: {e}")
+        raise InvoicePaymentError(str(e))
+
+    except InvalidInvoiceStatus as e:
+        logger.error(f"Invalid invoice status for payment processing: {e}")
+        raise InvoicePaymentError(str(e))
+
+    except ValidationError as e:
+        logger.error(f"Validation error processing invoice payment: {e}")
+        raise InvoicePaymentError(str(e))
+
+    except Exception as e:
+        logger.error(f"Unexpected error marking invoice {invoice_id} as paid: {e}", exc_info=True)
+        raise InvoicePaymentError(f"Ошибка обработки платежа по счету: {e}")

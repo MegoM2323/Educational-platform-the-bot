@@ -44,8 +44,9 @@ export const useSendForumMessage = () => {
         }
       );
 
-      // Also invalidate to refetch latest data from server
-      queryClient.invalidateQueries({ queryKey: ['forum-messages', variables.chatId] });
+      // IMPORTANT: Don't invalidate forum-messages to preserve the optimistic update
+      // The WebSocket will handle real-time updates from other users
+      // Only invalidate forum-chats to update last_message
       queryClient.invalidateQueries({ queryKey: ['forum-chats'] });
       toast.success('Сообщение отправлено');
     },

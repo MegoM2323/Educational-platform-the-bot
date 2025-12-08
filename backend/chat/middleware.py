@@ -35,33 +35,43 @@ class TokenAuthMiddleware(BaseMiddleware):
         if scope['type'] != 'websocket':
             return await super().__call__(scope, receive, send)
 
+        # Debug full scope (only in DEBUG mode)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'[TokenAuthMiddleware] Full path: {scope.get("path", "")}')
+            logger.debug(f'[TokenAuthMiddleware] Raw query_string bytes: {scope.get("query_string", b"")}')
+
         # Extract token from query parameters
         query_string = scope.get('query_string', b'').decode()
         query_params = parse_qs(query_string)
         token_list = query_params.get('token', [])
         token = token_list[0] if token_list else None
 
-        logger.warning(f'[TokenAuthMiddleware] Query string: {query_string}')  # DEBUG
-        logger.warning(f'[TokenAuthMiddleware] Token present: {bool(token)}')  # DEBUG
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'[TokenAuthMiddleware] Decoded query string: {query_string}')
+            logger.debug(f'[TokenAuthMiddleware] Token present: {bool(token)}')
 
         if token:
-            logger.warning(f'[TokenAuthMiddleware] Token from query: {token[:20]}...')
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'[TokenAuthMiddleware] Token from query: {token[:20]}...')
         else:
-            logger.warning('[TokenAuthMiddleware] No token in query parameters')
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug('[TokenAuthMiddleware] No token in query parameters')
 
         # Authenticate user if token provided
         if token:
             user = await self.get_user_from_token(token)
             if user:
                 scope['user'] = user
-                logger.warning(f'[TokenAuthMiddleware] ✓ Authenticated: {user.email} (role: {user.role})')  # DEBUG
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f'[TokenAuthMiddleware] ✓ Authenticated: {user.email} (role: {user.role})')
             else:
                 scope['user'] = AnonymousUser()
-                logger.warning(f'[TokenAuthMiddleware] ✗ Token invalid: {token[:20]}')  # DEBUG
+                logger.warning(f'[TokenAuthMiddleware] ✗ Token invalid: {token[:20]}')  # Keep as warning - auth failure
         else:
             # No token provided, let AuthMiddlewareStack try session auth
             scope['user'] = AnonymousUser()
-            logger.warning(f'[TokenAuthMiddleware] No token - trying session auth')  # DEBUG
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'[TokenAuthMiddleware] No token - trying session auth')
 
         return await super().__call__(scope, receive, send)
 

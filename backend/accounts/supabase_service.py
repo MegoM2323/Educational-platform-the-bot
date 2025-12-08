@@ -23,8 +23,14 @@ class SupabaseAuthService:
         self.client = None
         self.service_client = None
 
+        # В development mode не показываем предупреждения о Supabase
+        environment = os.getenv('ENVIRONMENT', 'production').lower()
+
         if not self.url or not self.key:
-            logger.warning("SUPABASE_URL и SUPABASE_KEY не установлены, используем mock клиент")
+            if environment == 'development':
+                logger.debug("Development mode: Supabase отключен, используем локальную БД")
+            else:
+                logger.warning("SUPABASE_URL и SUPABASE_KEY не установлены, используем mock клиент")
             self.is_mock = True
             return
 

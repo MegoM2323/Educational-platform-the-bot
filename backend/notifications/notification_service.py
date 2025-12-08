@@ -50,6 +50,13 @@ class NotificationService:
                 Notification.Type.PAYMENT_PROCESSED,
             ):
                 return settings.payment_notifications
+            if notif_type in (
+                Notification.Type.INVOICE_SENT,
+                Notification.Type.INVOICE_PAID,
+                Notification.Type.INVOICE_OVERDUE,
+                Notification.Type.INVOICE_VIEWED,
+            ):
+                return settings.invoice_notifications
             if notif_type == Notification.Type.REPORT_READY:
                 return settings.report_notifications
             if notif_type == Notification.Type.MESSAGE_NEW:
@@ -206,6 +213,114 @@ class NotificationService:
             title=title,
             message=message,
             data={'enrollment_id': enrollment_id, 'status': status, 'amount': amount},
+        )
+
+    # Invoice notification methods
+    def notify_invoice_sent(self, invoice) -> Notification:
+        """
+        Уведомление родителю о выставленном счете
+        """
+        title = "Новый счет на оплату"
+        message = (
+            f"Тьютор {invoice.tutor.get_full_name()} выставил счет на {invoice.amount} руб. "
+            f"Ученик: {invoice.student.get_full_name()}. "
+            f"Срок оплаты: {invoice.due_date.strftime('%d.%m.%Y')}."
+        )
+        return self.send(
+            recipient=invoice.parent,
+            notif_type=Notification.Type.INVOICE_SENT,
+            title=title,
+            message=message,
+            priority=Notification.Priority.HIGH,
+            related_object_type='invoice',
+            related_object_id=invoice.id,
+            data={
+                'invoice_id': invoice.id,
+                'amount': str(invoice.amount),
+                'due_date': invoice.due_date.isoformat(),
+                'student_name': invoice.student.get_full_name(),
+                'tutor_name': invoice.tutor.get_full_name(),
+                'description': invoice.description[:200],  # Первые 200 символов
+            }
+        )
+
+    def notify_invoice_paid(self, invoice) -> Notification:
+        """
+        Уведомление тьютору об оплате счета
+        """
+        title = "Счет оплачен"
+        message = (
+            f"Родитель {invoice.parent.get_full_name()} оплатил счет #{invoice.id} "
+            f"на сумму {invoice.amount} руб. "
+            f"Ученик: {invoice.student.get_full_name()}."
+        )
+        return self.send(
+            recipient=invoice.tutor,
+            notif_type=Notification.Type.INVOICE_PAID,
+            title=title,
+            message=message,
+            priority=Notification.Priority.NORMAL,
+            related_object_type='invoice',
+            related_object_id=invoice.id,
+            data={
+                'invoice_id': invoice.id,
+                'amount': str(invoice.amount),
+                'paid_at': invoice.paid_at.isoformat() if invoice.paid_at else None,
+                'student_name': invoice.student.get_full_name(),
+                'parent_name': invoice.parent.get_full_name(),
+            }
+        )
+
+    def notify_invoice_overdue(self, invoice) -> Notification:
+        """
+        Напоминание родителю о просроченном счете
+        """
+        title = "Просроченный счет"
+        message = (
+            f"Счет #{invoice.id} на сумму {invoice.amount} руб. просрочен. "
+            f"Срок оплаты был: {invoice.due_date.strftime('%d.%m.%Y')}. "
+            f"Ученик: {invoice.student.get_full_name()}."
+        )
+        return self.send(
+            recipient=invoice.parent,
+            notif_type=Notification.Type.INVOICE_OVERDUE,
+            title=title,
+            message=message,
+            priority=Notification.Priority.URGENT,
+            related_object_type='invoice',
+            related_object_id=invoice.id,
+            data={
+                'invoice_id': invoice.id,
+                'amount': str(invoice.amount),
+                'due_date': invoice.due_date.isoformat(),
+                'days_overdue': (timezone.now().date() - invoice.due_date).days,
+                'student_name': invoice.student.get_full_name(),
+            }
+        )
+
+    def notify_invoice_viewed(self, invoice) -> Notification:
+        """
+        Уведомление тьютору о просмотре счета родителем
+        """
+        title = "Счет просмотрен"
+        message = (
+            f"Родитель {invoice.parent.get_full_name()} просмотрел счет #{invoice.id} "
+            f"на сумму {invoice.amount} руб."
+        )
+        return self.send(
+            recipient=invoice.tutor,
+            notif_type=Notification.Type.INVOICE_VIEWED,
+            title=title,
+            message=message,
+            priority=Notification.Priority.LOW,
+            related_object_type='invoice',
+            related_object_id=invoice.id,
+            data={
+                'invoice_id': invoice.id,
+                'amount': str(invoice.amount),
+                'viewed_at': invoice.viewed_at.isoformat() if invoice.viewed_at else None,
+                'parent_name': invoice.parent.get_full_name(),
+            }
         )
 
 

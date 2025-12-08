@@ -74,7 +74,20 @@ export class WebSocketService {
     this.connectionState = 'connecting';
     this.notifyConnectionChange(false);
 
-    logger.debug('[WebSocket] Connecting to:', targetUrl);
+    // CRITICAL DEBUG: Log full WebSocket URL with token
+    const urlParts = targetUrl.split('?');
+    const hasQueryParams = urlParts.length > 1;
+    const queryParams = hasQueryParams ? urlParts[1] : 'no-params';
+
+    logger.info('[WebSocket] Connection attempt:', {
+      fullUrl: targetUrl,
+      basePath: urlParts[0],
+      queryParams,
+      hasToken: queryParams.includes('token='),
+      tokenPreview: queryParams.includes('token=')
+        ? queryParams.split('token=')[1]?.substring(0, 10) + '...'
+        : 'NO-TOKEN'
+    });
 
     try {
       this.ws = new WebSocket(targetUrl);

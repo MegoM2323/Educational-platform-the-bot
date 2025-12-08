@@ -27,6 +27,7 @@ urlpatterns = [
     path("api/system/", include('core.urls')),  # System monitoring and management
     path("api/scheduling/", include('scheduling.urls')),  # Scheduling system
     path("api/knowledge-graph/", include('knowledge_graph.urls')),  # Knowledge Graph system
+    path("api/invoices/", include('invoices.urls')),  # Invoice system
 
     # Compatibility aliases (non-API prefixed) used by tests and legacy frontend
     path("auth/", include('accounts.urls')),

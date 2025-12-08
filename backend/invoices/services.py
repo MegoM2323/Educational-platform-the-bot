@@ -5,12 +5,15 @@ Handles invoice creation, status management, payment processing, and notificatio
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
 from datetime import date, datetime
+import logging
 
 from django.db import transaction
 from django.db.models import QuerySet, Q, Prefetch
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 from .models import Invoice, InvoiceStatusHistory
 from .exceptions import (
@@ -25,6 +28,7 @@ from materials.models import SubjectEnrollment
 from payments.models import Payment
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class InvoiceService:
@@ -38,7 +42,201 @@ class InvoiceService:
     - Интеграция с платежами
     - Триггеринг уведомлений
     - Оптимизация запросов
+    - Реалтайм обновления через WebSocket
     """
+
+    # ==================== WebSocket Broadcast Methods ====================
+
+    @staticmethod
+    def _get_invoice_data_for_broadcast(invoice: Invoice) -> Dict[str, Any]:
+        """
+        Формирование данных счета для трансляции через WebSocket
+
+        Возвращает минимальный набор данных для обновления UI
+        """
+        return {
+            'id': invoice.id,
+            'student_name': invoice.student.get_full_name(),
+            'parent_name': invoice.parent.get_full_name(),
+            'tutor_name': invoice.tutor.get_full_name(),
+            'amount': str(invoice.amount),
+            'status': invoice.status,
+            'status_display': invoice.get_status_display(),
+            'due_date': invoice.due_date.isoformat(),
+            'sent_at': invoice.sent_at.isoformat() if invoice.sent_at else None,
+            'viewed_at': invoice.viewed_at.isoformat() if invoice.viewed_at else None,
+            'paid_at': invoice.paid_at.isoformat() if invoice.paid_at else None,
+            'is_overdue': invoice.is_overdue,
+        }
+
+    @staticmethod
+    def broadcast_invoice_created(invoice: Invoice) -> None:
+        """
+        Трансляция события создания нового счета через WebSocket
+
+        Отправляет уведомление в комнату тьютора (создателя счета)
+
+        Args:
+            invoice: Созданный счет
+
+        Raises:
+            Exception: Логируются но не пробрасываются (non-blocking)
+        """
+        try:
+            channel_layer = get_channel_layer()
+            if not channel_layer:
+                logger.warning('Channel layer not configured, skipping WebSocket broadcast')
+                return
+
+            # Формируем данные для трансляции
+            data = InvoiceService._get_invoice_data_for_broadcast(invoice)
+
+            # Отправляем в комнату тьютора
+            tutor_room = f'tutor_{invoice.tutor.id}'
+
+            async_to_sync(channel_layer.group_send)(
+                tutor_room,
+                {
+                    'type': 'invoice.created',
+                    'invoice_id': invoice.id,
+                    'data': data,
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+
+            logger.info(
+                f'[WebSocket] Invoice #{invoice.id} created event broadcasted '
+                f'to room {tutor_room}'
+            )
+
+        except Exception as e:
+            logger.error(
+                f'[WebSocket] Failed to broadcast invoice_created for invoice #{invoice.id}: {e}',
+                exc_info=True
+            )
+
+    @staticmethod
+    def broadcast_invoice_status_change(
+        invoice: Invoice,
+        old_status: str,
+        new_status: str
+    ) -> None:
+        """
+        Трансляция события изменения статуса счета через WebSocket
+
+        Отправляет уведомления:
+        - В комнату тьютора (создатель счета)
+        - В комнату родителя (получатель счета)
+
+        Args:
+            invoice: Счет с обновленным статусом
+            old_status: Предыдущий статус
+            new_status: Новый статус
+
+        Raises:
+            Exception: Логируются но не пробрасываются (non-blocking)
+        """
+        try:
+            channel_layer = get_channel_layer()
+            if not channel_layer:
+                logger.warning('Channel layer not configured, skipping WebSocket broadcast')
+                return
+
+            # Формируем данные для трансляции
+            data = InvoiceService._get_invoice_data_for_broadcast(invoice)
+
+            # Подготавливаем сообщение
+            message = {
+                'type': 'invoice.status_update',
+                'invoice_id': invoice.id,
+                'old_status': old_status,
+                'new_status': new_status,
+                'data': data,
+                'timestamp': timezone.now().isoformat()
+            }
+
+            # Отправляем в комнату тьютора
+            tutor_room = f'tutor_{invoice.tutor.id}'
+            async_to_sync(channel_layer.group_send)(tutor_room, message)
+
+            # Отправляем в комнату родителя
+            parent_room = f'parent_{invoice.parent.id}'
+            async_to_sync(channel_layer.group_send)(parent_room, message)
+
+            logger.info(
+                f'[WebSocket] Invoice #{invoice.id} status change '
+                f'({old_status} → {new_status}) broadcasted to rooms: '
+                f'{tutor_room}, {parent_room}'
+            )
+
+        except Exception as e:
+            logger.error(
+                f'[WebSocket] Failed to broadcast status change for invoice #{invoice.id}: {e}',
+                exc_info=True
+            )
+
+    @staticmethod
+    def broadcast_invoice_paid(invoice: Invoice) -> None:
+        """
+        Трансляция события оплаты счета через WebSocket
+
+        Отправляет уведомления:
+        - В комнату тьютора (уведомление о получении оплаты)
+        - В комнату родителя (подтверждение оплаты)
+
+        Args:
+            invoice: Оплаченный счет
+
+        Raises:
+            Exception: Логируются но не пробрасываются (non-blocking)
+        """
+        try:
+            channel_layer = get_channel_layer()
+            if not channel_layer:
+                logger.warning('Channel layer not configured, skipping WebSocket broadcast')
+                return
+
+            # Формируем данные для трансляции
+            data = InvoiceService._get_invoice_data_for_broadcast(invoice)
+
+            # Добавляем информацию о платеже если есть
+            if invoice.payment:
+                data['payment'] = {
+                    'id': invoice.payment.id,
+                    'amount': str(invoice.payment.amount),
+                    'status': invoice.payment.status,
+                    'yookassa_payment_id': invoice.payment.yookassa_payment_id,
+                    'paid_at': invoice.payment.paid_at.isoformat() if invoice.payment.paid_at else None,
+                }
+
+            # Подготавливаем сообщение
+            message = {
+                'type': 'invoice.paid',
+                'invoice_id': invoice.id,
+                'data': data,
+                'timestamp': timezone.now().isoformat()
+            }
+
+            # Отправляем в комнату тьютора
+            tutor_room = f'tutor_{invoice.tutor.id}'
+            async_to_sync(channel_layer.group_send)(tutor_room, message)
+
+            # Отправляем в комнату родителя
+            parent_room = f'parent_{invoice.parent.id}'
+            async_to_sync(channel_layer.group_send)(parent_room, message)
+
+            logger.info(
+                f'[WebSocket] Invoice #{invoice.id} payment event broadcasted '
+                f'to rooms: {tutor_room}, {parent_room}'
+            )
+
+        except Exception as e:
+            logger.error(
+                f'[WebSocket] Failed to broadcast invoice_paid for invoice #{invoice.id}: {e}',
+                exc_info=True
+            )
+
+    # ==================== Validation & Helper Methods ====================
 
     @staticmethod
     def _check_tutor_student_relationship(tutor: User, student: User) -> bool:
@@ -237,6 +435,16 @@ class InvoiceService:
             changed_by=tutor,
             reason='Счет создан'
         )
+
+        # Транслируем создание счета через WebSocket
+        InvoiceService.broadcast_invoice_created(invoice)
+
+        # Инвалидируем кеш статистики тьютора
+        try:
+            from .reports import InvoiceReportService
+            InvoiceReportService.invalidate_cache(tutor)
+        except ImportError:
+            pass
 
         return invoice
 
@@ -437,58 +645,26 @@ class InvoiceService:
             reason='Счет отправлен родителю'
         )
 
-        # Триггерим уведомление (если NotificationService доступен)
+        # Транслируем изменение статуса через WebSocket
+        InvoiceService.broadcast_invoice_status_change(invoice, old_status, invoice.status)
+
+        # Триггерим уведомления асинхронно через Celery (email, Telegram, in-app)
+        # Выполняется вне транзакции для надежности
         try:
-            from notifications.notification_service import NotificationService
-            from notifications.models import Notification
-
-            ns = NotificationService()
-            ns.send(
-                recipient=invoice.parent,
-                notif_type=Notification.Type.SYSTEM,  # или создать новый тип INVOICE_RECEIVED
-                title='Новый счет на оплату',
-                message=f'Тьютор {invoice.tutor.get_full_name()} выставил счет на {invoice.amount} руб. '
-                        f'Срок оплаты: {invoice.due_date.strftime("%d.%m.%Y")}',
-                priority=Notification.Priority.HIGH,
-                related_object_type='invoice',
-                related_object_id=invoice.id,
-                data={
-                    'invoice_id': invoice.id,
-                    'amount': str(invoice.amount),
-                    'due_date': invoice.due_date.isoformat(),
-                    'student_name': invoice.student.get_full_name()
-                }
-            )
+            from invoices.tasks import send_invoice_notification
+            # Отправляем задачу в очередь (не блокируем основной процесс)
+            send_invoice_notification.delay(invoice.id, 'sent')
         except ImportError:
-            # NotificationService недоступен - продолжаем без уведомлений
-            pass
+            # Celery недоступен - пытаемся отправить синхронно только in-app
+            logger.warning('Celery not available, sending in-app notification only')
+            try:
+                from notifications.notification_service import NotificationService
+                ns = NotificationService()
+                ns.notify_invoice_sent(invoice)
+            except Exception as e:
+                logger.error(f'Failed to send invoice notification: {e}')
         except Exception as e:
-            # Логируем ошибку, но не прерываем выполнение
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'Failed to send invoice notification: {e}')
-
-        # Отправляем уведомление в Telegram (вне транзакции для надежности)
-        try:
-            from invoices.telegram_service import invoice_telegram_service
-
-            # Отправляем в Telegram и сохраняем message_id
-            telegram_message_id = invoice_telegram_service.send_invoice_notification(invoice)
-            if telegram_message_id:
-                # Обновляем invoice с telegram_message_id
-                invoice.telegram_message_id = telegram_message_id
-                invoice.save(update_fields=['telegram_message_id'])
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f'Invoice #{invoice.id} Telegram notification sent, message_id: {telegram_message_id}')
-        except ImportError:
-            # Telegram service недоступен - продолжаем без Telegram
-            pass
-        except Exception as e:
-            # Логируем ошибку, но не прерываем выполнение
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'Failed to send Telegram invoice notification: {e}')
+            logger.error(f'Failed to queue invoice notification: {e}')
 
         return invoice
 
@@ -550,6 +726,24 @@ class InvoiceService:
             changed_by=parent,
             reason='Счет просмотрен родителем'
         )
+
+        # Транслируем изменение статуса через WebSocket
+        InvoiceService.broadcast_invoice_status_change(invoice, old_status, invoice.status)
+
+        # Триггерим уведомление тьютору через Celery
+        try:
+            from invoices.tasks import send_invoice_notification
+            send_invoice_notification.delay(invoice.id, 'viewed')
+        except ImportError:
+            logger.warning('Celery not available, sending in-app notification only')
+            try:
+                from notifications.notification_service import NotificationService
+                ns = NotificationService()
+                ns.notify_invoice_viewed(invoice)
+            except Exception as e:
+                logger.error(f'Failed to send viewed notification: {e}')
+        except Exception as e:
+            logger.error(f'Failed to queue viewed notification: {e}')
 
         return invoice
 
@@ -619,34 +813,23 @@ class InvoiceService:
             reason=f'Счет оплачен через платеж {payment.yookassa_payment_id or payment.id}'
         )
 
-        # Триггерим уведомление тьютору
-        try:
-            from notifications.notification_service import NotificationService
-            from notifications.models import Notification
+        # Транслируем оплату счета через WebSocket
+        InvoiceService.broadcast_invoice_paid(invoice)
 
-            ns = NotificationService()
-            ns.send(
-                recipient=invoice.tutor,
-                notif_type=Notification.Type.PAYMENT_SUCCESS,
-                title='Счет оплачен',
-                message=f'Родитель {invoice.parent.get_full_name()} оплатил счет #{invoice.id} '
-                        f'на сумму {invoice.amount} руб.',
-                priority=Notification.Priority.NORMAL,
-                related_object_type='invoice',
-                related_object_id=invoice.id,
-                data={
-                    'invoice_id': invoice.id,
-                    'amount': str(invoice.amount),
-                    'payment_id': str(payment.id),
-                    'student_name': invoice.student.get_full_name()
-                }
-            )
+        # Триггерим уведомление тьютору через Celery
+        try:
+            from invoices.tasks import send_invoice_notification
+            send_invoice_notification.delay(invoice.id, 'paid')
         except ImportError:
-            pass
+            logger.warning('Celery not available, sending in-app notification only')
+            try:
+                from notifications.notification_service import NotificationService
+                ns = NotificationService()
+                ns.notify_invoice_paid(invoice)
+            except Exception as e:
+                logger.error(f'Failed to send payment notification: {e}')
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'Failed to send payment notification: {e}')
+            logger.error(f'Failed to queue payment notification: {e}')
 
         # Обновляем сообщение в Telegram о статусе оплаты
         try:
@@ -656,8 +839,6 @@ class InvoiceService:
             if invoice.telegram_message_id:
                 success = invoice_telegram_service.update_invoice_message(invoice)
                 if success:
-                    import logging
-                    logger = logging.getLogger(__name__)
                     logger.info(f'Invoice #{invoice.id} Telegram message updated to PAID status')
 
                 # Отправляем дополнительное подтверждение
@@ -665,9 +846,14 @@ class InvoiceService:
         except ImportError:
             pass
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f'Failed to update Telegram message after payment: {e}')
+
+        # Инвалидируем кеш статистики тьютора
+        try:
+            from .reports import InvoiceReportService
+            InvoiceReportService.invalidate_cache(invoice.tutor)
+        except ImportError:
+            pass
 
         return invoice
 
@@ -783,5 +969,15 @@ class InvoiceService:
             changed_by=user,
             reason=reason or 'Счет отменен тьютором'
         )
+
+        # Транслируем изменение статуса через WebSocket
+        InvoiceService.broadcast_invoice_status_change(invoice, old_status, invoice.status)
+
+        # Инвалидируем кеш статистики тьютора
+        try:
+            from .reports import InvoiceReportService
+            InvoiceReportService.invalidate_cache(invoice.tutor)
+        except ImportError:
+            pass
 
         return invoice

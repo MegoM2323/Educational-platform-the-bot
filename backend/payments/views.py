@@ -401,25 +401,69 @@ def yookassa_webhook(request):
                     logger.info(f"Payment {payment.id} already processed as SUCCEEDED, skipping")
                     return HttpResponse('OK')
 
-                # Используем централизованную функцию для обработки успешного платежа
-                from payments.services import process_successful_payment
+                # Проверяем тип платежа: invoice payment или subject payment
+                invoice_id = payment.metadata.get('invoice_id') if isinstance(payment.metadata, dict) else None
 
-                result = process_successful_payment(payment)
+                if invoice_id:
+                    # Это платеж по счету - обрабатываем через mark_invoice_paid
+                    logger.info(f"Detected invoice payment: payment_id={payment.id}, invoice_id={invoice_id}")
 
-                if result['success']:
-                    logger.info(
-                        f"Webhook payment.succeeded processed successfully: "
-                        f"payment_id={payment.id}, "
-                        f"subject_payments_updated={result['subject_payments_updated']}, "
-                        f"enrollments_activated={result['enrollments_activated']}, "
-                        f"subscriptions_processed={result['subscriptions_processed']}"
-                    )
+                    try:
+                        from payments.services import mark_invoice_paid
+
+                        # Сначала обновляем статус Payment на SUCCEEDED
+                        payment.status = Payment.Status.SUCCEEDED
+                        payment.paid_at = timezone.now()
+                        payment.save(update_fields=['status', 'paid_at', 'updated'])
+
+                        # Проверяем что сохранение прошло успешно
+                        payment.refresh_from_db()
+                        if payment.status != Payment.Status.SUCCEEDED:
+                            logger.error(
+                                f"CRITICAL: Failed to update Payment {payment.id} status to SUCCEEDED"
+                            )
+                            return HttpResponse('ERROR', status=500)
+
+                        # Обрабатываем invoice payment
+                        invoice = mark_invoice_paid(invoice_id, payment)
+
+                        logger.info(
+                            f"Webhook: Invoice payment processed successfully - "
+                            f"payment_id={payment.id}, invoice_id={invoice.id}, "
+                            f"invoice_status={invoice.status}, paid_at={invoice.paid_at}"
+                        )
+
+                    except Exception as invoice_error:
+                        logger.error(
+                            f"Error processing invoice payment in webhook: "
+                            f"payment_id={payment.id}, invoice_id={invoice_id}, "
+                            f"error={invoice_error}",
+                            exc_info=True
+                        )
+                        # Не возвращаем ошибку - платеж обработан, проблема с invoice можно решить позже
+
                 else:
-                    logger.error(
-                        f"Webhook payment.succeeded processing had errors: "
-                        f"payment_id={payment.id}, "
-                        f"errors={result['errors']}"
-                    )
+                    # Это платеж по подписке - обрабатываем через process_successful_payment
+                    logger.info(f"Detected subject payment: payment_id={payment.id}")
+
+                    from payments.services import process_successful_payment
+
+                    result = process_successful_payment(payment)
+
+                    if result['success']:
+                        logger.info(
+                            f"Webhook payment.succeeded processed successfully: "
+                            f"payment_id={payment.id}, "
+                            f"subject_payments_updated={result['subject_payments_updated']}, "
+                            f"enrollments_activated={result['enrollments_activated']}, "
+                            f"subscriptions_processed={result['subscriptions_processed']}"
+                        )
+                    else:
+                        logger.error(
+                            f"Webhook payment.succeeded processing had errors: "
+                            f"payment_id={payment.id}, "
+                            f"errors={result['errors']}"
+                        )
 
                 # CRITICAL FIX: Invalidate YooKassa status cache after webhook processing
                 # This prevents check_payment_status() from serving stale cached data

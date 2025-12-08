@@ -25,6 +25,11 @@ class Notification(models.Model):
         MATERIAL_PUBLISHED = 'material_published', 'Материал опубликован'
         HOMEWORK_SUBMITTED = 'homework_submitted', 'Домашнее задание отправлено'
         PAYMENT_PROCESSED = 'payment_processed', 'Платеж обработан'
+        # Invoice system events
+        INVOICE_SENT = 'invoice_sent', 'Счет выставлен'
+        INVOICE_PAID = 'invoice_paid', 'Счет оплачен'
+        INVOICE_OVERDUE = 'invoice_overdue', 'Счет просрочен'
+        INVOICE_VIEWED = 'invoice_viewed', 'Счет просмотрен'
     
     class Priority(models.TextChoices):
         LOW = 'low', 'Низкий'
@@ -181,7 +186,12 @@ class NotificationSettings(models.Model):
         default=True,
         verbose_name='Уведомления о платежах'
     )
-    
+
+    invoice_notifications = models.BooleanField(
+        default=True,
+        verbose_name='Уведомления о счетах'
+    )
+
     system_notifications = models.BooleanField(
         default=True,
         verbose_name='Системные уведомления'

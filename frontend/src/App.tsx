@@ -24,6 +24,7 @@ import Unauthorized from "./pages/Unauthorized";
 import ParentDashboard from "./pages/dashboard/ParentDashboard";
 const ParentPaymentHistory = lazy(() => import("./pages/dashboard/parent/PaymentHistory"));
 const ParentPaymentSuccess = lazy(() => import("./pages/dashboard/parent/PaymentSuccess"));
+const ParentInvoices = lazy(() => import("./pages/dashboard/parent/InvoicesPage"));
 
 // Lazy load только тяжелые компоненты дашбордов
 const StudentDashboard = lazy(() => import("./pages/dashboard/StudentDashboard"));
@@ -42,6 +43,7 @@ const TeacherAssignments = lazy(() => import("./pages/dashboard/teacher/Assignme
 const TeacherStudyPlanGenerator = lazy(() => import("./pages/dashboard/TeacherStudyPlanGeneratorPage"));
 const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
 const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
+const TutorInvoices = lazy(() => import("./pages/dashboard/tutor/InvoicesPage"));
 const ParentChildren = lazy(() => import("./pages/dashboard/parent/Children"));
 const ParentChildDetail = lazy(() => import("./pages/dashboard/parent/ChildDetail"));
 const ParentStatistics = lazy(() => import("./pages/dashboard/parent/Statistics"));
@@ -350,6 +352,13 @@ const App = () => (
               </Suspense>
             </ProtectedRoute>
           } />
+          <Route path="/dashboard/tutor/invoices" element={
+            <ProtectedRoute requiredRole="tutor">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <TutorInvoices />
+              </Suspense>
+            </ProtectedRoute>
+          } />
 
           {/* Parent Routes */}
           <Route path="/dashboard/parent" element={
@@ -392,6 +401,13 @@ const App = () => (
             <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ParentPaymentSuccess />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/parent/invoices" element={
+            <ProtectedRoute requiredRole="parent">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentInvoices />
               </Suspense>
             </ProtectedRoute>
           } />

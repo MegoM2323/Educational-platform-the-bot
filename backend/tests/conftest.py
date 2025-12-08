@@ -150,6 +150,24 @@ def teacher_user(db):
 
 
 @pytest.fixture
+def another_parent(db):
+    """Create another parent user for testing permission validation"""
+    user = ParentUserFactory()
+    from accounts.models import ParentProfile
+    ParentProfile.objects.create(user=user)
+    return user
+
+
+@pytest.fixture
+def another_tutor(db):
+    """Create another tutor user for testing permission validation"""
+    user = TutorUserFactory()
+    from accounts.models import TutorProfile
+    TutorProfile.objects.create(user=user)
+    return user
+
+
+@pytest.fixture
 def tutor_user(db):
     """Create a tutor user with TutorProfile.
 

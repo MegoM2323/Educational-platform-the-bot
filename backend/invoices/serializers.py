@@ -202,7 +202,7 @@ class TutorStatisticsSerializer(serializers.Serializer):
     Сериализатор для статистики тьютора
     """
     period = serializers.CharField()
-    statistics = serializers.DictField(child=serializers.Field())
+    statistics = serializers.DictField()
 
 
 class PaymentHistoryItemSerializer(serializers.ModelSerializer):

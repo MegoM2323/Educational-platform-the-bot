@@ -226,9 +226,17 @@ class InvoiceReportService:
 
         Raises:
             InvoicePermissionDenied: Если пользователь не тьютор
+            ValidationError: Если start_date > end_date
         """
         if tutor.role != 'tutor':
             raise InvoicePermissionDenied('Только тьюторы могут просматривать отчеты по выручке')
+
+        # Валидация диапазона дат
+        if start_date > end_date:
+            from django.core.exceptions import ValidationError
+            raise ValidationError(
+                f'Начальная дата ({start_date}) не может быть позже конечной даты ({end_date})'
+            )
 
         # Проверяем кеш (срок жизни 30 минут)
         cache_key = f'revenue_report_{tutor.id}_{start_date}_{end_date}'

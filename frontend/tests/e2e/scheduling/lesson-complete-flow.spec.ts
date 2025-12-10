@@ -174,7 +174,7 @@ test.describe('Lesson System: Teacher Creates Lesson', () => {
     await page.waitForLoadState('networkidle');
 
     // Get initial count of lessons
-    const initialLessonRows = await page.locator('div').filter({ has: page.locator('text=/\\d{2}:\\d{2}|:\\d{2}\\d{2}/') }).count();
+    const initialLessonRows = await page.locator('div').filter({ has: page.locator('text=:') }).count();
 
     // Open form and create lesson
     await page.click('button:has-text("Add Lesson")');
@@ -272,7 +272,7 @@ test.describe('Lesson System: Student Views Schedule', () => {
     await page.waitForTimeout(500);
 
     // Should show "Нет прошедших занятий" or list of past lessons
-    const pastContent = await page.locator('text=/Нет прошедших|прошедшие/i').isVisible().catch(() => false);
+    const pastContent = await page.locator('text=Нет прошедших').isVisible().catch(() => false);
     expect(pastContent || true).toBeTruthy();
 
     // Go back to Upcoming
@@ -336,14 +336,14 @@ test.describe('Lesson System: Student Views Schedule', () => {
     await page.waitForLoadState('networkidle');
 
     // If there are lessons, verify they display correctly
-    const lessonCards = page.locator('article, div').filter({ has: page.locator('text=/:\\d{2}|time/') }).count();
+    const lessonCards = page.locator('article, div').filter({ has: page.locator('text=:') }).count();
 
     if (lessonCards > 0) {
       // Verify lesson cards have expected content
       const firstCard = page.locator('article').first();
       if (await firstCard.isVisible()) {
         // Cards should contain time information
-        const hasTimeInfo = await firstCard.locator('text=/\\d{1,2}:\\d{2}/).isVisible().catch(() => false);
+        const hasTimeInfo = await firstCard.getByText(/\d+:\d+/).isVisible().catch(() => false);
         expect(hasTimeInfo || true).toBeTruthy();
       }
     }
@@ -355,7 +355,7 @@ test.describe('Lesson System: Student Views Schedule', () => {
     await page.waitForLoadState('networkidle');
 
     // If no lessons, should see empty state
-    const emptyState = await page.locator('text=/Нет предстоящих|Обратитесь/i').isVisible().catch(() => false);
+    const emptyState = await page.locator('text=Нет предстоящих').isVisible().catch(() => false);
     const hasLessons = await page.locator('article').first().isVisible().catch(() => false);
 
     // Either empty state or lessons
@@ -436,7 +436,7 @@ test.describe('Lesson System: Cross-role Access Control', () => {
 
     // Should not be on teacher page or show error
     const isTeacherPage = page.url().includes('/dashboard/teacher/schedule');
-    const hasError = await page.locator('text=/not authorized|denied|forbidden/i').isVisible().catch(() => false);
+    const hasError = await page.locator('text=forbidden').isVisible().catch(() => false);
 
     // Either redirected away or error shown
     expect(!isTeacherPage || hasError).toBeTruthy();
@@ -451,7 +451,7 @@ test.describe('Lesson System: Cross-role Access Control', () => {
 
     // Should not be on student page or show error
     const isStudentPage = page.url().includes('/dashboard/student/schedule');
-    const hasError = await page.locator('text=/not authorized|denied|forbidden/i').isVisible().catch(() => false);
+    const hasError = await page.locator('text=forbidden').isVisible().catch(() => false);
 
     // Either redirected away or error shown
     expect(!isStudentPage || hasError).toBeTruthy();

@@ -33,15 +33,39 @@ class GraphLessonSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'added_at', 'unlocked_at']
 
 
+class DependencyBriefSerializer(serializers.ModelSerializer):
+    """
+    Краткий сериализатор зависимости для включения в KnowledgeGraphSerializer
+    """
+    class Meta:
+        model = 'LessonDependency'  # Ссылка через строку для избежания циклического импорта
+        fields = [
+            'id',
+            'from_lesson',
+            'to_lesson',
+            'dependency_type',
+            'min_score_percent',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
 class KnowledgeGraphSerializer(serializers.ModelSerializer):
     """
     Полный сериализатор для графа знаний
+
+    Возвращает граф с lessons и dependencies в формате ожидаемом frontend:
+    - lessons: массив GraphLesson объектов
+    - dependencies: массив LessonDependency объектов
     """
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
     student_email = serializers.CharField(source='student.email', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
-    lessons_in_graph = serializers.SerializerMethodField()
+    # FIX T008: переименовано lessons_in_graph -> lessons для соответствия frontend
+    lessons = serializers.SerializerMethodField()
+    # FIX T008: добавлено поле dependencies
+    dependencies = serializers.SerializerMethodField()
 
     class Meta:
         model = KnowledgeGraph
@@ -58,17 +82,41 @@ class KnowledgeGraphSerializer(serializers.ModelSerializer):
             'allow_skip',
             'created_at',
             'updated_at',
-            'lessons_in_graph',
+            'lessons',
+            'dependencies',
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
 
-    def get_lessons_in_graph(self, obj):
+    def get_lessons(self, obj):
         """Получить все уроки в графе с позициями"""
+        from .models import LessonDependency
+
         graph_lessons = GraphLesson.objects.filter(
             graph=obj
         ).select_related('lesson', 'lesson__created_by', 'lesson__subject').order_by('added_at')
 
         return GraphLessonSerializer(graph_lessons, many=True).data
+
+    def get_dependencies(self, obj):
+        """Получить все зависимости графа"""
+        from .models import LessonDependency
+
+        dependencies = LessonDependency.objects.filter(
+            graph=obj
+        ).select_related('from_lesson', 'to_lesson').order_by('created_at')
+
+        # Возвращаем в формате ожидаемом frontend
+        return [
+            {
+                'id': dep.id,
+                'from_lesson': dep.from_lesson_id,
+                'to_lesson': dep.to_lesson_id,
+                'dependency_type': dep.dependency_type,
+                'min_score_percent': dep.min_score_percent,
+                'created_at': dep.created_at.isoformat() if dep.created_at else None,
+            }
+            for dep in dependencies
+        ]
 
     def validate_student(self, value):
         """Валидация студента"""

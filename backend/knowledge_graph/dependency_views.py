@@ -224,10 +224,8 @@ class RemoveDependencyView(APIView):
             # Удалить
             dependency.delete()
 
-            return Response({
-                'success': True,
-                'message': 'Зависимость успешно удалена'
-            }, status=status.HTTP_204_NO_CONTENT)
+            # FIX T008: HTTP 204 No Content не должен содержать тело ответа
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
         except KnowledgeGraph.DoesNotExist:
             return Response(

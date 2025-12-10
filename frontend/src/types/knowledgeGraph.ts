@@ -164,8 +164,12 @@ export interface LessonDependency {
   id: number;
   from_lesson: number;
   to_lesson: number;
-  dependency_type: 'prerequisite' | 'recommended' | 'related';
-  strength: number; // 1-10
+  // FIX T008: Backend использует 'required' | 'recommended' | 'optional'
+  // Для обратной совместимости принимаем оба варианта
+  dependency_type: 'required' | 'recommended' | 'optional' | 'prerequisite' | 'related';
+  // FIX T008: Backend использует min_score_percent (0-100), не strength (1-10)
+  min_score_percent?: number;
+  strength?: number; // Deprecated, используйте min_score_percent
   created_at: string;
 }
 
@@ -226,9 +230,12 @@ export interface BatchUpdateLessonsRequest {
 }
 
 export interface AddDependencyRequest {
-  to_lesson_id: number;
-  dependency_type?: 'prerequisite' | 'recommended' | 'related';
-  strength?: number;
+  to_lesson_id: number; // ID GraphLesson который является prerequisite
+  // FIX T008: Backend использует 'required' | 'recommended' | 'optional'
+  dependency_type?: 'required' | 'recommended' | 'optional' | 'prerequisite' | 'related';
+  // FIX T008: Backend использует min_score_percent (0-100)
+  min_score_percent?: number;
+  strength?: number; // Deprecated, используйте min_score_percent
 }
 
 // ============================================

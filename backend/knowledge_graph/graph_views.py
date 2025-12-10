@@ -248,10 +248,8 @@ class RemoveLessonFromGraphView(APIView):
             with transaction.atomic():
                 graph_lesson.delete()
 
-            return Response({
-                'success': True,
-                'message': 'Урок успешно удален из графа'
-            }, status=status.HTTP_204_NO_CONTENT)
+            # FIX T008: HTTP 204 No Content не должен содержать тело ответа
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
         except KnowledgeGraph.DoesNotExist:
             return Response(
@@ -419,6 +417,87 @@ class GraphLessonsListOrAddView(APIView):
             logger.error(f"Error in GraphLessonsListView: {e}", exc_info=True)
             return Response(
                 {'success': False, 'error': f'Ошибка при получении уроков: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def post(self, request, graph_id):
+        """
+        FIX T008: Добавлен POST метод для добавления урока в граф
+        Ранее использовался только AddLessonToGraphView, но он не был подключен к URL
+        """
+        try:
+            # Получить граф
+            graph = KnowledgeGraph.objects.select_related('created_by', 'student', 'subject').get(id=graph_id)
+
+            # Проверка прав (только создатель графа)
+            if graph.created_by != request.user and not request.user.is_staff:
+                return Response(
+                    {'success': False, 'error': 'Только создатель графа может добавлять уроки'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Валидация данных
+            serializer = AddLessonToGraphSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {'success': False, 'error': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            lesson_id = serializer.validated_data['lesson_id']
+            position_x = serializer.validated_data['position_x']
+            position_y = serializer.validated_data['position_y']
+            node_color = serializer.validated_data['node_color']
+            node_size = serializer.validated_data['node_size']
+
+            # Получить урок
+            lesson = Lesson.objects.get(id=lesson_id)
+
+            # Проверка что урок того же предмета
+            if lesson.subject != graph.subject:
+                return Response(
+                    {'success': False, 'error': 'Урок должен быть по тому же предмету что и граф'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Проверка что урок еще не добавлен
+            if GraphLesson.objects.filter(graph=graph, lesson=lesson).exists():
+                return Response(
+                    {'success': False, 'error': 'Урок уже добавлен в граф'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Создать GraphLesson
+            graph_lesson = GraphLesson.objects.create(
+                graph=graph,
+                lesson=lesson,
+                position_x=position_x,
+                position_y=position_y,
+                node_color=node_color,
+                node_size=node_size,
+                is_unlocked=False  # По умолчанию заблокирован
+            )
+
+            result_serializer = GraphLessonSerializer(graph_lesson)
+            return Response({
+                'success': True,
+                'data': result_serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        except KnowledgeGraph.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'Граф не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Lesson.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'Урок не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error in GraphLessonsListOrAddView.post: {e}", exc_info=True)
+            return Response(
+                {'success': False, 'error': f'Ошибка при добавлении урока: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

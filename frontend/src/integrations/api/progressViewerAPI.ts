@@ -96,7 +96,15 @@ export const progressViewerAPI = {
       throw new Error(response.error);
     }
     const data = response.data;
-    return Array.isArray(data) ? data : (data as { results: StudentBasic[] }).results;
+    // Защита от undefined/null - всегда возвращаем массив
+    if (!data) {
+      return [];
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    // Обработка пагинированного формата {results: [...]}
+    return Array.isArray(data.results) ? data.results : [];
   },
 
   /**

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'http://localhost:8080';
-const BACKEND_URL = 'http://localhost:8000';
+const BASE_URL = 'http://localhost:8081';
+const BACKEND_URL = 'http://localhost:8003';
 
 test.describe('Student Login & Navigation - Race Condition Fix', () => {
 

@@ -23,7 +23,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Admin navigates to chats page and sees chat list', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check if we're redirected to login (expected if auth not working)
@@ -47,7 +47,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Chat list displays chats with correct information', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Wait for chat items to load (check for avatar or chat name)
@@ -80,7 +80,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Clicking a chat room displays messages in the right panel', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Wait for chat list to load
@@ -108,7 +108,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Message history displays messages with sender information', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Click first chat with messages
@@ -162,7 +162,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('No message input field visible - read-only confirmed', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Click first chat
@@ -191,7 +191,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Empty state: no chats message displays when list is empty', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check if we're on login page first
@@ -212,7 +212,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Empty state: no messages message displays when chat has no messages', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Click first chat
@@ -241,7 +241,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Default state: message panel shows placeholder when no chat selected', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Initially, no chat should be selected, so we should see the placeholder
@@ -256,7 +256,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Search functionality filters chats by name', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Get initial chat count
@@ -296,7 +296,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Chat selection persists visual state', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Get chat items
@@ -334,7 +334,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
     await page.setViewportSize({ width: 768, height: 1024 });
 
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check if we're on login page first
@@ -370,7 +370,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check if we're on login page first
@@ -391,7 +391,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Chat type is displayed correctly', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check that chat type is visible in list items
@@ -409,7 +409,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Subject information displays when available', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check if any chat has subject info
@@ -448,7 +448,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Chat statistics display correctly', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check chat count in header
@@ -470,7 +470,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Status badge shows active/inactive state', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Click first chat
@@ -493,7 +493,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
 
   test('Last message time displays correctly in chat list', async ({ page }) => {
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check that last message time is visible
@@ -518,7 +518,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
     });
 
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
     await page.waitForLoadState('networkidle');
 
     // Check if error message is displayed
@@ -538,7 +538,7 @@ test.describe('Admin Chats Page - UI Structure Tests', () => {
     });
 
     // Navigate to admin chats page
-    await page.goto('http://localhost:8080/admin/chats');
+    await page.goto('http://localhost:8081/admin/chats');
 
     // Check for skeleton loaders (loading state)
     const skeletons = page.locator('[class*="Skeleton"]');

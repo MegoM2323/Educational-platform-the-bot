@@ -320,7 +320,7 @@ test.describe('Admin Panel Integration - Data Validation', () => {
   });
 
   test('User fields are properly validated', async ({ page }) => {
-    await page.goto('http://localhost:8000/admin/accounts/user/add/');
+    await page.goto('http://localhost:8003/admin/accounts/user/add/');
 
     // Пытаемся сохранить пустую форму
     await page.click('input[type="submit"][name="_save"]');
@@ -331,7 +331,7 @@ test.describe('Admin Panel Integration - Data Validation', () => {
   });
 
   test('Subject name is required', async ({ page }) => {
-    await page.goto('http://localhost:8000/admin/materials/subject/add/');
+    await page.goto('http://localhost:8003/admin/materials/subject/add/');
 
     // Пытаемся сохранить без имени
     await page.click('input[type="submit"][name="_save"]');
@@ -370,7 +370,7 @@ test.describe('Admin Panel Integration - Bulk Operations', () => {
       });
 
       // Переходим к списку и ищем по общему паттерну
-      await page.goto('http://localhost:8000/admin/accounts/user/');
+      await page.goto('http://localhost:8003/admin/accounts/user/');
       await page.fill('input#searchbar', 'bulk');
       await page.press('input#searchbar', 'Enter');
       await page.waitForTimeout(1000);

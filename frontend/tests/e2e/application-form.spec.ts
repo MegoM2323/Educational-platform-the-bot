@@ -60,7 +60,7 @@ test.describe('Application Form E2E Tests', () => {
     // Fill some data
     await page.fill('input[id="firstName"]', 'Тест');
     await page.fill('input[id="lastName"]', 'Тестов');
-    await page.fill('input[id="email"]', 'test@example.com');
+    await page.fill('input[id="email"]', 'test@test.com');
     await page.fill('input[id="phone"]', '+79999999999');
 
     await page.waitForTimeout(500);

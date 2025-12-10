@@ -16,7 +16,7 @@ test('Check login console errors', async ({ page }) => {
   });
 
   console.log('=== Navigating to login page ===');
-  await page.goto('http://localhost:8080/auth');
+  await page.goto('http://localhost:8081/auth');
   await page.waitForLoadState('networkidle');
 
   console.log('\n=== Filling credentials ===');

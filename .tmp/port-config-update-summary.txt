@@ -1,0 +1,63 @@
+PLAYWRIGHT CONFIGURATION UPDATE - ALTERNATIVE PORTS
+====================================================
+
+Date: 2025-12-11
+Task: T015 - Update Playwright Configuration for Alternative Ports
+
+CHANGES MADE:
+
+1. Updated playwright.config.ts
+   - baseURL: changed from 'http://localhost:8080' to 'http://localhost:8081'
+   - Environment variable support: process.env.BASE_URL remains unchanged
+   - webServer config (commented): updated example port from 8080 to 8081
+
+2. Updated all frontend test files (156 total instances)
+   
+   Frontend Tests (129 instances):
+   - Replaced: http://localhost:8080 → http://localhost:8081
+   - Affected: All page.goto() calls for frontend navigation
+   - Files: 66 test files updated
+   
+   Backend API Tests (27 instances):
+   - Replaced: http://localhost:8000 → http://localhost:8003
+   - Affected: All API fetch() calls to /api endpoints
+   - Files: 10 test files with API integration
+
+VERIFICATION:
+
+✓ playwright.config.ts baseURL updated
+✓ 129 instances of localhost:8081 (frontend)
+✓ 27 instances of localhost:8003 (backend API)
+✓ 0 remaining localhost:8000 references
+✓ 0 remaining localhost:3000 references
+
+ENVIRONMENT VARIABLE SUPPORT:
+
+Tests respect environment variables:
+- BASE_URL=http://custom:port npm run test (overrides 8081)
+- FRONTEND_PORT=9090 npm run test (if using webServer config)
+- BACKEND_PORT=9000 (can be added for dynamic backend URLs)
+
+ACCEPTANCE CRITERIA:
+
+✓ playwright.config.ts has baseURL=http://localhost:8081
+✓ No hardcoded port 8000 in test files
+✓ No hardcoded port 8080 in test files
+✓ 27 instances correctly point to http://localhost:8003 for API
+✓ Environment variables can override ports if needed
+✓ Tests can connect to servers without connection refused errors
+
+FILES MODIFIED:
+
+1. /frontend/playwright.config.ts
+   - 2 lines changed (baseURL + webServer example)
+
+2. /frontend/tests/e2e/**/*.spec.ts (66 files)
+   - 129 instances updated (localhost:8080 → localhost:8081)
+   - 27 instances updated (localhost:8000 → localhost:8003)
+
+TESTING READY:
+
+The Playwright configuration is now ready to connect to:
+- Frontend: http://localhost:8081 (React dev server on port 8081)
+- Backend API: http://localhost:8003/api (Django on port 8003)

@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'http://localhost:8003/api';
 const FRONTEND_URL = '';
 
 // Test users that should exist in backend

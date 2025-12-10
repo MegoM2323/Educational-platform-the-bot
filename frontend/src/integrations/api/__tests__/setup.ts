@@ -4,8 +4,8 @@ import { vi } from 'vitest';
 // Mock environment variables
 vi.mock('import.meta', () => ({
   env: {
-    VITE_DJANGO_API_URL: 'http://localhost:8000/api',
-    VITE_WS_URL: 'ws://localhost:8000/ws',
+    VITE_DJANGO_API_URL: 'http://localhost:8003/api',
+    VITE_WS_URL: 'ws://localhost:8003/ws',
   },
 }));
 

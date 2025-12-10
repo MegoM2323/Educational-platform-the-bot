@@ -4,7 +4,7 @@ test.describe('Dashboard Screenshots', () => {
   test('Student Dashboard screenshot', async ({ page }) => {
     await page.goto('/auth');
     await page.fill('input[type="email"]', 'student@test.com');
-    await page.fill('input[type="password"]', 'test123');
+    await page.fill('input[type="password"]', 'TestPass123!');
     await page.click('button:has-text("Войти")');
     await page.waitForURL('**/dashboard/student', { timeout: 10000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 });
@@ -21,7 +21,7 @@ test.describe('Dashboard Screenshots', () => {
   test('Teacher Dashboard screenshot', async ({ page }) => {
     await page.goto('/auth');
     await page.fill('input[type="email"]', 'teacher@test.com');
-    await page.fill('input[type="password"]', 'test123');
+    await page.fill('input[type="password"]', 'TestPass123!');
     await page.click('button:has-text("Войти")');
     await page.waitForURL('**/dashboard/teacher', { timeout: 10000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 });
@@ -38,7 +38,7 @@ test.describe('Dashboard Screenshots', () => {
   test('Parent Dashboard screenshot', async ({ page }) => {
     await page.goto('/auth');
     await page.fill('input[type="email"]', 'parent@test.com');
-    await page.fill('input[type="password"]', 'test123');
+    await page.fill('input[type="password"]', 'TestPass123!');
     await page.click('button:has-text("Войти")');
     await page.waitForURL('**/dashboard/parent', { timeout: 10000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 });
@@ -55,7 +55,7 @@ test.describe('Dashboard Screenshots', () => {
   test('Tutor Dashboard screenshot', async ({ page }) => {
     await page.goto('/auth');
     await page.fill('input[type="email"]', 'tutor@test.com');
-    await page.fill('input[type="password"]', 'test123');
+    await page.fill('input[type="password"]', 'TestPass123!');
     await page.click('button:has-text("Войти")');
     await page.waitForURL('**/dashboard/tutor', { timeout: 10000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 });

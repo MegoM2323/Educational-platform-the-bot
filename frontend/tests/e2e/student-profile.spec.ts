@@ -17,7 +17,7 @@ import { test, expect } from '@playwright/test';
  * - Verify unsaved changes warning if navigate without saving
  */
 
-const API_URL = process.env.API_URL || 'http://localhost:8000/api';
+const API_URL = process.env.API_URL || 'http://localhost:8003/api';
 
 const testStudent = {
   email: 'student@test.com',

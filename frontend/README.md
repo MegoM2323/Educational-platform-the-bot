@@ -65,7 +65,7 @@ frontend/
 Переменные окружения должны быть настроены в корневом `.env` файле:
 
 ```env
-VITE_DJANGO_API_URL=http://localhost:8000/api
+VITE_DJANGO_API_URL=http://localhost:8003/api
 ```
 
 ## Линтинг

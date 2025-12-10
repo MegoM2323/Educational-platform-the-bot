@@ -5,10 +5,10 @@ import { Page } from '@playwright/test';
  */
 
 export const ADMIN_CONFIG = {
-  url: 'http://localhost:8000/admin/',
+  url: 'http://localhost:8003/admin/',
   credentials: {
-    username: 'admin@example.com',
-    password: 'admin123',
+    username: 'admin@test.com',
+    password: 'TestPass123!',
   },
 };
 

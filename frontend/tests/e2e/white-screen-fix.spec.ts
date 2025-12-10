@@ -30,7 +30,7 @@ test.describe('White Screen Fix & Basic Page Load', () => {
   test('Scenario 1: Open homepage - Page loads WITHOUT white screen', async ({ page }) => {
     const startTime = Date.now()
 
-    await page.goto('http://localhost:8080')
+    await page.goto('http://localhost:8081')
 
     const loadTime = Date.now() - startTime
     console.log(`Page load time: ${loadTime}ms`)
@@ -64,7 +64,7 @@ test.describe('White Screen Fix & Basic Page Load', () => {
       }
     })
 
-    await page.goto('http://localhost:8080')
+    await page.goto('http://localhost:8081')
     await page.waitForLoadState('networkidle')
 
     // Wait a bit for any delayed console errors
@@ -84,7 +84,7 @@ test.describe('White Screen Fix & Basic Page Load', () => {
   })
 
   test('Scenario 3: Wait 10 seconds - Page remains stable, no white screen', async ({ page }) => {
-    await page.goto('http://localhost:8080')
+    await page.goto('http://localhost:8081')
     await page.waitForLoadState('networkidle')
 
     // Get initial body content
@@ -110,7 +110,7 @@ test.describe('White Screen Fix & Basic Page Load', () => {
   })
 
   test('Scenario 4: Navigate to /auth - Login form visible', async ({ page }) => {
-    await page.goto('http://localhost:8080/auth')
+    await page.goto('http://localhost:8081/auth')
     await page.waitForLoadState('networkidle')
 
     // Wait for page to render
@@ -164,7 +164,7 @@ test.describe('White Screen Fix & Basic Page Load', () => {
       }
     })
 
-    await page.goto('http://localhost:8080/auth')
+    await page.goto('http://localhost:8081/auth')
     await page.waitForLoadState('networkidle')
 
     const totalTime = Date.now() - startTime
@@ -198,7 +198,7 @@ test.describe('White Screen Fix & Basic Page Load', () => {
 
     // 1. Load homepage
     const startTime = Date.now()
-    await page.goto('http://localhost:8080')
+    await page.goto('http://localhost:8081')
     await page.waitForLoadState('networkidle')
 
     const bodyText = await page.textContent('body')
@@ -214,7 +214,7 @@ test.describe('White Screen Fix & Basic Page Load', () => {
     console.log('✅ No auth errors')
 
     // 3. Navigate to auth page
-    await page.goto('http://localhost:8080/auth')
+    await page.goto('http://localhost:8081/auth')
     await page.waitForLoadState('networkidle')
 
     const authPageText = await page.textContent('body')

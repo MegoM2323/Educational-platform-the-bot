@@ -8,7 +8,7 @@ test('Manual verification - Check if page shows actual UI elements', async ({ pa
   console.log('\n=== MANUAL VERIFICATION TEST ===\n')
 
   // Navigate to homepage
-  await page.goto('http://localhost:8080')
+  await page.goto('http://localhost:8081')
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(3000) // Give React time to render
 
@@ -43,7 +43,7 @@ test('Manual verification - Check if page shows actual UI elements', async ({ pa
 
   // Navigate to /auth
   console.log('\n=== CHECKING /auth PAGE ===\n')
-  await page.goto('http://localhost:8080/auth')
+  await page.goto('http://localhost:8081/auth')
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(3000)
 

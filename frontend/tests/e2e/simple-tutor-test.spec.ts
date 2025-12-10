@@ -68,7 +68,7 @@ test.describe('T604: Simple Tutor Profile Test', () => {
       window.localStorage.setItem('user_id', '1');
     `);
 
-    await page.goto('http://localhost:8080/profile/tutor', { waitUntil: 'networkidle' });
+    await page.goto('http://localhost:8081/profile/tutor', { waitUntil: 'networkidle' });
 
     const pageUrl = page.url();
     console.log(`  URL: ${pageUrl}`);

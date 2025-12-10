@@ -7,10 +7,10 @@ import path from 'path';
  */
 
 // Константы для тестов
-const ADMIN_URL = 'http://localhost:8000/admin/';
+const ADMIN_URL = 'http://localhost:8003/admin/';
 const ADMIN_CREDENTIALS = {
-  username: 'admin@example.com',
-  password: 'admin123',
+  username: 'admin@test.com',
+  password: 'TestPass123!',
 };
 
 // Helper функция для логина в админ панель

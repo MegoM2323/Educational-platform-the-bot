@@ -384,7 +384,7 @@ export function getWebSocketBaseUrl(): string {
 
   // Fallback 3: SSR or build-time only
   logger.debug('[WebSocket Config] Using fallback base URL (SSR/build-time)');
-  return 'ws://localhost:8000/ws';
+  return 'ws://localhost:8003/ws';
 }
 
 // Initialize with a placeholder URL - actual URL will be provided when connecting

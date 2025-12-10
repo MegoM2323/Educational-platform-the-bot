@@ -11,7 +11,7 @@ const TEST_STUDENT = {
   password: 'testpass123',
 };
 
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = 'http://localhost:8081';
 const DASHBOARD_URL = `${BASE_URL}/dashboard/student`;
 const AUTH_URL = `${BASE_URL}/auth`;
 

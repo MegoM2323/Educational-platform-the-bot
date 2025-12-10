@@ -15,22 +15,22 @@ import { test, expect, Page } from '@playwright/test';
 const CREDENTIALS = {
   student: {
     email: 'student@test.com',
-    password: 'password123',
+    password: 'TestPass123!',
     role: 'student',
   },
   teacher: {
     email: 'teacher@test.com',
-    password: 'password123',
+    password: 'TestPass123!',
     role: 'teacher',
   },
   tutor: {
     email: 'tutor@test.com',
-    password: 'password123',
+    password: 'TestPass123!',
     role: 'tutor',
   },
   parent: {
     email: 'parent@test.com',
-    password: 'password123',
+    password: 'TestPass123!',
     role: 'parent',
   },
 };
@@ -39,7 +39,7 @@ const CREDENTIALS = {
 async function loginAs(page: Page, role: keyof typeof CREDENTIALS) {
   const user = CREDENTIALS[role];
 
-  await page.goto('http://localhost:8080/auth');
+  await page.goto('http://localhost:8081/auth');
   await page.fill('input[type="email"]', user.email);
   await page.fill('input[type="password"]', user.password);
   await page.click('button[type="submit"]');
@@ -50,7 +50,7 @@ async function loginAs(page: Page, role: keyof typeof CREDENTIALS) {
 
 // Helper: Navigate to forum page
 async function goToForum(page: Page, role: string) {
-  await page.goto(`http://localhost:8080/dashboard/${role}/forum`);
+  await page.goto(`http://localhost:8081/dashboard/${role}/forum`);
   await page.waitForLoadState('networkidle');
 }
 

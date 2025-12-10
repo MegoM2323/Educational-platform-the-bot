@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Django Admin Panel', () => {
   test('should load admin page with CSS', async ({ page }) => {
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
 
     // Check that page loaded
     await expect(page.locator('text=/Django administration|Site administration/i')).toBeVisible({ timeout: 5000 });
@@ -20,7 +20,7 @@ test.describe('Django Admin Panel', () => {
   });
 
   test('should display login form', async ({ page }) => {
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
 
     // Check login form elements exist
     await expect(page.locator('input[name="username"]')).toBeVisible();
@@ -29,7 +29,7 @@ test.describe('Django Admin Panel', () => {
   });
 
   test('should attempt login to admin panel', async ({ page }) => {
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
 
     await page.fill('input[name="username"]', 'admin@test.com');
     await page.fill('input[name="password"]', 'TestPass123!');
@@ -44,7 +44,7 @@ test.describe('Django Admin Panel', () => {
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
 
     await page.fill('input[name="username"]', 'wronguser');
     await page.fill('input[name="password"]', 'wrongpass');
@@ -62,7 +62,7 @@ test.describe('Django Admin Panel', () => {
   });
 
   test('should load admin page after authentication attempt', async ({ page }) => {
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
     await page.fill('input[name="username"]', 'admin@test.com');
     await page.fill('input[name="password"]', 'TestPass123!');
     await page.click('input[type="submit"]');
@@ -77,7 +77,7 @@ test.describe('Django Admin Panel', () => {
 
   test('should have proper navigation', async ({ page }) => {
     // Login
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
     await page.fill('input[name="username"]', 'admin@test.com');
     await page.fill('input[name="password"]', 'TestPass123!');
     await page.click('input[type="submit"]');
@@ -97,7 +97,7 @@ test.describe('Django Admin Panel', () => {
   });
 
   test('should be styled with Django admin theme', async ({ page }) => {
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
 
     // Check that page has some styling (not completely unstyled)
     const body = page.locator('body');
@@ -118,7 +118,7 @@ test.describe('Django Admin Panel', () => {
       }
     });
 
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
     await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Should not have critical static file failures
@@ -132,7 +132,7 @@ test.describe('Django Admin Panel', () => {
 
   test('should logout from admin panel', async ({ page }) => {
     // Login
-    await page.goto('http://localhost:8000/admin/');
+    await page.goto('http://localhost:8003/admin/');
     await page.fill('input[name="username"]', 'admin@test.com');
     await page.fill('input[name="password"]', 'TestPass123!');
     await page.click('input[type="submit"]');

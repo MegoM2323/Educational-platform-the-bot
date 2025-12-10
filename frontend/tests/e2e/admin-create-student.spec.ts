@@ -18,12 +18,12 @@ import { test, expect } from '@playwright/test';
  * - Verify profile data matches what was entered
  */
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'http://localhost:8003/api';
 const FRONTEND_URL = '';
 
 const testAdmin = {
   email: 'admin@test.com',
-  password: 'admin123', // Default admin password
+  password: 'TestPass123!', // Default admin password
 };
 
 // Generate unique email for each test run

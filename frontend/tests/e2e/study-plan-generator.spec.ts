@@ -43,22 +43,22 @@ async function mockSuccessfulGeneration(page: Page) {
   const mockFiles = [
     {
       type: 'problem_set',
-      url: 'blob:http://localhost:8080/mock-problem-set.pdf',
+      url: 'blob:http://localhost:8081/mock-problem-set.pdf',
       filename: 'problem_set.pdf'
     },
     {
       type: 'reference_guide',
-      url: 'blob:http://localhost:8080/mock-reference-guide.pdf',
+      url: 'blob:http://localhost:8081/mock-reference-guide.pdf',
       filename: 'reference_guide.pdf'
     },
     {
       type: 'video_list',
-      url: 'blob:http://localhost:8080/mock-video-list.md',
+      url: 'blob:http://localhost:8081/mock-video-list.md',
       filename: 'video_list.md'
     },
     {
       type: 'weekly_plan',
-      url: 'blob:http://localhost:8080/mock-weekly-plan.txt',
+      url: 'blob:http://localhost:8081/mock-weekly-plan.txt',
       filename: 'weekly_plan.txt'
     }
   ];

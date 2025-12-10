@@ -20,7 +20,7 @@ import type { ParentDashboard } from './dashboard';
  * 3. Fallback to localhost (SSR/build-time only)
  *
  * Environment Setup:
- * - Development: Set VITE_DJANGO_API_URL=http://localhost:8000/api in .env.local
+ * - Development: Set VITE_DJANGO_API_URL=http://localhost:8003/api in .env.local
  * - Production: Auto-detects from window.location (https://the-bot.ru → https://the-bot.ru/api)
  * - Override WebSocket: Set VITE_WEBSOCKET_URL in .env (optional, auto-detected if not set)
  */
@@ -48,7 +48,7 @@ function getApiUrl(): string {
 
   // Fallback 3: SSR or build-time only (should not be used in browser)
   logger.info('[Config] Using fallback API URL (SSR/build-time)');
-  return 'http://localhost:8000/api';
+  return 'http://localhost:8003/api';
 }
 
 function getWebSocketUrl(): string {
@@ -70,7 +70,7 @@ function getWebSocketUrl(): string {
 
   // Fallback 3: SSR or build-time only (should not be used in browser)
   logger.info('[Config] Using fallback WebSocket URL (SSR/build-time)');
-  return 'ws://localhost:8000/ws';
+  return 'ws://localhost:8003/ws';
 }
 
 const API_BASE_URL = getApiUrl();

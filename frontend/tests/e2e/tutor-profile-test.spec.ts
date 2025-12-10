@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 
 const FRONTEND_URL = '';
-const BACKEND_URL = 'http://localhost:8000/api';
+const BACKEND_URL = 'http://localhost:8003/api';
 
 test.describe('Tutor Profile - Full Integration Test', () => {
   let page: Page;

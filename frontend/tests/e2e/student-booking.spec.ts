@@ -17,7 +17,7 @@ import { test, expect } from '@playwright/test';
  * - Verify countdown timer displays
  */
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'http://localhost:8003/api';
 const FRONTEND_URL = '';
 
 const testStudent = {

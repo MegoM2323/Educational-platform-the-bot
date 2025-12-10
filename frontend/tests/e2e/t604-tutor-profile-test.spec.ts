@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const API_BASE = 'http://127.0.0.1:8000/api';
-const FRONTEND_URL = 'http://localhost:8080';
+const FRONTEND_URL = 'http://localhost:8081';
 
 test.describe('T604: Tutor Profile - User Testing', () => {
   let token: string;

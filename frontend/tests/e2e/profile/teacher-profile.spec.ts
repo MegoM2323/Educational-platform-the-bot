@@ -20,8 +20,8 @@ async function loginAsTeacher(page: Page) {
   const emailInput = page.locator('input[type="email"], input[name="email"]').first();
   const passwordInput = page.locator('input[type="password"], input[name="password"]').first();
 
-  await emailInput.fill('test.teacher@example.com');
-  await passwordInput.fill('password');
+  await emailInput.fill('teacher@test.com');
+  await passwordInput.fill('TestPass123!');
 
   // Click login button
   const loginButton = page.locator('button[type="submit"], button:has-text("Войти")').first();

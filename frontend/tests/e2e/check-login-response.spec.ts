@@ -18,7 +18,7 @@ test('Check login response and token storage', async ({ page }) => {
   });
 
   console.log('=== Navigating to login page ===');
-  await page.goto('http://localhost:8080/auth');
+  await page.goto('http://localhost:8081/auth');
   await page.waitForLoadState('networkidle');
 
   console.log('=== Filling credentials ===');

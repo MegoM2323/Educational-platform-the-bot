@@ -80,35 +80,49 @@ def login_view(request):
 
         if not authenticated_user:
             # Фолбэк на Supabase: в проектах, где пароли не хранятся локально
+            # ВАЖНО: Только если Supabase ДЕЙСТВИТЕЛЬНО настроен (не в development режиме)
             try:
                 supabase = SupabaseAuthService()
-                sb_result = getattr(supabase, 'sign_in', None)
-                if callable(sb_result):
-                    sb_login = supabase.sign_in(email=email, password=password)
-                else:
-                    sb_login = {"success": False, "error": "Supabase не настроен"}
 
-                if sb_login.get('success'):
-                    # Если локального пользователя нет — сообщаем, чтобы создать/синхронизировать
-                    if not user:
+                # Проверяем что Supabase реально настроен (не mock mode)
+                if not supabase.is_mock:
+                    sb_result = getattr(supabase, 'sign_in', None)
+                    if callable(sb_result):
+                        sb_login = supabase.sign_in(email=email, password=password)
+                    else:
+                        sb_login = {"success": False, "error": "Supabase не настроен"}
+
+                    if sb_login.get('success'):
+                        # Если локального пользователя нет — сообщаем, чтобы создать/синхронизировать
+                        if not user:
+                            return Response({
+                                'success': False,
+                                'error': 'Пользователь найден в Supabase, но отсутствует локально. Обратитесь к администратору.'
+                            }, status=status.HTTP_403_FORBIDDEN)
+
+                        # Признаём пользователя аутентифицированным без проверки локального пароля
+                        authenticated_user = user if user.is_active else None
+                    else:
+                        # Нет успеха ни в Django, ни в Supabase
                         return Response({
                             'success': False,
-                            'error': 'Пользователь найден в Supabase, но отсутствует локально. Обратитесь к администратору.'
-                        }, status=status.HTTP_403_FORBIDDEN)
-
-                    # Признаём пользователя аутентифицированным без проверки локального пароля
-                    authenticated_user = user if user.is_active else None
+                            'error': sb_login.get('error') or 'Неверные учетные данные'
+                        }, status=status.HTTP_401_UNAUTHORIZED)
                 else:
-                    # Нет успеха ни в Django, ни в Supabase
+                    # Supabase в mock режиме (development), не фоллбэчим на него
+                    # Возвращаем ошибку аутентификации Django
+                    print(f"Login failed for {identifier}: Invalid credentials (Supabase disabled in development)")
                     return Response({
                         'success': False,
-                        'error': sb_login.get('error') or 'Неверные учетные данные'
+                        'error': 'Неверные учетные данные'
                     }, status=status.HTTP_401_UNAUTHORIZED)
             except Exception as e:
+                # Если ошибка при работе с Supabase - считаем что он недоступен
+                print(f"Supabase error (ignoring in development): {str(e)}")
                 return Response({
                     'success': False,
-                    'error': f'Ошибка аутентификации через Supabase: {str(e)}'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    'error': 'Неверные учетные данные'
+                }, status=status.HTTP_401_UNAUTHORIZED)
 
         # Если дошли до сюда — пользователь аутентифицирован (либо Django, либо Supabase)
         if authenticated_user and authenticated_user.is_active:

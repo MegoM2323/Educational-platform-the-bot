@@ -602,4 +602,22 @@ export const adminAPI = {
   }>> {
     return apiClient.request('/chat/admin/stats/');
   },
+
+  /**
+   * Get user statistics for admin dashboard
+   */
+  async getUserStats(): Promise<ApiResponse<{
+    success: boolean;
+    data: {
+      total_users: number;
+      total_students: number;
+      total_teachers: number;
+      total_tutors: number;
+      total_parents: number;
+      active_users: number;
+      active_today: number;
+    };
+  }>> {
+    return apiClient.request('/admin/stats/users/');
+  },
 };

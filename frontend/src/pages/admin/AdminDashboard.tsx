@@ -10,6 +10,7 @@ import { Users, GraduationCap, BookOpen, Activity, LogOut } from 'lucide-react';
 import StaffManagement from './StaffManagement';
 import StudentManagement from './StudentManagement';
 import ParentManagement from './ParentManagement';
+import { adminAPI } from '@/integrations/api/adminAPI';
 
 interface StatCard {
   title: string;
@@ -37,16 +38,34 @@ export default function AdminDashboard() {
   }, []);
 
   const loadStats = async () => {
-    // TODO: Загружать статистику с backend когда будет endpoint
-    // На данный момент это заглушка
-    setStats({
-      total_users: 0,
-      total_students: 0,
-      total_teachers: 0,
-      total_tutors: 0,
-      total_parents: 0,
-      active_today: 0,
-    });
+    try {
+      const response = await adminAPI.getUserStats();
+
+      if (response.data) {
+        logger.info('[AdminDashboard] Stats loaded:', response.data);
+        setStats({
+          total_users: response.data.total_users,
+          total_students: response.data.total_students,
+          total_teachers: response.data.total_teachers,
+          total_tutors: response.data.total_tutors,
+          total_parents: response.data.total_parents,
+          active_today: response.data.active_today,
+        });
+      } else {
+        logger.warn('[AdminDashboard] No data in stats response');
+      }
+    } catch (error) {
+      logger.error('[AdminDashboard] Failed to load stats:', error);
+      // Оставляем нули если произошла ошибка
+      setStats({
+        total_users: 0,
+        total_students: 0,
+        total_teachers: 0,
+        total_tutors: 0,
+        total_parents: 0,
+        active_today: 0,
+      });
+    }
   };
 
   const handleLogout = async () => {

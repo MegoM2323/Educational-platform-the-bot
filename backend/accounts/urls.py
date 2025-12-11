@@ -13,6 +13,7 @@ from .profile_views import (
     StudentProfileView, TeacherProfileView, TutorProfileView, ParentProfileView,
     AdminTeacherProfileEditView, AdminTutorProfileEditView
 )
+from .admin_stats_views import AdminUserStatsView
 
 # Router for ViewSets
 router = DefaultRouter()
@@ -76,4 +77,7 @@ urlpatterns = [
 
     # Tutor-specific endpoints
     path('tutor/teachers/', list_teachers, name='tutor_list_teachers'),
+
+    # Admin statistics
+    path('stats/users/', AdminUserStatsView.as_view(), name='admin_user_stats'),
 ]

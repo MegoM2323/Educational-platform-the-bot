@@ -55,19 +55,35 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     const updateDimensions = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
+        // Используем явно заданные размеры или размеры контейнера
+        // Гарантируем минимальные размеры только если контейнер рендерится
+        const containerWidth = rect.width > 0 ? rect.width : 800;
+        const containerHeight = rect.height > 0 ? rect.height : 600;
+
         setDimensions({
-          width: width ?? rect.width - 2 * CONSTANTS.MARGIN,
-          height: height ?? rect.height - 2 * CONSTANTS.MARGIN,
+          width: width ?? containerWidth,
+          height: height ?? containerHeight,
+        });
+      } else {
+        // Если контейнер еще не готов, используем дефолтные размеры
+        setDimensions({
+          width: width ?? 800,
+          height: height ?? 600,
         });
       }
     };
 
+    // Немедленное обновление размеров
     updateDimensions();
+
+    // Повторное обновление через задержку чтобы гарантировать что контейнер отрендерился
+    const timeoutId = setTimeout(updateDimensions, 100);
 
     const debouncedResize = debounce(updateDimensions, 250);
     window.addEventListener('resize', debouncedResize);
 
     return () => {
+      clearTimeout(timeoutId);
       window.removeEventListener('resize', debouncedResize);
     };
   }, [width, height]);
@@ -77,7 +93,19 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     if (!svgRef.current || data.nodes.length === 0) return;
 
     const svg = d3.select(svgRef.current);
-    const { width: w, height: h } = dimensions;
+    let { width: w, height: h } = dimensions;
+
+    // Защита от нулевых размеров - используем дефолтные значения
+    if (w === 0) {
+      console.warn('[GraphVisualization] Width is zero, using default 800');
+      w = 800;
+    }
+    if (h === 0) {
+      console.warn('[GraphVisualization] Height is zero, using default 600');
+      h = 600;
+    }
+
+    console.log('[GraphVisualization] Rendering with dimensions:', { w, h });
 
     // Очистка предыдущего содержимого
     svg.selectAll('*').remove();
@@ -430,14 +458,18 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     <Card className={`relative ${className}`}>
       <div
         ref={containerRef}
-        className="relative w-full h-full min-h-[600px]"
-        style={{ width: width ?? '100%', height: height ?? '100%' }}
+        className="relative w-full min-h-[600px]"
+        style={{
+          width: width ?? '100%',
+          height: height ?? 600,
+        }}
       >
         <svg
           ref={svgRef}
-          width={dimensions.width + 2 * CONSTANTS.MARGIN}
-          height={dimensions.height + 2 * CONSTANTS.MARGIN}
+          width={dimensions.width}
+          height={dimensions.height}
           className="w-full h-full"
+          style={{ display: 'block' }}
           role="img"
           aria-label="Knowledge graph visualization"
         />

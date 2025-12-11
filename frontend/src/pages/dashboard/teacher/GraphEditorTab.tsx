@@ -101,21 +101,48 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
 
   // Преобразование данных графа для компонента GraphVisualization
   const transformToGraphData = useCallback((graphData: KnowledgeGraph | null): GraphData => {
-    if (!graphData) return { nodes: [], links: [] };
+    console.log('[GraphEditorTab] transformToGraphData called with:', graphData);
+
+    if (!graphData) {
+      console.log('[GraphEditorTab] No graph data, returning empty');
+      return { nodes: [], links: [] };
+    }
 
     // Защита от undefined/null массивов
     const lessons = Array.isArray(graphData.lessons) ? graphData.lessons : [];
     const dependencies = Array.isArray(graphData.dependencies) ? graphData.dependencies : [];
 
+    console.log('[GraphEditorTab] Lessons count:', lessons.length);
+    console.log('[GraphEditorTab] Dependencies count:', dependencies.length);
+    console.log('[GraphEditorTab] Full lessons data:', lessons);
+    console.log('[GraphEditorTab] Full dependencies data:', dependencies);
+
     const nodes: GraphNode[] = lessons
       .filter(gl => gl && gl.lesson)
-      .map(gl => ({
-        id: gl.id.toString(),
-        title: gl.lesson?.title || 'Без названия',
-        status: gl.is_unlocked ? 'not_started' : 'locked',
-        x: gl.position_x ?? 0,
-        y: gl.position_y ?? 0,
-      }));
+      .map((gl, index) => {
+        // Если позиция не задана, генерируем начальную позицию
+        // используя круговую раскладку чтобы избежать наложения узлов
+        let initialX = gl.position_x;
+        let initialY = gl.position_y;
+
+        if (initialX === null || initialX === undefined || initialY === null || initialY === undefined) {
+          // Круговая раскладка с радиусом 200px вокруг центра (400, 300)
+          const angle = (index / lessons.length) * 2 * Math.PI;
+          const radius = 200;
+          initialX = 400 + radius * Math.cos(angle);
+          initialY = 300 + radius * Math.sin(angle);
+        }
+
+        return {
+          id: gl.id.toString(),
+          title: gl.lesson?.title || 'Без названия',
+          status: gl.is_unlocked ? 'not_started' : 'locked',
+          x: initialX,
+          y: initialY,
+        };
+      });
+
+    console.log('[GraphEditorTab] Transformed nodes:', nodes);
 
     const links: GraphLink[] = dependencies.map(dep => ({
       source: dep.from_lesson.toString(),
@@ -123,7 +150,11 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
       type: dep.dependency_type === 'prerequisite' ? 'prerequisite' : 'suggested',
     }));
 
-    return { nodes, links };
+    console.log('[GraphEditorTab] Transformed links:', links);
+
+    const result = { nodes, links };
+    console.log('[GraphEditorTab] Final GraphData:', result);
+    return result;
   }, []);
 
   // Filtered lessons (not already in graph)
@@ -538,6 +569,7 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
             </div>
           ) : (
             <div className="relative">
+              {/* PRODUCTION: Основной компонент графа */}
               <GraphVisualization
                 data={transformToGraphData(graph)}
                 isEditable={mode === 'edit'}

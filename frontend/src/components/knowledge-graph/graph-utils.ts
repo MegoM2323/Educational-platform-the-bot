@@ -41,13 +41,27 @@ export const FORCE_CONFIG = {
  */
 export const transformGraphData = (data: GraphData): { nodes: D3Node[]; links: D3Link[] } => {
   // Создаем копии узлов с начальными позициями
-  const nodes: D3Node[] = data.nodes.map(node => ({
-    ...node,
-    x: node.x ?? 0,
-    y: node.y ?? 0,
-    fx: node.fx ?? null,
-    fy: node.fy ?? null,
-  }));
+  // Если позиции не заданы, распределяем узлы по кругу чтобы избежать наложения
+  const nodes: D3Node[] = data.nodes.map((node, index) => {
+    let x = node.x;
+    let y = node.y;
+
+    // Если позиция не задана, используем круговую раскладку
+    if (x === null || x === undefined || y === null || y === undefined) {
+      const angle = (index / data.nodes.length) * 2 * Math.PI;
+      const radius = 200;
+      x = 400 + radius * Math.cos(angle);
+      y = 300 + radius * Math.sin(angle);
+    }
+
+    return {
+      ...node,
+      x,
+      y,
+      fx: node.fx ?? null,
+      fy: node.fy ?? null,
+    };
+  });
 
   // Создаем индекс узлов для быстрого поиска
   const nodeMap = new Map<string, D3Node>();

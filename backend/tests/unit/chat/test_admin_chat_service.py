@@ -13,6 +13,10 @@ from django.utils import timezone
 from chat.models import ChatRoom, Message
 from chat.services.admin_chat_service import AdminChatService
 from datetime import timedelta
+import sys
+import os
+# Add backend/tests to path to import conftest
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from conftest import StudentUserFactory, ParentUserFactory
 
 

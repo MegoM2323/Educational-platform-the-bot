@@ -45,14 +45,19 @@ class AuthService {
 
   private async initializeFromStorage(): Promise<void> {
     try {
+      logger.debug('[AuthService.init] Starting initialization from storage...');
+
       const storedToken = this.getStoredToken();
       const storedUser = this.getStoredUser();
       const storedRefreshToken = this.getStoredRefreshToken();
       const storedExpiry = this.getStoredTokenExpiry();
 
-      logger.debug('AuthService init:', {
+      logger.debug('[AuthService.init] Storage check:', {
         hasToken: !!storedToken,
+        tokenLength: storedToken?.length || 0,
         hasUser: !!storedUser,
+        userId: storedUser?.id,
+        userRole: storedUser?.role,
         hasExpiry: !!storedExpiry,
         expiry: storedExpiry,
         now: Date.now(),
@@ -72,26 +77,31 @@ class AuthService {
           // If no expiry in storage, set default (7 days from now)
           this.tokenExpiry = storedExpiry || (Date.now() + (7 * 24 * 60 * 60 * 1000));
           apiClient.setToken(storedToken);
-          logger.debug('AuthService: user authenticated', this.user);
+          logger.debug('[AuthService.init] User authenticated from storage:', {
+            userId: this.user.id,
+            role: this.user.role,
+            tokenExpiry: this.tokenExpiry
+          });
         } else {
           // Токен истек, пытаемся обновить
-          logger.debug('AuthService: token expired, attempting refresh');
+          logger.debug('[AuthService.init] Token expired, attempting refresh...');
           this.isRefreshing = true;
           try {
             // Временно устанавливаем старый токен для refresh запроса
             this.token = storedToken;
             apiClient.setToken(storedToken);
 
-            // Добавляем timeout protection (5 секунд)
+            // Добавляем timeout protection (10 секунд)
+            // Увеличено с 5 до 10 секунд для более надежной работы
             await Promise.race([
               this.refreshTokenIfNeeded(),
               new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Token refresh timeout after 5s')), 5000)
+                setTimeout(() => reject(new Error('Token refresh timeout after 10s')), 10000)
               ),
             ]);
-            logger.debug('AuthService: token refreshed successfully during init');
+            logger.debug('[AuthService.init] Token refreshed successfully during init');
           } catch (err) {
-            logger.error('AuthService: Failed to refresh token during init:', err);
+            logger.error('[AuthService.init] Failed to refresh token during init:', err);
             this.clearStorage();
             this.user = null;
             this.token = null;
@@ -100,10 +110,16 @@ class AuthService {
           }
         }
       } else {
-        logger.debug('AuthService: no stored credentials (missing token or user)');
+        logger.debug('[AuthService.init] No stored credentials (missing token or user)');
       }
+
+      logger.debug('[AuthService.init] Initialization complete:', {
+        isAuthenticated: this.isAuthenticated(),
+        hasUser: !!this.user,
+        hasToken: !!this.token
+      });
     } catch (error) {
-      logger.error('Ошибка инициализации аутентификации:', error);
+      logger.error('[AuthService.init] Initialization error:', error);
       this.clearStorage();
     }
   }
@@ -190,6 +206,8 @@ class AuthService {
 
   public async login(credentials: LoginRequest): Promise<AuthResult> {
     try {
+      logger.debug('[AuthService.login] Attempting login...');
+
       const response = await apiClient.login(credentials);
 
       if (!response.success || !response.data) {
@@ -199,6 +217,7 @@ class AuthService {
       const { token, user } = response.data;
 
       logger.debug('[AuthService.login] Login successful:', {
+        userId: user?.id,
         username: user?.username,
         role: user?.role,
         tokenLength: token?.length
@@ -221,15 +240,18 @@ class AuthService {
       this.setStoredUser(user, ttl);
       this.setStoredTokenExpiry(this.tokenExpiry);
 
+      logger.debug('[AuthService.login] Token and user saved to storage:', {
+        userId: this.user?.id,
+        role: this.user?.role,
+        hasToken: !!this.token,
+        tokenInApiClient: !!apiClient.getToken(),
+        tokenExpiry: new Date(this.tokenExpiry).toISOString()
+      });
+
       // Уведомляем подписчиков
       this.notifyAuthStateChange(user);
 
-      logger.debug('[AuthService.login] User and token saved to secureStorage:', {
-        currentUser: this.user?.username,
-        currentRole: this.user?.role,
-        hasToken: !!this.token,
-        tokenInApiClient: !!apiClient.getToken()
-      });
+      logger.debug('[AuthService.login] Auth state change notified, login complete');
 
       return {
         user,
@@ -237,7 +259,7 @@ class AuthService {
         expires_at: new Date(this.tokenExpiry).toISOString()
       };
     } catch (error) {
-      logger.error('Ошибка входа:', error);
+      logger.error('[AuthService.login] Login failed:', error);
       throw error;
     }
   }

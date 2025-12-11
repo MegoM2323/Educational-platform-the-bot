@@ -1,0 +1,496 @@
+{
+  "config": {
+    "configFile": "/home/mego/Python Projects/THE_BOT_platform/frontend/playwright.config.ts",
+    "rootDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "test-results"
+        }
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 12,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "e2e/graph-d3-rendering.spec.ts",
+      "file": "e2e/graph-d3-rendering.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Graph D3 Rendering Tests",
+          "file": "e2e/graph-d3-rendering.spec.ts",
+          "line": 7,
+          "column": 6,
+          "specs": [
+            {
+              "title": "SVG контейнер создается и имеет корректные размеры",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 11801,
+                      "error": {
+                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
+                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "location": {
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                          "column": 16,
+                          "line": 14
+                        },
+                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                            "column": 16,
+                            "line": 14
+                          },
+                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-11T13:27:19.157Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d1938--и-имеет-корректные-размеры-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d1938--и-имеет-корректные-размеры-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d1938--и-имеет-корректные-размеры-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                        "column": 16,
+                        "line": 14
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2d24327cba25e7cf2cbb-31acfd6fbdb39d417470",
+              "file": "e2e/graph-d3-rendering.spec.ts",
+              "line": 17,
+              "column": 3
+            },
+            {
+              "title": "D3 узлы рендерятся как SVG circles",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 10738,
+                      "error": {
+                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
+                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "location": {
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                          "column": 16,
+                          "line": 14
+                        },
+                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                            "column": 16,
+                            "line": 14
+                          },
+                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-11T13:27:31.482Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a7972--рендерятся-как-SVG-circles-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a7972--рендерятся-как-SVG-circles-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a7972--рендерятся-как-SVG-circles-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                        "column": 16,
+                        "line": 14
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2d24327cba25e7cf2cbb-3e466014fa609a76c807",
+              "file": "e2e/graph-d3-rendering.spec.ts",
+              "line": 49,
+              "column": 3
+            },
+            {
+              "title": "D3 связи рендерятся как SVG lines",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 11124,
+                      "error": {
+                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
+                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "location": {
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                          "column": 16,
+                          "line": 14
+                        },
+                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                            "column": 16,
+                            "line": 14
+                          },
+                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-11T13:27:42.683Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-2da02-зи-рендерятся-как-SVG-lines-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-2da02-зи-рендерятся-как-SVG-lines-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-2da02-зи-рендерятся-как-SVG-lines-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                        "column": 16,
+                        "line": 14
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2d24327cba25e7cf2cbb-3aab4ad24813c4e80e87",
+              "file": "e2e/graph-d3-rendering.spec.ts",
+              "line": 96,
+              "column": 3
+            },
+            {
+              "title": "Drag-and-drop работает для узлов графа",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 11038,
+                      "error": {
+                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
+                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "location": {
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                          "column": 16,
+                          "line": 14
+                        },
+                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                            "column": 16,
+                            "line": 14
+                          },
+                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-11T13:27:54.572Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a051a-op-работает-для-узлов-графа-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a051a-op-работает-для-узлов-графа-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a051a-op-работает-для-узлов-графа-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                        "column": 16,
+                        "line": 14
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2d24327cba25e7cf2cbb-db4cca142348d68dd943",
+              "file": "e2e/graph-d3-rendering.spec.ts",
+              "line": 137,
+              "column": 3
+            },
+            {
+              "title": "Console не содержит критических ошибок",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 10763,
+                      "error": {
+                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
+                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "location": {
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                          "column": 16,
+                          "line": 14
+                        },
+                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                            "column": 16,
+                            "line": 14
+                          },
+                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-11T13:28:06.110Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d0d94-содержит-критических-ошибок-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d0d94-содержит-критических-ошибок-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d0d94-содержит-критических-ошибок-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
+                        "column": 16,
+                        "line": 14
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2d24327cba25e7cf2cbb-090bee1f37e22c90e709",
+              "file": "e2e/graph-d3-rendering.spec.ts",
+              "line": 200,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-11T13:27:18.652Z",
+    "duration": 58311.165,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}

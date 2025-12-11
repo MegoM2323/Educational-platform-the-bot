@@ -918,17 +918,30 @@ class UnifiedAPIClient {
 
   // Authentication Methods
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
+    logger.debug('[UnifiedClient.login] Sending login request...');
+
     const response = await this.request<LoginResponse>('/auth/login/', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
 
     if (response.success && response.data) {
+      logger.debug('[UnifiedClient.login] Login successful, saving tokens:', {
+        userId: response.data.user?.id,
+        role: response.data.user?.role,
+        hasToken: !!response.data.token,
+        tokenLength: response.data.token?.length || 0
+      });
+
       this.saveTokensToStorage(
         response.data.token,
         response.data.refresh_token
       );
       localStorage.setItem('userData', JSON.stringify(response.data.user));
+
+      logger.debug('[UnifiedClient.login] Tokens saved to storage');
+    } else {
+      logger.error('[UnifiedClient.login] Login failed:', response.error);
     }
 
     return response;

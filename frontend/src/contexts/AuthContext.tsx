@@ -30,40 +30,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       try {
-        // Ждем завершения инициализации authService с timeout protection (6 секунд)
+        logger.debug('[AuthContext] Starting initialization...');
+
+        // Ждем завершения инициализации authService с timeout protection (15 секунд)
+        // Увеличено с 6 до 15 секунд, чтобы дать время на refresh токена (который сам имеет timeout 5s)
+        const timeoutPromise = new Promise((resolve) =>
+          setTimeout(() => {
+            logger.warn('[AuthContext] Initialization timeout after 15s, continuing without auth');
+            resolve(null);
+          }, 15000)
+        );
+
         await Promise.race([
           authService.waitForInitialization(),
-          new Promise((resolve) =>
-            setTimeout(() => {
-              logger.warn('AuthContext: initialization timeout, continuing without auth');
-              resolve(null);
-            }, 6000)
-          ),
+          timeoutPromise
         ]);
 
         const currentUser = authService.getCurrentUser();
         const isAuth = authService.isAuthenticated();
 
-        logger.debug('AuthContext init:', {
-          currentUser,
-          isAuth,
+        logger.debug('[AuthContext] Init complete:', {
           hasUser: !!currentUser,
+          isAuth,
+          userId: currentUser?.id,
+          userRole: currentUser?.role,
           isInitializing: authService.isInitializing()
         });
 
         if (isAuth && currentUser) {
           setUser(currentUser);
-          logger.debug('AuthContext: user set', currentUser);
+          logger.debug('[AuthContext] User authenticated:', {
+            userId: currentUser.id,
+            role: currentUser.role
+          });
         } else {
           setUser(null);
-          logger.debug('AuthContext: user not authenticated');
+          logger.debug('[AuthContext] User not authenticated');
         }
       } catch (error) {
-        logger.error('Ошибка инициализации аутентификации:', error);
+        logger.error('[AuthContext] Initialization error:', error);
         setUser(null);
       } finally {
         setIsLoading(false);
-        logger.debug('AuthContext: isLoading set to false');
+        logger.debug('[AuthContext] isLoading set to false');
       }
     };
 
@@ -75,26 +84,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const currentUser = authService.getCurrentUser();
         if (authService.isAuthenticated() && currentUser) {
+          logger.debug('[AuthContext] Delayed check: user found, updating state');
           setUser(currentUser);
           setIsLoading(false);
         }
-      } catch {}
+      } catch (error) {
+        logger.error('[AuthContext] Delayed check error:', error);
+      }
     }, 150);
 
-    // Реакция на изменения localStorage (например, из Playwright)
+    // Реакция на изменения localStorage (например, из Playwright или другая вкладка)
     const onStorage = () => {
       try {
         const currentUser = authService.getCurrentUser();
         if (authService.isAuthenticated() && currentUser) {
+          logger.debug('[AuthContext] Storage event: user found, updating state');
           setUser(currentUser);
           setIsLoading(false);
         }
-      } catch {}
+      } catch (error) {
+        logger.error('[AuthContext] Storage event error:', error);
+      }
     };
     window.addEventListener('storage', onStorage);
 
     // Подписываемся на изменения состояния аутентификации
     const unsubscribe = authService.onAuthStateChange((newUser) => {
+      logger.debug('[AuthContext] Auth state changed:', {
+        hasUser: !!newUser,
+        userId: newUser?.id,
+        role: newUser?.role
+      });
       setUser(newUser);
       setIsLoading(false);
     });
@@ -109,21 +129,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (credentials: LoginRequest): Promise<AuthResult> => {
     setIsLoading(true);
     try {
+      logger.debug('[AuthContext.login] Starting login...');
+
       const result = await authService.login(credentials);
 
-      logger.debug('AuthContext.login: setting user after successful login', {
+      logger.debug('[AuthContext.login] Login successful, setting user:', {
         userId: result.user?.id,
         role: result.user?.role,
       });
 
       setUser(result.user);
 
-      // Small delay to ensure token is properly set before any subsequent operations
-      await new Promise(resolve => setTimeout(resolve, 100));
+      logger.debug('[AuthContext.login] User state updated, login complete');
 
       return result;
     } catch (error) {
-      logger.error('AuthContext.login: login failed', error);
+      logger.error('[AuthContext.login] Login failed:', error);
       setUser(null);
       throw error;
     } finally {

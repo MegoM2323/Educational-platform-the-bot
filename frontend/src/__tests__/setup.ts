@@ -46,6 +46,18 @@ global.ResizeObserver = class ResizeObserver {
   unobserve() {}
 } as any;
 
+// Mock pointer capture methods for Radix UI (jsdom doesn't implement these)
+if (typeof Element !== 'undefined') {
+  Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.setPointerCapture = () => {};
+  Element.prototype.releasePointerCapture = () => {};
+
+  // Mock scrollIntoView for Radix UI Select
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = () => {};
+  }
+}
+
 // Suppress console errors in tests (optional - remove if you want to see them)
 // global.console.error = () => {};
 // global.console.warn = () => {};

@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { schedulingAPI, TeacherAvailability, CreateAvailabilityData, UpdateAvailabilityData, GenerateSlotsData } from '@/integrations/api/schedulingAPI';
 import { toast } from '@/hooks/use-toast';
+import { Lesson } from '@/types/scheduling';
+import { logger } from '@/utils/logger';
 
 // Query keys
 const TEACHER_AVAILABILITY_KEY = 'teacherAvailability';
@@ -15,14 +18,56 @@ export const useTeacherAvailability = (teacherId?: number) => {
   });
 };
 
-// Hook for getting full teacher schedule
+// Hook for getting full teacher schedule with computed values
 export const useTeacherSchedule = (dateFrom?: string, dateTo?: string) => {
-  return useQuery({
+  const query = useQuery({
     queryKey: [TEACHER_SCHEDULE_KEY, dateFrom, dateTo],
-    queryFn: () => schedulingAPI.getMySchedule(dateFrom, dateTo),
+    queryFn: async () => {
+      try {
+        return await schedulingAPI.getMySchedule(dateFrom, dateTo);
+      } catch (error) {
+        logger.error('Error fetching teacher schedule:', error);
+        throw error;
+      }
+    },
     enabled: !!dateFrom && !!dateTo,
     staleTime: 30000, // 30 seconds
   });
+
+  // Group lessons by date
+  const lessonsByDate = useMemo(() => {
+    const grouped = new Map<string, Lesson[]>();
+    (query.data || []).forEach(lesson => {
+      const key = lesson.date;
+      if (key && !grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      if (key) {
+        grouped.get(key)!.push(lesson);
+      }
+    });
+    return Object.fromEntries(grouped);
+  }, [query.data]);
+
+  // Filter upcoming lessons
+  const upcomingLessons = useMemo(() => {
+    return (query.data || []).filter(lesson => lesson.is_upcoming);
+  }, [query.data]);
+
+  // Filter today's lessons
+  const todayLessons = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return (query.data || []).filter(lesson => lesson.date === today);
+  }, [query.data]);
+
+  return {
+    lessons: query.data || [],
+    lessonsByDate,
+    upcomingLessons,
+    todayLessons,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
 };
 
 // Hook for creating availability template

@@ -7,14 +7,12 @@ Imports fixtures from unit test conftest to share them.
 import pytest
 from datetime import time, timedelta
 from django.utils import timezone
-from accounts.models import User, StudentProfile, TeacherProfile, TutorProfile
-from materials.models import Subject, SubjectEnrollment
-from scheduling.models import Lesson, LessonHistory
 
 
 @pytest.fixture
 def teacher_user(db):
     """Create a teacher user with TeacherProfile for testing."""
+    from accounts.models import User, TeacherProfile
     user = User.objects.create_user(
         username='test_teacher@test.com',
         email='test_teacher@test.com',
@@ -30,6 +28,7 @@ def teacher_user(db):
 @pytest.fixture
 def student_user(db):
     """Create a student user with StudentProfile for testing."""
+    from accounts.models import User, StudentProfile
     user = User.objects.create_user(
         username='test_student@test.com',
         email='test_student@test.com',
@@ -45,6 +44,7 @@ def student_user(db):
 @pytest.fixture
 def tutor_user(db):
     """Create a tutor user with TutorProfile for testing."""
+    from accounts.models import User, TutorProfile
     user = User.objects.create_user(
         username='test_tutor@test.com',
         email='test_tutor@test.com',
@@ -60,7 +60,7 @@ def tutor_user(db):
 @pytest.fixture
 def parent_user(db):
     """Create a parent user for testing."""
-    from accounts.models import ParentProfile
+    from accounts.models import User, ParentProfile
     user = User.objects.create_user(
         username='test_parent@test.com',
         email='test_parent@test.com',
@@ -76,6 +76,7 @@ def parent_user(db):
 @pytest.fixture
 def another_teacher_user(db):
     """Create another teacher for testing multiple teachers."""
+    from accounts.models import User, TeacherProfile
     user = User.objects.create_user(
         username='another_teacher@test.com',
         email='another_teacher@test.com',
@@ -91,6 +92,7 @@ def another_teacher_user(db):
 @pytest.fixture
 def another_student_user(db):
     """Create another student for testing multiple students."""
+    from accounts.models import User, StudentProfile
     user = User.objects.create_user(
         username='another_student@test.com',
         email='another_student@test.com',
@@ -106,6 +108,7 @@ def another_student_user(db):
 @pytest.fixture
 def math_subject(db):
     """Create a test subject."""
+    from materials.models import Subject
     return Subject.objects.create(
         name='Математика',
         description='Тестовый предмет математика'
@@ -115,6 +118,7 @@ def math_subject(db):
 @pytest.fixture
 def english_subject(db):
     """Create another test subject."""
+    from materials.models import Subject
     return Subject.objects.create(
         name='Английский язык',
         description='Тестовый предмет английский'
@@ -124,6 +128,7 @@ def english_subject(db):
 @pytest.fixture
 def subject_enrollment(db, student_user, teacher_user, math_subject):
     """Create an active SubjectEnrollment linking teacher to student."""
+    from materials.models import SubjectEnrollment
     return SubjectEnrollment.objects.create(
         student=student_user,
         teacher=teacher_user,
@@ -135,6 +140,7 @@ def subject_enrollment(db, student_user, teacher_user, math_subject):
 @pytest.fixture
 def another_enrollment(db, another_student_user, teacher_user, english_subject):
     """Create another SubjectEnrollment for different student."""
+    from materials.models import SubjectEnrollment
     return SubjectEnrollment.objects.create(
         student=another_student_user,
         teacher=teacher_user,
@@ -146,6 +152,7 @@ def another_enrollment(db, another_student_user, teacher_user, english_subject):
 @pytest.fixture
 def lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
     """Create a test lesson for future date."""
+    from scheduling.models import Lesson
     future_date = timezone.now().date() + timedelta(days=3)
     return Lesson.objects.create(
         teacher=teacher_user,
@@ -163,6 +170,7 @@ def lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
 @pytest.fixture
 def confirmed_lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
     """Create a confirmed lesson."""
+    from scheduling.models import Lesson
     future_date = timezone.now().date() + timedelta(days=5)
     return Lesson.objects.create(
         teacher=teacher_user,
@@ -179,6 +187,7 @@ def confirmed_lesson(db, teacher_user, student_user, math_subject, subject_enrol
 @pytest.fixture
 def past_lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
     """Create a lesson in the past."""
+    from scheduling.models import Lesson
     past_date = timezone.now().date() - timedelta(days=5)
     return Lesson.objects.create(
         teacher=teacher_user,
@@ -195,6 +204,7 @@ def past_lesson(db, teacher_user, student_user, math_subject, subject_enrollment
 @pytest.fixture
 def near_future_lesson(db, teacher_user, student_user, math_subject, subject_enrollment):
     """Create a lesson that is less than 2 hours away."""
+    from scheduling.models import Lesson
     near_future = timezone.now() + timedelta(minutes=30)
     return Lesson.objects.create(
         teacher=teacher_user,

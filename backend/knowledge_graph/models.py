@@ -7,6 +7,9 @@ import json
 
 User = get_user_model()
 
+# Импорт валидатора для содержимого элементов (T018)
+from .validators import validate_element_content
+
 
 # ============================================
 # T101: Element and Lesson Models
@@ -88,6 +91,17 @@ class Element(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.get_element_type_display()})"
+
+    def clean(self):
+        """
+        Валидация модели на уровне модели (T018)
+        Проверяет корректность содержимого элемента в зависимости от типа
+        """
+        super().clean()
+
+        # Валидация содержимого элемента
+        if self.element_type and self.content:
+            validate_element_content(self.element_type, self.content)
 
 
 class ElementFile(models.Model):

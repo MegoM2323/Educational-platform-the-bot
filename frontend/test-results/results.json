@@ -97,20 +97,20 @@
   },
   "suites": [
     {
-      "title": "e2e/graph-d3-rendering.spec.ts",
-      "file": "e2e/graph-d3-rendering.spec.ts",
+      "title": "e2e/auth-test.spec.ts",
+      "file": "e2e/auth-test.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Graph D3 Rendering Tests",
-          "file": "e2e/graph-d3-rendering.spec.ts",
-          "line": 7,
+          "title": "Authentication Tests - All 5 Accounts",
+          "file": "e2e/auth-test.spec.ts",
+          "line": 3,
           "column": 6,
           "specs": [
             {
-              "title": "SVG контейнер создается и имеет корректные размеры",
+              "title": "1. Student: Successful login",
               "ok": false,
               "tags": [],
               "tests": [
@@ -125,66 +125,79 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 11801,
+                      "duration": 2283,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:58:5",
                         "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                          "column": 16,
-                          "line": 14
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                          "column": 30,
+                          "line": 44
                         },
-                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                        "snippet": "  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);"
                       },
                       "errors": [
                         {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                            "column": 16,
-                            "line": 14
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                            "column": 30,
+                            "line": 44
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n\n  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:58:5"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "On auth page, URL: http://localhost:8080/auth\n"
+                        },
+                        {
+                          "text": "Login page inputs found: \u001b[33m2\u001b[39m\n"
+                        },
+                        {
+                          "text": "Filled email and password\n"
+                        },
+                        {
+                          "text": "After successful login URL: http://localhost:8080/auth\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-11T13:27:19.157Z",
+                      "startTime": "2025-12-11T19:45:09.083Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d1938--и-имеет-корректные-размеры-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-2e7c0--1-Student-Successful-login-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d1938--и-имеет-корректные-размеры-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-2e7c0--1-Student-Successful-login-chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d1938--и-имеет-корректные-размеры-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-2e7c0--1-Student-Successful-login-chromium/error-context.md"
                         }
                       ],
                       "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                        "column": 16,
-                        "line": 14
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                        "column": 30,
+                        "line": 44
                       }
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "2d24327cba25e7cf2cbb-31acfd6fbdb39d417470",
-              "file": "e2e/graph-d3-rendering.spec.ts",
-              "line": 17,
+              "id": "107fe2364c04e63f8ab1-eda2fc9ac92e9b5fe5aa",
+              "file": "e2e/auth-test.spec.ts",
+              "line": 57,
               "column": 3
             },
             {
-              "title": "D3 узлы рендерятся как SVG circles",
+              "title": "2. Teacher: Successful login",
               "ok": false,
               "tags": [],
               "tests": [
@@ -199,66 +212,79 @@
                       "workerIndex": 1,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 10738,
+                      "duration": 2301,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:64:5",
                         "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                          "column": 16,
-                          "line": 14
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                          "column": 30,
+                          "line": 44
                         },
-                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                        "snippet": "  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);"
                       },
                       "errors": [
                         {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                            "column": 16,
-                            "line": 14
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                            "column": 30,
+                            "line": 44
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n\n  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:64:5"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "On auth page, URL: http://localhost:8080/auth\n"
+                        },
+                        {
+                          "text": "Login page inputs found: \u001b[33m2\u001b[39m\n"
+                        },
+                        {
+                          "text": "Filled email and password\n"
+                        },
+                        {
+                          "text": "After successful login URL: http://localhost:8080/auth\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-11T13:27:31.482Z",
+                      "startTime": "2025-12-11T19:45:11.798Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a7972--рендерятся-как-SVG-circles-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-1cd82--2-Teacher-Successful-login-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a7972--рендерятся-как-SVG-circles-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-1cd82--2-Teacher-Successful-login-chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a7972--рендерятся-как-SVG-circles-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-1cd82--2-Teacher-Successful-login-chromium/error-context.md"
                         }
                       ],
                       "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                        "column": 16,
-                        "line": 14
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                        "column": 30,
+                        "line": 44
                       }
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "2d24327cba25e7cf2cbb-3e466014fa609a76c807",
-              "file": "e2e/graph-d3-rendering.spec.ts",
-              "line": 49,
+              "id": "107fe2364c04e63f8ab1-12ae93f33b7be7f61364",
+              "file": "e2e/auth-test.spec.ts",
+              "line": 63,
               "column": 3
             },
             {
-              "title": "D3 связи рендерятся как SVG lines",
+              "title": "3. Tutor: Successful login",
               "ok": false,
               "tags": [],
               "tests": [
@@ -273,66 +299,79 @@
                       "workerIndex": 2,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 11124,
+                      "duration": 2294,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:70:5",
                         "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                          "column": 16,
-                          "line": 14
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                          "column": 30,
+                          "line": 44
                         },
-                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                        "snippet": "  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);"
                       },
                       "errors": [
                         {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                            "column": 16,
-                            "line": 14
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                            "column": 30,
+                            "line": 44
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n\n  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:70:5"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "On auth page, URL: http://localhost:8080/auth\n"
+                        },
+                        {
+                          "text": "Login page inputs found: \u001b[33m2\u001b[39m\n"
+                        },
+                        {
+                          "text": "Filled email and password\n"
+                        },
+                        {
+                          "text": "After successful login URL: http://localhost:8080/auth\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-11T13:27:42.683Z",
+                      "startTime": "2025-12-11T19:45:14.537Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-2da02-зи-рендерятся-как-SVG-lines-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-a427f-ts-3-Tutor-Successful-login-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-2da02-зи-рендерятся-как-SVG-lines-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-a427f-ts-3-Tutor-Successful-login-chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-2da02-зи-рендерятся-как-SVG-lines-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-a427f-ts-3-Tutor-Successful-login-chromium/error-context.md"
                         }
                       ],
                       "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                        "column": 16,
-                        "line": 14
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                        "column": 30,
+                        "line": 44
                       }
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "2d24327cba25e7cf2cbb-3aab4ad24813c4e80e87",
-              "file": "e2e/graph-d3-rendering.spec.ts",
-              "line": 96,
+              "id": "107fe2364c04e63f8ab1-6011c0157f8ddfb69168",
+              "file": "e2e/auth-test.spec.ts",
+              "line": 69,
               "column": 3
             },
             {
-              "title": "Drag-and-drop работает для узлов графа",
+              "title": "4. Parent: Successful login",
               "ok": false,
               "tags": [],
               "tests": [
@@ -347,66 +386,79 @@
                       "workerIndex": 3,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 11038,
+                      "duration": 2315,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:76:5",
                         "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                          "column": 16,
-                          "line": 14
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                          "column": 30,
+                          "line": 44
                         },
-                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                        "snippet": "  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);"
                       },
                       "errors": [
                         {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                            "column": 16,
-                            "line": 14
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                            "column": 30,
+                            "line": 44
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n\n  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:76:5"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "On auth page, URL: http://localhost:8080/auth\n"
+                        },
+                        {
+                          "text": "Login page inputs found: \u001b[33m2\u001b[39m\n"
+                        },
+                        {
+                          "text": "Filled email and password\n"
+                        },
+                        {
+                          "text": "After successful login URL: http://localhost:8080/auth\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-11T13:27:54.572Z",
+                      "startTime": "2025-12-11T19:45:17.274Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a051a-op-работает-для-узлов-графа-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-1febc-s-4-Parent-Successful-login-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a051a-op-работает-для-узлов-графа-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-1febc-s-4-Parent-Successful-login-chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-a051a-op-работает-для-узлов-графа-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-1febc-s-4-Parent-Successful-login-chromium/error-context.md"
                         }
                       ],
                       "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                        "column": 16,
-                        "line": 14
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                        "column": 30,
+                        "line": 44
                       }
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "2d24327cba25e7cf2cbb-db4cca142348d68dd943",
-              "file": "e2e/graph-d3-rendering.spec.ts",
-              "line": 137,
+              "id": "107fe2364c04e63f8ab1-048c980560df5dbaf030",
+              "file": "e2e/auth-test.spec.ts",
+              "line": 75,
               "column": 3
             },
             {
-              "title": "Console не содержит критических ошибок",
+              "title": "5. Admin: Successful login",
               "ok": false,
               "tags": [],
               "tests": [
@@ -421,62 +473,169 @@
                       "workerIndex": 4,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 10763,
+                      "duration": 2268,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16",
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:82:5",
                         "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                          "column": 16,
-                          "line": 14
+                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                          "column": 30,
+                          "line": 44
                         },
-                        "snippet": "  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {"
+                        "snippet": "  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);"
                       },
                       "errors": [
                         {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                            "column": 16,
-                            "line": 14
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                            "column": 30,
+                            "line": 44
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 10000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  12 |     await page.fill('input[type=\"password\"]', 'Test123!');\n  13 |     await page.click('button[type=\"submit\"]');\n> 14 |     await page.waitForURL(/dashboard/, { timeout: 10000 });\n     |                ^\n  15 |   });\n  16 |\n  17 |   test('SVG контейнер создается и имеет корректные размеры', async ({ page }) => {\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts:14:16"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: not \u001b[32m/\\/auth/i\u001b[39m\nReceived string:      \u001b[31m\"http://localhost:8080\u001b[7m/auth\u001b[27m\"\u001b[39m\n\n  42 |       const currentUrl = page.url();\n  43 |       console.log('After successful login URL:', currentUrl);\n> 44 |       expect(currentUrl).not.toMatch(/\\/auth/i);\n     |                              ^\n  45 |     } else {\n  46 |       // Wait for error response but stay on login page\n  47 |       await page.waitForTimeout(2000);\n    at testLogin (/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:44:30)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts:82:5"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "On auth page, URL: http://localhost:8080/auth\n"
+                        },
+                        {
+                          "text": "Login page inputs found: \u001b[33m2\u001b[39m\n"
+                        },
+                        {
+                          "text": "Filled email and password\n"
+                        },
+                        {
+                          "text": "After successful login URL: http://localhost:8080/auth\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-11T13:28:06.110Z",
+                      "startTime": "2025-12-11T19:45:20.031Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d0d94-содержит-критических-ошибок-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-2c796-ts-5-Admin-Successful-login-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d0d94-содержит-критических-ошибок-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-2c796-ts-5-Admin-Successful-login-chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-graph-d3-rendering-Gra-d0d94-содержит-критических-ошибок-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/e2e-auth-test-Authenticati-2c796-ts-5-Admin-Successful-login-chromium/error-context.md"
                         }
                       ],
                       "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/graph-d3-rendering.spec.ts",
-                        "column": 16,
-                        "line": 14
+                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/tests/e2e/auth-test.spec.ts",
+                        "column": 30,
+                        "line": 44
                       }
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "2d24327cba25e7cf2cbb-090bee1f37e22c90e709",
-              "file": "e2e/graph-d3-rendering.spec.ts",
-              "line": 200,
+              "id": "107fe2364c04e63f8ab1-88a8dc2d331f337e9b27",
+              "file": "e2e/auth-test.spec.ts",
+              "line": 81,
+              "column": 3
+            },
+            {
+              "title": "6. Student: Error on wrong password",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4352,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "On auth page, URL: http://localhost:8080/auth\n"
+                        },
+                        {
+                          "text": "Login page inputs found: \u001b[33m2\u001b[39m\n"
+                        },
+                        {
+                          "text": "Filled email and password\n"
+                        },
+                        {
+                          "text": "After failed login URL: http://localhost:8080/auth\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-11T19:45:22.737Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "107fe2364c04e63f8ab1-40be4d208aef3182fbaf",
+              "file": "e2e/auth-test.spec.ts",
+              "line": 87,
+              "column": 3
+            },
+            {
+              "title": "7. Teacher: Error on non-existent email",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4288,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "On auth page, URL: http://localhost:8080/auth\n"
+                        },
+                        {
+                          "text": "Login page inputs found: \u001b[33m2\u001b[39m\n"
+                        },
+                        {
+                          "text": "Filled email and password\n"
+                        },
+                        {
+                          "text": "After failed login URL: http://localhost:8080/auth\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-11T19:45:27.149Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "107fe2364c04e63f8ab1-e762a749536029b7eca9",
+              "file": "e2e/auth-test.spec.ts",
+              "line": 93,
               "column": 3
             }
           ]
@@ -486,9 +645,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-12-11T13:27:18.652Z",
-    "duration": 58311.165,
-    "expected": 0,
+    "startTime": "2025-12-11T19:45:08.590Z",
+    "duration": 22876.037,
+    "expected": 2,
     "skipped": 0,
     "unexpected": 5,
     "flaky": 0

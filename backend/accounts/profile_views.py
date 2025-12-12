@@ -953,6 +953,264 @@ class AdminTutorProfileEditView(APIView):
             )
 
 
+class AdminUserProfileView(APIView):
+    """
+    Admin endpoint для просмотра профиля любого пользователя.
+
+    GET /api/accounts/admin/users/{user_id}/profile/
+    - Требует admin permissions (IsAdminUser)
+    - Возвращает user + role-specific profile для указанного user_id
+    - Поддерживает все роли: student, teacher, tutor, parent
+    """
+
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id: int) -> Response:
+        """Получить профиль любого пользователя (admin only)"""
+        from .permissions import IsStaffOrAdmin
+
+        # Проверка прав администратора
+        permission = IsStaffOrAdmin()
+        if not permission.has_permission(request, self):
+            return Response(
+                {'error': 'Admin permission required'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Получаем профиль в зависимости от роли
+        profile = None
+        profile_serializer_class = None
+
+        try:
+            if user.role == 'student':
+                profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(user=user)
+                profile_serializer_class = StudentProfileDetailSerializer
+            elif user.role == 'teacher':
+                profile = TeacherProfile.objects.select_related('user').get(user=user)
+                profile_serializer_class = TeacherProfileDetailSerializer
+            elif user.role == 'tutor':
+                profile = TutorProfile.objects.select_related('user').get(user=user)
+                profile_serializer_class = TutorProfileDetailSerializer
+            elif user.role == 'parent':
+                profile = ParentProfile.objects.select_related('user').get(user=user)
+                profile_serializer_class = ParentProfileDetailSerializer
+        except (StudentProfile.DoesNotExist, TeacherProfile.DoesNotExist,
+                TutorProfile.DoesNotExist, ParentProfile.DoesNotExist):
+            logger.warning(
+                f"[AdminUserProfileView] Profile not found for user_id={user_id} role={user.role}"
+            )
+            profile = None
+
+        # Формируем user data
+        user_data = {
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone': user.phone,
+            'avatar': user.avatar.url if user.avatar else None,
+            'role': user.role,
+            'is_active': user.is_active,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+        }
+
+        # Формируем profile data
+        profile_data = None
+        if profile and profile_serializer_class:
+            profile_serializer = profile_serializer_class(profile)
+            profile_data = profile_serializer.data
+
+        return Response({
+            'user': user_data,
+            'profile': profile_data
+        })
+
+
+class AdminUserFullInfoView(APIView):
+    """
+    Admin endpoint для просмотра полной информации о пользователе.
+
+    GET /api/accounts/admin/users/{user_id}/full-info/
+    - Требует admin permissions (IsAdminUser)
+    - Возвращает: user, profile, enrollments, schedule, invoices (для parents), reports
+    - Поддерживает все роли: student, teacher, tutor, parent
+    """
+
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id: int) -> Response:
+        """Получить полную информацию о пользователе (admin only)"""
+        from .permissions import IsStaffOrAdmin
+
+        # Проверка прав администратора
+        permission = IsStaffOrAdmin()
+        if not permission.has_permission(request, self):
+            return Response(
+                {'error': 'Admin permission required'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # User data
+        user_data = {
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone': user.phone,
+            'avatar': user.avatar.url if user.avatar else None,
+            'role': user.role,
+            'is_active': user.is_active,
+            'is_verified': user.is_verified,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'updated_at': user.updated_at.isoformat() if user.updated_at else None,
+        }
+
+        # Profile data (role-specific)
+        profile_data = None
+        try:
+            if user.role == 'student':
+                profile = StudentProfile.objects.select_related('user', 'tutor', 'parent').get(user=user)
+                profile_data = StudentProfileDetailSerializer(profile).data
+            elif user.role == 'teacher':
+                profile = TeacherProfile.objects.select_related('user').get(user=user)
+                profile_data = TeacherProfileDetailSerializer(profile).data
+            elif user.role == 'tutor':
+                profile = TutorProfile.objects.select_related('user').get(user=user)
+                profile_data = TutorProfileDetailSerializer(profile).data
+            elif user.role == 'parent':
+                profile = ParentProfile.objects.select_related('user').get(user=user)
+                profile_data = ParentProfileDetailSerializer(profile).data
+        except (StudentProfile.DoesNotExist, TeacherProfile.DoesNotExist,
+                TutorProfile.DoesNotExist, ParentProfile.DoesNotExist):
+            logger.warning(
+                f"[AdminUserFullInfoView] Profile not found for user_id={user_id} role={user.role}"
+            )
+
+        # Enrollments (для студентов)
+        enrollments = []
+        if user.role == 'student':
+            from materials.models import SubjectEnrollment
+            enrollments_qs = SubjectEnrollment.objects.filter(
+                student=user
+            ).select_related('subject', 'teacher', 'tutor')
+
+            for enrollment in enrollments_qs:
+                enrollments.append({
+                    'id': enrollment.id,
+                    'subject': enrollment.subject.name if enrollment.subject else None,
+                    'teacher': enrollment.teacher.get_full_name() if enrollment.teacher else None,
+                    'tutor': enrollment.tutor.get_full_name() if enrollment.tutor else None,
+                    'enrolled_at': enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None,
+                })
+
+        # Schedule (для всех ролей)
+        schedule = []
+        try:
+            from scheduling.models import Lesson
+
+            if user.role == 'student':
+                lessons_qs = Lesson.objects.filter(student=user).select_related('teacher', 'subject')
+            elif user.role == 'teacher':
+                lessons_qs = Lesson.objects.filter(teacher=user).select_related('student', 'subject')
+            else:
+                lessons_qs = Lesson.objects.none()
+
+            for lesson in lessons_qs.order_by('-date', '-start_time')[:10]:  # Последние 10 уроков
+                schedule.append({
+                    'id': lesson.id,
+                    'title': lesson.title,
+                    'subject': lesson.subject.name if lesson.subject else None,
+                    'date': lesson.date.isoformat() if lesson.date else None,
+                    'start_time': lesson.start_time.isoformat() if lesson.start_time else None,
+                    'end_time': lesson.end_time.isoformat() if lesson.end_time else None,
+                    'student': lesson.student.get_full_name() if lesson.student else None,
+                    'teacher': lesson.teacher.get_full_name() if lesson.teacher else None,
+                })
+        except Exception as e:
+            logger.error(f"[AdminUserFullInfoView] Error loading schedule: {e}")
+
+        # Invoices (для родителей)
+        invoices = []
+        if user.role == 'parent':
+            try:
+                from invoices.models import Invoice
+                invoices_qs = Invoice.objects.filter(
+                    parent=user
+                ).select_related('tutor', 'student').order_by('-created_at')[:10]
+
+                for invoice in invoices_qs:
+                    invoices.append({
+                        'id': invoice.id,
+                        'amount': float(invoice.amount),
+                        'status': invoice.status,
+                        'student': invoice.student.get_full_name() if invoice.student else None,
+                        'tutor': invoice.tutor.get_full_name() if invoice.tutor else None,
+                        'created_at': invoice.created_at.isoformat() if invoice.created_at else None,
+                        'due_date': invoice.due_date.isoformat() if invoice.due_date else None,
+                    })
+            except Exception as e:
+                logger.error(f"[AdminUserFullInfoView] Error loading invoices: {e}")
+
+        # Reports (для всех ролей)
+        reports = []
+        try:
+            from reports.models import TutorWeeklyReport, TeacherReport
+
+            if user.role == 'tutor':
+                reports_qs = TutorWeeklyReport.objects.filter(
+                    tutor=user
+                ).order_by('-created_at')[:10]
+
+                for report in reports_qs:
+                    reports.append({
+                        'id': report.id,
+                        'type': 'tutor_weekly',
+                        'status': report.status,
+                        'created_at': report.created_at.isoformat() if report.created_at else None,
+                    })
+
+            elif user.role == 'teacher':
+                reports_qs = TeacherReport.objects.filter(
+                    teacher=user
+                ).order_by('-created_at')[:10]
+
+                for report in reports_qs:
+                    reports.append({
+                        'id': report.id,
+                        'type': 'teacher',
+                        'created_at': report.created_at.isoformat() if report.created_at else None,
+                    })
+        except Exception as e:
+            logger.error(f"[AdminUserFullInfoView] Error loading reports: {e}")
+
+        return Response({
+            'user': user_data,
+            'profile': profile_data,
+            'enrollments': enrollments,
+            'schedule': schedule,
+            'invoices': invoices,
+            'reports': reports,
+        })
+
+
 class CurrentUserProfileView(APIView):
     """
     Universal endpoint that returns current user's profile based on their role.

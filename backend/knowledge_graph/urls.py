@@ -2,7 +2,11 @@
 URL Configuration for Knowledge Graph API
 """
 from django.urls import path
-from . import element_views, lesson_views, graph_views, dependency_views, progress_views, teacher_progress_views, element_file_views
+from . import (
+    element_views, lesson_views, graph_views, dependency_views,
+    progress_views, teacher_progress_views, element_file_views,
+    student_lesson_views
+)
 
 app_name = 'knowledge_graph'
 
@@ -68,4 +72,12 @@ urlpatterns = [
     path('<int:graph_id>/students/<int:student_id>/progress/', teacher_progress_views.StudentDetailedProgressView.as_view(), name='student-progress-detailed'),
     path('<int:graph_id>/students/<int:student_id>/lesson/<int:lesson_id>/', teacher_progress_views.LessonDetailView.as_view(), name='lesson-detail-view'),
     path('<int:graph_id>/export/', teacher_progress_views.ExportProgressView.as_view(), name='progress-export'),
+
+    # ============================================
+    # T014: Student Lesson Viewer API
+    # ============================================
+    path('student/lessons/<int:graph_lesson_id>/', student_lesson_views.get_student_lesson, name='student-lesson-detail'),
+    path('student/elements/<int:element_id>/start/', student_lesson_views.start_element, name='student-element-start'),
+    path('student/elements/<int:element_id>/submit/', student_lesson_views.submit_element_answer, name='student-element-submit'),
+    path('student/lessons/<int:graph_lesson_id>/complete/', student_lesson_views.complete_lesson, name='student-lesson-complete'),
 ]

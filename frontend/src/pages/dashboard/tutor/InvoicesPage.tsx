@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { TutorSidebar } from '@/components/layout/TutorSidebar';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,9 @@ import { CreateInvoiceForm } from '@/components/invoices/CreateInvoiceForm';
 import { InvoiceDetail } from '@/components/invoices/InvoiceDetail';
 import { Invoice } from '@/integrations/api/invoiceAPI';
 import { Plus, FileText, DollarSign, Clock, CheckCircle2 } from 'lucide-react';
+import { useInvoiceWebSocket } from '@/hooks/useInvoiceWebSocket';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 export default function InvoicesPage() {
   const {
@@ -30,6 +33,61 @@ export default function InvoicesPage() {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // WebSocket для real-time обновлений
+  const { on, off } = useInvoiceWebSocket();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Подключаем обработчики WebSocket событий
+  useEffect(() => {
+    // Обработчик создания счёта
+    const handleInvoiceCreated = (data: any) => {
+      console.log('[InvoicesPage] Invoice created via WebSocket:', data);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({
+        title: 'Новый счёт создан',
+        description: `Счёт #${data.invoice_id} успешно создан`,
+      });
+    };
+
+    // Обработчик обновления статуса
+    const handleStatusUpdate = (data: any) => {
+      console.log('[InvoicesPage] Invoice status updated via WebSocket:', data);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+
+      // Показываем уведомление только для важных статусов
+      if (data.new_status === 'viewed' || data.new_status === 'paid') {
+        const statusText = data.new_status === 'viewed' ? 'просмотрен' : 'оплачен';
+        toast({
+          title: 'Счёт обновлён',
+          description: `Счёт #${data.invoice_id} ${statusText}`,
+        });
+      }
+    };
+
+    // Обработчик оплаты счёта
+    const handleInvoicePaid = (data: any) => {
+      console.log('[InvoicesPage] Invoice paid via WebSocket:', data);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({
+        title: 'Счёт оплачен!',
+        description: `Счёт #${data.invoice_id} успешно оплачен`,
+      });
+    };
+
+    // Подписываемся на события
+    on('onInvoiceCreated', handleInvoiceCreated);
+    on('onStatusUpdate', handleStatusUpdate);
+    on('onInvoicePaid', handleInvoicePaid);
+
+    // Отписываемся при размонтировании
+    return () => {
+      off('onInvoiceCreated', handleInvoiceCreated);
+      off('onStatusUpdate', handleStatusUpdate);
+      off('onInvoicePaid', handleInvoicePaid);
+    };
+  }, [on, off, queryClient, toast]);
 
   const handleInvoiceClick = (invoice: Invoice) => {
     setSelectedInvoice(invoice);

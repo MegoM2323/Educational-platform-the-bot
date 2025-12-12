@@ -510,4 +510,154 @@ export const knowledgeGraphAPI = {
       max_possible_score: number;
     };
   },
+
+  // ============================================
+  // Student Lesson Viewer Methods (T024)
+  // ============================================
+
+  /**
+   * Получить урок со всеми элементами для студента
+   * Endpoint: GET /api/knowledge-graph/student/lessons/{graph_lesson_id}/
+   */
+  getStudentLesson: async (graphLessonId: string) => {
+    const response = await unifiedAPI.get<{
+      success: boolean;
+      data: {
+        graph_lesson: {
+          id: string;
+          lesson: {
+            id: string;
+            title: string;
+            description: string;
+          };
+          status: string;
+          unlocked_at: string;
+        };
+        elements: Array<{
+          id: string;
+          order: number;
+          element: {
+            id: string;
+            title: string;
+            element_type: 'text_problem' | 'quick_question' | 'theory' | 'video';
+            content: any;
+            max_score: number;
+            estimated_time_minutes: number;
+          };
+          progress?: {
+            id: string;
+            status: 'not_started' | 'in_progress' | 'completed';
+            score: number | null;
+            answer: any | null;
+            started_at: string | null;
+            completed_at: string | null;
+          };
+        }>;
+        progress: {
+          id: string;
+          status: string;
+          completion_percent: number;
+          total_score: number;
+          max_possible_score: number;
+        };
+        next_element_id: string | null;
+      };
+    }>(`/knowledge-graph/student/lessons/${graphLessonId}/`);
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    if (!response.data || !('data' in response.data)) {
+      throw new Error('Урок не найден');
+    }
+
+    return response.data.data;
+  },
+
+  /**
+   * Начать элемент (студент)
+   * Endpoint: POST /api/knowledge-graph/student/elements/{element_id}/start/
+   */
+  startStudentElement: async (elementId: string) => {
+    const response = await unifiedAPI.post<{
+      success: boolean;
+      data: {
+        progress: {
+          id: string;
+          element_id: string;
+          status: string;
+          started_at: string;
+        };
+      };
+    }>(`/knowledge-graph/student/elements/${elementId}/start/`, {});
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    return response.data;
+  },
+
+  /**
+   * Отправить ответ на элемент (студент)
+   * Endpoint: POST /api/knowledge-graph/student/elements/{element_id}/submit/
+   */
+  submitStudentAnswer: async (elementId: string, answer: any) => {
+    const response = await unifiedAPI.post<{
+      success: boolean;
+      data: {
+        progress: {
+          id: string;
+          status: string;
+          score: number | null;
+          answer: any;
+        };
+        score: number | null;
+        is_correct?: boolean;
+        next_element_id: string | null;
+      };
+    }>(`/knowledge-graph/student/elements/${elementId}/submit/`, { answer });
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    return response.data;
+  },
+
+  /**
+   * Завершить урок (студент)
+   * Endpoint: POST /api/knowledge-graph/student/lessons/{graph_lesson_id}/complete/
+   */
+  completeStudentLesson: async (graphLessonId: string) => {
+    const response = await unifiedAPI.post<{
+      success: boolean;
+      data: {
+        lesson_progress: {
+          id: string;
+          graph_lesson_id: string;
+          status: string;
+          score: number;
+          max_score: number;
+          percentage: number;
+          completed_at: string;
+        };
+        unlocked_lessons: Array<{
+          id: string;
+          lesson: {
+            id: string;
+            title: string;
+          };
+          unlocked_at: string;
+        }>;
+      };
+    }>(`/knowledge-graph/student/lessons/${graphLessonId}/complete/`, {});
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    return response.data;
+  },
 };

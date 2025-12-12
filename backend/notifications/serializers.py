@@ -153,3 +153,100 @@ class NotificationMarkReadSerializer(serializers.Serializer):
         default=False,
         help_text='Отметить все уведомления как прочитанные'
     )
+
+
+# ============= BROADCAST SERIALIZERS =============
+
+class BroadcastRecipientSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для получателей рассылки с информацией о доставке
+    """
+    user_id = serializers.IntegerField(source='recipient.id', read_only=True)
+    user_name = serializers.CharField(source='recipient.get_full_name', read_only=True)
+    email = serializers.CharField(source='recipient.email', read_only=True)
+    telegram_id = serializers.SerializerMethodField()
+    error_message = serializers.CharField(source='telegram_error', read_only=True)
+
+    class Meta:
+        from .models import BroadcastRecipient
+        model = BroadcastRecipient
+        fields = [
+            'id', 'user_id', 'user_name', 'email', 'telegram_id',
+            'telegram_sent', 'error_message', 'sent_at'
+        ]
+        read_only_fields = ['id', 'sent_at']
+
+    def get_telegram_id(self, obj):
+        """Получить telegram_id пользователя в зависимости от роли"""
+        user = obj.recipient
+        telegram_id = None
+
+        try:
+            if user.role == 'student' and hasattr(user, 'student_profile'):
+                telegram_id = user.student_profile.telegram_id
+            elif user.role == 'teacher' and hasattr(user, 'teacher_profile'):
+                telegram_id = user.teacher_profile.telegram_id
+            elif user.role == 'tutor' and hasattr(user, 'tutor_profile'):
+                telegram_id = user.tutor_profile.telegram_id
+            elif user.role == 'parent' and hasattr(user, 'parent_profile'):
+                telegram_id = user.parent_profile.telegram_id
+        except Exception:
+            return None
+
+        return telegram_id
+
+
+class BroadcastListSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для списка рассылок (без полного списка получателей)
+    """
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    target_group_display = serializers.CharField(source='get_target_group_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        from .models import Broadcast
+        model = Broadcast
+        fields = [
+            'id', 'created_by', 'created_by_name', 'target_group', 'target_group_display',
+            'message', 'status', 'status_display', 'recipient_count', 'sent_count', 'failed_count',
+            'scheduled_at', 'sent_at', 'created_at'
+        ]
+        read_only_fields = ['id', 'recipient_count', 'sent_count', 'failed_count', 'sent_at', 'created_at']
+
+
+class BroadcastDetailSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для детальной информации о рассылке (включает получателей)
+    """
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    target_group_display = serializers.CharField(source='get_target_group_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    recipients = BroadcastRecipientSerializer(many=True, read_only=True)
+
+    class Meta:
+        from .models import Broadcast
+        model = Broadcast
+        fields = [
+            'id', 'created_by', 'created_by_name', 'target_group', 'target_group_display',
+            'target_filter', 'message', 'status', 'status_display', 'recipient_count',
+            'sent_count', 'failed_count', 'recipients', 'scheduled_at', 'sent_at', 'created_at'
+        ]
+        read_only_fields = ['id', 'recipient_count', 'sent_count', 'failed_count', 'sent_at', 'created_at']
+
+
+class CreateBroadcastSerializer(serializers.Serializer):
+    """
+    Сериализатор для создания новой рассылки
+    """
+    target_group = serializers.ChoiceField(
+        choices=['all_students', 'all_teachers', 'all_tutors', 'all_parents', 'by_subject', 'by_tutor', 'by_teacher', 'custom']
+    )
+    target_filter = serializers.JSONField(
+        required=False,
+        allow_null=True,
+        help_text='Фильтры: subject_id, tutor_id, teacher_id, user_ids'
+    )
+    message = serializers.CharField(max_length=4000)
+    send_telegram = serializers.BooleanField(default=True)
+    scheduled_at = serializers.DateTimeField(required=False, allow_null=True)

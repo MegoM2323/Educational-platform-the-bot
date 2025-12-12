@@ -24,6 +24,14 @@ export interface TutorStudent {
     teacher_name: string;
     enrollment_id: number;
   }>;
+  next_lesson?: {
+    id: string;
+    teacher: string;
+    teacher_id: number;
+    date: string;
+    start_time: string;
+  } | null;
+  lessons_count?: number;
 }
 
 export interface CreateStudentRequest {
@@ -171,5 +179,29 @@ export const tutorAPI = {
       method: 'DELETE',
     });
     if (resp.error) throw new Error(resp.error);
+  },
+
+  /**
+   * Получить расписание всех студентов тьютора
+   * Возвращает студентов с информацией о следующем уроке
+   */
+  getStudentsSchedule: async (): Promise<TutorStudent[]> => {
+    logger.debug('[tutorAPI.getStudentsSchedule] Starting request');
+
+    const resp = await unifiedAPI.request<any>('/scheduling/tutor/schedule/');
+
+    logger.debug('[tutorAPI.getStudentsSchedule] Response:', resp.data);
+
+    if (resp.error) {
+      logger.error('[tutorAPI.getStudentsSchedule] Error:', resp.error);
+      throw new Error(resp.error);
+    }
+
+    // Backend возвращает { students: [...], total_students: number }
+    if (resp.data && resp.data.students) {
+      return resp.data.students;
+    }
+
+    return [];
   },
 };

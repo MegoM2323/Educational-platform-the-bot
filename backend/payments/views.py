@@ -2,6 +2,8 @@ import requests
 import json
 import uuid
 import logging
+import hmac
+import hashlib
 from decimal import Decimal
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
@@ -92,6 +94,64 @@ def verify_yookassa_ip(request):
     except ValueError as e:
         logger.error(f"Invalid client IP address: {client_ip}: {e}")
         return False
+
+
+def verify_yookassa_signature(body: bytes, signature: str, secret_key: str) -> bool:
+    """
+    Проверяет HMAC-SHA256 подпись YooKassa вебхука
+
+    YooKassa отправляет подпись в заголовке HTTP_X_YOOKASSA_WEBHOOK_SIGNATURE.
+    Подпись вычисляется по алгоритму HMAC-SHA256 от тела запроса с использованием
+    секретного ключа магазина.
+
+    Конфигурация вебхука:
+    1. Зайти в личный кабинет YooKassa
+    2. Настройки → Уведомления → HTTP-уведомления
+    3. URL: https://your-domain.com/yookassa-webhook/
+    4. Выбрать события: payment.succeeded, payment.canceled, payment.failed
+    5. Убедиться что включена опция "Подписывать уведомления"
+
+    Args:
+        body: Тело запроса (bytes)
+        signature: Подпись из заголовка (hex string)
+        secret_key: Секретный ключ YooKassa
+
+    Returns:
+        bool: True если подпись валидна, False если нет
+
+    Example:
+        >>> body = b'{"type":"payment.succeeded"}'
+        >>> signature = "abc123..."  # from X-Yookassa-Webhook-Signature header
+        >>> secret = "your_secret_key"
+        >>> verify_yookassa_signature(body, signature, secret)
+        True
+    """
+    if not signature or not secret_key:
+        logger.warning("Missing signature or secret_key for webhook verification")
+        return False
+
+    try:
+        # Вычисляем ожидаемую подпись
+        expected_signature = hmac.new(
+            secret_key.encode('utf-8'),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+
+        # Сравниваем подписи (constant-time comparison для защиты от timing attacks)
+        is_valid = hmac.compare_digest(expected_signature, signature)
+
+        if is_valid:
+            logger.debug(f"YooKassa webhook signature verified successfully")
+        else:
+            logger.warning(f"YooKassa webhook signature verification failed: expected={expected_signature[:8]}..., got={signature[:8]}...")
+
+        return is_valid
+
+    except Exception as e:
+        logger.error(f"Error verifying YooKassa webhook signature: {e}")
+        return False
+
 
 def _get_safe_url(request, path):
     """Безопасно получает абсолютный URL, обрабатывая случаи без правильного хоста"""
@@ -337,7 +397,20 @@ def check_yookassa_payment_status(yookassa_payment_id):
 
 @csrf_exempt
 def yookassa_webhook(request):
-    """Webhook от ЮКассы для обработки уведомлений о статусе платежа"""
+    """
+    Webhook от ЮКассы для обработки уведомлений о статусе платежа
+
+    Безопасность:
+    - Проверка IP-адреса отправителя (whitelist YooKassa IPs)
+    - Проверка HMAC-SHA256 подписи вебхука
+
+    Поддерживаемые события:
+    - payment.succeeded - успешная оплата (invoice или subject payment)
+    - payment.canceled - отмена платежа
+    - payment.waiting_for_capture - ожидание подтверждения
+    - payment.failed - ошибка платежа
+    - refund.succeeded - возврат средств
+    """
     if request.method != "POST":
         logger.warning("Webhook called with non-POST method")
         return HttpResponseBadRequest("POST only")
@@ -347,6 +420,21 @@ def yookassa_webhook(request):
         client_ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown'))
         logger.error(f"Webhook request from unauthorized IP: {client_ip}")
         return HttpResponseForbidden("Unauthorized IP address")
+
+    # Проверяем HMAC-подпись (дополнительная защита)
+    # YooKassa отправляет подпись в заголовке X-Yookassa-Webhook-Signature
+    webhook_signature = request.META.get('HTTP_X_YOOKASSA_WEBHOOK_SIGNATURE')
+    if webhook_signature:
+        # Проверяем подпись если она присутствует
+        if not verify_yookassa_signature(request.body, webhook_signature, settings.YOOKASSA_SECRET_KEY):
+            logger.error(f"Webhook signature verification failed")
+            return HttpResponseForbidden("Invalid signature")
+        logger.info("Webhook signature verified successfully")
+    else:
+        # Подпись отсутствует - логируем warning но продолжаем (для обратной совместимости)
+        logger.warning("Webhook received without signature (X-Yookassa-Webhook-Signature header missing)")
+        # В production режиме можно сделать подпись обязательной:
+        # return HttpResponseForbidden("Signature required")
 
     try:
         # Получаем данные из webhook

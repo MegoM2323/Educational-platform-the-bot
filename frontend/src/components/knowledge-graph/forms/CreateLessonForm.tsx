@@ -26,12 +26,19 @@ interface Element {
   element_type: string;
   description: string;
   difficulty?: number;
+  estimated_time_minutes?: number;
+}
+
+interface Subject {
+  id: number;
+  name: string;
 }
 
 interface CreateLessonFormProps {
   onSubmit: (data: LessonFormData) => Promise<void>;
   onCancel?: () => void;
   availableElements: Element[];
+  availableSubjects: Subject[];
   isLoading?: boolean;
 }
 
@@ -39,25 +46,33 @@ export const CreateLessonForm: React.FC<CreateLessonFormProps> = ({
   onSubmit,
   onCancel,
   availableElements,
+  availableSubjects,
   isLoading = false,
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const [subjectFilter, setSubjectFilter] = useState<string>('all');
 
   const form = useForm<LessonFormData>({
     resolver: zodResolver(lessonSchema),
     defaultValues: {
       title: '',
       description: '',
+      subject_id: availableSubjects.length > 0 ? availableSubjects[0].id : 0,
       difficulty: 'medium',
       element_ids: [],
+      is_public: false,
     },
   });
 
-  // Filter elements based on search
+  // Filter elements based on search and subject
   const filteredElements = useMemo(() => {
+    // Применение фильтра по subject (если элементы имеют поле subject_id)
+    // Примечание: в текущей модели Element нет subject, но можно фильтровать по другим критериям
+    // Для простоты оставляем subject filter как placeholder для будущего расширения
+
     if (!searchQuery) return availableElements;
 
     const query = searchQuery.toLowerCase();
@@ -75,6 +90,13 @@ export const CreateLessonForm: React.FC<CreateLessonFormProps> = ({
       .map((id) => availableElements.find((el) => el.id === id))
       .filter((el): el is Element => el !== undefined);
   }, [selectedElementIds, availableElements]);
+
+  // Calculate total estimated time
+  const totalEstimatedTime = useMemo(() => {
+    return selectedElements.reduce((total, el) => {
+      return total + (el.estimated_time_minutes || 0);
+    }, 0);
+  }, [selectedElements]);
 
   const toggleElement = (elementId: string) => {
     setSelectedElementIds((prev) => {
@@ -126,11 +148,14 @@ export const CreateLessonForm: React.FC<CreateLessonFormProps> = ({
       form.reset({
         title: '',
         description: '',
+        subject_id: availableSubjects.length > 0 ? availableSubjects[0].id : 0,
         difficulty: 'medium',
         element_ids: [],
+        is_public: false,
       });
       setSelectedElementIds([]);
       setSearchQuery('');
+      setSubjectFilter('all');
 
       setTimeout(() => {
         setSubmitSuccess(false);
@@ -152,11 +177,14 @@ export const CreateLessonForm: React.FC<CreateLessonFormProps> = ({
     form.reset({
       title: '',
       description: '',
+      subject_id: availableSubjects.length > 0 ? availableSubjects[0].id : 0,
       difficulty: 'medium',
       element_ids: [],
+      is_public: false,
     });
     setSelectedElementIds([]);
     setSearchQuery('');
+    setSubjectFilter('all');
     setSubmitSuccess(false);
   };
 
@@ -227,6 +255,35 @@ export const CreateLessonForm: React.FC<CreateLessonFormProps> = ({
               )}
             />
 
+            {/* Subject */}
+            <FormField
+              control={form.control}
+              name="subject_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Subject</FormLabel>
+                  <Select
+                    value={field.value?.toString()}
+                    onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select subject" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableSubjects.map((subject) => (
+                        <SelectItem key={subject.id} value={subject.id.toString()}>
+                          {subject.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Difficulty */}
             <FormField
               control={form.control}
@@ -247,6 +304,30 @@ export const CreateLessonForm: React.FC<CreateLessonFormProps> = ({
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Is Public */}
+            <FormField
+              control={form.control}
+              name="is_public"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Make lesson public
+                    </FormLabel>
+                    <FormDescription>
+                      Allow other teachers to use this lesson in their courses
+                    </FormDescription>
+                  </div>
                 </FormItem>
               )}
             />
@@ -309,7 +390,26 @@ export const CreateLessonForm: React.FC<CreateLessonFormProps> = ({
                   <h3 className="text-sm font-medium">
                     Selected Elements ({selectedElements.length})
                   </h3>
-                  <p className="text-xs text-muted-foreground">Drag to reorder</p>
+                  <p className="text-xs text-muted-foreground">Use arrows to reorder</p>
+                </div>
+
+                {/* Preview statistics */}
+                <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-md">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Elements</p>
+                    <p className="text-lg font-semibold">{selectedElements.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Estimated Time</p>
+                    <p className="text-lg font-semibold">
+                      {totalEstimatedTime} min
+                      {totalEstimatedTime >= 60 && (
+                        <span className="text-sm font-normal text-muted-foreground ml-1">
+                          (~{Math.floor(totalEstimatedTime / 60)}h {totalEstimatedTime % 60}m)
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -342,11 +442,18 @@ export const CreateLessonForm: React.FC<CreateLessonFormProps> = ({
                       </div>
                       <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <span className="text-xs text-muted-foreground mr-2">#{index + 1}</span>
-                        <span className="font-medium text-sm">{element.title}</span>
-                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                          {getElementTypeLabel(element.element_type)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                          <span className="font-medium text-sm truncate">{element.title}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+                            {getElementTypeLabel(element.element_type)}
+                          </span>
+                        </div>
+                        {element.estimated_time_minutes && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            ~{element.estimated_time_minutes} min
+                          </p>
+                        )}
                       </div>
                       <Button
                         type="button"

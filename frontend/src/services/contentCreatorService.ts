@@ -192,17 +192,84 @@ export const contentCreatorService = {
   /**
    * Создать новый урок
    */
-  createLesson: async (data: Partial<LessonDetail>): Promise<ApiResponse<LessonDetail>> => {
-    const response = await apiClient.post('/knowledge-graph/lessons/', data);
-    return response.data;
+  createLesson: async (data: Partial<LessonDetail> & { element_ids?: number[] }): Promise<ApiResponse<LessonDetail>> => {
+    // Извлечь element_ids из payload (они не принимаются напрямую backend)
+    const { element_ids, ...lessonData } = data;
+
+    // Шаг 1: Создать урок
+    const createResponse = await apiClient.post('/knowledge-graph/lessons/', lessonData);
+    const createdLesson = createResponse.data.data;
+
+    // Шаг 2: Добавить элементы в урок (если указаны)
+    if (element_ids && element_ids.length > 0) {
+      for (let i = 0; i < element_ids.length; i++) {
+        await apiClient.post(`/knowledge-graph/lessons/${createdLesson.id}/elements/`, {
+          element_id: element_ids[i],
+          order: i + 1, // Порядок начинается с 1
+          is_optional: false,
+        });
+      }
+
+      // Шаг 3: Пересчитать totals (backend должен это делать автоматически)
+      // Получить обновленный урок с элементами
+      const updatedResponse = await apiClient.get(`/knowledge-graph/lessons/${createdLesson.id}/`);
+      return updatedResponse.data;
+    }
+
+    return createResponse.data;
   },
 
   /**
    * Обновить урок
    */
-  updateLesson: async (id: number, data: Partial<LessonDetail>): Promise<ApiResponse<LessonDetail>> => {
-    const response = await apiClient.patch(`/knowledge-graph/lessons/${id}/`, data);
-    return response.data;
+  updateLesson: async (id: number, data: Partial<LessonDetail> & { element_ids?: number[] }): Promise<ApiResponse<LessonDetail>> => {
+    // Извлечь element_ids из payload
+    const { element_ids, ...lessonData } = data;
+
+    // Шаг 1: Обновить основные поля урока
+    await apiClient.patch(`/knowledge-graph/lessons/${id}/`, lessonData);
+
+    // Шаг 2: Если указаны element_ids, обновить элементы урока
+    if (element_ids !== undefined) {
+      // Получить текущие элементы урока
+      const currentLessonResponse = await apiClient.get(`/knowledge-graph/lessons/${id}/`);
+      const currentElements = currentLessonResponse.data.data.elements_list || [];
+
+      // Удалить элементы которые больше не нужны
+      const currentElementIds = new Set(currentElements.map((el: any) => el.element.id));
+      const newElementIds = new Set(element_ids);
+
+      for (const current of currentElements) {
+        if (!newElementIds.has(current.element.id)) {
+          // Удалить элемент из урока
+          await apiClient.delete(`/knowledge-graph/lessons/${id}/elements/${current.id}/`);
+        }
+      }
+
+      // Добавить новые элементы и обновить порядок
+      for (let i = 0; i < element_ids.length; i++) {
+        const elementId = element_ids[i];
+        const existingElement = currentElements.find((el: any) => el.element.id === elementId);
+
+        if (existingElement) {
+          // Обновить порядок существующего элемента
+          await apiClient.patch(`/knowledge-graph/lessons/${id}/elements/${existingElement.id}/`, {
+            order: i + 1,
+          });
+        } else {
+          // Добавить новый элемент
+          await apiClient.post(`/knowledge-graph/lessons/${id}/elements/`, {
+            element_id: elementId,
+            order: i + 1,
+            is_optional: false,
+          });
+        }
+      }
+    }
+
+    // Шаг 3: Получить обновленный урок
+    const updatedResponse = await apiClient.get(`/knowledge-graph/lessons/${id}/`);
+    return updatedResponse.data;
   },
 
   /**

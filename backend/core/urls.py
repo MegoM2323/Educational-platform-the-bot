@@ -8,6 +8,13 @@ from .monitoring_views import (
     FailedTaskDetailView,
     TaskExecutionStatsView
 )
+from .stats_views import (
+    dashboard_stats,
+    user_stats,
+    lesson_stats,
+    invoice_stats,
+    knowledge_graph_stats
+)
 
 app_name = 'core'
 
@@ -37,4 +44,11 @@ urlpatterns = [
 
     # Публичная проверка здоровья
     path('health-check/', views.health_check_view, name='health_check'),
+
+    # Статистика для админ-панели (только staff/superuser)
+    path('admin/stats/dashboard/', dashboard_stats, name='admin_stats_dashboard'),
+    path('admin/stats/users/', user_stats, name='admin_stats_users'),
+    path('admin/stats/lessons/', lesson_stats, name='admin_stats_lessons'),
+    path('admin/stats/invoices/', invoice_stats, name='admin_stats_invoices'),
+    path('admin/stats/knowledge-graph/', knowledge_graph_stats, name='admin_stats_knowledge_graph'),
 ]

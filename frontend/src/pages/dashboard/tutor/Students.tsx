@@ -7,15 +7,19 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTutorStudents, useCreateTutorStudent } from '@/hooks/useTutor';
+import { useTutorStudentsWithSchedule } from '@/hooks/useTutorStudentsWithSchedule';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import AssignSubjectDialog from '@/components/tutor/AssignSubjectDialog';
 import { TutorStudentSchedule } from '@/components/scheduling/tutor/TutorStudentSchedule';
+import { Calendar, Clock } from 'lucide-react';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 export default function TutorStudentsPage() {
-  const { data: students, isLoading } = useTutorStudents();
+  const { data: students, isLoading } = useTutorStudentsWithSchedule();
   const createMutation = useCreateTutorStudent();
   const { toast } = useToast();
 
@@ -179,6 +183,8 @@ export default function TutorStudentsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {students?.map((s) => {
                       const subjectsCount = s.subjects?.length || 0;
+                      const hasNextLesson = s.next_lesson !== null && s.next_lesson !== undefined;
+
                       return (
                         <Card
                           key={s.id}
@@ -188,6 +194,28 @@ export default function TutorStudentsPage() {
                           <div className="font-medium">{s.full_name || `${s.first_name || ''} ${s.last_name || ''}`}</div>
                           <div className="text-sm text-muted-foreground">Класс: {s.grade || '-'}</div>
                           <div className="text-sm text-muted-foreground">Цель: {s.goal || '-'}</div>
+
+                          {/* Следующий урок */}
+                          {hasNextLesson && s.next_lesson ? (
+                            <div className="p-2 bg-blue-50 rounded-md border border-blue-200">
+                              <div className="text-xs font-semibold text-blue-900 mb-1">Следующий урок:</div>
+                              <div className="flex items-center gap-2 text-xs text-blue-800">
+                                <Calendar className="w-3 h-3" />
+                                <span>{format(new Date(s.next_lesson.date), 'd MMMM', { locale: ru })}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-blue-800">
+                                <Clock className="w-3 h-3" />
+                                <span>{s.next_lesson.start_time.slice(0, 5)}</span>
+                              </div>
+                              <div className="text-xs text-blue-700 mt-1">
+                                Преподаватель: {s.next_lesson.teacher}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-2 bg-muted rounded-md text-xs text-muted-foreground">
+                              Нет запланированных уроков
+                            </div>
+                          )}
 
                           {/* Назначенные предметы */}
                           {subjectsCount > 0 ? (

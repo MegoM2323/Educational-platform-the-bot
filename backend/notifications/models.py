@@ -301,6 +301,171 @@ class NotificationQueue(models.Model):
         verbose_name = 'Запись очереди уведомлений'
         verbose_name_plural = 'Очередь уведомлений'
         ordering = ['scheduled_at', 'created_at']
-    
+
     def __str__(self):
         return f"{self.notification} - {self.channel} ({self.status})"
+
+
+class Broadcast(models.Model):
+    """
+    Массовая рассылка уведомлений для групп пользователей
+    """
+    class TargetGroup(models.TextChoices):
+        ALL_STUDENTS = 'all_students', 'Все студенты'
+        ALL_TEACHERS = 'all_teachers', 'Все преподаватели'
+        ALL_TUTORS = 'all_tutors', 'Все тьюторы'
+        ALL_PARENTS = 'all_parents', 'Все родители'
+        BY_SUBJECT = 'by_subject', 'По предмету'
+        BY_TUTOR = 'by_tutor', 'По тьютору'
+        BY_TEACHER = 'by_teacher', 'По учителю'
+        CUSTOM = 'custom', 'Кастомная группа'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Черновик'
+        SCHEDULED = 'scheduled', 'Запланирована'
+        SENDING = 'sending', 'Отправляется'
+        SENT = 'sent', 'Отправлена'
+        FAILED = 'failed', 'Ошибка'
+        CANCELLED = 'cancelled', 'Отменена'
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='broadcasts',
+        verbose_name='Создатель'
+    )
+
+    target_group = models.CharField(
+        max_length=20,
+        choices=TargetGroup.choices,
+        verbose_name='Целевая группа'
+    )
+
+    target_filter = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Фильтры: {subject_id, tutor_id, teacher_id, user_ids}',
+        verbose_name='Фильтр получателей'
+    )
+
+    message = models.TextField(
+        max_length=1000,
+        verbose_name='Сообщение'
+    )
+
+    recipient_count = models.IntegerField(
+        default=0,
+        verbose_name='Количество получателей'
+    )
+
+    sent_count = models.IntegerField(
+        default=0,
+        verbose_name='Количество отправленных'
+    )
+
+    failed_count = models.IntegerField(
+        default=0,
+        verbose_name='Количество неудачных'
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name='Статус'
+    )
+
+    scheduled_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Запланирована на'
+    )
+
+    sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Отправлена'
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Завершена'
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Создана'
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Обновлена'
+    )
+
+    class Meta:
+        verbose_name = 'Массовая рассылка'
+        verbose_name_plural = 'Массовые рассылки'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['created_by', '-created_at']),
+            models.Index(fields=['status', 'scheduled_at']),
+        ]
+
+    def __str__(self):
+        return f"Broadcast #{self.id} - {self.get_target_group_display()} ({self.get_status_display()})"
+
+
+class BroadcastRecipient(models.Model):
+    """
+    Отслеживание доставки рассылки конкретному получателю
+    """
+    broadcast = models.ForeignKey(
+        Broadcast,
+        on_delete=models.CASCADE,
+        related_name='recipients',
+        verbose_name='Рассылка'
+    )
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Получатель'
+    )
+
+    telegram_sent = models.BooleanField(
+        default=False,
+        verbose_name='Отправлено в Telegram'
+    )
+
+    telegram_message_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name='ID сообщения в Telegram'
+    )
+
+    telegram_error = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Ошибка отправки в Telegram'
+    )
+
+    sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Отправлено'
+    )
+
+    class Meta:
+        verbose_name = 'Получатель рассылки'
+        verbose_name_plural = 'Получатели рассылок'
+        unique_together = ('broadcast', 'recipient')
+        indexes = [
+            models.Index(fields=['broadcast', 'telegram_sent']),
+            models.Index(fields=['recipient', 'broadcast']),
+        ]
+
+    def __str__(self):
+        return f"BroadcastRecipient: {self.recipient.email} <- {self.broadcast.id}"

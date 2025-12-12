@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { CreateElementForm } from '@/components/knowledge-graph/forms/CreateElementForm';
 import { CreateLessonForm } from '@/components/knowledge-graph/forms/CreateLessonForm';
 import { contentCreatorService } from '@/services/contentCreatorService';
+import { teacherAPI } from '@/integrations/api/teacher';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
@@ -31,7 +32,15 @@ const ContentCreatorPage: React.FC = () => {
     staleTime: 60000,
   });
 
+  // Fetch teacher subjects for lesson creation
+  const { data: subjectsData } = useQuery({
+    queryKey: ['teacher', 'subjects'],
+    queryFn: () => teacherAPI.getSubjects(),
+    staleTime: 300000, // 5 minutes
+  });
+
   const availableElements = elementsData?.data || [];
+  const availableSubjects = subjectsData || [];
 
   // Handlers for element operations
   const handleCreateElement = () => {
@@ -96,10 +105,11 @@ const ContentCreatorPage: React.FC = () => {
         element_type: data.type, // Map 'type' to 'element_type'
         content: transformContent(data.type, data.content, data.options, data.correct_answer),
         video_url: data.video_url || '',
-        max_score: data.max_score || 0,
-        difficulty: data.difficulty || 1,
+        max_score: data.max_score || 100,
+        difficulty: data.difficulty || 5,
         estimated_time_minutes: data.estimated_time_minutes || 5,
-        is_public: false, // Default to private
+        tags: data.tags || [],
+        is_public: data.is_public || false,
       };
 
       if (editingElementId) {
@@ -228,6 +238,7 @@ const ContentCreatorPage: React.FC = () => {
                   onSubmit={handleLessonSubmit}
                   onCancel={handleLessonFormClose}
                   availableElements={availableElements}
+                  availableSubjects={availableSubjects}
                   isLoading={isSubmitting}
                 />
               </DialogContent>

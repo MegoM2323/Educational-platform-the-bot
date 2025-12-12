@@ -11,7 +11,8 @@ from .staff_views import (
 )
 from .profile_views import (
     StudentProfileView, TeacherProfileView, TutorProfileView, ParentProfileView,
-    AdminTeacherProfileEditView, AdminTutorProfileEditView
+    AdminTeacherProfileEditView, AdminTutorProfileEditView,
+    AdminUserProfileView, AdminUserFullInfoView
 )
 from .admin_stats_views import AdminUserStatsView
 
@@ -80,4 +81,8 @@ urlpatterns = [
 
     # Admin statistics
     path('stats/users/', AdminUserStatsView.as_view(), name='admin_user_stats'),
+
+    # Admin user profile viewing (new endpoints for T016)
+    path('admin/users/<int:user_id>/profile/', AdminUserProfileView.as_view(), name='admin_user_profile'),
+    path('admin/users/<int:user_id>/full-info/', AdminUserFullInfoView.as_view(), name='admin_user_full_info'),
 ]

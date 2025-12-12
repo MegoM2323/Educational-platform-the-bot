@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { Users, GraduationCap, BookOpen, Activity, LogOut } from 'lucide-react';
-import StaffManagement from './StaffManagement';
-import StudentManagement from './StudentManagement';
-import ParentManagement from './ParentManagement';
+import { Users, GraduationCap, BookOpen, Activity, Calendar, MessageSquare, Radio } from 'lucide-react';
+import StudentSection from './sections/StudentSection';
+import TeacherSection from './sections/TeacherSection';
+import TutorSection from './sections/TutorSection';
+import ParentSection from './sections/ParentSection';
 import { adminAPI } from '@/integrations/api/adminAPI';
 
 interface StatCard {
@@ -20,8 +18,6 @@ interface StatCard {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const [isLogoutLoading, setIsLogoutLoading] = useState(false);
   const [stats, setStats] = useState({
     total_users: 0,
     total_students: 0,
@@ -32,8 +28,6 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    // Загрузка статистики (когда будет готов endpoint)
-    // Для сейчас используем простые значения
     loadStats();
   }, []);
 
@@ -68,20 +62,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    setIsLogoutLoading(true);
-    try {
-      await logout();
-      toast.success('Вы вышли из системы');
-      navigate('/auth');
-    } catch (error) {
-      logger.error('Logout error:', error);
-      toast.error('Ошибка при выходе');
-    } finally {
-      setIsLogoutLoading(false);
-    }
-  };
-
   const statCards: StatCard[] = [
     {
       title: 'Всего пользователей',
@@ -106,24 +86,15 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="container mx-auto p-4">
-      {/* Заголовок с кнопкой выхода в углу */}
-      <div className="relative mb-6">
+    <div className="container mx-auto p-4 space-y-6">
+      {/* Заголовок */}
+      <div>
         <h1 className="text-3xl font-bold">Администратор</h1>
-        <Button type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleLogout}
-          disabled={isLogoutLoading}
-          className="absolute top-0 right-0 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          {isLogoutLoading ? 'Выход...' : 'Выйти'}
-        </Button>
+        <p className="text-muted-foreground mt-1">Управление пользователями и системой</p>
       </div>
 
       {/* Статистика */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat, index) => (
           <Card key={index}>
             <CardHeader className="pb-3">
@@ -141,26 +112,51 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Основной контент с табами */}
-      <Tabs defaultValue="students" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="students">Студенты</TabsTrigger>
-          <TabsTrigger value="staff">Преподаватели и Тьюторы</TabsTrigger>
-          <TabsTrigger value="parents">Родители</TabsTrigger>
-        </TabsList>
+      {/* Секции управления (4 карточки) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <StudentSection onUpdate={loadStats} />
+        <TeacherSection onUpdate={loadStats} />
+        <TutorSection onUpdate={loadStats} />
+        <ParentSection onUpdate={loadStats} />
+      </div>
 
-        <TabsContent value="students" className="mt-6">
-          <StudentManagement />
-        </TabsContent>
-
-        <TabsContent value="staff" className="mt-6">
-          <StaffManagement />
-        </TabsContent>
-
-        <TabsContent value="parents" className="mt-6">
-          <ParentManagement />
-        </TabsContent>
-      </Tabs>
+      {/* Навигация к другим разделам */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Другие разделы</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate('/admin/schedule')}
+              className="flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Расписание
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate('/admin/chats')}
+              className="flex items-center gap-2"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Чаты
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate('/admin/broadcasts')}
+              className="flex items-center gap-2"
+            >
+              <Radio className="h-4 w-4" />
+              Рассылки
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -29,6 +29,23 @@ export const elementSchema = z.object({
     .optional()
     .or(z.literal('')),
   video_type: z.enum(['youtube', 'vimeo', 'other']).optional(),
+  difficulty: z
+    .number()
+    .min(1, 'Difficulty must be between 1-10')
+    .max(10, 'Difficulty must be between 1-10')
+    .default(5),
+  estimated_time_minutes: z
+    .number()
+    .min(1, 'Time must be at least 1 minute')
+    .default(5),
+  max_score: z
+    .number()
+    .min(0, 'Score cannot be negative')
+    .default(100),
+  tags: z
+    .array(z.string())
+    .default([]),
+  is_public: z.boolean().default(false),
 }).superRefine((data, ctx) => {
   // Validate quick_question has at least 2 options with at least 1 correct
   if (data.type === 'quick_question') {
@@ -78,6 +95,9 @@ export const lessonSchema = z.object({
     .max(1000, 'Description must not exceed 1000 characters')
     .optional()
     .default(''),
+  subject_id: z
+    .number()
+    .positive('Subject is required'),
   difficulty: z.enum(['easy', 'medium', 'hard'], {
     required_error: 'Difficulty is required',
   }),
@@ -85,6 +105,9 @@ export const lessonSchema = z.object({
     .array(z.string())
     .min(1, 'At least one element is required')
     .max(50, 'Maximum 50 elements allowed'),
+  is_public: z
+    .boolean()
+    .default(false),
 });
 
 export type LessonFormData = z.infer<typeof lessonSchema>;

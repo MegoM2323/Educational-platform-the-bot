@@ -620,4 +620,149 @@ export const adminAPI = {
   }>> {
     return apiClient.request('/admin/stats/users/');
   },
+
+  /**
+   * Broadcasts Management - Admin API
+   */
+
+  /**
+   * Get list of broadcasts with pagination and filters
+   */
+  async getBroadcasts(params?: {
+    status?: string;
+    date_from?: string;
+    date_to?: string;
+    page?: number;
+    page_size?: number;
+  }): Promise<ApiResponse<{
+    success: boolean;
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: Array<{
+      id: number;
+      target_group: string;
+      message: string;
+      status: 'draft' | 'sent' | 'failed';
+      created_by: {
+        id: number;
+        full_name: string;
+      };
+      created_at: string;
+      sent_at?: string;
+      total_recipients: number;
+      successful_sends: number;
+      failed_sends: number;
+      metadata?: {
+        subject_id?: number;
+        subject_name?: string;
+        tutor_id?: number;
+        tutor_name?: string;
+      };
+    }>;
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      if (params.status) queryParams.append('status', params.status);
+      if (params.date_from) queryParams.append('date_from', params.date_from);
+      if (params.date_to) queryParams.append('date_to', params.date_to);
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.page_size) queryParams.append('page_size', params.page_size.toString());
+    }
+
+    const url = `/admin/broadcasts/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return apiClient.request(url);
+  },
+
+  /**
+   * Get broadcast details
+   */
+  async getBroadcast(broadcastId: number): Promise<ApiResponse<{
+    success: boolean;
+    data: {
+      id: number;
+      target_group: string;
+      message: string;
+      status: 'draft' | 'sent' | 'failed';
+      created_by: {
+        id: number;
+        full_name: string;
+      };
+      created_at: string;
+      sent_at?: string;
+      total_recipients: number;
+      successful_sends: number;
+      failed_sends: number;
+      metadata?: {
+        subject_id?: number;
+        subject_name?: string;
+        tutor_id?: number;
+        tutor_name?: string;
+      };
+    };
+  }>> {
+    return apiClient.request(`/admin/broadcasts/${broadcastId}/`);
+  },
+
+  /**
+   * Get broadcast recipients with delivery status
+   */
+  async getBroadcastRecipients(broadcastId: number): Promise<ApiResponse<{
+    success: boolean;
+    recipients: Array<{
+      user_id: number;
+      user_email: string;
+      user_name: string;
+      status: 'pending' | 'sent' | 'failed';
+      error_message?: string;
+      sent_at?: string;
+    }>;
+  }>> {
+    return apiClient.request(`/admin/broadcasts/${broadcastId}/recipients/`);
+  },
+
+  /**
+   * Create and send broadcast
+   */
+  async createBroadcast(data: {
+    target_group: string;
+    message: string;
+    subject_id?: number;
+    tutor_id?: number;
+    user_ids?: number[];
+  }): Promise<ApiResponse<{
+    success: boolean;
+    broadcast_id: number;
+    message: string;
+    recipients_count: number;
+  }>> {
+    return apiClient.request('/admin/broadcasts/create/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Preview broadcast recipients count
+   */
+  async previewBroadcast(data: {
+    target_group: string;
+    subject_id?: number;
+    tutor_id?: number;
+    user_ids?: number[];
+  }): Promise<ApiResponse<{
+    success: boolean;
+    recipients_count: number;
+    recipients_preview: Array<{
+      id: number;
+      full_name: string;
+      email: string;
+      role: string;
+    }>;
+  }>> {
+    return apiClient.request('/admin/broadcasts/preview/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
 };

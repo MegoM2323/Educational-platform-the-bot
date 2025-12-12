@@ -5,3 +5,9 @@ class InvoicesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'invoices'
     verbose_name = 'Счета'
+
+    def ready(self):
+        """
+        Регистрация сигналов при загрузке приложения
+        """
+        import invoices.signals  # noqa: F401

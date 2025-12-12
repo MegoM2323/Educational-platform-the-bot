@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { ElementFormData } from '@/schemas/knowledge-graph';
-import { Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface ElementTypeFieldsProps {
   form: UseFormReturn<ElementFormData>;
@@ -15,7 +17,10 @@ interface ElementTypeFieldsProps {
 }
 
 export const ElementTypeFields: React.FC<ElementTypeFieldsProps> = ({ form, elementType }) => {
+  const [showPreview, setShowPreview] = useState(false);
   const options = form.watch('options') || [];
+  const content = form.watch('content');
+  const videoUrl = form.watch('video_url');
 
   const addOption = () => {
     const currentOptions = form.getValues('options') || [];
@@ -41,48 +46,152 @@ export const ElementTypeFields: React.FC<ElementTypeFieldsProps> = ({ form, elem
     );
   };
 
-  // Text problem - simple textarea
+  // Рендер превью
+  const renderPreview = () => {
+    if (!showPreview) return null;
+
+    return (
+      <Card className="mt-4 bg-muted/50">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Предпросмотр</CardTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowPreview(false)}
+            >
+              <EyeOff className="h-4 w-4" />
+            </Button>
+          </div>
+          <CardDescription>Как это будет выглядеть для студента</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {elementType === 'text_problem' && content && (
+            <div className="prose prose-sm max-w-none">
+              <div className="whitespace-pre-wrap text-foreground">{content}</div>
+            </div>
+          )}
+
+          {elementType === 'quick_question' && (
+            <div className="space-y-3">
+              {content && <p className="font-medium">{content}</p>}
+              {options.length > 0 && (
+                <div className="space-y-2">
+                  {options.map((opt, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 border rounded-lg ${
+                        opt.is_correct ? 'bg-green-50 border-green-500' : 'bg-card'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{opt.text || `Вариант ${idx + 1}`}</span>
+                        {opt.is_correct && (
+                          <Badge variant="default" className="ml-2">Правильный</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {elementType === 'theory' && content && (
+            <div className="prose prose-sm max-w-none">
+              <div className="whitespace-pre-wrap text-foreground">{content}</div>
+            </div>
+          )}
+
+          {elementType === 'video' && videoUrl && (
+            <div className="space-y-2">
+              <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+                <p className="text-sm text-muted-foreground">Видео: {videoUrl}</p>
+              </div>
+              {content && <p className="text-sm text-muted-foreground">{content}</p>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Text problem - задача с текстом
   if (elementType === 'text_problem') {
     return (
-      <FormField
-        control={form.control}
-        name="content"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Problem Content</FormLabel>
-            <FormControl>
-              <Textarea
-                placeholder="Enter the problem text, conditions, and questions..."
-                className="resize-none min-h-[200px]"
-                {...field}
-              />
-            </FormControl>
-            <FormDescription>Describe the problem students need to solve</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    );
-  }
-
-  // Quick question - content + options with correct answer
-  if (elementType === 'quick_question') {
-    return (
       <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Текстовая задача</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreview(!showPreview)}
+          >
+            {showPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            {showPreview ? 'Скрыть' : 'Предпросмотр'}
+          </Button>
+        </div>
+
         <FormField
           control={form.control}
           name="content"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Question</FormLabel>
+              <FormLabel>Текст задачи *</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Enter the question..."
+                  placeholder="Введите условие задачи, вопросы для студента..."
+                  className="resize-none min-h-[200px]"
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Опишите задачу, которую студент должен решить. Можно использовать математические формулы.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {renderPreview()}
+      </div>
+    );
+  }
+
+  // Quick question - вопрос с вариантами ответа
+  if (elementType === 'quick_question') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Быстрый вопрос</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreview(!showPreview)}
+          >
+            {showPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            {showPreview ? 'Скрыть' : 'Предпросмотр'}
+          </Button>
+        </div>
+
+        <FormField
+          control={form.control}
+          name="content"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Вопрос *</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Введите вопрос для студента..."
                   className="resize-none"
                   rows={3}
                   {...field}
                 />
               </FormControl>
+              <FormDescription>Четкий вопрос с одним правильным ответом</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -90,15 +199,17 @@ export const ElementTypeFields: React.FC<ElementTypeFieldsProps> = ({ form, elem
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <FormLabel>Answer Options</FormLabel>
+            <FormLabel>Варианты ответа *</FormLabel>
             <Button type="button" onClick={addOption} size="sm" variant="outline">
               <Plus className="h-4 w-4 mr-1" />
-              Add Option
+              Добавить вариант
             </Button>
           </div>
 
           {options.length === 0 && (
-            <p className="text-sm text-muted-foreground">No options added yet. Add at least 2 options.</p>
+            <p className="text-sm text-muted-foreground">
+              Добавьте минимум 2 варианта ответа
+            </p>
           )}
 
           <RadioGroup
@@ -112,7 +223,7 @@ export const ElementTypeFields: React.FC<ElementTypeFieldsProps> = ({ form, elem
                 </div>
                 <div className="flex-1 space-y-2">
                   <Input
-                    placeholder={`Option ${index + 1}`}
+                    placeholder={`Вариант ${index + 1}`}
                     value={option.text}
                     onChange={(e) => {
                       const currentOptions = form.getValues('options') || [];
@@ -124,7 +235,7 @@ export const ElementTypeFields: React.FC<ElementTypeFieldsProps> = ({ form, elem
                   {option.is_correct && (
                     <p className="text-xs text-green-600 flex items-center gap-1">
                       <CheckCircle2 className="h-3 w-3" />
-                      Correct answer
+                      Правильный ответ
                     </p>
                   )}
                 </div>
@@ -144,48 +255,88 @@ export const ElementTypeFields: React.FC<ElementTypeFieldsProps> = ({ form, elem
             <p className="text-sm font-medium text-destructive">{form.formState.errors.options.message}</p>
           )}
         </div>
+
+        {renderPreview()}
       </div>
     );
   }
 
-  // Theory - rich content
+  // Theory - теоретический материал
   if (elementType === 'theory') {
     return (
-      <FormField
-        control={form.control}
-        name="content"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Theory Content</FormLabel>
-            <FormControl>
-              <Textarea
-                placeholder="Enter theoretical material, explanations, formulas..."
-                className="resize-none min-h-[300px] font-mono"
-                {...field}
-              />
-            </FormControl>
-            <FormDescription>Provide theoretical background and explanations</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Теоретический материал</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreview(!showPreview)}
+          >
+            {showPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            {showPreview ? 'Скрыть' : 'Предпросмотр'}
+          </Button>
+        </div>
+
+        <FormField
+          control={form.control}
+          name="content"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Содержание *</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Введите теоретический материал, объяснения, формулы..."
+                  className="resize-none min-h-[300px] font-mono"
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Теоретическая информация, примеры, формулы для изучения
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {renderPreview()}
+      </div>
     );
   }
 
-  // Video - URL and type
+  // Video - видео материал
   if (elementType === 'video') {
     return (
       <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Видео</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreview(!showPreview)}
+          >
+            {showPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            {showPreview ? 'Скрыть' : 'Предпросмотр'}
+          </Button>
+        </div>
+
         <FormField
           control={form.control}
           name="video_url"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Video URL</FormLabel>
+              <FormLabel>URL видео *</FormLabel>
               <FormControl>
-                <Input placeholder="https://youtube.com/watch?v=..." type="url" {...field} />
+                <Input
+                  placeholder="https://youtube.com/watch?v=..."
+                  type="url"
+                  {...field}
+                />
               </FormControl>
-              <FormDescription>Enter the full URL to the video</FormDescription>
+              <FormDescription>
+                Введите полный URL видео (YouTube, Vimeo или другой платформы)
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -196,19 +347,20 @@ export const ElementTypeFields: React.FC<ElementTypeFieldsProps> = ({ form, elem
           name="video_type"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Video Platform</FormLabel>
+              <FormLabel>Платформа</FormLabel>
               <Select value={field.value} onValueChange={field.onChange}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select platform" />
+                    <SelectValue placeholder="Выберите платформу" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="youtube">YouTube</SelectItem>
                   <SelectItem value="vimeo">Vimeo</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="other">Другая</SelectItem>
                 </SelectContent>
               </Select>
+              <FormDescription>Выберите платформу для правильного отображения</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -219,20 +371,22 @@ export const ElementTypeFields: React.FC<ElementTypeFieldsProps> = ({ form, elem
           name="content"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Video Description</FormLabel>
+              <FormLabel>Описание (опционально)</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Brief description of video content..."
+                  placeholder="Краткое описание содержания видео..."
                   className="resize-none"
                   rows={3}
                   {...field}
                 />
               </FormControl>
-              <FormDescription>Optional - what students will learn from this video</FormDescription>
+              <FormDescription>Что студенты узнают из этого видео</FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {renderPreview()}
       </div>
     );
   }

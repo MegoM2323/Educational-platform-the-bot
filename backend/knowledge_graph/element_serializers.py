@@ -3,7 +3,9 @@ Serializers for Element model (T201)
 """
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import Element, ElementFile
+from .validators import validate_element_content
 import re
 
 User = get_user_model()
@@ -120,7 +122,10 @@ class ElementSerializer(serializers.ModelSerializer):
         return value
 
     def validate_content(self, value):
-        """Валидация содержимого элемента в зависимости от типа"""
+        """
+        Валидация содержимого элемента в зависимости от типа
+        Использует централизованный валидатор из validators.py (T018)
+        """
         element_type = self.initial_data.get('element_type')
 
         if not element_type:
@@ -130,61 +135,12 @@ class ElementSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError("Тип элемента обязателен")
 
-        # Валидация для текстовой задачи
-        if element_type == 'text_problem':
-            if not value or not isinstance(value, dict):
-                raise serializers.ValidationError("Содержимое текстовой задачи должно быть JSON объектом")
-
-            if not value.get('problem_text'):
-                raise serializers.ValidationError("Текст задачи обязателен")
-
-        # Валидация для быстрого вопроса
-        elif element_type == 'quick_question':
-            if not value or not isinstance(value, dict):
-                raise serializers.ValidationError("Содержимое быстрого вопроса должно быть JSON объектом")
-
-            if not value.get('question'):
-                raise serializers.ValidationError("Вопрос обязателен")
-
-            choices = value.get('choices')
-            if not choices or not isinstance(choices, list) or len(choices) < 2:
-                raise serializers.ValidationError("Необходимо указать минимум 2 варианта ответа")
-
-            correct_answer = value.get('correct_answer')
-            if correct_answer is None:
-                raise serializers.ValidationError("Необходимо указать правильный ответ (индекс в массиве choices)")
-
-            if not isinstance(correct_answer, int) or correct_answer < 0 or correct_answer >= len(choices):
-                raise serializers.ValidationError(f"Индекс правильного ответа должен быть от 0 до {len(choices) - 1}")
-
-        # Валидация для теории
-        elif element_type == 'theory':
-            if not value or not isinstance(value, dict):
-                raise serializers.ValidationError("Содержимое теории должно быть JSON объектом")
-
-            if not value.get('text'):
-                raise serializers.ValidationError("Текст теории обязателен")
-
-        # Валидация для видео
-        elif element_type == 'video':
-            if not value or not isinstance(value, dict):
-                raise serializers.ValidationError("Содержимое видео должно быть JSON объектом")
-
-            video_url = value.get('url')
-            if not video_url:
-                raise serializers.ValidationError("URL видео обязателен")
-
-            # Проверка формата URL
-            url_pattern = re.compile(
-                r'^https?://'  # http:// or https://
-                r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
-                r'localhost|'  # localhost...
-                r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-                r'(?::\d+)?'  # optional port
-                r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-
-            if not url_pattern.match(video_url):
-                raise serializers.ValidationError("Некорректный URL видео")
+        # Используем централизованный валидатор
+        try:
+            validate_element_content(element_type, value)
+        except DjangoValidationError as e:
+            # Конвертируем Django ValidationError в DRF ValidationError
+            raise serializers.ValidationError(str(e))
 
         return value
 

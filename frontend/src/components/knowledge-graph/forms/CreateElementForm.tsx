@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
@@ -50,6 +51,11 @@ export const CreateElementForm: React.FC<CreateElementFormProps> = ({
           options: initialData.options || [],
           video_url: initialData.video_url || '',
           video_type: initialData.video_type,
+          difficulty: initialData.difficulty || 5,
+          estimated_time_minutes: initialData.estimated_time_minutes || 5,
+          max_score: initialData.max_score || 100,
+          tags: initialData.tags || [],
+          is_public: initialData.is_public || false,
         }
       : {
           type: 'text_problem',
@@ -58,6 +64,11 @@ export const CreateElementForm: React.FC<CreateElementFormProps> = ({
           content: '',
           options: [],
           video_url: '',
+          difficulty: 5,
+          estimated_time_minutes: 5,
+          max_score: 100,
+          tags: [],
+          is_public: false,
         },
   });
 
@@ -85,6 +96,11 @@ export const CreateElementForm: React.FC<CreateElementFormProps> = ({
         content: '',
         options: [],
         video_url: '',
+        difficulty: 5,
+        estimated_time_minutes: 5,
+        max_score: 100,
+        tags: [],
+        is_public: false,
       });
 
       // Hide success message after 3 seconds
@@ -112,6 +128,11 @@ export const CreateElementForm: React.FC<CreateElementFormProps> = ({
       content: '',
       options: [],
       video_url: '',
+      difficulty: 5,
+      estimated_time_minutes: 5,
+      max_score: 100,
+      tags: [],
+      is_public: false,
     });
     setSubmitSuccess(false);
   };
@@ -209,6 +230,111 @@ export const CreateElementForm: React.FC<CreateElementFormProps> = ({
                   </FormControl>
                   <FormDescription>Optional - helps organize your element bank</FormDescription>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Параметры элемента */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Difficulty */}
+              <FormField
+                control={form.control}
+                name="difficulty"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Сложность (1-10)</FormLabel>
+                    <Select
+                      value={field.value?.toString()}
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите сложность" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
+                          <SelectItem key={level} value={level.toString()}>
+                            {level === 1 && '1 - Очень легко'}
+                            {level === 2 && '2 - Легко'}
+                            {level === 3 && '3'}
+                            {level === 4 && '4'}
+                            {level === 5 && '5 - Средне'}
+                            {level === 6 && '6'}
+                            {level === 7 && '7'}
+                            {level === 8 && '8 - Сложно'}
+                            {level === 9 && '9'}
+                            {level === 10 && '10 - Очень сложно'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Estimated Time */}
+              <FormField
+                control={form.control}
+                name="estimated_time_minutes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Время (минут)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="5"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Max Score */}
+              <FormField
+                control={form.control}
+                name="max_score"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Максимальный балл</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="100"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Публичность */}
+            <FormField
+              control={form.control}
+              name="is_public"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Опубликовать элемент</FormLabel>
+                    <FormDescription>
+                      Сделать элемент доступным для других учителей
+                    </FormDescription>
+                  </div>
                 </FormItem>
               )}
             />

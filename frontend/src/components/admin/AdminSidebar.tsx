@@ -1,4 +1,4 @@
-import { Users, Calendar, MessageCircle, LogOut } from "lucide-react";
+import { Users, Calendar, MessageCircle, Send, LogOut } from "lucide-react";
 import { logger } from '@/utils/logger';
 import { NavLink } from "react-router-dom";
 import {
@@ -35,6 +35,12 @@ const items = [
     url: "/admin/chats",
     icon: MessageCircle,
     description: "Все чаты в системе"
+  },
+  {
+    title: "Рассылки",
+    url: "/admin/broadcasts",
+    icon: Send,
+    description: "Управление рассылками"
   },
 ];
 

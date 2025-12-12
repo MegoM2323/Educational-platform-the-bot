@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, GraduationCap, BookOpen, Activity } from 'lucide-react';
-import StaffManagement from './StaffManagement';
-import StudentManagement from './StudentManagement';
-import ParentManagement from './ParentManagement';
+import { adminAPI } from '@/integrations/api/adminAPI';
+import StudentSection from '@/components/admin/StudentSection';
+import TeacherSection from '@/components/admin/TeacherSection';
+import TutorSection from '@/components/admin/TutorSection';
+import ParentSection from '@/components/admin/ParentSection';
 
 interface StatCard {
   title: string;
@@ -14,9 +14,6 @@ interface StatCard {
 }
 
 export default function AccountManagement() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get('tab') || 'students';
-
   const [stats, setStats] = useState({
     total_users: 0,
     total_students: 0,
@@ -27,22 +24,26 @@ export default function AccountManagement() {
   });
 
   useEffect(() => {
-    // Загрузка статистики (когда будет готов endpoint)
-    // Для сейчас используем простые значения
     loadStats();
   }, []);
 
   const loadStats = async () => {
-    // TODO: Загружать статистику с backend когда будет endpoint
-    // На данный момент это заглушка
-    setStats({
-      total_users: 0,
-      total_students: 0,
-      total_teachers: 0,
-      total_tutors: 0,
-      total_parents: 0,
-      active_today: 0,
-    });
+    try {
+      const response = await adminAPI.getUserStats();
+      if (response.success && response.data) {
+        setStats({
+          total_users: response.data.data.total_users || 0,
+          total_students: response.data.data.total_students || 0,
+          total_teachers: response.data.data.total_teachers || 0,
+          total_tutors: response.data.data.total_tutors || 0,
+          total_parents: response.data.data.total_parents || 0,
+          active_today: response.data.data.active_today || 0,
+        });
+      }
+    } catch (error) {
+      // Не критично, статистика опциональна
+      console.error('Failed to load stats:', error);
+    }
   };
 
   const statCards: StatCard[] = [
@@ -69,9 +70,9 @@ export default function AccountManagement() {
   ];
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 space-y-6">
       {/* Статистика */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat, index) => (
           <Card key={index}>
             <CardHeader className="pb-3">
@@ -89,26 +90,13 @@ export default function AccountManagement() {
         ))}
       </div>
 
-      {/* Основной контент с табами */}
-      <Tabs value={tabFromUrl} onValueChange={(value) => setSearchParams({ tab: value })} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="students">Студенты</TabsTrigger>
-          <TabsTrigger value="staff">Преподаватели и Тьюторы</TabsTrigger>
-          <TabsTrigger value="parents">Родители</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="students" className="mt-6">
-          <StudentManagement />
-        </TabsContent>
-
-        <TabsContent value="staff" className="mt-6">
-          <StaffManagement />
-        </TabsContent>
-
-        <TabsContent value="parents" className="mt-6">
-          <ParentManagement />
-        </TabsContent>
-      </Tabs>
+      {/* 4 карточки управления - Студенты, Преподаватели, Тьютеры, Родители */}
+      <div className="grid grid-cols-1 gap-6">
+        <StudentSection onUpdate={loadStats} />
+        <TeacherSection onUpdate={loadStats} />
+        <TutorSection onUpdate={loadStats} />
+        <ParentSection onUpdate={loadStats} />
+      </div>
     </div>
   );
 }

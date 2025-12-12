@@ -9,6 +9,8 @@ import { ParentInvoicesList } from '@/components/invoices/ParentInvoicesList';
 import { ParentInvoiceDetail } from '@/components/invoices/ParentInvoiceDetail';
 import { useParentInvoices } from '@/hooks/useParentInvoices';
 import { type Invoice } from '@/integrations/api/invoiceAPI';
+import { useInvoiceWebSocket } from '@/hooks/useInvoiceWebSocket';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Pagination,
   PaginationContent,
@@ -27,6 +29,10 @@ const InvoicesPage: React.FC = () => {
 
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // WebSocket для real-time обновлений
+  const { on, off } = useInvoiceWebSocket();
+  const queryClient = useQueryClient();
 
   const {
     invoices,
@@ -47,6 +53,7 @@ const InvoicesPage: React.FC = () => {
     isInitiatingPayment,
   } = useParentInvoices({ initialPageSize: 20 });
 
+  // Обработка результатов оплаты из URL
   useEffect(() => {
     const paymentStatus = searchParams.get('payment');
     const invoiceId = searchParams.get('invoice_id');
@@ -68,6 +75,55 @@ const InvoicesPage: React.FC = () => {
       setSearchParams({});
     }
   }, [searchParams, setSearchParams, toast, refetch]);
+
+  // Подключаем обработчики WebSocket событий
+  useEffect(() => {
+    // Обработчик создания счёта
+    const handleInvoiceCreated = (data: any) => {
+      console.log('[ParentInvoicesPage] Invoice created via WebSocket:', data);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({
+        title: 'Новый счёт',
+        description: `Получен новый счёт #${data.invoice_id}`,
+      });
+    };
+
+    // Обработчик обновления статуса
+    const handleStatusUpdate = (data: any) => {
+      console.log('[ParentInvoicesPage] Invoice status updated via WebSocket:', data);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+
+      // Показываем уведомление для родителей при отправке счёта
+      if (data.new_status === 'sent') {
+        toast({
+          title: 'Счёт отправлен',
+          description: `Счёт #${data.invoice_id} готов к оплате`,
+        });
+      }
+    };
+
+    // Обработчик оплаты счёта
+    const handleInvoicePaid = (data: any) => {
+      console.log('[ParentInvoicesPage] Invoice paid via WebSocket:', data);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({
+        title: 'Счёт оплачен!',
+        description: `Счёт #${data.invoice_id} успешно оплачен`,
+      });
+    };
+
+    // Подписываемся на события
+    on('onInvoiceCreated', handleInvoiceCreated);
+    on('onStatusUpdate', handleStatusUpdate);
+    on('onInvoicePaid', handleInvoicePaid);
+
+    // Отписываемся при размонтировании
+    return () => {
+      off('onInvoiceCreated', handleInvoiceCreated);
+      off('onStatusUpdate', handleStatusUpdate);
+      off('onInvoicePaid', handleInvoicePaid);
+    };
+  }, [on, off, queryClient, toast]);
 
   const handleInvoiceClick = (invoice: Invoice) => {
     setSelectedInvoice(invoice);

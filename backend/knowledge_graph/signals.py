@@ -1,9 +1,10 @@
 """
-Django signals for automatic progress updates (T402)
+Django signals for automatic progress updates (T402, T035)
 """
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import ElementProgress, LessonProgress
+from .models import ElementProgress, LessonProgress, GraphLesson, LessonDependency
+from .progress_sync_service import ProgressSyncService
 
 
 @receiver(post_save, sender=ElementProgress)
@@ -50,3 +51,42 @@ def update_lesson_progress_on_element_complete(sender, instance, created, **kwar
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Error in update_lesson_progress_on_element_complete signal: {e}", exc_info=True)
+
+
+@receiver(post_save, sender=GraphLesson)
+def auto_unlock_lesson_without_dependencies(sender, instance, created, **kwargs):
+    """
+    Автоматически разблокировать урок если у него нет обязательных prerequisites
+
+    Срабатывает при:
+    - Добавлении урока в граф (created=True)
+
+    Действия:
+    - Проверить есть ли обязательные зависимости
+    - Если нет - разблокировать урок
+    """
+    if created:
+        try:
+            # Проверить есть ли обязательные зависимости
+            has_required_deps = LessonDependency.objects.filter(
+                to_lesson=instance,
+                dependency_type='required'
+            ).exists()
+
+            # Если нет обязательных зависимостей - разблокировать
+            if not has_required_deps and not instance.is_unlocked:
+                instance.unlock()
+
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    f"Auto-unlocked lesson without dependencies: "
+                    f"graph={instance.graph.id}, graph_lesson={instance.id}, "
+                    f"lesson={instance.lesson.title}"
+                )
+
+        except Exception as e:
+            # Логирование ошибки но не блокируем операцию
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in auto_unlock_lesson_without_dependencies signal: {e}", exc_info=True)

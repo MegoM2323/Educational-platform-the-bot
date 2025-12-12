@@ -13,6 +13,7 @@ import AdminLayout from "@/pages/admin/AdminLayout";
 import AccountManagement from "@/pages/admin/AccountManagement";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
 import AdminChatsPage from "@/pages/admin/AdminChatsPage";
+import AdminBroadcastsPage from "@/pages/admin/AdminBroadcastsPage";
 
 // Импортируем критические компоненты напрямую
 import Index from "./pages/Index";
@@ -61,10 +62,12 @@ const Forum = lazy(() => import("./pages/dashboard/Forum"));
 
 // Lesson Viewer
 const LessonViewer = lazy(() => import("./pages/lessons/LessonViewer"));
+const LessonViewerPage = lazy(() => import("./pages/dashboard/student/LessonViewerPage"));
 
 // Knowledge Graph components
 const KnowledgeGraphPage = lazy(() => import("./pages/dashboard/student/KnowledgeGraphPage"));
 const ContentCreatorPage = lazy(() => import("./pages/dashboard/teacher/ContentCreatorPage"));
+const LessonCreatorPage = lazy(() => import("./pages/dashboard/teacher/LessonCreatorPage"));
 const GraphEditorPage = lazy(() => import("./pages/dashboard/teacher/GraphEditorPage"));
 const ProgressViewerPage = lazy(() => import("./pages/dashboard/teacher/ProgressViewerPage"));
 
@@ -73,6 +76,7 @@ const ProfilePage = lazy(() => import("./pages/profile/ProfilePage"));
 const StudentProfilePage = lazy(() => import("./pages/profile/StudentProfilePage"));
 const TeacherProfilePage = lazy(() => import("./pages/profile/TeacherProfilePage"));
 const TutorProfilePage = lazy(() => import("./pages/profile/TutorProfilePage"));
+const ParentProfilePage = lazy(() => import("./pages/profile/ParentProfilePage"));
 
 // Configure React Query with default options
 const queryClient = new QueryClient({
@@ -130,8 +134,13 @@ const App = () => (
                 <AdminChatsPage />
               </Suspense>
             } />
+            <Route path="broadcasts" element={
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <AdminBroadcastsPage />
+              </Suspense>
+            } />
           </Route>
-          
+
           {/* Student Routes */}
           <Route path="/dashboard/student" element={
             <ProtectedRoute requiredRole="student">
@@ -191,7 +200,7 @@ const App = () => (
           <Route path="/dashboard/student/lesson/:lessonId" element={
             <ProtectedRoute requiredRole="student">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <LessonViewer />
+                <LessonViewerPage />
               </Suspense>
             </ProtectedRoute>
           } />
@@ -299,6 +308,20 @@ const App = () => (
             <ProtectedRoute requiredRole="teacher">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ContentCreatorPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/lesson-creator" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <LessonCreatorPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/teacher/lesson-creator/:lessonId" element={
+            <ProtectedRoute requiredRole="teacher">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <LessonCreatorPage />
               </Suspense>
             </ProtectedRoute>
           } />
@@ -467,6 +490,13 @@ const App = () => (
             <ProtectedRoute requiredRole="tutor">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <TutorProfilePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/parent" element={
+            <ProtectedRoute requiredRole="parent">
+              <Suspense fallback={<LoadingSpinner size="lg" />}>
+                <ParentProfilePage />
               </Suspense>
             </ProtectedRoute>
           } />

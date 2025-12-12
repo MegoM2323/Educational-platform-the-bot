@@ -80,9 +80,33 @@ export const ContentCreatorTabExample: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           <CreateLessonForm
-            lessonId={editingLessonId ?? undefined}
-            onSuccess={handleLessonFormClose}
+            onSubmit={async (data) => {
+              console.log('Creating lesson:', data);
+              // In real app: await createLesson(data)
+              handleLessonFormClose();
+            }}
             onCancel={handleLessonFormClose}
+            availableElements={[
+              {
+                id: '1',
+                title: 'Introduction to Variables',
+                element_type: 'theory',
+                description: 'Learn about variables in programming',
+                estimated_time_minutes: 15,
+              },
+              {
+                id: '2',
+                title: 'Variable Types Quiz',
+                element_type: 'quick_question',
+                description: 'Test your knowledge',
+                estimated_time_minutes: 5,
+              },
+            ]}
+            availableSubjects={[
+              { id: 1, name: 'Mathematics' },
+              { id: 2, name: 'Physics' },
+              { id: 3, name: 'Chemistry' },
+            ]}
           />
         </DialogContent>
       </Dialog>

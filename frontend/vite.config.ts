@@ -44,6 +44,25 @@ export default defineConfig(({ mode }) => {
       fs: {
         strict: false,
       },
+      // HMR configuration для development
+      // Позволяет WebSocket подключению работать корректно
+      hmr: {
+        host: 'localhost',
+        port: 8080,
+        protocol: 'ws',
+      },
+      // API proxy configuration
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          rewrite: (path) => path,
+        },
+        '/ws': {
+          target: 'ws://localhost:8000',
+          ws: true,
+        }
+      }
     },
     plugins: [react(), cspPlugin(mode)],
     resolve: {

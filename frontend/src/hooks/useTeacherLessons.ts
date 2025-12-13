@@ -15,7 +15,11 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
   const createMutation = useMutation({
     mutationFn: (payload: LessonCreatePayload) => schedulingAPI.createLesson(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
+      // Инвалидировать ВСЕ запросы lessons/teacher независимо от filters
+      queryClient.invalidateQueries({
+        queryKey: ['lessons', 'teacher'],
+        exact: false  // Важно: также инвалидирует ['lessons', 'teacher', undefined] и любые другие варианты
+      });
       toast.success('Урок успешно создан');
     },
     onError: (error: any) => {
@@ -29,7 +33,10 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     mutationFn: ({ id, payload }: { id: string; payload: LessonUpdatePayload }) =>
       schedulingAPI.updateLesson(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
+      queryClient.invalidateQueries({
+        queryKey: ['lessons', 'teacher'],
+        exact: false
+      });
       toast.success('Урок успешно обновлён');
     },
     onError: (error: any) => {
@@ -42,7 +49,10 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => schedulingAPI.deleteLesson(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lessons', 'teacher'] });
+      queryClient.invalidateQueries({
+        queryKey: ['lessons', 'teacher'],
+        exact: false
+      });
       toast.success('Урок успешно удалён');
     },
     onError: (error: any) => {

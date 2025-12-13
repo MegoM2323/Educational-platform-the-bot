@@ -60,13 +60,18 @@ def get_student_lesson(request, graph_lesson_id):
     }
     """
     try:
-        # Получить GraphLesson с проверкой доступа студента
-        graph_lesson = GraphLesson.objects.select_related(
-            'lesson', 'graph'
-        ).get(
-            id=graph_lesson_id,
-            graph__student=request.user
+        # Получить GraphLesson (404 если не существует)
+        graph_lesson = get_object_or_404(
+            GraphLesson.objects.select_related('lesson', 'graph'),
+            id=graph_lesson_id
         )
+
+        # Проверить доступ студента (403 если не принадлежит)
+        if graph_lesson.graph.student != request.user:
+            return Response(
+                {'success': False, 'error': 'Доступ запрещен'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         lesson = graph_lesson.lesson
 
@@ -149,11 +154,6 @@ def get_student_lesson(request, graph_lesson_id):
             }
         }, status=status.HTTP_200_OK)
 
-    except GraphLesson.DoesNotExist:
-        return Response(
-            {'success': False, 'error': 'Урок не найден или недоступен'},
-            status=status.HTTP_404_NOT_FOUND
-        )
     except Exception as e:
         logger.error(f"Error in get_student_lesson: {e}", exc_info=True)
         return Response(

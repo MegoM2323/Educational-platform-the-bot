@@ -45,38 +45,48 @@ def _validate_text_problem_content(content: dict) -> None:
 
     Ожидаемая структура:
     {
-        'question': str (required, min 10 chars),
-        'answer_type': 'text' | 'number' | 'code' (required),
-        'correct_answer': str (optional, для случаев когда учитель проверяет)
+        'problem_text': str (required, min 10 chars),
+        'answer_format': 'text' | 'number' | 'formula' | 'essay' (required),
+        'hints': [str] (optional),
+        'solution': str (optional)
     }
     """
-    # Проверка обязательного поля question
-    question = content.get('question')
-    if not question:
-        raise ValidationError("Поле 'question' обязательно для текстовой задачи")
+    # Проверка обязательного поля problem_text
+    problem_text = content.get('problem_text')
+    if not problem_text:
+        raise ValidationError("Поле 'problem_text' обязательно для текстовой задачи")
 
-    if not isinstance(question, str):
-        raise ValidationError("Поле 'question' должно быть строкой")
+    if not isinstance(problem_text, str):
+        raise ValidationError("Поле 'problem_text' должно быть строкой")
 
-    if len(question.strip()) < 10:
-        raise ValidationError("Вопрос должен содержать минимум 10 символов")
+    if len(problem_text.strip()) < 10:
+        raise ValidationError("Текст задачи должен содержать минимум 10 символов")
 
-    # Проверка обязательного поля answer_type
-    answer_type = content.get('answer_type')
-    if not answer_type:
-        raise ValidationError("Поле 'answer_type' обязательно для текстовой задачи")
+    # Проверка обязательного поля answer_format
+    answer_format = content.get('answer_format')
+    if not answer_format:
+        raise ValidationError("Поле 'answer_format' обязательно для текстовой задачи")
 
-    valid_answer_types = ['text', 'number', 'code']
-    if answer_type not in valid_answer_types:
+    valid_answer_formats = ['short_text', 'number', 'formula', 'essay']
+    if answer_format not in valid_answer_formats:
         raise ValidationError(
-            f"Некорректный тип ответа '{answer_type}'. "
-            f"Допустимые значения: {', '.join(valid_answer_types)}"
+            f"Некорректный формат ответа '{answer_format}'. "
+            f"Допустимые значения: {', '.join(valid_answer_formats)}"
         )
 
-    # Проверка опционального поля correct_answer
-    correct_answer = content.get('correct_answer')
-    if correct_answer is not None and not isinstance(correct_answer, str):
-        raise ValidationError("Поле 'correct_answer' должно быть строкой")
+    # Проверка опционального поля hints
+    hints = content.get('hints')
+    if hints is not None:
+        if not isinstance(hints, list):
+            raise ValidationError("Поле 'hints' должно быть массивом")
+        for idx, hint in enumerate(hints):
+            if not isinstance(hint, str):
+                raise ValidationError(f"Подсказка #{idx + 1} должна быть строкой")
+
+    # Проверка опционального поля solution
+    solution = content.get('solution')
+    if solution is not None and not isinstance(solution, str):
+        raise ValidationError("Поле 'solution' должно быть строкой")
 
 
 def _validate_quick_question_content(content: dict) -> None:

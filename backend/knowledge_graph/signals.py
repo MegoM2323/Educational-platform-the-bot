@@ -62,31 +62,43 @@ def auto_unlock_lesson_without_dependencies(sender, instance, created, **kwargs)
     - Добавлении урока в граф (created=True)
 
     Действия:
-    - Проверить есть ли обязательные зависимости
+    - Проверить есть ли обязательные зависимости (отложенно через transaction.on_commit)
     - Если нет - разблокировать урок
+
+    FIX T002.6: Проверка dependencies происходит ПОСЛЕ commit транзакции,
+    чтобы LessonDependency успела сохраниться (если создается сразу после GraphLesson)
     """
     if created:
-        try:
-            # Проверить есть ли обязательные зависимости
-            has_required_deps = LessonDependency.objects.filter(
-                to_lesson=instance,
-                dependency_type='required'
-            ).exists()
+        def check_and_unlock():
+            """Проверить dependencies и разблокировать если нужно"""
+            try:
+                # Обновить instance из БД (чтобы увидеть все dependencies)
+                instance.refresh_from_db()
 
-            # Если нет обязательных зависимостей - разблокировать
-            if not has_required_deps and not instance.is_unlocked:
-                instance.unlock()
+                # Проверить есть ли обязательные зависимости
+                has_required_deps = LessonDependency.objects.filter(
+                    to_lesson=instance,
+                    dependency_type='required'
+                ).exists()
 
+                # Если нет обязательных зависимостей - разблокировать
+                if not has_required_deps and not instance.is_unlocked:
+                    instance.unlock()
+
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(
+                        f"Auto-unlocked lesson without dependencies: "
+                        f"graph={instance.graph.id}, graph_lesson={instance.id}, "
+                        f"lesson={instance.lesson.title}"
+                    )
+
+            except Exception as e:
+                # Логирование ошибки но не блокируем операцию
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.info(
-                    f"Auto-unlocked lesson without dependencies: "
-                    f"graph={instance.graph.id}, graph_lesson={instance.id}, "
-                    f"lesson={instance.lesson.title}"
-                )
+                logger.error(f"Error in auto_unlock_lesson_without_dependencies signal: {e}", exc_info=True)
 
-        except Exception as e:
-            # Логирование ошибки но не блокируем операцию
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error in auto_unlock_lesson_without_dependencies signal: {e}", exc_info=True)
+        # Выполнить проверку ПОСЛЕ commit транзакции
+        from django.db import transaction
+        transaction.on_commit(check_and_unlock)

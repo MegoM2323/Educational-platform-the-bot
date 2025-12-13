@@ -256,38 +256,77 @@ class Invoice(models.Model):
         # Автоматически установить временные метки при изменении статуса
         now = timezone.now()
 
-        if self.status == self.Status.SENT and not self.sent_at:
+        # Для PAID: должны быть все предыдущие timestamps (sent_at, viewed_at, paid_at)
+        if self.status == self.Status.PAID:
+            # Если paid_at уже установлен вручную (в прошлом), используем его как базу
+            if self.paid_at:
+                # Timestamps должны идти в порядке: created_at <= sent_at <= viewed_at <= paid_at
+                # Если sent_at/viewed_at не установлены, установим их = paid_at (или раньше)
+                if not self.sent_at:
+                    self.sent_at = self.paid_at
+                if not self.viewed_at:
+                    self.viewed_at = self.paid_at
+            else:
+                # Если paid_at не установлен, устанавливаем все timestamps = now
+                if not self.sent_at:
+                    self.sent_at = now
+                if not self.viewed_at:
+                    self.viewed_at = now
+                self.paid_at = now
+
+        # Для VIEWED: должны быть sent_at и viewed_at
+        elif self.status == self.Status.VIEWED:
+            # Если viewed_at уже установлен вручную (в прошлом), используем его как базу
+            if self.viewed_at:
+                if not self.sent_at:
+                    self.sent_at = self.viewed_at
+            else:
+                # Если viewed_at не установлен, устанавливаем = now
+                if not self.sent_at:
+                    self.sent_at = now
+                self.viewed_at = now
+
+        # Для SENT: должен быть sent_at
+        elif self.status == self.Status.SENT and not self.sent_at:
             self.sent_at = now
 
-        if self.status == self.Status.VIEWED and not self.viewed_at:
-            self.viewed_at = now
-
-        if self.status == self.Status.PAID and not self.paid_at:
-            self.paid_at = now
-
-        # Для новых записей: если sent_at/viewed_at/paid_at установлены вручную (тесты/миграции),
-        # необходимо скорректировать created_at для соблюдения DB constraints
+        # Для новых записей: если sent_at/viewed_at/paid_at установлены (вручную или auto-set),
+        # необходимо установить created_at ДО вызова super().save()
         is_new = not self.pk
-        needs_created_at_fix = False
-        earliest_timestamp = now
 
         if is_new:
-            if self.sent_at and self.sent_at < now:
-                needs_created_at_fix = True
-                earliest_timestamp = min(earliest_timestamp, self.sent_at)
-            if self.viewed_at and self.viewed_at < now:
-                needs_created_at_fix = True
-                earliest_timestamp = min(earliest_timestamp, self.viewed_at)
-            if self.paid_at and self.paid_at < now:
-                needs_created_at_fix = True
-                earliest_timestamp = min(earliest_timestamp, self.paid_at)
+            # Найти самую раннюю timestamp из установленных
+            # ВАЖНО: timestamps могут быть установлены как вручную (в тестах),
+            # так и автоматически выше (строки 260-291)
+            earliest_timestamp = None
 
-        super().save(*args, **kwargs)
+            if self.sent_at:
+                earliest_timestamp = self.sent_at if earliest_timestamp is None else min(earliest_timestamp, self.sent_at)
+            if self.viewed_at:
+                earliest_timestamp = self.viewed_at if earliest_timestamp is None else min(earliest_timestamp, self.viewed_at)
+            if self.paid_at:
+                earliest_timestamp = self.paid_at if earliest_timestamp is None else min(earliest_timestamp, self.paid_at)
 
-        # После save корректируем created_at если нужно (для тестов с историческими данными)
-        if needs_created_at_fix:
-            Invoice.objects.filter(pk=self.pk).update(created_at=earliest_timestamp)
-            self.created_at = earliest_timestamp
+            # Если есть установленные timestamps, установить created_at = самый ранний
+            # Это обеспечит соблюдение CHECK constraint: created_at <= sent_at
+            if earliest_timestamp:
+                # Если created_at уже установлен вручную, НЕ перезаписываем его
+                # (для тестов которые явно устанавливают created_at)
+                if not self.created_at:
+                    self.created_at = earliest_timestamp
+
+        # HACK: Временно отключить auto_now_add чтобы позволить ручную установку created_at
+        # Это необходимо для тестов которые создают Invoice с timestamps в прошлом
+        created_at_field = self._meta.get_field('created_at')
+        original_auto_now_add = created_at_field.auto_now_add
+        if is_new and self.created_at:
+            created_at_field.auto_now_add = False
+
+        try:
+            super().save(*args, **kwargs)
+        finally:
+            # Восстановить original значение
+            created_at_field.auto_now_add = original_auto_now_add
 
     def mark_as_overdue(self):
         """

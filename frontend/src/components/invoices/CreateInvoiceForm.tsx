@@ -194,7 +194,7 @@ export const CreateInvoiceForm = ({ open, onOpenChange }: CreateInvoiceFormProps
           </div>
 
           {/* Выбор предмета (опционально) */}
-          {selectedStudent && selectedStudent.enrollments.length > 0 && (
+          {selectedStudent?.enrollments && selectedStudent.enrollments.length > 0 && (
             <div>
               <Label htmlFor="enrollment">Предмет (опционально)</Label>
               <Select

@@ -352,6 +352,97 @@ class TutorInvoiceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_409_CONFLICT
             )
 
+    @action(detail=False, methods=['get'], url_path='students')
+    def students(self, request):
+        """
+        Получение списка студентов тьютора с их зачислениями на предметы.
+
+        GET /api/invoices/tutor/students/
+
+        Response:
+        {
+            "success": true,
+            "data": [
+                {
+                    "id": 1,
+                    "full_name": "Иван Петров",
+                    "email": "ivan@example.com",
+                    "enrollments": [
+                        {
+                            "id": 1,
+                            "subject": {
+                                "id": 1,
+                                "name": "Математика"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        """
+        # Только тьюторы могут использовать этот endpoint
+        if request.user.role != 'tutor':
+            return Response(
+                {
+                    'success': False,
+                    'error': 'Только тьюторы могут просматривать список студентов',
+                    'code': 'PERMISSION_DENIED'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            # Получаем профиль тьютора
+            tutor_profile = request.user.tutor_profile
+        except Exception:
+            return Response(
+                {
+                    'success': False,
+                    'error': 'У пользователя нет профиля тьютора',
+                    'code': 'NO_TUTOR_PROFILE'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Получаем всех студентов этого тьютора
+        from accounts.models import StudentProfile
+        from materials.models import SubjectEnrollment
+
+        students = StudentProfile.objects.filter(
+            tutor=request.user
+        ).select_related('user').prefetch_related(
+            'user__subject_enrollments__subject'
+        )
+
+        result = []
+        for student_profile in students:
+            # Получаем зачисления студента
+            enrollments = SubjectEnrollment.objects.filter(
+                student=student_profile.user,
+                is_active=True
+            ).select_related('subject')
+
+            result.append({
+                'id': student_profile.id,
+                'full_name': f"{student_profile.user.first_name} {student_profile.user.last_name}".strip() or student_profile.user.email,
+                'email': student_profile.user.email,
+                'enrollments': [
+                    {
+                        'id': enr.id,
+                        'subject': {
+                            'id': enr.subject.id,
+                            'name': enr.subject.name
+                        }
+                    }
+                    for enr in enrollments
+                ]
+            })
+
+        return Response({
+            'success': True,
+            'data': result
+        })
+
     @action(detail=False, methods=['get'], url_path='statistics')
     def statistics(self, request):
         """

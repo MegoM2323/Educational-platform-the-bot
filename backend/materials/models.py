@@ -17,6 +17,7 @@ class Subject(models.Model):
     color = models.CharField(max_length=7, default='#3B82F6', verbose_name='Цвет')
     
     class Meta:
+        app_label = 'materials'
         verbose_name = 'Предмет'
         verbose_name_plural = 'Предметы'
         ordering = ['name']

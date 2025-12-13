@@ -27,6 +27,10 @@ if [ ! -d "$PROJECT_ROOT/.venv" ]; then
     python -m venv .venv
 fi
 
+# Unset proxy variables to avoid routing localhost through external proxy
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+export NO_PROXY="*"
+
 # Activate virtual environment
 echo -e "${BLUE}Activating virtual environment...${NC}"
 source "$PROJECT_ROOT/.venv/bin/activate"
@@ -60,7 +64,7 @@ echo -e "${BLUE}Waiting for backend to be ready...${NC}"
 TIMEOUT=30
 ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
-    if curl -s http://localhost:8000/api/health/ > /dev/null 2>&1; then
+    if NO_PROXY=* curl -s http://localhost:8000/api/ > /dev/null 2>&1; then
         echo -e "${GREEN}Backend is ready${NC}"
         break
     fi

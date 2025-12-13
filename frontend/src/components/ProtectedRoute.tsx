@@ -49,13 +49,13 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   // Ошибка при загрузке профиля (например, сессия истекла)
   // НО: если есть user в AuthContext, ошибка профиля не критична (используем fallback)
   if (error && !authContextUser) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/auth/signin" replace />;
   }
 
   // Не авторизован - перенаправляем на страницу входа
   // FALLBACK: если useProfile не загрузился, но AuthContext имеет user - считаем авторизованным
   if (!isAuthenticated && !authContextUser) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/auth/signin" replace />;
   }
 
   // Используем user из профиля или fallback к AuthContext
@@ -120,20 +120,20 @@ export const RoleBasedRoute = ({
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/auth/signin" replace />;
   }
 
   switch (user?.role) {
     case 'student':
-      return student || fallback || <Navigate to="/auth" replace />;
+      return student || fallback || <Navigate to="/auth/signin" replace />;
     case 'teacher':
-      return teacher || fallback || <Navigate to="/auth" replace />;
+      return teacher || fallback || <Navigate to="/auth/signin" replace />;
     case 'parent':
-      return parent || fallback || <Navigate to="/auth" replace />;
+      return parent || fallback || <Navigate to="/auth/signin" replace />;
     case 'tutor':
-      return tutor || fallback || <Navigate to="/auth" replace />;
+      return tutor || fallback || <Navigate to="/auth/signin" replace />;
     default:
-      return fallback || <Navigate to="/auth" replace />;
+      return fallback || <Navigate to="/auth/signin" replace />;
   }
 };
 

@@ -105,7 +105,10 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
+          {/* Auth Routes */}
+          <Route path="/auth" element={<Navigate to="/auth/signin" replace />} />
+          <Route path="/auth/signin" element={<Auth />} />
+          <Route path="/auth/signup" element={<Navigate to="/application" replace />} />
           <Route path="/application" element={<ApplicationForm />} />
           <Route path="/application-status/:trackingToken" element={<ApplicationStatus />} />
           

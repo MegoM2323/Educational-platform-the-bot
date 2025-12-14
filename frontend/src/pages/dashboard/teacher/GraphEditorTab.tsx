@@ -22,6 +22,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -99,6 +109,10 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
   // T005: Состояние для создания зависимости
   const [creatingDependencyFrom, setCreatingDependencyFrom] = useState<string | null>(null);
 
+  // T010: Состояния для подтверждения удаления
+  const [deleteLessonDialogOpen, setDeleteLessonDialogOpen] = useState(false);
+  const [lessonToDelete, setLessonToDelete] = useState<{ id: number; title: string } | null>(null);
+
   // Преобразование данных графа для компонента GraphVisualization
   const transformToGraphData = useCallback((graphData: KnowledgeGraph | null): GraphData => {
     console.log('[GraphEditorTab] transformToGraphData called with:', graphData);
@@ -148,6 +162,7 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
       source: dep.from_lesson.toString(),
       target: dep.to_lesson.toString(),
       type: dep.dependency_type === 'prerequisite' ? 'prerequisite' : 'suggested',
+      id: dep.id, // Добавляем ID зависимости для удаления
     }));
 
     console.log('[GraphEditorTab] Transformed links:', links);
@@ -296,17 +311,29 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
 
   const handleRemoveLesson = useCallback(
     (graphLessonId: number) => {
-      const confirmed = window.confirm('Вы уверены, что хотите удалить этот урок из графа?');
-      if (confirmed) {
-        removeLesson(graphLessonId);
-        toast({
-          title: 'Урок удалён',
-          description: 'Урок будет удалён из графа после сохранения',
-        });
-      }
+      // Найти название урока для отображения в диалоге
+      const graphLesson = graph?.lessons?.find(gl => gl.id === graphLessonId);
+      const lessonTitle = graphLesson?.lesson?.title || 'этот урок';
+
+      setLessonToDelete({ id: graphLessonId, title: lessonTitle });
+      setDeleteLessonDialogOpen(true);
     },
-    [removeLesson, toast]
+    [graph]
   );
+
+  const confirmDeleteLesson = useCallback(() => {
+    if (!lessonToDelete) return;
+
+    removeLesson(lessonToDelete.id);
+    toast({
+      title: 'Урок удалён',
+      description: 'Урок будет удалён из графа после сохранения',
+    });
+
+    setDeleteLessonDialogOpen(false);
+    setLessonToDelete(null);
+    setSelectedNodeId(null);
+  }, [lessonToDelete, removeLesson, toast]);
 
   // Loading state
   if (isLoadingStudents || isLoadingGraph || isLoadingLessons) {
@@ -575,6 +602,7 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
                 isEditable={mode === 'edit'}
                 onNodeClick={handleNodeClick}
                 onNodeDrag={handleNodeDrag}
+                onDependencyDelete={removeDependency}
                 width={800}
                 height={600}
                 showLegend={true}
@@ -755,6 +783,38 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* T010: Диалог подтверждения удаления урока */}
+      <AlertDialog open={deleteLessonDialogOpen} onOpenChange={setDeleteLessonDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Удалить урок из графа?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить урок <strong>"{lessonToDelete?.title}"</strong> из графа знаний?
+              <br />
+              <br />
+              Это действие будет сохранено только после нажатия кнопки "Сохранить".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteLessonDialogOpen(false);
+              setLessonToDelete(null);
+            }}>
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteLesson}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

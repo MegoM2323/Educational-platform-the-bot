@@ -26,19 +26,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Инициализация состояния аутентификации с задержкой для улучшения LCP
     const initializeAuth = async () => {
+      const contextInitStart = Date.now();
+
       // Небольшая задержка для улучшения LCP
       await new Promise(resolve => setTimeout(resolve, 0));
 
       try {
         logger.debug('[AuthContext] Starting initialization...');
 
-        // Ждем завершения инициализации authService с timeout protection (15 секунд)
-        // Увеличено с 6 до 15 секунд, чтобы дать время на refresh токена (который сам имеет timeout 5s)
+        // ✅ FIX (T002): Reduced timeout from 15s to 5s
+        // AuthService no longer refreshes tokens on init, so initialization is fast (< 1s)
+        // 5s timeout is a safety net for edge cases
         const timeoutPromise = new Promise((resolve) =>
           setTimeout(() => {
-            logger.warn('[AuthContext] Initialization timeout after 15s, continuing without auth');
+            const elapsed = Date.now() - contextInitStart;
+            logger.warn(`[AuthContext] Initialization timeout after ${elapsed}ms, continuing without auth`);
             resolve(null);
-          }, 15000)
+          }, 5000)
         );
 
         await Promise.race([
@@ -49,12 +53,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const currentUser = authService.getCurrentUser();
         const isAuth = authService.isAuthenticated();
 
+        const contextInitDuration = Date.now() - contextInitStart;
         logger.debug('[AuthContext] Init complete:', {
           hasUser: !!currentUser,
           isAuth,
           userId: currentUser?.id,
           userRole: currentUser?.role,
-          isInitializing: authService.isInitializing()
+          isInitializing: authService.isInitializing(),
+          durationMs: contextInitDuration
         });
 
         if (isAuth && currentUser) {

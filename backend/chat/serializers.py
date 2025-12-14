@@ -299,3 +299,148 @@ class ChatRoomStatsSerializer(serializers.Serializer):
     total_messages = serializers.IntegerField()
     unread_messages = serializers.IntegerField()
     participants_count = serializers.IntegerField()
+
+
+class InitiateChatRequestSerializer(serializers.Serializer):
+    """
+    Сериализатор для запроса создания чата
+    """
+    contact_user_id = serializers.IntegerField(required=True)
+    subject_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_contact_user_id(self, value):
+        """Проверка существования пользователя"""
+        if not User.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Contact user not found")
+        return value
+
+    def validate_subject_id(self, value):
+        """Проверка существования предмета"""
+        if value is not None:
+            from materials.models import Subject
+            if not Subject.objects.filter(id=value).exists():
+                raise serializers.ValidationError("Subject not found")
+        return value
+
+
+class ChatDetailSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для детального ответа при создании чата
+    """
+    room_id = serializers.SerializerMethodField()
+    other_user = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ChatRoom
+        fields = (
+            'id', 'room_id', 'type', 'other_user', 'created_at',
+            'last_message', 'unread_count', 'name'
+        )
+
+    def get_room_id(self, obj):
+        """Возвращает room_id для WebSocket подключения"""
+        return f"chat_room_{obj.id}"
+
+    def get_other_user(self, obj):
+        """Возвращает информацию о собеседнике"""
+        request = self.context.get('request')
+        if not request or not request.user:
+            return None
+
+        # Получаем другого участника чата (не текущего пользователя)
+        other_users = obj.participants.exclude(id=request.user.id)
+        if not other_users.exists():
+            return None
+
+        other_user = other_users.first()
+        return {
+            'id': other_user.id,
+            'first_name': other_user.first_name,
+            'last_name': other_user.last_name,
+            'email': other_user.email,
+            'avatar': request.build_absolute_uri(other_user.avatar.url) if other_user.avatar else None
+        }
+
+    def get_last_message(self, obj):
+        """Возвращает последнее сообщение (если есть)"""
+        last_msg = obj.last_message
+        if last_msg:
+            return {
+                'id': last_msg.id,
+                'content': last_msg.content[:100],
+                'sender_id': last_msg.sender.id,
+                'created_at': last_msg.created_at
+            }
+        return None
+
+    def get_unread_count(self, obj):
+        """Возвращает количество непрочитанных сообщений"""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 0
+
+        try:
+            participant = obj.room_participants.get(user=request.user)
+            return participant.unread_count
+        except ChatParticipant.DoesNotExist:
+            return 0
+
+
+class AvailableContactSerializer(serializers.Serializer):
+    """
+    Serializer for available contacts (users you can initiate chats with).
+
+    Returns user info along with chat status and subject info.
+    """
+    id = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    first_name = serializers.SerializerMethodField()
+    last_name = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+    subject = serializers.SerializerMethodField()
+    has_active_chat = serializers.BooleanField()
+    chat_id = serializers.IntegerField(allow_null=True)
+
+    def get_id(self, obj):
+        """Extract user ID from contact dict"""
+        return obj['user'].id
+
+    def get_email(self, obj):
+        """Extract user email from contact dict"""
+        return obj['user'].email
+
+    def get_first_name(self, obj):
+        """Extract user first_name from contact dict"""
+        return obj['user'].first_name
+
+    def get_last_name(self, obj):
+        """Extract user last_name from contact dict"""
+        return obj['user'].last_name
+
+    def get_role(self, obj):
+        """Extract user role from contact dict"""
+        return obj['user'].role
+
+    def get_avatar(self, obj):
+        """Extract user avatar URL from contact dict"""
+        user = obj['user']
+        if user.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(user.avatar.url)
+            return user.avatar.url
+        return None
+
+    def get_subject(self, obj):
+        """Extract subject info if available"""
+        subject = obj.get('subject')
+        if subject:
+            return {
+                'id': subject.id,
+                'name': subject.name
+            }
+        return None
+

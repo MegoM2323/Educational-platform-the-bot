@@ -1060,7 +1060,7 @@ class UnifiedAPIClient {
   }
 
   async getTeacherDashboard(): Promise<ApiResponse<TeacherDashboard>> {
-    return this.request<TeacherDashboard>('/teacher/');
+    return this.request<TeacherDashboard>('/teacher/dashboard/');
   }
 
   async getParentDashboard(): Promise<ApiResponse<ParentDashboard>> {

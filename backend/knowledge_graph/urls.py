@@ -43,6 +43,8 @@ urlpatterns = [
     # ============================================
     # DELETE урока из графа
     path('<int:graph_id>/lessons/<int:lesson_id>/remove/', graph_views.RemoveLessonFromGraphView.as_view(), name='graph-remove-lesson'),
+    # DELETE урока полностью из БД (T003)
+    path('<int:graph_id>/lessons/<int:lesson_id>/delete/', graph_views.DeleteLessonFullView.as_view(), name='graph-delete-lesson-full'),
     # Batch update позиций
     path('<int:graph_id>/lessons/batch/', graph_views.BatchUpdateLessonsView.as_view(), name='graph-batch-update'),
 

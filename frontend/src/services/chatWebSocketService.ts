@@ -65,6 +65,7 @@ export class ChatWebSocketService {
 
   /**
    * Подключение к общему чату
+   * CRITICAL: Ensures auth token is available before establishing WebSocket connection
    */
   connectToGeneralChat(handlers: ChatEventHandlers): void {
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
@@ -78,15 +79,35 @@ export class ChatWebSocketService {
     // Подключаемся к WebSocket если еще не подключены
     if (!websocketService.isConnected()) {
       const baseUrl = getWebSocketBaseUrl();
+
+      // CRITICAL: Get token from tokenStorage (primary source)
       const { accessToken } = tokenStorage.getTokens();
 
+      // Fallback: Try direct localStorage access if tokenStorage returns null
+      const token = accessToken || localStorage.getItem('auth_token');
+
+      if (!token) {
+        logger.error('[ChatWebSocket] ERROR: No auth token available for general chat WebSocket connection!', {
+          tokenStorageResult: accessToken,
+          localStorageToken: localStorage.getItem('auth_token'),
+          allLocalStorageKeys: Object.keys(localStorage)
+        });
+
+        // Notify error handler
+        if (this.eventHandlers.onError) {
+          this.eventHandlers.onError('Authentication token not found. Please log in again.');
+        }
+        return;
+      }
+
       // CRITICAL FIX: Correctly form WebSocket URL with token
-      const tokenParam = accessToken ? `?token=${accessToken}` : '';
+      const tokenParam = `?token=${token}`;
       const fullUrl = `${baseUrl}/chat/general/${tokenParam}`;
 
       logger.info('[ChatWebSocket] Connecting to general chat with token:', {
-        hasToken: !!accessToken,
-        tokenStart: accessToken ? accessToken.substring(0, 10) : 'no-token',
+        hasToken: !!token,
+        tokenLength: token.length,
+        tokenStart: token.substring(0, 10),
         fullUrl
       });
 
@@ -96,6 +117,7 @@ export class ChatWebSocketService {
 
   /**
    * Подключение к конкретной чат-комнате
+   * CRITICAL: Ensures auth token is available before establishing WebSocket connection
    */
   connectToRoom(roomId: number, handlers: ChatEventHandlers): void {
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
@@ -109,20 +131,41 @@ export class ChatWebSocketService {
 
     // Подключаемся к WebSocket с room-specific URL
     const baseUrl = getWebSocketBaseUrl();
+
+    // CRITICAL: Get token from tokenStorage (primary source)
+    // tokenStorage reads from localStorage 'auth_token' key
     const { accessToken } = tokenStorage.getTokens();
 
+    // Fallback: Try direct localStorage access if tokenStorage returns null
+    const token = accessToken || localStorage.getItem('auth_token');
+
+    if (!token) {
+      logger.error('[ChatWebSocket] ERROR: No auth token available for WebSocket connection!', {
+        roomId,
+        tokenStorageResult: accessToken,
+        localStorageToken: localStorage.getItem('auth_token'),
+        allLocalStorageKeys: Object.keys(localStorage)
+      });
+
+      // Notify error handler
+      if (this.eventHandlers.onError) {
+        this.eventHandlers.onError('Authentication token not found. Please log in again.');
+      }
+      return;
+    }
+
     // CRITICAL FIX: Correctly form WebSocket URL with token
-    const tokenParam = accessToken ? `?token=${accessToken}` : '';
+    const tokenParam = `?token=${token}`;
     const fullUrl = `${baseUrl}/chat/${roomId}/${tokenParam}`;
 
     // Enhanced debug logging
     logger.info('[ChatWebSocket] Token retrieval and URL formation:', {
       roomId,
       baseUrl,
-      hasToken: !!accessToken,
-      tokenLength: accessToken ? accessToken.length : 0,
-      tokenStart: accessToken ? accessToken.substring(0, 10) : 'NO-TOKEN',
-      tokenEnd: accessToken ? '...' + accessToken.substring(accessToken.length - 10) : 'NO-TOKEN',
+      hasToken: !!token,
+      tokenLength: token.length,
+      tokenStart: token.substring(0, 10),
+      tokenEnd: '...' + token.substring(token.length - 10),
       tokenParam,
       fullUrl,
       localStorageCheck: {

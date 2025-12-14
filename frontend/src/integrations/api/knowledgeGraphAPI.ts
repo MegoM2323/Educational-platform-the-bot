@@ -398,6 +398,47 @@ export const knowledgeGraphAPI = {
   },
 
   /**
+   * Удалить урок ПОЛНОСТЬЮ из базы данных (T011)
+   * DELETE /api/knowledge-graph/{graph_id}/lessons/{lesson_id}/delete/
+   *
+   * ВНИМАНИЕ: Удаляет урок из ВСЕХ графов, где он используется
+   * Cascade удаление: зависимости, прогресс студентов, GraphLesson
+   *
+   * Responses:
+   * - 204 No Content - успешное удаление
+   * - 400 Bad Request - урок используется в нескольких графах (warning)
+   * - 403 Forbidden - нет прав (только создатель урока)
+   * - 404 Not Found - урок не найден
+   */
+  deleteLesson: async (graphId: number, lessonId: number): Promise<void> => {
+    const response = await unifiedAPI.delete<void>(
+      `/knowledge-graph/${graphId}/lessons/${lessonId}/delete/`
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+  },
+
+  /**
+   * Удалить зависимость (alias для removeDependency) (T011)
+   * DELETE /api/knowledge-graph/{graph_id}/lessons/{lesson_id}/dependencies/{dependency_id}/
+   *
+   * Responses:
+   * - 204 No Content - успешное удаление
+   * - 403 Forbidden - нет прав (только создатель графа)
+   * - 404 Not Found - зависимость не найдена
+   */
+  deleteDependency: async (
+    graphId: number,
+    lessonId: number,
+    dependencyId: number
+  ): Promise<void> => {
+    // Используем существующий метод removeDependency
+    return knowledgeGraphAPI.removeDependency(graphId, lessonId, dependencyId);
+  },
+
+  /**
    * Проверить, можно ли начать урок (проверка prerequisites)
    * FIX T008: обработка обертки { success, data } от backend
    */

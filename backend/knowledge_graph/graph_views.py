@@ -217,6 +217,11 @@ class AddLessonToGraphView(APIView):
 class RemoveLessonFromGraphView(APIView):
     """
     DELETE /api/knowledge-graph/{graph_id}/lessons/{lesson_id}/ - удалить урок из графа
+
+    После удаления автоматически:
+    - Удаляются все зависимости (CASCADE)
+    - Удаляется прогресс студентов по этому уроку
+    - Пересчитывается unlock статус для остальных уроков (T006)
     """
     permission_classes = [IsAuthenticated]
 
@@ -244,9 +249,34 @@ class RemoveLessonFromGraphView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # Удалить (каскадно удалятся зависимости)
+            # Сохранить ID для recalculation
+            graph_lesson_id = graph_lesson.id
+
+            # Удалить урок (каскадно удалятся зависимости)
+            # И вызвать пересчет прогресса (T006)
             with transaction.atomic():
+                # Сначала удалить урок
                 graph_lesson.delete()
+
+                # Затем пересчитать прогресс
+                from .progress_sync_service import ProgressSyncService
+
+                try:
+                    recalc_stats = ProgressSyncService.recalculate_progress_after_lesson_deletion(
+                        graph_id=graph_id,
+                        deleted_lesson_id=graph_lesson_id
+                    )
+
+                    logger.info(
+                        f"Progress recalculation after lesson deletion: {recalc_stats}"
+                    )
+                except Exception as recalc_error:
+                    # Логируем ошибку но не прерываем операцию
+                    # Урок уже удален, пересчет - бонус
+                    logger.error(
+                        f"Error during progress recalculation after lesson deletion: {recalc_error}",
+                        exc_info=True
+                    )
 
             # FIX T008: HTTP 204 No Content не должен содержать тело ответа
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -571,5 +601,100 @@ class BatchUpdateLessonsView(APIView):
             logger.error(f"Error in BatchUpdateLessonsView: {e}", exc_info=True)
             return Response(
                 {'success': False, 'error': f'Ошибка при batch обновлении: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class DeleteLessonFullView(APIView):
+    """
+    DELETE /api/knowledge-graph/{graph_id}/lessons/{lesson_id}/delete/ - полное удаление урока
+
+    Отличие от /remove/:
+    - /remove/ - удаляет урок только из ДАННОГО графа (GraphLesson)
+    - /delete/ - удаляет урок ПОЛНОСТЬЮ из базы данных со всеми зависимостями
+
+    Права доступа: только создатель урока (created_by)
+
+    Cascade удаление:
+    - Все LessonDependency где урок является source или target
+    - Все GraphLesson во ВСЕХ графах
+    - Все LessonProgress студентов по этому уроку
+    - Все ElementProgress по элементам урока
+    - Сам объект Lesson
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, graph_id, lesson_id):
+        try:
+            # Получить урок
+            lesson = Lesson.objects.select_related('created_by').get(id=lesson_id)
+
+            # CRITICAL: Проверка прав - только создатель урока может удалить
+            if lesson.created_by != request.user and not request.user.is_staff:
+                return Response(
+                    {'success': False, 'error': 'Только создатель урока может удалить его'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Проверка использования урока в графах (для информирования пользователя)
+            graphs_count = GraphLesson.objects.filter(lesson=lesson).count()
+
+            if graphs_count > 1:
+                # Предупреждение: урок используется в нескольких графах
+                return Response(
+                    {
+                        'success': False,
+                        'error': f'Урок используется в {graphs_count} графах. Удаление приведёт к его удалению из всех графов.',
+                        'graphs_count': graphs_count,
+                        'warning': True
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Cascade удаление в транзакции
+            with transaction.atomic():
+                # Импорт моделей для cascade удаления
+                from .models import LessonDependency, LessonProgress, ElementProgress
+
+                # 1. Удалить все зависимости (где урок source или target)
+                # LessonDependency использует GraphLesson как FK, поэтому нужно удалять через GraphLesson
+                graph_lessons = GraphLesson.objects.filter(lesson=lesson)
+
+                for gl in graph_lessons:
+                    # Удалить зависимости где урок является source
+                    LessonDependency.objects.filter(from_lesson=gl).delete()
+                    # Удалить зависимости где урок является target
+                    LessonDependency.objects.filter(to_lesson=gl).delete()
+
+                # 2. Удалить прогресс студентов по уроку
+                LessonProgress.objects.filter(graph_lesson__lesson=lesson).delete()
+
+                # 3. Удалить прогресс по элементам урока
+                ElementProgress.objects.filter(graph_lesson__lesson=lesson).delete()
+
+                # 4. Удалить GraphLesson (связи урока со всеми графами)
+                graph_lessons.delete()
+
+                # 5. Удалить сам урок
+                lesson_title = lesson.title
+                lesson.delete()
+
+                logger.info(
+                    f"Lesson '{lesson_title}' (ID: {lesson_id}) deleted by {request.user.email}. "
+                    f"Removed from {graphs_count} graphs."
+                )
+
+            # HTTP 204 No Content - успешное удаление без тела ответа
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        except Lesson.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'Урок не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error in DeleteLessonFullView: {e}", exc_info=True)
+            return Response(
+                {'success': False, 'error': f'Ошибка при удалении урока: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

@@ -327,3 +327,139 @@ class ProgressSyncService:
                 exc_info=True
             )
             return 0
+
+    @staticmethod
+    def recalculate_progress_after_lesson_deletion(graph_id, deleted_lesson_id):
+        """
+        Пересчитать прогресс студентов после удаления урока из графа (T006)
+
+        Логика:
+        1. Удалить все записи LessonProgress для удаленного урока
+        2. Удалить все записи ElementProgress для удаленного урока
+        3. Для каждого студента в графе пересчитать unlock статус всех оставшихся уроков
+        4. Уроки без prerequisites разблокируются автоматически
+
+        Args:
+            graph_id: ID графа знаний
+            deleted_lesson_id: ID удаленного GraphLesson
+
+        Returns:
+            dict: статистика операции {
+                'deleted_lesson_progress': int,
+                'deleted_element_progress': int,
+                'recalculated_students': int,
+                'unlocked_lessons': int
+            }
+        """
+        try:
+            with transaction.atomic():
+                # Получить граф
+                graph = KnowledgeGraph.objects.select_related('student', 'subject').get(id=graph_id)
+
+                stats = {
+                    'deleted_lesson_progress': 0,
+                    'deleted_element_progress': 0,
+                    'recalculated_students': 0,
+                    'unlocked_lessons': 0
+                }
+
+                # 1. Удалить LessonProgress для удаленного урока
+                deleted_lesson_count = LessonProgress.objects.filter(
+                    graph_lesson_id=deleted_lesson_id
+                ).delete()[0]
+                stats['deleted_lesson_progress'] = deleted_lesson_count
+
+                logger.info(
+                    f"Deleted {deleted_lesson_count} LessonProgress records for "
+                    f"deleted lesson {deleted_lesson_id}"
+                )
+
+                # 2. Удалить ElementProgress для удаленного урока
+                deleted_element_count = ElementProgress.objects.filter(
+                    graph_lesson_id=deleted_lesson_id
+                ).delete()[0]
+                stats['deleted_element_progress'] = deleted_element_count
+
+                logger.info(
+                    f"Deleted {deleted_element_count} ElementProgress records for "
+                    f"deleted lesson {deleted_lesson_id}"
+                )
+
+                # 3. Получить всех студентов которые имеют прогресс в этом графе
+                # (включая владельца графа)
+                students_with_progress = LessonProgress.objects.filter(
+                    graph_lesson__graph=graph
+                ).values_list('student_id', flat=True).distinct()
+
+                # Добавить владельца графа если его нет в списке
+                students = set(students_with_progress)
+                students.add(graph.student_id)
+
+                # 4. Для каждого студента пересчитать unlock статус
+                for student_id in students:
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+
+                    try:
+                        student = User.objects.get(id=student_id)
+
+                        # Получить все оставшиеся уроки в графе
+                        remaining_lessons = GraphLesson.objects.filter(
+                            graph=graph
+                        ).select_related('lesson').prefetch_related(
+                            'incoming_dependencies',
+                            'incoming_dependencies__from_lesson'
+                        )
+
+                        # Пересчитать unlock статус для каждого урока
+                        for graph_lesson in remaining_lessons:
+                            # Проверить нужно ли разблокировать урок
+                            should_unlock = ProgressSyncService.check_all_prerequisites_complete(
+                                student,
+                                graph_lesson
+                            )
+
+                            # Обновить статус если нужно
+                            if should_unlock and not graph_lesson.is_unlocked:
+                                graph_lesson.unlock()
+                                stats['unlocked_lessons'] += 1
+
+                                logger.info(
+                                    f"Unlocked lesson {graph_lesson.id} for student {student_id} "
+                                    f"after deletion recalculation"
+                                )
+                            elif not should_unlock and graph_lesson.is_unlocked:
+                                # Если урок был разблокирован но теперь не должен быть
+                                # (может произойти если были изменены dependencies)
+                                graph_lesson.is_unlocked = False
+                                graph_lesson.unlocked_at = None
+                                graph_lesson.save(update_fields=['is_unlocked', 'unlocked_at'])
+
+                                logger.info(
+                                    f"Re-locked lesson {graph_lesson.id} for student {student_id} "
+                                    f"after deletion recalculation"
+                                )
+
+                        stats['recalculated_students'] += 1
+
+                    except User.DoesNotExist:
+                        logger.warning(f"Student {student_id} not found, skipping recalculation")
+                        continue
+
+                logger.info(
+                    f"Progress recalculation complete for graph {graph_id}: {stats}"
+                )
+
+                return stats
+
+        except KnowledgeGraph.DoesNotExist:
+            logger.error(f"KnowledgeGraph {graph_id} not found")
+            raise
+        except Exception as e:
+            logger.error(
+                f"Error in recalculate_progress_after_lesson_deletion: "
+                f"graph_id={graph_id}, deleted_lesson_id={deleted_lesson_id}, "
+                f"error={str(e)}",
+                exc_info=True
+            )
+            raise

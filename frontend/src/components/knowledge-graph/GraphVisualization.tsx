@@ -36,6 +36,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   onNodeClick,
   onNodeHover,
   onNodeDrag,
+  onDependencyDelete,
   isEditable = false,
   width,
   height,
@@ -187,8 +188,9 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     simulationRef.current = simulation;
 
     // Отрисовка связей
-    const link = g.append('g')
-      .attr('class', 'links')
+    const linkGroup = g.append('g').attr('class', 'links');
+
+    const link = linkGroup
       .selectAll('line')
       .data(links)
       .join('line')
@@ -200,6 +202,57 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       })
       .attr('opacity', 0.6)
       .attr('marker-end', d => `url(#arrowhead-${d.type})`);
+
+    // Иконки удаления зависимостей (только в режиме редактирования)
+    let deleteIconGroups: d3.Selection<SVGGElement, D3Link, SVGGElement, unknown> | null = null;
+    let deleteIcons: d3.Selection<SVGTextElement, D3Link, SVGGElement, unknown> | null = null;
+
+    if (isEditable && onDependencyDelete) {
+      // Группы для иконок (фон + текст)
+      deleteIconGroups = linkGroup
+        .selectAll('.link-delete-group')
+        .data(links.filter(d => d.id !== undefined))
+        .join('g')
+        .attr('class', 'link-delete-group')
+        .attr('cursor', 'pointer')
+        .attr('pointer-events', 'auto')
+        .on('mouseenter', function() {
+          d3.select(this).select('circle')
+            .attr('r', 11);
+          d3.select(this).select('text')
+            .attr('font-size', '16px');
+        })
+        .on('mouseleave', function() {
+          d3.select(this).select('circle')
+            .attr('r', 10);
+          d3.select(this).select('text')
+            .attr('font-size', '14px');
+        })
+        .on('click', function(event, d) {
+          event.stopPropagation();
+          if (d.id !== undefined) {
+            onDependencyDelete(d.id);
+          }
+        });
+
+      // Фоновый круг
+      deleteIconGroups.append('circle')
+        .attr('r', 10)
+        .attr('fill', 'white')
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 2);
+
+      // Иконка X
+      deleteIcons = deleteIconGroups.append('text')
+        .attr('class', 'link-delete-icon')
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .attr('font-size', '14px')
+        .attr('fill', '#ef4444')
+        .attr('font-weight', 'bold')
+        .style('user-select', 'none')
+        .text('✖');
+    }
 
     // Отрисовка узлов
     const node = g.append('g')
@@ -296,6 +349,15 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         .attr('y1', d => (d.source as D3Node).y)
         .attr('x2', d => (d.target as D3Node).x)
         .attr('y2', d => (d.target as D3Node).y);
+
+      // Обновление позиций групп иконок удаления (в центре каждой связи)
+      if (deleteIconGroups) {
+        deleteIconGroups.attr('transform', d => {
+          const x = ((d.source as D3Node).x + (d.target as D3Node).x) / 2;
+          const y = ((d.source as D3Node).y + (d.target as D3Node).y) / 2;
+          return `translate(${x},${y})`;
+        });
+      }
 
       node.attr('transform', d => `translate(${d.x},${d.y})`);
     }
@@ -413,7 +475,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, dimensions, isEditable, onNodeClick, onNodeHover, onNodeDrag, progressData, currentLessonId, animationDuration]);
+  }, [data, dimensions, isEditable, onNodeClick, onNodeHover, onNodeDrag, onDependencyDelete, progressData, currentLessonId, animationDuration]);
 
   // Функции управления зумом
   const handleZoomIn = useCallback(() => {

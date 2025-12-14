@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { logger } from '@/utils/logger';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,17 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { MessageCircle, Send, Search, Loader2, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { MessageCircle, Send, Search, Loader2, Wifi, WifiOff, AlertCircle, Plus } from 'lucide-react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
-import { ForumChat, ForumMessage } from '@/integrations/api/forumAPI';
+import { ForumChat, ForumMessage, Contact, forumAPI } from '@/integrations/api/forumAPI';
 import { Skeleton } from '@/components/ui/skeleton';
 import { chatWebSocketService, ChatMessage, TypingUser } from '@/services/chatWebSocketService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +28,7 @@ import { StudentSidebar } from '@/components/layout/StudentSidebar';
 import { TeacherSidebar } from '@/components/layout/TeacherSidebar';
 import { TutorSidebar } from '@/components/layout/TutorSidebar';
 import { ParentSidebar } from '@/components/layout/ParentSidebar';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatListProps {
   chats: ForumChat[];
@@ -388,6 +396,208 @@ const ChatWindow = ({
   );
 };
 
+// ContactSearchModal component
+interface ContactSearchModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onChatInitiated: (chatId: number) => void;
+}
+
+const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchModalProps) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch available contacts
+  const {
+    data: contacts = [],
+    isLoading: isLoadingContacts,
+    error: contactsError,
+  } = useQuery({
+    queryKey: ['available-contacts'],
+    queryFn: forumAPI.getAvailableContacts,
+    enabled: isOpen,
+  });
+
+  // Initiate chat mutation
+  const initiateChatMutation = useMutation({
+    mutationFn: ({ contactUserId, subjectId }: { contactUserId: number; subjectId?: number }) =>
+      forumAPI.initiateChat(contactUserId, subjectId),
+    onSuccess: (data) => {
+      logger.debug('[ContactSearchModal] Chat initiated successfully:', data);
+
+      // Invalidate forum chats to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['forum-chats'] });
+
+      // Show success message
+      toast({
+        title: data.created ? 'Чат создан' : 'Чат найден',
+        description: data.created
+          ? 'Новый чат успешно создан'
+          : 'Вы перешли к существующему чату',
+      });
+
+      // Notify parent component about chat initiation
+      onChatInitiated(data.chat.id);
+
+      // Close modal
+      onClose();
+    },
+    onError: (error: any) => {
+      logger.error('[ContactSearchModal] Error initiating chat:', error);
+
+      const errorMessage = error?.message || 'Ошибка при создании чата';
+      toast({
+        title: 'Ошибка',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Filter contacts by search query
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery.trim()) return contacts;
+
+    const query = searchQuery.toLowerCase();
+    return contacts.filter(
+      (contact) =>
+        contact.first_name.toLowerCase().includes(query) ||
+        contact.last_name.toLowerCase().includes(query) ||
+        contact.email.toLowerCase().includes(query)
+    );
+  }, [contacts, searchQuery]);
+
+  // Handle chat initiation
+  const handleInitiateChat = (contact: Contact) => {
+    // For existing chats, notify parent immediately
+    if (contact.has_active_chat && contact.chat_id) {
+      onChatInitiated(contact.chat_id);
+      onClose();
+      return;
+    }
+
+    // For new chats, call API
+    initiateChatMutation.mutate({
+      contactUserId: contact.id,
+      subjectId: contact.subject?.id,
+    });
+  };
+
+  // Reset search when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+    }
+  }, [isOpen]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Начать новый чат</DialogTitle>
+          <DialogDescription>
+            Выберите пользователя для начала общения
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Search input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Поиск по имени или email..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        {/* Contacts list */}
+        <ScrollArea className="flex-1 pr-4">
+          {isLoadingContacts ? (
+            <div className="space-y-3">
+              <Skeleton className="h-16 rounded" />
+              <Skeleton className="h-16 rounded" />
+              <Skeleton className="h-16 rounded" />
+            </div>
+          ) : contactsError ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <AlertCircle className="w-8 h-8 text-destructive mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Не удалось загрузить контакты
+              </p>
+            </div>
+          ) : filteredContacts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <MessageCircle className="w-8 h-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? 'Контактов не найдено' : 'Нет доступных контактов'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredContacts.map((contact) => {
+                const initials = `${contact.first_name.charAt(0)}${contact.last_name.charAt(0)}`.toUpperCase();
+                const fullName = `${contact.first_name} ${contact.last_name}`.trim();
+
+                return (
+                  <div
+                    key={contact.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  >
+                    <Avatar className="w-10 h-10">
+                      <AvatarFallback className="gradient-primary text-primary-foreground">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate">{fullName}</p>
+                        <Badge variant="outline" className="text-xs">
+                          {contact.role}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {contact.email}
+                      </p>
+                      {contact.subject && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {contact.subject.name}
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={contact.has_active_chat ? 'default' : 'outline'}
+                      onClick={() => handleInitiateChat(contact)}
+                      disabled={initiateChatMutation.isPending}
+                      className={cn(
+                        contact.has_active_chat && 'bg-primary text-primary-foreground'
+                      )}
+                    >
+                      {initiateChatMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : contact.has_active_chat ? (
+                        'Продолжить'
+                      ) : (
+                        'Начать чат'
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // Helper function to get the appropriate sidebar component based on role
 const getSidebarComponent = (role: string) => {
   switch (role) {
@@ -412,6 +622,7 @@ export default function Forum() {
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useForumChats();
@@ -581,6 +792,21 @@ export default function Forum() {
     }
   };
 
+  // Handle chat initiated from modal
+  const handleChatInitiated = useCallback((chatId: number) => {
+    logger.debug('[Forum] Chat initiated, selecting chat:', chatId);
+
+    // Wait for chat list to refresh, then select the chat
+    queryClient.invalidateQueries({ queryKey: ['forum-chats'] }).then(() => {
+      // Find the chat in the updated list
+      const updatedChats = queryClient.getQueryData<ForumChat[]>(['forum-chats']);
+      const newChat = updatedChats?.find((chat) => chat.id === chatId);
+
+      if (newChat) {
+        setSelectedChat(newChat);
+      }
+    });
+  }, [queryClient]);
 
   // Get the appropriate sidebar component based on user role
   const SidebarComponent = getSidebarComponent(user?.role || '');
@@ -602,6 +828,16 @@ export default function Forum() {
             <SidebarTrigger />
             <h1 className="text-2xl font-bold ml-4">Форум</h1>
             <div className="flex-1" />
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => setIsNewChatModalOpen(true)}
+              className="gradient-primary"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Новый чат
+            </Button>
           </header>
           <main className="flex-1 overflow-auto p-6">
             <div className="space-y-6">
@@ -635,6 +871,13 @@ export default function Forum() {
           </main>
         </SidebarInset>
       </div>
+
+      {/* Contact Search Modal */}
+      <ContactSearchModal
+        isOpen={isNewChatModalOpen}
+        onClose={() => setIsNewChatModalOpen(false)}
+        onChatInitiated={handleChatInitiated}
+      />
     </SidebarProvider>
   );
 }

@@ -17,6 +17,8 @@ vi.mock('@/integrations/api/knowledgeGraphAPI', () => ({
     batchUpdateLessons: vi.fn(),
     addDependency: vi.fn(),
     removeDependency: vi.fn(),
+    deleteLesson: vi.fn(),
+    deleteDependency: vi.fn(),
   },
 }));
 
@@ -1476,6 +1478,344 @@ describe('useTeacherGraphEditor', () => {
 
       expect(result.current.lessonsError).toBeDefined();
       expect(result.current.availableLessons).toEqual([]);
+    });
+  });
+
+  // ============================================
+  // 13. Delete Lesson Tests (T011)
+  // ============================================
+
+  describe('Delete Lesson (deleteLesson)', () => {
+    it('should delete lesson and update state', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteLesson).mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      expect(result.current.isDeleting).toBe(false);
+      expect(result.current.deleteError).toBeNull();
+
+      // Delete lesson
+      await act(async () => {
+        await result.current.deleteLesson(mockLessons[0].id);
+      });
+
+      expect(knowledgeGraphAPI.deleteLesson).toHaveBeenCalledWith(mockGraph.id, mockLessons[0].id);
+      expect(result.current.isDeleting).toBe(false);
+      expect(result.current.deleteError).toBeNull();
+    });
+
+    it('should push to undo stack after successful deletion', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteLesson).mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      expect(result.current.canUndo).toBe(false);
+
+      await act(async () => {
+        await result.current.deleteLesson(mockLessons[0].id);
+      });
+
+      expect(result.current.canUndo).toBe(true);
+    });
+
+    it('should handle 403 permission error', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteLesson).mockRejectedValue(
+        new Error('403 Forbidden: Только создатель урока может удалить его')
+      );
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      await act(async () => {
+        try {
+          await result.current.deleteLesson(mockLessons[0].id);
+        } catch (error) {
+          // Expected error
+        }
+      });
+
+      expect(result.current.deleteError).not.toBeNull();
+      expect(result.current.deleteError?.type).toBe('permission');
+      expect(result.current.deleteError?.statusCode).toBe(403);
+    });
+
+    it('should handle 404 not found error', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteLesson).mockRejectedValue(
+        new Error('404 Not Found: Урок не найден')
+      );
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      await act(async () => {
+        try {
+          await result.current.deleteLesson(999);
+        } catch (error) {
+          // Expected error
+        }
+      });
+
+      expect(result.current.deleteError).not.toBeNull();
+      expect(result.current.deleteError?.type).toBe('not_found');
+      expect(result.current.deleteError?.statusCode).toBe(404);
+    });
+
+    it('should handle 400 validation error (multi-graph warning)', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteLesson).mockRejectedValue(
+        new Error('400 Bad Request: Урок используется в 3 графах')
+      );
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      await act(async () => {
+        try {
+          await result.current.deleteLesson(mockLessons[0].id);
+        } catch (error) {
+          // Expected error
+        }
+      });
+
+      expect(result.current.deleteError).not.toBeNull();
+      expect(result.current.deleteError?.type).toBe('validation');
+      expect(result.current.deleteError?.statusCode).toBe(400);
+    });
+
+    it('should not delete if graph is null', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+
+      const { result } = renderHook(() => useTeacherGraphEditor(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.students).toHaveLength(2);
+      });
+
+      await act(async () => {
+        await result.current.deleteLesson(1);
+      });
+
+      expect(knowledgeGraphAPI.deleteLesson).not.toHaveBeenCalled();
+    });
+
+    it('should clear deleteError when new deletion starts', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+
+      // First call fails
+      vi.mocked(knowledgeGraphAPI.deleteLesson).mockRejectedValueOnce(
+        new Error('403 Forbidden')
+      );
+
+      // Second call succeeds
+      vi.mocked(knowledgeGraphAPI.deleteLesson).mockResolvedValueOnce(undefined);
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      // First deletion fails
+      await act(async () => {
+        try {
+          await result.current.deleteLesson(1);
+        } catch (error) {
+          // Expected
+        }
+      });
+
+      expect(result.current.deleteError).not.toBeNull();
+
+      // Second deletion succeeds and clears error
+      await act(async () => {
+        await result.current.deleteLesson(2);
+      });
+
+      expect(result.current.deleteError).toBeNull();
+    });
+  });
+
+  // ============================================
+  // 14. Delete Dependency Tests (T011)
+  // ============================================
+
+  describe('Delete Dependency (deleteDependency)', () => {
+    it('should delete dependency and update state', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteDependency).mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      expect(result.current.isDeleting).toBe(false);
+
+      // Delete dependency
+      await act(async () => {
+        await result.current.deleteDependency(
+          mockDependencies[0].id,
+          mockDependencies[0].from_lesson,
+          mockDependencies[0].to_lesson
+        );
+      });
+
+      expect(knowledgeGraphAPI.deleteDependency).toHaveBeenCalledWith(
+        mockGraph.id,
+        mockDependencies[0].to_lesson,
+        mockDependencies[0].id
+      );
+      expect(result.current.isDeleting).toBe(false);
+      expect(result.current.deleteError).toBeNull();
+    });
+
+    it('should push to undo stack after successful deletion', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteDependency).mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      expect(result.current.canUndo).toBe(false);
+
+      await act(async () => {
+        await result.current.deleteDependency(201, 101, 102);
+      });
+
+      expect(result.current.canUndo).toBe(true);
+    });
+
+    it('should handle 403 permission error', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteDependency).mockRejectedValue(
+        new Error('403 Forbidden: Только создатель графа может удалять зависимости')
+      );
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      await act(async () => {
+        try {
+          await result.current.deleteDependency(201, 101, 102);
+        } catch (error) {
+          // Expected error
+        }
+      });
+
+      expect(result.current.deleteError).not.toBeNull();
+      expect(result.current.deleteError?.type).toBe('permission');
+    });
+
+    it('should handle 404 not found error', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+      vi.mocked(knowledgeGraphAPI.getOrCreateGraph).mockResolvedValue(mockGraph);
+      vi.mocked(knowledgeGraphAPI.getLessons).mockResolvedValue(mockLessons);
+      vi.mocked(knowledgeGraphAPI.deleteDependency).mockRejectedValue(
+        new Error('404 Not Found: Зависимость не найдена')
+      );
+
+      const { result } = renderHook(() => useTeacherGraphEditor(5), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.graph).not.toBeNull();
+      });
+
+      await act(async () => {
+        try {
+          await result.current.deleteDependency(999, 101, 102);
+        } catch (error) {
+          // Expected error
+        }
+      });
+
+      expect(result.current.deleteError).not.toBeNull();
+      expect(result.current.deleteError?.type).toBe('not_found');
+    });
+
+    it('should not delete if graph is null', async () => {
+      vi.mocked(knowledgeGraphAPI.getTeacherStudents).mockResolvedValue(mockStudents);
+
+      const { result } = renderHook(() => useTeacherGraphEditor(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.students).toHaveLength(2);
+      });
+
+      await act(async () => {
+        await result.current.deleteDependency(201, 101, 102);
+      });
+
+      expect(knowledgeGraphAPI.deleteDependency).not.toHaveBeenCalled();
     });
   });
 });

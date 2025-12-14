@@ -14,6 +14,7 @@ export interface GraphLink {
   source: string | GraphNode;
   target: string | GraphNode;
   type: 'prerequisite' | 'suggested';
+  id?: number; // Dependency ID для удаления
 }
 
 export interface GraphData {
@@ -34,6 +35,7 @@ export interface GraphVisualizationProps {
   onNodeClick?: (nodeId: string) => void;
   onNodeHover?: (nodeId: string | null) => void;
   onNodeDrag?: (nodeId: string, x: number, y: number) => void;
+  onDependencyDelete?: (dependencyId: number) => void; // Callback для удаления зависимости
   isEditable?: boolean;
   width?: number;
   height?: number;

@@ -3,7 +3,9 @@
  * Обеспечивает real-time получение уведомлений и обновлений дашборда
  */
 
-import { websocketService, WebSocketMessage } from './websocketService';
+import { websocketService, WebSocketMessage, getWebSocketBaseUrl } from './websocketService';
+import { tokenStorage } from './tokenStorage';
+import { logger } from '../utils/logger';
 
 export interface Notification {
   id: number;
@@ -44,41 +46,113 @@ export class NotificationWebSocketService {
 
   /**
    * Подключение к уведомлениям пользователя
+   * CRITICAL: Ensures auth token is available before establishing WebSocket connection
    */
   connectToNotifications(userId: number, handlers: NotificationEventHandlers): void {
     this.userId = userId;
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
-    
+
     const channel = `notifications_${userId}`;
     const subscriptionId = websocketService.subscribe(channel, (message: WebSocketMessage) => {
       this.handleNotificationMessage(message);
     });
-    
+
     this.subscriptions.set(channel, subscriptionId);
-    
+
     // Подключаемся к WebSocket если еще не подключены
     if (!websocketService.isConnected()) {
-      websocketService.connect();
+      const baseUrl = getWebSocketBaseUrl();
+
+      // CRITICAL: Get token from tokenStorage (primary source)
+      const { accessToken } = tokenStorage.getTokens();
+
+      // Fallback: Try direct localStorage access if tokenStorage returns null
+      const token = accessToken || localStorage.getItem('auth_token');
+
+      if (!token) {
+        logger.error('[NotificationWebSocket] ERROR: No auth token available for WebSocket connection!', {
+          userId,
+          tokenStorageResult: accessToken,
+          localStorageToken: localStorage.getItem('auth_token'),
+          allLocalStorageKeys: Object.keys(localStorage)
+        });
+
+        // Notify error handler
+        if (this.eventHandlers.onError) {
+          this.eventHandlers.onError('Authentication token not found. Please log in again.');
+        }
+        return;
+      }
+
+      // CRITICAL FIX: Correctly form WebSocket URL with token
+      const tokenParam = `?token=${token}`;
+      const fullUrl = `${baseUrl}/notifications/${userId}/${tokenParam}`;
+
+      logger.info('[NotificationWebSocket] Connecting to notifications:', {
+        userId,
+        hasToken: !!token,
+        tokenLength: token.length,
+        tokenStart: token.substring(0, 10),
+        fullUrl
+      });
+
+      websocketService.connect(fullUrl);
     }
   }
 
   /**
    * Подключение к обновлениям дашборда пользователя
+   * CRITICAL: Ensures auth token is available before establishing WebSocket connection
    */
   connectToDashboard(userId: number, handlers: NotificationEventHandlers): void {
     this.userId = userId;
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
-    
+
     const channel = `dashboard_${userId}`;
     const subscriptionId = websocketService.subscribe(channel, (message: WebSocketMessage) => {
       this.handleNotificationMessage(message);
     });
-    
+
     this.subscriptions.set(channel, subscriptionId);
-    
+
     // Подключаемся к WebSocket если еще не подключены
     if (!websocketService.isConnected()) {
-      websocketService.connect();
+      const baseUrl = getWebSocketBaseUrl();
+
+      // CRITICAL: Get token from tokenStorage (primary source)
+      const { accessToken } = tokenStorage.getTokens();
+
+      // Fallback: Try direct localStorage access if tokenStorage returns null
+      const token = accessToken || localStorage.getItem('auth_token');
+
+      if (!token) {
+        logger.error('[NotificationWebSocket] ERROR: No auth token available for dashboard WebSocket connection!', {
+          userId,
+          tokenStorageResult: accessToken,
+          localStorageToken: localStorage.getItem('auth_token'),
+          allLocalStorageKeys: Object.keys(localStorage)
+        });
+
+        // Notify error handler
+        if (this.eventHandlers.onError) {
+          this.eventHandlers.onError('Authentication token not found. Please log in again.');
+        }
+        return;
+      }
+
+      // CRITICAL FIX: Correctly form WebSocket URL with token
+      const tokenParam = `?token=${token}`;
+      const fullUrl = `${baseUrl}/notifications/${userId}/${tokenParam}`;
+
+      logger.info('[NotificationWebSocket] Connecting to dashboard updates:', {
+        userId,
+        hasToken: !!token,
+        tokenLength: token.length,
+        tokenStart: token.substring(0, 10),
+        fullUrl
+      });
+
+      websocketService.connect(fullUrl);
     }
   }
 

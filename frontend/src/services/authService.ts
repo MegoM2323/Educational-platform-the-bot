@@ -45,6 +45,7 @@ class AuthService {
 
   private async initializeFromStorage(): Promise<void> {
     try {
+      const initStartTime = Date.now();
       logger.debug('[AuthService.init] Starting initialization from storage...');
 
       const storedToken = this.getStoredToken();
@@ -83,40 +84,26 @@ class AuthService {
             tokenExpiry: this.tokenExpiry
           });
         } else {
-          // Токен истек, пытаемся обновить
-          logger.debug('[AuthService.init] Token expired, attempting refresh...');
-          this.isRefreshing = true;
-          try {
-            // Временно устанавливаем старый токен для refresh запроса
-            this.token = storedToken;
-            apiClient.setToken(storedToken);
-
-            // Добавляем timeout protection (10 секунд)
-            // Увеличено с 5 до 10 секунд для более надежной работы
-            await Promise.race([
-              this.refreshTokenIfNeeded(),
-              new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Token refresh timeout after 10s')), 10000)
-              ),
-            ]);
-            logger.debug('[AuthService.init] Token refreshed successfully during init');
-          } catch (err) {
-            logger.error('[AuthService.init] Failed to refresh token during init:', err);
-            this.clearStorage();
-            this.user = null;
-            this.token = null;
-          } finally {
-            this.isRefreshing = false;
-          }
+          // ✅ FIX (T002): Token expired - clear storage WITHOUT refresh attempt
+          // This prevents 10-second hang on startup when token is expired
+          // User will be redirected to login by ProtectedRoute
+          logger.debug('[AuthService.init] Token expired, clearing storage (no refresh on init)');
+          this.clearStorage();
+          this.user = null;
+          this.token = null;
+          this.refreshToken = null;
+          this.tokenExpiry = null;
         }
       } else {
         logger.debug('[AuthService.init] No stored credentials (missing token or user)');
       }
 
+      const initDuration = Date.now() - initStartTime;
       logger.debug('[AuthService.init] Initialization complete:', {
         isAuthenticated: this.isAuthenticated(),
         hasUser: !!this.user,
-        hasToken: !!this.token
+        hasToken: !!this.token,
+        durationMs: initDuration
       });
     } catch (error) {
       logger.error('[AuthService.init] Initialization error:', error);

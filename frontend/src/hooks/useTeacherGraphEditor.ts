@@ -13,6 +13,12 @@ import type {
   EditState,
 } from '@/types/knowledgeGraph';
 
+export interface DeleteError {
+  type: 'permission' | 'not_found' | 'validation' | 'network' | 'unknown';
+  message: string;
+  statusCode?: number;
+}
+
 export interface UseTeacherGraphEditorReturn {
   // Data
   students: Student[];
@@ -25,11 +31,13 @@ export interface UseTeacherGraphEditorReturn {
   isLoadingGraph: boolean;
   isLoadingLessons: boolean;
   isSaving: boolean;
+  isDeleting: boolean;
 
   // Error states
   studentsError: Error | null;
   graphError: Error | null;
   lessonsError: Error | null;
+  deleteError: DeleteError | null;
 
   // Edit state
   editState: EditState;
@@ -42,6 +50,8 @@ export interface UseTeacherGraphEditorReturn {
   updateLessonPosition: (graphLessonId: number, x: number, y: number) => void;
   addDependency: (fromLessonId: number, toLessonId: number) => void;
   removeDependency: (dependencyId: number) => void;
+  deleteLesson: (lessonId: number) => Promise<void>;
+  deleteDependency: (dependencyId: number, fromId: number, toId: number) => Promise<void>;
   saveChanges: () => Promise<void>;
   cancelChanges: () => void;
   undo: () => void;
@@ -66,6 +76,8 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
   });
   const [undoStack, setUndoStack] = useState<EditState[]>([]);
   const [redoStack, setRedoStack] = useState<EditState[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<DeleteError | null>(null);
 
   // Queries
   const {
@@ -392,6 +404,123 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
     setRedoStack((prev) => prev.slice(0, -1));
   }, [redoStack, editState]);
 
+  // Helper to parse API errors
+  const parseError = useCallback((error: unknown): DeleteError => {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+
+      if (message.includes('403') || message.includes('forbidden') || message.includes('прав')) {
+        return { type: 'permission', message: error.message, statusCode: 403 };
+      }
+      if (message.includes('404') || message.includes('не найден')) {
+        return { type: 'not_found', message: error.message, statusCode: 404 };
+      }
+      if (message.includes('400') || message.includes('validation') || message.includes('используется')) {
+        return { type: 'validation', message: error.message, statusCode: 400 };
+      }
+      if (message.includes('network') || message.includes('сеть')) {
+        return { type: 'network', message: error.message };
+      }
+
+      return { type: 'unknown', message: error.message };
+    }
+
+    return { type: 'unknown', message: 'Неизвестная ошибка' };
+  }, []);
+
+  // Delete lesson (T011)
+  const deleteLesson = useCallback(
+    async (lessonId: number): Promise<void> => {
+      if (!graph) return;
+
+      setIsDeleting(true);
+      setDeleteError(null);
+
+      try {
+        // Call API - полное удаление урока
+        await knowledgeGraphAPI.deleteLesson(graph.id, lessonId);
+
+        // Успешное удаление - обновить локальное состояние
+        // Удалить урок из graph.lessons (найти GraphLesson по lesson.id)
+        const graphLessonToRemove = graph.lessons.find((gl) => gl.lesson.id === lessonId);
+
+        if (graphLessonToRemove) {
+          // Удалить GraphLesson из lessons
+          queryClient.setQueryData<KnowledgeGraph | null>(
+            ['knowledge-graph', selectedStudent?.id, subjectId],
+            (oldGraph) => {
+              if (!oldGraph) return null;
+
+              return {
+                ...oldGraph,
+                lessons: oldGraph.lessons.filter((gl) => gl.lesson.id !== lessonId),
+                dependencies: oldGraph.dependencies.filter(
+                  (d) => d.from_lesson !== graphLessonToRemove.id && d.to_lesson !== graphLessonToRemove.id
+                ),
+              };
+            }
+          );
+
+          // Push to undo stack AFTER successful deletion
+          pushToUndoStack();
+        }
+
+        // Refetch graph to get updated state
+        await refetchGraph();
+      } catch (error) {
+        // Handle error
+        const parsedError = parseError(error);
+        setDeleteError(parsedError);
+        throw error; // Re-throw for caller to handle
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [graph, selectedStudent, subjectId, queryClient, pushToUndoStack, parseError, refetchGraph]
+  );
+
+  // Delete dependency (T011)
+  const deleteDependency = useCallback(
+    async (dependencyId: number, fromId: number, toId: number): Promise<void> => {
+      if (!graph) return;
+
+      setIsDeleting(true);
+      setDeleteError(null);
+
+      try {
+        // Call API
+        await knowledgeGraphAPI.deleteDependency(graph.id, toId, dependencyId);
+
+        // Успешное удаление - обновить локальное состояние
+        queryClient.setQueryData<KnowledgeGraph | null>(
+          ['knowledge-graph', selectedStudent?.id, subjectId],
+          (oldGraph) => {
+            if (!oldGraph) return null;
+
+            return {
+              ...oldGraph,
+              dependencies: oldGraph.dependencies.filter((d) => d.id !== dependencyId),
+            };
+          }
+        );
+
+        // Push to undo stack AFTER successful deletion
+        pushToUndoStack();
+
+        // Refetch to ensure consistency
+        await refetchGraph();
+      } catch (error) {
+        // Handle error
+        const parsedError = parseError(error);
+        setDeleteError(parsedError);
+        throw error; // Re-throw for caller to handle
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [graph, selectedStudent, subjectId, queryClient, pushToUndoStack, parseError, refetchGraph]
+  );
+
   return {
     // Data
     students,
@@ -409,11 +538,13 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
       removeLessonMutation.isPending ||
       addDependencyMutation.isPending ||
       removeDependencyMutation.isPending,
+    isDeleting,
 
     // Error states
     studentsError,
     graphError,
     lessonsError,
+    deleteError,
 
     // Edit state
     editState,
@@ -426,6 +557,8 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
     updateLessonPosition,
     addDependency,
     removeDependency,
+    deleteLesson,
+    deleteDependency,
     saveChanges,
     cancelChanges,
     undo,

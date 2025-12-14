@@ -16,6 +16,10 @@ urlpatterns = [
     path('', include(router.urls)),
     path('notifications/', views.ChatRoomViewSet.as_view({'get': 'stats'}), name='chat-notifications'),
 
+    # Forum endpoints
+    path('available-contacts/', forum_views.AvailableContactsView.as_view(), name='available-contacts'),
+    path('initiate-chat/', forum_views.InitiateChatView.as_view(), name='initiate-chat'),
+
     # Admin endpoints (read-only)
     path('admin/rooms/', admin_views.AdminChatRoomListView.as_view(), name='admin-chat-rooms'),
     path('admin/rooms/<int:room_id>/', admin_views.AdminChatRoomDetailView.as_view(), name='admin-chat-room-detail'),

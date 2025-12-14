@@ -54,6 +54,7 @@ import {
   Clock,
   Layers,
   ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 import { GraphVisualization } from '@/components/knowledge-graph/GraphVisualization';
 import type { GraphData, GraphNode, GraphLink } from '@/components/knowledge-graph/graph-types';
@@ -94,6 +95,8 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
     redo,
     canUndo,
     canRedo,
+    refetchStudents,
+    refetchGraph,
   } = useTeacherGraphEditor(subjectId);
 
   // Local state
@@ -336,23 +339,63 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
   }, [lessonToDelete, removeLesson, toast]);
 
   // Loading state
-  if (isLoadingStudents || isLoadingGraph || isLoadingLessons) {
+  if (isLoadingStudents) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Загрузка...</span>
+        <span className="text-muted-foreground">Загрузка списка студентов...</span>
+      </div>
+    );
+  }
+
+  if (isLoadingGraph || isLoadingLessons) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="text-muted-foreground">
+          {isLoadingGraph ? 'Загрузка графа знаний...' : 'Загрузка уроков...'}
+        </span>
       </div>
     );
   }
 
   // Error state
-  if (studentsError || graphError || lessonsError) {
+  if (studentsError) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
         <AlertCircle className="h-8 w-8 text-destructive" />
-        <span className="ml-2 text-destructive">
-          Ошибка загрузки: {studentsError?.message || graphError?.message || lessonsError?.message}
-        </span>
+        <div className="text-center max-w-md">
+          <p className="font-semibold">Ошибка загрузки студентов</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {studentsError instanceof Error
+              ? studentsError.message
+              : 'Не удалось загрузить список студентов'}
+          </p>
+          <Button onClick={() => refetchStudents()} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Попробовать снова
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (graphError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <AlertCircle className="h-8 w-8 text-destructive" />
+        <div className="text-center max-w-md">
+          <p className="font-semibold">Ошибка загрузки графа знаний</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {graphError instanceof Error
+              ? graphError.message
+              : 'Не удалось загрузить граф знаний'}
+          </p>
+          <Button onClick={() => refetchGraph()} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Попробовать снова
+          </Button>
+        </div>
       </div>
     );
   }

@@ -47,20 +47,81 @@ export interface ChatEventHandlers {
   onUserLeft?: (user: TypingUser) => void;
   onRoomHistory?: (messages: ChatMessage[]) => void;
   onError?: (error: string) => void;
+  onConnect?: () => void;
 }
+
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'auth_error' | 'error';
 
 export class ChatWebSocketService {
   private subscriptions = new Map<string, string>();
   private typingTimeouts = new Map<number, NodeJS.Timeout>();
   private eventHandlers: ChatEventHandlers = {};
+  private connectionStatus: ConnectionStatus = 'disconnected';
+  private connectionStatusCallbacks: ((status: ConnectionStatus) => void)[] = [];
 
   constructor() {
     // Подписываемся на системные события WebSocket
     websocketService.onConnectionChange((connected) => {
       if (connected) {
+        this.setConnectionStatus('connected');
         this.resubscribeAll();
+        // Уведомляем обработчик onConnect
+        if (this.eventHandlers.onConnect) {
+          this.eventHandlers.onConnect();
+        }
+      } else {
+        this.setConnectionStatus('disconnected');
       }
     });
+  }
+
+  /**
+   * Установка статуса подключения и уведомление подписчиков
+   */
+  private setConnectionStatus(status: ConnectionStatus): void {
+    if (this.connectionStatus !== status) {
+      this.connectionStatus = status;
+      this.connectionStatusCallbacks.forEach(callback => callback(status));
+    }
+  }
+
+  /**
+   * Подписка на изменения статуса подключения
+   */
+  onConnectionStatusChange(callback: (status: ConnectionStatus) => void): () => void {
+    this.connectionStatusCallbacks.push(callback);
+    return () => {
+      this.connectionStatusCallbacks = this.connectionStatusCallbacks.filter(cb => cb !== callback);
+    };
+  }
+
+  /**
+   * Получение текущего статуса подключения
+   */
+  getConnectionStatus(): ConnectionStatus {
+    return this.connectionStatus;
+  }
+
+  /**
+   * Получение токена авторизации из нескольких источников
+   */
+  private getAuthToken(): string | null {
+    // Попытка получить токен из tokenStorage
+    const { accessToken } = tokenStorage.getTokens();
+    if (accessToken) {
+      logger.debug('[ChatWebSocket] Using token from tokenStorage');
+      return accessToken;
+    }
+
+    // Fallback: прямой доступ к localStorage
+    const localStorageToken = localStorage.getItem('auth_token');
+    if (localStorageToken) {
+      logger.debug('[ChatWebSocket] Using token from localStorage (fallback)');
+      return localStorageToken;
+    }
+
+    logger.error('[ChatWebSocket] No authentication token found in any storage');
+    return null;
   }
 
   /**
@@ -80,34 +141,29 @@ export class ChatWebSocketService {
     if (!websocketService.isConnected()) {
       const baseUrl = getWebSocketBaseUrl();
 
-      // CRITICAL: Get token from tokenStorage (primary source)
-      const { accessToken } = tokenStorage.getTokens();
-
-      // Fallback: Try direct localStorage access if tokenStorage returns null
-      const token = accessToken || localStorage.getItem('auth_token');
+      // Получаем токен через централизованный метод
+      const token = this.getAuthToken();
 
       if (!token) {
-        logger.error('[ChatWebSocket] ERROR: No auth token available for general chat WebSocket connection!', {
-          tokenStorageResult: accessToken,
-          localStorageToken: localStorage.getItem('auth_token'),
-          allLocalStorageKeys: Object.keys(localStorage)
-        });
-
-        // Notify error handler
+        const errorMsg = 'Authentication token not found. Please log in again.';
+        logger.error('[ChatWebSocket] ' + errorMsg);
+        this.setConnectionStatus('auth_error');
         if (this.eventHandlers.onError) {
-          this.eventHandlers.onError('Authentication token not found. Please log in again.');
+          this.eventHandlers.onError(errorMsg);
         }
         return;
       }
 
-      // CRITICAL FIX: Correctly form WebSocket URL with token
+      // Устанавливаем статус "подключение"
+      this.setConnectionStatus('connecting');
+
+      // Формируем URL для WebSocket подключения
       const tokenParam = `?token=${token}`;
       const fullUrl = `${baseUrl}/chat/general/${tokenParam}`;
 
-      logger.info('[ChatWebSocket] Connecting to general chat with token:', {
+      logger.info('[ChatWebSocket] Connecting to general chat:', {
         hasToken: !!token,
         tokenLength: token.length,
-        tokenStart: token.substring(0, 10),
         fullUrl
       });
 
@@ -118,63 +174,62 @@ export class ChatWebSocketService {
   /**
    * Подключение к конкретной чат-комнате
    * CRITICAL: Ensures auth token is available before establishing WebSocket connection
+   * @returns true если подключение успешно инициировано, false при ошибке авторизации
    */
-  connectToRoom(roomId: number, handlers: ChatEventHandlers): void {
+  connectToRoom(roomId: number, handlers: ChatEventHandlers): boolean {
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
 
     const channel = `chat_${roomId}`;
+
+    // Получаем токен через централизованный метод
+    const token = this.getAuthToken();
+
+    if (!token) {
+      const errorMsg = 'Authentication token not found. Please log in again.';
+      logger.error('[ChatWebSocket] ' + errorMsg);
+      this.setConnectionStatus('auth_error');
+      if (handlers.onError) {
+        handlers.onError(errorMsg);
+      }
+      return false;
+    }
+
+    // Устанавливаем статус "подключение"
+    this.setConnectionStatus('connecting');
+
     const subscriptionId = websocketService.subscribe(channel, (message: WebSocketMessage) => {
       this.handleChatMessage(message);
     });
 
     this.subscriptions.set(channel, subscriptionId);
 
-    // Подключаемся к WebSocket с room-specific URL
+    // Формируем URL для WebSocket подключения
     const baseUrl = getWebSocketBaseUrl();
-
-    // CRITICAL: Get token from tokenStorage (primary source)
-    // tokenStorage reads from localStorage 'auth_token' key
-    const { accessToken } = tokenStorage.getTokens();
-
-    // Fallback: Try direct localStorage access if tokenStorage returns null
-    const token = accessToken || localStorage.getItem('auth_token');
-
-    if (!token) {
-      logger.error('[ChatWebSocket] ERROR: No auth token available for WebSocket connection!', {
-        roomId,
-        tokenStorageResult: accessToken,
-        localStorageToken: localStorage.getItem('auth_token'),
-        allLocalStorageKeys: Object.keys(localStorage)
-      });
-
-      // Notify error handler
-      if (this.eventHandlers.onError) {
-        this.eventHandlers.onError('Authentication token not found. Please log in again.');
-      }
-      return;
-    }
-
-    // CRITICAL FIX: Correctly form WebSocket URL with token
     const tokenParam = `?token=${token}`;
     const fullUrl = `${baseUrl}/chat/${roomId}/${tokenParam}`;
 
-    // Enhanced debug logging
-    logger.info('[ChatWebSocket] Token retrieval and URL formation:', {
+    logger.info('[ChatWebSocket] Connecting to room:', {
       roomId,
-      baseUrl,
       hasToken: !!token,
       tokenLength: token.length,
-      tokenStart: token.substring(0, 10),
-      tokenEnd: '...' + token.substring(token.length - 10),
-      tokenParam,
-      fullUrl,
-      localStorageCheck: {
-        auth_token: localStorage.getItem('auth_token')?.substring(0, 10) + '...' || 'NOT-FOUND',
-        user_id: localStorage.getItem('user_id') || 'NOT-FOUND'
-      }
+      fullUrl
     });
 
-    websocketService.connect(fullUrl);
+    try {
+      websocketService.connect(fullUrl);
+
+      // Успешное подключение будет обработано через onConnectionChange
+      // Но мы можем добавить дополнительную логику здесь, если нужно
+
+      return true; // Подключение успешно инициировано
+    } catch (error) {
+      logger.error('[ChatWebSocket] Failed to connect:', error);
+      this.setConnectionStatus('error');
+      if (handlers.onError) {
+        handlers.onError(error instanceof Error ? error.message : 'Unknown error');
+      }
+      return false;
+    }
   }
 
   /**

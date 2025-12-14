@@ -45,6 +45,7 @@ export interface UseTeacherGraphEditorReturn {
 
   // Actions
   selectStudent: (student: Student | null) => void;
+  refetchStudents: () => void;
   addLesson: (lessonId: number, x?: number, y?: number) => Promise<void>;
   removeLesson: (graphLessonId: number) => void;
   updateLessonPosition: (graphLessonId: number, x: number, y: number) => void;
@@ -84,10 +85,15 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
     data: students = [],
     isLoading: isLoadingStudents,
     error: studentsError,
+    refetch: refetchStudents,
   } = useQuery<Student[], Error>({
     queryKey: ['teacher-students'],
     queryFn: knowledgeGraphAPI.getTeacherStudents,
     staleTime: 60000, // 1 minute
+    refetchOnMount: true,        // Fix F001 - Force fetch on mount
+    refetchOnWindowFocus: false, // Prevent unnecessary refetches
+    retry: 2,                    // Retry failed requests
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   const {
@@ -194,7 +200,7 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
     if (students.length > 0 && !selectedStudent) {
       setSelectedStudent(students[0]);
     }
-  }, [students, selectedStudent]);
+  }, [students]); // Fix: Remove selectedStudent to prevent infinite loops
 
   // Reset edit state when graph changes
   useEffect(() => {
@@ -552,6 +558,7 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
 
     // Actions
     selectStudent,
+    refetchStudents,
     addLesson,
     removeLesson,
     updateLessonPosition,

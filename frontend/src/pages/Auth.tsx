@@ -109,16 +109,28 @@ const Auth = memo(() => {
       }
     } catch (error) {
       logger.error('Login error:', error);
-      const msg = (error as any)?.message?.toString()?.toLowerCase() || '';
-      if (
-        msg.includes('неверн') || // Russian: неверные учетные данные
-        msg.includes('invalid') ||
-        msg.includes('credential') ||
-        msg.includes('auth')
+
+      // Получаем сообщение об ошибке и статус код
+      const errorMsg = (error as any)?.message?.toString() || '';
+      const errorMsgLower = errorMsg.toLowerCase();
+      const statusCode = (error as any)?.statusCode;
+
+      // Обработка разных типов ошибок с приоритетом
+      if (statusCode === 429 || errorMsg.includes('Слишком много попыток')) {
+        toast.error('Слишком много попыток входа. Подождите 5 минут');
+      } else if (statusCode === 408 || errorMsg.includes('Истекло время ожидания') || errorMsgLower.includes('timeout')) {
+        toast.error('Время ожидания истекло. Проверьте соединение и повторите');
+      } else if (
+        errorMsgLower.includes('неверн') || // Russian: неверные учетные данные
+        errorMsgLower.includes('invalid') ||
+        errorMsgLower.includes('credential') ||
+        errorMsgLower.includes('auth')
       ) {
         toast.error('Неверный логин или пароль');
+      } else if (errorMsgLower.includes('сеть') || errorMsgLower.includes('network')) {
+        toast.error('Ошибка сети. Проверьте интернет-соединение');
       } else {
-        toast.error('Произошла ошибка при входе');
+        toast.error(errorMsg || 'Произошла ошибка при входе');
       }
     }
   };

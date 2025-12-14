@@ -198,7 +198,9 @@ class AuthService {
       const response = await apiClient.login(credentials);
 
       if (!response.success || !response.data) {
-        throw new Error(response.error || 'Ошибка входа');
+        const error = new Error(response.error || 'Ошибка входа');
+        (error as any).statusCode = response.statusCode;
+        throw error;
       }
 
       const { token, user } = response.data;

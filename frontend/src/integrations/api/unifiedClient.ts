@@ -83,6 +83,7 @@ export interface ApiResponse<T = any> {
   error?: string;
   message?: string;
   timestamp: string;
+  statusCode?: number;
 }
 
 export interface User {
@@ -920,31 +921,64 @@ class UnifiedAPIClient {
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     logger.debug('[UnifiedClient.login] Sending login request...');
 
-    const response = await this.request<LoginResponse>('/auth/login/', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+    // Создаем AbortController для timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд timeout
 
-    if (response.success && response.data) {
-      logger.debug('[UnifiedClient.login] Login successful, saving tokens:', {
-        userId: response.data.user?.id,
-        role: response.data.user?.role,
-        hasToken: !!response.data.token,
-        tokenLength: response.data.token?.length || 0
+    try {
+      const response = await this.request<LoginResponse>('/auth/login/', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+        signal: controller.signal,
       });
 
-      this.saveTokensToStorage(
-        response.data.token,
-        response.data.refresh_token
-      );
-      localStorage.setItem('userData', JSON.stringify(response.data.user));
+      // Обработка rate limiting (429)
+      if ((response as any).statusCode === 429 || response.error?.includes('429')) {
+        logger.warn('[UnifiedClient.login] Rate limit exceeded');
+        return {
+          success: false,
+          error: 'Слишком много попыток входа. Попробуйте позже',
+          message: 'Rate limit exceeded',
+          statusCode: 429,
+          timestamp: new Date().toISOString(),
+        };
+      }
 
-      logger.debug('[UnifiedClient.login] Tokens saved to storage');
-    } else {
-      logger.error('[UnifiedClient.login] Login failed:', response.error);
+      if (response.success && response.data) {
+        logger.debug('[UnifiedClient.login] Login successful, saving tokens:', {
+          userId: response.data.user?.id,
+          role: response.data.user?.role,
+          hasToken: !!response.data.token,
+          tokenLength: response.data.token?.length || 0
+        });
+
+        this.saveTokensToStorage(
+          response.data.token,
+          response.data.refresh_token
+        );
+        localStorage.setItem('userData', JSON.stringify(response.data.user));
+
+        logger.debug('[UnifiedClient.login] Tokens saved to storage');
+      } else {
+        logger.error('[UnifiedClient.login] Login failed:', response.error);
+      }
+
+      return response;
+    } catch (error) {
+      // Обработка timeout
+      if ((error as any)?.name === 'AbortError') {
+        logger.error('[UnifiedClient.login] Login timeout');
+        return {
+          success: false,
+          error: 'Истекло время ожидания. Проверьте интернет-соединение',
+          statusCode: 408,
+          timestamp: new Date().toISOString(),
+        };
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return response;
   }
 
   async logout(): Promise<ApiResponse> {

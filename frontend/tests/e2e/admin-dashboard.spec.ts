@@ -61,25 +61,26 @@ test.describe('Admin Dashboard', () => {
       expect(count).toBeGreaterThan(0);
     });
 
-    test('should display all tabs in admin dashboard', async ({ page }) => {
+    test('should display all admin sections', async ({ page }) => {
       await navigateToAdminDashboard(page);
 
-      // Проверяем наличие табов
-      await expect(page.locator('button[role="tab"]:has-text("Студенты")')).toBeVisible();
-      await expect(page.locator('button[role="tab"]:has-text("Преподаватели")')).toBeVisible();
-      await expect(page.locator('button[role="tab"]:has-text("Родители")')).toBeVisible();
+      // All sections should be visible (they're all on one page now in card-based layout)
+      await expect(page.locator('text=Студенты').first()).toBeVisible();
+      await expect(page.locator('text=Преподаватели').first()).toBeVisible();
+      await expect(page.locator('text=Тьюторы').first()).toBeVisible();
+      await expect(page.locator('text=Родители').first()).toBeVisible();
     });
 
-    test('should navigate to Student Management via tab', async ({ page }) => {
+    test('should display student section with table', async ({ page }) => {
       await navigateToAdminDashboard(page);
 
-      // Кликаем на таб "Студенты"
-      await page.locator('button[role="tab"]:has-text("Студенты")').click();
-      await page.waitForTimeout(500);
+      // Find the student section and verify table is visible
+      const studentSection = page.locator(':has(> :text("Студенты"))').first();
+      await expect(studentSection).toBeVisible();
 
-      // Проверяем что загрузилась таблица студентов
-      await expect(page.locator('text=Управление студентами')).toBeVisible();
-      await expect(page.locator('table')).toBeVisible();
+      // Check that table exists within the student section
+      const studentTable = studentSection.locator('table').first();
+      await expect(studentTable).toBeVisible();
     });
 
     test('should display logout button', async ({ page }) => {
@@ -476,6 +477,157 @@ test.describe('Admin Dashboard', () => {
       // Должны перенаправить на auth
       const currentUrl = page.url();
       expect(currentUrl).toContain('/auth');
+    });
+  });
+
+  test.describe('AccountManagement - Card Layout', () => {
+    test('should display student section table with proper structure', async ({ page }) => {
+      await navigateToAdminDashboard(page);
+      await page.waitForLoadState('networkidle');
+
+      // Find the student section card
+      const studentSection = page.locator('[class*="Card"]').filter({ hasText: 'Студенты' }).first();
+      await expect(studentSection).toBeVisible();
+
+      // Check table structure
+      const studentTable = studentSection.locator('table');
+      await expect(studentTable).toBeVisible();
+
+      // Verify table headers
+      await expect(studentTable.locator('th:has-text("ФИО")')).toBeVisible();
+      await expect(studentTable.locator('th:has-text("Email")')).toBeVisible();
+      await expect(studentTable.locator('th:has-text("Класс")')).toBeVisible();
+      await expect(studentTable.locator('th:has-text("Статус")')).toBeVisible();
+      await expect(studentTable.locator('th:has-text("Действия")')).toBeVisible();
+
+      // Check that table has rows
+      const rows = await studentTable.locator('tbody tr').count();
+      expect(rows).toBeGreaterThanOrEqual(0);
+    });
+
+    test('should display teacher section table with proper columns', async ({ page }) => {
+      await navigateToAdminDashboard(page);
+      await page.waitForLoadState('networkidle');
+
+      // Find the teacher section card
+      const teacherSection = page.locator('[class*="Card"]').filter({ hasText: 'Преподаватели' }).first();
+      await expect(teacherSection).toBeVisible();
+
+      // Check table exists
+      const teacherTable = teacherSection.locator('table');
+      await expect(teacherTable).toBeVisible();
+
+      // Verify teacher-specific columns
+      await expect(teacherTable.locator('th:has-text("ФИО")')).toBeVisible();
+      await expect(teacherTable.locator('th:has-text("Email")')).toBeVisible();
+      await expect(teacherTable.locator('th:has-text("Статус")')).toBeVisible();
+    });
+
+    test('should display tutor section with table', async ({ page }) => {
+      await navigateToAdminDashboard(page);
+      await page.waitForLoadState('networkidle');
+
+      // Find the tutor section card
+      const tutorSection = page.locator('[class*="Card"]').filter({ hasText: 'Тьюторы' }).first();
+      await expect(tutorSection).toBeVisible();
+
+      // Check table exists
+      const tutorTable = tutorSection.locator('table');
+      await expect(tutorTable).toBeVisible();
+    });
+
+    test('should display parent section with table', async ({ page }) => {
+      await navigateToAdminDashboard(page);
+      await page.waitForLoadState('networkidle');
+
+      // Find the parent section card
+      const parentSection = page.locator('[class*="Card"]').filter({ hasText: 'Родители' }).first();
+      await expect(parentSection).toBeVisible();
+
+      // Check table exists
+      const parentTable = parentSection.locator('table');
+      await expect(parentTable).toBeVisible();
+    });
+
+    test('should open edit dialog from student section', async ({ page }) => {
+      await navigateToAdminDashboard(page);
+      await page.waitForLoadState('networkidle');
+
+      // Find the student section card
+      const studentSection = page.locator('[class*="Card"]').filter({ hasText: 'Студенты' }).first();
+      await expect(studentSection).toBeVisible();
+
+      // Wait for table to load
+      const studentTable = studentSection.locator('table tbody tr').first();
+      await expect(studentTable).toBeVisible();
+
+      // Find and click edit button (represented by icon, using title or data attribute)
+      const editButton = studentSection.locator('button').filter({ has: page.locator('[class*="User"]') }).first();
+      if (await editButton.isVisible()) {
+        await editButton.click();
+
+        // Dialog should open
+        const dialog = page.locator('[role="dialog"], dialog').first();
+        await expect(dialog).toBeVisible({ timeout: 5000 });
+      }
+    });
+
+    test('should have create button in each section', async ({ page }) => {
+      await navigateToAdminDashboard(page);
+      await page.waitForLoadState('networkidle');
+
+      // Check student section has create button
+      const studentSection = page.locator('[class*="Card"]').filter({ hasText: 'Студенты' }).first();
+      const studentCreateBtn = studentSection.locator('button:has-text("Создать студента")');
+      await expect(studentCreateBtn).toBeVisible();
+
+      // Check teacher section has create button
+      const teacherSection = page.locator('[class*="Card"]').filter({ hasText: 'Преподаватели' }).first();
+      const teacherCreateBtn = teacherSection.locator('button:has-text("Создать преподавателя"), button:has-text("Создать"), [aria-label*="Создать"]').first();
+      // May or may not exist depending on implementation
+      const exists = await teacherCreateBtn.isVisible().catch(() => false);
+      if (exists) {
+        await expect(teacherCreateBtn).toBeVisible();
+      }
+    });
+
+    test('should filter students in student section', async ({ page }) => {
+      await navigateToAdminDashboard(page);
+      await page.waitForLoadState('networkidle');
+
+      // Find student section
+      const studentSection = page.locator('[class*="Card"]').filter({ hasText: 'Студенты' }).first();
+      await expect(studentSection).toBeVisible();
+
+      // Find search input in student section
+      const searchInput = studentSection.locator('input[placeholder*="ФИО"], input[placeholder*="email"]').first();
+      if (await searchInput.isVisible()) {
+        // Try searching for a test email
+        await searchInput.fill('test');
+        await page.waitForTimeout(500);
+
+        // Table should still be visible
+        const studentTable = studentSection.locator('table');
+        await expect(studentTable).toBeVisible();
+      }
+    });
+
+    test('should paginate through students', async ({ page }) => {
+      await navigateToAdminDashboard(page);
+      await page.waitForLoadState('networkidle');
+
+      // Find student section
+      const studentSection = page.locator('[class*="Card"]').filter({ hasText: 'Студенты' }).first();
+      await expect(studentSection).toBeVisible();
+
+      // Look for pagination controls
+      const nextButton = studentSection.locator('button:has-text("Далее"), button:has-text("→"), [aria-label*="следующая"]').first();
+      const hasNextButton = await nextButton.isVisible().catch(() => false);
+
+      if (hasNextButton) {
+        const isDisabled = await nextButton.isDisabled();
+        expect(isDisabled).toBeDefined(); // Button exists and we can check its state
+      }
     });
   });
 

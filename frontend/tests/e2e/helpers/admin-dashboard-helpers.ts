@@ -96,24 +96,52 @@ export async function navigateToAdminDashboard(page: Page): Promise<void> {
  * Навигация к Student Management
  */
 export async function navigateToStudentManagement(page: Page): Promise<void> {
-  await page.goto(`${ADMIN_CONFIG.baseUrl}/admin/students`);
+  await page.goto(`${ADMIN_CONFIG.baseUrl}/admin/accounts`);
   await page.waitForLoadState('networkidle');
+  // Wait for StudentSection to be visible
+  await page.waitForSelector('text=Студенты', { timeout: 10000 });
+  // Scroll to StudentSection if needed
+  await page.locator('text=Студенты').first().scrollIntoViewIfNeeded();
 }
 
 /**
  * Навигация к Parent Management
  */
 export async function navigateToParentManagement(page: Page): Promise<void> {
-  await page.goto(`${ADMIN_CONFIG.baseUrl}/admin/parents`);
+  await page.goto(`${ADMIN_CONFIG.baseUrl}/admin/accounts`);
   await page.waitForLoadState('networkidle');
+  // Wait for ParentSection to be visible
+  await page.waitForSelector('text=Родители', { timeout: 10000 });
+  await page.locator('text=Родители').first().scrollIntoViewIfNeeded();
 }
 
 /**
- * Навигация к Staff Management
+ * Навигация к Teacher Management
+ */
+export async function navigateToTeacherManagement(page: Page): Promise<void> {
+  await page.goto(`${ADMIN_CONFIG.baseUrl}/admin/accounts`);
+  await page.waitForLoadState('networkidle');
+  // Wait for TeacherSection to be visible
+  await page.waitForSelector('text=Преподаватели', { timeout: 10000 });
+  await page.locator('text=Преподаватели').first().scrollIntoViewIfNeeded();
+}
+
+/**
+ * Навигация к Staff Management (alias for Teacher Management)
  */
 export async function navigateToStaffManagement(page: Page): Promise<void> {
-  await page.goto(`${ADMIN_CONFIG.baseUrl}/admin/staff`);
+  await navigateToTeacherManagement(page);
+}
+
+/**
+ * Навигация к Tutor Management
+ */
+export async function navigateToTutorManagement(page: Page): Promise<void> {
+  await page.goto(`${ADMIN_CONFIG.baseUrl}/admin/accounts`);
   await page.waitForLoadState('networkidle');
+  // Wait for TutorSection to be visible
+  await page.waitForSelector('text=Тьютеры', { timeout: 10000 });
+  await page.locator('text=Тьютеры').first().scrollIntoViewIfNeeded();
 }
 
 /**

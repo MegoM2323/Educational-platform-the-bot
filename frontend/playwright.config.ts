@@ -1,6 +1,20 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
+ * CRITICAL FIX: Clear proxy environment variables before Playwright runs
+ * Firefox respects system proxy settings, which can cause NS_ERROR_PROXY_CONNECTION_REFUSED
+ * if the proxy server is not accessible. This affects ALL browsers if the proxy is invalid.
+ */
+// Disable proxy settings to prevent connection refused errors
+delete process.env.http_proxy;
+delete process.env.https_proxy;
+delete process.env.all_proxy;
+delete process.env.HTTP_PROXY;
+delete process.env.HTTPS_PROXY;
+delete process.env.ALL_PROXY;
+delete process.env.NO_PROXY;
+
+/**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */

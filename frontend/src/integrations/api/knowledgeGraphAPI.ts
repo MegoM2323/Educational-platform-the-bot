@@ -4,6 +4,7 @@
  */
 
 import { unifiedAPI } from './unifiedClient';
+import { extractResults } from '@/utils/apiHelpers';
 import type {
   KnowledgeGraph,
   Lesson,
@@ -48,20 +49,8 @@ export const knowledgeGraphAPI = {
         return Array.isArray(students) ? students : [];
       }
 
-      // Альтернативный формат { results: [...] }
-      if (typeof data === 'object' && 'results' in data) {
-        const results = (data as { results: Student[] }).results;
-        return Array.isArray(results) ? results : [];
-      }
-
-      // Прямой массив
-      if (Array.isArray(data)) {
-        return data;
-      }
-
-      // Неизвестный формат - возвращаем пустой массив
-      console.warn('[knowledgeGraphAPI] Unexpected response format for getTeacherStudents:', data);
-      return [];
+      // Используем extractResults для обработки пагинированных ответов
+      return extractResults<Student>(data);
     } catch (error) {
       // Сетевая ошибка - пробрасываем с понятным сообщением
       if (error instanceof Error) {
@@ -166,11 +155,8 @@ export const knowledgeGraphAPI = {
       const lessons = (data as { success: boolean; data: Lesson[] }).data;
       return Array.isArray(lessons) ? lessons : [];
     }
-    // Обработка пагинированного формата {results: [...]}
-    if ('results' in data) {
-      return Array.isArray((data as { results: Lesson[] }).results) ? (data as { results: Lesson[] }).results : [];
-    }
-    return [];
+    // Используем extractResults для обработки пагинированных ответов
+    return extractResults<Lesson>(data);
   },
 
   /**

@@ -20,7 +20,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Загружаем переменные окружения из .env (без ошибок на посторонние строки)
 # .env в корне проекта; резервно — backend/.env
+# КРИТИЧНО: Не перезаписываем ENVIRONMENT если уже установлен (например, pytest-env)
 PROJECT_ROOT = BASE_DIR.parent
+_current_environment = os.environ.get('ENVIRONMENT')
 for _env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
     try:
         if _env_path.exists():
@@ -30,6 +32,11 @@ for _env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
     except Exception:
         # Игнорируем любые ошибки парсинга отдельных строк
         pass
+
+# Восстановить ENVIRONMENT если он был установлен до загрузки .env
+# Это критично для pytest (pytest-env устанавливает ENVIRONMENT=test)
+if _current_environment is not None:
+    os.environ['ENVIRONMENT'] = _current_environment
 
 # (Удалено) Опасный ранний импорт модулей приложений.
 # Ранее здесь создавались двусторонние алиасы импортов для `backend.*` и без префикса,
@@ -994,3 +1001,10 @@ import logging.handlers
 _logs_dir = os.path.join(BASE_DIR, 'logs')
 if not os.path.exists(_logs_dir):
     os.makedirs(_logs_dir, exist_ok=True)
+
+# =============================================================================
+# Pachca Forum Integration
+# =============================================================================
+PACHCA_FORUM_API_TOKEN = os.getenv('PACHCA_FORUM_API_TOKEN', '')
+PACHCA_FORUM_CHANNEL_ID = os.getenv('PACHCA_FORUM_CHANNEL_ID', '')
+PACHCA_FORUM_BASE_URL = os.getenv('PACHCA_FORUM_BASE_URL', 'https://api.pachca.com/api/shared/v1')

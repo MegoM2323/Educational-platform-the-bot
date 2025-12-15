@@ -41,19 +41,20 @@ help:
 	@echo ""
 
 # Testing targets
+# CRITICAL: Always set ENVIRONMENT=test for backend tests to use test database
 test:
 	@echo "$(BLUE)Running all tests...$(NC)"
-	@cd backend && pytest -m "unit or integration"
+	@cd backend && ENVIRONMENT=test pytest -m "unit or integration"
 	@cd frontend && npm test
 
 test-unit:
 	@echo "$(BLUE)Running unit tests...$(NC)"
-	@cd backend && pytest -m unit
+	@cd backend && ENVIRONMENT=test pytest -m unit
 	@cd frontend && npm test
 
 test-integration:
 	@echo "$(BLUE)Running integration tests...$(NC)"
-	@cd backend && pytest -m integration
+	@cd backend && ENVIRONMENT=test pytest -m integration
 
 test-e2e:
 	@echo "$(BLUE)Running E2E tests with Playwright...$(NC)"
@@ -61,7 +62,7 @@ test-e2e:
 
 coverage:
 	@echo "$(BLUE)Generating coverage reports...$(NC)"
-	@cd backend && pytest --cov --cov-report=html --cov-report=term
+	@cd backend && ENVIRONMENT=test pytest --cov --cov-report=html --cov-report=term
 	@cd frontend && npm run test:coverage
 	@echo "$(GREEN)Backend coverage report: backend/htmlcov/index.html$(NC)"
 	@echo "$(GREEN)Frontend coverage report: frontend/coverage/index.html$(NC)"

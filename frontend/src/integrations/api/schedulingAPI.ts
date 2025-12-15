@@ -54,7 +54,11 @@ export const schedulingAPI = {
   },
 
   getStudentSchedule: async (studentId: string, filters?: Record<string, any>): Promise<Lesson[]> => {
-    const response = await unifiedAPI.get<{ lessons: Lesson[] } | Lesson[]>(
+    const response = await unifiedAPI.get<{
+      student: { id: string; name: string; email: string };
+      lessons: any[];
+      total_lessons: number
+    }>(
       `/scheduling/tutor/students/${studentId}/schedule/`,
       { params: filters }
     );
@@ -62,11 +66,29 @@ export const schedulingAPI = {
       throw new Error(response.error);
     }
     // Backend возвращает { student: {...}, lessons: [...], total_lessons: number }
+    // Backend field names: teacher, subject (strings)
+    // Frontend expects: teacher_name, subject_name
     const data = response.data;
     if (data && typeof data === 'object' && 'lessons' in data) {
-      return data.lessons;
+      // Map backend field names to frontend expectations
+      return data.lessons.map((lesson: any) => ({
+        id: lesson.id,
+        teacher: lesson.teacher_id, // UUID
+        student: studentId, // UUID
+        subject: lesson.subject_id, // UUID
+        teacher_name: lesson.teacher, // Backend returns full name as 'teacher'
+        subject_name: lesson.subject, // Backend returns name as 'subject'
+        date: lesson.date,
+        start_time: lesson.start_time,
+        end_time: lesson.end_time,
+        status: lesson.status,
+        description: lesson.description || '',
+        telemost_link: lesson.telemost_link || '',
+        created_at: lesson.created_at || new Date().toISOString(),
+        updated_at: lesson.updated_at || new Date().toISOString(),
+      }));
     }
-    return Array.isArray(data) ? data : [];
+    return [];
   },
 
   getUpcomingLessons: async (limit: number = 10): Promise<Lesson[]> => {

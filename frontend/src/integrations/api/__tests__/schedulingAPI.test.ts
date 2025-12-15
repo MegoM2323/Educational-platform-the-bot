@@ -323,7 +323,7 @@ describe('schedulingAPI', () => {
 
       const result = await schedulingAPI.getMySchedule();
 
-      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/my_schedule/', {
+      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/my-schedule/', {
         params: undefined,
       });
       expect(result).toHaveLength(1);
@@ -345,47 +345,59 @@ describe('schedulingAPI', () => {
 
       const result = await schedulingAPI.getMySchedule(filters);
 
-      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/my_schedule/', {
+      expect(unifiedAPI.get).toHaveBeenCalledWith('/scheduling/lessons/my-schedule/', {
         params: filters,
       });
     });
   });
 
   describe('getStudentSchedule', () => {
-    it('should fetch student schedule by student ID', async () => {
+    it('should fetch student schedule by student ID and map fields correctly', async () => {
       const studentId = '550e8400-e29b-41d4-a716-446655440000';
-      const mockLessons = [
-        {
-          id: '770e8400-e29b-41d4-a716-446655440000',
-          teacher: '550e8400-e29b-41d4-a716-446655440001',
-          student: studentId,
-          subject: '660e8400-e29b-41d4-a716-446655440000',
-          date: '2025-12-15',
-          start_time: '09:00:00',
-          end_time: '10:00:00',
-          description: 'Algebra basics',
-          telemost_link: 'https://telemost.yandex.ru/j/abcd1234',
-          status: 'confirmed',
-          created_at: '2025-11-29T10:00:00Z',
-          updated_at: '2025-11-29T10:00:00Z',
-          teacher_name: 'John Doe',
-          student_name: 'Jane Smith',
-          subject_name: 'Mathematics',
+      // Backend response format from tutor_views.py
+      const backendResponse = {
+        student: {
+          id: studentId,
+          name: 'Jane Smith',
+          email: 'jane@example.com',
         },
-      ];
+        lessons: [
+          {
+            id: '770e8400-e29b-41d4-a716-446655440000',
+            teacher: 'John Doe', // Backend returns full name as 'teacher'
+            teacher_id: '550e8400-e29b-41d4-a716-446655440001',
+            subject: 'Mathematics', // Backend returns name as 'subject'
+            subject_id: '660e8400-e29b-41d4-a716-446655440000',
+            date: '2025-12-15',
+            start_time: '09:00:00',
+            end_time: '10:00:00',
+            description: 'Algebra basics',
+            telemost_link: 'https://telemost.yandex.ru/j/abcd1234',
+            status: 'confirmed',
+          },
+        ],
+        total_lessons: 1,
+      };
 
       vi.mocked(unifiedAPI.get).mockResolvedValue({
-        data: mockLessons,
+        data: backendResponse,
         error: null,
       });
 
       const result = await schedulingAPI.getStudentSchedule(studentId);
 
       expect(unifiedAPI.get).toHaveBeenCalledWith(
-        `/materials/dashboard/tutor/students/${studentId}/schedule/`,
+        `/scheduling/tutor/students/${studentId}/schedule/`,
         { params: undefined }
       );
       expect(result).toHaveLength(1);
+      // Verify field mapping: backend 'teacher' → frontend 'teacher_name'
+      expect(result[0].teacher_name).toBe('John Doe');
+      // Verify field mapping: backend 'subject' → frontend 'subject_name'
+      expect(result[0].subject_name).toBe('Mathematics');
+      // Verify UUID fields are mapped correctly
+      expect(result[0].teacher).toBe('550e8400-e29b-41d4-a716-446655440001');
+      expect(result[0].subject).toBe('660e8400-e29b-41d4-a716-446655440000');
       expect(result[0].student).toBe(studentId);
     });
 
@@ -393,7 +405,11 @@ describe('schedulingAPI', () => {
       const studentId = '550e8400-e29b-41d4-a716-446655440000';
 
       vi.mocked(unifiedAPI.get).mockResolvedValue({
-        data: [],
+        data: {
+          student: { id: studentId, name: 'Jane Smith', email: 'jane@example.com' },
+          lessons: [],
+          total_lessons: 0,
+        },
         error: null,
       });
 
@@ -405,9 +421,10 @@ describe('schedulingAPI', () => {
       const result = await schedulingAPI.getStudentSchedule(studentId, filters);
 
       expect(unifiedAPI.get).toHaveBeenCalledWith(
-        `/materials/dashboard/tutor/students/${studentId}/schedule/`,
+        `/scheduling/tutor/students/${studentId}/schedule/`,
         { params: filters }
       );
+      expect(result).toEqual([]);
     });
 
     it('should throw error if fetch fails', async () => {

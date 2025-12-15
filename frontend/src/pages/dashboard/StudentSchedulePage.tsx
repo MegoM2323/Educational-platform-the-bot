@@ -119,6 +119,7 @@ const StudentSchedulePage: React.FC = () => {
                 <TabsContent value={activeTab} className="space-y-4 mt-6">
                   {isLoading ? (
                     <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground mb-4">Загрузка расписания...</p>
                       {[...Array(3)].map((_, i) => (
                         <Card key={i} className="overflow-hidden">
                           <CardContent className="p-6">

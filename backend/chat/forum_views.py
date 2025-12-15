@@ -284,13 +284,17 @@ class ForumChatViewSet(viewsets.ViewSet):
             )
 
             if serializer.is_valid():
-                # Save message (will trigger signal for Pachca notification)
-                message = serializer.save(sender=request.user, room=chat)
+                # FIX F004: Wrap in transaction for consistency
+                # Message creation and chat update must be atomic
+                with transaction.atomic():
+                    # Save message (will trigger signal for Pachca notification)
+                    message = serializer.save(sender=request.user, room=chat)
 
-                # Update chat's updated_at timestamp
-                chat.save(update_fields=['updated_at'])
+                    # Update chat's updated_at timestamp
+                    chat.save(update_fields=['updated_at'])
 
                 # Broadcast message to all connected WebSocket clients in this chat room
+                # WebSocket broadcast is OUTSIDE transaction - failure here doesn't affect DB
                 try:
                     channel_layer = get_channel_layer()
                     message_data = MessageSerializer(

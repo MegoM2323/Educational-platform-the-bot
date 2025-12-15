@@ -46,8 +46,8 @@ export const useSendForumMessage = () => {
 
       // IMPORTANT: Don't invalidate forum-messages to preserve the optimistic update
       // The WebSocket will handle real-time updates from other users
-      // Only invalidate forum-chats to update last_message
-      queryClient.invalidateQueries({ queryKey: ['forum-chats'] });
+      // Only invalidate forum chats to update last_message
+      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
       toast.success('Сообщение отправлено');
     },
     onError: (error: Error) => {

@@ -70,6 +70,33 @@ class PachcaService:
         """
         return bool(self.api_token and self.channel_id)
 
+    def validate_token(self) -> bool:
+        """
+        Validate Pachca API token by making a test request.
+
+        Returns:
+            True if token is valid, False otherwise
+        """
+        if not self.is_configured():
+            logger.warning('Pachca service not configured')
+            return False
+
+        try:
+            url = f'{self.base_url}/users/me'
+            response = httpx.get(url, headers=self.headers, timeout=10.0)
+
+            if response.status_code == 200:
+                user_data = response.json()
+                logger.info(f'Pachca token valid. User ID: {user_data.get("data", {}).get("id")}')
+                return True
+            else:
+                logger.error(f'Pachca token validation failed: {response.status_code} - {response.text}')
+                return False
+
+        except Exception as e:
+            logger.error(f'Pachca token validation error: {str(e)}')
+            return False
+
     def notify_new_forum_message(
         self,
         message,

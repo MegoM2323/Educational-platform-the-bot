@@ -26,7 +26,7 @@ import {
 } from './progressUtils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, AlertCircle } from 'lucide-react';
 import { ProgressLegend } from './ProgressLegend';
 
 export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
@@ -48,6 +48,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [renderError, setRenderError] = useState<Error | null>(null);
   const simulationRef = useRef<d3.Simulation<D3Node, D3Link> | null>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
@@ -93,8 +94,12 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   useEffect(() => {
     if (!svgRef.current || data.nodes.length === 0) return;
 
-    const svg = d3.select(svgRef.current);
-    let { width: w, height: h } = dimensions;
+    // Reset error on new render attempt
+    setRenderError(null);
+
+    try {
+      const svg = d3.select(svgRef.current);
+      let { width: w, height: h } = dimensions;
 
     // Защита от нулевых размеров - используем дефолтные значения
     if (w === 0) {
@@ -471,10 +476,14 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         .on('end', dragEnded);
     }
 
-    // Cleanup
-    return () => {
-      simulation.stop();
-    };
+      // Cleanup
+      return () => {
+        simulation.stop();
+      };
+    } catch (error) {
+      console.error('[GraphVisualization] D3 render error:', error);
+      setRenderError(error as Error);
+    }
   }, [data, dimensions, isEditable, onNodeClick, onNodeHover, onNodeDrag, onDependencyDelete, progressData, currentLessonId, animationDuration]);
 
   // Функции управления зумом
@@ -504,6 +513,27 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         .call(zoomRef.current.transform, d3.zoomIdentity);
     }
   }, []);
+
+  // Render error state
+  if (renderError) {
+    return (
+      <Card className={`p-8 ${className}`}>
+        <div className='flex flex-col items-center justify-center text-center h-96'>
+          <AlertCircle className='w-12 h-12 text-destructive mb-4' />
+          <p className='text-destructive font-medium'>Ошибка отображения графа</p>
+          <p className='text-muted-foreground text-sm mt-2 max-w-md'>{renderError.message}</p>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => setRenderError(null)}
+            className='mt-4'
+          >
+            Повторить
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   // Рендер пустого состояния
   if (data.nodes.length === 0) {

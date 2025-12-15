@@ -22,16 +22,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -57,6 +47,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { GraphVisualization } from '@/components/knowledge-graph/GraphVisualization';
+import { LessonDeleteConfirmDialog } from '@/components/knowledge-graph/LessonDeleteConfirmDialog';
 import type { GraphData, GraphNode, GraphLink } from '@/components/knowledge-graph/graph-types';
 import type { KnowledgeGraph, GraphLesson } from '@/types/knowledgeGraph';
 
@@ -112,9 +103,14 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
   // T005: Состояние для создания зависимости
   const [creatingDependencyFrom, setCreatingDependencyFrom] = useState<string | null>(null);
 
-  // T010: Состояния для подтверждения удаления
+  // T008: Состояния для подтверждения удаления с каскадными деталями
   const [deleteLessonDialogOpen, setDeleteLessonDialogOpen] = useState(false);
-  const [lessonToDelete, setLessonToDelete] = useState<{ id: number; title: string } | null>(null);
+  const [lessonToDelete, setLessonToDelete] = useState<{
+    id: number;
+    title: string;
+    affectedDependencies: number;
+    affectedStudents: number;
+  } | null>(null);
 
   // Преобразование данных графа для компонента GraphVisualization
   const transformToGraphData = useCallback((graphData: KnowledgeGraph | null): GraphData => {
@@ -314,29 +310,32 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
 
   const handleRemoveLesson = useCallback(
     (graphLessonId: number) => {
-      // Найти название урока для отображения в диалоге
+      // Найти урок в графе
       const graphLesson = graph?.lessons?.find(gl => gl.id === graphLessonId);
       const lessonTitle = graphLesson?.lesson?.title || 'этот урок';
 
-      setLessonToDelete({ id: graphLessonId, title: lessonTitle });
+      // Подсчитать количество затронутых зависимостей
+      // Считаем зависимости где этот урок является source или target
+      const affectedDependencies = graph?.dependencies?.filter(dep =>
+        dep.from_lesson === graphLessonId || dep.to_lesson === graphLessonId
+      ).length || 0;
+
+      // Количество затронутых студентов
+      // Для упрощения используем 1 (текущий выбранный студент)
+      // В production можно расширить для подсчета всех студентов с прогрессом по этому уроку
+      const affectedStudents = selectedStudent ? 1 : 0;
+
+      setLessonToDelete({
+        id: graphLessonId,
+        title: lessonTitle,
+        affectedDependencies,
+        affectedStudents,
+      });
       setDeleteLessonDialogOpen(true);
     },
-    [graph]
+    [graph, selectedStudent]
   );
 
-  const confirmDeleteLesson = useCallback(() => {
-    if (!lessonToDelete) return;
-
-    removeLesson(lessonToDelete.id);
-    toast({
-      title: 'Урок удалён',
-      description: 'Урок будет удалён из графа после сохранения',
-    });
-
-    setDeleteLessonDialogOpen(false);
-    setLessonToDelete(null);
-    setSelectedNodeId(null);
-  }, [lessonToDelete, removeLesson, toast]);
 
   // Loading state
   if (isLoadingStudents) {
@@ -827,37 +826,28 @@ export const GraphEditorTab: React.FC<GraphEditorTabProps> = ({ subjectId, subje
         </DialogContent>
       </Dialog>
 
-      {/* T010: Диалог подтверждения удаления урока */}
-      <AlertDialog open={deleteLessonDialogOpen} onOpenChange={setDeleteLessonDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-destructive" />
-              Удалить урок из графа?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Вы уверены, что хотите удалить урок <strong>"{lessonToDelete?.title}"</strong> из графа знаний?
-              <br />
-              <br />
-              Это действие будет сохранено только после нажатия кнопки "Сохранить".
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setDeleteLessonDialogOpen(false);
-              setLessonToDelete(null);
-            }}>
-              Отмена
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteLesson}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Удалить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* T008: Диалог подтверждения удаления урока с каскадными деталями */}
+      {lessonToDelete && (
+        <LessonDeleteConfirmDialog
+          open={deleteLessonDialogOpen}
+          onOpenChange={setDeleteLessonDialogOpen}
+          lessonId={lessonToDelete.id}
+          lessonName={lessonToDelete.title}
+          affectedDependencies={lessonToDelete.affectedDependencies}
+          affectedStudents={lessonToDelete.affectedStudents}
+          onConfirm={async () => {
+            removeLesson(lessonToDelete.id);
+            toast({
+              title: 'Урок удалён',
+              description: 'Урок будет удалён из графа после сохранения',
+            });
+            setSelectedNodeId(null);
+          }}
+          onCancel={() => {
+            setLessonToDelete(null);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -66,6 +66,18 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    def list(self, request, *args, **kwargs):
+        """
+        List lessons for current user.
+
+        GET /api/scheduling/lessons/
+
+        Returns lessons filtered by user role via get_queryset().
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def create(self, request, *args, **kwargs):
         """
         Create a new lesson (teacher only).

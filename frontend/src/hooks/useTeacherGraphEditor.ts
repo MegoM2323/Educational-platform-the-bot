@@ -109,6 +109,9 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
     },
     enabled: !!selectedStudent && !!subjectId,
     staleTime: 30000, // 30 seconds
+    refetchOnMount: true,        // Force fetch on component mount
+    refetchOnWindowFocus: false, // Prevent unnecessary refetches
+    retry: 2,                    // Retry failed requests up to 2 times
   });
 
   const {
@@ -124,6 +127,9 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
       }),
     enabled: !!subjectId,
     staleTime: 60000, // 1 minute
+    refetchOnMount: true,        // Fix T204 - Force fetch on mount
+    refetchOnWindowFocus: false, // Prevent unnecessary refetches
+    retry: 2,                    // Retry failed requests up to 2 times
   });
 
   // Mutations
@@ -140,7 +146,15 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
       y?: number;
     }) => knowledgeGraphAPI.addLessonToGraph(graphId, { lesson_id: lessonId, position_x: x, position_y: y }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge-graph'] });
+      if (selectedStudent?.id && subjectId) {
+        queryClient.invalidateQueries({
+          queryKey: ['knowledge-graph', selectedStudent.id, subjectId]
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: ['knowledge-graph'],
+        exact: false
+      });
     },
   });
 
@@ -153,7 +167,15 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
       updates: { graph_lesson_id: number; position_x: number; position_y: number }[];
     }) => knowledgeGraphAPI.batchUpdateLessons(graphId, { lessons: updates }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge-graph'] });
+      if (selectedStudent?.id && subjectId) {
+        queryClient.invalidateQueries({
+          queryKey: ['knowledge-graph', selectedStudent.id, subjectId]
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: ['knowledge-graph'],
+        exact: false
+      });
     },
   });
 
@@ -161,7 +183,15 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
     mutationFn: ({ graphId, graphLessonId }: { graphId: number; graphLessonId: number }) =>
       knowledgeGraphAPI.removeLessonFromGraph(graphId, graphLessonId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge-graph'] });
+      if (selectedStudent?.id && subjectId) {
+        queryClient.invalidateQueries({
+          queryKey: ['knowledge-graph', selectedStudent.id, subjectId]
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: ['knowledge-graph'],
+        exact: false
+      });
     },
   });
 
@@ -176,7 +206,15 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
       toLessonId: number;
     }) => knowledgeGraphAPI.addDependency(graphId, fromLessonId, { to_lesson_id: toLessonId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge-graph'] });
+      if (selectedStudent?.id && subjectId) {
+        queryClient.invalidateQueries({
+          queryKey: ['knowledge-graph', selectedStudent.id, subjectId]
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: ['knowledge-graph'],
+        exact: false
+      });
     },
   });
 
@@ -191,7 +229,15 @@ export const useTeacherGraphEditor = (subjectId?: number): UseTeacherGraphEditor
       dependencyId: number;
     }) => knowledgeGraphAPI.removeDependency(graphId, lessonId, dependencyId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge-graph'] });
+      if (selectedStudent?.id && subjectId) {
+        queryClient.invalidateQueries({
+          queryKey: ['knowledge-graph', selectedStudent.id, subjectId]
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: ['knowledge-graph'],
+        exact: false
+      });
     },
   });
 

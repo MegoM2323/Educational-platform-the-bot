@@ -10,6 +10,7 @@ import {
   Tutor,
   Parent,
 } from '@/integrations/api/adminAPI';
+import { extractResults } from '@/utils/apiHelpers';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,19 +107,11 @@ export const EditUserDialog = ({ user, profile, open, onOpenChange, onSuccess }:
       ]);
 
       if (tutorsResponse.success && tutorsResponse.data) {
-        // Backend returns { results: [...] }, extract the array
-        const tutorsArray = Array.isArray(tutorsResponse.data)
-          ? tutorsResponse.data
-          : (tutorsResponse.data as any).results || [];
-        setTutors(tutorsArray);
+        setTutors(extractResults<Tutor>(tutorsResponse.data));
       }
 
       if (parentsResponse.success && parentsResponse.data) {
-        // Backend returns { results: [...] }, extract the array
-        const parentsArray = Array.isArray(parentsResponse.data)
-          ? parentsResponse.data
-          : (parentsResponse.data as any).results || [];
-        setParents(parentsArray);
+        setParents(extractResults<Parent>(parentsResponse.data));
       }
     } catch (err) {
       logger.error('Error loading selection data:', err);

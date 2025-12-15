@@ -170,6 +170,104 @@ class TestPachcaServiceConfigurationCheck:
 
 
 @pytest.mark.unit
+class TestPachcaServiceTokenValidation:
+    """Tests for validate_token() method"""
+
+    @patch('chat.services.pachca_service.httpx.get')
+    def test_validate_token_success(self, mock_get, pachca_service_configured):
+        """Test token validation succeeds with valid token"""
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {'data': {'id': 'user-12345', 'name': 'Test User'}}
+        )
+
+        result = pachca_service_configured.validate_token()
+
+        assert result is True
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+
+        # Verify correct endpoint
+        assert call_args[0][0].endswith('/users/me')
+
+        # Verify headers
+        assert call_args[1]['headers']['Authorization'] == 'Bearer test_forum_token_12345'
+
+    @patch('chat.services.pachca_service.httpx.get')
+    def test_validate_token_failure_401(self, mock_get, pachca_service_configured):
+        """Test token validation fails with 401 Unauthorized"""
+        mock_get.return_value = MagicMock(
+            status_code=401,
+            text='{"error":"invalid_token","error_description":"Access token is invalid"}'
+        )
+
+        result = pachca_service_configured.validate_token()
+
+        assert result is False
+
+    @patch('chat.services.pachca_service.httpx.get')
+    def test_validate_token_failure_403(self, mock_get, pachca_service_configured):
+        """Test token validation fails with 403 Forbidden"""
+        mock_get.return_value = MagicMock(
+            status_code=403,
+            text='{"error":"forbidden"}'
+        )
+
+        result = pachca_service_configured.validate_token()
+
+        assert result is False
+
+    @patch('chat.services.pachca_service.httpx.get')
+    def test_validate_token_failure_500(self, mock_get, pachca_service_configured):
+        """Test token validation fails with 500 Server Error"""
+        mock_get.return_value = MagicMock(
+            status_code=500,
+            text='Internal Server Error'
+        )
+
+        result = pachca_service_configured.validate_token()
+
+        assert result is False
+
+    @patch('chat.services.pachca_service.httpx.get')
+    def test_validate_token_network_error(self, mock_get, pachca_service_configured):
+        """Test token validation handles network errors gracefully"""
+        mock_get.side_effect = httpx.RequestError("Connection failed")
+
+        result = pachca_service_configured.validate_token()
+
+        assert result is False
+
+    @patch('chat.services.pachca_service.httpx.get')
+    def test_validate_token_timeout(self, mock_get, pachca_service_configured):
+        """Test token validation handles timeout errors"""
+        mock_get.side_effect = httpx.TimeoutException("Request timeout")
+
+        result = pachca_service_configured.validate_token()
+
+        assert result is False
+
+    def test_validate_token_not_configured(self, pachca_service_unconfigured):
+        """Test token validation returns False when service not configured"""
+        result = pachca_service_unconfigured.validate_token()
+
+        assert result is False
+
+    @patch('chat.services.pachca_service.httpx.get')
+    def test_validate_token_logs_user_id(self, mock_get, pachca_service_configured, caplog):
+        """Test token validation logs user ID on success"""
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {'data': {'id': 'test-user-999', 'name': 'Test User'}}
+        )
+
+        pachca_service_configured.validate_token()
+
+        # Check that user ID was logged
+        assert 'test-user-999' in caplog.text or 'User ID' in caplog.text
+
+
+@pytest.mark.unit
 class TestPachcaServiceNotificationSending:
     """Tests for notify_new_forum_message() method"""
 

@@ -18,7 +18,9 @@ export const useStudentSchedule = (filters?: LessonFilters) => {
       }
     },
     retry: 1,
-    staleTime: 60000 // 1 minute
+    staleTime: 60000, // 1 minute
+    refetchOnMount: true,        // FIX F002 - Force fetch on component mount
+    refetchOnWindowFocus: false, // Prevent unnecessary refetches
   });
 
   const lessonsBySubject = useMemo(() => {

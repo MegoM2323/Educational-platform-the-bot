@@ -197,8 +197,65 @@ export default function AdminSchedulePage() {
     );
   }
 
+  // Вычисляем статистику
+  const todayDate = format(new Date(), 'yyyy-MM-dd');
+  const todayLessons = lessonsByDate[todayDate] || [];
+  const totalLessons = lessons.length;
+  const pendingLessons = lessons.filter(l => l.status === 'pending').length;
+  const completedLessons = lessons.filter(l => l.status === 'completed').length;
+  const cancelledLessons = lessons.filter(l => l.status === 'cancelled').length;
+  const confirmedLessons = lessons.filter(l => l.status === 'confirmed').length;
+
   return (
     <div className="container mx-auto p-4">
+      {/* Карточки статистики */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-600">{totalLessons}</div>
+              <div className="text-sm text-blue-700 mt-1">Всего занятий</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-600">{todayLessons.length}</div>
+              <div className="text-sm text-green-700 mt-1">Занятий сегодня</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-yellow-600">{pendingLessons}</div>
+              <div className="text-sm text-yellow-700 mt-1">Ожидают подтверждения</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-purple-50 border-purple-200">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-600">{confirmedLessons}</div>
+              <div className="text-sm text-purple-700 mt-1">Подтверждено</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-red-600">{cancelledLessons}</div>
+              <div className="text-sm text-red-700 mt-1">Отменено</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

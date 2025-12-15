@@ -423,7 +423,7 @@ export const adminAPI = {
       });
     }
 
-    const url = `/admin/schedule/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const url = `/admin/schedule/lessons/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
     return apiClient.request(url);
   },
 

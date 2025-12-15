@@ -1,0 +1,210 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - generic [ref=e8]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: Навигация
+        - list [ref=e13]:
+          - listitem [ref=e14]:
+            - link "Главная" [ref=e15] [cursor=pointer]:
+              - /url: /dashboard/teacher
+              - img [ref=e16]
+              - generic [ref=e20]: Главная
+          - listitem [ref=e21]:
+            - link "Распределение материалов" [ref=e22] [cursor=pointer]:
+              - /url: /dashboard/teacher/materials
+              - img [ref=e23]
+              - generic [ref=e27]: Распределение материалов
+          - listitem [ref=e28]:
+            - link "Планы занятий" [ref=e29] [cursor=pointer]:
+              - /url: /dashboard/teacher/study-plans
+              - img [ref=e30]
+              - generic [ref=e33]: Планы занятий
+          - listitem [ref=e34]:
+            - link "AI Генератор планов" [ref=e35] [cursor=pointer]:
+              - /url: /dashboard/teacher/study-plan-generator
+              - img [ref=e36]
+              - generic [ref=e39]: AI Генератор планов
+          - listitem [ref=e40]:
+            - link "Управление расписанием" [ref=e41] [cursor=pointer]:
+              - /url: /dashboard/teacher/schedule
+              - img [ref=e42]
+              - generic [ref=e45]: Управление расписанием
+          - listitem [ref=e46]:
+            - link "Проверка заданий" [ref=e47] [cursor=pointer]:
+              - /url: /dashboard/teacher/submissions/pending
+              - img [ref=e48]
+              - generic [ref=e52]: Проверка заданий
+          - listitem [ref=e53]:
+            - link "Отчёты" [ref=e54] [cursor=pointer]:
+              - /url: /dashboard/teacher/reports
+              - img [ref=e55]
+              - generic [ref=e59]: Отчёты
+          - listitem [ref=e60]:
+            - link "Форум" [ref=e61] [cursor=pointer]:
+              - /url: /dashboard/teacher/forum
+              - img [ref=e62]
+              - generic [ref=e65]: Форум
+          - listitem [ref=e66]:
+            - link "Создание контента" [ref=e67] [cursor=pointer]:
+              - /url: /dashboard/teacher/content-creator
+              - img [ref=e68]
+              - generic [ref=e74]: Создание контента
+          - listitem [ref=e75]:
+            - link "Редактор графа" [ref=e76] [cursor=pointer]:
+              - /url: /dashboard/teacher/graph-editor
+              - img [ref=e77]
+              - generic [ref=e83]: Редактор графа
+          - listitem [ref=e84]:
+            - link "Прогресс учеников" [ref=e85] [cursor=pointer]:
+              - /url: /dashboard/teacher/progress
+              - img [ref=e86]
+              - generic [ref=e90]: Прогресс учеников
+      - list [ref=e92]:
+        - listitem [ref=e93]:
+          - link "Профиль" [ref=e94] [cursor=pointer]:
+            - /url: /profile
+            - img [ref=e95]
+            - generic [ref=e98]: Профиль
+        - listitem [ref=e99]:
+          - button "Выход" [ref=e100] [cursor=pointer]:
+            - img
+            - generic [ref=e101]: Выход
+    - main [ref=e102]:
+      - generic [ref=e103]:
+        - button "Toggle Sidebar" [ref=e104] [cursor=pointer]:
+          - img
+          - generic [ref=e105]: Toggle Sidebar
+        - button "Создать материал" [ref=e107] [cursor=pointer]:
+          - img
+          - text: Создать материал
+      - main [ref=e108]:
+        - generic [ref=e109]:
+          - generic [ref=e110]:
+            - heading "Личный кабинет преподавателя" [level=1] [ref=e111]
+            - paragraph [ref=e112]: Test | 0 учеников
+          - generic [ref=e113]:
+            - generic [ref=e116]:
+              - generic [ref=e117]:
+                - generic [ref=e119]: TT
+                - generic [ref=e120]:
+                  - generic [ref=e121]:
+                    - heading "Test Teacher" [level=2] [ref=e122]
+                    - generic [ref=e123]: Преподаватель
+                  - generic [ref=e124]:
+                    - img [ref=e125]
+                    - generic [ref=e128]: teacher@test.com
+              - button "Редактировать" [ref=e129] [cursor=pointer]:
+                - img
+                - generic [ref=e130]: Редактировать
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - img [ref=e134]
+                - generic [ref=e137]:
+                  - paragraph [ref=e138]: Опыт работы
+                  - paragraph [ref=e139]: 0 лет
+              - generic [ref=e140]:
+                - img [ref=e141]
+                - generic [ref=e146]:
+                  - paragraph [ref=e147]: Ученики
+                  - paragraph [ref=e148]: 0 ученик(ов)
+              - generic [ref=e149]:
+                - img [ref=e150]
+                - generic [ref=e153]:
+                  - paragraph [ref=e154]: Материалы
+                  - paragraph [ref=e155]: 0 материалов
+          - generic [ref=e156]:
+            - generic [ref=e158] [cursor=pointer]:
+              - img [ref=e160]
+              - generic [ref=e162]:
+                - generic [ref=e163]: "0"
+                - generic [ref=e164]: Материалов
+            - generic [ref=e166] [cursor=pointer]:
+              - img [ref=e168]
+              - generic [ref=e171]:
+                - generic [ref=e172]: "0"
+                - generic [ref=e173]: На проверке
+            - generic [ref=e175] [cursor=pointer]:
+              - img [ref=e177]
+              - generic [ref=e182]:
+                - generic [ref=e183]: "0"
+                - generic [ref=e184]: Учеников
+            - generic [ref=e186] [cursor=pointer]:
+              - img [ref=e188]
+              - generic [ref=e191]:
+                - generic [ref=e192]: "0"
+                - generic [ref=e193]: Отправлено отчетов
+          - generic [ref=e194]:
+            - heading "Следующие занятия" [level=3] [ref=e196]:
+              - img [ref=e197]
+              - text: Следующие занятия
+            - generic [ref=e200]:
+              - img [ref=e201]
+              - paragraph [ref=e203]: Нет запланированных занятий
+            - link "Все занятия" [ref=e205] [cursor=pointer]:
+              - /url: /dashboard/teacher/schedule
+              - text: Все занятия
+              - img
+          - generic [ref=e206]:
+            - generic [ref=e207]:
+              - generic [ref=e208]:
+                - generic [ref=e209]:
+                  - img [ref=e210]
+                  - heading "Задания на проверку" [level=3] [ref=e213]
+                - generic [ref=e214]: "0"
+              - generic [ref=e216]:
+                - img [ref=e217]
+                - paragraph [ref=e220]: Нет заданий на проверку
+              - button "Все задания" [ref=e221] [cursor=pointer]
+            - generic [ref=e222]:
+              - generic [ref=e223]:
+                - generic [ref=e224]:
+                  - img [ref=e225]
+                  - heading "Опубликованные материалы" [level=3] [ref=e227]
+                - button "Добавить" [ref=e228] [cursor=pointer]:
+                  - img
+                  - text: Добавить
+              - generic [ref=e230]:
+                - img [ref=e231]
+                - paragraph [ref=e233]: Нет опубликованных материалов
+              - button "Все материалы" [ref=e234] [cursor=pointer]
+          - generic [ref=e235]:
+            - generic [ref=e236]:
+              - generic [ref=e237]:
+                - img [ref=e238]
+                - heading "Ученики" [level=3] [ref=e243]
+              - generic [ref=e244]: 0 всего
+            - button "Все ученики" [ref=e245] [cursor=pointer]
+          - generic [ref=e246]:
+            - generic [ref=e247]:
+              - generic [ref=e248]:
+                - img [ref=e249]
+                - heading "Отчёты" [level=3] [ref=e252]
+              - button "Создать" [ref=e253] [cursor=pointer]:
+                - img
+                - text: Создать
+            - generic [ref=e255]:
+              - img [ref=e256]
+              - paragraph [ref=e259]: Нет созданных отчетов
+            - button "Все отчёты" [ref=e260] [cursor=pointer]
+          - generic [ref=e261]:
+            - heading "Быстрые действия" [level=3] [ref=e262]
+            - generic [ref=e263]:
+              - button "Создать материал" [ref=e264] [cursor=pointer]:
+                - img
+                - generic [ref=e265]: Создать материал
+              - button "Создать отчёт" [ref=e266] [cursor=pointer]:
+                - img
+                - generic [ref=e267]: Создать отчёт
+              - button "Форум" [ref=e268] [cursor=pointer]:
+                - img
+                - generic [ref=e269]: Форум
+              - button "Назначить предмет" [ref=e270] [cursor=pointer]:
+                - img
+                - generic [ref=e271]: Назначить предмет
+```

@@ -2,84 +2,372 @@ name: Security Scan
 
 on:
   schedule:
-    # Запуск каждый понедельник в 00:00 UTC
     - cron: '0 0 * * 1'
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
 
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
 jobs:
-  backend-security:
-    name: Backend Security Scan
+  # ============================================================================
+  # BACKEND: Dependency Vulnerability Scanning
+  # ============================================================================
+  backend-dependencies:
+    name: Backend Dependency Scan
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install safety
-        run: pip install safety bandit
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-      - name: Check for known vulnerabilities
+      - name: Install pip security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety pip-audit
+
+      - name: "Safety: Check for known vulnerabilities"
+        id: safety
+        continue-on-error: true
         run: |
           cd backend
-          safety check --file=requirements.txt --json || true
+          echo "Scanning with Safety..."
+          safety check --file=requirements.txt --json > safety-report.json || true
+          cat safety-report.json
 
-      - name: Run bandit security linter
+      - name: "pip-audit: Check for deprecated packages"
+        id: pip-audit
+        continue-on-error: true
         run: |
           cd backend
-          bandit -r . -f json -o bandit-report.json || true
-          bandit -r . -f txt
+          echo "Scanning with pip-audit..."
+          pip-audit --desc --requirements requirements.txt > pip-audit-report.txt || true
+          cat pip-audit-report.txt
 
-      - name: Upload security reports
+      - name: Parse Safety report for vulnerabilities
+        if: always()
+        run: |
+          cd backend
+          python3 << 'EOF'
+          import json
+          try:
+              with open('safety-report.json') as f:
+                  data = json.load(f)
+              if isinstance(data, list) and len(data) > 0:
+                  print("::warning::Found vulnerabilities in Python dependencies"
+                  for vuln in data:
+                      print(f"  - {vuln.get('package', 'unknown')}: {vuln.get('vulnerability', 'N/A')}")
+          except:
+              pass
+          EOF
+
+      - name: Upload dependency reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-security-reports
-          path: backend/bandit-report.json
+          name: backend-dependency-reports
+          path: |
+            backend/safety-report.json
+            backend/pip-audit-report.txt
           retention-days: 30
 
-  frontend-security:
-    name: Frontend Security Scan
+  # ============================================================================
+  # BACKEND: Static Application Security Testing (SAST)
+  # ============================================================================
+  backend-sast:
+    name: Backend SAST (Bandit + Semgrep)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 18
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Bandit
+        run: pip install bandit[toml]
+
+      - name: Run Bandit security linter
+        id: bandit
+        continue-on-error: true
+        run: |
+          cd backend
+          echo "Running Bandit SAST scan..."
+          bandit -r . \
+            --exclude tests,migrations,venv \
+            -f json -o bandit-report.json \
+            -f csv -o bandit-report.csv || true
+
+          # Also generate human-readable report
+          bandit -r . \
+            --exclude tests,migrations,venv \
+            -f txt > bandit-report.txt || true
+
+          echo "Bandit scan complete"
+
+      - name: Semgrep security scanning
+        id: semgrep
+        continue-on-error: true
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/django
+            p/python
+          generateSarif: true
+
+      - name: Upload SAST reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-sast-reports
+          path: |
+            backend/bandit-report.json
+            backend/bandit-report.csv
+            backend/bandit-report.txt
+          retention-days: 30
+
+      - name: Upload SARIF report
+        if: always() && steps.semgrep.outputs.sarif != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  # ============================================================================
+  # FRONTEND: Dependency Vulnerability Scanning
+  # ============================================================================
+  frontend-dependencies:
+    name: Frontend Dependency Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache npm modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Install dependencies
         working-directory: ./frontend
         run: npm ci
 
       - name: Run npm audit
+        id: npm-audit
         working-directory: ./frontend
-        run: npm audit --json > npm-audit.json || true
+        continue-on-error: true
+        run: |
+          echo "Running npm audit..."
+          npm audit --json > npm-audit-report.json || true
+          npm audit --audit-level=moderate || true
 
-      - name: Upload security reports
+      - name: "Run npm audit fix (dry-run)"
+        id: npm-fix
+        working-directory: ./frontend
+        continue-on-error: true
+        run: |
+          echo "Checking npm audit fix suggestions..."
+          npm audit fix --dry-run > npm-audit-fix-suggestions.txt || true
+
+      - name: Parse npm audit report
+        if: always()
+        working-directory: ./frontend
+        run: |
+          python3 << 'EOF'
+          import json
+          try:
+              with open('npm-audit-report.json') as f:
+                  data = json.load(f)
+              vulnerabilities = data.get('vulnerabilities', {})
+              if vulnerabilities:
+                  print("::warning::Found vulnerabilities in npm dependencies")
+                  for pkg, info in vulnerabilities.items():
+                      print(f"  - {pkg}: {info.get('name', 'unknown')}")
+          except:
+              pass
+          EOF
+
+      - name: Upload dependency reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-security-reports
-          path: frontend/npm-audit.json
+          name: frontend-dependency-reports
+          path: |
+            frontend/npm-audit-report.json
+            frontend/npm-audit-fix-suggestions.txt
           retention-days: 30
 
+  # ============================================================================
+  # FRONTEND: Static Security Testing
+  # ============================================================================
+  frontend-sast:
+    name: Frontend SAST (ESLint Security + Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache npm modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run ESLint security checks
+        id: eslint
+        working-directory: ./frontend
+        continue-on-error: true
+        run: |
+          echo "Running ESLint security checks..."
+          npx eslint . --format json --output-file eslint-report.json || true
+          npx eslint . --format compact > eslint-report.txt || true
+
+      - name: Semgrep TypeScript/React scanning
+        id: semgrep
+        continue-on-error: true
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/typescript
+            p/react
+          generateSarif: true
+
+      - name: Upload SAST reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-sast-reports
+          path: |
+            frontend/eslint-report.json
+            frontend/eslint-report.txt
+          retention-days: 30
+
+      - name: Upload SARIF report
+        if: always() && steps.semgrep.outputs.sarif != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep-typescript
+
+  # ============================================================================
+  # SECRET DETECTION
+  # ============================================================================
+  secret-scanning:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install gitleaks
+        run: |
+          pip install detect-secrets
+          curl -L https://github.com/gitleaks/gitleaks/releases/download/v8.18.1/gitleaks-linux-x64 -o gitleaks
+          chmod +x gitleaks
+
+      - name: Run gitleaks secret detection
+        id: gitleaks
+        continue-on-error: true
+        run: |
+          echo "Scanning for secrets with gitleaks..."
+          ./gitleaks detect --source . --format json --report-path gitleaks-report.json || true
+
+          if [ -f gitleaks-report.json ]; then
+            python3 << 'EOF'
+          import json
+          try:
+              with open('gitleaks-report.json') as f:
+                  data = json.load(f)
+              if data and len(data) > 0:
+                  print(f"::warning::Found {len(data)} potential secrets in code")
+                  for secret in data:
+                      print(f"  - {secret.get('RuleID', 'unknown')} at {secret.get('File', 'unknown')}")
+          except:
+              pass
+          EOF
+          fi
+
+      - name: Run detect-secrets
+        id: detect-secrets
+        continue-on-error: true
+        run: |
+          echo "Scanning with detect-secrets..."
+          detect-secrets scan --baseline .secrets.baseline || true
+          detect-secrets audit .secrets.baseline || true
+
+      - name: Upload secret scan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-scan-reports
+          path: |
+            gitleaks-report.json
+            .secrets.baseline
+          retention-days: 30
+
+  # ============================================================================
+  # DEPENDENCY REVIEW (PR only)
+  # ============================================================================
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -89,3 +377,153 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+          allow-vulnerabilities-in-summary: false
+
+  # ============================================================================
+  # SECURITY REPORT SUMMARY
+  # ============================================================================
+  security-report:
+    name: Security Report Summary
+    runs-on: ubuntu-latest
+    needs: [backend-dependencies, backend-sast, frontend-dependencies, frontend-sast, secret-scanning]
+    if: always()
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all security reports
+        uses: actions/download-artifact@v4
+        with:
+          path: security-reports
+
+      - name: Generate security summary
+        run: |
+          python3 << 'EOF'
+          import os
+          import json
+          from pathlib import Path
+          from datetime import datetime
+
+          summary = {
+              "timestamp": datetime.now().isoformat(),
+              "report_type": "security_scan_summary",
+              "scans": {
+                  "backend_dependencies": "pending",
+                  "backend_sast": "pending",
+                  "frontend_dependencies": "pending",
+                  "frontend_sast": "pending",
+                  "secret_detection": "pending"
+              },
+              "findings": {
+                  "critical": 0,
+                  "high": 0,
+                  "medium": 0,
+                  "low": 0,
+                  "info": 0
+              },
+              "details": []
+          }
+
+          # Parse Backend Dependency Report
+          backend_safety = Path("security-reports/backend-dependency-reports/safety-report.json")
+          if backend_safety.exists():
+              with open(backend_safety) as f:
+                  try:
+                      data = json.load(f)
+                      if isinstance(data, list):
+                          summary["scans"]["backend_dependencies"] = f"completed ({len(data)} findings)"
+                          for vuln in data:
+                              summary["details"].append({
+                                  "type": "dependency_vulnerability",
+                                  "package": vuln.get("package"),
+                                  "severity": "high"
+                              })
+                              summary["findings"]["high"] += 1
+                  except:
+                      pass
+
+          # Parse Backend SAST Report
+          backend_bandit = Path("security-reports/backend-sast-reports/bandit-report.json")
+          if backend_bandit.exists():
+              with open(backend_bandit) as f:
+                  try:
+                      data = json.load(f)
+                      if "results" in data:
+                          summary["scans"]["backend_sast"] = f"completed ({len(data['results'])} findings)"
+                          for result in data['results']:
+                              severity = result.get("severity", "medium").lower()
+                              summary["findings"][severity] = summary["findings"].get(severity, 0) + 1
+                  except:
+                      pass
+
+          # Parse Frontend Reports
+          frontend_npm = Path("security-reports/frontend-dependency-reports/npm-audit-report.json")
+          if frontend_npm.exists():
+              with open(frontend_npm) as f:
+                  try:
+                      data = json.load(f)
+                      vulns = data.get("vulnerabilities", {})
+                      summary["scans"]["frontend_dependencies"] = f"completed ({len(vulns)} findings)"
+                  except:
+                      pass
+
+          print("Security Scan Summary")
+          print("=" * 80)
+          print(json.dumps(summary, indent=2))
+
+          # Save summary
+          with open("security-summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+
+          print("\n" + "=" * 80)
+          print(f"Total Critical: {summary['findings'].get('critical', 0)}")
+          print(f"Total High: {summary['findings'].get('high', 0)}")
+          print(f"Total Medium: {summary['findings'].get('medium', 0)}")
+
+          EOF
+
+      - name: Comment PR with security report
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            let comment = '## Security Scan Report\n\n';
+
+            // Check if reports exist
+            const reportPath = 'security-reports';
+            if (fs.existsSync(reportPath)) {
+              comment += '### Scan Results\n';
+              comment += '- Backend Dependencies: Scanned\n';
+              comment += '- Backend SAST: Scanned\n';
+              comment += '- Frontend Dependencies: Scanned\n';
+              comment += '- Frontend SAST: Scanned\n';
+              comment += '- Secret Detection: Scanned\n\n';
+
+              comment += '### Download Reports\n';
+              comment += 'Security reports have been generated and are available in the artifacts section.\n\n';
+
+              comment += '### Remediation\n';
+              comment += '- Review findings in the artifacts\n';
+              comment += '- Update vulnerable dependencies: `npm audit fix` or `pip install --upgrade`\n';
+              comment += '- Address SAST findings in code review\n';
+              comment += '- See [Security Documentation](../../docs/SECURITY.md) for guidelines\n';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Upload final security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-summary.json
+          retention-days: 90

@@ -1,0 +1,15 @@
+{{- if .Values.backend.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "thebot.backend.name" . }}
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "thebot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  minAvailable: {{ .Values.backend.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "thebot.backend.selectorLabels" . | nindent 6 }}
+{{- end }}

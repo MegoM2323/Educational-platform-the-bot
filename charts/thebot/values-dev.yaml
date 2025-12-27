@@ -1,0 +1,145 @@
+# THE_BOT Helm Chart - Development Environment Values
+# Используй: helm install thebot ./charts/thebot -f values-dev.yaml
+
+global:
+  environment: development
+
+backend:
+  replicaCount: 1
+
+  image:
+    tag: latest
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  env:
+    DEBUG: "True"
+    ENVIRONMENT: "development"
+    ALLOWED_HOSTS: "localhost,127.0.0.1,thebot.local"
+    FRONTEND_URL: "http://localhost:8080"
+
+  autoscaling:
+    enabled: false
+
+  affinity: {}
+
+frontend:
+  replicaCount: 1
+
+  image:
+    tag: latest
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+  autoscaling:
+    enabled: false
+
+celery:
+  replicaCount: 1
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  autoscaling:
+    enabled: false
+
+celeryBeat:
+  replicaCount: 1
+
+postgresql:
+  persistence:
+    size: 5Gi
+    storageClassName: "standard"
+
+  env:
+    POSTGRES_DB: "thebot"
+    POSTGRES_USER: "thebot_user"
+
+redis:
+  persistence:
+    size: 2Gi
+    storageClassName: "standard"
+
+ingress:
+  enabled: true
+  className: "nginx"
+
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+
+  hosts:
+    - host: "thebot.local"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: frontend
+        - path: /api
+          pathType: Prefix
+          backend: backend
+
+  tls:
+    enabled: false
+
+configMap:
+  data:
+    DATABASE_ENGINE: "postgresql"
+    DATABASE_NAME: "thebot"
+    REDIS_BACKEND: "redis"
+    CELERY_BROKER: "redis://redis:6379/0"
+    CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+    LOG_LEVEL: "DEBUG"
+    CACHE_TIMEOUT: "300"
+    API_PAGE_SIZE: "20"
+    API_RATE_LIMIT: "10000/hour"
+
+secrets:
+  data:
+    SECRET_KEY: "dev-secret-key-change-in-production"
+    POSTGRES_PASSWORD: "dev_password_123"
+    DATABASE_URL: "postgresql://thebot_user:dev_password_123@postgres:5432/thebot"
+    REDIS_URL: "redis://redis:6379/0"
+
+rbac:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: thebot-sa
+
+networkPolicy:
+  enabled: false
+
+pvc:
+  staticFiles:
+    size: 1Gi
+  media:
+    size: 2Gi
+
+monitoring:
+  enabled: false
+
+logging:
+  enabled: false
+  level: DEBUG
+
+migration:
+  enabled: true
+
+collectStatic:
+  enabled: true

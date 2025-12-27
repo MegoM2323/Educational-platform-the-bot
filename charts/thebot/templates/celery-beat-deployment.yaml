@@ -1,0 +1,102 @@
+{{- if .Values.celeryBeat.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "thebot.celeryBeat.name" . }}
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "thebot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: celery-beat
+spec:
+  # Celery Beat должен иметь только 1 replica!
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "thebot.celeryBeat.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "thebot.celeryBeat.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "thebot.serviceAccountName" . }}
+
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+
+      containers:
+        - name: celery-beat
+          image: "{{ .Values.celeryBeat.image.repository }}:{{ .Values.celeryBeat.image.tag }}"
+          imagePullPolicy: {{ .Values.celeryBeat.image.pullPolicy }}
+
+          # Command override for Celery Beat
+          command: {{ .Values.celeryBeat.command | toJson }}
+
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: {{ include "thebot.configMapName" . }}
+            - secretRef:
+                name: {{ include "thebot.secretName" . }}
+
+          # Additional environment variables
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+          # Resources
+          resources:
+            {{- toYaml .Values.celeryBeat.resources | nindent 12 }}
+
+          # Volume mounts
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: celery-beat
+              mountPath: /app/celery
+
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
+      # Volumes
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: celery-beat
+          emptyDir: {}
+
+      # Affinity - Celery Beat должен быть на одном хосте
+      {{- with .Values.celeryBeat.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      # Node selector and tolerations
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      # Restart policy
+      restartPolicy: Always
+{{- end }}

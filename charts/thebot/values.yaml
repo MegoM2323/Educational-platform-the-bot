@@ -1,0 +1,476 @@
+# THE_BOT Helm Chart - Default Values
+# Используй флаг -f для переопределения значений
+
+# Global configuration
+global:
+  environment: development
+  imagePullPolicy: IfNotPresent
+  # imagePullSecrets: []
+  # securityContext:
+  #   runAsNonRoot: true
+  #   runAsUser: 1000
+  #   fsGroup: 1000
+
+# Namespace configuration
+namespace:
+  create: true
+  name: thebot
+
+# Backend Django приложение
+backend:
+  enabled: true
+  replicaCount: 1
+
+  # Docker image
+  image:
+    repository: thebot/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Container ports
+  containerPort: 8000
+
+  # Resource limits and requests
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  # Liveness и readiness probes
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /api/system/health/
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /api/system/readiness/
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # Environment variables
+  env:
+    DEBUG: "False"
+    ENVIRONMENT: "development"
+    ALLOWED_HOSTS: "localhost,127.0.0.1"
+    FRONTEND_URL: "http://localhost:8080"
+    # YOOKASSA_SHOP_ID: ""  # Переопределить в values-prod.yaml
+    # OPENROUTER_API_KEY: ""  # Переопределить в values-prod.yaml
+
+  # Service configuration
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+    annotations: {}
+
+  # Autoscaling
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+
+  # Node affinity
+  affinity: {}
+
+# Frontend React приложение
+frontend:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: thebot/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  containerPort: 80
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    annotations: {}
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 75
+
+  affinity: {}
+
+# Celery Workers
+celery:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: thebot/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  command: ["celery", "-A", "config", "worker", "-l", "info"]
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+
+  affinity: {}
+
+# Celery Beat (scheduler)
+celeryBeat:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: thebot/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  command: ["celery", "-A", "config", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+  affinity: {}
+
+# PostgreSQL Database
+postgresql:
+  enabled: true
+  type: StatefulSet
+
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+
+  containerPort: 5432
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+  # Persistence volume
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: "standard"
+    # accessMode: ReadWriteOnce
+
+  env:
+    POSTGRES_DB: "thebot"
+    POSTGRES_USER: "thebot_user"
+    # POSTGRES_PASSWORD: "changeme"  # Переопределить в values-prod.yaml
+
+  livenessProbe:
+    enabled: true
+    exec:
+      command: ["pg_isready", "-U", "thebot_user", "-d", "thebot"]
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    exec:
+      command: ["pg_isready", "-U", "thebot_user", "-d", "thebot"]
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 5432
+    targetPort: 5432
+
+  affinity: {}
+
+# Redis Cache & Session Store
+redis:
+  enabled: true
+  type: StatefulSet
+
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+
+  containerPort: 6379
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: "standard"
+
+  livenessProbe:
+    enabled: true
+    exec:
+      command: ["redis-cli", "ping"]
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    exec:
+      command: ["redis-cli", "ping"]
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 6379
+    targetPort: 6379
+
+  affinity: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+  hosts:
+    - host: "thebot.local"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: frontend
+        - path: /api
+          pathType: Prefix
+          backend: backend
+        - path: /admin
+          pathType: Prefix
+          backend: backend
+
+  tls:
+    enabled: false
+    # - secretName: thebot-tls
+    #   hosts:
+    #     - thebot.local
+
+# ConfigMap configuration
+configMap:
+  enabled: true
+  name: thebot-config
+
+  # Основная конфигурация
+  data:
+    DATABASE_ENGINE: "postgresql"
+    DATABASE_NAME: "thebot"
+    REDIS_BACKEND: "redis"
+    CELERY_BROKER: "redis://redis:6379/0"
+    CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+
+    # Logging
+    LOG_LEVEL: "INFO"
+
+    # Cache
+    CACHE_TIMEOUT: "3600"
+
+    # API
+    API_PAGE_SIZE: "20"
+    API_RATE_LIMIT: "1000/hour"
+
+# Secrets (должны быть переопределены!)
+secrets:
+  enabled: true
+  name: thebot-secrets
+  # ВНИМАНИЕ: Переопределить в values-prod.yaml с реальными значениями
+  data:
+    SECRET_KEY: "change-me-in-production"
+    POSTGRES_PASSWORD: "changeme"
+    DATABASE_URL: "postgresql://thebot_user:changeme@postgres:5432/thebot"
+    REDIS_URL: "redis://redis:6379/0"
+
+# RBAC (Role-Based Access Control)
+rbac:
+  enabled: true
+
+  # ServiceAccount
+  serviceAccount:
+    create: true
+    name: thebot-sa
+
+  # ClusterRole для мониторинга
+  clusterRole:
+    enabled: false
+    rules: []
+
+# NetworkPolicy
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 80
+
+# PersistentVolumeClaim for static files and media
+pvc:
+  enabled: true
+
+  staticFiles:
+    enabled: true
+    size: 2Gi
+    storageClassName: "standard"
+    name: thebot-static
+
+  media:
+    enabled: true
+    size: 5Gi
+    storageClassName: "standard"
+    name: thebot-media
+
+# Pod Security Policy
+podSecurityPolicy:
+  enabled: false
+  name: thebot-psp
+
+# Monitoring and Observability
+monitoring:
+  enabled: false
+
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+
+  prometheusRule:
+    enabled: false
+    rules: []
+
+# Logging
+logging:
+  enabled: false
+  level: INFO
+  format: json
+
+# Migration Job (для запуска миграций при развертывании)
+migration:
+  enabled: true
+  image:
+    repository: thebot/backend
+    tag: latest
+
+  command: ["python", "manage.py", "migrate", "--noinput"]
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Static files collection job
+collectStatic:
+  enabled: true
+  image:
+    repository: thebot/backend
+    tag: latest
+
+  command: ["python", "manage.py", "collectstatic", "--noinput", "--clear"]
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Node affinity and tolerations
+nodeSelector: {}
+tolerations: []

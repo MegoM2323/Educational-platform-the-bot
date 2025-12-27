@@ -1,0 +1,275 @@
+# THE_BOT Helm Chart - Production Example Values
+# Переименуй в values-prod-custom.yaml и отредактируй перед deployment
+# НИКОГДА не добавляй в git файлы с реальными секретами!
+
+global:
+  environment: production
+
+# =============================================================================
+# ВАЖНО: Переопределить все секреты в отдельном файле!
+# =============================================================================
+
+backend:
+  replicaCount: 3
+
+  image:
+    repository: your-registry.azurecr.io/thebot/backend
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+  env:
+    DEBUG: "False"
+    ENVIRONMENT: "production"
+    ALLOWED_HOSTS: "thebot.com,api.thebot.com,www.thebot.com"
+    FRONTEND_URL: "https://thebot.com"
+    LOG_LEVEL: "WARNING"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+frontend:
+  replicaCount: 3
+
+  image:
+    repository: your-registry.azurecr.io/thebot/frontend
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+celery:
+  replicaCount: 3
+
+  image:
+    repository: your-registry.azurecr.io/thebot/backend
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 75
+
+postgresql:
+  persistence:
+    size: 100Gi
+    storageClassName: "fast-ssd"  # Используй свой storage class!
+
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "2000m"
+    limits:
+      memory: "4Gi"
+      cpu: "4000m"
+
+  env:
+    POSTGRES_DB: "thebot_prod"
+    POSTGRES_USER: "thebot_prod_user"
+
+redis:
+  persistence:
+    size: 50Gi
+    storageClassName: "fast-ssd"  # Используй свой storage class!
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+ingress:
+  enabled: true
+  className: "nginx"
+
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "10"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+
+  hosts:
+    - host: "thebot.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: frontend
+        - path: /api
+          pathType: Prefix
+          backend: backend
+        - path: /admin
+          pathType: Prefix
+          backend: backend
+    - host: "www.thebot.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: frontend
+
+  tls:
+    enabled: true
+    - secretName: thebot-tls-main
+      hosts:
+        - thebot.com
+        - api.thebot.com
+    - secretName: thebot-tls-www
+      hosts:
+        - www.thebot.com
+
+# =============================================================================
+# СЕКРЕТЫ - ПЕРЕОПРЕДЕЛИТЬ В ОТДЕЛЬНОМ ФАЙЛЕ!
+# =============================================================================
+
+secrets:
+  data:
+    # Django settings
+    SECRET_KEY: "CHANGE_THIS_IN_PRODUCTION"
+
+    # Database
+    POSTGRES_PASSWORD: "CHANGE_THIS_IN_PRODUCTION"
+    DATABASE_URL: "postgresql://thebot_prod_user:CHANGE_PASSWORD@postgres:5432/thebot_prod"
+
+    # Cache
+    REDIS_URL: "redis://redis:6379/0"
+
+    # Payments (YooKassa)
+    YOOKASSA_SHOP_ID: "CHANGE_THIS_IN_PRODUCTION"
+    YOOKASSA_SECRET_KEY: "CHANGE_THIS_IN_PRODUCTION"
+
+    # AI/ML
+    OPENROUTER_API_KEY: "CHANGE_THIS_IN_PRODUCTION"
+
+    # Notifications
+    PACHCA_FORUM_API_TOKEN: "CHANGE_THIS_IN_PRODUCTION"
+    TELEGRAM_BOT_TOKEN: "CHANGE_THIS_IN_PRODUCTION"
+
+# =============================================================================
+# MONITORING & LOGGING
+# =============================================================================
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    scrapeTimeout: 10s
+
+  prometheusRule:
+    enabled: true
+    rules:
+      - alert: HighErrorRate
+        expr: 'rate(http_requests_total{status=~"5.."}[5m]) > 0.05'
+        for: 5m
+        annotations:
+          summary: "High error rate detected"
+
+logging:
+  enabled: true
+  level: WARNING
+
+# =============================================================================
+# RBAC & SECURITY
+# =============================================================================
+
+rbac:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: thebot-sa
+
+networkPolicy:
+  enabled: true
+
+pvc:
+  staticFiles:
+    size: 20Gi
+    storageClassName: "fast-ssd"
+  media:
+    size: 100Gi
+    storageClassName: "fast-ssd"
+
+# =============================================================================
+# NODE AFFINITY
+# =============================================================================
+
+nodeSelector:
+  workload-type: app
+
+tolerations: []
+
+# =============================================================================
+# INSTALLATION INSTRUCTIONS
+# =============================================================================
+
+# 1. Создай файл с реальными секретами (НЕ ДОБАВЛЯЙ В GIT!):
+#
+#    cat > values-prod-secrets.yaml <<EOF
+#    secrets:
+#      data:
+#        SECRET_KEY: "your-actual-secret-key"
+#        POSTGRES_PASSWORD: "your-actual-password"
+#        DATABASE_URL: "postgresql://thebot_prod_user:actual_password@postgres:5432/thebot_prod"
+#        REDIS_URL: "redis://redis:6379/0"
+#        YOOKASSA_SHOP_ID: "your-actual-shop-id"
+#        YOOKASSA_SECRET_KEY: "your-actual-secret"
+#    EOF
+#
+# 2. Установи chart:
+#
+#    helm install thebot ./charts/thebot \
+#      -f values-prod.yaml \
+#      -f values-prod-custom.yaml \
+#      -f values-prod-secrets.yaml \
+#      --namespace thebot \
+#      --create-namespace \
+#      --wait
+#
+# 3. Проверь статус:
+#
+#    helm status thebot -n thebot
+#    kubectl get all -n thebot
+#
+# 4. Проверь логи миграции:
+#
+#    kubectl logs -n thebot job/thebot-migrate
+#
+# 5. Проверь доступность:
+#
+#    kubectl port-forward -n thebot service/thebot-backend 8000:8000
+#    curl http://localhost:8000/api/health/

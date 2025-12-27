@@ -1,0 +1,77 @@
+{{- if .Values.collectStatic.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "thebot.fullname" . }}-collectstatic
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "thebot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collectstatic
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-4"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "thebot.labels" . | nindent 8 }}
+        app.kubernetes.io/component: collectstatic
+    spec:
+      serviceAccountName: {{ include "thebot.serviceAccountName" . }}
+      restartPolicy: Never
+
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+
+      containers:
+        - name: collectstatic
+          image: "{{ .Values.collectStatic.image.repository }}:{{ .Values.collectStatic.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+
+          command: {{ .Values.collectStatic.command | toJson }}
+
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: {{ include "thebot.configMapName" . }}
+            - secretRef:
+                name: {{ include "thebot.secretName" . }}
+
+          # Additional environment variables
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+          # Resources
+          resources:
+            {{- toYaml .Values.collectStatic.resources | nindent 12 }}
+
+          # Volume mounts
+          volumeMounts:
+            - name: static-files
+              mountPath: /app/staticfiles
+            - name: tmp
+              mountPath: /tmp
+
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
+      # Volumes
+      volumes:
+        - name: static-files
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc.staticFiles.name }}
+        - name: tmp
+          emptyDir: {}
+{{- end }}

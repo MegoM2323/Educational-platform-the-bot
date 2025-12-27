@@ -1,0 +1,330 @@
+# THE_BOT Helm Chart - Production Environment Values
+# Используй: helm install thebot ./charts/thebot -f values-prod.yaml
+# ВНИМАНИЕ: Это шаблон! Все секреты должны быть переопределены через external secrets или Vault!
+
+global:
+  environment: production
+
+backend:
+  replicaCount: 3
+
+  image:
+    repository: thebot/backend
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+  env:
+    DEBUG: "False"
+    ENVIRONMENT: "production"
+    ALLOWED_HOSTS: "thebot.com,api.thebot.com,www.thebot.com"
+    FRONTEND_URL: "https://thebot.com"
+    LOG_LEVEL: "WARNING"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - thebot-backend
+            topologyKey: kubernetes.io/hostname
+
+frontend:
+  replicaCount: 3
+
+  image:
+    repository: thebot/frontend
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - thebot-frontend
+            topologyKey: kubernetes.io/hostname
+
+celery:
+  replicaCount: 3
+
+  image:
+    repository: thebot/backend
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 75
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - thebot-celery
+            topologyKey: kubernetes.io/hostname
+
+celeryBeat:
+  replicaCount: 2
+
+  image:
+    repository: thebot/backend
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - thebot-celery-beat
+            topologyKey: kubernetes.io/hostname
+
+postgresql:
+  persistence:
+    size: 100Gi
+    storageClassName: "fast-ssd"
+
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "2000m"
+    limits:
+      memory: "4Gi"
+      cpu: "4000m"
+
+  env:
+    POSTGRES_DB: "thebot_prod"
+    POSTGRES_USER: "thebot_user"
+
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3
+
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                  - database
+
+redis:
+  persistence:
+    size: 50Gi
+    storageClassName: "fast-ssd"
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                  - cache
+
+ingress:
+  enabled: true
+  className: "nginx"
+
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "10"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://thebot.com"
+
+  hosts:
+    - host: "thebot.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: frontend
+        - path: /api
+          pathType: Prefix
+          backend: backend
+        - path: /admin
+          pathType: Prefix
+          backend: backend
+        - path: /ws
+          pathType: Prefix
+          backend: backend
+    - host: "www.thebot.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: frontend
+
+  tls:
+    enabled: true
+    - secretName: thebot-prod-tls
+      hosts:
+        - thebot.com
+        - www.thebot.com
+        - api.thebot.com
+    - secretName: thebot-prod-tls-alt
+      hosts:
+        - "*.thebot.com"
+
+configMap:
+  data:
+    DATABASE_ENGINE: "postgresql"
+    DATABASE_NAME: "thebot_prod"
+    REDIS_BACKEND: "redis"
+    CELERY_BROKER: "redis://redis:6379/0"
+    CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+    LOG_LEVEL: "WARNING"
+    CACHE_TIMEOUT: "3600"
+    API_PAGE_SIZE: "50"
+    API_RATE_LIMIT: "1000/hour"
+
+# ВНИМАНИЕ: Используй external-secrets или другой механизм для Production!
+secrets:
+  data:
+    SECRET_KEY: "CHANGE_THIS_IN_PRODUCTION_WITH_EXTERNAL_SECRETS"
+    POSTGRES_PASSWORD: "CHANGE_THIS_IN_PRODUCTION"
+    DATABASE_URL: "postgresql://thebot_user:CHANGE_PASSWORD@postgres:5432/thebot_prod"
+    REDIS_URL: "redis://redis:6379/0"
+    YOOKASSA_SHOP_ID: "CHANGE_THIS_IN_PRODUCTION"
+    YOOKASSA_SECRET_KEY: "CHANGE_THIS_IN_PRODUCTION"
+    OPENROUTER_API_KEY: "CHANGE_THIS_IN_PRODUCTION"
+    PACHCA_FORUM_API_TOKEN: "CHANGE_THIS_IN_PRODUCTION"
+    TELEGRAM_BOT_TOKEN: "CHANGE_THIS_IN_PRODUCTION"
+
+rbac:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: thebot-sa
+
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 80
+
+pvc:
+  staticFiles:
+    size: 20Gi
+    storageClassName: "fast-ssd"
+  media:
+    size: 100Gi
+    storageClassName: "fast-ssd"
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    scrapeTimeout: 10s
+
+  prometheusRule:
+    enabled: true
+    rules:
+      - alert: HighErrorRate
+        expr: 'rate(http_requests_total{status=~"5.."}[5m]) > 0.05'
+        for: 5m
+
+logging:
+  enabled: true
+  level: WARNING
+
+migration:
+  enabled: true
+
+collectStatic:
+  enabled: true

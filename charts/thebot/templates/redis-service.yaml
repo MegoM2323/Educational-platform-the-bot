@@ -1,0 +1,22 @@
+{{- if .Values.redis.enabled }}
+{{- if .Values.redis.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "thebot.redis.name" . }}
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "thebot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: {{ .Values.redis.service.type }}
+  clusterIP: None  # Headless service for StatefulSet
+  ports:
+    - port: {{ .Values.redis.service.port }}
+      targetPort: {{ .Values.redis.service.targetPort }}
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "thebot.redis.selectorLabels" . | nindent 4 }}
+{{- end }}
+{{- end }}

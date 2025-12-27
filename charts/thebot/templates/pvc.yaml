@@ -1,0 +1,39 @@
+{{- if .Values.pvc.enabled }}
+{{- if .Values.pvc.staticFiles.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.pvc.staticFiles.name }}
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "thebot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.pvc.staticFiles.storageClassName | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.pvc.staticFiles.size | quote }}
+{{- end }}
+
+{{- if .Values.pvc.media.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.pvc.media.name }}
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "thebot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.pvc.media.storageClassName | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.pvc.media.size | quote }}
+{{- end }}
+{{- end }}

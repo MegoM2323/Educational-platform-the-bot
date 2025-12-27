@@ -1,0 +1,496 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2025-12-27",
+    "description": "THE_BOT Platform Capacity Planning Framework",
+    "planning_horizon": "24 months",
+    "review_frequency": "quarterly"
+  },
+  "assumptions": {
+    "concurrent_user_ratio": 0.15,
+    "description": "15% of registered users are concurrent at peak hours",
+    "peak_hours": "17:00-21:00 (4 hours daily)",
+    "growth_rate": {
+      "month_1_6": 0.25,
+      "month_7_12": 0.20,
+      "month_13_24": 0.15
+    },
+    "description_growth": "Quarterly growth rates declining over time",
+    "session_duration_minutes": 45,
+    "message_rate_per_user_per_minute": 0.5,
+    "api_requests_per_user_per_minute": 2,
+    "database_row_growth_per_user": 250
+  },
+  "capacity_tiers": {
+    "tier_1k": {
+      "tier_name": "Starter - 1,000 Concurrent Users",
+      "registered_users": 6700,
+      "concurrent_peak": 1000,
+      "daily_active_users": 2000,
+      "monthly_api_requests": 18000000,
+      "monthly_messages": 450000,
+      "target_latency_p95_ms": 200,
+      "infrastructure": {
+        "backend": {
+          "instances": 2,
+          "cpu_per_instance": 2,
+          "memory_per_instance_gb": 4,
+          "total_cpu": 4,
+          "total_memory_gb": 8,
+          "recommended_deployment": "Docker Compose or Kubernetes (single node)"
+        },
+        "frontend": {
+          "instances": 1,
+          "cpu_per_instance": 1,
+          "memory_per_instance_gb": 2,
+          "cdn_enabled": false,
+          "static_cache_ttl_hours": 24
+        },
+        "database": {
+          "instance_type": "PostgreSQL 15 Single Instance",
+          "cpu": 4,
+          "memory_gb": 16,
+          "storage_gb": 100,
+          "iops": 1000,
+          "replication": "none",
+          "backup_frequency": "daily",
+          "backup_retention_days": 7
+        },
+        "redis": {
+          "nodes": 1,
+          "memory_per_node_gb": 4,
+          "replication": "none",
+          "eviction_policy": "allkeys-lru",
+          "persistence": "RDB + AOF"
+        },
+        "celery": {
+          "workers": 2,
+          "concurrency_per_worker": 4,
+          "total_concurrent_tasks": 8
+        },
+        "storage": {
+          "media_gb": 50,
+          "backup_gb": 100,
+          "logs_retention_days": 7
+        }
+      },
+      "performance_targets": {
+        "api_response_time_p50_ms": 50,
+        "api_response_time_p95_ms": 200,
+        "api_response_time_p99_ms": 500,
+        "websocket_latency_ms": 100,
+        "database_query_time_p95_ms": 100,
+        "cache_hit_ratio": 0.85,
+        "error_rate_percent": 0.5
+      },
+      "cost_monthly_usd": 500
+    },
+    "tier_10k": {
+      "tier_name": "Growth - 10,000 Concurrent Users",
+      "registered_users": 67000,
+      "concurrent_peak": 10000,
+      "daily_active_users": 20000,
+      "monthly_api_requests": 180000000,
+      "monthly_messages": 4500000,
+      "target_latency_p95_ms": 150,
+      "infrastructure": {
+        "backend": {
+          "instances": 6,
+          "cpu_per_instance": 4,
+          "memory_per_instance_gb": 8,
+          "total_cpu": 24,
+          "total_memory_gb": 48,
+          "recommended_deployment": "Kubernetes cluster (3 nodes)",
+          "load_balancer": "NGINX or AWS ALB"
+        },
+        "frontend": {
+          "instances": 2,
+          "cpu_per_instance": 2,
+          "memory_per_instance_gb": 4,
+          "cdn_enabled": true,
+          "cdn_provider": "CloudFlare or AWS CloudFront",
+          "static_cache_ttl_hours": 24,
+          "origin_shield": false
+        },
+        "database": {
+          "instance_type": "PostgreSQL 15 with Replication",
+          "primary_cpu": 8,
+          "primary_memory_gb": 32,
+          "replica_instances": 2,
+          "replica_cpu": 4,
+          "replica_memory_gb": 16,
+          "storage_gb": 500,
+          "iops": 5000,
+          "replication": "synchronous streaming",
+          "backup_frequency": "hourly",
+          "backup_retention_days": 30,
+          "wal_level": "replica"
+        },
+        "redis": {
+          "nodes": 3,
+          "memory_per_node_gb": 8,
+          "replication": "sentinel mode",
+          "eviction_policy": "allkeys-lru",
+          "persistence": "RDB + AOF",
+          "cluster": false
+        },
+        "celery": {
+          "workers": 8,
+          "concurrency_per_worker": 8,
+          "total_concurrent_tasks": 64,
+          "dedicated_task_queues": 3
+        },
+        "storage": {
+          "media_gb": 500,
+          "backup_gb": 1000,
+          "logs_retention_days": 30
+        }
+      },
+      "performance_targets": {
+        "api_response_time_p50_ms": 40,
+        "api_response_time_p95_ms": 150,
+        "api_response_time_p99_ms": 400,
+        "websocket_latency_ms": 80,
+        "database_query_time_p95_ms": 80,
+        "cache_hit_ratio": 0.88,
+        "error_rate_percent": 0.2
+      },
+      "cost_monthly_usd": 3500
+    },
+    "tier_100k": {
+      "tier_name": "Enterprise - 100,000 Concurrent Users",
+      "registered_users": 670000,
+      "concurrent_peak": 100000,
+      "daily_active_users": 200000,
+      "monthly_api_requests": 1800000000,
+      "monthly_messages": 45000000,
+      "target_latency_p95_ms": 120,
+      "infrastructure": {
+        "backend": {
+          "instances": 30,
+          "cpu_per_instance": 8,
+          "memory_per_instance_gb": 16,
+          "total_cpu": 240,
+          "total_memory_gb": 480,
+          "recommended_deployment": "Multi-region Kubernetes (3 regions, 3 nodes each)",
+          "load_balancer": "AWS NLB or Google Cloud Load Balancer",
+          "auto_scaling": true,
+          "min_instances": 20,
+          "max_instances": 50
+        },
+        "frontend": {
+          "instances": 5,
+          "cpu_per_instance": 4,
+          "memory_per_instance_gb": 8,
+          "cdn_enabled": true,
+          "cdn_provider": "AWS CloudFront or Akamai",
+          "static_cache_ttl_hours": 24,
+          "origin_shield": true,
+          "edge_locations": 200
+        },
+        "database": {
+          "instance_type": "PostgreSQL 15 with Multi-region Replication",
+          "deployment": "AWS RDS Aurora PostgreSQL or Google Cloud SQL",
+          "primary_cpu": 16,
+          "primary_memory_gb": 64,
+          "replica_instances": 5,
+          "replica_cpu": 8,
+          "replica_memory_gb": 32,
+          "storage_gb": 2000,
+          "iops": 20000,
+          "replication": "multi-region asynchronous",
+          "backup_frequency": "continuous",
+          "backup_retention_days": 90,
+          "wal_level": "replica",
+          "multi_region": true,
+          "read_replicas": 3,
+          "connection_pooling": "pgBouncer (1000+ connections)"
+        },
+        "redis": {
+          "nodes": 10,
+          "memory_per_node_gb": 16,
+          "replication": "Redis Cluster",
+          "eviction_policy": "allkeys-lru",
+          "persistence": "RDB + AOF",
+          "cluster": true,
+          "shards": 5,
+          "cluster_replication_factor": 2,
+          "multi_region": true
+        },
+        "celery": {
+          "workers": 40,
+          "concurrency_per_worker": 16,
+          "total_concurrent_tasks": 640,
+          "dedicated_task_queues": 8,
+          "priority_queues": true
+        },
+        "storage": {
+          "media_gb": 5000,
+          "backup_gb": 10000,
+          "logs_retention_days": 90,
+          "object_storage": "S3-compatible (AWS S3 or MinIO)",
+          "backup_storage": "Glacier or equivalent"
+        },
+        "messaging": {
+          "queue_service": "AWS SQS or Google Cloud Pub/Sub",
+          "queue_depth_peak": 100000
+        }
+      },
+      "performance_targets": {
+        "api_response_time_p50_ms": 30,
+        "api_response_time_p95_ms": 120,
+        "api_response_time_p99_ms": 300,
+        "websocket_latency_ms": 50,
+        "database_query_time_p95_ms": 60,
+        "cache_hit_ratio": 0.90,
+        "error_rate_percent": 0.1
+      },
+      "cost_monthly_usd": 25000
+    }
+  },
+  "growth_trajectory": {
+    "month_1": {
+      "registered_users": 10000,
+      "concurrent_peak": 1500,
+      "tier": "tier_1k",
+      "projected_cost_usd": 600
+    },
+    "month_3": {
+      "registered_users": 18900,
+      "concurrent_peak": 2835,
+      "tier": "tier_1k",
+      "projected_cost_usd": 800
+    },
+    "month_6": {
+      "registered_users": 42189,
+      "concurrent_peak": 6328,
+      "tier": "between_1k_10k",
+      "projected_cost_usd": 1500
+    },
+    "month_9": {
+      "registered_users": 73430,
+      "concurrent_peak": 11015,
+      "tier": "tier_10k",
+      "projected_cost_usd": 3500
+    },
+    "month_12": {
+      "registered_users": 105753,
+      "concurrent_peak": 15863,
+      "tier": "tier_10k_to_100k",
+      "projected_cost_usd": 5000
+    },
+    "month_18": {
+      "registered_users": 217189,
+      "concurrent_peak": 32579,
+      "tier": "tier_100k",
+      "projected_cost_usd": 12000
+    },
+    "month_24": {
+      "registered_users": 405318,
+      "concurrent_peak": 60798,
+      "tier": "tier_100k",
+      "projected_cost_usd": 20000
+    }
+  },
+  "scaling_events": {
+    "tier_1k_to_10k": {
+      "trigger_concurrent_users": 3000,
+      "estimated_migration_duration_hours": 4,
+      "downtime_required": false,
+      "steps": [
+        "Enable database replication",
+        "Provision additional backend instances",
+        "Deploy Redis cluster (from single)",
+        "Scale frontend load balancer",
+        "Implement caching layer improvements",
+        "Enable database connection pooling"
+      ]
+    },
+    "tier_10k_to_100k": {
+      "trigger_concurrent_users": 30000,
+      "estimated_migration_duration_hours": 8,
+      "downtime_required": false,
+      "steps": [
+        "Migrate to managed database service",
+        "Implement multi-region deployment",
+        "Enable CDN with origin shield",
+        "Deploy Redis cluster across regions",
+        "Implement API rate limiting",
+        "Enable distributed caching",
+        "Set up multi-region failover",
+        "Implement database sharding strategy"
+      ]
+    }
+  },
+  "component_specific_scaling": {
+    "backend": {
+      "scaling_type": "horizontal",
+      "min_instances": 2,
+      "metrics": [
+        {
+          "metric": "cpu_utilization_percent",
+          "scale_up_threshold": 70,
+          "scale_down_threshold": 30,
+          "scale_up_quantity": 2,
+          "cooldown_minutes": 5
+        },
+        {
+          "metric": "memory_utilization_percent",
+          "scale_up_threshold": 80,
+          "scale_down_threshold": 40,
+          "scale_up_quantity": 1,
+          "cooldown_minutes": 5
+        },
+        {
+          "metric": "request_latency_p95_ms",
+          "scale_up_threshold": 500,
+          "target_latency_ms": 200
+        }
+      ]
+    },
+    "database": {
+      "scaling_type": "vertical_then_horizontal",
+      "vertical_scaling_thresholds": {
+        "cpu_percent": 75,
+        "memory_percent": 85,
+        "iops_percent": 80
+      },
+      "horizontal_scaling": {
+        "method": "read_replicas",
+        "trigger": "high_query_latency_or_cpu"
+      }
+    },
+    "redis": {
+      "scaling_type": "horizontal_cluster",
+      "sharding_key": "user_id",
+      "eviction_policy": "allkeys-lru",
+      "memory_threshold_percent": 85,
+      "min_nodes": 1,
+      "max_nodes": 20
+    },
+    "celery": {
+      "scaling_type": "horizontal",
+      "metrics": [
+        {
+          "metric": "queue_depth",
+          "scale_up_threshold": 1000,
+          "scale_up_workers": 2,
+          "cooldown_minutes": 3
+        },
+        {
+          "metric": "worker_cpu_percent",
+          "scale_up_threshold": 80,
+          "scale_up_workers": 1,
+          "cooldown_minutes": 5
+        }
+      ]
+    },
+    "frontend": {
+      "scaling_type": "horizontal",
+      "metrics": [
+        {
+          "metric": "cpu_utilization_percent",
+          "scale_up_threshold": 70,
+          "scale_up_quantity": 1,
+          "cooldown_minutes": 5
+        },
+        {
+          "metric": "memory_utilization_percent",
+          "scale_up_threshold": 80,
+          "scale_up_quantity": 1,
+          "cooldown_minutes": 5
+        }
+      ],
+      "cdn": {
+        "enabled": false,
+        "enable_at_tier": "tier_10k",
+        "cache_hit_target_percent": 85,
+        "purge_policy": "on_deployment"
+      }
+    }
+  },
+  "monitoring_and_alerts": {
+    "critical_metrics": [
+      {
+        "name": "api_error_rate",
+        "threshold_percent": 1.0,
+        "alert_severity": "critical",
+        "action": "page_on_call"
+      },
+      {
+        "name": "database_connection_pool_exhaustion",
+        "threshold_percent": 95,
+        "alert_severity": "critical",
+        "action": "page_on_call"
+      },
+      {
+        "name": "redis_memory_exhaustion",
+        "threshold_percent": 95,
+        "alert_severity": "critical",
+        "action": "page_on_call"
+      },
+      {
+        "name": "websocket_connection_failures",
+        "threshold_percent": 5,
+        "alert_severity": "critical",
+        "action": "page_on_call"
+      }
+    ],
+    "warning_metrics": [
+      {
+        "name": "cpu_utilization",
+        "threshold_percent": 70,
+        "alert_severity": "warning",
+        "action": "notify_team"
+      },
+      {
+        "name": "memory_utilization",
+        "threshold_percent": 80,
+        "alert_severity": "warning",
+        "action": "notify_team"
+      },
+      {
+        "name": "database_query_latency_p95",
+        "threshold_ms": 200,
+        "alert_severity": "warning",
+        "action": "notify_team"
+      },
+      {
+        "name": "api_response_latency_p95",
+        "threshold_ms": 500,
+        "alert_severity": "warning",
+        "action": "notify_team"
+      }
+    ],
+    "capacity_planning_metrics": [
+      {
+        "name": "storage_growth_rate",
+        "tracking_period_days": 30,
+        "alert_at_months_remaining": 3,
+        "action": "plan_expansion"
+      },
+      {
+        "name": "user_growth_rate",
+        "tracking_period_days": 30,
+        "alert_at_percent_of_tier": 70,
+        "action": "plan_tier_migration"
+      }
+    ]
+  },
+  "disaster_recovery": {
+    "rpo_minutes": 60,
+    "description_rpo": "Recovery Point Objective - accept up to 60 minutes of data loss",
+    "rto_minutes": 30,
+    "description_rto": "Recovery Time Objective - restore service within 30 minutes",
+    "backup_strategy": {
+      "tier_1k": "Daily snapshots, 7 days retention",
+      "tier_10k": "Hourly snapshots, 30 days retention, cross-region replica",
+      "tier_100k": "Continuous replication, 90 days retention, multi-region"
+    },
+    "failover_automation": {
+      "tier_1k": "manual",
+      "tier_10k": "semi_automatic",
+      "tier_100k": "automatic"
+    }
+  }
+}

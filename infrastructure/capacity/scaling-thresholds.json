@@ -1,0 +1,577 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2025-12-27",
+    "description": "Auto-scaling thresholds and policies for THE_BOT Platform",
+    "update_frequency": "monthly"
+  },
+  "global_settings": {
+    "time_zone": "UTC",
+    "monitoring_interval_seconds": 60,
+    "evaluation_periods": 2,
+    "scale_cooldown_minutes": 5,
+    "scale_down_cooldown_minutes": 10,
+    "regional_override_enabled": true
+  },
+  "backend_scaling": {
+    "service": "Django Backend",
+    "deployment": "Kubernetes / Docker Compose",
+    "scaling_policy": "horizontal",
+    "scale_up_rules": [
+      {
+        "rule_id": "backend_cpu_scale_up",
+        "metric": "cpu_utilization_percent",
+        "statistic": "average",
+        "threshold": 70,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 2,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 2,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 5,
+        "description": "Scale up when CPU utilization exceeds 70% for 2 minutes"
+      },
+      {
+        "rule_id": "backend_memory_scale_up",
+        "metric": "memory_utilization_percent",
+        "statistic": "average",
+        "threshold": 80,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 2,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 1,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 5,
+        "description": "Scale up when memory utilization exceeds 80% for 2 minutes"
+      },
+      {
+        "rule_id": "backend_latency_scale_up",
+        "metric": "request_latency_p95_milliseconds",
+        "statistic": "average",
+        "threshold": 500,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 3,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 3,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 5,
+        "description": "Aggressive scale up when p95 latency exceeds 500ms for 3 minutes"
+      },
+      {
+        "rule_id": "backend_queue_depth_scale_up",
+        "metric": "active_connections",
+        "statistic": "maximum",
+        "threshold": 1000,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 1,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 5,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 2,
+        "description": "Emergency scale up for connection surge"
+      }
+    ],
+    "scale_down_rules": [
+      {
+        "rule_id": "backend_cpu_scale_down",
+        "metric": "cpu_utilization_percent",
+        "statistic": "average",
+        "threshold": 30,
+        "comparison_operator": "less_than_or_equal",
+        "evaluation_periods": 5,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_down",
+          "quantity": 1,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 10,
+        "description": "Scale down when CPU utilization drops below 30% for 5 minutes"
+      }
+    ],
+    "constraints": {
+      "min_instances": 2,
+      "max_instances": 50,
+      "instance_type": "2xlarge (8 CPU, 16GB RAM)",
+      "allow_scale_down_during_peak_hours": false,
+      "peak_hours": "17:00-21:00 UTC"
+    },
+    "gradual_scaling": {
+      "enabled": true,
+      "description": "Gradually scale instances to avoid over-provisioning"
+    }
+  },
+  "database_scaling": {
+    "service": "PostgreSQL Database",
+    "deployment": "RDS / Self-Managed",
+    "scaling_policy": "vertical_then_horizontal",
+    "vertical_scaling": {
+      "enabled": true,
+      "rules": [
+        {
+          "rule_id": "db_cpu_vertical_scale",
+          "metric": "cpu_utilization_percent",
+          "threshold": 75,
+          "action": {
+            "type": "increase_instance_size",
+            "step": "one_size_up"
+          },
+          "maintenance_window": "sunday 02:00 UTC",
+          "downtime_allowed_minutes": 15
+        },
+        {
+          "rule_id": "db_memory_vertical_scale",
+          "metric": "memory_utilization_percent",
+          "threshold": 85,
+          "action": {
+            "type": "increase_instance_size",
+            "step": "one_size_up"
+          },
+          "maintenance_window": "sunday 02:00 UTC"
+        },
+        {
+          "rule_id": "db_iops_vertical_scale",
+          "metric": "iops_utilization_percent",
+          "threshold": 80,
+          "action": {
+            "type": "increase_iops",
+            "step": 1000
+          },
+          "immediate": true
+        }
+      ]
+    },
+    "horizontal_scaling": {
+      "enabled": true,
+      "rules": [
+        {
+          "rule_id": "db_read_replica_add",
+          "metric": "read_latency_p95_milliseconds",
+          "threshold": 100,
+          "action": {
+            "type": "add_read_replica",
+            "quantity": 1
+          },
+          "max_read_replicas": 5
+        },
+        {
+          "rule_id": "db_write_connection_pool",
+          "metric": "database_connections",
+          "threshold": 80,
+          "comparison": "percent_of_max",
+          "action": {
+            "type": "increase_connection_pool"
+          }
+        }
+      ]
+    },
+    "storage_scaling": {
+      "auto_scaling_enabled": true,
+      "increment_gb": 100,
+      "threshold_percent": 80,
+      "max_storage_gb": 10000
+    },
+    "backup_scaling": {
+      "snapshot_frequency": "hourly",
+      "retention_days": 30,
+      "multi_region_backup": true,
+      "backup_parallelism": 8
+    },
+    "constraints": {
+      "min_instance_size": "db.t3.large",
+      "max_instance_size": "db.r6i.16xlarge",
+      "min_iops": 1000,
+      "max_iops": 64000
+    }
+  },
+  "redis_scaling": {
+    "service": "Redis Cache",
+    "deployment": "Redis Cluster / AWS ElastiCache",
+    "scaling_policy": "horizontal_cluster",
+    "scale_up_rules": [
+      {
+        "rule_id": "redis_memory_scale_up",
+        "metric": "memory_utilization_percent",
+        "statistic": "maximum",
+        "threshold": 85,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 2,
+        "period_seconds": 60,
+        "action": {
+          "type": "add_shard",
+          "quantity": 1
+        },
+        "cooldown_minutes": 10,
+        "description": "Add shard when memory utilization exceeds 85%"
+      },
+      {
+        "rule_id": "redis_cpu_scale_up",
+        "metric": "cpu_utilization_percent",
+        "statistic": "maximum",
+        "threshold": 75,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 2,
+        "period_seconds": 60,
+        "action": {
+          "type": "increase_node_size",
+          "step": "one_size_up"
+        },
+        "cooldown_minutes": 5,
+        "description": "Increase node size when CPU exceeds 75%"
+      },
+      {
+        "rule_id": "redis_eviction_rate_alert",
+        "metric": "evicted_keys_per_second",
+        "threshold": 100,
+        "comparison_operator": "greater_than",
+        "evaluation_periods": 1,
+        "period_seconds": 60,
+        "action": {
+          "type": "alert_and_scale",
+          "alert_level": "critical"
+        },
+        "description": "Critical alert if eviction rate exceeds 100 keys/sec"
+      }
+    ],
+    "scale_down_rules": [
+      {
+        "rule_id": "redis_memory_scale_down",
+        "metric": "memory_utilization_percent",
+        "threshold": 40,
+        "comparison_operator": "less_than_or_equal",
+        "evaluation_periods": 10,
+        "period_seconds": 60,
+        "action": {
+          "type": "remove_shard",
+          "quantity": 1
+        },
+        "cooldown_minutes": 30,
+        "description": "Remove shard when memory utilization drops below 40% for 10 minutes"
+      }
+    ],
+    "constraints": {
+      "min_nodes": 1,
+      "max_nodes": 20,
+      "min_node_size": "cache.t3.micro (1GB)",
+      "max_node_size": "cache.r6g.16xlarge (419GB)",
+      "replication_factor": 2,
+      "allow_scale_down_during_peak_hours": false
+    },
+    "persistence": {
+      "method": "RDB + AOF",
+      "snapshot_frequency": "every_6_hours",
+      "aof_fsync": "every_second",
+      "auto_failover": true
+    }
+  },
+  "frontend_scaling": {
+    "service": "React Frontend / Nginx",
+    "deployment": "Kubernetes / Docker",
+    "scaling_policy": "horizontal",
+    "scale_up_rules": [
+      {
+        "rule_id": "frontend_cpu_scale_up",
+        "metric": "cpu_utilization_percent",
+        "threshold": 70,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 2,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 1,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 5
+      },
+      {
+        "rule_id": "frontend_memory_scale_up",
+        "metric": "memory_utilization_percent",
+        "threshold": 80,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 2,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 1,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 5
+      },
+      {
+        "rule_id": "frontend_connection_scale_up",
+        "metric": "active_connections",
+        "threshold": 5000,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 1,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 2,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 2
+      }
+    ],
+    "scale_down_rules": [
+      {
+        "rule_id": "frontend_cpu_scale_down",
+        "metric": "cpu_utilization_percent",
+        "threshold": 30,
+        "comparison_operator": "less_than_or_equal",
+        "evaluation_periods": 10,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_down",
+          "quantity": 1,
+          "unit": "instances"
+        },
+        "cooldown_minutes": 10
+      }
+    ],
+    "constraints": {
+      "min_instances": 1,
+      "max_instances": 20,
+      "instance_type": "medium (2 CPU, 4GB RAM)",
+      "allow_scale_down_during_peak_hours": false
+    },
+    "cdn_strategy": {
+      "enabled_at_tier": "tier_10k",
+      "cache_behaviors": [
+        {
+          "path_pattern": "/static/*",
+          "ttl_seconds": 86400,
+          "compress": true,
+          "cache_policy": "optimized_caching"
+        },
+        {
+          "path_pattern": "/media/*",
+          "ttl_seconds": 3600,
+          "compress": true,
+          "cache_policy": "customized"
+        },
+        {
+          "path_pattern": "/api/*",
+          "ttl_seconds": 0,
+          "cache_policy": "managed_caching_disabled"
+        }
+      ]
+    }
+  },
+  "celery_scaling": {
+    "service": "Celery Task Queue",
+    "deployment": "Kubernetes / Docker",
+    "scaling_policy": "horizontal_queue_based",
+    "scale_up_rules": [
+      {
+        "rule_id": "celery_queue_depth_scale_up",
+        "metric": "queue_depth",
+        "threshold": 1000,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 1,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 2,
+          "unit": "workers"
+        },
+        "cooldown_minutes": 3,
+        "description": "Add 2 workers when queue depth exceeds 1000"
+      },
+      {
+        "rule_id": "celery_worker_cpu_scale_up",
+        "metric": "worker_cpu_utilization_percent",
+        "threshold": 80,
+        "comparison_operator": "greater_than_or_equal",
+        "evaluation_periods": 2,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 1,
+          "unit": "workers"
+        },
+        "cooldown_minutes": 5,
+        "description": "Add 1 worker when CPU exceeds 80%"
+      },
+      {
+        "rule_id": "celery_task_latency_scale_up",
+        "metric": "task_execution_latency_seconds",
+        "threshold": 30,
+        "comparison_operator": "greater_than",
+        "evaluation_periods": 3,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_up",
+          "quantity": 3,
+          "unit": "workers"
+        },
+        "cooldown_minutes": 5,
+        "description": "Aggressive scale up if tasks wait >30 seconds"
+      }
+    ],
+    "scale_down_rules": [
+      {
+        "rule_id": "celery_queue_empty_scale_down",
+        "metric": "queue_depth",
+        "threshold": 100,
+        "comparison_operator": "less_than_or_equal",
+        "evaluation_periods": 15,
+        "period_seconds": 60,
+        "action": {
+          "type": "scale_down",
+          "quantity": 1,
+          "unit": "workers"
+        },
+        "cooldown_minutes": 15,
+        "description": "Remove worker when queue is consistently empty"
+      }
+    ],
+    "constraints": {
+      "min_workers": 2,
+      "max_workers": 40,
+      "concurrency_per_worker": 8,
+      "task_soft_time_limit_seconds": 600,
+      "task_hard_time_limit_seconds": 900
+    },
+    "task_queues": {
+      "high_priority": {
+        "workers": "2-5",
+        "tasks": [
+          "email_notifications",
+          "sms_notifications",
+          "critical_alerts"
+        ]
+      },
+      "normal_priority": {
+        "workers": "4-15",
+        "tasks": [
+          "report_generation",
+          "data_processing",
+          "analytics"
+        ]
+      },
+      "low_priority": {
+        "workers": "2-10",
+        "tasks": [
+          "cleanup_tasks",
+          "archival",
+          "maintenance"
+        ]
+      },
+      "scheduled": {
+        "workers": "1-3",
+        "tasks": [
+          "periodic_jobs",
+          "cron_tasks"
+        ]
+      }
+    }
+  },
+  "load_balancer_scaling": {
+    "service": "API Load Balancer",
+    "deployment": "NGINX / AWS ALB / Google Cloud LB",
+    "strategy": "connection_based",
+    "algorithms": [
+      {
+        "tier": "tier_1k",
+        "algorithm": "round_robin",
+        "health_check_interval_seconds": 10,
+        "unhealthy_threshold": 3,
+        "healthy_threshold": 2
+      },
+      {
+        "tier": "tier_10k",
+        "algorithm": "least_connections",
+        "health_check_interval_seconds": 5,
+        "unhealthy_threshold": 2,
+        "healthy_threshold": 2,
+        "connection_timeout_seconds": 30
+      },
+      {
+        "tier": "tier_100k",
+        "algorithm": "ip_hash",
+        "health_check_interval_seconds": 5,
+        "unhealthy_threshold": 2,
+        "healthy_threshold": 1,
+        "connection_timeout_seconds": 20,
+        "session_persistence": "sticky_sessions"
+      }
+    ]
+  },
+  "scaling_priorities": [
+    {
+      "priority": 1,
+      "component": "backend",
+      "reason": "Primary service handles API requests",
+      "aggressive_scaling": true
+    },
+    {
+      "priority": 2,
+      "component": "database",
+      "reason": "Data layer bottleneck",
+      "aggressive_scaling": true
+    },
+    {
+      "priority": 3,
+      "component": "redis",
+      "reason": "Cache layer impacts performance",
+      "aggressive_scaling": true
+    },
+    {
+      "priority": 4,
+      "component": "celery",
+      "reason": "Task processing impacts user experience",
+      "aggressive_scaling": true
+    },
+    {
+      "priority": 5,
+      "component": "frontend",
+      "reason": "UI layer can handle connection pooling",
+      "aggressive_scaling": false
+    }
+  ],
+  "peak_load_handling": {
+    "peak_hours": "17:00-21:00 UTC",
+    "predictive_scaling": {
+      "enabled": true,
+      "scale_up_minutes_before": 30,
+      "historical_data_period_days": 30
+    },
+    "burst_capacity": {
+      "enabled": true,
+      "max_burst_duration_minutes": 30,
+      "allowed_additional_capacity_percent": 50
+    },
+    "graceful_degradation": {
+      "enabled": true,
+      "strategies": [
+        {
+          "level": 1,
+          "threshold_cpu_percent": 90,
+          "action": "disable_non_critical_features"
+        },
+        {
+          "level": 2,
+          "threshold_cpu_percent": 95,
+          "action": "rate_limit_api_requests"
+        },
+        {
+          "level": 3,
+          "threshold_cpu_percent": 98,
+          "action": "enable_read_only_mode"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,594 @@
+{
+  "firewall_configuration": {
+    "metadata": {
+      "version": "1.0.0",
+      "project": "THE_BOT Platform",
+      "description": "Comprehensive firewall rules and network security policies",
+      "last_updated": "2025-12-27",
+      "compliance": ["PCI-DSS", "HIPAA", "SOC2"]
+    },
+    "security_groups": {
+      "public_tier": {
+        "name": "thebot-public-sg",
+        "description": "Security group for public-facing resources (ALB/NLB)",
+        "vpc_cidr": "10.0.0.0/16",
+        "inbound_rules": [
+          {
+            "rule_id": "HTTP",
+            "description": "HTTP traffic from internet",
+            "protocol": "tcp",
+            "port_range": "80",
+            "source": "0.0.0.0/0",
+            "priority": 100,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "HTTPS",
+            "description": "HTTPS traffic from internet",
+            "protocol": "tcp",
+            "port_range": "443",
+            "source": "0.0.0.0/0",
+            "priority": 110,
+            "action": "ALLOW"
+          }
+        ],
+        "outbound_rules": [
+          {
+            "rule_id": "TO_BACKEND",
+            "description": "To backend application servers",
+            "protocol": "tcp",
+            "port_range": "8000",
+            "destination": "10.0.11.0/24",
+            "priority": 100,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "INTERNET_EGRESS",
+            "description": "DNS and general outbound",
+            "protocol": "-1",
+            "port_range": "all",
+            "destination": "0.0.0.0/0",
+            "priority": 200,
+            "action": "ALLOW"
+          }
+        ]
+      },
+      "app_tier": {
+        "name": "thebot-app-sg",
+        "description": "Security group for application servers (ECS/EC2)",
+        "vpc_cidr": "10.0.0.0/16",
+        "inbound_rules": [
+          {
+            "rule_id": "FROM_ALB",
+            "description": "Traffic from load balancer",
+            "protocol": "tcp",
+            "port_range": "8000-8100",
+            "source": "10.0.0.0/24",
+            "priority": 100,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "SSH_FROM_BASTION",
+            "description": "SSH access from Bastion host",
+            "protocol": "tcp",
+            "port_range": "22",
+            "source": "10.0.0.0/32",
+            "priority": 110,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "HEALTH_CHECKS",
+            "description": "Health check from ALB",
+            "protocol": "tcp",
+            "port_range": "8000-8100",
+            "source": "10.0.0.0/16",
+            "priority": 120,
+            "action": "ALLOW"
+          }
+        ],
+        "outbound_rules": [
+          {
+            "rule_id": "TO_DATABASE",
+            "description": "To PostgreSQL database",
+            "protocol": "tcp",
+            "port_range": "5432",
+            "destination": "10.0.21.0/24",
+            "priority": 100,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "TO_REDIS",
+            "description": "To Redis cache",
+            "protocol": "tcp",
+            "port_range": "6379",
+            "destination": "10.0.22.0/24",
+            "priority": 110,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "DNS_QUERIES",
+            "description": "DNS queries to Route53",
+            "protocol": "udp",
+            "port_range": "53",
+            "destination": "0.0.0.0/0",
+            "priority": 120,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "HTTPS_OUTBOUND",
+            "description": "HTTPS to external services",
+            "protocol": "tcp",
+            "port_range": "443",
+            "destination": "0.0.0.0/0",
+            "priority": 130,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "NTP",
+            "description": "NTP time synchronization",
+            "protocol": "udp",
+            "port_range": "123",
+            "destination": "0.0.0.0/0",
+            "priority": 140,
+            "action": "ALLOW"
+          }
+        ]
+      },
+      "database_tier": {
+        "name": "thebot-database-sg",
+        "description": "Security group for RDS database (most restrictive)",
+        "vpc_cidr": "10.0.0.0/16",
+        "inbound_rules": [
+          {
+            "rule_id": "FROM_APP_TIER",
+            "description": "PostgreSQL from application tier",
+            "protocol": "tcp",
+            "port_range": "5432",
+            "source": "10.0.11.0/24",
+            "priority": 100,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "FROM_BASTION",
+            "description": "PostgreSQL from Bastion for maintenance",
+            "protocol": "tcp",
+            "port_range": "5432",
+            "source": "10.0.0.0/32",
+            "priority": 110,
+            "action": "ALLOW"
+          }
+        ],
+        "outbound_rules": [
+          {
+            "rule_id": "DENY_ALL",
+            "description": "No outbound traffic allowed",
+            "protocol": "-1",
+            "port_range": "all",
+            "destination": "127.0.0.1/32",
+            "priority": 200,
+            "action": "DENY"
+          }
+        ]
+      },
+      "cache_tier": {
+        "name": "thebot-cache-sg",
+        "description": "Security group for Redis cache",
+        "vpc_cidr": "10.0.0.0/16",
+        "inbound_rules": [
+          {
+            "rule_id": "FROM_APP_TIER",
+            "description": "Redis from application servers",
+            "protocol": "tcp",
+            "port_range": "6379",
+            "source": "10.0.11.0/24",
+            "priority": 100,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "CLUSTER_INTERNAL",
+            "description": "Redis cluster internal communication",
+            "protocol": "tcp",
+            "port_range": "16379",
+            "source": "10.0.22.0/24",
+            "priority": 110,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "FROM_BASTION",
+            "description": "Redis monitoring from Bastion",
+            "protocol": "tcp",
+            "port_range": "6379",
+            "source": "10.0.0.0/32",
+            "priority": 120,
+            "action": "ALLOW"
+          }
+        ],
+        "outbound_rules": [
+          {
+            "rule_id": "DENY_ALL",
+            "description": "No outbound traffic allowed",
+            "protocol": "-1",
+            "port_range": "all",
+            "destination": "127.0.0.1/32",
+            "priority": 200,
+            "action": "DENY"
+          }
+        ]
+      }
+    },
+    "nacl_rules": {
+      "public_subnet": {
+        "name": "thebot-public-nacl",
+        "description": "Network ACL for public subnets",
+        "inbound_rules": [
+          {
+            "rule_number": 100,
+            "protocol": "tcp",
+            "port_range": "80",
+            "source": "0.0.0.0/0",
+            "action": "ALLOW"
+          },
+          {
+            "rule_number": 110,
+            "protocol": "tcp",
+            "port_range": "443",
+            "source": "0.0.0.0/0",
+            "action": "ALLOW"
+          },
+          {
+            "rule_number": 120,
+            "protocol": "tcp",
+            "port_range": "22",
+            "source": "0.0.0.0/0",
+            "action": "ALLOW",
+            "note": "SSH - restrict IP in production"
+          },
+          {
+            "rule_number": 130,
+            "protocol": "tcp",
+            "port_range": "1024-65535",
+            "source": "0.0.0.0/0",
+            "action": "ALLOW",
+            "note": "Ephemeral ports"
+          },
+          {
+            "rule_number": 140,
+            "protocol": "udp",
+            "port_range": "53",
+            "source": "0.0.0.0/0",
+            "action": "ALLOW",
+            "note": "DNS queries"
+          }
+        ],
+        "outbound_rules": [
+          {
+            "rule_number": 100,
+            "protocol": "-1",
+            "port_range": "all",
+            "destination": "0.0.0.0/0",
+            "action": "ALLOW"
+          }
+        ]
+      },
+      "private_app_subnet": {
+        "name": "thebot-private-app-nacl",
+        "description": "Network ACL for private application subnets",
+        "inbound_rules": [
+          {
+            "rule_number": 100,
+            "protocol": "tcp",
+            "port_range": "8000-8100",
+            "source": "10.0.0.0/16",
+            "action": "ALLOW",
+            "note": "From ALB"
+          },
+          {
+            "rule_number": 110,
+            "protocol": "tcp",
+            "port_range": "22",
+            "source": "10.0.0.0/16",
+            "action": "ALLOW",
+            "note": "SSH from Bastion"
+          },
+          {
+            "rule_number": 120,
+            "protocol": "tcp",
+            "port_range": "1024-65535",
+            "source": "0.0.0.0/0",
+            "action": "ALLOW",
+            "note": "Ephemeral return traffic"
+          }
+        ],
+        "outbound_rules": [
+          {
+            "rule_number": 100,
+            "protocol": "-1",
+            "port_range": "all",
+            "destination": "0.0.0.0/0",
+            "action": "ALLOW",
+            "note": "NAT outbound"
+          }
+        ]
+      },
+      "private_database_subnet": {
+        "name": "thebot-private-db-nacl",
+        "description": "Network ACL for private database subnets (most restrictive)",
+        "inbound_rules": [
+          {
+            "rule_number": 100,
+            "protocol": "tcp",
+            "port_range": "5432",
+            "source": "10.0.11.0/24",
+            "action": "ALLOW",
+            "note": "PostgreSQL from App-AZ1"
+          },
+          {
+            "rule_number": 110,
+            "protocol": "tcp",
+            "port_range": "5432",
+            "source": "10.0.12.0/24",
+            "action": "ALLOW",
+            "note": "PostgreSQL from App-AZ2"
+          },
+          {
+            "rule_number": 120,
+            "protocol": "tcp",
+            "port_range": "5432",
+            "source": "10.0.13.0/24",
+            "action": "ALLOW",
+            "note": "PostgreSQL from App-AZ3"
+          },
+          {
+            "rule_number": 130,
+            "protocol": "tcp",
+            "port_range": "5432",
+            "source": "10.0.0.0/16",
+            "action": "ALLOW",
+            "note": "PostgreSQL from Bastion"
+          },
+          {
+            "rule_number": 140,
+            "protocol": "tcp",
+            "port_range": "1024-65535",
+            "source": "0.0.0.0/0",
+            "action": "ALLOW",
+            "note": "Ephemeral return"
+          }
+        ],
+        "outbound_rules": [
+          {
+            "rule_number": 100,
+            "protocol": "udp",
+            "port_range": "53",
+            "destination": "0.0.0.0/0",
+            "action": "ALLOW",
+            "note": "DNS queries"
+          },
+          {
+            "rule_number": 110,
+            "protocol": "tcp",
+            "port_range": "1024-65535",
+            "destination": "0.0.0.0/0",
+            "action": "ALLOW",
+            "note": "Ephemeral return"
+          }
+        ]
+      }
+    },
+    "ddos_protection": {
+      "enabled": true,
+      "methods": [
+        "AWS Shield Standard (included)",
+        "AWS WAF rate limiting",
+        "Network ACL limits",
+        "Security group connection limits"
+      ],
+      "rate_limits": {
+        "per_ip_requests_per_5min": 2000,
+        "per_ip_concurrent_connections": 10000,
+        "per_ip_packet_rate_per_second": 5000,
+        "simultaneous_connection_limit": 100000
+      },
+      "aws_shield_advanced": {
+        "enabled": false,
+        "note": "Can be enabled for additional protection and DDoS Response Team access"
+      }
+    },
+    "egress_filtering": {
+      "enabled": true,
+      "whitelist": {
+        "dns": {
+          "protocol": "UDP",
+          "port": 53,
+          "destinations": ["8.8.8.8/32", "8.8.4.4/32", "1.1.1.1/32"]
+        },
+        "https": {
+          "protocol": "TCP",
+          "port": 443,
+          "destinations": ["0.0.0.0/0"],
+          "use_case": "API calls, external services"
+        },
+        "http": {
+          "protocol": "TCP",
+          "port": 80,
+          "destinations": [],
+          "use_case": "Restricted - use HTTPS where possible"
+        },
+        "ntp": {
+          "protocol": "UDP",
+          "port": 123,
+          "destinations": ["0.0.0.0/0"],
+          "use_case": "Time synchronization"
+        }
+      },
+      "denied_protocols": ["IGMP", "GRE", "IP-in-IP"],
+      "denied_ports": [23, 69, 135, 139, 445, 1433, 3306, 5984, 6379, 9042, 9160, 27017, 27018, 27019, 27020, 50070]
+    },
+    "intrusion_detection": {
+      "enabled": true,
+      "sensitivity": "high",
+      "rules": [
+        {
+          "id": "IDS_001",
+          "name": "Port scanning detection",
+          "description": "Alert on rapid port scanning",
+          "threshold": "10 ports in 1 minute"
+        },
+        {
+          "id": "IDS_002",
+          "name": "SYN flood detection",
+          "description": "Detect SYN flood attacks",
+          "threshold": "1000 SYN packets/second"
+        },
+        {
+          "id": "IDS_003",
+          "name": "UDP flood detection",
+          "description": "Detect UDP flood attacks",
+          "threshold": "5000 packets/second"
+        },
+        {
+          "id": "IDS_004",
+          "name": "Malformed packet detection",
+          "description": "Alert on invalid protocol headers",
+          "action": "DROP"
+        },
+        {
+          "id": "IDS_005",
+          "name": "Directory traversal detection",
+          "description": "Block ../ and ..\\",
+          "patterns": ["../", "..\\", "....//", "....\\\\"]
+        },
+        {
+          "id": "IDS_006",
+          "name": "SQL injection detection",
+          "description": "Block SQL injection attempts",
+          "patterns": ["UNION", "SELECT", "INSERT", "DELETE", "DROP", "exec("]
+        },
+        {
+          "id": "IDS_007",
+          "name": "XSS attack detection",
+          "description": "Block cross-site scripting",
+          "patterns": ["<script>", "javascript:", "onerror=", "onload="]
+        }
+      ]
+    },
+    "waf_rules": {
+      "enabled": true,
+      "managed_rules": [
+        {
+          "rule_group": "AWSManagedRulesCommonRuleSet",
+          "description": "Protects against OWASP Top 10",
+          "enabled": true
+        },
+        {
+          "rule_group": "AWSManagedRulesKnownBadInputsRuleSet",
+          "description": "Blocks known malicious patterns",
+          "enabled": true
+        },
+        {
+          "rule_group": "AWSManagedRulesSQLiRuleSet",
+          "description": "SQL injection protection",
+          "enabled": true
+        }
+      ],
+      "custom_rules": [
+        {
+          "id": "CUSTOM_001",
+          "name": "Rate limit by IP",
+          "description": "Limit requests per IP",
+          "action": "BLOCK",
+          "limit": 2000,
+          "window": "5 minutes"
+        },
+        {
+          "id": "CUSTOM_002",
+          "name": "API key validation",
+          "description": "Require valid API key in header",
+          "action": "BLOCK",
+          "applies_to": ["/api/*"],
+          "header": "X-API-Key"
+        },
+        {
+          "id": "CUSTOM_003",
+          "name": "User agent filtering",
+          "description": "Block requests from suspicious user agents",
+          "action": "BLOCK",
+          "blocked_agents": ["curl", "wget", "python-requests"]
+        }
+      ]
+    },
+    "geo_blocking": {
+      "enabled": false,
+      "blocked_countries": [],
+      "note": "Enable and configure if needed for compliance"
+    },
+    "monitoring": {
+      "vpc_flow_logs": {
+        "enabled": true,
+        "destination": "CloudWatch Logs",
+        "retention_days": 30,
+        "traffic_type": "ALL"
+      },
+      "cloudwatch_alarms": [
+        {
+          "name": "RejectedPackets",
+          "metric": "VPC Flow Logs Rejected Packets",
+          "threshold": 1000,
+          "period": "5 minutes",
+          "action": "SNS notification"
+        },
+        {
+          "name": "WAFBlockedRequests",
+          "metric": "WAF Blocked Requests",
+          "threshold": 100,
+          "period": "5 minutes",
+          "action": "SNS notification"
+        }
+      ],
+      "guardduty": {
+        "enabled": true,
+        "detection_types": [
+          "Trojan",
+          "Backdoor",
+          "CryptoCurrency",
+          "Suspicious activity"
+        ]
+      }
+    },
+    "audit_and_compliance": {
+      "security_standards": [
+        "PCI-DSS v3.2.1",
+        "HIPAA",
+        "SOC2",
+        "ISO 27001"
+      ],
+      "audit_checklist": [
+        {
+          "item": "Network segmentation verified",
+          "status": "In Progress",
+          "frequency": "Daily"
+        },
+        {
+          "item": "Firewall rules reviewed",
+          "status": "Scheduled",
+          "frequency": "Weekly"
+        },
+        {
+          "item": "Security group audit",
+          "status": "Scheduled",
+          "frequency": "Monthly"
+        },
+        {
+          "item": "WAF rule effectiveness",
+          "status": "Scheduled",
+          "frequency": "Quarterly"
+        },
+        {
+          "item": "Flow logs analysis",
+          "status": "Scheduled",
+          "frequency": "Weekly"
+        }
+      ]
+    }
+  }
+}

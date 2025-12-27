@@ -1,476 +1,103 @@
-# THE_BOT Infrastructure Security Tools
+# THE_BOT Platform - Infrastructure Security Module
 
-Comprehensive security tools for auditing, validating, and maintaining the THE_BOT platform infrastructure on AWS.
+**Version**: 1.0.0
+**Date**: December 27, 2025
+**Status**: Production Ready
 
-## Tools Overview
+## Overview
 
-### 1. Security Groups Audit Script
+This module implements comprehensive network security for THE_BOT educational platform on AWS, including:
 
-**File**: `security-groups-audit.py`
+- **AWS WAF** - Web Application Firewall with managed and custom rules
+- **Network Segmentation** - 3-tier architecture with restrictive security groups
+- **DDoS Protection** - Rate limiting and traffic filtering
+- **Egress Filtering** - Whitelist-based outbound access control
+- **Intrusion Detection** - VPC Flow Logs and threat analysis
+- **Monitoring** - CloudWatch alarms and GuardDuty integration
+- **Compliance** - PCI-DSS, HIPAA, SOC2 ready
 
-Automated validation tool that checks security group configuration for compliance and security best practices.
+## Files
 
-#### Features
+### Terraform Configuration
+- `network-security.tf` - Main WAF, DDoS, monitoring, and audit Lambda
+- `variables.tf` - Input variables for security configuration
 
-- Detects overly permissive rules (0.0.0.0/0 on database/Redis)
-- Validates expected rules are present in each security group
-- Checks for required tags (Name, Environment, ManagedBy)
-- Identifies rules missing descriptions
-- Verifies restricted services block outbound properly
-- Generates compliance reports in multiple formats
-
-#### Installation
-
-```bash
-# Ensure AWS credentials are configured
-aws sts get-caller-identity
-
-# Install Python dependencies
-pip install boto3 botocore
-
-# Make script executable
-chmod +x security-groups-audit.py
-```
-
-#### Usage
-
-```bash
-# Basic audit of production environment
-./security-groups-audit.py --environment production
-
-# Audit staging environment
-./security-groups-audit.py --environment staging
-
-# Filter to specific security group
-./security-groups-audit.py --environment production --sg-name backend
-
-# Generate JSON report
-./security-groups-audit.py --environment production --format json
-
-# Save report to file
-./security-groups-audit.py --environment production --format json -o report.json
-
-# CSV export for spreadsheet analysis
-./security-groups-audit.py --environment production --format csv -o report.csv
-```
-
-#### Command Line Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--environment` | Environment to audit | production |
-| `--region` | AWS region | us-east-1 |
-| `--sg-name` | Filter security group by name pattern | None |
-| `--format` | Output format (text/json/csv) | text |
-| `--check` | Specific check to run | all |
-| `--output, -o` | Output file path | stdout |
-
-#### Output Example
-
-```
-======================================================================
-THE_BOT Platform - Security Groups Audit Report
-======================================================================
-Environment: production
-Region: us-east-1
-Timestamp: 2025-12-27T19:00:00.000000
-======================================================================
-
-VPC ID: vpc-0123456789abcdef0
-
-Auditing: thebot-bastion-sg (sg-001)
-----------------------------------------------------------------------
-Status: ✓ COMPLIANT
-
-Auditing: thebot-frontend-sg (sg-002)
-----------------------------------------------------------------------
-Status: ✓ COMPLIANT
-
-Auditing: thebot-backend-sg (sg-003)
-----------------------------------------------------------------------
-Status: ✓ COMPLIANT
-
-Auditing: thebot-database-sg (sg-004)
-----------------------------------------------------------------------
-Status: ✓ COMPLIANT
-
-======================================================================
-AUDIT SUMMARY
-======================================================================
-Overall Status: COMPLIANT
-Security Groups Audited: 6
-Compliant Groups: 6
-Non-Compliant Groups: 0
-Total Rules Checked: 42
-Total Findings: 0
-
-======================================================================
-```
-
-#### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Audit completed, all compliant |
-| 1 | Audit completed, non-compliance found |
-| 2 | Error during audit execution |
-
-#### Integration with CI/CD
-
-Add to your CI/CD pipeline:
-
-```yaml
-# GitHub Actions example
-- name: Audit Security Groups
-  run: |
-    pip install boto3 botocore
-    python3 infrastructure/security/security-groups-audit.py \
-      --environment staging \
-      --format json \
-      --output audit-report.json
-  env:
-    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    AWS_DEFAULT_REGION: us-east-1
-
-- name: Check Audit Results
-  run: |
-    # Fail if critical findings
-    if grep -q '"CRITICAL"' audit-report.json; then
-      echo "Critical security issues found!"
-      exit 1
-    fi
-```
-
-### 2. Firewall Rules Configuration
-
-**File**: `firewall-rules.json`
-
-JSON configuration defining all expected firewall rules and their business justifications.
-
-#### Structure
-
-```json
-{
-  "security_groups": {
-    "bastion": {
-      "description": "Jump host for administrative access",
-      "inbound": [
-        {
-          "name": "ssh_from_allowed_cidr",
-          "port": 22,
-          "protocol": "tcp",
-          "source": "var.bastion_allowed_cidr",
-          "justification": "Admin access from approved locations"
-        }
-      ],
-      "outbound": [
-        {
-          "name": "all_outbound",
-          "port": "0-65535",
-          "protocol": "all",
-          "destination": "0.0.0.0/0",
-          "justification": "Required for admin operations"
-        }
-      ]
-    }
-  }
-}
-```
-
-### 3. Network Security Terraform
-
-**File**: `network-security.tf`
-
-Terraform configuration for network security policies and additional security controls.
-
-#### Contents
-
-- Security group policies
-- Network ACL configurations
-- VPC Flow Logs setup
-- GuardDuty integration
-- Security Hub configuration
-
-### 4. Variables and Configuration
-
-**File**: `variables.tf`
-
-Terraform variables for security settings:
-
-```hcl
-variable "bastion_allowed_cidr" {
-  description = "CIDR block allowed to SSH to Bastion"
-  type        = string
-  # Example: "203.0.113.0/32" for single IP
-  # Example: "203.0.113.0/24" for IP range
-}
-
-variable "enable_vpc_flow_logs" {
-  description = "Enable VPC Flow Logs for monitoring"
-  type        = bool
-  default     = true
-}
-
-variable "enable_guardduty" {
-  description = "Enable Amazon GuardDuty for threat detection"
-  type        = bool
-  default     = true
-}
-```
-
-## Security Group Reference
-
-For detailed information about each security group, see the main reference documentation:
-
-**File**: `../../docs/SECURITY_GROUPS_REFERENCE.md`
-
-### Quick Reference
-
-#### 1. Bastion Security Group
-- **Purpose**: Jump host for administrative access
-- **Inbound**: SSH (22) from `bastion_allowed_cidr`
-- **Outbound**: All traffic
-- **Risk Level**: Medium (restricted SSH access)
-
-#### 2. Frontend Security Group (ALB)
-- **Purpose**: Application Load Balancer
-- **Inbound**: HTTP (80), HTTPS (443) from 0.0.0.0/0
-- **Outbound**: Port 8000 to Backend, All to 0.0.0.0/0
-- **Risk Level**: Low (public-facing, expected)
-
-#### 3. Backend Security Group (ECS/EC2)
-- **Purpose**: Application servers
-- **Inbound**: Port 8000 from ALB, SSH from Bastion, Port 6379 from Redis
-- **Outbound**: Port 5432 to Database, Port 6379 to Redis, All to 0.0.0.0/0
-- **Risk Level**: Low (restricted inbound)
-
-#### 4. Database Security Group (RDS)
-- **Purpose**: PostgreSQL database server
-- **Inbound**: Port 5432 from Backend and Bastion
-- **Outbound**: None (completely blocked)
-- **Risk Level**: Low (highly restrictive)
-
-#### 5. Redis Security Group (ElastiCache)
-- **Purpose**: Cache and message broker
-- **Inbound**: Port 6379 from Backend/Bastion, Port 16379 internal cluster
-- **Outbound**: None (completely blocked)
-- **Risk Level**: Low (highly restrictive)
-
-#### 6. VPC Endpoints Security Group
-- **Purpose**: Interface endpoints for AWS services
-- **Inbound**: HTTPS (443), HTTP (80) from VPC CIDR
-- **Outbound**: Managed by source (Backend SG)
-- **Risk Level**: Low (VPC-only)
-
-## Compliance & Audit
-
-### Compliance Standards Supported
-
-- **HIPAA** (Health Insurance Portability and Accountability Act)
-- **GDPR** (General Data Protection Regulation)
-- **SOC2** (Service Organization Control)
-- **PCI-DSS** (Payment Card Industry Data Security Standard)
-
-### Regular Audit Schedule
-
-```
-Daily     - Automated validation script
-Weekly    - VPC Flow Logs analysis
-Monthly   - Full security group review
-Quarterly - Compliance audit
-Annually  - Third-party penetration test
-```
-
-### Running Audits
-
-```bash
-# Daily automated check
-0 2 * * * /path/to/security-groups-audit.py --environment production --format json -o /var/log/sg-audit.json
-
-# Weekly detailed review
-0 3 * * 0 /path/to/security-groups-audit.py --environment production --format json -o /var/log/sg-weekly.json
-```
-
-## Change Management
-
-### Change Request Process
-
-1. **Request**: Use change request template in SECURITY_GROUPS_REFERENCE.md
-2. **Review**: Security team evaluates risk
-3. **Testing**: Validate in staging environment
-4. **Approval**: Required approvers sign off
-5. **Deployment**: Apply changes via Terraform
-6. **Documentation**: Update reference and audit trail
-
-### Terraform Workflow
-
-```bash
-# Plan changes
-terraform plan -var-file=production.tfvars -out=tfplan
-
-# Review plan
-terraform show tfplan
-
-# Apply after approval
-terraform apply tfplan
-
-# Verify changes
-./security-groups-audit.py --environment production
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: Audit script fails with AWS credentials error
-```bash
-# Verify credentials
-aws sts get-caller-identity
-
-# Or use AWS profile
-export AWS_PROFILE=thebot-prod
-./security-groups-audit.py --environment production
-```
-
-**Issue**: Cannot detect security groups
-```bash
-# Verify VPC tags
-aws ec2 describe-vpcs --filters Name=tag:Environment,Values=production
-
-# Check for required tags on security groups
-aws ec2 describe-security-groups --filters Name=vpc-id,Values=vpc-xxxxx
-```
-
-**Issue**: Permissions denied
-```bash
-# Required IAM permissions
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeSecurityGroupRules",
-        "ec2:DescribeVpcs",
-        "ec2:DescribeNetworkInterfaces"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-## Integration Points
-
-### AWS Systems Manager
-
-Use Session Manager to access instances without public SSH:
-
-```bash
-# List available instances
-aws ssm describe-instance-information --filters "Key=tag:Environment,Values=production"
-
-# Start session
-aws ssm start-session --target i-xxxxxxxxx
-
-# From instance: test connectivity
-nc -zv 10.0.21.10 5432  # Database
-redis-cli -h 10.0.21.15 -p 6379 PING  # Redis
-```
-
-### CloudWatch Integration
-
-Monitor security group changes:
-
-```bash
-# Query CloudTrail for SG changes
-aws cloudtrail lookup-events \
-  --lookup-attributes AttributeKey=ResourceName,AttributeValue=thebot-backend-sg \
-  --query 'Events[].{Time:EventTime,Name:EventName,Principal:Username}'
-```
-
-### VPC Flow Logs
-
-Analyze network traffic:
-
-```bash
-# Query rejected traffic
-aws logs filter-log-events \
-  --log-group-name /aws/vpc/flowlogs/thebot \
-  --filter-pattern "REJECT" \
-  --query 'events[].message' \
-  --output text
-```
-
-## Best Practices
-
-### Rule Naming
-
-All rules must use consistent naming:
-
-```
-[direction]_[service]_[port_or_purpose]
-
-Examples:
-- inbound_alb_8000
-- outbound_database_5432
-- inbound_bastion_ssh
-- internal_redis_cluster
-```
+### Configuration Files
+- `firewall-rules.json` - Comprehensive firewall rules documentation
+- `lambda_network_audit.py` - Python code for automated network audit
 
 ### Documentation
+- `../docs/NETWORK_SECURITY.md` - Complete security architecture (2000+ lines)
+- `../docs/NETWORK_SECURITY_AUDIT_CHECKLIST.md` - Monthly audit checklist
 
-Every rule must include:
-- Clear description (50 chars max)
-- Business justification
-- Review date
-- Approval signature
+## Quick Start
+
+```bash
+cd infrastructure/security
+terraform init
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars
+```
+
+## Key Features
+
+### AWS WAF (7 Layers)
+1. Rate limiting (2000 req/IP/5min)
+2. OWASP Top 10 protection
+3. Known bad inputs detection
+4. SQL injection prevention
+5. IP reputation filtering
+6. Geo-blocking (optional)
+7. Custom pattern matching
+
+### Network Segmentation
+- Public tier (ALB, NAT)
+- Application tier (ECS)
+- Database tier (RDS - most restrictive)
+
+### DDoS Protection
+- AWS Shield Standard (automatic)
+- AWS Shield Advanced (optional, $3K/month)
+- SYN/UDP flood detection
+- Rate limiting enforcement
 
 ### Monitoring
+- VPC Flow Logs (all traffic, 30-day retention)
+- CloudWatch Alarms (rejected packets, WAF blocks, NAT errors)
+- GuardDuty (ML-based threat detection)
+- Daily automated audit via Lambda
 
-Set up alerts for:
-- Failed connection attempts (VPC Flow Logs)
-- Unauthorized access attempts (CloudWatch)
-- Security group modifications (CloudTrail)
-- NAT Gateway errors (CloudWatch metrics)
+## Compliance
 
-## Support & References
+- PCI-DSS v3.2.1: Network segmentation, firewall, IDS/IPS
+- HIPAA: Encryption, access controls
+- SOC2: Audit logging, change management
+- ISO 27001: Network monitoring, incident response
 
-### Documentation
+## Monthly Cost
 
-- [Security Groups Reference](../../docs/SECURITY_GROUPS_REFERENCE.md) - Complete reference
-- [Network Architecture](../../docs/NETWORK_ARCHITECTURE.md) - VPC design
-- [Security Guide](../../docs/SECURITY.md) - Overall security architecture
+| Component | Cost |
+|-----------|------|
+| WAF | $7.60 |
+| Flow Logs | $2.50 |
+| GuardDuty | $3.00 |
+| CloudWatch | $0.10 |
+| **Total (Basic)** | **$13.20** |
+| Shield Advanced (optional) | $3,000.00 |
 
-### AWS Resources
+## Documentation
 
-- [VPC Security Groups](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html)
-- [Security Group Rules](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html)
-- [VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html)
+- Complete reference: `docs/NETWORK_SECURITY.md`
+- Architecture: `docs/NETWORK_ARCHITECTURE.md`
+- Monthly audit: `docs/NETWORK_SECURITY_AUDIT_CHECKLIST.md`
+- Firewall rules: `infrastructure/security/firewall-rules.json`
 
-### Compliance Resources
+## Support
 
-- [HIPAA on AWS](https://aws.amazon.com/compliance/hipaa/)
-- [GDPR on AWS](https://aws.amazon.com/compliance/gdpr-center/)
-- [SOC2 on AWS](https://aws.amazon.com/compliance/soc/)
-- [PCI DSS on AWS](https://aws.amazon.com/compliance/pci-dss/)
+**For Issues**: See `docs/NETWORK_SECURITY.md` section 15 (Troubleshooting)
+**Escalation**: #security-alerts Slack channel
 
-## Version History
+---
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2025-12-27 | Initial release |
-
-## License
-
-Part of THE_BOT Platform - All rights reserved
-
-## Contact
-
-For questions or issues:
-1. Check documentation in `SECURITY_GROUPS_REFERENCE.md`
-2. Review troubleshooting guide
-3. Contact DevOps team
-4. Open GitHub issue (internal)
+Last Updated: December 27, 2025
+Maintained By: DevOps/Security Team

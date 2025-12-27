@@ -21,7 +21,8 @@ class AssignmentListSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'author', 'author_name', 'type',
             'status', 'max_score', 'time_limit', 'attempts_limit',
             'assigned_count', 'submissions_count', 'start_date', 'due_date',
-            'difficulty_level', 'tags', 'created_at', 'is_overdue', 'submission'
+            'difficulty_level', 'tags', 'created_at', 'is_overdue', 'submission',
+            'publish_at', 'close_at'
         )
     
     def get_assigned_count(self, obj):
@@ -64,7 +65,7 @@ class AssignmentDetailSerializer(serializers.ModelSerializer):
             'type', 'status', 'max_score', 'time_limit', 'attempts_limit',
             'assigned_to', 'assigned_to_names', 'start_date', 'due_date',
             'tags', 'difficulty_level', 'created_at', 'updated_at',
-            'questions', 'submissions', 'is_overdue'
+            'questions', 'submissions', 'is_overdue', 'publish_at', 'close_at'
         )
     
     def get_assigned_to_names(self, obj):
@@ -89,15 +90,27 @@ class AssignmentDetailSerializer(serializers.ModelSerializer):
 class AssignmentCreateSerializer(serializers.ModelSerializer):
     """
     Сериализатор для создания задания
+    T_ASSIGN_006: Added publish_at and close_at fields for scheduling
     """
     class Meta:
         model = Assignment
         fields = (
             'title', 'description', 'instructions', 'type', 'status',
             'max_score', 'time_limit', 'attempts_limit', 'assigned_to',
-            'start_date', 'due_date', 'tags', 'difficulty_level'
+            'start_date', 'due_date', 'tags', 'difficulty_level',
+            'publish_at', 'close_at'
         )
-    
+
+    def validate(self, data):
+        """T_ASSIGN_006: Validate scheduling dates"""
+        # Validate that close_at is after publish_at if both are provided
+        if data.get('publish_at') and data.get('close_at'):
+            if data['close_at'] <= data['publish_at']:
+                raise serializers.ValidationError(
+                    {'close_at': 'close_at must be after publish_at'}
+                )
+        return data
+
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user
         return super().create(validated_data)

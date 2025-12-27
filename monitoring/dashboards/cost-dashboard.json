@@ -1,0 +1,440 @@
+{
+  "dashboard": {
+    "title": "Cloud Cost Monitoring Dashboard",
+    "description": "Real-time cost monitoring, budget tracking, and optimization recommendations",
+    "tags": ["cost", "optimization", "billing", "aws"],
+    "timezone": "UTC",
+    "refresh_interval": "3600s",
+    "panels": [
+      {
+        "title": "Total Monthly Cost",
+        "type": "stat",
+        "position": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "metric": "EstimatedCharges",
+            "namespace": "AWS/Billing",
+            "dimensions": {
+              "Currency": "USD"
+            },
+            "stat": "Maximum",
+            "period": "2592000"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "textMode": "auto",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 4000
+              },
+              {
+                "color": "red",
+                "value": 5000
+              }
+            ]
+          }
+        }
+      },
+      {
+        "title": "Monthly Budget vs Actual",
+        "type": "stat",
+        "position": {"x": 6, "y": 0, "w": 6, "h": 4},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "id": "budget",
+            "expression": "5000",
+            "label": "Monthly Budget"
+          },
+          {
+            "id": "actual",
+            "metric": "EstimatedCharges",
+            "namespace": "AWS/Billing",
+            "dimensions": {
+              "Currency": "USD"
+            },
+            "stat": "Maximum",
+            "period": "2592000",
+            "label": "Actual Spend"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "orientation": "auto",
+          "textMode": "value_and_percent"
+        }
+      },
+      {
+        "title": "Cost by Service (Last 30 Days)",
+        "type": "piechart",
+        "position": {"x": 0, "y": 4, "w": 8, "h": 8},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "metric": "UnblendedCost",
+            "namespace": "AWS/CostExplorer",
+            "dimensions": {
+              "Service": ["EC2", "RDS", "S3", "CloudFront", "Lambda"]
+            },
+            "stat": "Sum",
+            "period": "2592000"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "showLegend": true
+          },
+          "pieType": "donut",
+          "tooltip": {
+            "mode": "single",
+            "sort": "desc"
+          }
+        }
+      },
+      {
+        "title": "Cost Trend (Last 12 Months)",
+        "type": "timeseries",
+        "position": {"x": 8, "y": 4, "w": 12, "h": 8},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "id": "costs",
+            "metric": "UnblendedCost",
+            "namespace": "AWS/CostExplorer",
+            "stat": "Sum",
+            "period": "2592000",
+            "label": "Monthly Cost"
+          },
+          {
+            "id": "budget_line",
+            "expression": "5000",
+            "label": "Budget Threshold"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "right"
+          },
+          "tooltip": {
+            "mode": "multi"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "lineWidth": 2
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Budget Threshold"
+              },
+              "properties": [
+                {
+                  "id": "custom.lineStyle",
+                  "value": {
+                    "dash": [10, 10]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "title": "Cost Anomalies Detected",
+        "type": "table",
+        "position": {"x": 0, "y": 12, "w": 10, "h": 6},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "metric": "CostAnomaly",
+            "namespace": "AWS/CostExplorer",
+            "stat": "Sum",
+            "period": "86400"
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": []
+        },
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "Service": "Service",
+                "ExpectedCost": "Expected ($)",
+                "ActualCost": "Actual ($)",
+                "DeviationPercent": "Deviation (%)",
+                "Severity": "Severity"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "title": "Budget Status by Service",
+        "type": "gauge",
+        "position": {"x": 10, "y": 12, "w": 5, "h": 6},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "metric": "BudgetUtilization",
+            "namespace": "AWS/Budgets",
+            "stat": "Average",
+            "period": "3600"
+          }
+        ],
+        "options": {
+          "orientation": "auto",
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true,
+          "text": {}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "max": 100,
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 80
+                },
+                {
+                  "color": "red",
+                  "value": 100
+                }
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "title": "Cost by Environment",
+        "type": "barchart",
+        "position": {"x": 15, "y": 12, "w": 5, "h": 6},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "metric": "UnblendedCost",
+            "namespace": "AWS/CostExplorer",
+            "dimensions": {
+              "Environment": ["development", "staging", "production"]
+            },
+            "stat": "Sum",
+            "period": "2592000"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "orientation": "auto"
+        }
+      },
+      {
+        "title": "Unused Resources Alert",
+        "type": "text",
+        "position": {"x": 0, "y": 18, "w": 20, "h": 3},
+        "content": "## Optimization Opportunities\n\n### Quick Wins\n1. **Unattached EBS Volumes**: 5 volumes identified, ~$50/month savings\n2. **Unused Elastic IPs**: 3 IPs identified, ~$12/month savings\n3. **Development Resources Running 24/7**: Enable scheduled shutdown for 50% cost reduction\n\n### Medium-term Actions\n1. **Reserved Instances**: Potential $1,200/month savings (24% reduction)\n2. **Spot Instances**: Suitable for non-critical workloads, up to 70% savings\n3. **Database Optimization**: Right-size underutilized RDS instances, 20% potential savings\n\n### Total Optimization Potential: $1,800-2,500/month (~40% reduction)"
+      },
+      {
+        "title": "Cost Forecast (30 Days)",
+        "type": "gauge",
+        "position": {"x": 0, "y": 21, "w": 5, "h": 4},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "metric": "CostForecast",
+            "namespace": "AWS/CostExplorer",
+            "stat": "Average",
+            "period": "86400"
+          }
+        ],
+        "options": {
+          "orientation": "auto",
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "title": "Top 5 Cost Drivers",
+        "type": "table",
+        "position": {"x": 5, "y": 21, "w": 15, "h": 4},
+        "datasource": "CloudWatch",
+        "targets": [
+          {
+            "id": "top_services",
+            "metric": "UnblendedCost",
+            "namespace": "AWS/CostExplorer",
+            "stat": "Sum",
+            "period": "2592000"
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [
+            {
+              "displayName": "Cost",
+              "desc": true
+            }
+          ]
+        },
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "renameByName": {
+                "Service": "Service",
+                "Cost": "Monthly Cost ($)",
+                "Percentage": "% of Total"
+              }
+            }
+          },
+          {
+            "id": "limit",
+            "options": {
+              "limitFields": 5
+            }
+          }
+        ]
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "datasource": "CloudWatch",
+          "enable": true,
+          "hide": false,
+          "iconColor": "red",
+          "name": "Budget Alerts",
+          "tagKeys": "alert,budget",
+          "textFormat": "Budget reached"
+        },
+        {
+          "datasource": "CloudWatch",
+          "enable": true,
+          "hide": false,
+          "iconColor": "orange",
+          "name": "Cost Anomalies",
+          "tagKeys": "anomaly",
+          "textFormat": "Cost anomaly detected"
+        }
+      ]
+    },
+    "refresh": "1h",
+    "schemaVersion": 38,
+    "style": "dark",
+    "templating": {
+      "list": [
+        {
+          "datasource": "CloudWatch",
+          "definition": "fields aws_account_id",
+          "description": null,
+          "hide": 2,
+          "includeAll": false,
+          "label": "Account ID",
+          "multi": false,
+          "name": "account_id",
+          "options": [],
+          "query": {
+            "namespace": "AWS/Billing",
+            "metricName": "EstimatedCharges"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "tagValuesQuery": "",
+          "tagsQuery": "",
+          "type": "query",
+          "useTags": false
+        },
+        {
+          "datasource": "CloudWatch",
+          "definition": "fields aws_region",
+          "description": null,
+          "hide": 2,
+          "includeAll": true,
+          "label": "Region",
+          "multi": true,
+          "name": "region",
+          "options": [],
+          "query": {
+            "namespace": "AWS/CostExplorer",
+            "metricName": "UnblendedCost"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "tagValuesQuery": "",
+          "tagsQuery": "",
+          "type": "query",
+          "useTags": false
+        },
+        {
+          "datasource": "CloudWatch",
+          "definition": "fields aws_service",
+          "description": null,
+          "hide": 0,
+          "includeAll": true,
+          "label": "Service",
+          "multi": true,
+          "name": "service",
+          "options": [],
+          "query": {
+            "namespace": "AWS/CostExplorer",
+            "metricName": "UnblendedCost"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "tagValuesQuery": "",
+          "tagsQuery": "",
+          "type": "query",
+          "useTags": false
+        }
+      ]
+    },
+    "time": {
+      "from": "now-30d",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "uid": "cost-monitoring-dashboard",
+    "version": 1
+  }
+}

@@ -22,10 +22,17 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Начинаем с true, чтобы дождаться инициализации
+  const [isInitializing, setIsInitializing] = useState(true); // ✅ FIX (T005): Initialization lock
 
   useEffect(() => {
     // Инициализация состояния аутентификации с задержкой для улучшения LCP
     const initializeAuth = async () => {
+      // ✅ FIX (T005): Skip if already initialized (prevents double initialization)
+      if (!isInitializing) {
+        logger.debug('[AuthContext] Already initialized, skipping');
+        return;
+      }
+
       const contextInitStart = Date.now();
 
       // Небольшая задержка для улучшения LCP
@@ -77,36 +84,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         logger.error('[AuthContext] Initialization error:', error);
         setUser(null);
       } finally {
+        // ✅ FIX (T005): Single source of truth for loading state
         setIsLoading(false);
-        logger.debug('[AuthContext] isLoading set to false');
+        setIsInitializing(false); // Mark initialization as complete
+        logger.debug('[AuthContext] Initialization complete, isLoading=false');
       }
     };
 
     initializeAuth();
 
-    // Дополнительная проверка через короткую задержку — покрывает кейс, когда тесты
-    // устанавливают localStorage уже после первого рендера страницы
+    // ✅ FIX (T005): Simplified delayed check - NO setIsLoading calls
+    // Покрывает кейс, когда тесты устанавливают localStorage уже после первого рендера
     const delayedCheck = setTimeout(() => {
+      // Skip if still initializing
+      if (isInitializing) {
+        logger.debug('[AuthContext] Delayed check skipped: still initializing');
+        return;
+      }
+
       try {
         const currentUser = authService.getCurrentUser();
         if (authService.isAuthenticated() && currentUser) {
           logger.debug('[AuthContext] Delayed check: user found, updating state');
           setUser(currentUser);
-          setIsLoading(false);
+          // ✅ FIX (T005): Removed setIsLoading(false) - already handled in initializeAuth
         }
       } catch (error) {
         logger.error('[AuthContext] Delayed check error:', error);
       }
     }, 150);
 
+    // ✅ FIX (T005): Storage event respects initialization state
     // Реакция на изменения localStorage (например, из Playwright или другая вкладка)
     const onStorage = () => {
+      // Skip during initialization to prevent race conditions
+      if (isInitializing) {
+        logger.debug('[AuthContext] Storage event ignored: still initializing');
+        return;
+      }
+
       try {
         const currentUser = authService.getCurrentUser();
         if (authService.isAuthenticated() && currentUser) {
           logger.debug('[AuthContext] Storage event: user found, updating state');
           setUser(currentUser);
-          setIsLoading(false);
+          // ✅ FIX (T005): Removed setIsLoading(false) - only updated in specific callbacks
         }
       } catch (error) {
         logger.error('[AuthContext] Storage event error:', error);
@@ -114,15 +136,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
     window.addEventListener('storage', onStorage);
 
+    // ✅ FIX (T005): Auth state change callback is the ONLY place that sets isLoading=false
+    // after initialization (besides initializeAuth finally block)
     // Подписываемся на изменения состояния аутентификации
     const unsubscribe = authService.onAuthStateChange((newUser) => {
       logger.debug('[AuthContext] Auth state changed:', {
         hasUser: !!newUser,
         userId: newUser?.id,
-        role: newUser?.role
+        role: newUser?.role,
+        isInitializing
       });
       setUser(newUser);
-      setIsLoading(false);
+      // Only update loading if we're past initialization
+      if (!isInitializing) {
+        setIsLoading(false);
+      }
     });
 
     return () => {
@@ -130,7 +158,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       window.removeEventListener('storage', onStorage);
       clearTimeout(delayedCheck);
     };
-  }, []);
+  }, []); // ✅ Empty deps - only run once on mount
 
   const login = useCallback(async (credentials: LoginRequest): Promise<AuthResult> => {
     setIsLoading(true);

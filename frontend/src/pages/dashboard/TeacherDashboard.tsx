@@ -361,9 +361,6 @@ const TeacherDashboard = () => {
                               <div className="flex-1">
                                 <div className="flex items-center justify-between mb-1">
                                   <div className="font-medium">{assignment.student_name}</div>
-                                  <Badge variant="outline" className="text-xs">
-                                    {assignment.student_grade || ''}
-                                  </Badge>
                                 </div>
                                 <div className="text-sm text-muted-foreground mb-2">{assignment.material_title}</div>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -423,7 +420,7 @@ const TeacherDashboard = () => {
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>{material.assigned_count} учеников</span>
                               <span>•</span>
-                              <span>{material.subject?.name}</span>
+                              <span>{material.subject?.name || 'Без предмета'}</span>
                               <span>•</span>
                               <span>{new Date(material.created_at).toLocaleDateString('ru-RU')}</span>
                             </div>
@@ -471,13 +468,15 @@ const TeacherDashboard = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
                                 <div className="font-medium">{student.name}</div>
-                                <Badge variant="outline" className="text-xs">
-                                  {student.profile?.grade} класс
-                                </Badge>
+                                {student.profile?.grade && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {student.profile.grade} класс
+                                  </Badge>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                                 <TrendingUp className="w-3 h-3" />
-                                Прогресс: {student.profile?.progress_percentage}%
+                                Прогресс: {student.profile?.progress_percentage ?? 0}%
                               </div>
                               {student.subjects && student.subjects.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">

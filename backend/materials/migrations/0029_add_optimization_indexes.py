@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('materials', '0028_add_submission_file_checksum'),
+        ('materials', '0027_add_material_download_log_model'),
     ]
 
     operations = [
@@ -21,13 +21,13 @@ class Migration(migrations.Migration):
             ),
         ),
 
-        # Index on created_by for author's materials
-        # Used for: Material.objects.filter(created_by=user)
+        # Index on author for author's materials
+        # Used for: Material.objects.filter(author=user)
         migrations.AddIndex(
             model_name='material',
             index=models.Index(
-                fields=['created_by_id'],
-                name='material_created_by_idx',
+                fields=['author_id'],
+                name='material_author_idx',
             ),
         ),
 
@@ -101,13 +101,13 @@ class Migration(migrations.Migration):
             ),
         ),
 
-        # Index on created_at for submission ordering
-        # Used for: MaterialSubmission.objects.order_by('-created_at')
+        # Index on submitted_at for submission ordering
+        # Used for: MaterialSubmission.objects.order_by('-submitted_at')
         migrations.AddIndex(
             model_name='materialsubmission',
             index=models.Index(
-                fields=['-created_at'],
-                name='material_submission_created_at_idx',
+                fields=['-submitted_at'],
+                name='material_submission_submitted_at_idx',
             ),
         ),
 
@@ -141,13 +141,13 @@ class Migration(migrations.Migration):
             ),
         ),
 
-        # Index on download date for analytics
-        # Used for: MaterialDownloadLog.objects.filter(downloaded_at__gte=date)
+        # Index on timestamp for analytics
+        # Used for: MaterialDownloadLog.objects.filter(timestamp__gte=date)
         migrations.AddIndex(
             model_name='materialdownloadlog',
             index=models.Index(
-                fields=['-downloaded_at'],
-                name='download_log_downloaded_at_idx',
+                fields=['-timestamp'],
+                name='download_log_timestamp_idx',
             ),
         ),
 

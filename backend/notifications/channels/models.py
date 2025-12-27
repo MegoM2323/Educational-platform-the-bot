@@ -72,6 +72,7 @@ class DeviceToken(models.Model):
     )
 
     class Meta:
+        app_label = 'notifications'
         verbose_name = 'Device Token'
         verbose_name_plural = 'Device Tokens'
         ordering = ['-last_used_at', '-created_at']
@@ -144,6 +145,7 @@ class UserPhoneNumber(models.Model):
     )
 
     class Meta:
+        app_label = 'notifications'
         verbose_name = 'User Phone Number'
         verbose_name_plural = 'User Phone Numbers'
 

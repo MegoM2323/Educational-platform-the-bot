@@ -11,6 +11,7 @@ import logging
 
 from .parent_dashboard_service import ParentDashboardService
 from .serializers import ParentDashboardSerializer, ChildSubjectsSerializer, PaymentInitiationSerializer
+from .models import SubjectSubscription
 from accounts.staff_views import CSRFExemptSessionAuthentication
 from accounts.serializers import get_profile_serializer
 
@@ -141,10 +142,10 @@ class ParentChildrenView(generics.ListAPIView):
                     if subscription:
                         subscription_status = subscription.status
                         # Если подписка отменена, returns expires_at (когда доступ заканчивается)
-                        if subscription.status == 'cancelled':
+                        if subscription.status == SubjectSubscription.Status.CANCELLED:
                             expires_at = subscription.expires_at.isoformat() if subscription.expires_at else None
                         # Если подписка активна, returns next_payment_date как дата следующего платежа
-                        elif subscription.status == 'active':
+                        elif subscription.status == SubjectSubscription.Status.ACTIVE:
                             expires_at = subscription.next_payment_date.isoformat() if subscription.next_payment_date else None
 
                     subjects.append({

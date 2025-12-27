@@ -89,8 +89,16 @@ class ProfileService:
         return True
 
     @staticmethod
-    def handle_avatar_upload(profile: Any, file) -> str:
-        """Обработать загрузку аватара - resize, optimize и сохранить."""
+    def handle_avatar_upload(profile: User, file) -> str:
+        """Обработать загрузку аватара - resize, optimize и сохранить.
+
+        Args:
+            profile: User объект (передается из view как request.user)
+            file: Загруженный файл изображения
+
+        Returns:
+            URL сохраненного аватара
+        """
         try:
             ProfileService.validate_avatar(file)
             image = Image.open(file)
@@ -113,10 +121,13 @@ class ProfileService:
             square_image.save(output, format='JPEG', quality=85, optimize=True)
             output.seek(0)
 
-            filename = f"avatars/{profile.id}_avatar.jpg"
-            # ContentFile создается для сохранения файла в storage
-            ContentFile(output.getvalue(), name=filename)
-            return filename
+            filename = f"{profile.id}_avatar.jpg"
+            avatar_file = ContentFile(output.getvalue(), name=filename)
+
+            # Сохраняем файл в storage через ImageField
+            profile.avatar.save(filename, avatar_file, save=True)
+
+            return profile.avatar.url
 
         except ValidationError:
             raise

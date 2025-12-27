@@ -14,7 +14,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Build metrics storage
-const METRICS_FILE = path.join(process.cwd(), 'frontend', '.build-metrics.json');
+// Support both local (frontend/) and Docker (/build/) environments
+const FRONTEND_DIR = fs.existsSync(path.join(process.cwd(), 'frontend'))
+  ? path.join(process.cwd(), 'frontend')
+  : process.cwd();
+const METRICS_FILE = path.join(FRONTEND_DIR, '.build-metrics.json');
 const BUILD_THRESHOLDS = {
   maxBuildTime: 15000, // 15 seconds in milliseconds
   maxBundleSize: 250000, // 250 KB in bytes
@@ -26,7 +30,7 @@ const BUILD_THRESHOLDS = {
  */
 function parseBuildOutput() {
   try {
-    const distDir = path.join(process.cwd(), 'frontend', 'dist');
+    const distDir = path.join(FRONTEND_DIR, 'dist');
 
     // Check if dist directory exists
     if (!fs.existsSync(distDir)) {

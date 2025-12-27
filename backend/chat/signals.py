@@ -4,19 +4,23 @@ Signal handlers for chat system.
 Includes:
 - Auto-creation of forum chats when SubjectEnrollment is created
 - Pachca notifications for new forum messages
+- Auto-add new users to general chat
 """
 
 import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from materials.models import SubjectEnrollment
 from accounts.models import StudentProfile
-from .models import ChatRoom, Message
+from .models import ChatRoom, Message, ChatParticipant
 from .services.pachca_service import PachcaService
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 @receiver(post_save, sender=SubjectEnrollment)
@@ -74,8 +78,19 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                 created_by=instance.student,
                 description=f"Forum for {subject_name} between {student_name} and {teacher_name}"
             )
-            # Add student and teacher as participants
+            # Add student and teacher as participants (M2M)
             forum_chat.participants.add(instance.student, instance.teacher)
+
+            # Create ChatParticipant records for unread_count tracking and WebSocket access
+            ChatParticipant.objects.get_or_create(
+                room=forum_chat,
+                user=instance.student
+            )
+            ChatParticipant.objects.get_or_create(
+                room=forum_chat,
+                user=instance.teacher
+            )
+
             logger.info(
                 f"Created forum_subject chat '{forum_chat.name}' for enrollment {instance.id}"
             )
@@ -103,8 +118,19 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                     created_by=instance.student,
                     description=f"Forum for {subject_name} between {student_name} and {tutor_name}"
                 )
-                # Add student and tutor as participants
+                # Add student and tutor as participants (M2M)
                 tutor_chat.participants.add(instance.student, student_profile.tutor)
+
+                # Create ChatParticipant records for unread_count tracking and WebSocket access
+                ChatParticipant.objects.get_or_create(
+                    room=tutor_chat,
+                    user=instance.student
+                )
+                ChatParticipant.objects.get_or_create(
+                    room=tutor_chat,
+                    user=student_profile.tutor
+                )
+
                 logger.info(
                     f"Created forum_tutor chat '{tutor_chat.name}' for enrollment {instance.id}"
                 )
@@ -185,3 +211,86 @@ def send_forum_notification(sender, instance: Message, created: bool, **kwargs) 
             }
         )
         # Don't raise - log error but let message creation succeed
+
+
+@receiver(post_save, sender=User)
+def add_user_to_general_chat(sender, instance: User, created: bool, **kwargs) -> None:
+    """
+    Automatically add newly created users to the general chat.
+
+    When a new user is created with an eligible role (STUDENT, TEACHER, TUTOR, PARENT),
+    they are automatically added as a participant to the general chat if it exists.
+
+    This signal is idempotent - it uses get_or_create for ChatParticipant.
+
+    Args:
+        sender: User model class
+        instance: The User instance being saved
+        created: Boolean indicating if instance was just created
+        **kwargs: Additional keyword arguments from signal
+    """
+    import os
+
+    # Skip in test mode to prevent fixture conflicts
+    if os.getenv('ENVIRONMENT', 'production').lower() == 'test':
+        return
+
+    if not created:
+        return
+
+    # Only add users with eligible roles
+    eligible_roles = [User.Role.STUDENT, User.Role.TEACHER, User.Role.TUTOR, User.Role.PARENT]
+    if instance.role not in eligible_roles:
+        return
+
+    try:
+        # Find existing general chat (don't create one if it doesn't exist)
+        general_chat = ChatRoom.objects.filter(type=ChatRoom.Type.GENERAL).first()
+
+        if not general_chat:
+            logger.debug(
+                f"[Signal] General chat not found, skipping auto-add for user_id={instance.id}"
+            )
+            return
+
+        # Add user to participants (M2M relation)
+        if not general_chat.participants.filter(id=instance.id).exists():
+            general_chat.participants.add(instance)
+
+        # Create ChatParticipant record with proper metadata
+        participant, participant_created = ChatParticipant.objects.get_or_create(
+            room=general_chat,
+            user=instance,
+            defaults={
+                'is_admin': instance.role == User.Role.TEACHER,
+                'joined_at': timezone.now()
+            }
+        )
+
+        if participant_created:
+            logger.info(
+                f"[Signal] User {instance.id} ({instance.email}) auto-added to general chat",
+                extra={
+                    'user_id': instance.id,
+                    'email': instance.email,
+                    'role': instance.role,
+                    'chat_room_id': general_chat.id
+                }
+            )
+        else:
+            logger.debug(
+                f"[Signal] User {instance.id} already in general chat, skipping"
+            )
+
+    except Exception as e:
+        # Don't break user creation if this fails
+        logger.error(
+            f"[Signal] Error adding user {instance.id} to general chat: {str(e)}",
+            exc_info=True,
+            extra={
+                'user_id': instance.id,
+                'error_type': type(e).__name__,
+                'error': str(e)
+            }
+        )
+        # Don't raise - allow user creation to succeed

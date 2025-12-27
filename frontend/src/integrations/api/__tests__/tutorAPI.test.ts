@@ -48,7 +48,7 @@ describe('tutorAPI', () => {
 
       const result = await tutorAPI.listStudents();
 
-      expect(unifiedAPI.request).toHaveBeenCalledWith('/tutor/students/');
+      expect(unifiedAPI.request).toHaveBeenCalledWith('/tutor/my-students/');
       expect(result).toHaveLength(2);
       expect(result[0].full_name).toBe('Alice Smith');
       expect(result[1].grade).toBe('9B');
@@ -163,7 +163,7 @@ describe('tutorAPI', () => {
       const result = await tutorAPI.createStudent(requestData);
 
       expect(unifiedAPI.request).toHaveBeenCalledWith(
-        '/tutor/students/',
+        '/tutor/my-students/',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(requestData)

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { forumAPI, ForumMessage, SendForumMessageRequest } from '../integrations/api/forumAPI';
+import { forumAPI, ForumMessage, SendForumMessageRequest, EditMessageRequest } from '../integrations/api/forumAPI';
 import { toast } from 'sonner';
 
 export const useForumMessages = (chatId: number | null, limit: number = 50, offset: number = 0) => {
@@ -69,4 +69,53 @@ export const usePaginatedForumMessages = (chatId: number | null) => {
     loadMore: () => setOffset((prev: number) => prev + limit),
     loadBefore: () => setOffset((prev: number) => Math.max(0, prev - limit)),
   };
+};
+
+export const useEditForumMessage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ messageId, data }: { messageId: number; data: EditMessageRequest }) =>
+      forumAPI.editForumMessage(messageId, data),
+    onSuccess: (updatedMessage, variables) => {
+      // Update the message in all cached queries
+      queryClient.setQueriesData<ForumMessage[]>(
+        { queryKey: ['forum-messages'] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return oldData.map((msg) =>
+            msg.id === updatedMessage.id ? updatedMessage : msg
+          );
+        }
+      );
+
+      toast.success('Сообщение отредактировано');
+    },
+    onError: (error: Error) => {
+      toast.error(`Ошибка редактирования: ${error.message}`);
+    },
+  });
+};
+
+export const useDeleteForumMessage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (messageId: number) => forumAPI.deleteForumMessage(messageId),
+    onSuccess: (_, messageId) => {
+      // Remove the message from all cached queries
+      queryClient.setQueriesData<ForumMessage[]>(
+        { queryKey: ['forum-messages'] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return oldData.filter((msg) => msg.id !== messageId);
+        }
+      );
+
+      toast.success('Сообщение удалено');
+    },
+    onError: (error: Error) => {
+      toast.error(`Ошибка удаления: ${error.message}`);
+    },
+  });
 };

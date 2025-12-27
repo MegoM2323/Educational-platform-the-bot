@@ -21,7 +21,10 @@ export const teacherAPI = {
   getPendingSubmissions: async (): Promise<PendingSubmission[]> => {
     const resp = await unifiedAPI.request<{pending: PendingSubmission[]}>('/materials/teacher/submissions/pending/');
     if (resp.error) throw new Error(resp.error);
-    return resp.data!.pending;
+    if (!resp.data) {
+      throw new Error('No data received from server');
+    }
+    return resp.data.pending ?? [];
   },
   provideFeedback: async (submissionId: number, data: ProvideFeedbackRequest): Promise<void> => {
     const resp = await unifiedAPI.request(`/materials/teacher/submissions/${submissionId}/feedback/`, {
@@ -40,18 +43,46 @@ export const teacherAPI = {
   getSubjects: async (): Promise<any[]> => {
     const resp = await unifiedAPI.request<{subjects: any[]}>('/materials/teacher/subjects/');
     if (resp.error) throw new Error(resp.error);
-    return resp.data!.subjects;
+    if (!resp.data) {
+      throw new Error('No data received from server');
+    }
+    return resp.data.subjects ?? [];
   },
   getAllStudents: async (): Promise<any[]> => {
     const resp = await unifiedAPI.request<{students: any[]}>('/materials/teacher/all-students/');
     if (resp.error) throw new Error(resp.error);
-    return resp.data!.students;
+    if (!resp.data) {
+      throw new Error('No data received from server');
+    }
+    return resp.data.students ?? [];
   },
   assignSubjectToStudents: async (subjectId: number, studentIds: number[]): Promise<void> => {
-    const resp = await unifiedAPI.request('/materials/teacher/subjects/assign/', {
-      method: 'POST',
-      body: JSON.stringify({ subject_id: subjectId, student_ids: studentIds }),
-    });
-    if (resp.error) throw new Error(resp.error);
+    // TODO: Backend endpoint /materials/teacher/subjects/assign/ does not exist
+    // This functionality should use the enrollment endpoint: POST /api/subjects/{subject_id}/enroll/
+    // For bulk enrollment, need to iterate over studentIds or implement bulk enrollment endpoint
+    // See: backend/materials/enrollment_views.py - enroll_subject()
+
+    // Temporary implementation: enroll each student individually
+    const errors: string[] = [];
+    for (const studentId of studentIds) {
+      try {
+        const resp = await unifiedAPI.request(`/materials/subjects/${subjectId}/enroll/`, {
+          method: 'POST',
+          body: JSON.stringify({
+            student_id: studentId,
+            teacher_id: null // Will need to be provided by the caller
+          }),
+        });
+        if (resp.error) {
+          errors.push(`Student ${studentId}: ${resp.error}`);
+        }
+      } catch (error) {
+        errors.push(`Student ${studentId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Failed to assign some students:\n${errors.join('\n')}`);
+    }
   },
 };

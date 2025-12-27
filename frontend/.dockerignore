@@ -86,12 +86,13 @@ LICENSE
 CONTRIBUTING.md
 CHANGELOG.md
 
-# Build configuration
-vite.config.ts
-tsconfig.json
-tsconfig.app.json
-tailwind.config.js
-postcss.config.js
+# Build configuration (NOT ignored - needed for build)
+# vite.config.ts - REQUIRED
+# tsconfig.json - REQUIRED
+# tsconfig.app.json - REQUIRED
+# tsconfig.node.json - REQUIRED
+# tailwind.config.ts - REQUIRED
+# postcss.config.js - REQUIRED
 .editorconfig
 .prettierignore
 

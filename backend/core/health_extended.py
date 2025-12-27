@@ -29,7 +29,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
 
-from backend.core.health import health_checker
+from .health import health_checker
 
 logger = logging.getLogger(__name__)
 

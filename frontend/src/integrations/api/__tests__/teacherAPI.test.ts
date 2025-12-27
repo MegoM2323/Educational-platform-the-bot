@@ -253,7 +253,7 @@ describe('teacherAPI', () => {
   });
 
   describe('assignSubjectToStudents', () => {
-    it('should assign subject to multiple students', async () => {
+    it('should assign subject to multiple students using enrollment endpoint', async () => {
       vi.mocked(unifiedAPI.request).mockResolvedValue({
         success: true,
         data: {},
@@ -262,19 +262,41 @@ describe('teacherAPI', () => {
 
       await teacherAPI.assignSubjectToStudents(1, [5, 6, 7]);
 
+      // Should call enrollment endpoint for each student
+      expect(unifiedAPI.request).toHaveBeenCalledTimes(3);
       expect(unifiedAPI.request).toHaveBeenCalledWith(
-        '/materials/teacher/subjects/assign/',
+        '/materials/subjects/1/enroll/',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
-            subject_id: 1,
-            student_ids: [5, 6, 7]
+            student_id: 5,
+            teacher_id: null
+          })
+        })
+      );
+      expect(unifiedAPI.request).toHaveBeenCalledWith(
+        '/materials/subjects/1/enroll/',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            student_id: 6,
+            teacher_id: null
+          })
+        })
+      );
+      expect(unifiedAPI.request).toHaveBeenCalledWith(
+        '/materials/subjects/1/enroll/',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            student_id: 7,
+            teacher_id: null
           })
         })
       );
     });
 
-    it('should assign subject to single student', async () => {
+    it('should assign subject to single student using enrollment endpoint', async () => {
       vi.mocked(unifiedAPI.request).mockResolvedValue({
         success: true,
         data: {},
@@ -284,25 +306,46 @@ describe('teacherAPI', () => {
       await teacherAPI.assignSubjectToStudents(2, [10]);
 
       expect(unifiedAPI.request).toHaveBeenCalledWith(
-        '/materials/teacher/subjects/assign/',
+        '/materials/subjects/2/enroll/',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
-            subject_id: 2,
-            student_ids: [10]
+            student_id: 10,
+            teacher_id: null
           })
         })
       );
     });
 
-    it('should throw error on assignment failure', async () => {
+    it('should throw error when enrollment fails for any student', async () => {
       vi.mocked(unifiedAPI.request).mockResolvedValue({
         success: false,
         data: null,
         error: 'Assignment failed'
       });
 
-      await expect(teacherAPI.assignSubjectToStudents(1, [5])).rejects.toThrow('Assignment failed');
+      await expect(teacherAPI.assignSubjectToStudents(1, [5])).rejects.toThrow('Failed to assign some students');
+    });
+
+    it('should collect errors from multiple failed enrollments', async () => {
+      vi.mocked(unifiedAPI.request)
+        .mockResolvedValueOnce({
+          success: true,
+          data: {},
+          error: null
+        })
+        .mockResolvedValueOnce({
+          success: false,
+          data: null,
+          error: 'Student already enrolled'
+        })
+        .mockResolvedValueOnce({
+          success: false,
+          data: null,
+          error: 'Invalid teacher'
+        });
+
+      await expect(teacherAPI.assignSubjectToStudents(1, [5, 6, 7])).rejects.toThrow('Failed to assign some students');
     });
   });
 });

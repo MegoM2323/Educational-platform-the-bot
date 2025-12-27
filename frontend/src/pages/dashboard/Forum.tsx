@@ -74,6 +74,7 @@ interface ChatListProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   isLoading: boolean;
+  currentUserId: number;
 }
 
 interface ChatWindowProps {
@@ -89,26 +90,30 @@ interface ChatWindowProps {
   onEditMessage: (messageId: number, content: string) => void;
   onDeleteMessage: (messageId: number) => void;
   isEditingOrDeleting: boolean;
+  currentUserId: number;
+  currentUserRole: string;
 }
 
 const ChatListItem = ({
   chat,
   selected,
   onClick,
+  currentUserId,
 }: {
   chat: ForumChat;
   selected: boolean;
   onClick: () => void;
+  currentUserId: number;
 }) => {
   const initials =
     chat.participants
-      .filter((p) => p.id !== parseInt(localStorage.getItem('user_id') || '0'))
+      .filter((p) => p.id !== currentUserId)
       .map((p) => p.full_name.charAt(0))
       .join('')
       .toUpperCase() || 'C';
 
   const otherParticipants = chat.participants
-    .filter((p) => p.id !== parseInt(localStorage.getItem('user_id') || '0'))
+    .filter((p) => p.id !== currentUserId)
     .map((p) => p.full_name)
     .join(', ');
 
@@ -164,6 +169,7 @@ const ChatList = ({
   searchQuery,
   onSearchChange,
   isLoading,
+  currentUserId,
 }: ChatListProps) => {
   const filteredChats = useMemo(() => {
     if (!searchQuery) return chats;
@@ -213,6 +219,7 @@ const ChatList = ({
                 chat={chat}
                 selected={selectedChat?.id === chat.id}
                 onClick={() => onSelectChat(chat)}
+                currentUserId={currentUserId}
               />
             ))
           )}
@@ -235,6 +242,8 @@ const ChatWindow = ({
   onEditMessage,
   onDeleteMessage,
   isEditingOrDeleting,
+  currentUserId,
+  currentUserRole,
 }: ChatWindowProps) => {
   const [messageInput, setMessageInput] = useState('');
 
@@ -275,7 +284,7 @@ const ChatWindow = ({
   }
 
   const otherParticipants = chat.participants
-    .filter((p) => p.id !== parseInt(localStorage.getItem('user_id') || '0'))
+    .filter((p) => p.id !== currentUserId)
     .map((p) => p.full_name)
     .join(', ');
 
@@ -307,7 +316,7 @@ const ChatWindow = ({
         <Avatar className="w-10 h-10">
           <AvatarFallback className="gradient-primary text-primary-foreground">
             {chat.participants
-              .filter((p) => p.id !== parseInt(localStorage.getItem('user_id') || '0'))
+              .filter((p) => p.id !== currentUserId)
               .map((p) => p.full_name.charAt(0))
               .join('')
               .toUpperCase() || 'C'}
@@ -338,7 +347,7 @@ const ChatWindow = ({
             <div className="text-xs text-muted-foreground">
               {
                 chat.participants.filter(
-                  (p) => p.id !== parseInt(localStorage.getItem('user_id') || '0')
+                  (p) => p.id !== currentUserId
                 ).length
               }{' '}
               участник(и)
@@ -364,10 +373,8 @@ const ChatWindow = ({
           ) : (
             <>
               {messages.map((msg) => {
-                const isOwn = msg.sender.id === parseInt(localStorage.getItem('user_id') || '0');
-                const currentUserId = parseInt(localStorage.getItem('user_id') || '0');
-                const userRole = localStorage.getItem('user_role') || '';
-                const canModerate = ['teacher', 'tutor', 'admin'].includes(userRole);
+                const isOwn = msg.sender.id === currentUserId;
+                const canModerate = ['teacher', 'tutor', 'admin'].includes(currentUserRole);
 
                 return (
                   <div
@@ -1236,6 +1243,7 @@ export default function Forum() {
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
                   isLoading={isLoadingChats}
+                  currentUserId={user?.id || 0}
                 />
 
                 <ChatWindow
@@ -1253,6 +1261,8 @@ export default function Forum() {
                   isEditingOrDeleting={
                     editMessageMutation.isPending || deleteMessageMutation.isPending
                   }
+                  currentUserId={user?.id || 0}
+                  currentUserRole={user?.role || ''}
                 />
               </div>
             </div>

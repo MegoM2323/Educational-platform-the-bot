@@ -16,7 +16,15 @@ from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
-from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+# SQLAlchemy интеграция опциональна
+try:
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    HAS_SQLALCHEMY = True
+except (ImportError, Exception):
+    # Может выбросить DidNotEnable если sqlalchemy не установлен
+    HAS_SQLALCHEMY = False
+    SqlalchemyIntegration = None
 
 
 def init_sentry(settings):
@@ -89,8 +97,7 @@ def init_sentry(settings):
                 # Send logs that are ERROR and above to Sentry
                 event_level=40,  # logging.ERROR
             ),
-            SqlalchemyIntegration(),
-        ],
+        ] + ([SqlalchemyIntegration()] if HAS_SQLALCHEMY else []),
 
         # Performance monitoring
         traces_sample_rate=traces_sample_rate,

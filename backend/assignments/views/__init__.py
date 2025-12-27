@@ -9,6 +9,28 @@ Organizes views into logical modules:
 
 from .late_submissions import LateSubmissionViewSet
 
+# Импортируем основные ViewSets из views_main
+from ..views_main import (
+    AssignmentViewSet,
+    AssignmentSubmissionViewSet,
+    AssignmentQuestionViewSet,
+    AssignmentAnswerViewSet,
+    CommentTemplateViewSet,
+    SubmissionCommentViewSet,
+    PeerReviewAssignmentViewSet,
+    PeerReviewViewSet,
+    AssignmentAttemptViewSet,
+)
+
 __all__ = [
     'LateSubmissionViewSet',
+    'AssignmentViewSet',
+    'AssignmentSubmissionViewSet',
+    'AssignmentQuestionViewSet',
+    'AssignmentAnswerViewSet',
+    'CommentTemplateViewSet',
+    'SubmissionCommentViewSet',
+    'PeerReviewAssignmentViewSet',
+    'PeerReviewViewSet',
+    'AssignmentAttemptViewSet',
 ]

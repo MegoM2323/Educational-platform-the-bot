@@ -2,7 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
     Report, ReportTemplate, ReportRecipient, AnalyticsData, ReportSchedule,
-    StudentReport, TutorWeeklyReport, TeacherWeeklyReport, ParentReportPreference
+    StudentReport, TutorWeeklyReport, TeacherWeeklyReport, ParentReportPreference,
+    ReportScheduleRecipient, ReportScheduleExecution
 )
 from accounts.models import StudentProfile
 

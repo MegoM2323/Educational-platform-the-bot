@@ -10,7 +10,7 @@ router.register(r'templates', views.ReportTemplateViewSet)
 router.register(r'custom-reports', CustomReportViewSet, basename='custom-reports')
 router.register(r'custom-templates', CustomReportTemplateViewSet, basename='custom-templates')
 router.register(r'analytics-data', views.AnalyticsDataViewSet)  # Renamed from 'analytics'
-router.register(r'schedules', views.ReportScheduleViewSet)
+router.register(r'schedules', views.ReportScheduleViewSet, basename='schedules')
 router.register(r'stats', views.ReportStatsViewSet, basename='stats')
 router.register(r'student-reports', views.StudentReportViewSet, basename='student-reports')
 router.register(r'tutor-weekly-reports', views.TutorWeeklyReportViewSet, basename='tutor-weekly-reports')

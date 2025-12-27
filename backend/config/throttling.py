@@ -155,6 +155,13 @@ class BaseRateLimitThrottle(BaseThrottle):
             'X-RateLimit-Reset': str(reset_timestamp),
         }
 
+    def allow_request(self, request, view) -> bool:
+        """
+        DRF interface method. Called by request processing pipeline.
+        Returns True if request should be allowed, False if throttled.
+        """
+        return self.throttle(request, view)
+
     def throttle(self, request, view) -> bool:
         """
         Return True if the request should be allowed, False if throttled.

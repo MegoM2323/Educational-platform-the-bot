@@ -1,9 +1,10 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { Navigate } from 'react-router-dom';
 import { useIsAuthenticated } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
-import { Spinner } from '@/components/ui/spinner'
+import { Spinner } from '@/components/ui/spinner';
+import { authService } from '@/services/authService';
 
 export { Spinner };
 
@@ -15,6 +16,16 @@ interface ProtectedRouteProps {
 /**
  * Компонент ProtectedRoute защищает маршруты от неавторизованных пользователей
  * Использует useIsAuthenticated hook для проверки статуса авторизации с fallback к AuthContext
+ *
+ * FIXES (T002):
+ * - Добавлена защита от race condition на инициализации
+ * - Timeout защита (5 секунд) от бесконечной загрузки
+ * - Консолидированная проверка состояния инициализации
+ *
+ * FIXES (T003):
+ * - Добавлена явная проверка effectiveUser перед проверкой роли
+ * - Исправлен возможный undefined доступ к effectiveUser.role
+ * - Улучшено логирование для отладки состояний авторизации
  *
  * @param {ReactNode} children - Компонент для отображения если пользователь авторизован
  * @param {string} requiredRole - Опционально: требуемая роль пользователя
@@ -33,9 +44,37 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, user, error } = useIsAuthenticated();
   const { user: authContextUser, isLoading: authContextLoading } = useAuth();
+  const [initTimeout, setInitTimeout] = useState(false);
 
-  // Загрузка - показываем spinner (ждём пока AuthContext инициализируется ИЛИ profile загрузится)
-  if (isLoading || authContextLoading) {
+  // FIX (T002): Timeout protection - предотвращает бесконечную загрузку
+  // Если инициализация занимает больше 5 секунд, логируем предупреждение
+  // и разрешаем редирект на signin
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (isLoading || authContextLoading) {
+        logger.warn('[ProtectedRoute] Initialization timeout reached (5s)', {
+          isLoading,
+          authContextLoading,
+          hasUser: !!user,
+          hasAuthContextUser: !!authContextUser,
+          isAuthServiceInitializing: authService.isInitializing()
+        });
+        setInitTimeout(true);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, [isLoading, authContextLoading, user, authContextUser]);
+
+  // FIX (T002): Консолидированная проверка состояния инициализации
+  // Проверяем ВСЕ источники загрузки перед тем как принять решение
+  // Это предотвращает race condition когда один источник загрузился, а другой еще нет
+  const isInitializing =
+    (isLoading || authContextLoading || authService.isInitializing()) &&
+    !initTimeout;
+
+  // Загрузка - показываем spinner (ждём пока ВСЕ источники инициализируются)
+  if (isInitializing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
         <div className="text-center">
@@ -46,20 +85,39 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
     );
   }
 
+  // FIX (T002): Консолидированная проверка эффективного пользователя
+  // Используем user из профиля или fallback к AuthContext
+  const effectiveUser = user || authContextUser;
+
   // Ошибка при загрузке профиля (например, сессия истекла)
-  // НО: если есть user в AuthContext, ошибка профиля не критична (используем fallback)
-  if (error && !authContextUser) {
+  // НО: если есть effectiveUser, ошибка профиля не критична (используем fallback)
+  if (error && !effectiveUser) {
+    logger.debug('[ProtectedRoute] Profile error without fallback user, redirecting to signin');
     return <Navigate to="/auth/signin" replace />;
   }
 
   // Не авторизован - перенаправляем на страницу входа
   // FALLBACK: если useProfile не загрузился, но AuthContext имеет user - считаем авторизованным
-  if (!isAuthenticated && !authContextUser) {
+  if (!isAuthenticated && !effectiveUser) {
+    logger.debug('[ProtectedRoute] Not authenticated, redirecting to signin', {
+      isAuthenticated,
+      hasEffectiveUser: !!effectiveUser,
+      initTimeout
+    });
     return <Navigate to="/auth/signin" replace />;
   }
 
-  // Используем user из профиля или fallback к AuthContext
-  const effectiveUser = user || authContextUser;
+  // FIX (T003): Explicit effectiveUser null check
+  // Если после всех проверок инициализации у нас всё еще нет effectiveUser,
+  // это означает что пользователь не авторизован (даже если isAuthenticated стало true)
+  if (!effectiveUser) {
+    logger.debug('[ProtectedRoute] No effective user after loading, redirecting to signin', {
+      isAuthenticated,
+      hasUser: !!user,
+      hasAuthContextUser: !!authContextUser
+    });
+    return <Navigate to="/auth/signin" replace />;
+  }
 
   // DEBUG: логирование
   if (requiredRole) {
@@ -67,13 +125,14 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
       requiredRole,
       userFromProfile: user?.role,
       userFromContext: authContextUser?.role,
-      effectiveUserRole: effectiveUser?.role,
-      match: effectiveUser?.role === requiredRole
+      effectiveUserRole: effectiveUser.role, // Теперь безопасно - effectiveUser точно существует
+      match: effectiveUser.role === requiredRole
     });
   }
 
   // Проверяем требуемую роль
-  if (requiredRole && effectiveUser?.role !== requiredRole) {
+  // SAFE: effectiveUser гарантированно существует после проверки выше
+  if (requiredRole && effectiveUser.role !== requiredRole) {
     return (
       <Navigate to="/unauthorized" replace />
     );
@@ -139,7 +198,12 @@ export const RoleBasedRoute = ({
 
 /**
  * Hook для использования внутри компонентов для проверки авторизации
- * Выбрасывает ошибку если пользователь не авторизован
+ *
+ * @deprecated This hook is currently not used in the codebase.
+ * Use useIsAuthenticated() or useAuth() instead for auth checks.
+ *
+ * IMPORTANT: This hook was designed for React Suspense but had an infinite Promise bug.
+ * The bug has been fixed, but the hook is not recommended for use without proper Suspense boundaries.
  *
  * @example
  * const ProfileComponent = () => {
@@ -151,8 +215,13 @@ export const RoleBasedRoute = ({
 export const useRequireAuth = () => {
   const { isAuthenticated, isLoading, user, error } = useIsAuthenticated();
 
+  // Fixed: Removed infinite Promise that never resolves
+  // For Suspense-like behavior, components should use React Suspense with proper boundaries
   if (isLoading) {
-    throw new Promise(() => {}); // Suspense-like behavior
+    // Instead of throwing an infinite Promise, return null during loading
+    // Components using this hook should handle the loading state themselves
+    logger.warn('[useRequireAuth] DEPRECATED: This hook is not actively used. Consider using useIsAuthenticated() instead.');
+    return null;
   }
 
   if (error || !isAuthenticated || !user) {

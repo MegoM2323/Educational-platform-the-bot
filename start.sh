@@ -43,7 +43,7 @@ pip install -q -r requirements.txt
 
 echo -e "${BLUE}Checking frontend dependencies...${NC}"
 cd "$FRONTEND_DIR"
-npm ci --silent > /dev/null 2>&1 || npm install --silent > /dev/null 2>&1
+npm ci --legacy-peer-deps --silent > /dev/null 2>&1 || npm install --legacy-peer-deps --silent > /dev/null 2>&1
 
 # Kill any existing processes on the ports
 echo -e "${BLUE}Cleaning up old processes...${NC}"

@@ -225,7 +225,7 @@ class PlagiarismReportAdmin(admin.ModelAdmin):
         'id', 'submission', 'similarity_score_badge', 'detection_status',
         'service', 'created_at', 'checked_at'
     ]
-    list_filter = ['detection_status', 'service', 'is_high_similarity', 'created_at']
+    list_filter = ['detection_status', 'service', 'created_at']
     search_fields = ['submission__student__email', 'submission__assignment__title', 'service_report_id']
     readonly_fields = ['id', 'created_at', 'checked_at', 'processing_time_seconds']
 

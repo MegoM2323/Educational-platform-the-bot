@@ -9,8 +9,12 @@ export interface WebSocketMessage {
   type: string;
   data?: any;
   message?: any;
+  messages?: any[];
   user?: any;
   error?: string;
+  code?: string;
+  message_id?: number;
+  status?: string;
 }
 
 export interface WebSocketConfig {
@@ -39,6 +43,7 @@ export class WebSocketService {
   private connectionState: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
   private connectionCallbacks: ((connected: boolean) => void)[] = [];
   private currentUrl: string | null = null;
+  private authErrorCallbacks: ((code: number, reason: string) => void)[] = [];
 
   constructor(config: WebSocketConfig) {
     this.config = {
@@ -133,7 +138,20 @@ export class WebSocketService {
         this.isConnecting = false;
         this.notifyConnectionChange(false);
         this.stopHeartbeat();
-        this.scheduleReconnect();
+
+        // Проверка на permanent errors (не пытаемся переподключиться)
+        if (event.code === 4001) {
+          // 4001: Authentication error
+          logger.error('[WebSocket] Authentication error - token invalid or expired');
+          this.notifyAuthError(event.code, event.reason || 'Authentication failed');
+        } else if (event.code === 4002) {
+          // 4002: Access denied
+          logger.error('[WebSocket] Access denied - insufficient permissions');
+          this.notifyAuthError(event.code, event.reason || 'Access denied');
+        } else {
+          // Другие ошибки - пытаемся переподключиться
+          this.scheduleReconnect();
+        }
       };
 
       this.ws.onerror = (error) => {
@@ -245,6 +263,37 @@ export class WebSocketService {
     if (index > -1) {
       this.connectionCallbacks.splice(index, 1);
     }
+  }
+
+  /**
+   * Подписка на ошибки аутентификации
+   * @param callback - Функция обработчик, принимающая код ошибки и описание
+   */
+  onAuthError(callback: (code: number, reason: string) => void): void {
+    this.authErrorCallbacks.push(callback);
+  }
+
+  /**
+   * Отписка от ошибок аутентификации
+   */
+  offAuthError(callback: (code: number, reason: string) => void): void {
+    const index = this.authErrorCallbacks.indexOf(callback);
+    if (index > -1) {
+      this.authErrorCallbacks.splice(index, 1);
+    }
+  }
+
+  /**
+   * Уведомление об ошибке аутентификации
+   */
+  private notifyAuthError(code: number, reason: string): void {
+    this.authErrorCallbacks.forEach(callback => {
+      try {
+        callback(code, reason);
+      } catch (error) {
+        logger.error('Error in auth error callback:', error);
+      }
+    });
   }
 
   /**
@@ -384,7 +433,7 @@ export function getWebSocketBaseUrl(): string {
 
   // Fallback 3: SSR or build-time only
   logger.debug('[WebSocket Config] Using fallback base URL (SSR/build-time)');
-  return 'ws://localhost:8003/ws';
+  return 'ws://localhost:8000/ws';
 }
 
 // Initialize with a placeholder URL - actual URL will be provided when connecting

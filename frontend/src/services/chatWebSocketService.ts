@@ -46,8 +46,9 @@ export interface ChatEventHandlers {
   onUserJoined?: (user: TypingUser) => void;
   onUserLeft?: (user: TypingUser) => void;
   onRoomHistory?: (messages: ChatMessage[]) => void;
-  onError?: (error: string) => void;
+  onError?: (error: string, code?: string) => void;
   onConnect?: () => void;
+  onMessageDelivered?: (messageId: number) => void;
 }
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'auth_error' | 'error';
@@ -73,8 +74,45 @@ export class ChatWebSocketService {
         this.setConnectionStatus('disconnected');
       }
     });
+
+    // Подписываемся на ошибки аутентификации
+    websocketService.onAuthError((code, reason) => {
+      logger.error('[ChatWebSocket] Auth error received:', { code, reason });
+      this.handleAuthError(code, reason);
+    });
   }
 
+
+  /**
+   * Обработка ошибок аутентификации
+   * Вызывается при получении close codes 4001 (auth error) или 4002 (access denied)
+   */
+  private handleAuthError(code: number, reason: string): void {
+    // Устанавливаем статус auth_error
+    this.setConnectionStatus('auth_error');
+
+    // Формируем сообщение об ошибке
+    let errorMessage = reason;
+    if (code === 4001) {
+      errorMessage = 'Authentication failed. Please log in again.';
+    } else if (code === 4002) {
+      errorMessage = 'Access denied. You do not have permission to access this resource.';
+    }
+
+    // Вызываем обработчик ошибки если есть
+    if (this.eventHandlers.onError) {
+      this.eventHandlers.onError(errorMessage, code.toString());
+    }
+
+    // Опционально: редирект на страницу логина для 4001
+    if (code === 4001 && typeof window !== 'undefined') {
+      logger.info('[ChatWebSocket] Redirecting to login due to auth error');
+      // Очищаем токены
+      tokenStorage.clearTokens();
+      // Редирект на страницу логина (опционально, можно убрать если не нужно)
+      // window.location.href = '/login';
+    }
+  }
   /**
    * Установка статуса подключения и уведомление подписчиков
    */
@@ -265,6 +303,30 @@ export class ChatWebSocketService {
   }
 
   /**
+   * Полное отключение от WebSocket сервиса
+   * Очищает все подписки, таймеры и закрывает соединение
+   */
+  disconnect(): void {
+    // Очищаем все таймеры печати перед отключением
+    this.clearAllTypingTimeouts();
+
+    // Отписываемся от всех каналов
+    this.subscriptions.forEach((subscriptionId) => {
+      websocketService.unsubscribe(subscriptionId);
+    });
+    this.subscriptions.clear();
+
+    // Очищаем обработчики событий
+    this.eventHandlers = {};
+
+    // Отключаемся от WebSocket
+    websocketService.disconnect();
+
+    // Сбрасываем статус
+    this.setConnectionStatus('disconnected');
+  }
+
+  /**
    * Отправка сообщения в общий чат
    */
   sendGeneralMessage(content: string): void {
@@ -315,6 +377,63 @@ export class ChatWebSocketService {
   }
 
   /**
+   * Валидация структуры входящего сообщения
+   */
+  private validateMessage(message: WebSocketMessage): { valid: boolean; error?: string } {
+    if (!message || typeof message !== 'object') {
+      return { valid: false, error: 'Message is not an object' };
+    }
+
+    if (!message.type || typeof message.type !== 'string') {
+      return { valid: false, error: 'Message type is missing or invalid' };
+    }
+
+    // Валидация специфичных типов сообщений
+    switch (message.type) {
+      case 'chat_message':
+        if (!message.message || typeof message.message !== 'object') {
+          return { valid: false, error: 'chat_message must contain message object' };
+        }
+        if (!message.message.id || !message.message.content) {
+          return { valid: false, error: 'chat_message.message must have id and content' };
+        }
+        break;
+
+      case 'typing':
+      case 'typing_stop':
+      case 'user_joined':
+      case 'user_left':
+        if (!message.user || typeof message.user !== 'object') {
+          return { valid: false, error: `${message.type} must contain user object` };
+        }
+        break;
+
+      case 'room_history':
+        if (!Array.isArray(message.messages)) {
+          return { valid: false, error: 'room_history must contain messages array' };
+        }
+        break;
+
+      case 'error':
+        if (!message.error || typeof message.error !== 'string') {
+          return { valid: false, error: 'error message must contain error string' };
+        }
+        break;
+
+      case 'message_sent':
+        if (typeof message.message_id !== 'number') {
+          return { valid: false, error: 'message_sent must contain numeric message_id' };
+        }
+        if (message.status !== 'delivered') {
+          return { valid: false, error: 'message_sent must have status "delivered"' };
+        }
+        break;
+    }
+
+    return { valid: true };
+  }
+
+  /**
    * Обработка входящих сообщений чата
    */
   private handleChatMessage(message: WebSocketMessage): void {
@@ -324,6 +443,22 @@ export class ChatWebSocketService {
       messageId: message.message?.id,
       hasHandler: !!this.eventHandlers.onMessage
     });
+
+    // Валидация структуры сообщения
+    const validation = this.validateMessage(message);
+    if (!validation.valid) {
+      logger.error('[ChatWebSocketService] Invalid message structure:', {
+        error: validation.error,
+        message
+      });
+      if (this.eventHandlers.onError) {
+        this.eventHandlers.onError(
+          `Invalid message: ${validation.error}`,
+          'validation_error'
+        );
+      }
+      return;
+    }
 
     switch (message.type) {
       case 'chat_message':
@@ -369,10 +504,38 @@ export class ChatWebSocketService {
         break;
 
       case 'error':
+        logger.error('[ChatWebSocketService] Server error received:', {
+          error: message.error,
+          code: message.code
+        });
         if (message.error && this.eventHandlers.onError) {
-          this.eventHandlers.onError(message.error);
+          this.eventHandlers.onError(message.error, message.code);
+        }
+
+        // Специальная обработка ошибок авторизации
+        if (message.code === 'auth_error' || message.code === 'access_denied') {
+          this.setConnectionStatus('auth_error');
         }
         break;
+
+      case 'message_sent':
+        logger.debug('[ChatWebSocketService] Message delivery confirmation:', {
+          messageId: message.message_id,
+          status: message.status
+        });
+        if (message.message_id && this.eventHandlers.onMessageDelivered) {
+          this.eventHandlers.onMessageDelivered(message.message_id);
+        }
+        break;
+
+      default:
+        logger.warn('[ChatWebSocketService] Unknown message type:', message.type);
+        if (this.eventHandlers.onError) {
+          this.eventHandlers.onError(
+            `Unknown message type: ${message.type}`,
+            'unknown_type'
+          );
+        }
     }
   }
 

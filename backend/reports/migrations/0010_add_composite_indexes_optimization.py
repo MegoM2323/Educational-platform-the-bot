@@ -121,23 +121,4 @@ class Migration(migrations.Migration):
             ),
         ),
 
-        # Index on ReportSchedule for active schedules
-        # Used by: ReportSchedule.objects.filter(is_active=True).filter(next_scheduled__lte=now)
-        migrations.AddIndex(
-            model_name='reportschedule',
-            index=models.Index(
-                fields=['is_active', 'next_scheduled'],
-                name='report_schedule_active_next_idx',
-            ),
-        ),
-
-        # Index on ReportScheduleRecipient for subscription status
-        # Used by: ReportScheduleRecipient.objects.filter(schedule=s, is_subscribed=True)
-        migrations.AddIndex(
-            model_name='reportschedulerecipient',
-            index=models.Index(
-                fields=['schedule_id', 'is_subscribed'],
-                name='report_recipient_schedule_subscribed_idx',
-            ),
-        ),
     ]

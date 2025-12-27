@@ -180,7 +180,10 @@ class ForumChatViewSet(viewsets.ViewSet):
             })
 
         except Exception as e:
-            logger.error(f"Error listing forum chats for user {user.id}: {str(e)}")
+            logger.error(
+                f"Error listing forum chats for user {user.id}: {str(e)}",
+                exc_info=True  # Include traceback for debugging
+            )
             return Response(
                 {'success': False, 'error': 'Failed to retrieve forum chats'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

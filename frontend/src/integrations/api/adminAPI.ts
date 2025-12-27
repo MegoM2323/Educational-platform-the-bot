@@ -1,5 +1,13 @@
 import { unifiedAPI as apiClient, ApiResponse, User } from './unifiedClient';
 
+// Generic paginated response interface
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 // Types for User updates
 export interface UserUpdateData {
   email?: string;
@@ -186,14 +194,32 @@ export const adminAPI = {
    * Get list of tutors for selection
    */
   async getTutors(): Promise<ApiResponse<Tutor[]>> {
-    return apiClient.request<Tutor[]>('/auth/staff/?role=tutor');
+    const response = await apiClient.request<PaginatedResponse<Tutor>>('/auth/staff/?role=tutor');
+    // Extract results array from paginated response
+    if (response.data?.results) {
+      return { ...response, data: response.data.results };
+    }
+    // Handle case where response is already an array
+    if (Array.isArray(response.data)) {
+      return response as ApiResponse<Tutor[]>;
+    }
+    return { ...response, data: [] };
   },
 
   /**
    * Get list of parents for selection
    */
   async getParents(): Promise<ApiResponse<Parent[]>> {
-    return apiClient.request<Parent[]>('/auth/parents/');
+    const response = await apiClient.request<PaginatedResponse<Parent>>('/auth/parents/');
+    // Extract results array from paginated response
+    if (response.data?.results) {
+      return { ...response, data: response.data.results };
+    }
+    // Handle case where response is already an array
+    if (Array.isArray(response.data)) {
+      return response as ApiResponse<Parent[]>;
+    }
+    return { ...response, data: [] };
   },
 
   /**
@@ -607,16 +633,13 @@ export const adminAPI = {
    * Get user statistics for admin dashboard
    */
   async getUserStats(): Promise<ApiResponse<{
-    success: boolean;
-    data: {
-      total_users: number;
-      total_students: number;
-      total_teachers: number;
-      total_tutors: number;
-      total_parents: number;
-      active_users: number;
-      active_today: number;
-    };
+    total_users: number;
+    total_students: number;
+    total_teachers: number;
+    total_tutors: number;
+    total_parents: number;
+    active_users: number;
+    active_today: number;
   }>> {
     return apiClient.request('/admin/stats/users/');
   },

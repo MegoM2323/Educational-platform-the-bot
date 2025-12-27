@@ -51,7 +51,8 @@ export const useProfile = () => {
     refetch,
     isError,
   } = useQuery({
-    queryKey: ['profile', authUser?.role],
+    // SECURITY: включаем userId в queryKey чтобы предотвратить утечку кэша между пользователями
+    queryKey: ['profile', authUser?.id, authUser?.role],
     queryFn: async (): Promise<ProfileResponse> => {
       logger.debug('[useProfile] Fetching profile...', {
         userRole: authUser?.role,
@@ -73,8 +74,8 @@ export const useProfile = () => {
               errorMessage,
             });
 
-            // Очищаем только кеш профиля, не все запросы (предотвращаем каскадные рефетчи)
-            queryClient.removeQueries({ queryKey: ['profile'] });
+            // Очищаем только кеш профиля текущего пользователя, не все запросы (предотвращаем каскадные рефетчи)
+            queryClient.removeQueries({ queryKey: ['profile', authUser?.id, authUser?.role] });
 
             // Выбрасываем ошибку, чтобы ProtectedRoute/компоненты обработали редирект
             throw new Error('Сессия истекла или нет прав доступа. Пожалуйста, авторизуйтесь снова');
@@ -152,10 +153,11 @@ export const useProfile = () => {
     // Конфигурация обработки ошибок
     throwOnError: true, // Выбрасываем ошибку, чтобы она была доступна в error
 
-    // Запускаем запрос как только AuthContext загрузится (даже если user=null)
+    // Запускаем запрос как только AuthContext загрузится И userId доступен
     // Если токена нет - API вернет 401, обработаем в queryFn
     // Это решает race condition: login → navigate → ProtectedRoute монтируется до обновления AuthContext
-    enabled: !isAuthLoading,
+    // SECURITY: валидируем userId чтобы предотвратить запросы без идентификатора
+    enabled: !isAuthLoading && !!authUser?.id,
   });
 
   return {

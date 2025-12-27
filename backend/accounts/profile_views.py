@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from .permissions import IsStaffOrAdmin
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.db import transaction
@@ -147,13 +148,13 @@ class StudentProfileView(APIView):
                     user_serializer.save()
 
             if 'avatar' in request.FILES:
-                ProfileService.validate_avatar(request.FILES['avatar'])
-                avatar_path = ProfileService.handle_avatar_upload(
+                # handle_avatar_upload сохраняет файл и обновляет user.avatar
+                ProfileService.handle_avatar_upload(
                     profile=request.user,
                     file=request.FILES['avatar']
                 )
-                request.user.avatar = avatar_path
-                request.user.save(update_fields=['avatar'])
+                # Обновляем request.user из БД для получения актуального avatar
+                request.user.refresh_from_db()
 
             if profile_data:
                 profile_serializer = StudentProfileDetailSerializer(
@@ -349,13 +350,13 @@ class TeacherProfileView(APIView):
                     user_serializer.save()
 
             if 'avatar' in request.FILES:
-                ProfileService.validate_avatar(request.FILES['avatar'])
-                avatar_path = ProfileService.handle_avatar_upload(
+                # handle_avatar_upload сохраняет файл и обновляет user.avatar
+                ProfileService.handle_avatar_upload(
                     profile=request.user,
                     file=request.FILES['avatar']
                 )
-                request.user.avatar = avatar_path
-                request.user.save(update_fields=['avatar'])
+                # Обновляем request.user из БД для получения актуального avatar
+                request.user.refresh_from_db()
 
             if profile_data:
                 profile_serializer = TeacherProfileDetailSerializer(
@@ -522,13 +523,13 @@ class TutorProfileView(APIView):
                     user_serializer.save()
 
             if 'avatar' in request.FILES:
-                ProfileService.validate_avatar(request.FILES['avatar'])
-                avatar_path = ProfileService.handle_avatar_upload(
+                # handle_avatar_upload сохраняет файл и обновляет user.avatar
+                ProfileService.handle_avatar_upload(
                     profile=request.user,
                     file=request.FILES['avatar']
                 )
-                request.user.avatar = avatar_path
-                request.user.save(update_fields=['avatar'])
+                # Обновляем request.user из БД для получения актуального avatar
+                request.user.refresh_from_db()
 
             if profile_data:
                 profile_serializer = TutorProfileDetailSerializer(
@@ -661,13 +662,13 @@ class ParentProfileView(APIView):
                     user_serializer.save()
 
             if 'avatar' in request.FILES:
-                ProfileService.validate_avatar(request.FILES['avatar'])
-                avatar_path = ProfileService.handle_avatar_upload(
+                # handle_avatar_upload сохраняет файл и обновляет user.avatar
+                ProfileService.handle_avatar_upload(
                     profile=request.user,
                     file=request.FILES['avatar']
                 )
-                request.user.avatar = avatar_path
-                request.user.save(update_fields=['avatar'])
+                # Обновляем request.user из БД для получения актуального avatar
+                request.user.refresh_from_db()
 
             if profile_data:
                 profile_serializer = ParentProfileDetailSerializer(
@@ -758,21 +759,16 @@ class AdminTeacherProfileEditView(APIView):
     - Поддерживает управление предметами (subject_ids)
     - Поддерживает обновление статуса активности (is_active)
     - Требует admin permissions (IsStaffOrAdmin)
+
+    SECURITY: permission_classes включает IsStaffOrAdmin для защиты ВСЕХ методов.
+    Любой authenticated user без admin/staff прав получит 403 Forbidden.
     """
 
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrAdmin]
 
     def patch(self, request, teacher_id: int) -> Response:
         """Update teacher profile (admin only)"""
-        from .permissions import IsStaffOrAdmin
-
-        permission = IsStaffOrAdmin()
-        if not permission.has_permission(request, self):
-            return Response(
-                {'error': 'Admin permission required'},
-                status=status.HTTP_403_FORBIDDEN
-            )
 
         try:
             teacher_user = User.objects.get(id=teacher_id, role='teacher')
@@ -877,21 +873,16 @@ class AdminTutorProfileEditView(APIView):
     - Обновляет данные User и TutorProfile
     - Поддерживает обновление статуса активности (is_active)
     - Требует admin permissions (IsStaffOrAdmin)
+
+    SECURITY: permission_classes включает IsStaffOrAdmin для защиты ВСЕХ методов.
+    Любой authenticated user без admin/staff прав получит 403 Forbidden.
     """
 
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrAdmin]
 
     def patch(self, request, tutor_id: int) -> Response:
         """Update tutor profile (admin only)"""
-        from .permissions import IsStaffOrAdmin
-
-        permission = IsStaffOrAdmin()
-        if not permission.has_permission(request, self):
-            return Response(
-                {'error': 'Admin permission required'},
-                status=status.HTTP_403_FORBIDDEN
-            )
 
         try:
             tutor_user = User.objects.get(id=tutor_id, role='tutor')
@@ -958,25 +949,19 @@ class AdminUserProfileView(APIView):
     Admin endpoint для просмотра профиля любого пользователя.
 
     GET /api/accounts/admin/users/{user_id}/profile/
-    - Требует admin permissions (IsAdminUser)
+    - Требует admin permissions (IsStaffOrAdmin)
     - Возвращает user + role-specific profile для указанного user_id
     - Поддерживает все роли: student, teacher, tutor, parent
+
+    SECURITY: permission_classes включает IsStaffOrAdmin для защиты ВСЕХ методов.
+    Любой authenticated user без admin/staff прав получит 403 Forbidden.
     """
 
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrAdmin]
 
     def get(self, request, user_id: int) -> Response:
         """Получить профиль любого пользователя (admin only)"""
-        from .permissions import IsStaffOrAdmin
-
-        # Проверка прав администратора
-        permission = IsStaffOrAdmin()
-        if not permission.has_permission(request, self):
-            return Response(
-                {'error': 'Admin permission required'},
-                status=status.HTTP_403_FORBIDDEN
-            )
 
         try:
             user = User.objects.get(id=user_id)
@@ -1040,25 +1025,19 @@ class AdminUserFullInfoView(APIView):
     Admin endpoint для просмотра полной информации о пользователе.
 
     GET /api/accounts/admin/users/{user_id}/full-info/
-    - Требует admin permissions (IsAdminUser)
+    - Требует admin permissions (IsStaffOrAdmin)
     - Возвращает: user, profile, enrollments, schedule, invoices (для parents), reports
     - Поддерживает все роли: student, teacher, tutor, parent
+
+    SECURITY: permission_classes включает IsStaffOrAdmin для защиты ВСЕХ методов.
+    Любой authenticated user без admin/staff прав получит 403 Forbidden.
     """
 
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrAdmin]
 
     def get(self, request, user_id: int) -> Response:
         """Получить полную информацию о пользователе (admin only)"""
-        from .permissions import IsStaffOrAdmin
-
-        # Проверка прав администратора
-        permission = IsStaffOrAdmin()
-        if not permission.has_permission(request, self):
-            return Response(
-                {'error': 'Admin permission required'},
-                status=status.HTTP_403_FORBIDDEN
-            )
 
         try:
             user = User.objects.get(id=user_id)

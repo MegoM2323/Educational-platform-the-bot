@@ -603,7 +603,8 @@ def get_all_students(request):
                     'goal': profile.goal,
                     'progress_percentage': profile.progress_percentage
                 }
-            except:
+            except (AttributeError, ValueError, TypeError) as e:
+                logger.warning(f"Error getting student profile data for user {student.id}: {e}")
                 profile_data = {
                     'grade': 'Не указан',
                     'goal': '',

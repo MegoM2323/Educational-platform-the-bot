@@ -22,7 +22,9 @@ export const useTeacherDashboard = () => {
           full_name: student.name,
           subjects: (student.subjects || []).map((s: any) => ({
             id: String(s.id),
-            name: s.name
+            name: s.name,
+            // Preserve all original subject data to avoid data loss
+            ...(typeof s === 'object' ? s : {})
           }))
         }));
       }

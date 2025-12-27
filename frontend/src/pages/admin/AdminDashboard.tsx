@@ -9,6 +9,7 @@ import TeacherSection from './sections/TeacherSection';
 import TutorSection from './sections/TutorSection';
 import ParentSection from './sections/ParentSection';
 import { adminAPI } from '@/integrations/api/adminAPI';
+import { useToast } from '@/hooks/use-toast';
 
 interface StatCard {
   title: string;
@@ -18,6 +19,7 @@ interface StatCard {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [stats, setStats] = useState({
     total_users: 0,
     total_students: 0,
@@ -35,21 +37,40 @@ export default function AdminDashboard() {
     try {
       const response = await adminAPI.getUserStats();
 
-      if (response.data) {
+      if (response.success && response.data) {
         logger.info('[AdminDashboard] Stats loaded:', response.data);
         setStats({
-          total_users: response.data.total_users,
-          total_students: response.data.total_students,
-          total_teachers: response.data.total_teachers,
-          total_tutors: response.data.total_tutors,
-          total_parents: response.data.total_parents,
-          active_today: response.data.active_today,
+          total_users: response.data.total_users || 0,
+          total_students: response.data.total_students || 0,
+          total_teachers: response.data.total_teachers || 0,
+          total_tutors: response.data.total_tutors || 0,
+          total_parents: response.data.total_parents || 0,
+          active_today: response.data.active_today || 0,
         });
       } else {
-        logger.warn('[AdminDashboard] No data in stats response');
+        logger.error('[AdminDashboard] Failed to load stats:', response.error);
+        toast({
+          variant: 'destructive',
+          title: 'Ошибка загрузки статистики',
+          description: response.error || 'Не удалось загрузить статистику пользователей',
+        });
+        // Оставляем нули если произошла ошибка
+        setStats({
+          total_users: 0,
+          total_students: 0,
+          total_teachers: 0,
+          total_tutors: 0,
+          total_parents: 0,
+          active_today: 0,
+        });
       }
     } catch (error) {
-      logger.error('[AdminDashboard] Failed to load stats:', error);
+      logger.error('[AdminDashboard] Exception loading stats:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка загрузки статистики',
+        description: 'Произошла непредвиденная ошибка при загрузке статистики',
+      });
       // Оставляем нули если произошла ошибка
       setStats({
         total_users: 0,

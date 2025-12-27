@@ -30,7 +30,8 @@ COPY . .
 
 # Build application with production optimizations
 # Vite automatically applies tree-shaking, minification, etc.
-RUN npm run build 2>&1
+# Use build:docker to skip build-monitor.js which fails in Docker
+RUN npm run build:docker 2>&1
 
 # Verify build output
 RUN if [ ! -d "dist" ]; then echo "Build failed: dist directory not found" && exit 1; fi && \

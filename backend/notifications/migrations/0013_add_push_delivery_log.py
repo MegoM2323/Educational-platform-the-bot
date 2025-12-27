@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('notifications', '0012_add_notification_preferences'),
+        ('notifications', '0012b_add_device_token_models'),
     ]
 
     operations = [

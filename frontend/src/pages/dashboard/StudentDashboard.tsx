@@ -23,13 +23,18 @@ import { BookingWidget } from "@/components/dashboard/BookingWidget";
 interface Material {
   id: number;
   title: string;
-  description: string;
-  teacher_name: string;
-  subject: string;
-  status: 'new' | 'in_progress' | 'completed';
-  progress_percentage: number;
+  description?: string;
+  type?: string;
   created_at: string;
   file_url?: string;
+  progress?: {
+    is_completed: boolean;
+    progress_percentage: number;
+    time_spent: number;
+    started_at: string | null;
+    completed_at: string | null;
+    last_accessed: string | null;
+  };
 }
 
 interface DashboardData {
@@ -61,12 +66,14 @@ interface DashboardData {
       }>;
     };
   };
-  progress_statistics: {
-    overall_percentage: number;
-    completed_tasks: number;
-    total_tasks: number;
-    streak_days: number;
-    accuracy_percentage: number;
+  progress_statistics?: {
+    total_materials: number;
+    completed_materials: number;
+    in_progress_materials: number;
+    not_started_materials: number;
+    completion_percentage: number;
+    average_progress: number;
+    total_time_spent: number;
   };
   recent_activity: Array<{
     id: number;
@@ -166,7 +173,7 @@ const StudentDashboard = () => {
                   profileData={{
                     grade: profileData.user.grade || 'Не указан',
                     learningGoal: profileData.user.learning_goal || 'Не указана',
-                    progressPercentage: dashboardData?.progress_statistics?.overall_percentage || 0,
+                    progressPercentage: dashboardData?.progress_statistics?.completion_percentage ?? 0,
                     subjectsCount: Object.keys(dashboardData?.materials_by_subject || {}).length || 0
                   }}
                   onEdit={handleProfileEdit}
@@ -207,23 +214,23 @@ const StudentDashboard = () => {
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span>Выполнено заданий: {dashboardData.progress_statistics?.completed_tasks || 0} из {dashboardData.progress_statistics?.total_tasks || 0}</span>
-                          <span className="font-bold">{dashboardData.progress_statistics?.overall_percentage || 0}%</span>
+                          <span>Выполнено материалов: {dashboardData.progress_statistics?.completed_materials ?? 0} из {dashboardData.progress_statistics?.total_materials ?? 0}</span>
+                          <span className="font-bold">{dashboardData.progress_statistics?.completion_percentage ?? 0}%</span>
                         </div>
-                        <Progress value={dashboardData.progress_statistics?.overall_percentage || 0} className="h-3 bg-primary-foreground/20" />
+                        <Progress value={dashboardData.progress_statistics?.completion_percentage ?? 0} className="h-3 bg-primary-foreground/20" />
                       </div>
                       <div className="grid grid-cols-3 gap-4 mt-6">
                         <div className="text-center">
-                          <div className="text-2xl font-bold">{dashboardData.progress_statistics?.streak_days || 0}</div>
-                          <div className="text-sm text-primary-foreground/80">Дней подряд</div>
+                          <div className="text-2xl font-bold">{dashboardData.progress_statistics?.completed_materials ?? 0}</div>
+                          <div className="text-sm text-primary-foreground/80">Завершено</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold">{dashboardData.progress_statistics?.completed_tasks || 0}</div>
-                          <div className="text-sm text-primary-foreground/80">Заданий</div>
+                          <div className="text-2xl font-bold">{dashboardData.progress_statistics?.in_progress_materials ?? 0}</div>
+                          <div className="text-sm text-primary-foreground/80">В процессе</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold">{dashboardData.progress_statistics?.accuracy_percentage || 0}%</div>
-                          <div className="text-sm text-primary-foreground/80">Точность</div>
+                          <div className="text-2xl font-bold">{Math.round(dashboardData.progress_statistics?.average_progress ?? 0)}%</div>
+                          <div className="text-sm text-primary-foreground/80">Средний прогресс</div>
                         </div>
                       </div>
                     </Card>
@@ -253,11 +260,11 @@ const StudentDashboard = () => {
                               <div className="text-sm text-muted-foreground">
                                 {material.description || 'Без описания'}
                               </div>
-                              {(material.progress_percentage ?? 0) > 0 && (
+                              {(material.progress?.progress_percentage ?? 0) > 0 && (
                                 <div className="mt-1">
-                                  <Progress value={material.progress_percentage ?? 0} className="h-2" />
+                                  <Progress value={material.progress?.progress_percentage ?? 0} className="h-2" />
                                   <span className="text-xs text-muted-foreground">
-                                    {material.progress_percentage ?? 0}% завершено
+                                    {material.progress?.progress_percentage ?? 0}% завершено
                                   </span>
                                 </div>
                               )}
@@ -267,14 +274,12 @@ const StudentDashboard = () => {
                                 <ExternalLink className="w-4 h-4 text-muted-foreground" />
                               )}
                               <Badge variant={
-                                material.status === "new" ? "default" : 
-                                material.status === "in_progress" ? "secondary" : 
-                                material.status === "completed" ? "default" :
+                                material.progress?.is_completed ? "default" :
+                                (material.progress?.progress_percentage ?? 0) > 0 ? "secondary" :
                                 "outline"
                               }>
-                                {material.status === "new" ? "Новое" : 
-                                 material.status === "in_progress" ? "В процессе" : 
-                                 material.status === "completed" ? "Завершено" :
+                                {material.progress?.is_completed ? "Завершено" :
+                                 (material.progress?.progress_percentage ?? 0) > 0 ? "В процессе" :
                                  "Не начато"}
                               </Badge>
                             </div>

@@ -4,6 +4,9 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+# Импортируем DeviceToken для регистрации в app notifications
+from .channels.models import DeviceToken, UserPhoneNumber
+
 User = get_user_model()
 
 

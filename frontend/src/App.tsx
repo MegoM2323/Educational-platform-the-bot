@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorHandlingProvider } from "@/components/ErrorHandlingProvider";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Suspense, lazy } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
@@ -86,6 +86,61 @@ const ParentProfilePage = lazy(() => import(/* webpackChunkName: "parent-profile
 
 // Settings pages
 const NotificationSettings = lazy(() => import(/* webpackChunkName: "notification-settings" */ "./pages/settings/NotificationSettings"));
+
+// Dashboard redirect component - redirects to role-specific dashboard
+const DashboardRedirect = () => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingSpinner size="lg" text="Загрузка..." />;
+  }
+
+  if (!user) {
+    return <Navigate to="/auth/signin" replace />;
+  }
+
+  // Redirect based on user role
+  switch (user.role) {
+    case 'student':
+      return <Navigate to="/dashboard/student" replace />;
+    case 'teacher':
+      return <Navigate to="/dashboard/teacher" replace />;
+    case 'tutor':
+      return <Navigate to="/dashboard/tutor" replace />;
+    case 'parent':
+      return <Navigate to="/dashboard/parent" replace />;
+    default:
+      // Admin/staff users redirect to admin monitoring
+      if (user.is_staff) {
+        return <Navigate to="/admin/monitoring" replace />;
+      }
+      return <Navigate to="/auth/signin" replace />;
+  }
+};
+
+// Dashboard assignments redirect - redirects to role-specific assignments page
+const DashboardAssignmentsRedirect = () => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingSpinner size="lg" text="Загрузка..." />;
+  }
+
+  if (!user) {
+    return <Navigate to="/auth/signin" replace />;
+  }
+
+  // Only student and teacher have assignments pages
+  switch (user.role) {
+    case 'student':
+      return <Navigate to="/dashboard/student/assignments" replace />;
+    case 'teacher':
+      return <Navigate to="/dashboard/teacher/assignments" replace />;
+    default:
+      // For other roles, redirect to their main dashboard
+      return <Navigate to="/dashboard" replace />;
+  }
+};
 
 // Configure React Query with default options
 const queryClient = new QueryClient({
@@ -172,7 +227,17 @@ const App = () => (
                 <SystemSettings />
               </Suspense>
             } />
+
+            {/* Backward compatibility redirects */}
+            <Route path="system-monitoring" element={<Navigate to="/admin/monitoring" replace />} />
+            <Route path="account-management" element={<Navigate to="/admin/accounts" replace />} />
+            <Route path="audit" element={<Navigate to="/admin/monitoring" replace />} />
+            <Route path="jobs" element={<Navigate to="/admin/monitoring" replace />} />
           </Route>
+
+          {/* Dashboard Routes - role-based redirects */}
+          <Route path="/dashboard" element={<DashboardRedirect />} />
+          <Route path="/dashboard/assignments" element={<DashboardAssignmentsRedirect />} />
 
           {/* Student Routes */}
           <Route path="/dashboard/student" element={
@@ -419,14 +484,6 @@ const App = () => (
 
           {/* Parent Routes */}
           <Route path="/dashboard/parent" element={
-            <ProtectedRoute requiredRole="parent">
-              <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <ParentDashboard />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          {/* Support trailing slash for parent dashboard */}
-          <Route path="/dashboard/parent/" element={
             <ProtectedRoute requiredRole="parent">
               <Suspense fallback={<LoadingSpinner size="lg" />}>
                 <ParentDashboard />

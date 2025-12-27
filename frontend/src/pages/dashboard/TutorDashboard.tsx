@@ -81,8 +81,7 @@ const TutorDashboard = () => {
                 </Card>
               ) : profileError ? (
                 <ErrorState
-                  title="Не удалось загрузить профиль"
-                  description={profileError.message || 'Произошла ошибка при загрузке данных профиля. Попробуйте ещё раз.'}
+                  error={profileError.message || 'Произошла ошибка при загрузке данных профиля. Попробуйте ещё раз.'}
                   onRetry={handleProfileRetry}
                 />
               ) : profileData?.user ? (
@@ -91,10 +90,10 @@ const TutorDashboard = () => {
                   userEmail={profileData.user.email}
                   userRole="tutor"
                   profileData={{
-                    specialization: (profileData.profile?.specialization as string) || undefined,
-                    experience: (profileData.profile?.experience_years as number) || undefined,
+                    specialization: typeof profileData.profile?.specialization === 'string' ? profileData.profile.specialization : undefined,
+                    experience: typeof profileData.profile?.experience_years === 'number' ? profileData.profile.experience_years : undefined,
                     studentsCount: students?.length ?? 0,
-                    reportsCount: (profileData.profile?.reportsCount as number) ?? 0,
+                    reportsCount: typeof profileData.profile?.reportsCount === 'number' ? profileData.profile.reportsCount : 0,
                   }}
                   onEdit={handleProfileEdit}
                 />
@@ -186,7 +185,6 @@ const TutorDashboard = () => {
                       >
                         <div className="flex items-start gap-3">
                           <Avatar className="h-12 w-12">
-                            <AvatarImage src={undefined} alt={s.full_name} />
                             <AvatarFallback>
                               {(s.full_name || s.first_name || 'S').charAt(0).toUpperCase()}
                             </AvatarFallback>
@@ -205,7 +203,7 @@ const TutorDashboard = () => {
                             ) : null}
                             {s.subjects && s.subjects.length > 0 ? (
                               <div className="text-xs text-muted-foreground">
-                                Предметы: {s.subjects.map((subj: any) => subj.name).join(', ')}
+                                Предметы: {s.subjects.map((subj) => subj.name).join(', ')}
                               </div>
                             ) : (
                               <div className="text-xs text-muted-foreground">

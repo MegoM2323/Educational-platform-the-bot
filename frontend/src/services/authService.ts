@@ -31,6 +31,7 @@ class AuthService {
   private authStateCallbacks: ((user: User | null) => void)[] = [];
   private isRefreshing: boolean = false;
   private initializationPromise: Promise<void> | null = null;
+  private initializationComplete: boolean = false;
 
   private constructor() {
     this.initializationPromise = this.initializeFromStorage();
@@ -108,6 +109,10 @@ class AuthService {
     } catch (error) {
       logger.error('[AuthService.init] Initialization error:', error);
       this.clearStorage();
+    } finally {
+      // ✅ FIX (T004): Mark initialization as complete regardless of outcome
+      // This ensures waitForInitialization() resolves and isInitializing() returns false
+      this.initializationComplete = true;
     }
   }
 
@@ -280,7 +285,9 @@ class AuthService {
   }
 
   public isInitializing(): boolean {
-    return this.isRefreshing;
+    // ✅ FIX (T004): Check actual initialization state, not token refresh state
+    // isRefreshing tracks token refresh operations, not initialization
+    return !this.initializationComplete;
   }
 
   public getCurrentUser(): User | null {

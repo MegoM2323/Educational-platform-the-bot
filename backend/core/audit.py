@@ -258,12 +258,34 @@ class AuditLogViewSetHelper:
 
         return queryset
 
-    @staticmethod
-    def get_optimized_queryset() -> QuerySet:
-        """
-        Get audit log queryset optimized for common queries.
 
-        Returns:
-            QuerySet: Optimized queryset with select_related
-        """
-        return AuditLog.objects.select_related('user').order_by('-timestamp')
+# Функция-обёртка для удобного доступа к AuditService.log
+def audit_log(
+    request,
+    action: str,
+    target_type: Optional[str] = None,
+    target_id: Optional[int] = None,
+    details: Optional[Dict[str, Any]] = None,
+    success: bool = True
+):
+    """
+    Convenience function for logging audit events.
+
+    Wrapper around AuditService.log for simpler imports.
+
+    Args:
+        request: Django HTTP request object
+        action: Action being performed
+        target_type: Type of object being acted upon
+        target_id: ID of the target object
+        details: Additional details dictionary
+        success: Whether the action succeeded
+    """
+    return AuditService.log(
+        request=request,
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        details=details,
+        success=success
+    )

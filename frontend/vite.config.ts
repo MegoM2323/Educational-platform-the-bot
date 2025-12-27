@@ -178,13 +178,13 @@ export default defineConfig(({ mode, command }) => {
           drop_console: false,
           drop_debugger: true,
           pure_funcs: ['console.log', 'console.debug', 'console.info'],
-          passes: 2, // Run compression twice for better optimization
+          passes: 1,
         },
         format: {
           comments: false,
         },
-        // Enable parallel processing
-        toplevel: true,
+        // Disable problematic toplevel optimization
+        toplevel: false,
         ecma: 2020,
       },
 
@@ -228,79 +228,24 @@ export default defineConfig(({ mode, command }) => {
           },
 
           manualChunks(id) {
-            // Ядро приложения
-            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
-              return 'react-core';
+            // React и зависящие от него библиотеки должны быть в одном vendor чанке
+            // чтобы гарантировать правильный порядок загрузки
+            if (id.includes('node_modules/react/') ||
+                id.includes('node_modules/react-dom/') ||
+                id.includes('node_modules/react-router-dom/') ||
+                id.includes('node_modules/@radix-ui/') ||
+                id.includes('node_modules/@tanstack/react-query/')) {
+              return 'vendor';
             }
 
-            // React Router (часто используется)
-            if (id.includes('node_modules/react-router-dom/')) {
-              return 'router';
-            }
-
-            // Форм-обработка
-            if (id.includes('node_modules/react-hook-form/') ||
-                id.includes('node_modules/@hookform/') ||
-                id.includes('node_modules/zod/')) {
-              return 'forms';
-            }
-
-            // Тяжелые UI библиотеки (D3 для графиков)
+            // Тяжелые библиотеки в отдельные чанки
             if (id.includes('node_modules/d3/') ||
                 id.includes('node_modules/d3-')) {
               return 'd3-lib';
             }
 
-            // Визуализация (recharts, embla-carousel)
-            if (id.includes('node_modules/recharts/') ||
-                id.includes('node_modules/embla-carousel/')) {
+            if (id.includes('node_modules/recharts/')) {
               return 'charts';
-            }
-
-            // Radix UI components - разделить на несколько чанков
-            if (id.includes('node_modules/@radix-ui/')) {
-              // Группировать по 3-4 компонентам
-              const componentMatch = id.match(/@radix-ui\/([^/]+)/);
-              if (componentMatch) {
-                const component = componentMatch[1];
-                // Разделить на 3 группы
-                if (['react-dialog', 'react-dropdown-menu', 'react-popover'].includes(component)) {
-                  return 'radix-ui-1';
-                } else if (['react-select', 'react-tabs', 'react-scroll-area'].includes(component)) {
-                  return 'radix-ui-2';
-                } else {
-                  return 'radix-ui-3';
-                }
-              }
-            }
-
-            // React Query
-            if (id.includes('node_modules/@tanstack/react-query/')) {
-              return 'query';
-            }
-
-            // Утилиты
-            if (id.includes('node_modules/clsx/') ||
-                id.includes('node_modules/class-variance-authority/') ||
-                id.includes('node_modules/tailwind-merge/')) {
-              return 'utils';
-            }
-
-            // Иконки
-            if (id.includes('node_modules/lucide-react/')) {
-              return 'icons';
-            }
-
-            // Тосты и уведомления
-            if (id.includes('node_modules/sonner/') ||
-                id.includes('node_modules/@radix-ui/react-toast/')) {
-              return 'notifications';
-            }
-
-            // Дополнительные тяжелые компоненты
-            if (id.includes('node_modules/dompurify/') ||
-                id.includes('node_modules/crypto-js/')) {
-              return 'security';
             }
 
             // Все остальные node_modules в общий vendor
@@ -330,11 +275,11 @@ export default defineConfig(({ mode, command }) => {
         '@tanstack/react-query',
         '@radix-ui/react-dialog',
         '@radix-ui/react-dropdown-menu',
+        'lodash',
+        'recharts',
       ],
       // Исключить огромные библиотеки из pre-bundling
-      exclude: ['d3', 'd3-*', 'recharts'],
-      // Build faster
-      holdVendorChunkOpen: true,
+      exclude: ['d3', 'd3-*'],
       // Parallel processing
       esbuildOptions: {
         target: 'esnext',

@@ -40,15 +40,34 @@ interface Child {
   }>;
 }
 
+// API returns TutorWeeklyReport with these fields
 interface Report {
   id: number;
-  child_name: string;
-  subject: string;
+  tutor: number;
+  tutor_name: string;
+  student: number;
+  student_name: string;
+  parent?: number;
+  parent_name?: string;
+  week_start: string;
+  week_end: string;
   title: string;
-  content: string;
-  teacher_name: string;
+  summary?: string;
+  academic_progress?: string;
+  behavior_notes?: string;
+  achievements?: string;
+  concerns?: string;
+  recommendations?: string;
+  attendance_days?: number;
+  total_days?: number;
+  attendance_percentage?: number;
+  progress_percentage?: number;
+  status: string;
+  attachment?: string;
   created_at: string;
-  type: 'progress' | 'behavior' | 'achievement';
+  updated_at: string;
+  sent_at?: string;
+  read_at?: string;
 }
 
 interface DashboardData {
@@ -306,15 +325,19 @@ const ParentDashboard = () => {
                                             <Badge variant="secondary" className="text-xs">Подписка активна</Badge>
                                           )}
                                         </div>
-                                        {subject.next_payment_date && (
-                                          <div className="text-xs text-blue-600">
-                                            Следующий платеж: {new Date(subject.next_payment_date).toLocaleDateString('ru-RU', {
-                                              year: 'numeric',
-                                              month: 'long',
-                                              day: 'numeric'
-                                            })}
-                                          </div>
-                                        )}
+                                        {subject.next_payment_date && (() => {
+                                          const nextPaymentDate = new Date(subject.next_payment_date);
+                                          const isValidDate = !isNaN(nextPaymentDate.getTime());
+                                          return isValidDate ? (
+                                            <div className="text-xs text-blue-600">
+                                              Следующий платеж: {nextPaymentDate.toLocaleDateString('ru-RU', {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                              })}
+                                            </div>
+                                          ) : null;
+                                        })()}
                                         {subject.payment_status === 'no_payment' && (
                                           <div className="text-xs text-orange-700 dark:text-orange-400 font-medium mt-1">
                                             Нажмите "Подключить предмет" для оплаты
@@ -420,40 +443,61 @@ const ParentDashboard = () => {
                         <h3 className="text-xl font-bold">Последние отчёты</h3>
                       </div>
                       <div className="space-y-3">
-                        {(dashboardData.reports ?? []).slice(0, 3).map((report) => (
-                          <div 
-                            key={report.id} 
-                            className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
-                            onClick={() => handleReportClick(report.id)}
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <div className="font-medium">{report.child_name}</div>
-                                <div className="text-sm text-muted-foreground">{report.subject}</div>
-                                <div className="text-xs text-muted-foreground mt-1">{report.title}</div>
+                        {(dashboardData.reports ?? []).slice(0, 3).map((report) => {
+                          // Safely parse created_at date
+                          const reportDate = report.created_at ? new Date(report.created_at) : null;
+                          const isValidDate = reportDate && !isNaN(reportDate.getTime());
+
+                          return (
+                            <div
+                              key={report.id}
+                              className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
+                              onClick={() => handleReportClick(report.id)}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <div className="font-medium">{report.student_name || 'Студент'}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {report.week_start && report.week_end
+                                      ? `${new Date(report.week_start).toLocaleDateString('ru-RU')} - ${new Date(report.week_end).toLocaleDateString('ru-RU')}`
+                                      : 'Еженедельный отчет'
+                                    }
+                                  </div>
+                                  {report.title && (
+                                    <div className="text-xs text-muted-foreground mt-1">{report.title}</div>
+                                  )}
+                                </div>
+                                <Badge variant={
+                                  report.status === "sent" ? "default" :
+                                  report.status === "read" ? "secondary" :
+                                  "outline"
+                                }>
+                                  {report.status === "sent" ? "Отправлен" :
+                                   report.status === "read" ? "Прочитан" :
+                                   report.status === "draft" ? "Черновик" :
+                                   "Новый"}
+                                </Badge>
                               </div>
-                              <Badge variant={
-                                report.type === "achievement" ? "default" : 
-                                report.type === "behavior" ? "secondary" : 
-                                "outline"
-                              }>
-                                {report.type === "achievement" ? "Достижение" : 
-                                 report.type === "behavior" ? "Поведение" : 
-                                 "Прогресс"}
-                              </Badge>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Calendar className="w-3 h-3" />
+                                {isValidDate
+                                  ? reportDate.toLocaleDateString('ru-RU')
+                                  : 'Дата неизвестна'
+                                }
+                                {report.tutor_name && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{report.tutor_name}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(report.created_at).toLocaleDateString('ru-RU')}
-                              <span>•</span>
-                              <span>{report.teacher_name}</span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {(dashboardData.reports ?? []).length === 0 && (
                           <EmptyState
                             title="Нет новых отчетов"
-                            description="Пока нет отчетов от преподавателей. Ожидайте новых отчетов о прогрессе вашего ребенка."
+                            description="Пока нет отчетов от тьюторов. Ожидайте новых отчетов о прогрессе вашего ребенка."
                             icon={<FileText className="w-8 h-8 text-muted-foreground" />}
                           />
                         )}

@@ -421,24 +421,6 @@ class MaterialViewSet(viewsets.ModelViewSet):
             filename=material.file.name.split('/')[-1]
         )
     
-    @action(detail=False, methods=['get'])
-    def student_materials(self, request):
-        """
-        Получить материалы, назначенные студенту
-        """
-        if request.user.role != 'student':
-            return Response(
-                {'error': 'Доступно только для студентов'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        materials = Material.objects.filter(
-            Q(assigned_to=request.user) | Q(is_public=True)
-        ).distinct().select_related('author', 'subject').prefetch_related('progress').order_by('-created_at')
-
-        serializer = MaterialListSerializer(materials, many=True, context={'request': request})
-        return Response(serializer.data)
-    
     @action(detail=True, methods=['get'])
     def submissions(self, request, pk=None):
         """

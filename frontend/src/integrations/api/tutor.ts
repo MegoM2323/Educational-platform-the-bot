@@ -148,7 +148,7 @@ export const tutorAPI = {
         error: resp.error,
         data: resp.data,
         hasData: !!resp.data,
-        status: resp.status
+        statusCode: resp.statusCode
       });
       
       if (!resp.success || resp.error) {
@@ -159,7 +159,7 @@ export const tutorAPI = {
       }
       
       // Если запрос успешен, даже если данных нет в ответе, считаем что предмет назначен
-      logger.debug('[tutorAPI.assignSubject] Subject assigned successfully, status:', resp.status || 'OK');
+      logger.debug('[tutorAPI.assignSubject] Subject assigned successfully, statusCode:', resp.statusCode || 'OK');
       
       // Возвращаем void, так как данные будут загружены через отдельный запрос
       return;

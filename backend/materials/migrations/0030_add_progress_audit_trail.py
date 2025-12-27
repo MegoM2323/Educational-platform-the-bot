@@ -149,13 +149,6 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="materialprogressaudittrail",
             index=models.Index(
-                fields=["progress__student", "timestamp"],
-                name="mat_prog_audit_idx_2"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="materialprogressaudittrail",
-            index=models.Index(
                 fields=["timestamp"],
                 name="mat_prog_audit_idx_3"
             ),

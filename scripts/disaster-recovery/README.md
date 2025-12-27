@@ -1,242 +1,224 @@
-# Disaster Recovery System
+# Disaster Recovery Testing Framework
 
-Comprehensive disaster recovery framework for THE_BOT Platform with automated failover, backup management, and recovery procedures.
+Comprehensive disaster recovery testing and validation framework for THE_BOT platform with automated RTO/RPO compliance monitoring.
+
+**Version**: 1.0.0
+**Status**: Production Ready
+**Last Updated**: December 27, 2025
 
 ## Overview
 
-This directory contains automated scripts and runbooks for disaster recovery scenarios including:
+This directory contains complete disaster recovery infrastructure:
 
-- **Service Failures**: Automatic restart and recovery
-- **Database Failures**: Full restore or point-in-time recovery
-- **Cache Failures**: AOF or RDB restore
-- **Datacenter Failures**: Complete system failover
-- **Data Corruption**: Selective or full recovery
+- **Automated Testing**: Complete DR test suites for failover, backup restoration, and service recovery
+- **RTO/RPO Validation**: Automated compliance checking against targets (RTO < 15 min, RPO < 5 min)
+- **Dry-Run Mode**: Safe testing without affecting production
+- **Comprehensive Metrics**: Detailed timing and performance metrics collection
+- **Report Generation**: JSON and HTML reports for analysis and compliance documentation
+- **Runbook Support**: Step-by-step procedures for manual recovery if needed
 
 **Key Metrics**:
-- RTO (Recovery Time Objective): < 1 hour
-- RPO (Recovery Point Objective): < 15 minutes
+- RTO (Recovery Time Objective): **< 15 minutes** (900 seconds)
+- RPO (Recovery Point Objective): **< 5 minutes** (300 seconds)
 
 ## Quick Start
 
-### View Disaster Recovery Plan
-```bash
-# Read comprehensive plan
-cat ../../../docs/DISASTER_RECOVERY.md
+### 1. Verify Prerequisites
 
-# View incident runbook
-cat ../../infrastructure/dr/dr-runbook.json | jq
+```bash
+# Check all required tools are installed
+./dr-test.sh --help
+
+# System requirements:
+# - Docker & Docker Compose
+# - PostgreSQL client tools (psql)
+# - AWS CLI (for S3 operations)
+# - jq (for JSON processing)
 ```
 
-### Run Recovery Verification
+### 2. Run Quick Sanity Check
+
 ```bash
-# Quick health check (5 minutes)
-./verify-recovery.sh --quick
+# Fast 5-minute sanity check
+./integrated-dr-test.sh --quick
 
-# Full system check (15 minutes)
-./verify-recovery.sh --full
-
-# Production smoke test (30 minutes)
-./verify-recovery.sh --smoke-test
+# Output shows:
+# ✓ Services running
+# ✓ Database accessible
+# ✓ API healthy
+# ✓ Backups available
 ```
 
-### Emergency Procedures
+### 3. Run Full DR Test (First Time with Dry-Run)
 
-#### Service Crashed
 ```bash
-# Auto-restart and verify
-./failover.sh --incident service_failure backend
+# Dry-run to verify scripts work correctly
+./integrated-dr-test.sh --full --dry-run --full-report
+
+# Expected: All operations logged, no production impact
 ```
 
-#### Database Down
-```bash
-# Restore from latest backup
-./restore-database.sh --type full --from latest
+### 4. Run Actual DR Test
 
-# Or point-in-time recovery
-./restore-database.sh --type pitr --until "2025-12-27 14:30:00"
+```bash
+# Full test with reporting (10-15 minutes)
+./integrated-dr-test.sh --full --full-report
+
+# Monitor progress:
+tail -f logs/dr-integration-tests/integrated-test_*.log
 ```
 
-#### Redis Down
-```bash
-# Restore from AOF
-./restore-redis.sh --type aof --from latest
+### 5. Validate Compliance
 
-# Or from RDB snapshot
-./restore-redis.sh --type rdb --from latest
+```bash
+# Check RTO/RPO compliance
+./integrated-dr-test.sh --validate
+
+# Output shows:
+# ✓ RTO COMPLIANT: 450s < 900s
+# ✓ RPO COMPLIANT: 280s < 300s
 ```
 
-#### Complete Datacenter Failure
-```bash
-# Failover to secondary
-./failover.sh --incident datacenter_failure
-```
+### Emergency Recovery Procedures
+
+For step-by-step manual procedures, see:
+- [DR_PROCEDURES.md](../../docs/runbooks/DR_PROCEDURES.md) - Complete runbook
 
 ## Scripts
 
-### 1. failover.sh - Automated Failover Handler
+### 1. `dr-test.sh` - Master Test Suite
 
-Orchestrates failover for different incident types.
+Comprehensive DR testing with multiple test scenarios.
 
 **Usage**:
 ```bash
-./failover.sh --incident [TYPE]
-./failover.sh --simulate
-./failover.sh --status
+./dr-test.sh --test all [--dry-run] [--metrics]
+./dr-test.sh --test failover [--dry-run]
+./dr-test.sh --test restore [--dry-run]
+./dr-test.sh --test recovery [--dry-run]
+./dr-test.sh --validate-rto
+./dr-test.sh --validate-rpo
 ```
 
-**Incident Types**:
-- `database_failure` - Promote replica to primary
-- `redis_failure` - Restore or restart Redis
-- `service_failure [SERVICE]` - Restart specific service
-- `datacenter_failure` - Failover to secondary region
+**Examples**:
+```bash
+# Test all components with dry-run
+./dr-test.sh --test all --dry-run --metrics
+
+# Test failover only
+./dr-test.sh --test failover --metrics
+
+# Validate RTO compliance
+./dr-test.sh --validate-rto
+```
+
+**Output**:
+- Log: `logs/dr-tests/dr-test_YYYYMMDD_HHMMSS.log`
+- Metrics: `metrics/dr-metrics_YYYYMMDD_HHMMSS.json`
+
+---
+
+### 2. `failover-test.sh` - Database Failover Testing
+
+Tests automated failover from primary to replica database.
+
+**Usage**:
+```bash
+./failover-test.sh [--dry-run] [--timeout 900]
+```
+
+**What It Tests**:
+1. Primary database failure simulation
+2. Replica promotion (< 3 minutes target)
+3. Connection failover (< 1 minute target)
+4. Health checks (< 5 minutes target)
+5. Data consistency verification
+6. Full RTO validation (< 15 minutes target)
 
 **Example**:
 ```bash
-# Database failover (with replica)
-./failover.sh --incident database_failure
+# Test with dry-run first
+./failover-test.sh --dry-run
 
-# Service restart
-./failover.sh --incident service_failure backend
-
-# Simulation mode (no actual changes)
-./failover.sh --simulate
-
-# Check current failover status
-./failover.sh --status
+# Run actual test
+./failover-test.sh
 ```
 
-**Features**:
-- Automatic health checks
-- Pre-failover backups
-- Replica promotion for database
-- Connection string updates
-- Service restart and verification
-- Detailed logging
-- Alert notifications (email, Slack)
+**Output**:
+- Log: `logs/failover-tests/failover-test_YYYYMMDD_HHMMSS.log`
+- Metrics: `metrics/failover-metrics_YYYYMMDD_HHMMSS.json`
 
-### 2. restore-database.sh - PostgreSQL Recovery
+---
 
-Restores PostgreSQL from full backups or performs point-in-time recovery.
+### 3. `restore-test.sh` - Backup Restoration Testing
+
+Tests backup restoration from S3 and verifies data integrity.
 
 **Usage**:
 ```bash
-# Restore from latest backup
-./restore-database.sh --type full --from latest
-
-# Restore from specific date
-./restore-database.sh --type full --from 20251226
-
-# Point-in-time recovery
-./restore-database.sh --type pitr --until "2025-12-27 14:30:00"
-
-# Restore to staging environment
-./restore-database.sh --type full --from latest --target staging
-
-# Restore from specific file
-./restore-database.sh --type full --file /backups/database/backup_20251227.dump.gz
+./restore-test.sh [--dry-run] [--verify]
+./restore-test.sh --verify-backup
+./restore-test.sh --full-restore
 ```
 
-**Options**:
-- `--type` - `full` or `pitr`
-- `--from` - `latest`, `daily`, `weekly`, `monthly`, or date (YYYYMMDD)
-- `--file` - Specific backup file path
-- `--until` - Target time for PITR (format: "YYYY-MM-DD HH:MM:SS")
-- `--target` - `production` or `staging`
-- `--skip-verify` - Skip backup integrity check
+**What It Tests**:
+1. Backup discovery and validation
+2. Backup integrity verification (checksums)
+3. Download from S3 (if applicable)
+4. Database restoration from backup
+5. Table structure verification
+6. Data integrity checks
+7. Full RPO validation (< 5 minutes target)
 
-**Features**:
-- Automatic backup file discovery
-- Backup integrity verification
-- Pre-restore backups (production)
-- Database recreation
-- Restore progress tracking
-- Post-restore verification
-- Support for full and PITR recoveries
+**Example**:
+```bash
+# Verify backup integrity only
+./restore-test.sh --verify-backup
 
-### 3. restore-redis.sh - Redis Recovery
+# Test full restore (with dry-run)
+./restore-test.sh --dry-run
 
-Restores Redis from AOF or RDB backups.
+# Run actual restoration test
+./restore-test.sh
+```
+
+**Output**:
+- Log: `logs/restore-tests/restore-test_YYYYMMDD_HHMMSS.log`
+- Metrics: `metrics/restore-metrics_YYYYMMDD_HHMMSS.json`
+
+---
+
+### 4. `integrated-dr-test.sh` - Orchestrated Testing
+
+Coordinates all DR tests with reporting and compliance validation.
 
 **Usage**:
 ```bash
-# Restore from AOF
-./restore-redis.sh --type aof --from latest
-
-# Restore from RDB snapshot
-./restore-redis.sh --type rdb --from latest
-
-# Restore from S3
-./restore-redis.sh --type rdb --from s3
-
-# Restore from specific file
-./restore-redis.sh --type aof --file /backups/redis_aof_20251227.bak
+./integrated-dr-test.sh [--quick] [--full] [--dry-run] [--full-report]
+./integrated-dr-test.sh --failover
+./integrated-dr-test.sh --restore
+./integrated-dr-test.sh --validate
 ```
 
-**Options**:
-- `--type` - `aof`, `rdb`, or `s3`
-- `--from` - `latest`, `daily`, `weekly`, `monthly`
-- `--file` - Specific backup file
-- `--skip-verify` - Skip backup integrity check
-
-**Features**:
-- AOF replay recovery
-- RDB snapshot restore
-- S3 download and restore
-- Pre-restore backups
-- Service restart verification
-- Data integrity checks
-
-### 4. verify-recovery.sh - Verification Testing
-
-Comprehensive post-recovery system verification.
-
-**Usage**:
+**Examples**:
 ```bash
-# Quick checks (5 minutes)
-./verify-recovery.sh --quick
+# Quick sanity check (5 minutes)
+./integrated-dr-test.sh --quick
 
-# Full checks (15 minutes)
-./verify-recovery.sh --full
+# Full test with HTML report (15 minutes)
+./integrated-dr-test.sh --full --full-report
 
-# Smoke tests (30 minutes)
-./verify-recovery.sh --smoke-test
+# Dry-run without affecting production
+./integrated-dr-test.sh --full --dry-run --full-report
+
+# Validate compliance only
+./integrated-dr-test.sh --validate
 ```
 
-**Quick Checks**:
-- Backend health endpoint
-- Database connectivity
-- Redis connectivity
-- Celery workers
-
-**Full Checks**:
-- All quick checks +
-- Database integrity (tables, records)
-- Redis data verification
-- API endpoint testing
-- Database schema validation
-
-**Smoke Tests**:
-- All full checks +
-- User authentication flow
-- Materials API
-- Chat API
-- Real-world scenarios
-
-**Sample Output**:
-```
-Total Checks: 12
-Passed: 11
-Failed: 1
-
-[PASS] Backend container running
-[PASS] Health endpoint responding (HTTP 200)
-[PASS] PostgreSQL accepting connections
-[PASS] Database 'thebot_db' exists
-[FAIL] Chat API not responding (HTTP 500)
-...
-
-RESULT: SOME CHECKS FAILED
-```
+**Output**:
+- Integration Log: `logs/dr-integration-tests/integrated-test_YYYYMMDD_HHMMSS.log`
+- JSON Report: `metrics/dr-reports/dr-report_YYYYMMDD_HHMMSS.json`
+- HTML Summary: `metrics/dr-reports/dr-summary_YYYYMMDD_HHMMSS.html`
 
 ## Backup Structure
 

@@ -90,24 +90,4 @@ class Migration(migrations.Migration):
                 name='message_type_idx',
             ),
         ),
-
-        # Composite index for pending messages
-        # Used for: PendingMessage.objects.filter(delivered=False).order_by('created_at')
-        migrations.AddIndex(
-            model_name='pendingmessage',
-            index=models.Index(
-                fields=['delivered', 'created_at'],
-                name='pending_msg_delivery_idx',
-            ),
-        ),
-
-        # Index on user_id for user's pending messages
-        # Used for: PendingMessage.objects.filter(user=u)
-        migrations.AddIndex(
-            model_name='pendingmessage',
-            index=models.Index(
-                fields=['user_id'],
-                name='pending_msg_user_idx',
-            ),
-        ),
     ]

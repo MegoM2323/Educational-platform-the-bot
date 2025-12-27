@@ -1627,15 +1627,15 @@ class StudentDeadlineExtension(models.Model):
         indexes = [
             models.Index(
                 fields=['assignment', 'student'],
-                name='deadline_ext_assignment_student_idx'
+                name='dl_ext_assign_student'
             ),
             models.Index(
                 fields=['student', '-extended_deadline'],
-                name='deadline_ext_student_deadline_idx'
+                name='dl_ext_student_date'
             ),
             models.Index(
                 fields=['extended_by', '-created_at'],
-                name='deadline_ext_creator_date_idx'
+                name='dl_ext_creator_date'
             ),
         ]
 

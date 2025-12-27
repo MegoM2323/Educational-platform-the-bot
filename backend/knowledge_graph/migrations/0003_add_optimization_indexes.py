@@ -84,16 +84,6 @@ class Migration(migrations.Migration):
             ),
         ),
 
-        # Index on is_completed for progress tracking
-        # Used for: ElementProgress.objects.filter(is_completed=True)
-        migrations.AddIndex(
-            model_name='elementprogress',
-            index=models.Index(
-                fields=['is_completed'],
-                name='elementprogress_completed_idx',
-            ),
-        ),
-
         # Composite index for student progress
         # Used for: ElementProgress.objects.filter(student=s, element=e)
         migrations.AddIndex(
@@ -114,43 +104,4 @@ class Migration(migrations.Migration):
             ),
         ),
 
-        # Index on lesson for dependency tracking
-        # Used for: Dependency.objects.filter(lesson=l)
-        migrations.AddIndex(
-            model_name='dependency',
-            index=models.Index(
-                fields=['lesson_id'],
-                name='dependency_lesson_idx',
-            ),
-        ),
-
-        # Index on required_lesson for reverse dependencies
-        # Used for: Dependency.objects.filter(required_lesson=l)
-        migrations.AddIndex(
-            model_name='dependency',
-            index=models.Index(
-                fields=['required_lesson_id'],
-                name='dependency_required_idx',
-            ),
-        ),
-
-        # Composite index for student lesson unlock
-        # Used for: StudentLessonUnlock.objects.filter(student=s, lesson=l)
-        migrations.AddIndex(
-            model_name='studentlessonunlock',
-            index=models.Index(
-                fields=['student_id', 'lesson_id'],
-                name='unlock_student_lesson_idx',
-            ),
-        ),
-
-        # Index on is_unlocked for unlock status queries
-        # Used for: StudentLessonUnlock.objects.filter(is_unlocked=True)
-        migrations.AddIndex(
-            model_name='studentlessonunlock',
-            index=models.Index(
-                fields=['is_unlocked'],
-                name='unlock_is_unlocked_idx',
-            ),
-        ),
     ]

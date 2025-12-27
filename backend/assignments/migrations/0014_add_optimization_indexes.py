@@ -61,16 +61,6 @@ class Migration(migrations.Migration):
             ),
         ),
 
-        # Composite index for assignment question lookup
-        # Used for: AssignmentQuestion.objects.filter(assignment=a)
-        migrations.AddIndex(
-            model_name='assignmentquestion',
-            index=models.Index(
-                fields=['assignment_id', 'order'],
-                name='question_assignment_order_idx',
-            ),
-        ),
-
         # Index on submission_id for answer lookups
         # Used for: AssignmentAnswer.objects.filter(submission=s)
         migrations.AddIndex(

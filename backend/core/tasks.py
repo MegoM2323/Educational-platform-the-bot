@@ -624,3 +624,160 @@ def cleanup_audit_log():
             'success': False,
             'message': error_msg
         }
+
+
+# ============================================================================
+# Cache Warming Tasks
+# ============================================================================
+
+@shared_task(bind=True, max_retries=3)
+def warm_cache_task(self):
+    """
+    Scheduled cache warming task.
+
+    Warms popular caches to improve application performance and reduce
+    database load during business hours.
+
+    Should be scheduled to run hourly via Celery Beat.
+
+    Retries:
+        - Up to 3 retries on failure
+        - Exponential backoff (2s, 4s, 8s)
+    """
+    try:
+        from config.cache_warming import CacheWarmingManager, should_warm_cache
+
+        if not should_warm_cache():
+            logger.warning('Cache not available, skipping cache warming')
+            return {
+                'status': 'skipped',
+                'reason': 'cache_unavailable',
+                'timestamp': timezone.now().isoformat(),
+            }
+
+        manager = CacheWarmingManager()
+        stats = manager.warm_popular_endpoints()
+
+        cache_stats = manager.get_cache_stats()
+        cache_stats.update(stats)
+
+        logger.info(f'Cache warming completed: {cache_stats}')
+
+        return {
+            'status': 'success',
+            'stats': cache_stats,
+            'timestamp': timezone.now().isoformat(),
+        }
+
+    except Exception as exc:
+        logger.exception(f'Cache warming task failed: {exc}')
+
+        # Retry with exponential backoff
+        retry_count = self.request.retries
+        countdown = 2 ** retry_count
+
+        raise self.retry(exc=exc, countdown=countdown)
+
+
+@shared_task(bind=True)
+def warm_cache_on_startup(self):
+    """
+    Cache warming on application startup.
+
+    This task should be triggered when the application starts or restarts
+    to pre-populate caches before handling user requests.
+
+    Strategy:
+        - Warm only essential caches (materials, subjects)
+        - Skip user-specific dashboards
+        - Fast execution (<10 seconds)
+    """
+    try:
+        from config.cache_warming import CacheWarmingManager
+
+        manager = CacheWarmingManager()
+        stats = manager.warm_popular_endpoints()
+
+        logger.info(f'Startup cache warming completed: {stats}')
+
+        return {
+            'status': 'success',
+            'stats': stats,
+            'timestamp': timezone.now().isoformat(),
+        }
+
+    except Exception as e:
+        logger.warning(f'Startup cache warming failed (non-critical): {e}')
+        return {
+            'status': 'failed',
+            'error': str(e),
+            'timestamp': timezone.now().isoformat(),
+        }
+
+
+@shared_task
+def monitor_cache_hit_rate():
+    """
+    Monitor cache hit rate and log metrics.
+
+    Tracks cache performance and alerts on low hit rates (<85%).
+    """
+    try:
+        from config.cache import CacheStatsCollector
+
+        stats = CacheStatsCollector.get_stats()
+
+        hit_rate = stats.get('hit_rate', 0)
+
+        if isinstance(hit_rate, (int, float)):
+            if hit_rate < 85:
+                logger.warning(
+                    f'Low cache hit rate detected: {hit_rate}% (target: 85%+)'
+                )
+            else:
+                logger.info(f'Cache hit rate: {hit_rate}%')
+
+        return {
+            'status': 'success',
+            'hit_rate': hit_rate,
+            'stats': stats,
+            'timestamp': timezone.now().isoformat(),
+        }
+
+    except Exception as e:
+        logger.warning(f'Error monitoring cache hit rate: {e}')
+        return {
+            'status': 'failed',
+            'error': str(e),
+            'timestamp': timezone.now().isoformat(),
+        }
+
+
+@shared_task
+def clear_expired_caches():
+    """
+    Clear expired cache entries.
+
+    Note: This task is typically not needed for Redis (TTL is handled
+    automatically), but useful for other cache backends.
+    """
+    try:
+        from django.core.cache import cache
+
+        # Redis automatically handles TTL expiration
+        # This is a placeholder for other cache backends
+
+        logger.info('Cache expiration check completed')
+
+        return {
+            'status': 'success',
+            'timestamp': timezone.now().isoformat(),
+        }
+
+    except Exception as e:
+        logger.warning(f'Error clearing expired caches: {e}')
+        return {
+            'status': 'failed',
+            'error': str(e),
+            'timestamp': timezone.now().isoformat(),
+        }

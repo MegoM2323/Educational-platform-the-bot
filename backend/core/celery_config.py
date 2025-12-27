@@ -90,4 +90,22 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'reports.tasks.warm_analytics_cache',
         'schedule': crontab(hour=7, minute=0),
     },
+
+    # Warm caches hourly (every hour) to maintain hit rate
+    'warm-popular-caches': {
+        'task': 'core.tasks.warm_cache_task',
+        'schedule': crontab(minute=0),  # Run at the top of every hour
+    },
+
+    # Monitor cache hit rate every 15 minutes
+    'monitor-cache-hit-rate': {
+        'task': 'core.tasks.monitor_cache_hit_rate',
+        'schedule': crontab(minute='*/15'),
+    },
+
+    # Clear expired caches daily at 6:00 AM
+    'clear-expired-caches': {
+        'task': 'core.tasks.clear_expired_caches',
+        'schedule': crontab(hour=6, minute=0),
+    },
 }

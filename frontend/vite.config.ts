@@ -61,6 +61,14 @@ const cspPlugin = (mode: string) => {
   };
 };
 
+// CDN Configuration for CloudFront static asset delivery
+const cdnConfig = {
+  enabled: process.env.VITE_CDN_ENABLED === 'true',
+  domain: process.env.VITE_CDN_DOMAIN || '',
+  // Base path for assets on CDN
+  basePath: '/static/',
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, command }) => {
   // Загружаем переменные окружения из корневого .env файла
@@ -70,6 +78,12 @@ export default defineConfig(({ mode, command }) => {
 
   return {
     appType: 'spa',
+
+    // Configure base URL for assets (CDN in production, relative in dev)
+    base: isBuild && cdnConfig.enabled && cdnConfig.domain
+      ? `https://${cdnConfig.domain}${cdnConfig.basePath}`
+      : '/',
+
     server: {
       host: '0.0.0.0',
       port: 8080,
@@ -119,6 +133,9 @@ export default defineConfig(({ mode, command }) => {
       // Передаем переменные окружения в приложение
       "import.meta.env.VITE_DJANGO_API_URL": JSON.stringify(env.VITE_DJANGO_API_URL),
       "import.meta.env.VITE_WEBSOCKET_URL": JSON.stringify(env.VITE_WEBSOCKET_URL),
+      // CDN configuration
+      "import.meta.env.VITE_CDN_ENABLED": JSON.stringify(cdnConfig.enabled),
+      "import.meta.env.VITE_CDN_DOMAIN": JSON.stringify(cdnConfig.domain),
     },
     build: {
       // Target modern browsers for optimal performance

@@ -1,0 +1,534 @@
+# Kong API Gateway Configuration for THE BOT Platform
+#
+# Kong is an open-source API gateway that can be used as an alternative to Nginx-only setup.
+# This configuration provides:
+# - Request/response transformation and logging
+# - API versioning with different backends
+# - Rate limiting per API key and IP
+# - Request validation (size, content-type)
+# - Circuit breaker pattern
+# - Authentication and authorization
+# - WebSocket support
+#
+# Installation & Usage:
+#   1. Install Kong: docker run -d --name kong-db -p 5432:5432 -e POSTGRES_PASSWORD=kong postgres:13
+#   2. Configure database: docker run --rm --link kong-db:kong-db -e KONG_DATABASE=postgres kong kong migrations bootstrap
+#   3. Run Kong: docker run -d --name kong --link kong-db:kong-db -p 8000:8000 -p 8443:8443 kong
+#   4. Deploy config: kong-gateway configure kong.yml
+#
+# Kong Admin API: http://localhost:8001
+# Kong Proxy: http://localhost:8000
+
+# ============================================
+# GLOBAL SETTINGS
+# ============================================
+
+kong:
+  # Environment
+  environment: production
+
+  # Database configuration (PostgreSQL)
+  database: postgres
+  pg_host: postgres
+  pg_port: 5432
+  pg_user: kong
+  pg_password: ${KONG_PG_PASSWORD}
+  pg_database: kong
+
+  # Kong proxy settings
+  proxy_url: http://localhost:8000
+  admin_api_url: http://localhost:8001
+
+  # TLS/SSL
+  ssl_cert_path: /etc/letsencrypt/live/the-bot.ru/fullchain.pem
+  ssl_key_path: /etc/letsencrypt/live/the-bot.ru/privkey.pem
+
+  # Logging
+  log_level: notice
+
+  # Plugin settings
+  plugins:
+    - request-id
+    - request-transformer
+    - response-transformer
+    - rate-limiting
+    - key-auth
+    - jwt
+    - cors
+    - statsd
+    - syslog
+
+# ============================================
+# 1. UPSTREAM SERVICES (BACKENDS)
+# ============================================
+
+upstreams:
+  # Backend API v1 (production)
+  - name: backend_api_v1
+    slots: 10
+
+    # Health check settings
+    healthchecks:
+      active:
+        healthy:
+          interval: 10
+          successes: 3
+        unhealthy:
+          interval: 10
+          http_failures: 5
+          tcp_failures: 5
+          timeouts: 3
+        http_path: /health
+        timeout: 5
+        concurrency: 5
+
+    # Targets (upstream servers)
+    targets:
+      - target: backend-1.internal:8000
+        weight: 1
+      - target: backend-2.internal:8000
+        weight: 1
+      - target: backend-3.internal:8000
+        weight: 1
+
+  # Backend API v2 (future/beta)
+  - name: backend_api_v2
+    slots: 10
+
+    healthchecks:
+      active:
+        healthy:
+          interval: 10
+          successes: 3
+        unhealthy:
+          interval: 10
+          http_failures: 5
+        http_path: /health
+        timeout: 5
+
+    targets:
+      - target: backend-1.internal:8002
+        weight: 1
+      - target: backend-2.internal:8002
+        weight: 1
+      - target: backend-3.internal:8002
+        weight: 1
+
+  # Backend ASGI (WebSocket)
+  - name: backend_asgi
+    slots: 10
+
+    healthchecks:
+      active:
+        healthy:
+          interval: 10
+          successes: 3
+        unhealthy:
+          interval: 10
+          http_failures: 5
+        http_path: /health
+        timeout: 5
+
+    targets:
+      - target: backend-1.internal:8001
+        weight: 1
+      - target: backend-2.internal:8001
+        weight: 1
+      - target: backend-3.internal:8001
+        weight: 1
+
+# ============================================
+# 2. SERVICES (API ENDPOINTS)
+# ============================================
+
+services:
+  # API v1 Service
+  - name: api_v1
+    url: http://backend_api_v1
+    protocol: http
+    host: backend_api_v1
+    port: 80
+    path: /
+
+    # Service settings
+    connect_timeout: 30000
+    send_timeout: 30000
+    read_timeout: 30000
+    retries: 2
+
+    # Routes for this service
+    routes:
+      # Main API v1 route
+      - name: api_v1_main
+        paths:
+          - /api/v1
+          - /api/v1/.*
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
+        protocols: [http, https]
+        preserve_host: true
+        https_redirect_status_code: 301
+
+        # Plugins for this route
+        plugins:
+          # Request ID injection
+          - name: request-id
+            config:
+              header_name: X-Request-ID
+              generator: uuid
+              uuid_format: standard
+
+          # Request/response transformation
+          - name: request-transformer
+            config:
+              add:
+                headers:
+                  - X-API-Version:1
+                  - X-API-Gateway:THE-BOT-KONG/1.0
+              remove:
+                headers:
+                  - X-Internal-Secret
+
+          - name: response-transformer
+            config:
+              add:
+                headers:
+                  - X-API-Version:1
+                  - X-Response-Time:$http_x_response_time
+              remove:
+                headers:
+                  - X-Internal-Header
+
+          # Rate limiting per API key
+          - name: rate-limiting
+            config:
+              minute: 6000
+              hour: 360000
+              policy: redis
+              redis_host: redis
+              redis_port: 6379
+              fault_tolerant: true
+              hide_client_headers: false
+
+          # API Key authentication
+          - name: key-auth
+            config:
+              key_names:
+                - X-API-Key
+                - apiKey
+                - api_key
+              key_in_body: false
+              hide_credentials: false
+
+          # CORS
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - PATCH
+                - DELETE
+                - OPTIONS
+              headers:
+                - Content-Type
+                - Authorization
+                - X-API-Key
+                - X-Request-ID
+              credentials: true
+              max_age: 3600
+
+          # Request/response logging
+          - name: syslog
+            config:
+              log_level: info
+              facility: LOG_LOCAL0
+
+  # API v2 Service (beta)
+  - name: api_v2
+    url: http://backend_api_v2
+    protocol: http
+    host: backend_api_v2
+    port: 80
+    path: /
+
+    connect_timeout: 30000
+    send_timeout: 30000
+    read_timeout: 30000
+    retries: 2
+
+    routes:
+      - name: api_v2_main
+        paths:
+          - /api/v2
+          - /api/v2/.*
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
+        protocols: [http, https]
+        preserve_host: true
+        https_redirect_status_code: 301
+
+        plugins:
+          - name: request-id
+            config:
+              header_name: X-Request-ID
+              generator: uuid
+
+          - name: request-transformer
+            config:
+              add:
+                headers:
+                  - X-API-Version:2
+                  - X-API-Gateway:THE-BOT-KONG/1.0
+
+          - name: response-transformer
+            config:
+              add:
+                headers:
+                  - X-API-Version:2
+
+          # Stricter rate limiting for v2
+          - name: rate-limiting
+            config:
+              minute: 3000
+              hour: 180000
+              policy: redis
+              redis_host: redis
+              redis_port: 6379
+
+          - name: key-auth
+            config:
+              key_names:
+                - X-API-Key
+                - apiKey
+              key_in_body: false
+
+          - name: cors
+            config:
+              origins:
+                - "*"
+              credentials: true
+
+          - name: syslog
+            config:
+              log_level: info
+
+  # WebSocket Service
+  - name: websocket_service
+    url: http://backend_asgi
+    protocol: http
+    host: backend_asgi
+    port: 80
+    path: /
+
+    connect_timeout: 30000
+    send_timeout: 86400000  # 24 hours for WebSocket
+    read_timeout: 86400000
+    retries: 1
+
+    routes:
+      - name: websocket_route
+        paths:
+          - /ws
+          - /ws/.*
+        strip_path: false
+        methods: [GET, HEAD]
+        protocols: [http, https, ws, wss]
+        preserve_host: true
+
+        plugins:
+          - name: request-id
+            config:
+              header_name: X-Request-ID
+
+          - name: rate-limiting
+            config:
+              minute: 600
+              hour: 36000
+
+          - name: cors
+            config:
+              origins:
+                - "*"
+
+# ============================================
+# 3. CONSUMERS (API USERS)
+# ============================================
+
+consumers:
+  # Admin user with full access
+  - username: admin
+    custom_id: admin-001
+
+    # Credentials
+    key_auth:
+      - key: admin-key-12345
+
+    # Groups (for access control)
+    acls:
+      - admin
+      - api_users
+
+  # Service account with rate limit
+  - username: service_account_1
+    custom_id: service-001
+
+    key_auth:
+      - key: service-key-54321
+
+    acls:
+      - api_users
+      - service_accounts
+
+# ============================================
+# 4. PLUGINS (GLOBAL)
+# ============================================
+
+plugins:
+  # Request ID for tracing
+  - name: request-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid
+      uuid_format: standard
+      echo_downstream: true
+
+  # Request/response logging to StatsD
+  - name: statsd
+    config:
+      host: statsd
+      port: 8125
+      metrics:
+        - status
+        - latency
+        - upstream_latency
+        - request_count
+        - request_size
+        - response_size
+      prefix: kong_api
+
+  # Syslog logging
+  - name: syslog
+    config:
+      log_level: info
+      facility: LOG_LOCAL0
+      server_addr: syslog-server
+      server_port: 514
+
+  # StatsD for Prometheus metrics
+  - name: prometheus
+    config:
+      metrics:
+        - request_count
+        - request_latency
+        - response_latency
+        - request_size
+        - response_size
+        - status_count
+        - upstream_latency
+        - upstream_status
+        - http_requests_total
+
+# ============================================
+# 5. CIRCUIT BREAKER CONFIGURATION
+# ============================================
+
+# Note: Kong handles circuit breaking through health checks
+# When an upstream is unhealthy, Kong automatically routes to healthy nodes
+# Configuration above in healthchecks section
+
+# Environment variables for Kong:
+# KONG_PG_PASSWORD: PostgreSQL password
+# KONG_REDIS_HOST: Redis host for rate limiting
+# KONG_REDIS_PORT: Redis port
+
+# ============================================
+# DEPLOYMENT NOTES
+# ============================================
+
+# Docker Compose setup (in docker-compose.yml):
+# kong:
+#   image: kong:3.0-alpine
+#   environment:
+#     KONG_DATABASE: postgres
+#     KONG_PG_HOST: postgres
+#     KONG_PG_USER: kong
+#     KONG_PG_PASSWORD: ${KONG_PG_PASSWORD}
+#     KONG_PG_DATABASE: kong
+#     KONG_PROXY_ACCESS_LOG: /dev/stdout
+#     KONG_ADMIN_ACCESS_LOG: /dev/stdout
+#     KONG_PROXY_ERROR_LOG: /dev/stderr
+#     KONG_ADMIN_ERROR_LOG: /dev/stderr
+#     KONG_PLUGINS: bundled,request-id,request-transformer,response-transformer
+#   ports:
+#     - "8000:8000"
+#     - "8443:8443"
+#     - "8001:8001"
+#     - "8444:8444"
+#   depends_on:
+#     - postgres
+#     - redis
+#
+# konga:
+#   image: pantsel/konga
+#   environment:
+#     DB_ADAPTER: postgres
+#     DB_HOST: postgres
+#     DB_USER: konga
+#     DB_PASSWORD: ${KONGA_DB_PASSWORD}
+#     DB_DATABASE: konga
+#   ports:
+#     - "1337:1337"
+#   depends_on:
+#     - postgres
+
+# ============================================
+# MONITORING & MANAGEMENT
+# ============================================
+
+# Access Kong Admin API:
+#   curl http://localhost:8001/services
+#   curl http://localhost:8001/upstreams
+#   curl http://localhost:8001/routes
+#   curl http://localhost:8001/plugins
+#
+# View Konga dashboard:
+#   http://localhost:1337
+#
+# Test API endpoint:
+#   curl -H "X-API-Key: admin-key-12345" http://localhost:8000/api/v1/users
+#
+# Check gateway health:
+#   curl http://localhost:8001/status
+
+# ============================================
+# COMPARISON: NGINX vs KONG
+# ============================================
+
+# NGINX (nginx/api-gateway.conf):
+# - Lightweight, high performance
+# - Simple, declarative configuration
+# - No database required
+# - Limited dynamic management
+# - Good for static/stable configurations
+#
+# KONG:
+# - Full-featured API gateway
+# - Dynamic configuration via Admin API
+# - Database-backed (PostgreSQL)
+# - Rich plugin ecosystem
+# - Good for dynamic/evolving configurations
+# - Better for multi-team environments
+#
+# RECOMMENDATION:
+# - Use NGINX for production (stable, high-performance)
+# - Use KONG for development/testing (dynamic management)
+# - Can run both in parallel initially
+
+# SEE ALSO:
+# - nginx/api-gateway.conf: Nginx implementation
+# - backend/middleware/api_gateway.py: Django middleware
+# - docker-compose.yml: Kong deployment
+# - docs/API_GATEWAY.md: API gateway documentation

@@ -1,0 +1,273 @@
+{
+  "cdn": {
+    "name": "TheBot CDN",
+    "provider": "aws-cloudfront",
+    "description": "CloudFront CDN configuration for static assets and media files",
+    "version": "1.0.0",
+    "created_at": "2025-12-27",
+    "updated_at": "2025-12-27"
+  },
+  "settings": {
+    "https_only": true,
+    "tls_minimum_version": "1.2",
+    "http_version": "http2and3",
+    "compression": {
+      "gzip": true,
+      "brotli": true
+    },
+    "cache_busting": {
+      "enabled": true,
+      "strategy": "hash-based",
+      "comment": "Hash-based file names (e.g., app-abc123.js) for automatic invalidation"
+    }
+  },
+  "origins": {
+    "primary": {
+      "name": "backend-origin",
+      "type": "custom",
+      "domain": "${BACKEND_DOMAIN}",
+      "protocol": "https",
+      "port": 443,
+      "custom_headers": {
+        "X-Origin-Verify": "${ORIGIN_VERIFY_TOKEN}"
+      },
+      "comment": "Backend server for static and media files"
+    }
+  },
+  "distributions": {
+    "static_assets": {
+      "name": "Static Assets",
+      "path_patterns": [
+        "/js/*-[a-f0-9]*.js",
+        "/css/*-[a-f0-9]*.css",
+        "/images/*-[a-f0-9]*.*",
+        "/fonts/*"
+      ],
+      "cache": {
+        "default_ttl": 31536000,
+        "max_ttl": 31536000,
+        "min_ttl": 0,
+        "comment": "1 year cache for hashed assets"
+      },
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Vary": "Accept-Encoding"
+      }
+    },
+    "static_files": {
+      "name": "Static Files",
+      "path_patterns": [
+        "/static/*",
+        "/assets/*"
+      ],
+      "cache": {
+        "default_ttl": 2592000,
+        "max_ttl": 2592000,
+        "min_ttl": 0,
+        "comment": "30 days cache for non-hashed static files"
+      },
+      "headers": {
+        "Cache-Control": "public, max-age=2592000, must-revalidate",
+        "Vary": "Accept-Encoding"
+      }
+    },
+    "media_files": {
+      "name": "Media Files (User Uploads)",
+      "path_patterns": [
+        "/media/*"
+      ],
+      "cache": {
+        "default_ttl": 604800,
+        "max_ttl": 604800,
+        "min_ttl": 0,
+        "comment": "7 days cache for media files with signed URLs"
+      },
+      "signed_urls": {
+        "enabled": true,
+        "key_pair_id": "${CLOUDFRONT_KEY_PAIR_ID}",
+        "private_key_path": "/etc/secrets/cloudfront-private-key.pem",
+        "ttl": 3600,
+        "comment": "Signed URLs required for media file access"
+      },
+      "headers": {
+        "Cache-Control": "public, max-age=604800, must-revalidate",
+        "Vary": "Accept-Encoding,Authorization"
+      }
+    }
+  },
+  "security": {
+    "origin_authentication": {
+      "enabled": true,
+      "header_name": "X-Origin-Verify",
+      "method": "custom-header",
+      "comment": "Authenticate requests from CloudFront to origin"
+    },
+    "geo_restriction": {
+      "enabled": false,
+      "type": "none",
+      "locations": [],
+      "comment": "Optional: Set to 'whitelist' or 'blacklist' for compliance"
+    },
+    "signed_urls": {
+      "enabled": true,
+      "for_paths": ["/media/*"],
+      "comment": "Require signed URLs for media files"
+    },
+    "https_enforcement": {
+      "protocol_policy": "https-only",
+      "redirect_http_to_https": true,
+      "comment": "All requests must use HTTPS with TLS 1.2+"
+    }
+  },
+  "performance": {
+    "compression": {
+      "gzip": true,
+      "brotli": true,
+      "min_size": 1024,
+      "comment": "Enable compression for files > 1KB"
+    },
+    "cache_optimization": {
+      "strategy": "origin-request-minimization",
+      "query_string_handling": "all",
+      "cookie_handling": "none",
+      "comment": "Minimize origin requests for cost optimization"
+    },
+    "functions": {
+      "viewer_request": [
+        "add-cache-headers"
+      ],
+      "viewer_response": [
+        "add-cors-headers"
+      ],
+      "origin_request": [
+        "validate-signed-urls"
+      ]
+    }
+  },
+  "monitoring": {
+    "logging": {
+      "enabled": true,
+      "type": "s3",
+      "bucket": "${CDN_LOGS_BUCKET}",
+      "prefix": "cloudfront/",
+      "retention_days": 90,
+      "comment": "CloudFront access logs for monitoring and debugging"
+    },
+    "metrics": {
+      "enabled": true,
+      "cloudwatch": true,
+      "monitoring_points": [
+        "requests",
+        "bytes_downloaded",
+        "bytes_uploaded",
+        "4xx_errors",
+        "5xx_errors",
+        "cache_hit_rate"
+      ]
+    }
+  },
+  "invalidation": {
+    "enabled": true,
+    "triggers": [
+      "on_deployment",
+      "on_static_asset_change"
+    ],
+    "paths": [
+      "/*"
+    ],
+    "batch_size": 3000,
+    "max_cost_per_month": 100,
+    "comment": "Automatic cache invalidation on deployment"
+  },
+  "cost_optimization": {
+    "tier": "standard",
+    "data_transfer_out_cost_per_gb": 0.085,
+    "request_cost_per_10k": 0.0075,
+    "invalidation_cost_per_path": 0.005,
+    "recommendations": [
+      "Use hash-based file names for automatic cache busting",
+      "Enable compression for text files",
+      "Batch cache invalidations to stay under 3000 paths",
+      "Monitor cache hit rates and adjust TTLs accordingly",
+      "Use CloudFront Functions instead of Lambda@Edge for cost savings"
+    ]
+  },
+  "environment_variables": {
+    "BACKEND_DOMAIN": {
+      "description": "Backend server domain for origin",
+      "required": true,
+      "example": "api.thebot.com"
+    },
+    "ORIGIN_VERIFY_TOKEN": {
+      "description": "Custom header value for origin authentication",
+      "required": true,
+      "sensitive": true,
+      "example": "${random_secure_string}"
+    },
+    "CLOUDFRONT_DOMAIN": {
+      "description": "CloudFront distribution domain (set after deployment)",
+      "required": false,
+      "example": "d123456.cloudfront.net"
+    },
+    "CLOUDFRONT_DISTRIBUTION_ID": {
+      "description": "CloudFront distribution ID for cache invalidation",
+      "required": false,
+      "example": "E123ABC456"
+    },
+    "CLOUDFRONT_KEY_PAIR_ID": {
+      "description": "CloudFront public key pair ID for signing media URLs",
+      "required": false,
+      "example": "APKAJ7EXAMPLE"
+    },
+    "CDN_LOGS_BUCKET": {
+      "description": "S3 bucket for CloudFront logs",
+      "required": false,
+      "example": "thebot-cloudfront-logs-123456789012"
+    }
+  },
+  "deployment": {
+    "prerequisites": [
+      "AWS account with CloudFront access",
+      "Terraform >= 1.0",
+      "AWS provider >= 5.0",
+      "Backend origin configured with HTTPS",
+      "Origin authentication header configured"
+    ],
+    "steps": [
+      "1. Copy cloudfront.tf to infrastructure/terraform/",
+      "2. Create terraform/functions/*.js files",
+      "3. Configure terraform variables in terraform.tfvars",
+      "4. Run: terraform init",
+      "5. Run: terraform plan",
+      "6. Run: terraform apply",
+      "7. Capture outputs: distribution_id, domain_name, key_group_id",
+      "8. Update backend CDN settings with distribution info",
+      "9. Update frontend build config with CDN domain",
+      "10. Deploy and monitor cache hit rates"
+    ]
+  },
+  "troubleshooting": {
+    "common_issues": [
+      {
+        "issue": "Origin returns 403 Forbidden",
+        "solution": "Verify X-Origin-Verify header is configured correctly on origin",
+        "command": "curl -H 'X-Origin-Verify: ${ORIGIN_VERIFY_TOKEN}' https://${BACKEND_DOMAIN}/static/"
+      },
+      {
+        "issue": "Media files require signed URL but not provided",
+        "solution": "Use Django utility to generate signed URLs for media files",
+        "command": "python manage.py shell < generate_signed_urls.py"
+      },
+      {
+        "issue": "Cache hit rate is low (< 80%)",
+        "solution": "Review cache policies and ensure proper hash-based naming convention",
+        "recommendation": "Verify Vite build outputs files with hashes"
+      },
+      {
+        "issue": "High invalidation costs",
+        "solution": "Use path-based invalidation instead of wildcard (*)",
+        "recommendation": "Batch invalidations and update only changed assets"
+      }
+    ]
+  }
+}

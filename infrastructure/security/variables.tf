@@ -1,5 +1,5 @@
 # ========================================================
-# THE_BOT Platform - Network Security Variables
+# THE_BOT Platform - Security Variables (HARDENED)
 # ========================================================
 
 variable "project_name" {

@@ -1,0 +1,309 @@
+# Docker Compose for Kong API Gateway Setup
+#
+# This compose file sets up Kong with PostgreSQL and Redis for development/testing.
+# For production, consider using Kubernetes or a managed Kong service.
+#
+# Usage:
+#   docker-compose up -d
+#   # Initialize database
+#   docker-compose exec kong kong migrations bootstrap
+#   # Deploy configuration
+#   decK sync kong.yml
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Kong
+  postgres:
+    image: postgres:15-alpine
+    container_name: kong-postgres
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: ${KONG_PG_PASSWORD:-changeme}
+      POSTGRES_DB: kong
+      POSTGRES_INITDB_ARGS: --encoding=UTF8
+    volumes:
+      - kong-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kong"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kong-network
+
+  # Redis for rate limiting and caching
+  redis:
+    image: redis:7-alpine
+    container_name: kong-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - kong-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kong-network
+
+  # Kong API Gateway
+  kong:
+    image: kong:3.4-alpine
+    container_name: kong-api-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database configuration
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: postgres
+      KONG_PG_PORT: 5432
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: ${KONG_PG_PASSWORD:-changeme}
+      KONG_PG_DATABASE: kong
+
+      # Admin API
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+
+      # Proxy
+      KONG_PROXY_LISTEN: 0.0.0.0:8000 reuseport backlog=16384
+      KONG_PROXY_LISTEN_SSL: 0.0.0.0:8443 reuseport backlog=16384 ssl
+
+      # Plugins
+      KONG_PLUGINS: bundled,request-id,request-transformer,response-transformer,rate-limiting,key-auth,jwt,cors,statsd,syslog
+
+      # Logging
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_LOG_LEVEL: notice
+
+      # Redis
+      KONG_REDIS_HOST: redis
+      KONG_REDIS_PORT: 6379
+
+      # Cache configuration
+      KONG_CACHE_DEFAULT_TTL: 3600
+      KONG_CACHE_MAX_SIZE: 134217728  # 128MB
+
+      # SSL configuration (if certificates available)
+      # KONG_SSL_CERT_PATH: /etc/kong/certs/cert.pem
+      # KONG_SSL_KEY_PATH: /etc/kong/certs/key.pem
+
+    ports:
+      - "8000:8000"     # Proxy HTTP
+      - "8443:8443"     # Proxy HTTPS
+      - "8001:8001"     # Admin API
+      - "8444:8444"     # Admin API HTTPS
+    volumes:
+      # Mount configuration (if using file-based config)
+      # - ./kong.yml:/etc/kong/kong.yml
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - kong-network
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: kong start
+
+  # Kong Database Migrations
+  kong-migrations:
+    image: kong:3.4-alpine
+    container_name: kong-migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: postgres
+      KONG_PG_PORT: 5432
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: ${KONG_PG_PASSWORD:-changeme}
+      KONG_PG_DATABASE: kong
+    networks:
+      - kong-network
+    command: kong migrations bootstrap
+
+  # Konga - Kong Admin UI (optional)
+  konga-db:
+    image: postgres:15-alpine
+    container_name: konga-postgres
+    environment:
+      POSTGRES_USER: konga
+      POSTGRES_PASSWORD: ${KONGA_DB_PASSWORD:-changeme}
+      POSTGRES_DB: konga
+    volumes:
+      - konga-postgres-data:/var/lib/postgresql/data
+    networks:
+      - kong-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "konga"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  konga:
+    image: pantsel/konga:latest
+    container_name: konga-admin
+    depends_on:
+      - konga-db
+      - kong
+    environment:
+      # Database
+      DB_ADAPTER: postgres
+      DB_HOST: konga-db
+      DB_PORT: 5432
+      DB_USER: konga
+      DB_PASSWORD: ${KONGA_DB_PASSWORD:-changeme}
+      DB_DATABASE: konga
+
+      # Kong connection
+      KONG_ADMIN_URL: http://kong:8001
+
+      # Konga settings
+      KONGA_SEED_USER_DATA_SOURCE_FILE: /tmp/konga-seed.json
+      KONGA_SEED_KONG_NODE_DATA_SOURCE_FILE: /tmp/kong-node-seed.json
+    ports:
+      - "1337:1337"
+    volumes:
+      - ./konga-seed.json:/tmp/konga-seed.json:ro
+      - ./kong-node-seed.json:/tmp/kong-node-seed.json:ro
+    networks:
+      - kong-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1337"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # StatsD for metrics collection (optional)
+  statsd:
+    image: statsd/statsd:latest
+    container_name: kong-statsd
+    ports:
+      - "8125:8125/udp"
+      - "8126:8126"
+    volumes:
+      - ./statsd.conf:/etc/statsd/config.js:ro
+    networks:
+      - kong-network
+
+  # Prometheus for metrics (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: kong-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - kong-network
+
+  # Grafana for visualization (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: kong-grafana
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - kong-network
+
+volumes:
+  kong-postgres-data:
+  kong-redis-data:
+  konga-postgres-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  kong-network:
+    driver: bridge
+
+# Environment variables (.env file)
+# KONG_PG_PASSWORD=secure_postgres_password
+# KONGA_DB_PASSWORD=secure_konga_password
+# GRAFANA_PASSWORD=secure_grafana_password
+
+# Post-deployment setup:
+#
+# 1. Initialize Kong database
+#    docker-compose exec kong kong migrations bootstrap
+#
+# 2. Access Kong Admin API
+#    http://localhost:8001
+#
+# 3. Access Konga UI
+#    http://localhost:1337
+#    Username: admin@example.com
+#    Password: admin
+#
+# 4. Add Kong admin node in Konga
+#    Name: Kong
+#    URL: http://kong:8001
+#
+# 5. Configure services and routes via Konga UI
+#
+# 6. Deploy configuration via decK
+#    deck sync kong.yml
+#
+# 7. Access Prometheus metrics
+#    http://localhost:9090
+#
+# 8. Access Grafana
+#    http://localhost:3000
+#    Username: admin
+#    Password: (from GRAFANA_PASSWORD)
+
+# Useful commands:
+#
+# Start services:
+#   docker-compose up -d
+#
+# Check logs:
+#   docker-compose logs -f kong
+#   docker-compose logs -f konga
+#
+# Execute commands in Kong:
+#   docker-compose exec kong kong health
+#   docker-compose exec kong kong config init
+#
+# Stop services:
+#   docker-compose down
+#
+# Remove all data (WARNING: destructive):
+#   docker-compose down -v
+#
+# Access Kong admin API:
+#   curl http://localhost:8001/services
+#   curl http://localhost:8001/upstreams
+#   curl http://localhost:8001/routes
+#   curl http://localhost:8001/plugins
+#
+# Create service via API:
+#   curl -X POST http://localhost:8001/services \
+#     -d "name=backend_api_v1&url=http://backend-1:8000"
+#
+# Create route via API:
+#   curl -X POST http://localhost:8001/services/backend_api_v1/routes \
+#     -d "paths=/api/v1&strip_path=false"

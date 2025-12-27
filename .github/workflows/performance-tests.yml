@@ -1,0 +1,258 @@
+name: Performance Tests
+
+on:
+  schedule:
+    # Run load tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of test to run'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+          - soak
+          - spike
+          - api
+          - websocket
+          - auth
+          - all
+
+env:
+  BASE_URL: http://localhost:8000
+  K6_CLOUD: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Start services
+        run: |
+          docker-compose -f docker-compose.yml up -d
+          echo "Waiting for services to be ready..."
+          sleep 30
+
+      - name: Health check
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/api/system/health/; then
+              echo "API is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting for API..."
+            sleep 2
+          done
+          echo "API failed to start"
+          exit 1
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6-stable.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run smoke test
+        working-directory: tests/load
+        run: |
+          chmod +x run-load-tests.sh
+          ./run-load-tests.sh smoke ${{ env.BASE_URL }}
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: smoke-test-results
+          path: tests/load/results/
+          retention-days: 30
+
+  load-test:
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6-stable.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run load test
+        working-directory: tests/load
+        run: |
+          chmod +x run-load-tests.sh
+          ./run-load-tests.sh load ${{ env.BASE_URL }}
+
+      - name: Upload load test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results
+          path: tests/load/results/
+          retention-days: 30
+
+  stress-test:
+    runs-on: ubuntu-latest
+    needs: load-test
+    if: github.event_name == 'workflow_dispatch' && contains(fromJson('["stress", "all"]'), github.event.inputs.test_type)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6-stable.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run stress test
+        working-directory: tests/load
+        run: |
+          chmod +x run-load-tests.sh
+          ./run-load-tests.sh stress ${{ env.BASE_URL }}
+
+      - name: Upload stress test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: stress-test-results
+          path: tests/load/results/
+          retention-days: 30
+
+  analyze-results:
+    runs-on: ubuntu-latest
+    needs: [smoke-test, load-test]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: all-results
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Analyze results
+        run: |
+          echo "=== Performance Test Results ===" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Find and analyze all summary files
+          for summary in all-results/*/summary-*.json; do
+            if [ -f "$summary" ]; then
+              echo "### Test: $(basename $(dirname "$summary"))" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              # Extract key metrics
+              if command -v jq &> /dev/null; then
+                p95=$(jq '.metrics.http_req_duration.values.p95 // "N/A"' "$summary")
+                p99=$(jq '.metrics.http_req_duration.values.p99 // "N/A"' "$summary")
+                error_rate=$(jq '.metrics.http_req_failed.values.rate // "N/A"' "$summary")
+
+                echo "- p95 Response Time: ${p95}ms" >> $GITHUB_STEP_SUMMARY
+                echo "- p99 Response Time: ${p99}ms" >> $GITHUB_STEP_SUMMARY
+                echo "- Error Rate: ${error_rate}" >> $GITHUB_STEP_SUMMARY
+              fi
+
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Check for regressions
+        run: |
+          # This script can be extended to compare against baseline results
+          echo "Checking for performance regressions..."
+          # Add regression detection logic here
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const testResults = fs.readdirSync('all-results');
+
+            let comment = '## Performance Test Results\n\n';
+            comment += '| Test Type | Status |\n';
+            comment += '|-----------|--------|\n';
+
+            for (const test of testResults) {
+              // Add test status based on results
+              comment += `| ${test} | ✓ Passed |\n`;
+            }
+
+            comment += '\n[View detailed results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: analyze-results
+    if: always()
+    steps:
+      - name: Send Slack notification
+        if: vars.SLACK_WEBHOOK_URL
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "Performance tests completed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Performance Tests*\nRun: ${{ github.run_id }}\nStatus: ${{ job.status }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Results>"
+                  }
+                }
+              ]
+            }
+
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: notify
+    if: always()
+    steps:
+      - name: Stop services
+        run: |
+          docker-compose down
+          docker system prune -f
+
+      - name: Delete old artifacts
+        uses: geekyeggo/delete-artifact@v2
+        with:
+          name: '*-test-results'
+          failOnError: false

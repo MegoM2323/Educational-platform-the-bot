@@ -43,13 +43,50 @@
             "action": "ALLOW"
           },
           {
-            "rule_id": "INTERNET_EGRESS",
-            "description": "DNS and general outbound",
+            "rule_id": "DENY_MALICIOUS_PORTS_EGRESS",
+            "description": "Block malicious ports (Telnet, TFTP, SMB, RDP, etc.)",
+            "protocol": "tcp",
+            "port_range": "23,69,135,139,445,1433,3306,5984,6379,9042,27017",
+            "destination": "0.0.0.0/0",
+            "priority": 150,
+            "action": "DENY"
+          },
+          {
+            "rule_id": "DNS_EGRESS",
+            "description": "DNS queries - UDP 53",
+            "protocol": "udp",
+            "port_range": "53",
+            "destination": "0.0.0.0/0",
+            "priority": 160,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "HTTPS_EGRESS",
+            "description": "HTTPS outbound to external services",
+            "protocol": "tcp",
+            "port_range": "443",
+            "destination": "0.0.0.0/0",
+            "priority": 170,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "NTP_EGRESS",
+            "description": "NTP time synchronization",
+            "protocol": "udp",
+            "port_range": "123",
+            "destination": "0.0.0.0/0",
+            "priority": 180,
+            "action": "ALLOW"
+          },
+          {
+            "rule_id": "DENY_ALL_EGRESS_DEFAULT",
+            "description": "Default deny all other outbound traffic",
             "protocol": "-1",
             "port_range": "all",
             "destination": "0.0.0.0/0",
             "priority": 200,
-            "action": "ALLOW"
+            "action": "DENY",
+            "note": "DEFAULT DENY - only whitelisted traffic allowed"
           }
         ]
       },
@@ -240,8 +277,8 @@
             "protocol": "tcp",
             "port_range": "22",
             "source": "0.0.0.0/0",
-            "action": "ALLOW",
-            "note": "SSH - restrict IP in production"
+            "action": "DENY",
+            "note": "SSH BLOCKED from internet - use bastion only (SECURITY HARDENING)"
           },
           {
             "rule_number": 130,
@@ -478,7 +515,8 @@
         {
           "rule_group": "AWSManagedRulesCommonRuleSet",
           "description": "Protects against OWASP Top 10",
-          "enabled": true
+          "enabled": true,
+          "sensitivity": "high"
         },
         {
           "rule_group": "AWSManagedRulesKnownBadInputsRuleSet",
@@ -489,16 +527,32 @@
           "rule_group": "AWSManagedRulesSQLiRuleSet",
           "description": "SQL injection protection",
           "enabled": true
+        },
+        {
+          "rule_group": "AWSManagedRulesLinuxRuleSet",
+          "description": "Protects against Linux exploits",
+          "enabled": true
+        },
+        {
+          "rule_group": "AWSManagedRulesAnonymousIPList",
+          "description": "Blocks requests from anonymous proxies",
+          "enabled": true
+        },
+        {
+          "rule_group": "AWSManagedRulesAmazonIpReputationList",
+          "description": "Amazon IP reputation intelligence",
+          "enabled": true
         }
       ],
       "custom_rules": [
         {
           "id": "CUSTOM_001",
-          "name": "Rate limit by IP",
-          "description": "Limit requests per IP",
+          "name": "Rate limit by IP - Aggressive",
+          "description": "Limit requests per IP (HARDENED)",
           "action": "BLOCK",
-          "limit": 2000,
-          "window": "5 minutes"
+          "limit": 1000,
+          "window": "5 minutes",
+          "note": "Reduced from 2000 to 1000 for tighter security"
         },
         {
           "id": "CUSTOM_002",
@@ -510,17 +564,74 @@
         },
         {
           "id": "CUSTOM_003",
-          "name": "User agent filtering",
-          "description": "Block requests from suspicious user agents",
+          "name": "Block suspicious user agents",
+          "description": "Block requests from bot and scanning tools",
           "action": "BLOCK",
-          "blocked_agents": ["curl", "wget", "python-requests"]
+          "blocked_agents": [
+            "curl",
+            "wget",
+            "python-requests",
+            "sqlmap",
+            "nikto",
+            "nmap",
+            "masscan",
+            "nessus"
+          ]
+        },
+        {
+          "id": "CUSTOM_004",
+          "name": "IP reputation blocking - AbuseIPDB",
+          "description": "Block IPs flagged in AbuseIPDB (score > 75%)",
+          "action": "BLOCK",
+          "source": "abuseipdb",
+          "threshold": 75
+        },
+        {
+          "id": "CUSTOM_005",
+          "name": "IP reputation blocking - Spamhaus",
+          "description": "Block IPs from Spamhaus DROP/EDROP lists",
+          "action": "BLOCK",
+          "source": "spamhaus",
+          "lists": ["DROP", "EDROP"]
+        },
+        {
+          "id": "CUSTOM_006",
+          "name": "Brute force protection",
+          "description": "Block IPs after 10 failed login attempts",
+          "action": "BLOCK",
+          "applies_to": ["/api/auth/login/", "/admin/login/"],
+          "failed_attempts_threshold": 10,
+          "window": "1 hour"
         }
       ]
     },
     "geo_blocking": {
-      "enabled": false,
-      "blocked_countries": [],
-      "note": "Enable and configure if needed for compliance"
+      "enabled": true,
+      "blocked_countries": [
+        "KP",
+        "IR",
+        "SY",
+        "CU"
+      ],
+      "note": "Blocks countries with US sanctions/restrictions. Update based on compliance requirements",
+      "exceptions": [
+        {
+          "country": "KP",
+          "reason": "North Korea - OFAC sanctions"
+        },
+        {
+          "country": "IR",
+          "reason": "Iran - OFAC sanctions"
+        },
+        {
+          "country": "SY",
+          "reason": "Syria - OFAC sanctions"
+        },
+        {
+          "country": "CU",
+          "reason": "Cuba - OFAC sanctions"
+        }
+      ]
     },
     "monitoring": {
       "vpc_flow_logs": {

@@ -28,10 +28,8 @@ from django.core.cache import cache
 from django.conf import settings
 from django.utils.functional import SimpleLazyObject
 
-from core.decorators import get_logger
-
 # Initialize logger
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class RequestIDMiddleware(MiddlewareMixin):

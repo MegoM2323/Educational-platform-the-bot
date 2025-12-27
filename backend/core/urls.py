@@ -40,6 +40,14 @@ from .cache_stats_views import (
     cache_reset_stats_view,
     cache_health_view
 )
+from .api.uptime_views import (
+    uptime_status_view,
+    components_status_view,
+    status_page_json_view,
+    sla_metrics_view,
+    incidents_history_view,
+    health_check_comprehensive,
+)
 
 # Router for ViewSets
 router = DefaultRouter()
@@ -113,4 +121,12 @@ urlpatterns = [
     path('admin/database/maintenance/', MaintenanceTaskView.as_view(), name='maintenance_task'),
     path('admin/database/maintenance/<str:task_id>/', MaintenanceStatusView.as_view(), name='maintenance_status'),
     path('admin/database/kill-query/', KillQueryView.as_view(), name='kill_query'),
+
+    # Uptime SLA Monitoring (публичные endpoints)
+    path('uptime/', uptime_status_view, name='uptime_status'),
+    path('uptime/components/', components_status_view, name='components_status'),
+    path('uptime/status-page/', status_page_json_view, name='status_page_json'),
+    path('uptime/sla/', sla_metrics_view, name='sla_metrics'),
+    path('uptime/incidents/', incidents_history_view, name='incidents_history'),
+    path('uptime/health/', health_check_comprehensive, name='health_check_comprehensive'),
 ]

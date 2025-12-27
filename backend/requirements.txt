@@ -48,3 +48,9 @@ pytz>=2023.3
 # Notification channel dependencies
 firebase-admin>=6.4.0
 twilio>=8.10.0
+
+# Error tracking and monitoring
+sentry-sdk>=1.42.0
+sentry-sdk[django]>=1.42.0
+sentry-sdk[celery]>=1.42.0
+sentry-sdk[redis]>=1.42.0

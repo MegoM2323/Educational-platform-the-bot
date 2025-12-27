@@ -48,6 +48,15 @@ from .api.uptime_views import (
     incidents_history_view,
     health_check_comprehensive,
 )
+from .health_extended import (
+    extended_health_view,
+    component_metrics_view,
+    sla_metrics_view as extended_sla_metrics_view,
+    status_page_view,
+    synthetic_check_webhook_view,
+    websocket_health_view,
+    alerts_summary_view,
+)
 
 # Router for ViewSets
 router = DefaultRouter()
@@ -129,4 +138,13 @@ urlpatterns = [
     path('uptime/sla/', sla_metrics_view, name='sla_metrics'),
     path('uptime/incidents/', incidents_history_view, name='incidents_history'),
     path('uptime/health/', health_check_comprehensive, name='health_check_comprehensive'),
+
+    # Extended Health Check Endpoints
+    path('system/health-extended/', extended_health_view, name='health_extended'),
+    path('system/components/', component_metrics_view, name='component_metrics'),
+    path('system/sla/', extended_sla_metrics_view, name='extended_sla_metrics'),
+    path('system/status-page/', status_page_view, name='status_page'),
+    path('system/synthetic-check/', synthetic_check_webhook_view, name='synthetic_check'),
+    path('system/websocket-health/', websocket_health_view, name='websocket_health'),
+    path('system/alerts/', alerts_summary_view, name='alerts_summary'),
 ]

@@ -7,6 +7,7 @@ except ImportError:
 
 from pathlib import Path
 import os
+import sys
 from decimal import Decimal
 from dotenv import dotenv_values
 from urllib.parse import urlparse
@@ -37,6 +38,14 @@ for _env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
 # Это критично для pytest (pytest-env устанавливает ENVIRONMENT=test)
 if _current_environment is not None:
     os.environ['ENVIRONMENT'] = _current_environment
+
+# Initialize Sentry for error tracking (MUST be before any imports of other modules)
+try:
+    from config.sentry import init_sentry
+    init_sentry(sys.modules[__name__])
+except Exception as e:
+    import sys
+    print(f'[Warning] Failed to initialize Sentry: {e}', file=sys.stderr)
 
 # (Удалено) Опасный ранний импорт модулей приложений.
 # Ранее здесь создавались двусторонние алиасы импортов для `backend.*` и без префикса,
@@ -177,6 +186,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'config.sentry.SentryMiddleware',  # Sentry middleware for error tracking (must be near end)
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -712,6 +722,103 @@ CACHE_TIMEOUTS = {
     'parent_children': 1200,  # 20 minutes
     'chat_messages': 60,  # 1 minute
     'progress_stats': 300,  # 5 minutes
+}
+
+# Rate limiting settings
+# Comprehensive API rate limiting with tiered limits and sliding window algorithm
+RATE_LIMITING = {
+    'ENABLED': True,
+    'ALGORITHM': 'sliding_window',  # sliding_window | fixed_window | token_bucket
+
+    # Tiered rate limits (per minute)
+    'TIERS': {
+        'anonymous': {
+            'limit': 20,      # 20 requests per minute
+            'window': 60,     # 1 minute
+            'identifier': 'ip',
+        },
+        'authenticated': {
+            'limit': 100,     # 100 requests per minute
+            'window': 60,     # 1 minute
+            'identifier': 'user_id',
+        },
+        'premium': {
+            'limit': 500,     # 500 requests per minute
+            'window': 60,     # 1 minute
+            'identifier': 'user_id',
+        },
+        'admin': {
+            'limit': 99999,   # Effectively unlimited
+            'window': 60,
+            'identifier': 'user_id',
+        },
+    },
+
+    # Endpoint-specific limits (override tier limits)
+    'ENDPOINTS': {
+        'login': {
+            'limit': 5,                      # 5 attempts per minute (brute force protection)
+            'window': 60,
+            'identifier': 'ip',
+        },
+        'upload': {
+            'limit': 10,                     # 10 uploads per hour
+            'window': 3600,
+            'identifier': 'user_id',
+        },
+        'search': {
+            'limit': 30,                     # 30 searches per minute (DB protection)
+            'window': 60,
+            'identifier': 'user_id',
+        },
+        'analytics': {
+            'limit': 100,                    # 100 reports per hour (CPU protection)
+            'window': 3600,
+            'identifier': 'user_id',
+        },
+        'chat_message': {
+            'limit': 60,                     # 60 messages per minute (spam protection)
+            'window': 60,
+            'identifier': 'user_id',
+        },
+        'chat_room': {
+            'limit': 5,                      # 5 room creations per hour (spam prevention)
+            'window': 3600,
+            'identifier': 'user_id',
+        },
+        'assignment_submission': {
+            'limit': 10,                     # 10 submissions per hour
+            'window': 3600,
+            'identifier': 'user_id',
+        },
+        'report_generation': {
+            'limit': 10,                     # 10 reports per hour (CPU protection)
+            'window': 3600,
+            'identifier': 'user_id',
+        },
+    },
+
+    # Bypass settings
+    'BYPASS': {
+        'admin_users': True,                 # Admins/staff bypass rate limiting
+        'internal_ips': [],                  # IP addresses to bypass (e.g., monitoring)
+        'service_accounts': [],              # Service account IDs to bypass
+    },
+
+    # Response settings
+    'RESPONSE': {
+        'include_headers': True,             # Include X-RateLimit-* headers
+        'include_retry_after': True,         # Include Retry-After header on 429
+        'json_error_format': True,           # Return JSON error on 429 (not HTML)
+    },
+
+    # Logging and monitoring
+    'LOGGING': {
+        'enabled': True,
+        'log_violations': True,              # Log when rate limit exceeded
+        'log_level': 'WARNING',
+        'include_details': True,             # Include request details in logs
+    },
 }
 
 # Backup settings

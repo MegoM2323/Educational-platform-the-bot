@@ -2,6 +2,15 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
+// Sentry plugin for source maps and error tracking
+let sentryVitePlugin: any = null;
+try {
+  const sentryPlugin = require('@sentry/vite-plugin');
+  sentryVitePlugin = sentryPlugin;
+} catch (e) {
+  // Sentry plugin is optional
+}
+
 // Service Worker plugin for proper handling
 const serviceWorkerPlugin = {
   name: 'service-worker',
@@ -115,6 +124,22 @@ export default defineConfig(({ mode, command }) => {
       cspPlugin(mode),
       buildAnalyzerPlugin(),
       serviceWorkerPlugin,
+      // Sentry plugin for source maps and error tracking (production only)
+      isBuild && sentryVitePlugin && sentryVitePlugin({
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+        url: process.env.SENTRY_URL || 'https://sentry.io',
+        release: process.env.VITE_SENTRY_RELEASE || 'unknown',
+        dist: process.env.VITE_SENTRY_RELEASE || 'unknown',
+        sourceMaps: {
+          include: ['./dist'],
+          ignore: ['node_modules'],
+          rewriteSourcesAbsolutePath: true,
+        },
+        telemetry: false,
+        debug: false,
+      }),
       // Bundle analyzer - only on build with ANALYZE=true
       isBuild && process.env.ANALYZE === 'true' && visualizer({
         open: false,

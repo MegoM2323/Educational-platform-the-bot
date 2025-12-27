@@ -1,0 +1,128 @@
+# Jaeger Distributed Tracing Backend Configuration
+# Stores and visualizes traces from OpenTelemetry Collector
+#
+# Features:
+# - gRPC receiver from collector
+# - Elasticsearch storage backend (configurable)
+# - Trace sampling and retention policies
+# - Admin API for trace management
+
+samplers:
+  # Probabilistic sampler configuration
+  # Default: 10% sampling for production, 100% for development
+  default:
+    type: probabilistic
+    param: ${JAEGER_SAMPLER_PARAM:-0.1}
+
+  # Service-specific sampling rules
+  per_operation_strategies:
+    default_strategy:
+      type: probabilistic
+      param: 0.1
+
+    # High-priority operations sampled at 100%
+    operation_strategies:
+      - operation: "POST /api/auth/login"
+        type: probabilistic
+        param: 1.0
+
+      - operation: "POST /api/payments/webhook"
+        type: probabilistic
+        param: 1.0
+
+      - operation: "POST /api/chat/messages"
+        type: probabilistic
+        param: 0.5
+
+      - operation: "GET /api/materials/*"
+        type: probabilistic
+        param: 0.1
+
+storage:
+  # Elasticsearch storage configuration
+  type: "elasticsearch"
+  elasticsearch:
+    server_urls:
+      - "http://elasticsearch:9200"
+    log_level: "info"
+    # Index retention settings
+    index:
+      prefix: "jaeger"
+      date_separator: "-"
+      # Span index retention: 7 days
+      span:
+        enabled: true
+    # Disable direct index creation for production
+    create_index_as_alias: true
+    bulk:
+      actions: 1000
+      size: 5242880  # 5MB
+      flush_interval: 200ms
+    max_num_spans: 10000
+    max_tag_value_length: 262144
+
+  # Memory storage for development (optional fallback)
+  memory:
+    max_traces: 10000
+
+# Query service configuration
+query:
+  port: 16686
+  base_path: /jaeger
+
+# Agent configuration (if running agent mode)
+agent:
+  listening_port: 6831  # UDP for Jaeger agent
+  server_host_port: "jaeger:14250"
+
+# Collector configuration (for direct span reception)
+collector:
+  port: 14250
+  gRPC:
+    enabled: true
+    host_port: "0.0.0.0:14250"
+  http_server:
+    host_port: "0.0.0.0:14268"
+
+# Admin API configuration
+admin_api:
+  host_port: "0.0.0.0:14269"
+
+# Ingestion configuration
+ingester:
+  deadlockInterval: 0
+
+# Tag whitelist for search (limit tag combinations)
+tag_whitelist:
+  - "http.method"
+  - "http.status_code"
+  - "http.url"
+  - "db.system"
+  - "db.operation"
+  - "error"
+  - "error.kind"
+  - "span.kind"
+  - "user.id"
+  - "correlation_id"
+  - "request_id"
+  - "service.name"
+  - "deployment.environment"
+
+# Metrics configuration
+metrics:
+  prometheus:
+    enabled: true
+    listen_addr: ":8888"
+    namespace: "jaeger"
+
+# Logging configuration
+logger:
+  level: "info"
+
+# Trace acceptance and processing limits
+trace_acceptance:
+  # Maximum traces per second to accept
+  rate_limiter:
+    enabled: false
+    rate: 10000
+    bucket_size: 1000

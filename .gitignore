@@ -5,6 +5,7 @@ docs/*
 !docs/runbooks/
 !docs/NETWORK_SECURITY.md
 !docs/NETWORK_SECURITY_AUDIT_CHECKLIST.md
+!docs/ERROR_TRACKING.md
 .kiro/
 venv
 .claude/
@@ -129,10 +130,11 @@ celerybeat.pid
 
 # Environments
 .env
-.env.*
 .env.production
 .env.development
 .env.local
+# But include example config files
+!.env*.example
 .venv
 env/
 venv/
@@ -224,5 +226,6 @@ table-version-push
 
 # Deprecated/old files
 .env.test.localhost
-package.json
-package-lock.json
+# But include the main package.json and lock file
+!/package.json
+!/package-lock.json

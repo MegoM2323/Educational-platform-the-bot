@@ -1,0 +1,173 @@
+# Docker Compose Configuration for Distributed Tracing Stack
+# Includes OpenTelemetry Collector and Jaeger Backend
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.tracing.yml up -d
+#
+# Access Points:
+#   - Jaeger UI: http://localhost:16686
+#   - Jaeger API: http://localhost:14268
+#   - Collector Health: http://localhost:13133
+#   - Collector Metrics: http://localhost:8889
+#   - Prometheus (from otel): http://localhost:8889/metrics
+
+version: '3.9'
+
+services:
+  # Elasticsearch for Jaeger storage
+  # Stores all trace data with configurable retention
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: thebot-elasticsearch-tracing
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - indices.memory.index_buffer_size=25%
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_tracing_data:/usr/share/elasticsearch/data
+    networks:
+      - thebot-network
+      - tracing
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # OpenTelemetry Collector
+  # Receives traces from applications and exports to Jaeger
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.97.0
+    container_name: thebot-otel-collector
+    command:
+      - "--config=/etc/otel-collector-config.yml"
+    volumes:
+      - ./monitoring/tracing/otel-config.yml:/etc/otel-collector-config.yml
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - TRACING_SAMPLE_PERCENTAGE=${TRACING_SAMPLE_PERCENTAGE:-10}
+    ports:
+      # gRPC receiver
+      - "4317:4317"
+      # HTTP receiver
+      - "4318:4318"
+      # Prometheus metrics exporter
+      - "8889:8889"
+      # Health check endpoint
+      - "13133:13133"
+      # zPages
+      - "55679:55679"
+      # pprof
+      - "1777:1777"
+    depends_on:
+      - jaeger
+    networks:
+      - thebot-network
+      - tracing
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13133/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # Jaeger All-in-One Backend
+  # Receives traces, stores them in Elasticsearch, and provides UI
+  jaeger:
+    image: jaegertracing/all-in-one:1.50.0
+    container_name: thebot-jaeger
+    command:
+      - --sampling.strategies-file=/etc/jaeger/sampling.json
+      - --collector.otlp.enabled=true
+      - --collector.grpc.host-port=0.0.0.0:14250
+    volumes:
+      - ./monitoring/tracing/jaeger-sampling-strategies.json:/etc/jaeger/sampling.json
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
+      - ES_TLS_ENABLED=false
+      - ES_TAGS_AS_FIELDS_ALL=true
+      - ES_NUM_REPLICAS=0
+      - ES_NUM_SHARDS=1
+      # Retention policy: 7 days
+      - ES_INDEX_PREFIX=jaeger
+      - ES_INDEX_DATE_SEPARATOR=-
+      - ES_USE_ALIASES=true
+      # Performance tuning
+      - COLLECTOR_OTLP_GRPC_HOST_PORT=0.0.0.0:14250
+      - COLLECTOR_GRPC_ENABLED=true
+      - COLLECTOR_HTTP_PORT=14268
+      - QUERY_PORT=16686
+    ports:
+      # Query UI
+      - "16686:16686"
+      # Collector OTLP gRPC
+      - "14250:14250"
+      # Collector HTTP
+      - "14268:14268"
+      # Collector admin
+      - "14269:14269"
+      # Agent UDP (optional, for legacy agent mode)
+      - "6831:6831/udp"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - thebot-network
+      - tracing
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:16686/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # (Optional) Prometheus for scraping metrics from collector
+  prometheus-tracing:
+    image: prom/prometheus:latest
+    container_name: thebot-prometheus-tracing
+    volumes:
+      - ./monitoring/tracing/prometheus-tracing.yml:/etc/prometheus/prometheus.yml
+      - prometheus_tracing_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9091:9090"
+    depends_on:
+      - otel-collector
+    networks:
+      - thebot-network
+      - tracing
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  elasticsearch_tracing_data:
+    driver: local
+  prometheus_tracing_data:
+    driver: local
+
+networks:
+  thebot-network:
+    external: true
+  tracing:
+    driver: bridge

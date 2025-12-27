@@ -1,0 +1,175 @@
+# Filebeat configuration for THE_BOT platform
+# Collects logs from application, Celery, system, and Docker containers
+
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+filebeat.inputs:
+  - type: log
+    id: django-logs
+    enabled: true
+    paths:
+      - /var/log/thebot/*.log
+    multiline.pattern: '^\['
+    multiline.negate: true
+    multiline.match: after
+    fields:
+      service: django-backend
+      environment: development
+    tags: ["django", "app"]
+    exclude_lines: ['DEBUG']
+    symlinks: true
+
+  # Celery task logs
+  - type: log
+    id: celery-logs
+    enabled: true
+    paths:
+      - /var/log/thebot/celery.log
+    multiline.pattern: '^\['
+    multiline.negate: true
+    multiline.match: after
+    fields:
+      service: celery-worker
+      environment: development
+    tags: ["celery", "async"]
+
+  # Audit logs
+  - type: log
+    id: audit-logs
+    enabled: true
+    paths:
+      - /var/log/thebot/audit.log
+    fields:
+      service: django-backend
+      environment: development
+    tags: ["audit", "security"]
+    exclude_lines: ['DEBUG']
+
+  # Request logs
+  - type: log
+    id: request-logs
+    enabled: true
+    paths:
+      - /var/log/thebot/requests.log
+    fields:
+      service: nginx
+      environment: development
+    tags: ["requests", "http"]
+
+  # Docker logs
+  - type: container
+    enabled: true
+    paths:
+      - '/var/lib/docker/containers/*/*.log'
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+      - add_fields:
+          target: ''
+          fields:
+            environment: development
+
+  # System logs
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/syslog
+      - /var/log/messages
+      - /var/log/system.log
+    fields:
+      service: system
+      environment: development
+    tags: ["system", "os"]
+
+# Filebeat modules
+filebeat.modules:
+  - module: docker
+    enabled: true
+    log:
+      enabled: true
+      var.paths: ['/var/lib/docker/containers/*/*.log']
+
+  - module: system
+    enabled: true
+    syslog:
+      enabled: true
+    auth:
+      enabled: true
+
+# Processors - add metadata and enrich logs
+processors:
+  # Add hostname
+  - add_host_metadata:
+      when.not.regexp.tags: macos
+
+  # Add Docker metadata
+  - add_docker_metadata: ~
+
+  # Add Kubernetes metadata (if running in K8s)
+  - add_kubernetes_metadata:
+      in_cluster: true
+      matchers:
+        - logs_path:
+            logs_path: "/var/log/containers/*"
+
+  # Decode JSON payloads
+  - decode_json_fields:
+      fields: ["message"]
+      target: "json"
+      overwrite_keys: true
+      add_error_key: true
+
+  # Add fields
+  - add_fields:
+      target: ''
+      fields:
+        platform: thebot
+        version: '1.0.0'
+        environment: development
+
+# Output configuration - send to Logstash
+output.logstash:
+  hosts: ["${LOGSTASH_HOSTS:logstash:5000}"]
+  index: "filebeat-%{[agent.version]}-%{+yyyy.MM.dd}"
+  loadbalance: true
+  bulk_max_size: 2048
+  compression_level: 9
+
+# Alternative: Direct Elasticsearch output (for simpler setups)
+# output.elasticsearch:
+#   hosts: ["${ELASTICSEARCH_HOSTS:elasticsearch:9200}"]
+#   index: "filebeat-%{[agent.version]}-%{+yyyy.MM.dd}"
+#   pipelines:
+#     - pipeline: thebot-log-pipeline
+
+# Monitoring and metrics
+monitoring:
+  enabled: true
+  cluster_uuid: ${ELASTICSEARCH_UUID:}
+
+# Logging level
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0640
+
+# HTTP endpoint for stats (optional)
+http.enabled: true
+http.host: 0.0.0.0
+http.port: 5066
+
+# Queue settings for high-volume logging
+queue.mem:
+  events: 3200
+  flush.min_events: 100
+  flush.timeout: 1s
+
+# Connection settings
+http.request_timeout: 30s
+bulk_max_size: 2048

@@ -1,0 +1,58 @@
+# Elasticsearch configuration for THE_BOT platform
+
+cluster.name: thebot-logs
+
+# Node settings
+node.name: es-node-1
+node.roles: [master, data, ingest]
+
+# Network settings
+network.host: 0.0.0.0
+http.port: 9200
+
+# Indices settings
+indices.memory.index_buffer_size: 40%
+
+# Indexing settings
+index.codec: best_compression
+index.refresh_interval: 30s
+
+# Query settings
+search.default_query_timeout: 30s
+
+# Performance tuning
+thread_pool.write.queue_size: 1000
+thread_pool.search.queue_size: 1000
+thread_pool.bulk.queue_size: 1000
+
+# Lifecycle management
+index.lifecycle.name: thebot-log-policy
+index.lifecycle.rollover_alias: thebot-logs
+
+# Security (disabled in development)
+xpack.security.enabled: false
+
+# Monitoring
+xpack.monitoring.enabled: true
+xpack.monitoring.collection.enabled: true
+
+# Logging
+logger.org.elasticsearch: info
+logger.org.elasticsearch.discovery: warn
+
+# Memory settings
+bootstrap.memory_lock: false
+
+# Data path
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs
+
+# Repository settings
+repositories:
+  backup:
+    type: fs
+    settings:
+      location: /usr/share/elasticsearch/backups
+
+# Discovery settings
+discovery.type: single-node

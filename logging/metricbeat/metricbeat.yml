@@ -1,0 +1,183 @@
+# Metricbeat configuration for THE_BOT platform
+# Collects system and service metrics
+
+metricbeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+metricbeat.max_start_delay: 10s
+
+# System module - collect CPU, memory, disk, network metrics
+metricbeat.modules:
+  - module: system
+    period: 10s
+    metsets:
+      - cpu
+      - memory
+      - load
+      - diskio
+      - network
+      - network_summary
+      - fsstat
+      - uptime
+    enabled: true
+    processes: ['.*']
+    include_top_n:
+      by_cpu: 5
+      by_memory: 5
+    cpu.metrics: [percentages]
+    core.metrics: [percentages]
+
+  # Filesystem metrics
+  - module: system
+    period: 1m
+    metsets:
+      - filesystem
+      - fsstat
+    enabled: true
+    processors:
+      - drop_event.when.regexp:
+          system.filesystem.mount_point: '^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)'
+
+  # System processes
+  - module: system
+    period: 10s
+    metsets:
+      - process
+      - process_summary
+    enabled: true
+    processes: ['.*']
+    include_top_n:
+      by_cpu: 5
+      by_memory: 5
+
+  # Docker metrics
+  - module: docker
+    period: 10s
+    hosts: ["unix:///var/run/docker.sock"]
+    enabled: true
+    metsets:
+      - container
+      - cpu
+      - diskio
+      - event
+      - healthcheck
+      - image
+      - info
+      - memory
+      - network
+    processors:
+      - add_docker_metadata: ~
+
+  # Nginx module (if running Nginx)
+  - module: nginx
+    period: 10s
+    enabled: true
+    metsets:
+      - stubstatus
+    hosts: ["http://localhost:80"]
+    username: ""
+    password: ""
+
+  # PostgreSQL module
+  - module: postgresql
+    period: 10s
+    enabled: true
+    hosts:
+      - "postgres://localhost:5432"
+    username: postgres
+    password: ""
+
+  # Redis module
+  - module: redis
+    period: 10s
+    enabled: true
+    hosts:
+      - "localhost:6379"
+    idle_timeout: 16s
+    network: tcp
+    maxconn: 10
+
+  # HTTP module - check application health
+  - module: http
+    period: 10s
+    enabled: true
+    hosts:
+      - http://localhost:8000/api/system/health/
+    name: django-health
+    schedule: '@every 10s'
+    timeout: 5s
+    fields:
+      service: django-backend
+
+  # Beat metrics
+  - module: beat
+    period: 30s
+    enabled: true
+    metsets:
+      - stats
+      - state
+
+processors:
+  # Add host metadata
+  - add_host_metadata:
+      when.not.regexp.tags: macos
+
+  # Add Docker metadata
+  - add_docker_metadata: ~
+
+  # Add Kubernetes metadata
+  - add_kubernetes_metadata:
+      in_cluster: true
+
+  # Drop events with high cardinality
+  - drop_event.when.regexp:
+      message: '^DBG'
+
+  # Add custom fields
+  - add_fields:
+      target: ''
+      fields:
+        platform: thebot
+        version: '1.0.0'
+        environment: development
+
+# Output configuration
+output.elasticsearch:
+  hosts: ["${ELASTICSEARCH_HOSTS:elasticsearch:9200}"]
+  index: "metrics-%{[agent.version]}-%{+yyyy.MM.dd}"
+  pipeline: thebot-metrics-pipeline
+
+# Alternative: Send to Logstash for processing
+# output.logstash:
+#   hosts: ["logstash:5000"]
+#   index: "metrics-%{[agent.version]}-%{+yyyy.MM.dd}"
+
+# Elasticsearch monitoring
+monitoring:
+  enabled: true
+  cluster_uuid: ${ELASTICSEARCH_UUID:}
+
+# Logging configuration
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/metricbeat
+  name: metricbeat
+  keepfiles: 7
+  permissions: 0640
+
+# HTTP endpoint for stats
+http.enabled: true
+http.host: 0.0.0.0
+http.port: 5066
+
+# Queue settings
+queue.mem:
+  events: 3200
+  flush.min_events: 100
+  flush.timeout: 1s
+
+# Connection settings
+http.request_timeout: 30s
+bulk_max_size: 2048

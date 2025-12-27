@@ -1,0 +1,55 @@
+# Grafana notification channel configuration for Slack
+
+apiVersion: 1
+
+notifiers:
+  - name: Slack Critical
+    type: slack
+    uid: slack-critical
+    isDefault: false
+    settings:
+      url: ${SLACK_WEBHOOK_URL}
+      channel: '#critical-alerts'
+      mentionUsers: ''
+      mentionGroups: ''
+      mentionChannel: here
+      uploadImage: true
+      httpMethod: POST
+      tokenSecured: false
+    secureJsonData:
+      url: ${SLACK_WEBHOOK_URL}
+    json_data:
+      recipient: '#critical-alerts'
+      title: 'CRITICAL: {{ .Alerts.Firing | len }} alerts firing'
+      text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+
+  - name: Slack Warnings
+    type: slack
+    uid: slack-warnings
+    isDefault: true
+    settings:
+      url: ${SLACK_WEBHOOK_URL_WARNINGS}
+      channel: '#ops-alerts'
+      mentionUsers: ''
+      mentionGroups: ''
+      mentionChannel: ''
+      uploadImage: true
+      httpMethod: POST
+      tokenSecured: false
+    secureJsonData:
+      url: ${SLACK_WEBHOOK_URL_WARNINGS}
+    json_data:
+      recipient: '#ops-alerts'
+      title: 'Alert: {{ .Alerts.Firing | len }} firing, {{ .Alerts.Resolved | len }} resolved'
+      text: '{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}'
+
+  - name: Email Notifications
+    type: email
+    uid: email-alerts
+    isDefault: false
+    settings:
+      addresses: 'alerts@thebot.local'
+      singleEmail: false
+      autoResolve: true
+    json_data:
+      template: 'alert_email.html'

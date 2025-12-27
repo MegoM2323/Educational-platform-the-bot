@@ -1,0 +1,163 @@
+# AlertManager configuration for THE_BOT Platform
+# Manages alert routing, grouping, and notifications
+
+global:
+  resolve_timeout: 5m
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+# Alert routing configuration
+route:
+  # Root route
+  receiver: 'default-receiver'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+
+  # Sub-routes for different severities
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-team'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 1h
+      continue: true
+
+    # Warning alerts - standard notification
+    - match:
+        severity: warning
+      receiver: 'ops-team'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+
+    # Info alerts - daily digest
+    - match:
+        severity: info
+      receiver: 'default-receiver'
+      group_wait: 5m
+      group_interval: 30m
+      repeat_interval: 24h
+
+    # Database alerts - specialized handling
+    - match:
+        component: database
+      receiver: 'dba-team'
+      group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 2h
+      continue: true
+
+    # Cache alerts - specialized handling
+    - match:
+        component: cache
+      receiver: 'ops-team'
+      group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 1h
+
+    # Security alerts - immediate escalation
+    - match:
+        component: security
+      receiver: 'security-team'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 30m
+
+# Receivers configuration
+receivers:
+  # Default receiver (do not alert by default)
+  - name: 'default-receiver'
+    slack_configs:
+      - channel: '#platform-alerts'
+        title: '[{{ .GroupLabels.alertname }}] Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+
+  # Critical team notifications
+  - name: 'critical-team'
+    slack_configs:
+      - channel: '#critical-alerts'
+        title: 'CRITICAL: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+        color: 'danger'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        description: '{{ .GroupLabels.alertname }}'
+        details:
+          firing: '{{ .Alerts.Firing | len }}'
+          resolved: '{{ .Alerts.Resolved | len }}'
+
+  # Ops team notifications
+  - name: 'ops-team'
+    slack_configs:
+      - channel: '#ops-alerts'
+        title: '[{{ .GroupLabels.alertname }}] {{ .Status | toUpper }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}\nRunbook: {{ .Annotations.runbook }}{{ end }}'
+        send_resolved: true
+        color: 'warning'
+    email_configs:
+      - to: 'ops-team@thebot.local'
+        from: 'alertmanager@thebot.local'
+        smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+        auth_username: '${SMTP_USER}'
+        auth_password: '${SMTP_PASSWORD}'
+        headers:
+          Subject: '[AlertManager] {{ .GroupLabels.alertname }}'
+
+  # DBA team notifications
+  - name: 'dba-team'
+    slack_configs:
+      - channel: '#dba-alerts'
+        title: 'Database Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+        color: 'danger'
+    email_configs:
+      - to: 'dba-team@thebot.local'
+        from: 'alertmanager@thebot.local'
+        smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+
+  # Security team notifications
+  - name: 'security-team'
+    slack_configs:
+      - channel: '#security-alerts'
+        title: 'SECURITY ALERT: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
+        send_resolved: false
+        color: 'danger'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SECURITY_KEY}'
+        description: 'SECURITY: {{ .GroupLabels.alertname }}'
+    email_configs:
+      - to: 'security-team@thebot.local'
+        from: 'alertmanager@thebot.local'
+        smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+
+# Inhibition rules
+inhibit_rules:
+  # Inhibit warning alerts if critical alert firing for same component
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['component', 'instance']
+
+  # Inhibit info alerts if warning alert firing
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['component']
+
+  # Inhibit low-priority alerts during maintenance
+  - source_match:
+      alertname: 'MaintenanceMode'
+    target_match_re:
+      severity: 'warning|info'
+    equal: ['instance']

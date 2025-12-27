@@ -1,0 +1,224 @@
+# Recording Rules for THE_BOT Platform
+# Pre-compute expensive queries to improve dashboard performance
+
+groups:
+  - name: django_metrics
+    interval: 30s
+    rules:
+      # HTTP Request Rates
+      - record: django_request:rate5m
+        expr: rate(django_request_total[5m])
+
+      - record: django_request:rate30m
+        expr: rate(django_request_total[30m])
+
+      - record: django_request_rate:by_endpoint
+        expr: sum(rate(django_request_total[5m])) by (endpoint)
+
+      - record: django_request_rate:by_method
+        expr: sum(rate(django_request_total[5m])) by (method)
+
+      - record: django_request_rate:by_status
+        expr: sum(rate(django_request_total[5m])) by (status)
+
+      # HTTP Error Rates
+      - record: django_request_errors:rate5m
+        expr: rate(django_request_total{status=~"5.."}[5m])
+
+      - record: django_request_errors_percent:5m
+        expr: (sum(rate(django_request_total{status=~"5.."}[5m])) / sum(rate(django_request_total[5m]))) * 100
+
+      # Request Latency Percentiles
+      - record: django_request_latency:p50
+        expr: histogram_quantile(0.50, rate(django_request_latency_seconds_bucket[5m]))
+
+      - record: django_request_latency:p95
+        expr: histogram_quantile(0.95, rate(django_request_latency_seconds_bucket[5m]))
+
+      - record: django_request_latency:p99
+        expr: histogram_quantile(0.99, rate(django_request_latency_seconds_bucket[5m]))
+
+      - record: django_request_latency:avg
+        expr: rate(django_request_latency_seconds_sum[5m]) / rate(django_request_latency_seconds_count[5m])
+
+      # Database Query Metrics
+      - record: django_db_queries:rate5m
+        expr: rate(django_db_execute_total[5m])
+
+      - record: django_db_execute_time:avg
+        expr: rate(django_db_execute_time_seconds_sum[5m]) / rate(django_db_execute_time_seconds_count[5m])
+
+      - record: django_db_queries_slow:count
+        expr: rate(django_db_execute_total{duration="slow"}[5m])
+
+      # Cache Metrics
+      - record: django_cache_hit_rate:5m
+        expr: (rate(django_cache_hits_total[5m]) / (rate(django_cache_hits_total[5m]) + rate(django_cache_misses_total[5m]))) * 100
+
+      - record: django_cache:rate5m
+        expr: rate(django_cache_hits_total[5m]) + rate(django_cache_misses_total[5m])
+
+  - name: nodejs_metrics
+    interval: 30s
+    rules:
+      # Frontend Request Rates
+      - record: nodejs_http_requests:rate5m
+        expr: rate(http_request_total[5m])
+
+      - record: nodejs_http_requests:rate_by_method
+        expr: sum(rate(http_request_total[5m])) by (method)
+
+      - record: nodejs_http_requests:rate_by_route
+        expr: sum(rate(http_request_total[5m])) by (route)
+
+      # Frontend Request Latency
+      - record: nodejs_http_latency:p50
+        expr: histogram_quantile(0.50, rate(http_request_duration_ms_bucket[5m]))
+
+      - record: nodejs_http_latency:p95
+        expr: histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m]))
+
+      - record: nodejs_http_latency:p99
+        expr: histogram_quantile(0.99, rate(http_request_duration_ms_bucket[5m]))
+
+      - record: nodejs_http_latency:avg
+        expr: rate(http_request_duration_ms_sum[5m]) / rate(http_request_duration_ms_count[5m])
+
+      # Frontend Error Rates
+      - record: nodejs_http_errors:rate5m
+        expr: rate(http_request_total{status=~"5.."}[5m])
+
+      - record: nodejs_http_errors_percent:5m
+        expr: (sum(rate(http_request_total{status=~"5.."}[5m])) / sum(rate(http_request_total[5m]))) * 100
+
+  - name: system_metrics
+    interval: 30s
+    rules:
+      # CPU Metrics
+      - record: node_cpu:usage_percent
+        expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+      - record: node_cpu:usage_percent:by_cpu
+        expr: 100 - (rate(node_cpu_seconds_total{mode="idle"}[5m]) * 100)
+
+      # Memory Metrics
+      - record: node_memory:usage_percent
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+
+      - record: node_memory:used_bytes
+        expr: node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
+
+      # Disk I/O Metrics
+      - record: node_disk_io:read_rate
+        expr: rate(node_disk_io_reads_completed_total[5m])
+
+      - record: node_disk_io:write_rate
+        expr: rate(node_disk_io_writes_completed_total[5m])
+
+      # Network Metrics
+      - record: node_network:receive_rate
+        expr: rate(node_network_receive_bytes_total[5m])
+
+      - record: node_network:transmit_rate
+        expr: rate(node_network_transmit_bytes_total[5m])
+
+      # Load Average
+      - record: node_load:avg1
+        expr: node_load1
+
+      - record: node_load:avg5
+        expr: node_load5
+
+      - record: node_load:avg15
+        expr: node_load15
+
+  - name: database_metrics
+    interval: 30s
+    rules:
+      # Query Performance
+      - record: pg_queries:avg_exec_time
+        expr: rate(pg_stat_statements_mean_exec_time[5m])
+
+      - record: pg_queries:total_calls
+        expr: rate(pg_stat_statements_calls[5m])
+
+      # Scan Types
+      - record: pg_table_scans:seq_rate
+        expr: rate(pg_stat_user_tables_seq_scan[5m])
+
+      - record: pg_table_scans:idx_rate
+        expr: rate(pg_stat_user_tables_idx_scan[5m])
+
+      - record: pg_table_scans:ratio
+        expr: rate(pg_stat_user_tables_seq_scan[5m]) / (rate(pg_stat_user_tables_seq_scan[5m]) + rate(pg_stat_user_tables_idx_scan[5m]))
+
+      # Table Size
+      - record: pg_table:live_tuples
+        expr: sum(pg_stat_user_tables_live_tuples) by (relname)
+
+      # Connection Pool
+      - record: pg_connections:available
+        expr: pg_connections_available
+
+      - record: pg_connections:active
+        expr: pg_active_transactions
+
+      # Replication Lag
+      - record: pg_replication:lag_seconds
+        expr: pg_replication_lag_seconds
+
+  - name: redis_metrics
+    interval: 30s
+    rules:
+      # Connection Metrics
+      - record: redis_clients:connected
+        expr: redis_connected_clients
+
+      # Memory Metrics
+      - record: redis_memory:used_bytes
+        expr: redis_used_memory
+
+      - record: redis_memory:peak_bytes
+        expr: redis_used_memory_peak
+
+      - record: redis_memory:usage_percent
+        expr: (redis_used_memory / redis_used_memory_peak) * 100
+
+      # Hit Rate
+      - record: redis_keyspace:hit_rate
+        expr: (redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total)) * 100
+
+      # Operations Rate
+      - record: redis_commands:processed_rate
+        expr: rate(redis_commands_processed_total[5m])
+
+      # Eviction Metrics
+      - record: redis_evictions:rate5m
+        expr: rate(redis_evicted_keys_total[5m])
+
+      - record: redis_expiry:rate5m
+        expr: rate(redis_expired_keys_total[5m])
+
+  - name: application_metrics
+    interval: 30s
+    rules:
+      # Combined Error Rate
+      - record: application_errors:total_rate
+        expr: rate(django_request_total{status=~"5.."}[5m]) + rate(http_request_total{status=~"5.."}[5m])
+
+      # Combined Request Rate
+      - record: application_requests:total_rate
+        expr: rate(django_request_total[5m]) + rate(http_request_total[5m])
+
+      # API Health Score (0-100)
+      - record: api_health:score
+        expr: 100 - ((rate(django_request_total{status=~"5.."}[5m]) / rate(django_request_total[5m])) * 100)
+
+      # System Health Score
+      - record: system_health:score
+        expr: |
+          (
+            (1 - (100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) / 100)) * 40 +
+            (1 - ((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 / 100)) * 40 +
+            (rate(django_request_total{status=~"5.."}[5m]) / rate(django_request_total[5m])) * 20
+          ) * 100

@@ -1,8 +1,10 @@
 # Local
 # docs/ - excluding to commit runbooks and other generated docs
 docs/*
-# But include runbooks (incident response procedures)
+# But include runbooks and security documentation
 !docs/runbooks/
+!docs/NETWORK_SECURITY.md
+!docs/NETWORK_SECURITY_AUDIT_CHECKLIST.md
 .kiro/
 venv
 .claude/

@@ -1,5 +1,8 @@
-# Local 
-docs/
+# Local
+# docs/ - excluding to commit runbooks and other generated docs
+docs/*
+# But include runbooks (incident response procedures)
+!docs/runbooks/
 .kiro/
 venv
 .claude/

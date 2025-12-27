@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from django.utils import timezone
@@ -8,10 +9,11 @@ from django.utils import timezone
 from .models import ChatRoom, Message, MessageRead, ChatParticipant, MessageThread
 from .serializers import (
     ChatRoomListSerializer, ChatRoomDetailSerializer, ChatRoomCreateSerializer,
-    MessageSerializer, MessageCreateSerializer, MessageReadSerializer,
-    ChatParticipantSerializer, ChatRoomStatsSerializer, MessageThreadSerializer,
-    MessageThreadCreateSerializer
+    MessageSerializer, MessageCreateSerializer, MessageUpdateSerializer,
+    MessageReadSerializer, ChatParticipantSerializer, ChatRoomStatsSerializer,
+    MessageThreadSerializer, MessageThreadCreateSerializer
 )
+from .permissions import IsMessageAuthor, CanModerateChat
 from .general_chat_service import GeneralChatService
 
 
@@ -169,21 +171,43 @@ class MessageViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
     
     def get_serializer_class(self):
-        if self.action == 'create':
+        if self.action in ['update', 'partial_update']:
+            return MessageUpdateSerializer
+        elif self.action == 'create':
             return MessageCreateSerializer
         return MessageSerializer
-    
+
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), IsMessageAuthor()]
+        return [permissions.IsAuthenticated()]
+
     def get_queryset(self):
         """
-        Пользователи видят только сообщения из чатов, в которых они участвуют
+        Пользователи видят только сообщения из чатов, в которых они участвуют.
+        Удалённые сообщения (soft delete) исключаются из выборки.
         """
         user = self.request.user
         user_rooms = ChatRoom.objects.filter(participants=user)
-        return Message.objects.filter(room__in=user_rooms)
-    
+        return Message.objects.filter(room__in=user_rooms, is_deleted=False)
+
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
-    
+
+    def perform_update(self, serializer):
+        serializer.save(is_edited=True)
+
+    def perform_destroy(self, instance):
+        """Soft delete - помечает сообщение как удалённое"""
+        # Check if thread is locked
+        if instance.thread and instance.thread.is_locked:
+            # Only moderators can delete in locked threads
+            if not CanModerateChat().has_object_permission(self.request, self, instance):
+                raise PermissionDenied('Тред заблокирован. Удаление запрещено.')
+
+        # Soft delete with deleted_by
+        instance.delete(deleted_by=self.request.user)
+
     @action(detail=True, methods=['post'])
     def mark_read(self, request, pk=None):
         """
@@ -266,6 +290,77 @@ class ChatParticipantViewSet(viewsets.ModelViewSet):
         user = self.request.user
         user_rooms = ChatRoom.objects.filter(participants=user)
         return ChatParticipant.objects.filter(room__in=user_rooms)
+
+    @action(detail=True, methods=['post'])
+    def mute(self, request, pk=None):
+        """Заблокировать отправку сообщений участнику"""
+        participant = self.get_object()
+
+        # Check moderation permission
+        if not CanModerateChat().has_object_permission(request, self, participant):
+            return Response(
+                {'error': 'Недостаточно прав для модерации'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        participant.is_muted = True
+        participant.save(update_fields=['is_muted'])
+
+        return Response({
+            'success': True,
+            'message': f'Пользователь {participant.user.get_full_name()} заглушен'
+        })
+
+    @action(detail=True, methods=['post'])
+    def unmute(self, request, pk=None):
+        """Разблокировать отправку сообщений участнику"""
+        participant = self.get_object()
+
+        if not CanModerateChat().has_object_permission(request, self, participant):
+            return Response(
+                {'error': 'Недостаточно прав для модерации'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        participant.is_muted = False
+        participant.save(update_fields=['is_muted'])
+
+        return Response({
+            'success': True,
+            'message': f'Пользователь {participant.user.get_full_name()} разглушен'
+        })
+
+    @action(detail=True, methods=['post'])
+    def set_admin(self, request, pk=None):
+        """Назначить/снять права администратора чата"""
+        participant = self.get_object()
+
+        # Only staff/superuser or room admin can set admin
+        if not (request.user.is_staff or request.user.is_superuser):
+            try:
+                requester_participant = ChatParticipant.objects.get(
+                    room=participant.room, user=request.user
+                )
+                if not requester_participant.is_admin:
+                    return Response(
+                        {'error': 'Недостаточно прав'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            except ChatParticipant.DoesNotExist:
+                return Response(
+                    {'error': 'Вы не участник чата'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        is_admin = request.data.get('is_admin', False)
+        participant.is_admin = is_admin
+        participant.save(update_fields=['is_admin'])
+
+        action_text = 'назначен администратором' if is_admin else 'снят с администратора'
+        return Response({
+            'success': True,
+            'message': f'Пользователь {participant.user.get_full_name()} {action_text}'
+        })
 
 
 class GeneralChatViewSet(viewsets.ViewSet):

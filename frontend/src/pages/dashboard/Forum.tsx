@@ -17,18 +17,44 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MessageCircle, Send, Search, Loader2, Wifi, WifiOff, AlertCircle, Plus, CheckCircle2, Filter } from 'lucide-react';
+import {
+  MessageCircle,
+  Send,
+  Search,
+  Loader2,
+  Wifi,
+  WifiOff,
+  AlertCircle,
+  Plus,
+  CheckCircle2,
+  Filter,
+} from 'lucide-react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
 import { ForumChat, ForumMessage, Contact, forumAPI } from '@/integrations/api/forumAPI';
 import { Skeleton } from '@/components/ui/skeleton';
-import { chatWebSocketService, ChatMessage, TypingUser, ConnectionStatus } from '@/services/chatWebSocketService';
+import {
+  chatWebSocketService,
+  ChatMessage,
+  TypingUser,
+  ConnectionStatus,
+} from '@/services/chatWebSocketService';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { StudentSidebar } from '@/components/layout/StudentSidebar';
@@ -36,6 +62,10 @@ import { TeacherSidebar } from '@/components/layout/TeacherSidebar';
 import { TutorSidebar } from '@/components/layout/TutorSidebar';
 import { ParentSidebar } from '@/components/layout/ParentSidebar';
 import { useToast } from '@/hooks/use-toast';
+import { MessageActions } from '@/components/forum/MessageActions';
+import { EditMessageDialog } from '@/components/forum/EditMessageDialog';
+import { useForumMessageUpdate } from '@/hooks/useForumMessageUpdate';
+import { useForumMessageDelete } from '@/hooks/useForumMessageDelete';
 
 interface ChatListProps {
   chats: ForumChat[];
@@ -56,14 +86,26 @@ interface ChatWindowProps {
   typingUsers: TypingUser[];
   error: string | null;
   onRetryConnection: () => void;
+  onEditMessage: (messageId: number, content: string) => void;
+  onDeleteMessage: (messageId: number) => void;
+  isEditingOrDeleting: boolean;
 }
 
-const ChatListItem = ({ chat, selected, onClick }: { chat: ForumChat; selected: boolean; onClick: () => void }) => {
-  const initials = chat.participants
-    .filter((p) => p.id !== parseInt(localStorage.getItem('user_id') || '0'))
-    .map((p) => p.full_name.charAt(0))
-    .join('')
-    .toUpperCase() || 'C';
+const ChatListItem = ({
+  chat,
+  selected,
+  onClick,
+}: {
+  chat: ForumChat;
+  selected: boolean;
+  onClick: () => void;
+}) => {
+  const initials =
+    chat.participants
+      .filter((p) => p.id !== parseInt(localStorage.getItem('user_id') || '0'))
+      .map((p) => p.full_name.charAt(0))
+      .join('')
+      .toUpperCase() || 'C';
 
   const otherParticipants = chat.participants
     .filter((p) => p.id !== parseInt(localStorage.getItem('user_id') || '0'))
@@ -72,16 +114,19 @@ const ChatListItem = ({ chat, selected, onClick }: { chat: ForumChat; selected: 
 
   const displayName = chat.name || otherParticipants || 'Чат';
   const lastMessagePreview = chat.last_message?.content || 'Нет сообщений';
-  const lastMessageTime = chat.last_message?.created_at ? new Date(chat.last_message.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+  const lastMessageTime = chat.last_message?.created_at
+    ? new Date(chat.last_message.created_at).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
 
   return (
     <div
       onClick={onClick}
       data-testid="chat-item"
       className={`p-3 rounded-lg cursor-pointer transition-colors border ${
-        selected
-          ? 'bg-primary/10 border-primary'
-          : 'border-transparent hover:bg-muted'
+        selected ? 'bg-primary/10 border-primary' : 'border-transparent hover:bg-muted'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -100,9 +145,7 @@ const ChatListItem = ({ chat, selected, onClick }: { chat: ForumChat; selected: 
             )}
           </div>
           {chat.subject && (
-            <p className="text-xs text-muted-foreground mb-1 truncate">
-              {chat.subject.name}
-            </p>
+            <p className="text-xs text-muted-foreground mb-1 truncate">{chat.subject.name}</p>
           )}
           <p className="text-xs text-muted-foreground truncate">{lastMessagePreview}</p>
           {lastMessageTime && (
@@ -154,7 +197,10 @@ const ChatList = ({
               <Skeleton className="h-20 rounded-lg" data-testid="chat-list-skeleton" />
             </>
           ) : filteredChats.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center" data-testid="no-chats-message">
+            <div
+              className="flex flex-col items-center justify-center py-8 text-center"
+              data-testid="no-chats-message"
+            >
               <MessageCircle className="w-8 h-8 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">
                 {searchQuery ? 'Чатов не найдено' : 'Нет активных чатов'}
@@ -186,6 +232,9 @@ const ChatWindow = ({
   typingUsers,
   error,
   onRetryConnection,
+  onEditMessage,
+  onDeleteMessage,
+  isEditingOrDeleting,
 }: ChatWindowProps) => {
   const [messageInput, setMessageInput] = useState('');
 
@@ -215,7 +264,10 @@ const ChatWindow = ({
 
   if (!chat) {
     return (
-      <Card className="p-6 md:col-span-2 flex flex-col items-center justify-center h-full" data-testid="chat-window-empty">
+      <Card
+        className="p-6 md:col-span-2 flex flex-col items-center justify-center h-full"
+        data-testid="chat-window-empty"
+      >
         <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Выберите чат для начала общения</p>
       </Card>
@@ -238,7 +290,8 @@ const ChatWindow = ({
           <div className="flex-1">
             <p className="text-sm text-destructive font-medium">{error}</p>
           </div>
-          <Button type="button"
+          <Button
+            type="button"
             size="sm"
             variant="outline"
             onClick={onRetryConnection}
@@ -273,21 +326,22 @@ const ChatWindow = ({
               <span
                 className={cn(
                   'text-xs px-2 py-0.5 rounded-full',
-                  isConnected
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
+                  isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 )}
               >
                 {isConnected ? 'Онлайн' : 'Оффлайн'}
               </span>
             </div>
           </div>
-          {chat.subject && (
-            <div className="text-xs text-muted-foreground">{chat.subject.name}</div>
-          )}
+          {chat.subject && <div className="text-xs text-muted-foreground">{chat.subject.name}</div>}
           {chat.participants.length > 1 && (
             <div className="text-xs text-muted-foreground">
-              {chat.participants.filter((p) => p.id !== parseInt(localStorage.getItem('user_id') || '0')).length} участник(и)
+              {
+                chat.participants.filter(
+                  (p) => p.id !== parseInt(localStorage.getItem('user_id') || '0')
+                ).length
+              }{' '}
+              участник(и)
             </div>
           )}
         </div>
@@ -311,35 +365,53 @@ const ChatWindow = ({
             <>
               {messages.map((msg) => {
                 const isOwn = msg.sender.id === parseInt(localStorage.getItem('user_id') || '0');
+                const currentUserId = parseInt(localStorage.getItem('user_id') || '0');
+                const userRole = localStorage.getItem('user_role') || '';
+                const canModerate = ['teacher', 'tutor', 'admin'].includes(userRole);
+
                 return (
                   <div
                     key={msg.id}
-                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}
                   >
                     <div
-                      className={`max-w-[70%] p-3 rounded-lg ${
-                        isOwn
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
+                      className={`max-w-[70%] p-3 rounded-lg relative ${
+                        isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
                       }`}
                     >
+                      {/* Sender name for other's messages */}
                       {!isOwn && (
                         <p className="text-xs font-medium mb-1 opacity-75">
                           {msg.sender.full_name}
                         </p>
                       )}
-                      <p className="text-sm break-words">{msg.content}</p>
+
+                      {/* Message content */}
+                      <p className="text-sm break-words pr-6">{msg.content}</p>
+
+                      {/* Timestamp and edited indicator */}
                       <div
-                        className={`text-xs mt-1 ${
-                          isOwn
-                            ? 'text-primary-foreground/70'
-                            : 'text-muted-foreground'
+                        className={`text-xs mt-1 flex items-center gap-1 ${
+                          isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
                         }`}
                       >
+                        {msg.is_edited && <span className="italic">(ред.)</span>}
                         {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
+                      </div>
+
+                      {/* Message actions dropdown */}
+                      <div className="absolute top-2 right-2">
+                        <MessageActions
+                          messageId={msg.id}
+                          isOwner={isOwn}
+                          canModerate={canModerate}
+                          onEdit={() => onEditMessage(msg.id, msg.content)}
+                          onDelete={() => onDeleteMessage(msg.id)}
+                          disabled={isEditingOrDeleting}
+                        />
                       </div>
                     </div>
                   </div>
@@ -353,7 +425,8 @@ const ChatWindow = ({
                     {typingUsers.slice(0, 3).map((user) => (
                       <Avatar key={user.id} className="w-6 h-6 border-2 border-background">
                         <AvatarFallback className="text-xs">
-                          {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                          {user.first_name.charAt(0)}
+                          {user.last_name.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                     ))}
@@ -380,16 +453,13 @@ const ChatWindow = ({
           disabled={isSending}
           className="text-sm"
         />
-        <Button type="button"
+        <Button
+          type="button"
           onClick={handleSend}
           disabled={!messageInput.trim() || isSending}
           className="gradient-primary"
         >
-          {isSending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
+          {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         </Button>
       </div>
 
@@ -442,9 +512,7 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
       // Show success message
       toast({
         title: data.created ? 'Чат создан' : 'Чат найден',
-        description: data.created
-          ? 'Новый чат успешно создан'
-          : 'Вы перешли к существующему чату',
+        description: data.created ? 'Новый чат успешно создан' : 'Вы перешли к существующему чату',
       });
 
       // Notify parent component about chat initiation
@@ -528,9 +596,7 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Начать новый чат</DialogTitle>
-          <DialogDescription>
-            Выберите пользователя для начала общения
-          </DialogDescription>
+          <DialogDescription>Выберите пользователя для начала общения</DialogDescription>
         </DialogHeader>
 
         {/* Search and Filter Controls */}
@@ -564,9 +630,7 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
                 {availableRoles.includes('teacher') && (
                   <SelectItem value="teacher">Преподаватели</SelectItem>
                 )}
-                {availableRoles.includes('tutor') && (
-                  <SelectItem value="tutor">Тьюторы</SelectItem>
-                )}
+                {availableRoles.includes('tutor') && <SelectItem value="tutor">Тьюторы</SelectItem>}
                 {availableRoles.includes('parent') && (
                   <SelectItem value="parent">Родители</SelectItem>
                 )}
@@ -580,7 +644,10 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
           {isLoadingContacts ? (
             <div className="space-y-3" data-testid="contacts-skeleton">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-lg border animate-pulse">
+                <div
+                  key={i}
+                  className="flex items-center gap-3 p-3 rounded-lg border animate-pulse"
+                >
                   <Skeleton className="w-10 h-10 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-32" />
@@ -592,7 +659,10 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
               ))}
             </div>
           ) : contactsError ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center" data-testid="contacts-error">
+            <div
+              className="flex flex-col items-center justify-center py-12 text-center"
+              data-testid="contacts-error"
+            >
               <AlertCircle className="w-12 h-12 text-destructive mb-3" />
               <p className="text-sm font-medium text-foreground mb-2">
                 Не удалось загрузить контакты
@@ -612,10 +682,15 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
               </Button>
             </div>
           ) : filteredContacts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center" data-testid="contacts-empty">
+            <div
+              className="flex flex-col items-center justify-center py-12 text-center"
+              data-testid="contacts-empty"
+            >
               <MessageCircle className="w-12 h-12 text-muted-foreground mb-3" />
               <p className="text-sm font-medium text-foreground mb-1">
-                {searchQuery || roleFilter !== 'all' ? 'Контактов не найдено' : 'Нет доступных контактов'}
+                {searchQuery || roleFilter !== 'all'
+                  ? 'Контактов не найдено'
+                  : 'Нет доступных контактов'}
               </p>
               <p className="text-xs text-muted-foreground">
                 {searchQuery || roleFilter !== 'all'
@@ -626,7 +701,8 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
           ) : (
             <div className="space-y-2" data-testid="contacts-list">
               {filteredContacts.map((contact) => {
-                const initials = `${contact.first_name.charAt(0)}${contact.last_name.charAt(0)}`.toUpperCase();
+                const initials =
+                  `${contact.first_name.charAt(0)}${contact.last_name.charAt(0)}`.toUpperCase();
                 const fullName = `${contact.first_name} ${contact.last_name}`.trim();
 
                 // Role badge color mapping
@@ -676,11 +752,17 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium text-sm truncate">{fullName}</p>
-                        <Badge variant={getRoleBadgeVariant(contact.role)} className="text-xs shrink-0">
+                        <Badge
+                          variant={getRoleBadgeVariant(contact.role)}
+                          className="text-xs shrink-0"
+                        >
                           {getRoleLabel(contact.role)}
                         </Badge>
                         {contact.has_active_chat && (
-                          <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" title="Активный чат" />
+                          <CheckCircle2
+                            className="w-3 h-3 text-green-500 shrink-0"
+                            title="Активный чат"
+                          />
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate mb-0.5">
@@ -760,6 +842,13 @@ export default function Forum() {
   const [wsStatus, setWsStatus] = useState<ConnectionStatus>('disconnected');
   const queryClient = useQueryClient();
 
+  // Edit/Delete message state
+  const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(
+    null
+  );
+  const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+
   // Subscribe to global connection status changes
   useEffect(() => {
     // Subscribe to connection status changes
@@ -777,6 +866,23 @@ export default function Forum() {
   );
   const sendMessageMutation = useSendForumMessage();
 
+  // Edit message mutation
+  const editMessageMutation = useForumMessageUpdate({
+    chatId: selectedChat?.id || 0,
+    onSuccess: () => {
+      setEditingMessage(null);
+    },
+  });
+
+  // Delete message mutation
+  const deleteMessageMutation = useForumMessageDelete({
+    chatId: selectedChat?.id || 0,
+    onSuccess: () => {
+      setDeletingMessageId(null);
+      setIsDeleteConfirmOpen(false);
+    },
+  });
+
   // WebSocket handlers (memoized)
   const handleWebSocketMessage = useCallback(
     (wsMessage: ChatMessage) => {
@@ -784,7 +890,7 @@ export default function Forum() {
         messageId: wsMessage.id,
         content: wsMessage.content.substring(0, 50),
         senderId: wsMessage.sender.id,
-        selectedChatId: selectedChat?.id
+        selectedChatId: selectedChat?.id,
       });
 
       if (!selectedChat) {
@@ -799,7 +905,9 @@ export default function Forum() {
           content: wsMessage.content,
           sender: {
             id: wsMessage.sender.id,
-            full_name: `${wsMessage.sender.first_name} ${wsMessage.sender.last_name}`.trim() || wsMessage.sender.username,
+            full_name:
+              `${wsMessage.sender.first_name} ${wsMessage.sender.last_name}`.trim() ||
+              wsMessage.sender.username,
             role: wsMessage.sender.role,
           },
           created_at: wsMessage.created_at,
@@ -944,23 +1052,60 @@ export default function Forum() {
   };
 
   // Handle chat initiated from modal
-  const handleChatInitiated = useCallback((chatId: number) => {
-    logger.debug('[Forum] Chat initiated, selecting chat:', chatId);
+  const handleChatInitiated = useCallback(
+    (chatId: number) => {
+      logger.debug('[Forum] Chat initiated, selecting chat:', chatId);
 
-    // Wait for chat list to refresh, then select the chat
-    queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] }).then(() => {
-      // Find the chat in the updated list
-      const updatedChats = queryClient.getQueryData<ForumChat[]>(['forum', 'chats']);
-      const newChat = updatedChats?.find((chat) => chat.id === chatId);
+      // Wait for chat list to refresh, then select the chat
+      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] }).then(() => {
+        // Find the chat in the updated list
+        const updatedChats = queryClient.getQueryData<ForumChat[]>(['forum', 'chats']);
+        const newChat = updatedChats?.find((chat) => chat.id === chatId);
 
-      if (newChat) {
-        setSelectedChat(newChat);
-      }
-    });
-  }, [queryClient]);
+        if (newChat) {
+          setSelectedChat(newChat);
+        }
+      });
+    },
+    [queryClient]
+  );
+
+  // Handle edit message
+  const handleEditMessage = (messageId: number, content: string) => {
+    setEditingMessage({ id: messageId, content });
+  };
+
+  // Handle save edited message
+  const handleSaveEdit = (newContent: string) => {
+    if (editingMessage) {
+      editMessageMutation.mutate({
+        messageId: editingMessage.id,
+        data: { content: newContent },
+      });
+    }
+  };
+
+  // Handle delete message
+  const handleDeleteMessage = (messageId: number) => {
+    setDeletingMessageId(messageId);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  // Confirm delete
+  const handleConfirmDelete = () => {
+    if (deletingMessageId) {
+      deleteMessageMutation.mutate(deletingMessageId);
+    }
+  };
 
   // ConnectionBanner component to display global connection status
-  const ConnectionBanner = ({ status, onRetry }: { status: ConnectionStatus; onRetry?: () => void }) => {
+  const ConnectionBanner = ({
+    status,
+    onRetry,
+  }: {
+    status: ConnectionStatus;
+    onRetry?: () => void;
+  }) => {
     if (status === 'connected') {
       return null; // No banner when connected
     }
@@ -1014,7 +1159,9 @@ export default function Forum() {
     const Icon = config.icon;
 
     return (
-      <div className={`${config.bgColor} border-l-4 ${config.borderColor} p-4 mb-4 flex items-center justify-between`}>
+      <div
+        className={`${config.bgColor} border-l-4 ${config.borderColor} p-4 mb-4 flex items-center justify-between`}
+      >
         <div className="flex items-center space-x-3">
           <Icon className={`h-5 w-5 ${config.iconColor}`} />
           <span className={`text-sm font-medium ${config.textColor}`}>{config.message}</span>
@@ -1101,6 +1248,11 @@ export default function Forum() {
                   typingUsers={typingUsers}
                   error={error}
                   onRetryConnection={handleRetryConnection}
+                  onEditMessage={handleEditMessage}
+                  onDeleteMessage={handleDeleteMessage}
+                  isEditingOrDeleting={
+                    editMessageMutation.isPending || deleteMessageMutation.isPending
+                  }
                 />
               </div>
             </div>
@@ -1114,6 +1266,43 @@ export default function Forum() {
         onClose={() => setIsNewChatModalOpen(false)}
         onChatInitiated={handleChatInitiated}
       />
+
+      {/* Edit Message Dialog */}
+      <EditMessageDialog
+        isOpen={editingMessage !== null}
+        onClose={() => setEditingMessage(null)}
+        messageContent={editingMessage?.content || ''}
+        onSave={handleSaveEdit}
+        isLoading={editMessageMutation.isPending}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить сообщение?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Сообщение будет удалено из чата.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setIsDeleteConfirmOpen(false);
+                setDeletingMessageId(null);
+              }}
+            >
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMessageMutation.isPending ? 'Удаление...' : 'Удалить'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarProvider>
   );
 }

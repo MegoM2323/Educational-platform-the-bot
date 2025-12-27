@@ -33,7 +33,6 @@ services:
       - thebot-network
     security_opt:
       - no-new-privileges:true
-    read_only_root_filesystem: true
     tmpfs:
       - /tmp
       - /var/run/postgresql
@@ -57,7 +56,6 @@ services:
       - thebot-network
     security_opt:
       - no-new-privileges:true
-    read_only_root_filesystem: true
     tmpfs:
       - /tmp
 
@@ -136,8 +134,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    # Read-only root filesystem where possible
-    read_only_root_filesystem: false  # Django needs write access for migrations
+    # Django needs write access for migrations
     tmpfs:
       - /tmp
 
@@ -173,7 +170,6 @@ services:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./frontend/nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
-      - frontend_logs:/var/log/nginx
 
     depends_on:
       - backend
@@ -186,8 +182,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    # Read-only root filesystem for nginx
-    read_only_root_filesystem: true
     tmpfs:
       - /tmp
       - /var/cache/nginx

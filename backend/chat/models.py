@@ -157,14 +157,42 @@ class Message(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    # Soft delete fields
+    is_deleted = models.BooleanField(default=False, verbose_name='Удалено')
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='Время удаления')
+    deleted_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deleted_messages',
+        verbose_name='Удалено пользователем'
+    )
+
     class Meta:
         verbose_name = 'Сообщение'
         verbose_name_plural = 'Сообщения'
         ordering = ['created_at']
-    
+        indexes = [
+            models.Index(fields=['is_deleted'], name='message_deleted_idx'),
+        ]
+
     def __str__(self):
         return f"{self.sender} в {self.room}: {self.content[:50]}"
+
+    def delete(self, using=None, keep_parents=False, deleted_by=None):
+        """Soft delete - помечает сообщение как удалённое вместо удаления из БД"""
+        from django.utils import timezone
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        if deleted_by:
+            self.deleted_by = deleted_by
+        self.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+
+    def hard_delete(self, using=None, keep_parents=False):
+        """Hard delete - полное удаление из БД (только для админов)"""
+        super().delete(using=using, keep_parents=keep_parents)
 
 
 class MessageRead(models.Model):

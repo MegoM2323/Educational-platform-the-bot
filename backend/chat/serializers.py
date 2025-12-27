@@ -203,10 +203,31 @@ class MessageCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = ('room', 'content', 'message_type', 'file', 'image', 'reply_to')
-    
+
     def create(self, validated_data):
         validated_data['sender'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class MessageUpdateSerializer(serializers.ModelSerializer):
+    """Сериализатор для обновления сообщения"""
+
+    class Meta:
+        model = Message
+        fields = ['content']
+
+    def validate_content(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError('Сообщение не может быть пустым')
+        if len(value) > 5000:
+            raise serializers.ValidationError('Сообщение слишком длинное (максимум 5000 символов)')
+        return value.strip()
+
+    def update(self, instance, validated_data):
+        instance.content = validated_data.get('content', instance.content)
+        instance.is_edited = True
+        instance.save(update_fields=['content', 'is_edited', 'updated_at'])
+        return instance
 
 
 class MessageReadSerializer(serializers.ModelSerializer):

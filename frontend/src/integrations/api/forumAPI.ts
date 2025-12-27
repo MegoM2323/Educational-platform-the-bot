@@ -18,7 +18,10 @@ export interface ForumMessage {
   created_at: string;
   updated_at: string;
   is_read: boolean;
+  is_edited?: boolean;
   message_type?: string;
+  file_url?: string;
+  image_url?: string;
 }
 
 export interface ForumChat {
@@ -62,6 +65,17 @@ export interface SendForumMessageRequest {
 export interface SendForumMessageResponse {
   success: boolean;
   message: ForumMessage;
+}
+
+export interface EditMessageRequest {
+  content: string;
+}
+
+export interface EditMessageResponse {
+  id: number;
+  content: string;
+  is_edited: boolean;
+  updated_at: string;
 }
 
 export interface Contact {
@@ -271,5 +285,38 @@ export const forumAPI = {
     }
 
     return response.data;
+  },
+
+  editForumMessage: async (messageId: number, data: EditMessageRequest): Promise<ForumMessage> => {
+    const response = await unifiedAPI.request<ForumMessage>(
+      `/chat/messages/${messageId}/`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    if (!response.data) {
+      throw new Error('Invalid response from server: missing data');
+    }
+
+    return response.data;
+  },
+
+  deleteForumMessage: async (messageId: number): Promise<void> => {
+    const response = await unifiedAPI.request(
+      `/chat/messages/${messageId}/`,
+      {
+        method: 'DELETE',
+      }
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
   },
 };

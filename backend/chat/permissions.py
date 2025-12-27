@@ -10,6 +10,7 @@ import logging
 from rest_framework import permissions
 from accounts.models import StudentProfile
 from materials.models import SubjectEnrollment
+from chat.models import ChatParticipant
 
 logger = logging.getLogger(__name__)
 
@@ -311,3 +312,103 @@ class CanInitiateChat(permissions.BasePermission):
             f"and {contact_user.role} {contact_user.id}"
         )
         return False, None, None
+
+
+class IsMessageAuthor(permissions.BasePermission):
+    """
+    Permission check for message author.
+
+    Только автор может редактировать/удалять свои сообщения.
+    Staff и superuser имеют полный доступ.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if user is the author of the message.
+
+        Args:
+            request: HTTP request
+            view: View instance
+            obj: Message instance (должен иметь поле sender)
+
+        Returns:
+            bool: True if user is author or staff/superuser
+        """
+        # Staff/superuser can always access
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+
+        # Check if user is sender
+        is_author = obj.sender == request.user
+
+        if not is_author:
+            logger.warning(
+                f"Permission denied: User {request.user.id} attempted to "
+                f"modify message {getattr(obj, 'id', 'unknown')} "
+                f"owned by user {getattr(obj.sender, 'id', 'unknown')}"
+            )
+
+        return is_author
+
+
+class CanModerateChat(permissions.BasePermission):
+    """
+    Permission for chat moderation actions (delete any message, ban, mute).
+
+    A user can moderate if:
+    1. Is staff/superuser
+    2. Is ChatParticipant with is_admin=True for this chat
+    3. Is teacher role
+    4. Is tutor role for FORUM_TUTOR chats
+    """
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if user can moderate chat.
+
+        Args:
+            request: HTTP request
+            view: View instance
+            obj: Message or ChatParticipant instance (must have room attribute)
+
+        Returns:
+            bool: True if user can moderate this chat
+        """
+        user = request.user
+
+        # Staff/superuser can always moderate
+        if user.is_staff or user.is_superuser:
+            return True
+
+        # Get room from object (obj can be Message or ChatParticipant)
+        room = getattr(obj, 'room', None)
+        if not room:
+            logger.warning(
+                f"CanModerateChat: Object {type(obj).__name__} has no room attribute"
+            )
+            return False
+
+        # Check if user is room admin
+        try:
+            participant = ChatParticipant.objects.get(room=room, user=user)
+            if participant.is_admin:
+                return True
+        except ChatParticipant.DoesNotExist:
+            logger.warning(
+                f"CanModerateChat: User {user.id} is not a participant in room {room.id}"
+            )
+            return False
+
+        # Teachers can moderate their chats
+        if user.role == 'teacher':
+            return True
+
+        # Tutors can moderate FORUM_TUTOR chats
+        if user.role == 'tutor' and room.type == 'forum_tutor':
+            return True
+
+        logger.warning(
+            f"CanModerateChat: Permission denied for user {user.id} "
+            f"(role={user.role}) in room {room.id}"
+        )
+        return False

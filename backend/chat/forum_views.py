@@ -62,7 +62,7 @@ class ForumChatViewSet(viewsets.ViewSet):
         - Returns FORUM_TUTOR chats where user is tutor
 
         For PARENT:
-        - Returns empty list (parents don't participate in forum chats)
+        - Returns FORUM_SUBJECT and FORUM_TUTOR chats of their children
 
         Response includes unread count per chat.
 
@@ -112,8 +112,32 @@ class ForumChatViewSet(viewsets.ViewSet):
                     type=ChatRoom.Type.FORUM_TUTOR
                 ).order_by('-updated_at')
 
+            elif user.role == 'parent':
+                # Родители видят чаты своих детей
+                # Get children's IDs
+                children_profiles = StudentProfile.objects.filter(parent=user).values_list('user_id', flat=True)
+
+                if children_profiles:
+                    # Get chats where children are participants
+                    chats = ChatRoom.objects.filter(
+                        Q(
+                            type__in=[ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR],
+                            participants__id__in=children_profiles
+                        ),
+                        is_active=True
+                    ).select_related(
+                        'created_by',
+                        'enrollment__subject',
+                        'enrollment__teacher',
+                        'enrollment__student'
+                    ).prefetch_related(
+                        'participants'
+                    ).distinct().order_by('-updated_at')
+                else:
+                    chats = ChatRoom.objects.none()
+
             else:
-                # Parent doesn't see forum chats
+                # Неизвестная роль - пустой список
                 chats = ChatRoom.objects.none()
 
             # Optimize N+1 queries: annotate unread_count and participants_count
@@ -165,16 +189,22 @@ class ForumChatViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['get'])
     def messages(self, request: Request, pk: str = None) -> Response:
         """
-        Get messages from specific forum chat.
+        Get messages from specific forum chat with search and filtering.
 
         Supports pagination via query parameters:
         - limit: Number of messages (default 50, max 100)
         - offset: Pagination offset (default 0)
 
+        Supports filtering via query parameters:
+        - search: Text search in message content and sender name
+        - message_type: Filter by message type (text, file, image, etc.)
+        - sender: Filter by sender user ID
+
         Query optimization:
         - Uses select_related for sender and file/image fields
         - Prefetches related replies
         - Filters by chat_id
+        - Excludes deleted messages
 
         Permission check:
         - User must be participant of the chat
@@ -199,16 +229,41 @@ class ForumChatViewSet(viewsets.ViewSet):
             limit = min(int(request.query_params.get('limit', 50)), 100)
             offset = int(request.query_params.get('offset', 0))
 
-            # Fetch messages with optimization (chronological order, oldest first)
+            # Get filter parameters
+            search = request.query_params.get('search', '').strip()
+            message_type = request.query_params.get('message_type', '').strip()
+            sender_id = request.query_params.get('sender', '').strip()
+
+            # Base queryset - exclude deleted messages
             messages = Message.objects.filter(
-                room=chat
+                room=chat,
+                is_deleted=False
             ).select_related(
                 'sender',
                 'reply_to__sender'
             ).prefetch_related(
                 'replies',
                 'read_by'
-            ).order_by('created_at')[offset:offset + limit]
+            )
+
+            # Apply search filter
+            if search:
+                messages = messages.filter(
+                    Q(content__icontains=search) |
+                    Q(sender__first_name__icontains=search) |
+                    Q(sender__last_name__icontains=search)
+                )
+
+            # Apply message type filter
+            if message_type:
+                messages = messages.filter(message_type=message_type)
+
+            # Apply sender filter
+            if sender_id:
+                messages = messages.filter(sender_id=sender_id)
+
+            # Order and paginate (chronological order, oldest first)
+            messages = messages.order_by('created_at')[offset:offset + limit]
 
             serializer = MessageSerializer(
                 messages,
@@ -358,7 +413,8 @@ class AvailableContactsView(APIView):
     - Teachers from SubjectEnrollment (teachers of tutor's students)
 
     PARENT:
-    - Empty list (parents don't initiate forum chats)
+    - Teachers from SubjectEnrollment (teachers of parent's children)
+    - Tutors from StudentProfile.tutor (tutors assigned to parent's children)
 
     Query optimization:
     - Uses select_related to avoid N+1 queries
@@ -524,8 +580,51 @@ class AvailableContactsView(APIView):
                                 'enrollment_id': None
                             })
 
+            elif user.role == 'parent':
+                # Родители могут связаться с преподавателями и тьюторами своих детей
+                children_profiles = StudentProfile.objects.filter(parent=user).select_related('tutor')
+                children_ids = children_profiles.values_list('user_id', flat=True)
+
+                if children_ids:
+                    # Получить учителей из зачислений детей
+                    teacher_enrollments = SubjectEnrollment.objects.filter(
+                        student_id__in=children_ids
+                    ).select_related(
+                        'teacher',
+                        'subject'
+                    ).distinct()
+
+                    # Добавить учителей в контакты (избегаем дублирования)
+                    seen_teachers = set()
+                    for enrollment in teacher_enrollments:
+                        teacher = enrollment.teacher
+                        if teacher and teacher.role == 'teacher' and teacher.id not in seen_teachers:
+                            seen_teachers.add(teacher.id)
+
+                            contacts.append({
+                                'user': teacher,
+                                'subject': enrollment.subject,
+                                'has_active_chat': False,
+                                'chat_id': None,
+                                'enrollment_id': None
+                            })
+
+                    # Получить тьюторов детей
+                    for profile in children_profiles:
+                        if profile.tutor and profile.tutor.role == 'tutor':
+                            # Избегаем дублирования тьюторов
+                            tutor_key = profile.tutor.id
+                            if tutor_key not in [c['user'].id for c in contacts if c['user'].role == 'tutor']:
+                                contacts.append({
+                                    'user': profile.tutor,
+                                    'subject': None,
+                                    'has_active_chat': False,
+                                    'chat_id': None,
+                                    'enrollment_id': None
+                                })
+
             else:
-                # Parent или другие роли - пустой список
+                # Неизвестная роль - пустой список
                 pass
 
             # Сериализовать контакты

@@ -1,0 +1,71 @@
+{
+  "success": {
+    "saved": "Modifications enregistrées avec succès",
+    "created": "Créé avec succès",
+    "deleted": "Supprimé avec succès",
+    "updated": "Mis à jour avec succès",
+    "submitted": "Soumis avec succès",
+    "uploaded": "Fichier téléchargé avec succès",
+    "downloaded": "Téléchargé avec succès",
+    "exported": "Exporté avec succès",
+    "imported": "Importé avec succès",
+    "copied": "Copié dans le presse-papiers",
+    "shared": "Partagé avec succès",
+    "emailSent": "E-mail envoyé avec succès",
+    "passwordChanged": "Mot de passe changé avec succès",
+    "profileUpdated": "Profil mis à jour avec succès",
+    "enrolled": "Inscrit avec succès",
+    "completed": "Complété avec succès"
+  },
+  "info": {
+    "processing": "Traitement...",
+    "loading": "Chargement...",
+    "savingChanges": "Enregistrement des modifications...",
+    "checkingEmail": "Vérification de l'e-mail...",
+    "verifyingFile": "Vérification du fichier...",
+    "noData": "Aucune donnée disponible",
+    "noResults": "Aucun résultat trouvé",
+    "emptyList": "Cette liste est vide",
+    "selectItem": "Veuillez sélectionner un élément",
+    "loadMore": "Charger plus",
+    "showMore": "Afficher plus",
+    "showLess": "Afficher moins"
+  },
+  "warning": {
+    "unsavedChanges": "Vous avez des modifications non enregistrées. Êtes-vous sûr de vouloir partir ?",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet élément ? Cette action ne peut pas être annulée.",
+    "permanentDelete": "Cela supprimera définitivement l'élément. Êtes-vous sûr ?",
+    "invalidInput": "Veuillez vérifier votre entrée",
+    "expiring": "Cela va bientôt expirer",
+    "expired": "Cela a expiré",
+    "expiringSession": "Votre session expirera dans {{minutes}} minutes",
+    "limitReached": "Vous avez atteint la limite",
+    "quotaExceeded": "Votre quota a été dépassé"
+  },
+  "notifications": {
+    "newMessage": "Vous avez un nouveau message",
+    "newMessages": "Vous avez {{count}} nouveaux messages",
+    "newNotification": "Vous avez une nouvelle notification",
+    "newNotifications": "Vous avez {{count}} nouvelles notifications",
+    "assignmentDue": "Tâche due dans {{hours}} heures",
+    "assignmentOverdue": "La tâche est en retard",
+    "classStarting": "Le cours commence dans {{minutes}} minutes",
+    "mentionedYou": "{{user}} vous a mentionné",
+    "repliedToYou": "{{user}} vous a répondu"
+  },
+  "confirmation": {
+    "delete": "Êtes-vous sûr de vouloir supprimer ceci ?",
+    "logout": "Êtes-vous sûr de vouloir vous déconnecter ?",
+    "clearData": "Êtes-vous sûr de vouloir effacer toutes les données ?",
+    "submitAssignment": "Êtes-vous sûr de vouloir soumettre cette tâche ?",
+    "publishMaterial": "Êtes-vous sûr de vouloir publier ce matériel ?"
+  },
+  "prompts": {
+    "enterName": "Veuillez entrer un nom",
+    "enterEmail": "Veuillez entrer un e-mail",
+    "enterMessage": "Veuillez entrer un message",
+    "selectFile": "Veuillez sélectionner un fichier",
+    "selectDate": "Veuillez sélectionner une date",
+    "selectTime": "Veuillez sélectionner une heure"
+  }
+}

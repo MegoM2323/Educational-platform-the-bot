@@ -1,0 +1,34 @@
+[Unit]
+Description=Let's Encrypt certificate renewal for THE BOT Platform
+Documentation=https://certbot.eff.org/docs/using.html#systemd-timer-for-automatic-renewal
+Wants=certbot-renewal.timer
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew \
+    --quiet \
+    --renew-hook "systemctl reload nginx"
+
+# Run as root (required for certificate renewal)
+User=root
+Group=root
+
+# Security settings
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=certbot-renewal
+
+# Restart on failure
+Restart=on-failure
+RestartSec=60s
+
+# Timeout - certificate renewal shouldn't take more than 5 minutes
+TimeoutStartSec=5m
+
+[Install]
+WantedBy=multi-user.target

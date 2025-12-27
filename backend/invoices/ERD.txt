@@ -1,0 +1,277 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     INVOICE SYSTEM - ENTITY RELATIONSHIP DIAGRAM              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CORE ENTITIES                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃   User (accounts)        ┃
+┃━━━━━━━━━━━━━━━━━━━━━━━━━━┃
+┃ • id (PK) INTEGER        ┃
+┃ • email VARCHAR(254)     ┃
+┃ • first_name VARCHAR(150)┃
+┃ • last_name VARCHAR(150) ┃
+┃ • role VARCHAR(20)       ┃
+┃   - student              ┃
+┃   - teacher              ┃
+┃   - tutor                ┃
+┃   - parent               ┃
+┃ • phone VARCHAR(20)      ┃
+┃ • created_at TIMESTAMP   ┃
+┃ • updated_at TIMESTAMP   ┃
+┗━━━━━━━━━━━┯━━━━━━━━━━━━━━┛
+            │
+            │ 1:1
+            ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  StudentProfile          ┃
+┃━━━━━━━━━━━━━━━━━━━━━━━━━━┃
+┃ • id (PK)                ┃
+┃ • user_id (FK → User)    ┃
+┃ • tutor_id (FK → User)   ┃
+┃ • parent_id (FK → User)  ┃◄──────────┐
+┃ • grade VARCHAR(10)      ┃           │
+┃ • progress_percentage INT┃           │ This parent_id
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━┛           │ is auto-copied
+                                       │ to Invoice.parent_id
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         INVOICE SYSTEM                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                    ┌────────── User (tutor) ─────────────┐
+                    │                                     │
+                    │ 1:N (created_invoices)              │
+                    ▼                                     │
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓           │
+┃             Invoice (invoices)               ┃           │
+┃━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┃           │
+┃ • id (PK) BIGSERIAL                          ┃           │
+┃ • tutor_id (FK → User) ──────────────────────┼───────────┘
+┃   └─ limit_choices_to: role='tutor'          ┃
+┃                                              ┃
+┃ • student_id (FK → User) ────────────────────┼───────────┐
+┃   └─ limit_choices_to: role='student'        ┃           │
+┃                                              ┃           │ 1:N (student_invoices)
+┃ • parent_id (FK → User) ─────────────────────┼───────────┤
+┃   └─ limit_choices_to: role='parent'         ┃           │
+┃   └─ AUTO: from student.student_profile      ┃           │ 1:N (parent_invoices)
+┃                                              ┃           │
+┃ • enrollment_id (FK → SubjectEnrollment)     ┃           ▼
+┃   └─ OPTIONAL, ON DELETE SET NULL            ┃      User (student/parent)
+┃                                              ┃
+┃ • payment_id (FK → Payment) ◄────────────────┼──────┐
+┃   └─ UNIQUE (1:1), OPTIONAL, SET NULL        ┃      │
+┃                                              ┃      │ 1:1 (invoice)
+┃ ─────────── Invoice Details ─────────────    ┃      │
+┃ • amount DECIMAL(10,2)                       ┃      ▼
+┃   └─ CHECK: amount > 0                       ┃  ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ • description TEXT                           ┃  ┃  Payment (payments)      ┃
+┃                                              ┃  ┃━━━━━━━━━━━━━━━━━━━━━━━━━┃
+┃ ──────────── Status & Dates ─────────────    ┃  ┃ • id (PK) UUID          ┃
+┃ • status VARCHAR(20) DEFAULT 'draft'         ┃  ┃ • yookassa_payment_id   ┃
+┃   - draft                                    ┃  ┃ • amount DECIMAL(10,2)  ┃
+┃   - sent        → auto-set sent_at           ┃  ┃ • status VARCHAR(20)    ┃
+┃   - viewed      → auto-set viewed_at         ┃  ┃ • paid_at TIMESTAMP     ┃
+┃   - paid        → auto-set paid_at           ┃  ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛
+┃   - cancelled                                ┃
+┃   - overdue     → set by cron job            ┃
+┃                                              ┃
+┃ • due_date DATE                              ┃
+┃                                              ┃
+┃ • sent_at TIMESTAMP NULL                     ┃
+┃   └─ CHECK: sent_at >= created_at            ┃
+┃ • viewed_at TIMESTAMP NULL                   ┃
+┃   └─ CHECK: viewed_at >= sent_at             ┃
+┃ • paid_at TIMESTAMP NULL                     ┃
+┃   └─ CHECK: paid_at >= viewed_at             ┃
+┃                                              ┃
+┃ ────────── Integration Fields ───────────    ┃
+┃ • telegram_message_id VARCHAR(255) NULL      ┃
+┃                                              ┃
+┃ ──────────── System Fields ──────────────    ┃
+┃ • created_at TIMESTAMP                       ┃
+┃ • updated_at TIMESTAMP                       ┃
+┗━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+               │
+               │ 1:N (status_history)
+               ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃      InvoiceStatusHistory (invoices)         ┃
+┃━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┃
+┃ • id (PK) BIGSERIAL                          ┃
+┃ • invoice_id (FK → Invoice)                  ┃
+┃   └─ ON DELETE CASCADE                       ┃
+┃                                              ┃
+┃ • old_status VARCHAR(20)                     ┃
+┃ • new_status VARCHAR(20)                     ┃
+┃                                              ┃
+┃ • changed_by_id (FK → User) ◄────────────────┼──────┐
+┃   └─ ON DELETE CASCADE                       ┃      │
+┃ • changed_at TIMESTAMP                       ┃      │ 1:N
+┃ • reason TEXT NULL                           ┃      │ (invoice_status_changes)
+┃                                              ┃      │
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛      │
+                                                      ▼
+                                                  User (any role)
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃   SubjectEnrollment (materials)              ┃
+┃━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┃
+┃ • id (PK) INTEGER                            ┃
+┃ • student_id (FK → User)                     ┃
+┃ • subject_id (FK → Subject)                  ┃
+┃ • teacher_id (FK → User)                     ┃
+┃ • assigned_by_id (FK → User)                 ┃
+┃ • is_active BOOLEAN                          ┃
+┗━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+            │
+            │ 1:N (invoices)
+            │ OPTIONAL
+            └────────────► Invoice.enrollment_id
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           INDEXES                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Invoice Table:
+  • idx_invoice_tutor_status        (tutor_id, status)
+    └─ Query: Tutor's invoices filtered by status
+
+  • idx_invoice_parent_status       (parent_id, status)
+    └─ Query: Parent's invoices filtered by status
+
+  • idx_invoice_due_status          (due_date, status)
+    └─ Query: Overdue invoice detection (cron)
+
+  • idx_invoice_student_date        (student_id, created_at DESC)
+    └─ Query: Student's invoice history
+
+  • idx_invoice_payment             (payment_id) [PARTIAL: NOT NULL]
+    └─ Query: Find invoice by payment (webhook)
+
+  • idx_invoice_telegram            (telegram_message_id) [PARTIAL: NOT NULL]
+    └─ Query: Find invoice by Telegram message (callback)
+
+InvoiceStatusHistory Table:
+  • idx_history_invoice_date        (invoice_id, changed_at DESC)
+    └─ Query: Invoice audit trail
+
+  • idx_history_user_date           (changed_by_id, changed_at DESC)
+    └─ Query: User's action history
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        DATA FLOW                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+INVOICE CREATION:
+  1. Tutor creates invoice for Student
+  2. System auto-fills Parent from Student.student_profile.parent
+  3. Invoice saved with status='draft'
+
+INVOICE SENDING:
+  4. Tutor sends invoice
+  5. Status → 'sent', sent_at = now()
+  6. Telegram notification sent to Parent
+  7. telegram_message_id saved
+  8. History entry created (old='draft', new='sent')
+
+PARENT VIEWS INVOICE:
+  9. Parent clicks Telegram notification
+  10. Status → 'viewed', viewed_at = now()
+  11. History entry created (old='sent', new='viewed')
+
+PAYMENT PROCESSING:
+  12. Parent initiates payment via YooKassa
+  13. Payment object created
+  14. YooKassa webhook received
+  15. Invoice.payment = payment_obj
+  16. Status → 'paid', paid_at = now()
+  17. History entry created (old='viewed', new='paid')
+
+OVERDUE DETECTION (Celery task, runs daily):
+  18. Query: due_date < today AND status IN ['sent', 'viewed']
+  19. For each: status → 'overdue'
+  20. History entry created (reason='Автоматически: истек срок оплаты')
+  21. Notification sent to Tutor and Parent
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      CONSTRAINTS SUMMARY                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+CHECK CONSTRAINTS:
+  ✓ amount > 0
+  ✓ sent_at IS NULL OR sent_at >= created_at
+  ✓ viewed_at IS NULL OR sent_at IS NULL OR viewed_at >= sent_at
+  ✓ paid_at IS NULL OR viewed_at IS NULL OR paid_at >= viewed_at
+
+FOREIGN KEY CONSTRAINTS:
+  ✓ tutor_id → User (ON DELETE CASCADE)
+  ✓ student_id → User (ON DELETE CASCADE)
+  ✓ parent_id → User (ON DELETE CASCADE)
+  ✓ enrollment_id → SubjectEnrollment (ON DELETE SET NULL, OPTIONAL)
+  ✓ payment_id → Payment (ON DELETE SET NULL, UNIQUE, OPTIONAL)
+
+UNIQUE CONSTRAINTS:
+  ✓ payment_id (enforced by OneToOneField)
+
+VALIDATION (Application Layer):
+  ✓ parent MUST equal student.student_profile.parent
+  ✓ enrollment.student MUST equal invoice.student (if enrollment set)
+  ✓ student's tutor SHOULD equal invoice.tutor (warning, not error)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    N+1 QUERY PREVENTION                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ALWAYS USE select_related() for:
+  • tutor (forward FK)
+  • student (forward FK)
+  • parent (forward FK)
+  • payment (forward FK, OneToOne)
+  • enrollment (forward FK)
+  • enrollment__subject (nested FK through enrollment)
+
+EXAMPLE:
+  Invoice.objects.filter(parent=parent).select_related(
+      'tutor',
+      'student',
+      'enrollment__subject',
+      'payment'
+  )
+
+RESULT: 1 query instead of N+1 queries
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    QUERY COMPLEXITY ANALYSIS                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Common Queries:
+  1. Tutor's pending invoices:
+     • Index: idx_invoice_tutor_status
+     • Complexity: O(log n) + O(k) where k = matching rows
+
+  2. Parent's unpaid invoices:
+     • Index: idx_invoice_parent_status
+     • Complexity: O(log n) + O(k)
+
+  3. Overdue detection:
+     • Index: idx_invoice_due_status
+     • Complexity: O(log n) + O(k) where k = overdue count
+     • Frequency: Daily (Celery beat)
+
+  4. Payment webhook processing:
+     • Index: Primary key (invoice_id from payment metadata)
+     • Complexity: O(log n)
+
+  5. Invoice history:
+     • Index: idx_history_invoice_date
+     • Complexity: O(log n) + O(k) where k = history entries
+
+Total Tables: 2
+Total Indexes: 8 (6 on Invoice, 2 on InvoiceStatusHistory)
+Total Constraints: 4 check + 5 foreign key + 1 unique = 10
+
+Database Compatibility: SQLite ✓, PostgreSQL ✓
+Migration Reversibility: ✓ (fully reversible)

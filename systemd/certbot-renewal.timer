@@ -1,0 +1,19 @@
+[Unit]
+Description=Run Let's Encrypt certificate renewal twice daily
+Documentation=https://certbot.eff.org/docs/using.html#systemd-timer-for-automatic-renewal
+
+[Timer]
+# Run at 00:00 (midnight) and 12:00 (noon) UTC
+# This ensures frequent check without overwhelming Let's Encrypt servers
+OnCalendar=00:00,12:00
+# Add randomization (0-3600 seconds) to avoid thundering herd
+RandomizedDelaySec=1h
+
+# Persistent: if timer missed while system offline, run immediately at boot
+Persistent=true
+
+# Accuracy: acceptable tolerance for timer activation (5 minutes)
+AccuracySec=5m
+
+[Install]
+WantedBy=timers.target

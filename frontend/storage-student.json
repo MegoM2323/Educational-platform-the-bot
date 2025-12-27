@@ -1,0 +1,22 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:8080",
+      "localStorage": [
+        {
+          "name": "bot_platform_auth_token",
+          "value": "{\"data\":\"894be3610be3192c4bf9efe94b585024c30c8983\",\"timestamp\":1761743556023,\"expires\":1761829956023}"
+        },
+        {
+          "name": "bot_platform_token_expiry",
+          "value": "{\"data\":\"1761829956023\",\"timestamp\":1761743556023,\"expires\":1761829956023}"
+        },
+        {
+          "name": "bot_platform_user_data",
+          "value": "{\"data\":\"{\\\"id\\\":1,\\\"email\\\":\\\"test_student@example.com\\\",\\\"first_name\\\":\\\"Test\\\",\\\"last_name\\\":\\\"User\\\",\\\"role\\\":\\\"student\\\",\\\"role_display\\\":\\\"Student\\\",\\\"phone\\\":\\\"+79990000000\\\",\\\"is_verified\\\":true,\\\"date_joined\\\":\\\"2025-10-29T13:12:36.022Z\\\",\\\"full_name\\\":\\\"Test User\\\"}\",\"timestamp\":1761743556023,\"expires\":1761829956023}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "success": {
+    "saved": "Cambios guardados con éxito",
+    "created": "Creado exitosamente",
+    "deleted": "Eliminado exitosamente",
+    "updated": "Actualizado exitosamente",
+    "submitted": "Enviado exitosamente",
+    "uploaded": "Archivo cargado exitosamente",
+    "downloaded": "Descargado exitosamente",
+    "exported": "Exportado exitosamente",
+    "imported": "Importado exitosamente",
+    "copied": "Copiado al portapapeles",
+    "shared": "Compartido exitosamente",
+    "emailSent": "Correo enviado exitosamente",
+    "passwordChanged": "Contraseña cambiada exitosamente",
+    "profileUpdated": "Perfil actualizado exitosamente",
+    "enrolled": "Inscrito exitosamente",
+    "completed": "Completado exitosamente"
+  },
+  "info": {
+    "processing": "Procesando...",
+    "loading": "Cargando...",
+    "savingChanges": "Guardando cambios...",
+    "checkingEmail": "Verificando correo...",
+    "verifyingFile": "Verificando archivo...",
+    "noData": "Sin datos disponibles",
+    "noResults": "No se encontraron resultados",
+    "emptyList": "Esta lista está vacía",
+    "selectItem": "Por favor, seleccione un elemento",
+    "loadMore": "Cargar más",
+    "showMore": "Mostrar más",
+    "showLess": "Mostrar menos"
+  },
+  "warning": {
+    "unsavedChanges": "Tiene cambios sin guardar. ¿Está seguro de que desea irse?",
+    "deleteConfirm": "¿Está seguro de que desea eliminar este elemento? Esta acción no se puede deshacer.",
+    "permanentDelete": "Esto eliminará permanentemente el elemento. ¿Está seguro?",
+    "invalidInput": "Por favor, compruebe su entrada",
+    "expiring": "Esto pronto vencerá",
+    "expired": "Esto ha vencido",
+    "expiringSession": "Su sesión vencerá en {{minutes}} minutos",
+    "limitReached": "Ha alcanzado el límite",
+    "quotaExceeded": "Su cuota ha sido excedida"
+  },
+  "notifications": {
+    "newMessage": "Tiene un nuevo mensaje",
+    "newMessages": "Tiene {{count}} nuevos mensajes",
+    "newNotification": "Tiene una nueva notificación",
+    "newNotifications": "Tiene {{count}} nuevas notificaciones",
+    "assignmentDue": "Tarea vence en {{hours}} horas",
+    "assignmentOverdue": "La tarea está vencida",
+    "classStarting": "La clase comienza en {{minutes}} minutos",
+    "mentionedYou": "{{user}} lo mencionó",
+    "repliedToYou": "{{user}} le respondió"
+  },
+  "confirmation": {
+    "delete": "¿Está seguro de que desea eliminar esto?",
+    "logout": "¿Está seguro de que desea cerrar sesión?",
+    "clearData": "¿Está seguro de que desea borrar todos los datos?",
+    "submitAssignment": "¿Está seguro de que desea enviar esta tarea?",
+    "publishMaterial": "¿Está seguro de que desea publicar este material?"
+  },
+  "prompts": {
+    "enterName": "Por favor, ingrese un nombre",
+    "enterEmail": "Por favor, ingrese un correo",
+    "enterMessage": "Por favor, ingrese un mensaje",
+    "selectFile": "Por favor, seleccione un archivo",
+    "selectDate": "Por favor, seleccione una fecha",
+    "selectTime": "Por favor, seleccione una hora"
+  }
+}

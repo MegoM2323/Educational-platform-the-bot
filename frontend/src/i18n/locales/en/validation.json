@@ -1,0 +1,69 @@
+{
+  "email": {
+    "required": "Email is required",
+    "invalid": "Please enter a valid email address",
+    "alreadyExists": "This email is already registered"
+  },
+  "password": {
+    "required": "Password is required",
+    "minLength": "Password must be at least 8 characters long",
+    "uppercase": "Password must contain at least one uppercase letter",
+    "lowercase": "Password must contain at least one lowercase letter",
+    "number": "Password must contain at least one number",
+    "special": "Password must contain at least one special character (!@#$%^&*)",
+    "mismatch": "Passwords do not match"
+  },
+  "username": {
+    "required": "Username is required",
+    "minLength": "Username must be at least 3 characters",
+    "maxLength": "Username must be no more than 20 characters",
+    "invalidChars": "Username can only contain letters, numbers, and underscores",
+    "alreadyExists": "This username is already taken"
+  },
+  "name": {
+    "required": "Name is required",
+    "minLength": "Name must be at least 2 characters",
+    "maxLength": "Name must be no more than 50 characters"
+  },
+  "date": {
+    "required": "Date is required",
+    "invalid": "Please enter a valid date",
+    "inPast": "Date cannot be in the past",
+    "inFuture": "Date cannot be in the future",
+    "afterStart": "End date must be after start date",
+    "beforeEnd": "Start date must be before end date"
+  },
+  "file": {
+    "required": "File is required",
+    "tooLarge": "File is too large (max {{size}}MB)",
+    "invalidType": "Invalid file type. Allowed: {{types}}",
+    "empty": "File is empty",
+    "corrupted": "File appears to be corrupted"
+  },
+  "form": {
+    "required": "This field is required",
+    "minLength": "Minimum length is {{min}} characters",
+    "maxLength": "Maximum length is {{max}} characters",
+    "pattern": "Invalid format",
+    "custom": "This field is invalid"
+  },
+  "phone": {
+    "required": "Phone number is required",
+    "invalid": "Please enter a valid phone number"
+  },
+  "url": {
+    "required": "URL is required",
+    "invalid": "Please enter a valid URL"
+  },
+  "number": {
+    "required": "Number is required",
+    "invalid": "Must be a valid number",
+    "min": "Must be at least {{min}}",
+    "max": "Must be no more than {{max}}"
+  },
+  "selection": {
+    "required": "Please select an option",
+    "minItems": "Please select at least {{min}} items",
+    "maxItems": "You can select up to {{max}} items"
+  }
+}

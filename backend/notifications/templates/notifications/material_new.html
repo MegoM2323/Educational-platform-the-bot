@@ -1,0 +1,42 @@
+{% extends "notifications/base_email.html" %}
+
+{% block subject %}New Learning Material: {{ material_title }}{% endblock %}
+
+{% block header %}New Material Available{% endblock %}
+
+{% block content %}
+<div class="email-section">
+    <p>Hello <strong>{{ recipient_name }}</strong>,</p>
+    <p>New learning material has been published for you.</p>
+</div>
+
+<div class="email-info-box">
+    <strong>Material Information</strong>
+    <p><strong>Title:</strong> {{ material_title }}</p>
+    <p><strong>Subject:</strong> {{ subject_name }}</p>
+    {% if instructor_name %}
+    <p><strong>Instructor:</strong> {{ instructor_name }}</p>
+    {% endif %}
+    {% if type %}
+    <p><strong>Type:</strong> {{ type }}</p>
+    {% endif %}
+    <p><strong>Published:</strong> {{ published_date|date:"F d, Y" }}</p>
+</div>
+
+{% if summary %}
+<div class="email-section">
+    <h2>Summary</h2>
+    <p>{{ summary }}</p>
+</div>
+{% endif %}
+
+<div class="email-button-group">
+    <a href="{{ material_url }}" class="email-button">View Material</a>
+</div>
+
+<div class="email-section">
+    <p>
+        This material is part of your learning path. Review it at your own pace.
+    </p>
+</div>
+{% endblock %}

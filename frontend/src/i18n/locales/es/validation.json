@@ -1,0 +1,69 @@
+{
+  "email": {
+    "required": "El correo es requerido",
+    "invalid": "Por favor, ingrese una dirección de correo válida",
+    "alreadyExists": "Este correo ya está registrado"
+  },
+  "password": {
+    "required": "La contraseña es requerida",
+    "minLength": "La contraseña debe tener al menos 8 caracteres",
+    "uppercase": "La contraseña debe contener al menos una letra mayúscula",
+    "lowercase": "La contraseña debe contener al menos una letra minúscula",
+    "number": "La contraseña debe contener al menos un número",
+    "special": "La contraseña debe contener al menos un carácter especial (!@#$%^&*)",
+    "mismatch": "Las contraseñas no coinciden"
+  },
+  "username": {
+    "required": "El nombre de usuario es requerido",
+    "minLength": "El nombre de usuario debe tener al menos 3 caracteres",
+    "maxLength": "El nombre de usuario no debe exceder 20 caracteres",
+    "invalidChars": "El nombre de usuario solo puede contener letras, números y guiones bajos",
+    "alreadyExists": "Este nombre de usuario ya está en uso"
+  },
+  "name": {
+    "required": "El nombre es requerido",
+    "minLength": "El nombre debe tener al menos 2 caracteres",
+    "maxLength": "El nombre no debe exceder 50 caracteres"
+  },
+  "date": {
+    "required": "La fecha es requerida",
+    "invalid": "Por favor, ingrese una fecha válida",
+    "inPast": "La fecha no puede estar en el pasado",
+    "inFuture": "La fecha no puede estar en el futuro",
+    "afterStart": "La fecha de finalización debe ser después de la fecha de inicio",
+    "beforeEnd": "La fecha de inicio debe ser antes de la fecha de finalización"
+  },
+  "file": {
+    "required": "El archivo es requerido",
+    "tooLarge": "El archivo es demasiado grande (máx {{size}}MB)",
+    "invalidType": "Tipo de archivo inválido. Permitidos: {{types}}",
+    "empty": "El archivo está vacío",
+    "corrupted": "El archivo parece estar corrupto"
+  },
+  "form": {
+    "required": "Este campo es requerido",
+    "minLength": "La longitud mínima es {{min}} caracteres",
+    "maxLength": "La longitud máxima es {{max}} caracteres",
+    "pattern": "Formato inválido",
+    "custom": "Este campo es inválido"
+  },
+  "phone": {
+    "required": "El número de teléfono es requerido",
+    "invalid": "Por favor, ingrese un número de teléfono válido"
+  },
+  "url": {
+    "required": "La URL es requerida",
+    "invalid": "Por favor, ingrese una URL válida"
+  },
+  "number": {
+    "required": "El número es requerido",
+    "invalid": "Debe ser un número válido",
+    "min": "Debe ser al menos {{min}}",
+    "max": "No debe ser más de {{max}}"
+  },
+  "selection": {
+    "required": "Por favor, seleccione una opción",
+    "minItems": "Por favor, seleccione al menos {{min}} elementos",
+    "maxItems": "Puede seleccionar hasta {{max}} elementos"
+  }
+}

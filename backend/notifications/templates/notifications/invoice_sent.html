@@ -1,0 +1,43 @@
+{% extends "notifications/base_email.html" %}
+
+{% block subject %}New Invoice from {{ tutor_name }}{% endblock %}
+
+{% block header %}Invoice for Payment{% endblock %}
+
+{% block content %}
+<div class="email-section">
+    <p>Hello <strong>{{ recipient_name }}</strong>,</p>
+    <p>You have received a new invoice that requires payment.</p>
+</div>
+
+<div class="email-info-box">
+    <strong>Invoice Summary</strong>
+    <p><strong>Invoice ID:</strong> #{{ invoice_id }}</p>
+    <p><strong>Student:</strong> {{ student_name }}</p>
+    <p><strong>Instructor:</strong> {{ tutor_name }}</p>
+    <p><strong>Amount:</strong> <span class="highlight">{{ amount }} RUB</span></p>
+    <p><strong>Due Date:</strong> <span class="highlight">{{ due_date|date:"F d, Y" }}</span></p>
+</div>
+
+{% if description %}
+<div class="email-section">
+    <h2>Description</h2>
+    <p>{{ description }}</p>
+</div>
+{% endif %}
+
+<div class="email-info-box" style="border-left-color: #ff9800;">
+    <strong style="color: #ff9800;">Important</strong>
+    <p>Please review and pay this invoice by the due date to avoid any interruption in service.</p>
+</div>
+
+<div class="email-button-group">
+    <a href="{{ invoice_url }}" class="email-button">View and Pay Invoice</a>
+</div>
+
+<div class="email-section">
+    <p>
+        If you have any questions about this invoice, please contact your instructor directly.
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "notifications/base_email.html" %}
+
+{% block subject %}Payment Successful - {{ amount }}{% endblock %}
+
+{% block header %}Payment Confirmed{% endblock %}
+
+{% block content %}
+<div class="email-section">
+    <p>Hello <strong>{{ recipient_name }}</strong>,</p>
+    <p>Your payment has been processed successfully!</p>
+</div>
+
+<div class="email-info-box">
+    <strong style="color: #4caf50;">Payment Details</strong>
+    <p><strong>Amount:</strong> <span class="highlight">{{ amount }} RUB</span></p>
+    {% if payment_id %}
+    <p><strong>Payment ID:</strong> {{ payment_id }}</p>
+    {% endif %}
+    <p><strong>Date:</strong> {{ payment_date|date:"F d, Y H:i" }}</p>
+    {% if description %}
+    <p><strong>Description:</strong> {{ description }}</p>
+    {% endif %}
+</div>
+
+{% if student_name %}
+<div class="email-section">
+    <h2>Student</h2>
+    <p>{{ student_name }}</p>
+</div>
+{% endif %}
+
+<div class="email-button-group">
+    <a href="{{ receipt_url }}" class="email-button">View Receipt</a>
+</div>
+
+<div class="email-section">
+    <p>
+        Thank you for your payment! Your account is now current.
+    </p>
+</div>
+{% endblock %}

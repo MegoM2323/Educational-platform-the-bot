@@ -1,0 +1,91 @@
+{
+  "http": {
+    "400": "Solicitud incorrecta - Entrada inválida",
+    "401": "No autorizado - Por favor, inicie sesión",
+    "403": "Prohibido - No tiene permiso",
+    "404": "No encontrado - El recurso no existe",
+    "409": "Conflicto - El recurso ya existe",
+    "413": "Carga útil demasiado grande - El archivo es demasiado grande",
+    "415": "Tipo de contenido no compatible - Formato de archivo no permitido",
+    "429": "Demasiadas solicitudes - Por favor, intente más tarde",
+    "500": "Error del servidor - Algo salió mal",
+    "502": "Puerta de enlace defectuosa - Servicio no disponible",
+    "503": "Servicio no disponible - Por favor, intente más tarde",
+    "504": "Tiempo de espera de la puerta de enlace - La solicitud tardó demasiado"
+  },
+  "validation": {
+    "required": "Este campo es requerido",
+    "email": "Por favor, ingrese una dirección de correo válida",
+    "password": "La contraseña debe tener al menos 8 caracteres",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "username": "El nombre de usuario debe tener 3-20 caracteres",
+    "minLength": "La longitud mínima es {{min}} caracteres",
+    "maxLength": "La longitud máxima es {{max}} caracteres",
+    "pattern": "Formato inválido",
+    "number": "Debe ser un número",
+    "date": "Por favor, ingrese una fecha válida",
+    "url": "Por favor, ingrese una URL válida",
+    "phone": "Por favor, ingrese un número de teléfono válido",
+    "whitespace": "No puede contener solo espacios en blanco",
+    "duplicateEmail": "Este correo ya está registrado",
+    "duplicateUsername": "Este nombre de usuario ya está en uso"
+  },
+  "authentication": {
+    "invalidCredentials": "Correo o contraseña inválidos",
+    "accountLocked": "Cuenta bloqueada por múltiples intentos fallidos de inicio de sesión",
+    "accountDisabled": "Su cuenta ha sido deshabilitada",
+    "accountNotVerified": "Por favor, verifique su correo para iniciar sesión",
+    "sessionExpired": "Su sesión ha expirado. Por favor, inicie sesión de nuevo",
+    "tokenExpired": "Su token de autenticación ha expirado",
+    "invalidToken": "Token de autenticación inválido o expirado",
+    "unauthorized": "No está autorizado para realizar esta acción",
+    "forbidden": "Acceso denegado",
+    "requiresLogin": "Por favor, inicie sesión para continuar"
+  },
+  "authorization": {
+    "insufficientPermissions": "No tiene permiso para realizar esta acción",
+    "roleRequired": "Esta acción requiere el rol {{role}}",
+    "accountTypeRequired": "Esta acción requiere el tipo de cuenta {{accountType}}"
+  },
+  "form": {
+    "submitError": "Error al enviar el formulario. Por favor, intente de nuevo",
+    "validationFailed": "Por favor, corrija los errores a continuación",
+    "requiredFields": "Por favor, complete todos los campos requeridos"
+  },
+  "upload": {
+    "fileRequired": "Por favor, seleccione un archivo",
+    "fileTooLarge": "El archivo es demasiado grande. El tamaño máximo es {{size}}MB",
+    "invalidFileType": "Tipo de archivo inválido. Tipos permitidos: {{types}}",
+    "uploadFailed": "Error al cargar el archivo. Por favor, intente de nuevo",
+    "uploadCancelled": "Carga de archivo cancelada",
+    "virusScanFailed": "El archivo no pasó la verificación de seguridad",
+    "infectiousContent": "El archivo contiene contenido potencialmente dañino",
+    "uploadInProgress": "Carga en progreso, por favor espere..."
+  },
+  "network": {
+    "noConnection": "Sin conexión a internet",
+    "connectionError": "Error de conexión. Por favor, compruebe su conexión",
+    "timeout": "Se agotó el tiempo de espera. Por favor, intente de nuevo",
+    "offline": "Está sin conexión. Por favor, compruebe su conexión",
+    "retrying": "Reintentar..."
+  },
+  "notFound": {
+    "page": "Página no encontrada",
+    "resource": "Recurso no encontrado",
+    "material": "Material no encontrado",
+    "assignment": "Tarea no encontrada",
+    "user": "Usuario no encontrado",
+    "chatRoom": "Sala de chat no encontrada"
+  },
+  "conflict": {
+    "alreadyExists": "Este recurso ya existe",
+    "alreadySubmitted": "Ya ha enviado esta tarea",
+    "alreadyEnrolled": "Ya está inscrito en este curso"
+  },
+  "generic": {
+    "somethingWentWrong": "Algo salió mal. Por favor, intente de nuevo",
+    "tryAgain": "Por favor, intente de nuevo",
+    "contactSupport": "Si el problema persiste, por favor contacte al soporte",
+    "reportIssue": "Reportar este problema"
+  }
+}

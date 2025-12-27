@@ -1,0 +1,36 @@
+{% extends "notifications/base_email.html" %}
+
+{% block subject %}New Message from {{ sender_name }}{% endblock %}
+
+{% block header %}You Have a New Message{% endblock %}
+
+{% block content %}
+<div class="email-section">
+    <p>Hello <strong>{{ recipient_name }}</strong>,</p>
+    <p>You have received a new message.</p>
+</div>
+
+<div class="email-info-box">
+    <strong>Message From</strong>
+    <p>{{ sender_name }}</p>
+</div>
+
+{% if message_preview %}
+<div class="email-section">
+    <h2>Message Preview</h2>
+    <p style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #667eea;">
+        {{ message_preview }}
+    </p>
+</div>
+{% endif %}
+
+<div class="email-button-group">
+    <a href="{{ message_url }}" class="email-button">View Full Message</a>
+</div>
+
+<div class="email-section">
+    <p>
+        Reply directly from the platform to continue the conversation.
+    </p>
+</div>
+{% endblock %}

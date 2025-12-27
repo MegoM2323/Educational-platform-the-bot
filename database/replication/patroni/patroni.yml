@@ -1,0 +1,171 @@
+scope: thebot-cluster
+name: primary-1
+
+# REST API for cluster management and health checks
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: 127.0.0.1:8008
+  validate_requests: true
+  cafile: null
+  certfile: null
+  keyfile: null
+  keyfile_password: null
+  allowed_verbs:
+    - GET
+    - OPTIONS
+  http_extra_headers:
+    Cache-Control: 'no-cache, no-store, must-revalidate'
+    Pragma: 'no-cache'
+    Expires: '0'
+
+# DCS (Distributed Consensus Store) - using etcd
+etcd:
+  host: 127.0.0.1:2379
+  username: null
+  password: null
+  protocol: http
+  ca_file: null
+  cert_file: null
+  key_file: null
+  ttl: 30
+  loop_wait: 10
+  master_ttl: 300
+  retry_timeout: 300
+  synchronous_mode: false
+  synchronous_mode_strict: false
+  use_proxy: true
+  proxy_refresh_interval: 300
+  register_retry_attempts: 3
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    master_ttl: 300
+    retry_timeout: 300
+    maximum_lag_on_failover: 1048576           # 1MB WAL lag allowed before failover
+    check_timeline: false
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      slot_name: replication_slot
+      parameters:
+        wal_level: replica
+        hot_standby: 'on'
+        hot_standby_feedback: 'on'
+        max_wal_senders: 10
+        max_replication_slots: 10
+        wal_keep_size: '1GB'
+        shared_preload_libraries: pg_stat_statements,pg_repack
+        pg_stat_statements.track: all
+        log_replication_commands: 'on'
+        log_min_duration_statement: 1000
+
+  # Initial superuser password (change in production!)
+  users:
+    admin:
+      password: 'AdminPassword123!'
+      options:
+        - createrole
+        - createdb
+    replicator:
+      password: 'ReplicatorPassword123!'
+      options:
+        - replication
+        - login
+
+  # Initial database setup
+  databases:
+    thebot_db:
+      owner: admin
+      encoding: UTF8
+      locale: C
+      template: template0
+
+postgresql:
+  data_dir: /var/lib/postgresql/15/main
+  bin_dir: /usr/lib/postgresql/15/bin
+  pgpass: /var/lib/postgresql/.pgpass
+  authentication:
+    replication:
+      username: replicator
+      password: 'ReplicatorPassword123!'
+    superuser:
+      username: postgres
+      password: 'PostgresPassword123!'
+    standby:
+      username: standby
+      password: 'StandbyPassword123!'
+  parameters:
+    # Replication settings
+    wal_level: replica
+    max_wal_senders: 10
+    max_replication_slots: 10
+    wal_keep_size: '1GB'
+    wal_sender_timeout: 60s
+
+    # Synchronous replication - ensures data safety
+    synchronous_commit: remote_write
+    synchronous_standby_names: 'standby1'
+
+    # Hot standby mode
+    hot_standby: 'on'
+    hot_standby_feedback: 'on'
+
+    # Performance tuning
+    shared_buffers: '256MB'
+    effective_cache_size: '1GB'
+    work_mem: '16MB'
+    maintenance_work_mem: '64MB'
+
+    # Logging
+    log_replication_commands: 'on'
+    log_min_duration_statement: 1000
+    logging_collector: 'on'
+    log_directory: 'pg_log'
+    log_filename: 'postgresql-%a.log'
+    log_rotation_age: '1d'
+    log_rotation_size: '100MB'
+
+  # pg_hba.conf entries for replication
+  pg_hba:
+    - type: local
+      database: all
+      user: all
+      method: trust
+    - type: host
+      database: replication
+      user: replicator
+      address: '0.0.0.0/0'
+      method: md5
+    - type: host
+      database: all
+      user: all
+      address: '127.0.0.1/32'
+      method: md5
+    - type: host
+      database: all
+      user: all
+      address: '::1/128'
+      method: md5
+    - type: host
+      database: all
+      user: all
+      address: '0.0.0.0/0'
+      method: md5
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
+
+# Watchdog configuration for fencing
+watchdog:
+  mode: off  # Use 'automatic' for production HA setup
+  device: /dev/watchdog
+  safety_margin: 5
+
+# Failover timeout settings
+failover_timeout: 300           # 5 minutes to detect primary failure
+check_timeline: false           # Don't check timeline during failover

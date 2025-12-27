@@ -1,0 +1,73 @@
+{
+  "name": "THE BOT - Educational Platform",
+  "short_name": "THE BOT",
+  "description": "Modern LMS platform for effective learning with progress tracking and personalized approach",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "scope": "/",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["education"],
+  "screenshots": [
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your personal dashboard",
+      "url": "/dashboard/",
+      "icons": [
+        {
+          "src": "/favicon.ico",
+          "sizes": "64x64",
+          "type": "image/x-icon"
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "description": "Open messaging",
+      "url": "/dashboard/chat",
+      "icons": [
+        {
+          "src": "/favicon.ico",
+          "sizes": "64x64",
+          "type": "image/x-icon"
+        }
+      ]
+    }
+  ]
+}

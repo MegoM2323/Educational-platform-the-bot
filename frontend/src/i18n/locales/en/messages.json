@@ -1,0 +1,71 @@
+{
+  "success": {
+    "saved": "Changes saved successfully",
+    "created": "Created successfully",
+    "deleted": "Deleted successfully",
+    "updated": "Updated successfully",
+    "submitted": "Submitted successfully",
+    "uploaded": "File uploaded successfully",
+    "downloaded": "Downloaded successfully",
+    "exported": "Exported successfully",
+    "imported": "Imported successfully",
+    "copied": "Copied to clipboard",
+    "shared": "Shared successfully",
+    "emailSent": "Email sent successfully",
+    "passwordChanged": "Password changed successfully",
+    "profileUpdated": "Profile updated successfully",
+    "enrolled": "Enrolled successfully",
+    "completed": "Completed successfully"
+  },
+  "info": {
+    "processing": "Processing...",
+    "loading": "Loading...",
+    "savingChanges": "Saving changes...",
+    "checkingEmail": "Checking email...",
+    "verifyingFile": "Verifying file...",
+    "noData": "No data available",
+    "noResults": "No results found",
+    "emptyList": "This list is empty",
+    "selectItem": "Please select an item",
+    "loadMore": "Load more",
+    "showMore": "Show more",
+    "showLess": "Show less"
+  },
+  "warning": {
+    "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",
+    "deleteConfirm": "Are you sure you want to delete this item? This action cannot be undone.",
+    "permanentDelete": "This will permanently delete the item. Are you sure?",
+    "invalidInput": "Please check your input",
+    "expiring": "This will expire soon",
+    "expired": "This has expired",
+    "expiringSession": "Your session will expire in {{minutes}} minutes",
+    "limitReached": "You have reached the limit",
+    "quotaExceeded": "Your quota has been exceeded"
+  },
+  "notifications": {
+    "newMessage": "You have a new message",
+    "newMessages": "You have {{count}} new messages",
+    "newNotification": "You have a new notification",
+    "newNotifications": "You have {{count}} new notifications",
+    "assignmentDue": "Assignment due in {{hours}} hours",
+    "assignmentOverdue": "Assignment is overdue",
+    "classStarting": "Class starting in {{minutes}} minutes",
+    "mentionedYou": "{{user}} mentioned you",
+    "repliedToYou": "{{user}} replied to you"
+  },
+  "confirmation": {
+    "delete": "Are you sure you want to delete this?",
+    "logout": "Are you sure you want to log out?",
+    "clearData": "Are you sure you want to clear all data?",
+    "submitAssignment": "Are you sure you want to submit this assignment?",
+    "publishMaterial": "Are you sure you want to publish this material?"
+  },
+  "prompts": {
+    "enterName": "Please enter a name",
+    "enterEmail": "Please enter an email",
+    "enterMessage": "Please enter a message",
+    "selectFile": "Please select a file",
+    "selectDate": "Please select a date",
+    "selectTime": "Please select a time"
+  }
+}

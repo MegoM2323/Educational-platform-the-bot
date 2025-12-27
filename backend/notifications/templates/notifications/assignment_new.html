@@ -1,0 +1,43 @@
+{% extends "notifications/base_email.html" %}
+
+{% block subject %}New Assignment: {{ assignment_title }}{% endblock %}
+
+{% block header %}New Assignment Available{% endblock %}
+
+{% block content %}
+<div class="email-section">
+    <p>Hello <strong>{{ recipient_name }}</strong>,</p>
+    <p>A new assignment has been posted for you.</p>
+</div>
+
+<div class="email-info-box">
+    <strong>Assignment Details</strong>
+    <p><strong>Title:</strong> {{ assignment_title }}</p>
+    <p><strong>Subject:</strong> {{ subject_name }}</p>
+    <p><strong>Teacher:</strong> {{ teacher_name }}</p>
+    {% if due_date %}
+    <p><strong>Due Date:</strong> {{ due_date|date:"F d, Y H:i" }}</p>
+    {% endif %}
+    {% if points %}
+    <p><strong>Points:</strong> {{ points }}</p>
+    {% endif %}
+</div>
+
+{% if description %}
+<div class="email-section">
+    <h2>Description</h2>
+    <p>{{ description }}</p>
+</div>
+{% endif %}
+
+<div class="email-button-group">
+    <a href="{{ assignment_url }}" class="email-button">View Assignment</a>
+</div>
+
+<div class="email-section">
+    <p>
+        Start working on this assignment at your convenience.
+        Make sure to submit before the due date!
+    </p>
+</div>
+{% endblock %}

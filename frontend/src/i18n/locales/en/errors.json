@@ -1,0 +1,91 @@
+{
+  "http": {
+    "400": "Bad Request - Invalid input",
+    "401": "Unauthorized - Please log in",
+    "403": "Forbidden - You don't have permission",
+    "404": "Not Found - Resource doesn't exist",
+    "409": "Conflict - Resource already exists",
+    "413": "Payload Too Large - File is too large",
+    "415": "Unsupported Media Type - File format not allowed",
+    "429": "Too Many Requests - Please try again later",
+    "500": "Server Error - Something went wrong",
+    "502": "Bad Gateway - Service unavailable",
+    "503": "Service Unavailable - Please try again later",
+    "504": "Gateway Timeout - Request took too long"
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Please enter a valid email address",
+    "password": "Password must be at least 8 characters",
+    "passwordMismatch": "Passwords do not match",
+    "username": "Username must be 3-20 characters",
+    "minLength": "Minimum length is {{min}} characters",
+    "maxLength": "Maximum length is {{max}} characters",
+    "pattern": "Invalid format",
+    "number": "Must be a number",
+    "date": "Please enter a valid date",
+    "url": "Please enter a valid URL",
+    "phone": "Please enter a valid phone number",
+    "whitespace": "Cannot contain only whitespace",
+    "duplicateEmail": "This email is already registered",
+    "duplicateUsername": "This username is already taken"
+  },
+  "authentication": {
+    "invalidCredentials": "Invalid email or password",
+    "accountLocked": "Account locked due to multiple failed login attempts",
+    "accountDisabled": "Your account has been disabled",
+    "accountNotVerified": "Please verify your email to log in",
+    "sessionExpired": "Your session has expired. Please log in again",
+    "tokenExpired": "Your authentication token has expired",
+    "invalidToken": "Invalid or expired authentication token",
+    "unauthorized": "You are not authorized to perform this action",
+    "forbidden": "Access denied",
+    "requiresLogin": "Please log in to continue"
+  },
+  "authorization": {
+    "insufficientPermissions": "You do not have permission to perform this action",
+    "roleRequired": "This action requires {{role}} role",
+    "accountTypeRequired": "This action requires {{accountType}} account type"
+  },
+  "form": {
+    "submitError": "Error submitting form. Please try again",
+    "validationFailed": "Please fix the errors below",
+    "requiredFields": "Please fill in all required fields"
+  },
+  "upload": {
+    "fileRequired": "Please select a file",
+    "fileTooLarge": "File is too large. Maximum size is {{size}}MB",
+    "invalidFileType": "Invalid file type. Allowed types: {{types}}",
+    "uploadFailed": "File upload failed. Please try again",
+    "uploadCancelled": "File upload cancelled",
+    "virusScanFailed": "File failed security scan",
+    "infectiousContent": "File contains potentially harmful content",
+    "uploadInProgress": "Upload in progress, please wait..."
+  },
+  "network": {
+    "noConnection": "No internet connection",
+    "connectionError": "Connection error. Please check your internet",
+    "timeout": "Request timed out. Please try again",
+    "offline": "You are offline. Please check your connection",
+    "retrying": "Retrying..."
+  },
+  "notFound": {
+    "page": "Page not found",
+    "resource": "Resource not found",
+    "material": "Material not found",
+    "assignment": "Assignment not found",
+    "user": "User not found",
+    "chatRoom": "Chat room not found"
+  },
+  "conflict": {
+    "alreadyExists": "This resource already exists",
+    "alreadySubmitted": "You have already submitted this assignment",
+    "alreadyEnrolled": "You are already enrolled in this course"
+  },
+  "generic": {
+    "somethingWentWrong": "Something went wrong. Please try again",
+    "tryAgain": "Please try again",
+    "contactSupport": "If the problem persists, please contact support",
+    "reportIssue": "Report this issue"
+  }
+}

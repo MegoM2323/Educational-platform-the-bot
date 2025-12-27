@@ -1,10 +1,5 @@
----
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
-metadata:
-  name: thebot-base
-  namespace: thebot
 
 # Common labels for all resources
 commonLabels:
@@ -51,78 +46,11 @@ replicas:
   count: 3
 - name: celery-worker
   count: 2
-
-# Vars (for replacement in resources)
-vars:
-- name: ENVIRONMENT
-  objref:
-    kind: ConfigMap
-    name: django-config
-    apiVersion: v1
-  fieldref:
-    fieldpath: data.ENVIRONMENT
-
-- name: DB_HOST
-  objref:
-    kind: ConfigMap
-    name: django-config
-    apiVersion: v1
-  fieldref:
-    fieldpath: data.DB_HOST
-
-- name: REDIS_HOST
-  objref:
-    kind: ConfigMap
-    name: django-config
-    apiVersion: v1
-  fieldref:
-    fieldpath: data.REDIS_HOST
-
-- name: API_URL
-  objref:
-    kind: ConfigMap
-    name: django-config
-    apiVersion: v1
-  fieldref:
-    fieldpath: data.API_URL
-
-# Storage class configuration
-configMapGenerator:
-- name: django-config
-  namespace: thebot
-  literals:
-  - ENVIRONMENT=production
-  - DEBUG=False
-  behavior: create
-  disableNameSuffixHash: true
-
-secretGenerator:
-- name: django-secrets
-  namespace: thebot
-  behavior: create
-  disableNameSuffixHash: true
+- name: celery-beat
+  count: 1
 
 # Patches for environment-specific changes
 patchesStrategicMerge: []
 
 # JSON patches
 patchesJson6902: []
-
-# Strategic merge patches for replicas
-replicas:
-- name: backend
-  count: 3
-- name: frontend
-  count: 3
-- name: celery-worker
-  count: 2
-- name: celery-beat
-  count: 1
-
-# Sort options
-sortOptions:
-  order: legacy
-
-# Kustomization options
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization

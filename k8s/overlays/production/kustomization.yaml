@@ -39,28 +39,8 @@ images:
   newName: gcr.io/thebot-prod/frontend
   newTag: v1.0.0
 
-# ConfigMap overrides for production
-configMapGenerator:
-- name: django-config
-  namespace: thebot
-  behavior: merge
-  literals:
-  - ENVIRONMENT=production
-  - DEBUG=False
-  - LOG_LEVEL=WARNING
-  - ALLOWED_HOSTS=the-bot.ru,www.the-bot.ru,api.the-bot.ru,admin.the-bot.ru,ws.the-bot.ru
-
-# Secret overrides for production (MUST BE CHANGED)
-secretGenerator:
-- name: django-secrets
-  namespace: thebot
-  behavior: merge
-  # Secrets should be managed via external secret management (sealed-secrets, vault, etc.)
-  # These are placeholders and MUST be overridden
-  literals:
-  - SECRET_KEY=CHANGE-ME-PRODUCTION-SECRET-KEY-MIN-50-CHARS
-  - DB_PASSWORD=CHANGE-ME-STRONG-DATABASE-PASSWORD
-  - REDIS_PASSWORD=CHANGE-ME-STRONG-REDIS-PASSWORD
+# Use patches instead of generators for environment-specific overrides
+# Secrets should be managed via external secret management (sealed-secrets, vault, etc.)
 
 # Production resource limits (high)
 patches:
@@ -155,54 +135,4 @@ patches:
 # (already enabled in base, keeping for reference)
 
 # Enable pod disruption budgets in production
-# (already enabled in base)
-
-# Production ingress with strict TLS
-patchesStrategicMerge:
-- apiVersion: networking.k8s.io/v1
-  kind: Ingress
-  metadata:
-    name: thebot-ingress
-    namespace: thebot
-  spec:
-    ingressClassName: nginx-prod
-    annotations:
-      cert-manager.io/cluster-issuer: "letsencrypt-prod"
-      nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
-      nginx.ingress.kubernetes.io/rate-limit: "100"
-      nginx.ingress.kubernetes.io/enable-modsecurity: "true"
-      nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
-
-# Pod security standards for production
-patchesJson6902:
-- target:
-    group: v1
-    version: v1
-    kind: Pod
-  patch: |-
-    - op: add
-      path: /spec/securityContext/runAsNonRoot
-      value: true
-    - op: add
-      path: /spec/securityContext/readOnlyRootFilesystem
-      value: false
-    - op: add
-      path: /spec/securityContext/allowPrivilegeEscalation
-      value: false
-
-# Production namespace with network policies enabled
 # (already configured in base)
-
-# Sort options
-sortOptions:
-  order: legacy
-
-# Additional production configurations
-vars:
-- name: ENVIRONMENT
-  objref:
-    kind: ConfigMap
-    name: django-config
-    apiVersion: v1
-  fieldref:
-    fieldpath: data.ENVIRONMENT

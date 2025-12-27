@@ -1,55 +1,6 @@
----
-# Pod Security Policy (deprecated in K8s 1.25+, use Pod Security Standards instead)
-# This is for reference and older Kubernetes versions
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
-metadata:
-  name: thebot-restricted
-  labels:
-    app: thebot
-  annotations:
-    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
-    apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
-    seccomp.security.alpha.kubernetes.io/defaultProfileName: 'runtime/default'
-    apparmor.security.beta.kubernetes.io/defaultProfileName: 'runtime/default'
-spec:
-  privileged: false
-  allowPrivilegeEscalation: false
-  requiredDropCapabilities:
-  - ALL
-  allowedCapabilities: []
-  volumes:
-  - 'configMap'
-  - 'emptyDir'
-  - 'projected'
-  - 'secret'
-  - 'downwardAPI'
-  - 'persistentVolumeClaim'
-  hostNetwork: false
-  hostIPC: false
-  hostPID: false
-  runAsUser:
-    rule: 'MustRunAsNonRoot'
-  seLinux:
-    rule: 'MustRunAs'
-    seLinuxOptions:
-      level: "s0:c123,c456"
-  supplementalGroups:
-    rule: 'RunAsAny'
-  fsGroup:
-    rule: 'RunAsAny'
-  readOnlyRootFilesystem: false
-
----
-# Pod Security Standards via Policy (for K8s 1.23+)
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: thebot
-  labels:
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/warn: restricted
+# Note: Pod Security Policy is deprecated in K8s 1.25+
+# Use Pod Security Standards instead via namespace labels
+# Example: pod-security.kubernetes.io/enforce=restricted
 
 ---
 # RBAC: ClusterRole for monitoring

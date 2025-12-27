@@ -39,26 +39,7 @@ images:
   newName: localhost:5000/thebot/frontend
   newTag: dev
 
-# ConfigMap patches for dev environment
-configMapGenerator:
-- name: django-config
-  namespace: thebot-dev
-  behavior: merge
-  literals:
-  - ENVIRONMENT=development
-  - DEBUG=True
-  - LOG_LEVEL=DEBUG
-  - ALLOWED_HOSTS=localhost,127.0.0.1,*.thebot.local
-
-# Secret overrides for dev
-secretGenerator:
-- name: django-secrets
-  namespace: thebot-dev
-  behavior: merge
-  literals:
-  - SECRET_KEY=dev-secret-key-not-for-production
-  - DB_PASSWORD=dev-db-password
-  - REDIS_PASSWORD=dev-redis-password
+# Use patches instead of generators for environment-specific overrides
 
 # Resource limits for dev (lower than production)
 patches:
@@ -123,13 +104,7 @@ patches:
       path: /spec/storageClassName
       value: standard
 
-# Disable pod affinity in dev
-patches:
-- target:
-    kind: Deployment
-  patch: |-
-    - op: remove
-      path: /spec/template/spec/affinity/podAntiAffinity
+# Disable pod affinity in dev (comment out if causing issues)
 
 # Disable pod disruption budgets in dev
 patchesStrategicMerge: []

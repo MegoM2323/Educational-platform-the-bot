@@ -39,26 +39,7 @@ images:
   newName: gcr.io/thebot-project/frontend
   newTag: staging
 
-# ConfigMap overrides for staging
-configMapGenerator:
-- name: django-config
-  namespace: thebot-staging
-  behavior: merge
-  literals:
-  - ENVIRONMENT=staging
-  - DEBUG=False
-  - LOG_LEVEL=INFO
-  - ALLOWED_HOSTS=staging.the-bot.ru,*.staging.the-bot.ru
-
-# Secret overrides for staging
-secretGenerator:
-- name: django-secrets
-  namespace: thebot-staging
-  behavior: merge
-  literals:
-  - SECRET_KEY=staging-secret-key-change-in-production
-  - DB_PASSWORD=staging-db-password-change-in-production
-  - REDIS_PASSWORD=staging-redis-password-change-in-production
+# Use patches instead of generators for environment-specific overrides
 
 # Resource limits for staging (medium)
 patches:

@@ -1,0 +1,154 @@
+---
+# PersistentVolumeClaim for PostgreSQL data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: thebot
+  labels:
+    app: postgres
+    component: database
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: "standard"  # Use your cluster's storage class
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+# PersistentVolumeClaim for Redis data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: thebot
+  labels:
+    app: redis
+    component: cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: "standard"
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+# PersistentVolumeClaim for Backend static files
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-static-pvc
+  namespace: thebot
+  labels:
+    app: backend
+    component: static
+spec:
+  accessModes:
+    - ReadWriteMany  # Must support multiple readers
+  storageClassName: "standard"
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# PersistentVolumeClaim for Backend media files
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-media-pvc
+  namespace: thebot
+  labels:
+    app: backend
+    component: media
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: "standard"
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# PersistentVolumeClaim for Backend logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-logs-pvc
+  namespace: thebot
+  labels:
+    app: backend
+    component: logs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: "standard"
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# PersistentVolumeClaim for Frontend logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: frontend-logs-pvc
+  namespace: thebot
+  labels:
+    app: frontend
+    component: logs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: "standard"
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# PersistentVolumeClaim for Backup storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-pvc
+  namespace: thebot
+  labels:
+    app: backup
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: "standard"
+  resources:
+    requests:
+      storage: 200Gi
+
+---
+# StorageClass definition (adjust based on your infrastructure)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard-fast
+  labels:
+    app: thebot
+provisioner: kubernetes.io/aws-ebs  # Change to your provisioner (gce-pd, azure-disk, etc.)
+parameters:
+  type: gp3
+  iops: "3000"
+  throughput: "125"
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# StorageClass for ReadWriteMany (use NFS or compatible)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard-shared
+  labels:
+    app: thebot
+provisioner: kubernetes.io/nfs  # Use NFS or another shared storage solution
+reclaimPolicy: Delete
+allowVolumeExpansion: true

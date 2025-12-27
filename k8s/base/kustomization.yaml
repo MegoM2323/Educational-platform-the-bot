@@ -1,0 +1,128 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: thebot-base
+  namespace: thebot
+
+# Common labels for all resources
+commonLabels:
+  app: thebot
+  managed-by: kustomize
+
+# Common annotations
+commonAnnotations:
+  description: "THE_BOT Educational Platform"
+  version: "1.0.0"
+
+# Namespace for all resources
+namespace: thebot
+
+# Resources
+resources:
+- 00-namespace.yaml
+- 01-configmap.yaml
+- 02-secrets.yaml
+- 03-pvc.yaml
+- 04-postgres-statefulset.yaml
+- 05-redis-statefulset.yaml
+- 06-backend-deployment.yaml
+- 07-frontend-deployment.yaml
+- 08-celery-deployment.yaml
+- 09-ingress.yaml
+- 10-monitoring.yaml
+- 11-pod-security.yaml
+
+# Image names and tags (base defaults)
+images:
+- name: thebot/backend
+  newName: thebot/backend
+  newTag: latest
+- name: thebot/frontend
+  newName: thebot/frontend
+  newTag: latest
+
+# Replicas configuration (base defaults)
+replicas:
+- name: backend
+  count: 3
+- name: frontend
+  count: 3
+- name: celery-worker
+  count: 2
+
+# Vars (for replacement in resources)
+vars:
+- name: ENVIRONMENT
+  objref:
+    kind: ConfigMap
+    name: django-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.ENVIRONMENT
+
+- name: DB_HOST
+  objref:
+    kind: ConfigMap
+    name: django-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.DB_HOST
+
+- name: REDIS_HOST
+  objref:
+    kind: ConfigMap
+    name: django-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.REDIS_HOST
+
+- name: API_URL
+  objref:
+    kind: ConfigMap
+    name: django-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.API_URL
+
+# Storage class configuration
+configMapGenerator:
+- name: django-config
+  namespace: thebot
+  literals:
+  - ENVIRONMENT=production
+  - DEBUG=False
+  behavior: create
+  disableNameSuffixHash: true
+
+secretGenerator:
+- name: django-secrets
+  namespace: thebot
+  behavior: create
+  disableNameSuffixHash: true
+
+# Patches for environment-specific changes
+patchesStrategicMerge: []
+
+# JSON patches
+patchesJson6902: []
+
+# Strategic merge patches for replicas
+replicas:
+- name: backend
+  count: 3
+- name: frontend
+  count: 3
+- name: celery-worker
+  count: 2
+- name: celery-beat
+  count: 1
+
+# Sort options
+sortOptions:
+  order: legacy
+
+# Kustomization options
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization

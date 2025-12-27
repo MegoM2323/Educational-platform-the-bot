@@ -1,0 +1,208 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: thebot-production
+  namespace: thebot
+
+# Base resources
+bases:
+- ../../base
+
+# Namespace: use default from base
+namespace: thebot
+
+# Override common labels
+commonLabels:
+  app: thebot
+  environment: production
+  managed-by: kustomize
+
+# Replicas for production (high availability)
+replicas:
+- name: backend
+  count: 3
+- name: frontend
+  count: 3
+- name: celery-worker
+  count: 2
+- name: celery-beat
+  count: 1
+
+# Images for production (use specific release tags, not latest)
+images:
+- name: thebot/backend
+  newName: gcr.io/thebot-prod/backend
+  newTag: v1.0.0
+- name: thebot/frontend
+  newName: gcr.io/thebot-prod/frontend
+  newTag: v1.0.0
+
+# ConfigMap overrides for production
+configMapGenerator:
+- name: django-config
+  namespace: thebot
+  behavior: merge
+  literals:
+  - ENVIRONMENT=production
+  - DEBUG=False
+  - LOG_LEVEL=WARNING
+  - ALLOWED_HOSTS=the-bot.ru,www.the-bot.ru,api.the-bot.ru,admin.the-bot.ru,ws.the-bot.ru
+
+# Secret overrides for production (MUST BE CHANGED)
+secretGenerator:
+- name: django-secrets
+  namespace: thebot
+  behavior: merge
+  # Secrets should be managed via external secret management (sealed-secrets, vault, etc.)
+  # These are placeholders and MUST be overridden
+  literals:
+  - SECRET_KEY=CHANGE-ME-PRODUCTION-SECRET-KEY-MIN-50-CHARS
+  - DB_PASSWORD=CHANGE-ME-STRONG-DATABASE-PASSWORD
+  - REDIS_PASSWORD=CHANGE-ME-STRONG-REDIS-PASSWORD
+
+# Production resource limits (high)
+patches:
+- target:
+    kind: Deployment
+    name: backend
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: 750m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: 768Mi
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: 2000m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: 2Gi
+
+- target:
+    kind: Deployment
+    name: frontend
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: 250m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: 256Mi
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: 500m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: 512Mi
+
+# Production storage class (SSD recommended)
+patches:
+- target:
+    kind: PersistentVolumeClaim
+    name: postgres-pvc
+  patch: |-
+    - op: replace
+      path: /spec/storageClassName
+      value: fast-ssd
+
+- target:
+    kind: PersistentVolumeClaim
+    name: backend-media-pvc
+  patch: |-
+    - op: replace
+      path: /spec/storageClassName
+      value: fast-ssd
+
+# Production HPA settings (aggressive scaling)
+patches:
+- target:
+    kind: HorizontalPodAutoscaler
+    name: backend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 3
+    - op: replace
+      path: /spec/maxReplicas
+      value: 15
+
+- target:
+    kind: HorizontalPodAutoscaler
+    name: frontend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 3
+    - op: replace
+      path: /spec/maxReplicas
+      value: 10
+
+- target:
+    kind: HorizontalPodAutoscaler
+    name: celery-worker-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 10
+
+# Enable pod affinity in production
+# (already enabled in base, keeping for reference)
+
+# Enable pod disruption budgets in production
+# (already enabled in base)
+
+# Production ingress with strict TLS
+patchesStrategicMerge:
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    name: thebot-ingress
+    namespace: thebot
+  spec:
+    ingressClassName: nginx-prod
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+      nginx.ingress.kubernetes.io/rate-limit: "100"
+      nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+      nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
+
+# Pod security standards for production
+patchesJson6902:
+- target:
+    group: v1
+    version: v1
+    kind: Pod
+  patch: |-
+    - op: add
+      path: /spec/securityContext/runAsNonRoot
+      value: true
+    - op: add
+      path: /spec/securityContext/readOnlyRootFilesystem
+      value: false
+    - op: add
+      path: /spec/securityContext/allowPrivilegeEscalation
+      value: false
+
+# Production namespace with network policies enabled
+# (already configured in base)
+
+# Sort options
+sortOptions:
+  order: legacy
+
+# Additional production configurations
+vars:
+- name: ENVIRONMENT
+  objref:
+    kind: ConfigMap
+    name: django-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.ENVIRONMENT

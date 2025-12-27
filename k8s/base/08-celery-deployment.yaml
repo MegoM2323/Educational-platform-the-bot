@@ -1,0 +1,352 @@
+---
+# Celery Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: thebot
+  labels:
+    app: celery-worker
+    tier: worker
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+        tier: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - celery-worker
+              topologyKey: kubernetes.io/hostname
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - redis
+              topologyKey: kubernetes.io/hostname
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      serviceAccountName: celery-worker
+
+      containers:
+      - name: celery-worker
+        image: thebot/backend:latest
+        imagePullPolicy: IfNotPresent
+        command:
+        - celery
+        args:
+        - -A
+        - config
+        - worker
+        - --loglevel=info
+        - --concurrency=4
+        - --max-tasks-per-child=1000
+        - --time-limit=3600
+        - --soft-time-limit=3300
+
+        envFrom:
+        - configMapRef:
+            name: django-config
+        - secretRef:
+            name: django-secrets
+
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: CELERY_BROKER_URL
+          value: "redis://:$(REDIS_PASSWORD)@redis.thebot.svc.cluster.local:6379/1"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://:$(REDIS_PASSWORD)@redis.thebot.svc.cluster.local:6379/2"
+
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+
+        livenessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - config
+            - inspect
+            - active
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - config
+            - inspect
+            - ping
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+
+      volumes:
+      - name: logs
+        persistentVolumeClaim:
+          claimName: backend-logs-pvc
+
+      terminationGracePeriodSeconds: 60
+      dnsPolicy: ClusterFirst
+
+---
+# Celery Beat Scheduler Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+  namespace: thebot
+  labels:
+    app: celery-beat
+    tier: scheduler
+spec:
+  replicas: 1  # Beat should have only 1 replica
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: celery-beat
+  template:
+    metadata:
+      labels:
+        app: celery-beat
+        tier: scheduler
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - redis
+              topologyKey: kubernetes.io/hostname
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      serviceAccountName: celery-beat
+
+      containers:
+      - name: celery-beat
+        image: thebot/backend:latest
+        imagePullPolicy: IfNotPresent
+        command:
+        - celery
+        args:
+        - -A
+        - config
+        - beat
+        - --loglevel=info
+        - --scheduler
+        - django_celery_beat.schedulers:DatabaseScheduler
+
+        envFrom:
+        - configMapRef:
+            name: django-config
+        - secretRef:
+            name: django-secrets
+
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: CELERY_BROKER_URL
+          value: "redis://:$(REDIS_PASSWORD)@redis.thebot.svc.cluster.local:6379/1"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://:$(REDIS_PASSWORD)@redis.thebot.svc.cluster.local:6379/2"
+
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+        livenessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - config
+            - inspect
+            - active_queues
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - config
+            - inspect
+            - ping
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+
+      volumes:
+      - name: logs
+        persistentVolumeClaim:
+          claimName: backend-logs-pvc
+
+      terminationGracePeriodSeconds: 60
+      dnsPolicy: ClusterFirst
+
+---
+# Celery Worker Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: celery-worker
+  namespace: thebot
+  labels:
+    app: celery-worker
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: celery-worker
+  ports:
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: metrics
+
+---
+# ServiceAccount for Celery Worker
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: celery-worker
+  namespace: thebot
+  labels:
+    app: celery-worker
+
+---
+# ServiceAccount for Celery Beat
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: celery-beat
+  namespace: thebot
+  labels:
+    app: celery-beat
+
+---
+# HorizontalPodAutoscaler for Celery Worker
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: celery-worker-hpa
+  namespace: thebot
+  labels:
+    app: celery-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: celery-worker
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# Pod Disruption Budget for Celery Worker
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: celery-worker-pdb
+  namespace: thebot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: celery-worker

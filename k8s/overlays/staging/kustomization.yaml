@@ -1,0 +1,143 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: thebot-staging
+  namespace: thebot-staging
+
+# Base resources
+bases:
+- ../../base
+
+# Namespace override
+namespace: thebot-staging
+
+# Override common labels
+commonLabels:
+  app: thebot
+  environment: staging
+  managed-by: kustomize
+
+# Replicas for staging (medium)
+replicas:
+- name: backend
+  count: 2
+- name: frontend
+  count: 2
+- name: celery-worker
+  count: 1
+- name: celery-beat
+  count: 1
+
+# Images for staging
+images:
+- name: thebot/backend
+  newName: gcr.io/thebot-project/backend
+  newTag: staging
+- name: thebot/frontend
+  newName: gcr.io/thebot-project/frontend
+  newTag: staging
+
+# ConfigMap overrides for staging
+configMapGenerator:
+- name: django-config
+  namespace: thebot-staging
+  behavior: merge
+  literals:
+  - ENVIRONMENT=staging
+  - DEBUG=False
+  - LOG_LEVEL=INFO
+  - ALLOWED_HOSTS=staging.the-bot.ru,*.staging.the-bot.ru
+
+# Secret overrides for staging
+secretGenerator:
+- name: django-secrets
+  namespace: thebot-staging
+  behavior: merge
+  literals:
+  - SECRET_KEY=staging-secret-key-change-in-production
+  - DB_PASSWORD=staging-db-password-change-in-production
+  - REDIS_PASSWORD=staging-redis-password-change-in-production
+
+# Resource limits for staging (medium)
+patches:
+- target:
+    kind: Deployment
+    name: backend
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: 250m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: 256Mi
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: 750m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: 768Mi
+
+- target:
+    kind: Deployment
+    name: frontend
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: 100m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: 128Mi
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: 350m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: 384Mi
+
+# PVC size for staging (medium)
+patches:
+- target:
+    kind: PersistentVolumeClaim
+    name: postgres-pvc
+  patch: |-
+    - op: replace
+      path: /spec/resources/requests/storage
+      value: 50Gi
+
+- target:
+    kind: PersistentVolumeClaim
+    name: backend-media-pvc
+  patch: |-
+    - op: replace
+      path: /spec/resources/requests/storage
+      value: 20Gi
+
+# HPA overrides for staging
+patches:
+- target:
+    kind: HorizontalPodAutoscaler
+    name: backend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 5
+
+- target:
+    kind: HorizontalPodAutoscaler
+    name: frontend-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 5
+
+# Sort options
+sortOptions:
+  order: legacy

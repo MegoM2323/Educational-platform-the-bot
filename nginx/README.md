@@ -4,9 +4,13 @@
 
 ```
 nginx/
-├── the-bot.ru.conf      # Main production nginx configuration
-├── ssl.conf             # SSL/TLS configuration (included by main config)
-└── README.md            # This file
+├── the-bot.ru.conf          # Main production nginx configuration
+├── ssl.conf                 # SSL/TLS configuration (included by main config)
+├── load-balancer.conf       # Load balancer configuration (high-availability)
+├── health/
+│   └── 50x.html             # Error page for 502/503 responses
+├── README.md                # This file
+└── LOAD_BALANCER_GUIDE.md   # Load balancer documentation (see docs/)
 ```
 
 ## Main Configuration File
@@ -388,12 +392,118 @@ sudo bash scripts/ssl-monitor.sh renew-dry
 sudo bash scripts/ssl-monitor.sh renew
 ```
 
+## Load Balancer Configuration
+
+### `load-balancer.conf`
+
+High-availability load balancer configuration with:
+
+- **Multi-instance routing**: Distribute requests across 3+ backend instances
+- **Load balancing algorithms**: Least connections, round robin, session affinity
+- **Health checks**: Passive (request-based) monitoring with failover
+- **WebSocket sticky sessions**: Route same client to same backend
+- **Rate limiting**: Per-IP and per-endpoint request limits
+- **Monitoring endpoints**: Health checks, metrics, statistics
+- **Security**: HTTPS, HSTS, CSP, and other security headers
+
+#### Architecture
+
+```
+Clients (HTTPS/WSS)
+    ↓
+Nginx Load Balancer (ports 80, 443)
+    ├─ API Requests (/api/*) → backend_api upstream (least_conn)
+    │  ├─ backend-1:8000
+    │  ├─ backend-2:8000
+    │  ├─ backend-3:8000
+    │  └─ backup-backend:8000 (backup)
+    │
+    ├─ WebSocket (/ws/*) → backend_asgi upstream (sticky hash)
+    │  ├─ backend-1:8001
+    │  ├─ backend-2:8001
+    │  ├─ backend-3:8001
+    │  └─ backup-backend:8001 (backup)
+    │
+    └─ Health/Monitoring Endpoints
+       ├─ /health → simple check
+       ├─ /health/detailed → JSON status
+       ├─ /upstream-status → server list
+       ├─ /metrics → Prometheus format
+       └─ /stats → connection statistics
+    ↓
+PostgreSQL Database (shared)
+Redis Cluster (3+ nodes, session storage)
+```
+
+#### Installation
+
+```bash
+# Copy load balancer configuration
+sudo cp nginx/load-balancer.conf /etc/nginx/conf.d/
+
+# Or with Docker Compose
+docker-compose -f docker-compose.load-balancer.yml up -d
+```
+
+#### Configuration
+
+1. Update backend server IPs in `load-balancer.conf`:
+   ```nginx
+   upstream backend_api {
+       server backend-1.internal:8000;
+       server backend-2.internal:8000;
+       server backend-3.internal:8000;
+   }
+   ```
+
+2. Adjust rate limits as needed:
+   ```nginx
+   limit_req_zone $binary_remote_addr zone=api_limit:10m rate=100r/s;
+   ```
+
+3. Test configuration:
+   ```bash
+   sudo nginx -t
+   ```
+
+#### Health Endpoints
+
+- `GET /health` - Simple health check (200 OK)
+- `GET /health/detailed` - Detailed JSON status
+- `GET /upstream-status` - List of upstream servers
+- `GET /metrics` - Prometheus-compatible metrics
+- `GET /stats` - Connection statistics
+
+#### Rate Limiting
+
+- **API**: 100 req/s per IP (burst: 20)
+- **Auth**: 5 req/min per IP (burst: 1)
+- **Upload**: 10 req/min per IP (burst: 2)
+- **WebSocket**: 10 req/s per IP (burst: 5)
+
+#### Testing
+
+```bash
+# Run test suite
+./scripts/test-load-balancer.sh all
+
+# Or specific tests
+./scripts/test-load-balancer.sh health
+./scripts/test-load-balancer.sh api
+./scripts/test-load-balancer.sh websocket
+./scripts/test-load-balancer.sh stress
+```
+
+See `docs/LOAD_BALANCER_GUIDE.md` for detailed documentation.
+
 ## References
 
 - [Nginx Documentation](https://nginx.org/en/docs/)
 - [Let's Encrypt](https://letsencrypt.org/)
 - [Mozilla SSL Configuration Generator](https://ssl-config.mozilla.org/)
 - [OWASP: Secure Headers](https://cheatsheetseries.owasp.org/cheatsheets/Secure_Headers_Cheat_Sheet.html)
+- [Nginx Load Balancing](https://nginx.org/en/docs/http/ngx_http_upstream_module.html)
+- [Nginx Rate Limiting](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html)
 
 ## Support Scripts
 
@@ -402,5 +512,7 @@ Related scripts in `/scripts/`:
 - `setup-ssl.sh`: Initial SSL setup with Let's Encrypt
 - `ssl-monitor.sh`: Certificate monitoring and renewal
 - `test-ssl.sh`: SSL/TLS testing and validation
+- `test-load-balancer.sh`: Load balancer testing and verification
 
-See `docs/SSL_TLS_CONFIGURATION.md` for full documentation.
+See `docs/SSL_TLS_CONFIGURATION.md` for SSL documentation.
+See `docs/LOAD_BALANCER_GUIDE.md` for load balancer documentation.

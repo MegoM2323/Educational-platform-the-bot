@@ -1,0 +1,221 @@
+{
+  "version": "1.0.0",
+  "name": "THE_BOT Platform Alert Rules",
+  "description": "Alert rules for monitoring API performance, security events, and system health",
+  "total_rules": 16,
+  "rules": [
+    {
+      "id": "alert_high_error_rate",
+      "name": "High API Error Rate",
+      "description": "Alert when API error rate exceeds 5% in last 15 minutes",
+      "enabled": true,
+      "severity": "critical",
+      "threshold": 5,
+      "evaluation_window": "15m",
+      "index_pattern": "thebot-api-*",
+      "notification_channels": ["email", "slack"],
+      "auto_escalation": true
+    },
+    {
+      "id": "alert_slow_api_response",
+      "name": "Slow API Response Time",
+      "description": "Alert when p95 > 1000ms or p99 > 2000ms",
+      "enabled": true,
+      "severity": "high",
+      "p95_threshold": 1000,
+      "p99_threshold": 2000,
+      "evaluation_window": "10m",
+      "index_pattern": "thebot-api-*",
+      "notification_channels": ["slack", "pagerduty"]
+    },
+    {
+      "id": "alert_5xx_server_errors",
+      "name": "Server Errors (5xx)",
+      "description": "Alert immediately on any 5xx errors",
+      "enabled": true,
+      "severity": "critical",
+      "threshold": 0,
+      "evaluation_window": "1m",
+      "index_pattern": "thebot-api-errors-*",
+      "notification_channels": ["email", "slack", "pagerduty"],
+      "page_oncall": true
+    },
+    {
+      "id": "alert_failed_login_attempts",
+      "name": "Multiple Failed Login Attempts",
+      "description": "Alert when 5+ failed logins for same user in 5 minutes",
+      "enabled": true,
+      "severity": "high",
+      "threshold": 5,
+      "evaluation_window": "5m",
+      "index_pattern": "thebot-auth-*",
+      "group_by": "username",
+      "notification_channels": ["slack", "email"],
+      "auto_action": "require_mfa"
+    },
+    {
+      "id": "alert_brute_force_attack",
+      "name": "Brute Force Attack Detection",
+      "description": "Alert on detected brute force attack patterns",
+      "enabled": true,
+      "severity": "critical",
+      "evaluation_window": "1m",
+      "index_pattern": "thebot-security-*",
+      "notification_channels": ["pagerduty", "slack", "email"],
+      "page_oncall": true,
+      "auto_response": {"block_ip": "1h", "enable_captcha": true}
+    },
+    {
+      "id": "alert_sql_injection",
+      "name": "SQL Injection Attempt",
+      "description": "Alert on SQL injection attack patterns",
+      "enabled": true,
+      "severity": "critical",
+      "evaluation_window": "1m",
+      "index_pattern": "thebot-security-*",
+      "notification_channels": ["pagerduty", "email"],
+      "page_oncall": true,
+      "auto_response": {"block_ip": "2h", "incident": "critical"}
+    },
+    {
+      "id": "alert_xss_attempt",
+      "name": "XSS Attack Attempt",
+      "description": "Alert on XSS attack patterns",
+      "enabled": true,
+      "severity": "high",
+      "evaluation_window": "5m",
+      "index_pattern": "thebot-security-*",
+      "notification_channels": ["slack", "email"],
+      "auto_response": {"rate_limit": "10/min"}
+    },
+    {
+      "id": "alert_unauthorized_access",
+      "name": "Unauthorized Access Attempts",
+      "description": "Alert on 10+ unauthorized (403/401) in 10 minutes",
+      "enabled": true,
+      "severity": "high",
+      "threshold": 10,
+      "evaluation_window": "10m",
+      "index_pattern": "thebot-security-*",
+      "group_by": "source_ip",
+      "notification_channels": ["slack", "email"],
+      "auto_response": {"rate_limit": "30/min"}
+    },
+    {
+      "id": "alert_suspicious_data_export",
+      "name": "Suspicious Data Export",
+      "description": "Alert on large data exports (>10000 records)",
+      "enabled": true,
+      "severity": "high",
+      "threshold": 10000,
+      "evaluation_window": "5m",
+      "index_pattern": "thebot-security-*",
+      "notification_channels": ["email", "slack"],
+      "compliance_logging": true
+    },
+    {
+      "id": "alert_credential_exposure",
+      "name": "Credential/API Key Exposure",
+      "description": "Alert on exposed API keys or credentials",
+      "enabled": true,
+      "severity": "critical",
+      "evaluation_window": "1m",
+      "index_pattern": "thebot-security-*",
+      "notification_channels": ["pagerduty", "email"],
+      "page_oncall": true,
+      "auto_response": {"revoke_credentials": true, "rotate_secrets": true}
+    },
+    {
+      "id": "alert_rate_limit_exceeded",
+      "name": "Rate Limit Exceeded",
+      "description": "Alert when rate limits exceeded from specific IPs",
+      "enabled": true,
+      "severity": "medium",
+      "threshold": 5,
+      "evaluation_window": "5m",
+      "index_pattern": "thebot-api-*",
+      "group_by": "source_ip",
+      "notification_channels": ["slack"]
+    },
+    {
+      "id": "alert_database_connection_pool",
+      "name": "Database Connection Pool Exhaustion",
+      "description": "Alert when pool usage exceeds 80%",
+      "enabled": true,
+      "severity": "high",
+      "threshold": 80,
+      "evaluation_window": "5m",
+      "notification_channels": ["slack", "email"],
+      "auto_response": {"increase_pool": 5}
+    },
+    {
+      "id": "alert_elasticsearch_health",
+      "name": "Elasticsearch Cluster Health",
+      "description": "Alert when cluster status not green",
+      "enabled": true,
+      "severity": "high",
+      "evaluation_window": "2m",
+      "notification_channels": ["slack", "email"],
+      "suggested_actions": ["check_disk_space", "check_node_connectivity"]
+    },
+    {
+      "id": "alert_log_processing_lag",
+      "name": "Log Processing Lag",
+      "description": "Alert when processing lag > 5 minutes",
+      "enabled": true,
+      "severity": "medium",
+      "threshold": 300,
+      "evaluation_window": "5m",
+      "notification_channels": ["slack"],
+      "unit": "seconds"
+    },
+    {
+      "id": "alert_unusual_api_behavior",
+      "name": "Unusual API Usage Pattern",
+      "description": "Alert on deviation from baseline (>2.5x)",
+      "enabled": true,
+      "severity": "medium",
+      "threshold_deviation": 2.5,
+      "baseline_period": "7d",
+      "evaluation_window": "10m",
+      "index_pattern": "thebot-api-*",
+      "notification_channels": ["slack"]
+    },
+    {
+      "id": "alert_geographic_anomaly",
+      "name": "Geographic Anomaly Detection",
+      "description": "Alert on impossible travel or unusual locations",
+      "enabled": true,
+      "severity": "high",
+      "evaluation_window": "1m",
+      "index_pattern": "thebot-security-*",
+      "notification_channels": ["email", "slack"],
+      "auto_response": {"require_mfa": "24h"}
+    }
+  ],
+  "notification_channels": {
+    "email": {
+      "type": "smtp",
+      "enabled": true,
+      "config": "Use EMAIL_* environment variables"
+    },
+    "slack": {
+      "type": "webhook",
+      "enabled": true,
+      "config": "Use SLACK_WEBHOOK_URL environment variable"
+    },
+    "pagerduty": {
+      "type": "api",
+      "enabled": true,
+      "config": "Use PAGERDUTY_* environment variables"
+    }
+  },
+  "retention_policy": {
+    "online_retention_days": 30,
+    "archive_retention_days": 90,
+    "archive_storage": "s3",
+    "compression": "gzip"
+  }
+}
+EOFALERT
+echo "Alert rules JSON created: $(wc -c < /home/mego/Python\ Projects/THE_BOT_platform/logging/alerts/alert-rules.json) bytes"

@@ -1,0 +1,11 @@
+{"type":"dashboard","id":"thebot-api-dashboard","version":1,"attributes":{"title":"THE_BOT API Performance Dashboard","description":"Real-time monitoring of API performance, response times, error rates, and key metrics","dashboardVersion":"0.0.0"}}
+{"type":"visualization","id":"api-requests-per-minute","version":1,"attributes":{"title":"API Requests per Minute","description":"Real-time request volume to THE_BOT API endpoints"}}
+{"type":"visualization","id":"api-response-times","version":1,"attributes":{"title":"API Response Time Distribution (p50, p95, p99)","description":"Response time percentiles to detect performance degradation"}}
+{"type":"visualization","id":"api-errors-by-status","version":1,"attributes":{"title":"API Errors by Status Code","description":"HTTP status code distribution showing error rates"}}
+{"type":"visualization","id":"api-slowest-endpoints","version":1,"attributes":{"title":"Slowest API Endpoints (Top 10)","description":"Endpoints with highest average response times"}}
+{"type":"visualization","id":"api-error-rate","version":1,"attributes":{"title":"API Error Rate (%)","description":"Percentage of requests returning 4xx or 5xx status codes"}}
+{"type":"visualization","id":"api-success-rate","version":1,"attributes":{"title":"API Success Rate (%)","description":"Percentage of successful API requests (2xx)"}}
+{"type":"visualization","id":"api-requests-by-endpoint","version":1,"attributes":{"title":"API Requests by Endpoint (Top 15)","description":"Most frequently called API endpoints"}}
+{"type":"visualization","id":"api-response-time-heatmap","version":1,"attributes":{"title":"API Response Time Heatmap","description":"Response time patterns across endpoints over time"}}
+{"type":"visualization","id":"api-5xx-errors","version":1,"attributes":{"title":"Server Errors (5xx) - Last 24h","description":"Critical server errors requiring immediate attention"}}
+{"type":"visualization","id":"api-slow-requests","version":1,"attributes":{"title":"Slow Requests (p95 > 1000ms)","description":"API requests exceeding 1 second response time"}}

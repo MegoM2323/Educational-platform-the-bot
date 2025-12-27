@@ -1,0 +1,12 @@
+{"type":"dashboard","id":"thebot-security-dashboard","version":1,"attributes":{"title":"THE_BOT Security Events Dashboard","description":"Real-time security monitoring: failed logins, blocked IPs, WAF events, and suspicious patterns"}}
+{"type":"visualization","id":"security-events-timeline","version":1,"attributes":{"title":"Security Events Timeline","description":"All security events over time with severity levels"}}
+{"type":"visualization","id":"security-critical-alerts","version":1,"attributes":{"title":"Critical Security Alerts (Last 24h)","description":"Count of critical severity security events"}}
+{"type":"visualization","id":"security-high-alerts","version":1,"attributes":{"title":"High Priority Alerts (Last 24h)","description":"Count of high severity security events"}}
+{"type":"visualization","id":"security-medium-alerts","version":1,"attributes":{"title":"Medium Priority Alerts (Last 24h)","description":"Count of medium severity security events"}}
+{"type":"visualization","id":"security-failed-logins","version":1,"attributes":{"title":"Failed Login Attempts by Username","description":"Top users targeted by failed login attempts"}}
+{"type":"visualization","id":"security-suspicious-ips","version":1,"attributes":{"title":"Top Suspicious Source IPs","description":"IP addresses with highest suspicious activity count"}}
+{"type":"visualization","id":"security-threat-types","version":1,"attributes":{"title":"Security Threats by Type","description":"Distribution of different types of security events"}}
+{"type":"visualization","id":"security-attack-timeline","version":1,"attributes":{"title":"Attack Timeline - Security Events Over Time","description":"Security events grouped by type with hourly granularity"}}
+{"type":"visualization","id":"security-top-threat-users","version":1,"attributes":{"title":"Top Users Targeted by Threats","description":"Users most frequently targeted by security events"}}
+{"type":"visualization","id":"security-injection-attempts","version":1,"attributes":{"title":"SQL/XSS Injection Attempts (Last 24h)","description":"Count of injection-based attacks detected"}}
+{"type":"visualization","id":"security-blocked-ips","version":1,"attributes":{"title":"Blocked/Rate Limited IPs","description":"IPs that have been rate limited or blocked"}}

@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "description": "Index Lifecycle Management Policy for THE_BOT Platform Logs",
+  "policy_name": "thebot-logs-policy",
+  "retention_policy": {
+    "online_retention_days": 30,
+    "archive_retention_days": 90,
+    "archive_storage": "s3",
+    "archive_bucket": "thebot-logs-archive",
+    "compression": "gzip"
+  },
+  "policies": [
+    {
+      "name": "thebot-api-logs",
+      "description": "ILM policy for API request logs",
+      "phases": {
+        "hot": {
+          "min_age": "0d",
+          "rollover": {
+            "max_primary_shard_size": "50gb",
+            "max_age": "1d"
+          }
+        },
+        "warm": {
+          "min_age": "7d",
+          "forcemerge": {
+            "max_num_segments": 1
+          },
+          "set_replicas": {
+            "number_of_replicas": 0
+          }
+        },
+        "cold": {
+          "min_age": "30d",
+          "searchable_snapshot": {
+            "snapshot_repository": "thebot-repository"
+          }
+        },
+        "delete": {
+          "min_age": "120d",
+          "delete": {}
+        }
+      }
+    },
+    {
+      "name": "thebot-security-logs",
+      "description": "ILM policy for security logs (compliance: 7 years retention)",
+      "phases": {
+        "hot": {
+          "min_age": "0d",
+          "rollover": {
+            "max_primary_shard_size": "10gb",
+            "max_age": "1d"
+          }
+        },
+        "warm": {
+          "min_age": "7d",
+          "forcemerge": {
+            "max_num_segments": 1
+          }
+        },
+        "cold": {
+          "min_age": "30d"
+        },
+        "delete": {
+          "min_age": "2555d"
+        }
+      }
+    }
+  ],
+  "snapshot_repositories": [
+    {
+      "name": "thebot-repository",
+      "type": "s3",
+      "settings": {
+        "bucket": "thebot-logs-archive",
+        "base_path": "elasticsearch-snapshots",
+        "compress": true
+      }
+    }
+  ]
+}

@@ -11,7 +11,8 @@
 # =============================================================================
 # STAGE 1: BUILDER
 # =============================================================================
-FROM node:22-alpine AS builder
+# Use Node.js slim image to ensure all optional dependencies are available
+FROM node:22-slim AS builder
 
 # Set working directory
 WORKDIR /build
@@ -21,7 +22,7 @@ COPY package.json package-lock.json* ./
 
 # Install dependencies with optimized flags
 # Use --legacy-peer-deps for compatibility with all dependencies
-RUN npm install --no-optional --no-fund --legacy-peer-deps && \
+RUN npm install --no-fund --legacy-peer-deps && \
     npm cache clean --force
 
 # Copy application source

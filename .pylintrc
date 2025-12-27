@@ -1,0 +1,91 @@
+[MASTER]
+# Specify a configuration file.
+# ignore-patterns=test.*?py
+
+# Add files or directories to the blacklist
+ignore=
+    migrations,
+    __pycache__,
+    .venv,
+    venv
+
+# Python code to execute
+init-hook='import sys; sys.path.insert(0, "backend")'
+
+[MESSAGES CONTROL]
+# Disable the message, report, category or checker with the given id(s).
+disable=
+    C0114,  # missing-module-docstring
+    C0115,  # missing-class-docstring
+    C0116,  # missing-function-docstring
+    R0903,  # too-few-public-methods
+    R0913,  # too-many-arguments
+    W0212,  # protected-access
+    C0103,  # invalid-name
+    R0801,  # duplicate-code
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length = 127
+
+# Regexp for a line that is allowed to be longer than the limit.
+ignore-long-lines = ^\s*(# )?<?https?://\S+>?$
+
+# String used as indentation unit.
+indent-string = '    '
+
+[BASIC]
+# Good variable names which should always be accepted
+good-names = i,j,k,ex,Run,_
+
+# Bad variable names which should always be refused
+bad-names = foo,bar,baz,toto,tutu,tata
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args = 10
+
+# Maximum number of attributes for a class
+max-attributes = 10
+
+# Maximum number of boolean expressions in a if statement
+max-bool-expr = 5
+
+# Maximum number of branch for function / method body
+max-branches = 12
+
+# Maximum number of locals for function / method body
+max-locals = 15
+
+# Maximum number of parents for a class
+max-parents = 7
+
+# Maximum number of public methods for a class
+max-public-methods = 20
+
+# Maximum number of return / yield for function / method body
+max-returns = 6
+
+# Maximum number of statements in function / method body
+max-statements = 50
+
+# Minimum number of public methods for a class
+min-public-methods = 1
+
+[SIMILARITIES]
+# Ignore comments and docstrings
+ignore-comments = yes
+ignore-docstrings = yes
+
+# Ignore imports when computing similarities.
+ignore-imports = no
+
+# Minimum lines number of a similarity.
+min-similarity-lines = 4
+
+[LOGGING]
+# Format of logging format string.
+logging-format-style = new
+
+# Logging modules which allow lazy formatting of arguments
+logging-modules = logging

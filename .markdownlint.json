@@ -1,0 +1,30 @@
+{
+  "default": true,
+  "line-length": {
+    "line_length": 120,
+    "heading_line_length": 120,
+    "code_block_line_length": 120,
+    "code_blocks": true,
+    "tables": false,
+    "headers": true,
+    "headers_only": false,
+    "stern": false
+  },
+  "no-hard-tabs": true,
+  "no-trailing-spaces": true,
+  "no-multiple-spaces": true,
+  "no-blanks-blockquote": true,
+  "no-inline-html": false,
+  "ul-indent": {
+    "indent": 2
+  },
+  "list-marker-space": true,
+  "blanks-around-lists": true,
+  "blanks-around-headings": true,
+  "heading-increment": true,
+  "no-duplicate-headings": true,
+  "first-line-h1": false,
+  "first-heading-h1": false,
+  "no-emphasis-as-heading": true,
+  "punctuation": ".,;:!?"
+}

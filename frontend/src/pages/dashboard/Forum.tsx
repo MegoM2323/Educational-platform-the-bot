@@ -99,6 +99,9 @@ interface ChatWindowProps {
   currentUserId: number;
   currentUserRole: string;
   isSwitchingChat?: boolean;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 }
 
 const ChatListItem = ({
@@ -252,10 +255,30 @@ const ChatWindow = ({
   isEditingOrDeleting,
   currentUserId,
   currentUserRole,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
 }: ChatWindowProps) => {
   const [messageInput, setMessageInput] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Handle infinite scroll - load more messages when scrolling to top
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage && fetchNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Detect scroll to top for loading more messages
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    // If scrolled near top (within 100px), load more
+    if (target.scrollTop < 100) {
+      handleLoadMore();
+    }
+  }, [handleLoadMore]);
 
   const handleSend = () => {
     if ((messageInput.trim() || selectedFile) && !isSending) {
@@ -400,8 +423,20 @@ const ChatWindow = ({
       </div>
 
       {/* Messages - Scrollable Area */}
-      <div className="flex-1 overflow-y-auto py-4 pr-4 min-h-0">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto py-4 pr-4 min-h-0"
+        onScroll={handleScroll}
+      >
         <div className="space-y-4">
+          {/* Load more indicator at top */}
+          {isFetchingNextPage && (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
+              <span className="text-sm text-muted-foreground">Загрузка старых сообщений...</span>
+            </div>
+          )}
+
           {isSwitchingChat || isLoadingMessages ? (
             <div className="space-y-4" data-testid="messages-loading">
               <Skeleton className="h-12 rounded w-[70%]" />
@@ -960,9 +995,17 @@ function Forum() {
   // Connection status is managed per-chat in the WebSocket connection effect below
 
   const { chats = [], isLoadingChats, chatsError } = useForumChats();
-  const { data: messages = [], isLoading: isLoadingMessages } = useForumMessages(
-    selectedChat?.id || null
-  );
+
+  // Fix: useForumMessages returns InfiniteData structure, need to flatten
+  const messagesQuery = useForumMessages(selectedChat?.id || null);
+  const messages = useMemo(() => {
+    if (!messagesQuery.data?.pages) return [];
+    // Flatten all pages into single array
+    return messagesQuery.data.pages.flat();
+  }, [messagesQuery.data?.pages]);
+  const isLoadingMessages = messagesQuery.isLoading;
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = messagesQuery;
+
   const sendMessageMutation = useSendForumMessage();
 
   // Edit message mutation
@@ -1279,6 +1322,9 @@ function Forum() {
                 currentUserId={user?.id || 0}
                 currentUserRole={user?.role || ''}
                 isSwitchingChat={isSwitchingChat}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
               />
             </div>
           </main>

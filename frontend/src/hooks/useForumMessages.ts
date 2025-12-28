@@ -35,12 +35,18 @@ export const useForumMessages = (chatId: number | null) => {
       }
     },
     getNextPageParam: (lastPage, allPages) => {
-      // Calculate total fetched messages
+      // If last page has fewer messages than requested, no more pages
+      if (lastPage.length < MESSAGES_PER_PAGE) {
+        return undefined;
+      }
+
+      // Calculate total fetched messages for next offset
       const totalFetched = allPages.reduce((sum, page) => sum + page.length, 0);
 
-      // If last page has full page of results, there might be more
-      // Return next offset, otherwise undefined (no more pages)
-      return lastPage.length === MESSAGES_PER_PAGE ? totalFetched : undefined;
+      // Return offset for the next batch of OLDER messages
+      // Backend returns messages in chronological order (oldest first)
+      // When scrolling up, we need to fetch earlier messages
+      return totalFetched;
     },
     initialPageParam: 0,
     enabled: !!chatId,

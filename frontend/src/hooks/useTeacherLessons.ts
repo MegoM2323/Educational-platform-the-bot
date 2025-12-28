@@ -30,17 +30,23 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: LessonUpdatePayload }) =>
-      schedulingAPI.updateLesson(id, payload),
-    onSuccess: async () => {
-      // Сначала инвалидируем и ждём рефетч
+    mutationFn: ({ id, payload }: { id: string; payload: LessonUpdatePayload }) => {
+      logger.info('[useTeacherLessons] Updating lesson', { id, payload });
+      return schedulingAPI.updateLesson(id, payload);
+    },
+    onSuccess: async (data) => {
+      logger.info('[useTeacherLessons] Update success, returned data:', data);
+      // Инвалидируем и ждём рефетч перед показом успеха
       await queryClient.invalidateQueries({
         queryKey: ['lessons', 'teacher'],
-        exact: false
+        exact: false,
+        refetchType: 'all'  // Убедиться, что рефетч выполнится
       });
+      logger.info('[useTeacherLessons] Invalidation complete');
       toast.success('Урок успешно обновлён');
     },
     onError: (error: any) => {
+      logger.error('[useTeacherLessons] Update error:', error);
       const errorMessage = error.message || 'Ошибка при обновлении урока';
       toast.error(errorMessage);
       logger.error('Update lesson error:', error);

@@ -84,7 +84,7 @@ class ChatRoom(models.Model):
     
     @property
     def last_message(self):
-        return self.messages.filter(is_deleted=False).last()
+        return self.messages.filter(is_deleted=False).order_by('created_at').last()
 
 
 class Message(models.Model):
@@ -265,7 +265,7 @@ class MessageThread(models.Model):
 
     @property
     def last_message(self):
-        return self.messages.filter(is_deleted=False).last()
+        return self.messages.filter(is_deleted=False).order_by('created_at').last()
 
 
 class ChatParticipant(models.Model):

@@ -59,9 +59,9 @@ export const lessonSchema = z
 // Student and subject fields will be disabled in the form, not validated
 export const lessonUpdateSchema = z
   .object({
-    // Student and subject are present in form state but NOT validated
-    student: z.string().optional(),
-    subject: z.string().optional(),
+    // Student and subject - completely bypass validation (disabled in form)
+    student: z.any().optional(),
+    subject: z.any().optional(),
     ...baseLessonFields,
   })
   .refine(

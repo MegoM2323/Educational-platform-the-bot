@@ -363,9 +363,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Проверка доступа к комнате.
 
         Проверяет доступ через:
-        1. M2M participants (ChatRoom.participants)
-        2. ChatParticipant записи (для обратной совместимости)
-        3. Родительский доступ: если пользователь - родитель и его ребёнок является участником
+        1. Admin/Staff bypass для форумных чатов (read-only)
+        2. M2M participants (ChatRoom.participants)
+        3. ChatParticipant записи (для обратной совместимости)
+        4. Родительский доступ: если пользователь - родитель и его ребёнок является участником
 
         Дополнительная проверка для teacher:
         - Teacher может подключаться только к FORUM_SUBJECT чатам
@@ -375,6 +376,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             room = ChatRoom.objects.select_related('enrollment').get(id=self.room_id)
             user = self.scope['user']
             user_id = user.id
+
+            # Admin/Staff bypass - read-only access to all forum chats
+            if user.is_staff or user.is_superuser or getattr(user, 'role', None) == 'admin':
+                if room.type in [ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR]:
+                    logger.info(f'[check_room_access] Admin {user_id} granted read-only access to room {self.room_id}')
+                    return True
 
             # Дополнительная проверка для teacher: только FORUM_SUBJECT чаты
             # где teacher назначен через enrollment
@@ -630,8 +637,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Получение истории сообщений комнаты из БД"""
         try:
             room = ChatRoom.objects.get(id=self.room_id)
-            messages = room.messages.filter(is_deleted=False).select_related('sender').order_by('-created_at')[:50]
-            return [MessageSerializer(msg).data for msg in reversed(messages)]
+            # Получаем ID последних 50 сообщений
+            latest_ids = room.messages.filter(
+                is_deleted=False
+            ).order_by('-created_at').values('id')[:50]
+            # Получаем эти сообщения в хронологическом порядке (старые первые)
+            messages = room.messages.filter(
+                id__in=latest_ids
+            ).select_related('sender').order_by('created_at')
+            return [MessageSerializer(msg).data for msg in messages]
         except ObjectDoesNotExist:
             return []
 

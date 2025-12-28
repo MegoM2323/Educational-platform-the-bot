@@ -1,5 +1,6 @@
 import { unifiedAPI } from './unifiedClient';
 import { Lesson, LessonCreatePayload, LessonUpdatePayload } from '@/types/scheduling';
+import { cacheService } from '@/services/cacheService';
 
 export const schedulingAPI = {
   createLesson: async (payload: LessonCreatePayload): Promise<Lesson> => {
@@ -7,6 +8,8 @@ export const schedulingAPI = {
     if (response.error) {
       throw new Error(response.error);
     }
+    // Инвалидируем кеш lessons чтобы React Query получил свежие данные
+    cacheService.delete('/scheduling/lessons/');
     return response.data as Lesson;
   },
 
@@ -33,6 +36,8 @@ export const schedulingAPI = {
     if (response.error) {
       throw new Error(response.error);
     }
+    // Инвалидируем кеш lessons чтобы React Query получил свежие данные
+    cacheService.delete('/scheduling/lessons/');
     return response.data as Lesson;
   },
 
@@ -41,6 +46,8 @@ export const schedulingAPI = {
     if (response.error) {
       throw new Error(response.error);
     }
+    // Инвалидируем кеш lessons чтобы React Query получил свежие данные
+    cacheService.delete('/scheduling/lessons/');
   },
 
   getMySchedule: async (filters?: Record<string, any>): Promise<Lesson[]> => {

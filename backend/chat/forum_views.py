@@ -140,10 +140,11 @@ class ForumChatViewSet(viewsets.ViewSet):
                 ).order_by('-updated_at')
 
             elif user.role == 'teacher':
-                # Teacher sees ONLY FORUM_SUBJECT chats where they are the assigned teacher
+                # Teacher sees FORUM_SUBJECT chats where they are assigned teacher OR chat creator
                 chats = base_queryset.filter(
-                    type=ChatRoom.Type.FORUM_SUBJECT,
-                    enrollment__teacher=user  # Verify teacher is assigned via enrollment
+                    type=ChatRoom.Type.FORUM_SUBJECT
+                ).filter(
+                    Q(enrollment__teacher=user) | Q(created_by=user)
                 ).order_by('-updated_at')
 
             elif user.role == 'tutor':
@@ -176,6 +177,22 @@ class ForumChatViewSet(viewsets.ViewSet):
                     ).distinct().order_by('-updated_at')
                 else:
                     chats = ChatRoom.objects.none()
+
+            elif user.role == 'admin' or user.is_staff or user.is_superuser:
+                # Admin has read-only access to ALL forum chats
+                # Note: We don't use base_queryset because it filters by participants=user
+                # Admin should see all chats even without being a participant
+                chats = ChatRoom.objects.filter(
+                    type__in=[ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR],
+                    is_active=True
+                ).select_related(
+                    'created_by',
+                    'enrollment__subject',
+                    'enrollment__teacher',
+                    'enrollment__student'
+                ).prefetch_related(
+                    'participants'
+                ).distinct().order_by('-updated_at')
 
             else:
                 # Неизвестная роль - пустой список
@@ -790,6 +807,11 @@ class AvailableContactsView(APIView):
                                     'chat_id': None,
                                     'enrollment_id': None
                                 })
+
+            elif user.role == 'admin' or user.is_staff or user.is_superuser:
+                # Admin has read-only access - cannot initiate chats
+                # Return empty contacts list
+                pass
 
             else:
                 # Неизвестная роль - пустой список

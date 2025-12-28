@@ -27,51 +27,11 @@ from rest_framework.views import APIView
 from accounts.models import StudentProfile, User
 from materials.models import SubjectEnrollment, Subject
 from .models import ChatRoom, Message, ChatParticipant
-
-
-def check_parent_access_to_room(user: User, chat: ChatRoom) -> bool:
-    """
-    Проверяет, имеет ли родитель доступ к комнате чата через своих детей.
-
-    Родители могут получить доступ к FORUM_SUBJECT и FORUM_TUTOR чатам,
-    если хотя бы один из их детей является участником комнаты.
-
-    При положительной проверке родитель автоматически добавляется в участники.
-
-    Args:
-        user: Пользователь (должен быть родителем)
-        chat: Комната чата
-
-    Returns:
-        True если доступ разрешён, False иначе
-    """
-    if user.role != 'parent':
-        return False
-
-    # Получаем ID всех детей этого родителя
-    children_ids = StudentProfile.objects.filter(
-        parent=user
-    ).values_list('user_id', flat=True)
-
-    # Проверяем, является ли хотя бы один ребёнок участником комнаты
-    if children_ids and chat.participants.filter(id__in=children_ids).exists():
-        # Добавляем родителя в участники для будущих проверок
-        # Wrap in transaction to ensure M2M and ChatParticipant are consistent
-        with transaction.atomic():
-            chat.participants.add(user)
-            ChatParticipant.objects.get_or_create(room=chat, user=user)
-        logger.info(
-            f'[check_parent_access_to_room] Parent {user.id} granted access to room {chat.id} '
-            f'via child relationship and added to participants'
-        )
-        return True
-
-    return False
 from .serializers import (
     ChatRoomListSerializer, MessageSerializer, MessageCreateSerializer,
     InitiateChatRequestSerializer, ChatDetailSerializer, AvailableContactSerializer
 )
-from .permissions import CanInitiateChat
+from .permissions import CanInitiateChat, check_parent_access_to_room, check_teacher_access_to_room
 
 logger = logging.getLogger(__name__)
 
@@ -201,27 +161,42 @@ class ForumChatViewSet(viewsets.ViewSet):
             # Optimize N+1 queries: annotate unread_count and participants_count
             # This prevents separate queries for each chat in the serializer
             if chats.exists():
-                # Prefetch messages to allow unread_count calculation without N+1
-                # This prefetches all messages per chat, which unread_count property uses
+                # Prefetch messages to allow last_message calculation without N+1
                 messages_prefetch = Prefetch(
                     'messages',
                     queryset=Message.objects.select_related('sender').order_by('-created_at')
                 )
 
-                # Prefetch ChatParticipant for current user to avoid N+1
-                # This allows serializer to use participant.unread_count without extra queries
-                user_participant_prefetch = Prefetch(
-                    'room_participants',
-                    queryset=ChatParticipant.objects.filter(user=user).select_related('user'),
-                    to_attr='current_user_participant'
-                )
+                # Subquery для получения last_read_at текущего пользователя
+                participant_last_read_subquery = ChatParticipant.objects.filter(
+                    room=OuterRef('pk'),
+                    user=user
+                ).values('last_read_at')[:1]
 
                 chats = chats.prefetch_related(
-                    messages_prefetch,
-                    user_participant_prefetch
+                    messages_prefetch
                 ).annotate(
                     # Count all participants (simple aggregation, no N+1)
-                    annotated_participants_count=Count('participants', distinct=True)
+                    annotated_participants_count=Count('participants', distinct=True),
+                    # Получаем last_read_at для текущего пользователя через Subquery
+                    _user_last_read_at=Subquery(participant_last_read_subquery),
+                    # Подсчёт непрочитанных сообщений напрямую на ChatRoom:
+                    # - Если last_read_at есть: считаем сообщения после этого времени
+                    # - Если last_read_at NULL: считаем все сообщения (кроме своих и удалённых)
+                    annotated_unread_count=Count(
+                        'messages',
+                        filter=(
+                            # Базовые условия: не удалено и не от текущего пользователя
+                            Q(messages__is_deleted=False) &
+                            ~Q(messages__sender=user) &
+                            (
+                                # Если last_read_at есть - только новые сообщения
+                                Q(messages__created_at__gt=F('_user_last_read_at')) |
+                                # Если last_read_at NULL - все сообщения
+                                Q(_user_last_read_at__isnull=True)
+                            )
+                        )
+                    )
                 )
 
             # Serialize with unread counts
@@ -298,6 +273,10 @@ class ForumChatViewSet(viewsets.ViewSet):
             # Проверка 3: Родительский доступ к чатам детей
             if not has_access:
                 has_access = check_parent_access_to_room(user, chat)
+
+            # Проверка 4: Учительский доступ через enrollment
+            if not has_access:
+                has_access = check_teacher_access_to_room(user, chat)
 
             if not has_access:
                 logger.warning(
@@ -443,6 +422,10 @@ class ForumChatViewSet(viewsets.ViewSet):
             # Проверка 3: Родительский доступ к чатам детей
             if not has_access:
                 has_access = check_parent_access_to_room(user, chat)
+
+            # Проверка 4: Учительский доступ через enrollment
+            if not has_access:
+                has_access = check_teacher_access_to_room(user, chat)
 
             if not has_access:
                 logger.warning(
@@ -623,32 +606,41 @@ class AvailableContactsView(APIView):
         try:
             if user.role == 'student':
                 # Получить всех учителей из зачислений студента
-                teacher_enrollments = SubjectEnrollment.objects.filter(
+                student_enrollments = SubjectEnrollment.objects.filter(
                     student=user,
-                    subject__isnull=False
-                ).select_related(
-                    'teacher',
-                    'subject'
-                ).distinct()
+                    is_active=True
+                ).select_related('teacher', 'subject')
 
-                # Добавить учителей в контакты
-                for enrollment in teacher_enrollments:
+                # Используем dict для дедупликации по teacher_id
+                teachers_seen = {}
+                for enrollment in student_enrollments:
                     teacher = enrollment.teacher
                     if teacher and teacher.role == 'teacher':
-                        # Проверить наличие активного чата
-                        existing_chat = ChatRoom.objects.filter(
-                            type=ChatRoom.Type.FORUM_SUBJECT,
-                            enrollment=enrollment,
-                            is_active=True
-                        ).first()
+                        if teacher.id not in teachers_seen:
+                            teachers_seen[teacher.id] = {
+                                'user': teacher,
+                                'subjects': [enrollment.subject],
+                                'enrollment': enrollment
+                            }
+                        else:
+                            teachers_seen[teacher.id]['subjects'].append(enrollment.subject)
 
-                        contacts.append({
-                            'user': teacher,
-                            'subject': enrollment.subject,
-                            'has_active_chat': existing_chat is not None,
-                            'chat_id': existing_chat.id if existing_chat else None,
-                            'enrollment_id': enrollment.id
-                        })
+                # Добавить учителей в контакты (без дубликатов)
+                for teacher_id, data in teachers_seen.items():
+                    # Проверка existing_chat
+                    existing_chat = ChatRoom.objects.filter(
+                        type=ChatRoom.Type.FORUM_SUBJECT,
+                        participants=user
+                    ).filter(participants=data['user']).filter(is_active=True).first()
+
+                    contacts.append({
+                        'user': data['user'],
+                        'subject': data['subjects'][0],  # Первый предмет
+                        'subjects': data['subjects'],     # Все предметы
+                        'has_active_chat': existing_chat is not None,
+                        'chat_id': existing_chat.id if existing_chat else None,
+                        'enrollment_id': data['enrollment'].id
+                    })
 
                 # Получить тьютора студента (если есть)
                 try:
@@ -706,6 +698,44 @@ class AvailableContactsView(APIView):
                             'enrollment_id': enrollment.id
                         })
 
+                # Получить тьюторов студентов этого учителя
+                # Teacher can chat with tutors of their students
+                student_ids = student_enrollments.values_list('student_id', flat=True)
+
+                # Находим тьюторов через StudentProfile.tutor и User.created_by_tutor
+                tutors = User.objects.filter(
+                    Q(tutored_students__user_id__in=student_ids) |
+                    Q(created_students__id__in=student_ids),
+                    role='tutor'
+                ).distinct()
+
+                # Для каждого тьютора находим enrollment для создания чата
+                for tutor in tutors:
+                    # Найти enrollment через общего студента
+                    tutor_enrollment = SubjectEnrollment.objects.filter(
+                        Q(student__student_profile__tutor=tutor) |
+                        Q(student__created_by_tutor=tutor),
+                        teacher=user,
+                        is_active=True
+                    ).first()
+
+                    # Проверить наличие активного чата (двойной filter по M2M)
+                    existing_chat = ChatRoom.objects.filter(
+                        type=ChatRoom.Type.FORUM_TUTOR,
+                        participants=user,
+                        is_active=True
+                    ).filter(
+                        participants=tutor
+                    ).first()
+
+                    contacts.append({
+                        'user': tutor,
+                        'subject': None,  # Тьютор не привязан к предмету
+                        'has_active_chat': existing_chat is not None,
+                        'chat_id': existing_chat.id if existing_chat else None,
+                        'enrollment_id': tutor_enrollment.id if tutor_enrollment else None
+                    })
+
             elif user.role == 'tutor':
                 # Получить всех студентов тьютора
                 # Проверяем оба способа связи: StudentProfile.tutor и User.created_by_tutor
@@ -723,12 +753,14 @@ class AvailableContactsView(APIView):
                             student=student
                         ).first()
 
-                        # Проверить наличие активного чата
+                        # Check for existing active chat between tutor and student
+                        # Используем двойной filter по M2M participants для корректной проверки
                         existing_chat = ChatRoom.objects.filter(
                             type=ChatRoom.Type.FORUM_TUTOR,
-                            enrollment__student=student,
-                            participants=user,
+                            participants=student,
                             is_active=True
+                        ).filter(
+                            participants=user
                         ).first()
 
                         contacts.append({
@@ -755,13 +787,20 @@ class AvailableContactsView(APIView):
                         if teacher and teacher.role == 'teacher' and teacher.id not in seen_teachers:
                             seen_teachers.add(teacher.id)
 
-                            # Для тьютора и учителя пока нет прямого чата
-                            # Оставляем возможность для будущего расширения
+                            # Проверить наличие активного чата между тьютором и учителем
+                            existing_chat = ChatRoom.objects.filter(
+                                type__in=[ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR],
+                                participants=user,
+                                is_active=True
+                            ).filter(
+                                participants=teacher
+                            ).first()
+
                             contacts.append({
                                 'user': teacher,
                                 'subject': enrollment.subject,
-                                'has_active_chat': False,
-                                'chat_id': None,
+                                'has_active_chat': existing_chat is not None,
+                                'chat_id': existing_chat.id if existing_chat else None,
                                 'enrollment_id': None
                             })
 
@@ -786,11 +825,19 @@ class AvailableContactsView(APIView):
                         if teacher and teacher.role == 'teacher' and teacher.id not in seen_teachers:
                             seen_teachers.add(teacher.id)
 
+                            # Проверяем существующий чат родителя с учителем
+                            existing_chat = ChatRoom.objects.filter(
+                                type=ChatRoom.Type.FORUM_SUBJECT,
+                                participants=user
+                            ).filter(
+                                participants=teacher
+                            ).filter(is_active=True).first()
+
                             contacts.append({
                                 'user': teacher,
                                 'subject': enrollment.subject,
-                                'has_active_chat': False,
-                                'chat_id': None,
+                                'has_active_chat': existing_chat is not None,
+                                'chat_id': existing_chat.id if existing_chat else None,
                                 'enrollment_id': None
                             })
 
@@ -800,11 +847,19 @@ class AvailableContactsView(APIView):
                             # Избегаем дублирования тьюторов
                             tutor_key = profile.tutor.id
                             if tutor_key not in [c['user'].id for c in contacts if c['user'].role == 'tutor']:
+                                # Проверяем существующий чат родителя с тьютором
+                                existing_chat = ChatRoom.objects.filter(
+                                    type=ChatRoom.Type.FORUM_TUTOR,
+                                    participants=user
+                                ).filter(
+                                    participants=profile.tutor
+                                ).filter(is_active=True).first()
+
                                 contacts.append({
                                     'user': profile.tutor,
                                     'subject': None,
-                                    'has_active_chat': False,
-                                    'chat_id': None,
+                                    'has_active_chat': existing_chat is not None,
+                                    'chat_id': existing_chat.id if existing_chat else None,
                                     'enrollment_id': None
                                 })
 
@@ -915,16 +970,20 @@ class InitiateChatView(APIView):
                     'error': 'No enrollment found for this relationship'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Проверить наличие существующего чата (без фильтра is_active для UNIQUE constraint)
-            existing_chat = ChatRoom.objects.filter(
-                type=getattr(ChatRoom.Type, chat_type),
-                enrollment=enrollment
-            ).prefetch_related('participants').first()
+            # Проверить наличие существующего чата и создать новый в одной транзакции
+            # с блокировкой enrollment для предотвращения race condition
+            with transaction.atomic():
+                # Lock the enrollment row to prevent concurrent chat creation
+                enrollment_locked = SubjectEnrollment.objects.select_for_update().get(id=enrollment.id)
 
-            if existing_chat:
-                # Чат с таким type+enrollment уже существует
-                # Реактивировать если неактивен и обновить участников
-                with transaction.atomic():
+                existing_chat = ChatRoom.objects.filter(
+                    type=getattr(ChatRoom.Type, chat_type),
+                    enrollment=enrollment_locked
+                ).prefetch_related('participants').first()
+
+                if existing_chat:
+                    # Чат с таким type+enrollment уже существует
+                    # Реактивировать если неактивен и обновить участников
                     if not existing_chat.is_active:
                         existing_chat.is_active = True
                         existing_chat.save(update_fields=['is_active'])
@@ -944,47 +1003,68 @@ class InitiateChatView(APIView):
                             )
                         logger.info(f"Added missing participants to chat {existing_chat.id}: {missing_participants}")
 
-                logger.info(
-                    f"Returning existing chat {existing_chat.id} for users "
-                    f"{request.user.id} and {contact_user_id}"
-                )
+                    logger.info(
+                        f"Returning existing chat {existing_chat.id} for users "
+                        f"{request.user.id} and {contact_user_id}"
+                    )
 
-                response_serializer = ChatDetailSerializer(
-                    existing_chat,
-                    context={'request': request}
-                )
+                    response_serializer = ChatDetailSerializer(
+                        existing_chat,
+                        context={'request': request}
+                    )
 
-                return Response({
-                    'success': True,
-                    'chat': response_serializer.data,
-                    'created': False
-                }, status=status.HTTP_200_OK)
+                    return Response({
+                        'success': True,
+                        'chat': response_serializer.data,
+                        'created': False
+                    }, status=status.HTTP_200_OK)
 
-            # Создать новый чат
-            with transaction.atomic():
+                # Создать новый чат (внутри того же atomic блока)
                 # Определить имя чата
                 if chat_type == 'FORUM_SUBJECT':
-                    subject_name = enrollment.subject.name
-                    student_name = enrollment.student.get_full_name()
-                    teacher_name = enrollment.teacher.get_full_name()
-                    chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
+                    subject_name = enrollment_locked.subject.name
+
+                    # Проверяем кто инициирует чат
+                    if request.user.role == 'parent':
+                        # Parent initiated chat with teacher
+                        child_name = enrollment_locked.student.first_name or enrollment_locked.student.email
+                        teacher_name = contact_user.first_name or contact_user.email
+                        chat_name = f"{subject_name} - Родитель ({child_name}) ↔ {teacher_name}"
+                    elif request.user.role == 'student':
+                        student_name = request.user.first_name or request.user.email
+                        teacher_name = contact_user.first_name or contact_user.email
+                        chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
+                    elif request.user.role == 'teacher':
+                        student_name = contact_user.first_name or contact_user.email
+                        teacher_name = request.user.first_name or request.user.email
+                        chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
+                    else:
+                        # Fallback для других ролей
+                        student_name = enrollment_locked.student.get_full_name()
+                        teacher_name = enrollment_locked.teacher.get_full_name()
+                        chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
                 elif chat_type == 'FORUM_TUTOR':
-                    subject_name = enrollment.subject.name if enrollment.subject else "General"
-                    student_name = enrollment.student.get_full_name()
-                    # Получить тьютора из StudentProfile
-                    try:
-                        student_profile = StudentProfile.objects.get(user=enrollment.student)
-                        tutor_name = student_profile.tutor.get_full_name()
-                    except StudentProfile.DoesNotExist:
-                        tutor_name = contact_user.get_full_name()
-                    chat_name = f"{subject_name} - {student_name} ↔ {tutor_name}"
+                    # Проверяем тип связи: tutor-teacher или tutor-student
+                    user = request.user
+                    target_user = contact_user
+
+                    if user.role == 'tutor' and target_user.role == 'teacher':
+                        # Чат между тьютором и учителем
+                        chat_name = f"Тьютор {user.first_name} ↔ Учитель {target_user.first_name}"
+                    elif user.role == 'teacher' and target_user.role == 'tutor':
+                        # Чат между учителем и тьютором
+                        chat_name = f"Учитель {user.first_name} ↔ Тьютор {target_user.first_name}"
+                    else:
+                        # Стандартное имя для tutor-student чата
+                        student_name = enrollment_locked.student.first_name or enrollment_locked.student.email
+                        chat_name = f"Тьютор - {student_name}"
                 else:
                     chat_name = f"Chat {request.user.get_full_name()} ↔ {contact_user.get_full_name()}"
 
                 # Создать ChatRoom с get_or_create для race condition safety
                 new_chat, created = ChatRoom.objects.get_or_create(
                     type=getattr(ChatRoom.Type, chat_type),
-                    enrollment=enrollment,
+                    enrollment=enrollment_locked,
                     defaults={
                         'name': chat_name,
                         'created_by': request.user,

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Count, Q
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -298,9 +299,44 @@ class ChatParticipant(models.Model):
     
     def __str__(self):
         return f"{self.user} в {self.room}"
-    
+
+    @classmethod
+    def with_unread_count(cls):
+        """
+        Возвращает queryset с аннотированным unread_count.
+        Используйте для списков участников, чтобы избежать N+1 проблемы.
+
+        Пример использования:
+            participants = ChatParticipant.with_unread_count().filter(room=room)
+            for p in participants:
+                print(p.unread_count)  # Использует аннотацию, не делает запрос
+        """
+        from django.db.models.functions import Coalesce
+        from django.db.models import Value
+
+        return cls.objects.annotate(
+            _annotated_unread_count=Count(
+                'room__messages',
+                filter=Q(
+                    room__messages__is_deleted=False,
+                    room__messages__created_at__gt=models.F('last_read_at')
+                ) & ~Q(room__messages__sender=models.F('user'))
+            )
+        )
+
     @property
     def unread_count(self):
+        """
+        Возвращает количество непрочитанных сообщений.
+
+        ВАЖНО: Для списков используйте ChatParticipant.with_unread_count()
+        для получения queryset с аннотацией, чтобы избежать N+1 проблемы!
+        """
+        # Если есть аннотированное значение - используем его (для оптимизированных запросов)
+        if hasattr(self, '_annotated_unread_count'):
+            return self._annotated_unread_count
+
+        # Fallback - делаем запрос (только для single object access)
         if self.last_read_at:
             return self.room.messages.filter(
                 created_at__gt=self.last_read_at,

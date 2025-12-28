@@ -113,9 +113,12 @@ export const useSendForumMessage = () => {
       // Snapshot previous value for rollback (InfiniteData structure)
       const previousMessages = queryClient.getQueryData<InfiniteData<ForumMessage[]>>(['forum-messages', chatId]);
 
+      // Create unique temporary ID
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       // Create temporary optimistic message with REAL current user data
       const optimisticMessage: ForumMessage = {
-        id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as any, // Temporary ID with collision prevention
+        id: tempId as any, // Temporary string ID
         content: data.content,
         sender: {
           id: user?.id || 0, // REAL current user ID - determines message side (left/right)
@@ -138,7 +141,9 @@ export const useSendForumMessage = () => {
       queryClient.setQueryData<InfiniteData<ForumMessage[]>>(
         ['forum-messages', chatId],
         (oldData) => {
-          if (!oldData) return oldData;
+          if (!oldData) {
+            return { pages: [[optimisticMessage]], pageParams: [0] };
+          }
 
           // Add optimistic message to the last page
           const newPages = [...oldData.pages];
@@ -152,9 +157,9 @@ export const useSendForumMessage = () => {
         }
       );
 
-      return { previousMessages };
+      return { previousMessages, tempId };
     },
-    onSuccess: (message, variables) => {
+    onSuccess: (message, variables, context) => {
       // Replace optimistic message with real server response in InfiniteData structure
       queryClient.setQueryData<InfiniteData<ForumMessage[]>>(
         ['forum-messages', variables.chatId],
@@ -166,22 +171,12 @@ export const useSendForumMessage = () => {
             };
           }
 
-          // Update all pages: remove temp message, check for duplicates, add real message
-          const newPages = oldData.pages.map((page, index) => {
-            // Remove temporary optimistic messages (string IDs starting with 'temp-')
-            const withoutOptimistic = page.filter((msg) => typeof msg.id === 'number');
-
-            // Add real message only to the last page
-            if (index === oldData.pages.length - 1) {
-              // Check if real message already exists (from WebSocket)
-              const exists = withoutOptimistic.some((msg) => msg.id === message.id);
-              if (!exists) {
-                return [...withoutOptimistic, message];
-              }
-            }
-
-            return withoutOptimistic;
-          });
+          // Replace temporary message with real message
+          const newPages = oldData.pages.map((page) =>
+            page.map((msg) =>
+              msg.id === context?.tempId ? { ...message, id: message.id } : msg
+            )
+          );
 
           return {
             ...oldData,
@@ -189,9 +184,6 @@ export const useSendForumMessage = () => {
           };
         }
       );
-
-      // Invalidate messages cache to ensure all queries are fresh
-      queryClient.invalidateQueries({ queryKey: ['forum-messages', variables.chatId] });
 
       // Update forum chats to show last_message
       queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });

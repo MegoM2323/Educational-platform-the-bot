@@ -182,7 +182,7 @@ const ParentSchedulePage: React.FC = () => {
                       {lessonsLoading ? (
                         <div className="space-y-4">
                           {[...Array(3)].map((_, i) => (
-                            <Card key={i} className="overflow-hidden">
+                            <Card key={`lesson-skeleton-${i}`} className="overflow-hidden">
                               <CardContent className="p-6">
                                 <div className="space-y-3">
                                   <Skeleton className="h-6 w-1/2" />

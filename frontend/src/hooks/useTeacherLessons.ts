@@ -14,12 +14,20 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
 
   const createMutation = useMutation({
     mutationFn: (payload: LessonCreatePayload) => schedulingAPI.createLesson(payload),
-    onSuccess: () => {
+    onSuccess: async () => {
       // Инвалидировать ВСЕ запросы lessons/teacher независимо от filters
-      queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: ['lessons', 'teacher'],
         exact: false  // Важно: также инвалидирует ['lessons', 'teacher', undefined] и любые другие варианты
       });
+
+      // Принудительно рефетчить активные запросы
+      await queryClient.refetchQueries({
+        queryKey: ['lessons', 'teacher'],
+        type: 'active',
+        exact: false
+      });
+
       toast.success('Урок успешно создан');
     },
     onError: (error: any) => {
@@ -36,13 +44,23 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     },
     onSuccess: async (data) => {
       logger.info('[useTeacherLessons] Update success, returned data:', data);
-      // Инвалидируем и ждём рефетч перед показом успеха
+
+      // Инвалидировать React Query кеш
       await queryClient.invalidateQueries({
         queryKey: ['lessons', 'teacher'],
         exact: false,
-        refetchType: 'all'  // Убедиться, что рефетч выполнится
+        refetchType: 'all'
       });
       logger.info('[useTeacherLessons] Invalidation complete');
+
+      // Принудительно рефетчить активные запросы
+      await queryClient.refetchQueries({
+        queryKey: ['lessons', 'teacher'],
+        type: 'active',
+        exact: false
+      });
+      logger.info('[useTeacherLessons] Refetch complete');
+
       toast.success('Урок успешно обновлён');
     },
     onError: (error: any) => {
@@ -55,11 +73,20 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => schedulingAPI.deleteLesson(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onSuccess: async () => {
+      // Инвалидировать React Query кеш
+      await queryClient.invalidateQueries({
         queryKey: ['lessons', 'teacher'],
         exact: false
       });
+
+      // Принудительно рефетчить активные запросы
+      await queryClient.refetchQueries({
+        queryKey: ['lessons', 'teacher'],
+        type: 'active',
+        exact: false
+      });
+
       toast.success('Урок успешно удалён');
     },
     onError: (error: any) => {

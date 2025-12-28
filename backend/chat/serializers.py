@@ -62,20 +62,22 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         return None
 
     def get_unread_count(self, obj):
-        # Use prefetched participant to avoid N+1 query
-        # ForumChatViewSet prefetches 'current_user_participant'
-        if hasattr(obj, 'current_user_participant') and obj.current_user_participant:
-            participant = obj.current_user_participant[0]
-            return participant.unread_count
+        """
+        Возвращает количество непрочитанных сообщений для текущего пользователя.
 
-        # Fallback for non-prefetched querysets (e.g., in tests, other views)
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            try:
-                participant = obj.room_participants.get(user=request.user)
-                return participant.unread_count
-            except ChatParticipant.DoesNotExist:
-                return 0
+        Оптимизация N+1:
+        1. Использует аннотированное значение annotated_unread_count (самый быстрый)
+        2. Fallback возвращает 0 без запроса к БД
+
+        ВАЖНО: НЕ делаем запрос к БД в fallback - это предотвращает N+1 queries.
+        Если аннотация отсутствует, возвращаем 0.
+        """
+        # Приоритет 1: Аннотированное значение из queryset (самый оптимальный)
+        if hasattr(obj, 'annotated_unread_count'):
+            return obj.annotated_unread_count or 0
+
+        # Fallback: НЕ делаем запрос к БД - возвращаем 0
+        # Это предотвращает N+1 queries при отсутствии аннотации
         return 0
 
 
@@ -287,23 +289,19 @@ class MessageSerializer(serializers.ModelSerializer):
     def get_replies_count(self, obj):
         """
         Возвращает количество ответов на сообщение.
+        Требует аннотации annotated_replies_count в view.
 
-        Оптимизация:
-        1. Использует аннотированное значение annotated_replies_count если доступно
-        2. Fallback на prefetched replies данные
-        3. Последний fallback: прямой count запрос
+        Не делает N+1 запросы - если аннотация отсутствует, возвращает 0 и логирует warning.
         """
-        # Приоритет 1: Аннотированное значение из queryset (самый оптимальный способ)
+        # Аннотированное значение из queryset (оптимальный способ)
         if hasattr(obj, 'annotated_replies_count'):
             return obj.annotated_replies_count
 
-        # Приоритет 2: Prefetched данные - считаем в Python без запроса
-        if hasattr(obj, '_prefetched_objects_cache') and 'replies' in obj._prefetched_objects_cache:
-            # Фильтруем не-удалённые ответы в памяти
-            return sum(1 for reply in obj.replies.all() if not reply.is_deleted)
-
-        # Fallback: прямой запрос к базе (для единичных объектов)
-        return obj.replies.filter(is_deleted=False).count()
+        # Не делаем N+1 query - возвращаем 0 и логируем warning
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f'Message {obj.id} missing annotated_replies_count annotation')
+        return 0
     
     def create(self, validated_data):
         validated_data['sender'] = self.context['request'].user

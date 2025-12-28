@@ -175,14 +175,14 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         user_rooms = ChatRoom.objects.filter(participants=user)
         total_messages = Message.objects.filter(room__in=user_rooms).count()
         
-        # Подсчитываем непрочитанные сообщения
+        # Подсчитываем непрочитанные сообщения (используем аннотацию для избежания N+1)
         unread_messages = 0
-        for room in user_rooms:
-            try:
-                participant = room.room_participants.get(user=user)
-                unread_messages += participant.unread_count
-            except ChatParticipant.DoesNotExist:
-                pass
+        participants_with_count = ChatParticipant.with_unread_count().filter(
+            room__in=user_rooms,
+            user=user
+        )
+        for participant in participants_with_count:
+            unread_messages += participant.unread_count
         
         participants_count = sum(room.participants.count() for room in user_rooms)
         
@@ -361,11 +361,12 @@ class ChatParticipantViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """
-        Пользователи видят только участников чатов, в которых они участвуют
+        Пользователи видят только участников чатов, в которых они участвуют.
+        Используем with_unread_count() для аннотации unread_count.
         """
         user = self.request.user
         user_rooms = ChatRoom.objects.filter(participants=user)
-        return ChatParticipant.objects.filter(room__in=user_rooms)
+        return ChatParticipant.with_unread_count().filter(room__in=user_rooms)
 
     @action(detail=True, methods=['post'])
     def mute(self, request, pk=None):

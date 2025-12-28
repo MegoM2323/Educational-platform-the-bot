@@ -146,7 +146,7 @@ const ChatList = ({
     return rooms.filter(
       (room) =>
         room.name.toLowerCase().includes(query) ||
-        room.subject?.name.toLowerCase().includes(query) ||
+        room.subject?.name?.toLowerCase().includes(query) ||
         room.participants.some((p) => p.full_name.toLowerCase().includes(query))
     );
   }, [rooms, searchQuery]);

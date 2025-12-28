@@ -75,16 +75,27 @@ export const LessonForm: React.FC<LessonFormProps> = ({
   const form = useForm<LessonFormData | LessonUpdateFormData>({
     resolver: zodResolver(schema),
     defaultValues: initialData
-      ? {
-          student: extractId(initialData.student),
-          subject: extractId(initialData.subject),
-          date: initialData.date || '',
-          start_time: initialData.start_time || '09:00',
-          end_time: initialData.end_time || '10:00',
-          description: initialData.description || '',
-          telemost_link: initialData.telemost_link || '',
-        }
+      ? isEditMode
+        ? {
+            // Edit mode: NO student and subject in form data
+            date: initialData.date || '',
+            start_time: initialData.start_time || '09:00',
+            end_time: initialData.end_time || '10:00',
+            description: initialData.description || '',
+            telemost_link: initialData.telemost_link || '',
+          }
+        : {
+            // Create mode: include student and subject
+            student: extractId(initialData.student),
+            subject: extractId(initialData.subject),
+            date: initialData.date || '',
+            start_time: initialData.start_time || '09:00',
+            end_time: initialData.end_time || '10:00',
+            description: initialData.description || '',
+            telemost_link: initialData.telemost_link || '',
+          }
       : {
+          // New lesson: include student and subject
           student: '',
           subject: '',
           date: '',
@@ -95,22 +106,35 @@ export const LessonForm: React.FC<LessonFormProps> = ({
         },
   });
 
-  const selectedStudentId = form.watch('student');
+  const selectedStudentId = !isEditMode ? form.watch('student' as any) : extractId(initialData?.student);
 
   // Reset form when initialData changes (for edit mode)
   useEffect(() => {
     if (initialData) {
-      form.reset({
-        student: extractId(initialData.student),
-        subject: extractId(initialData.subject),
-        date: initialData.date || '',
-        start_time: initialData.start_time || '09:00',
-        end_time: initialData.end_time || '10:00',
-        description: initialData.description || '',
-        telemost_link: initialData.telemost_link || '',
-      });
+      form.reset(
+        isEditMode
+          ? {
+              // Edit mode: NO student and subject
+              date: initialData.date || '',
+              start_time: initialData.start_time || '09:00',
+              end_time: initialData.end_time || '10:00',
+              description: initialData.description || '',
+              telemost_link: initialData.telemost_link || '',
+            }
+          : {
+              // Create mode: include student and subject
+              student: extractId(initialData.student),
+              subject: extractId(initialData.subject),
+              date: initialData.date || '',
+              start_time: initialData.start_time || '09:00',
+              end_time: initialData.end_time || '10:00',
+              description: initialData.description || '',
+              telemost_link: initialData.telemost_link || '',
+            }
+      );
     }
-  }, [initialData, form, extractId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, isEditMode]);
 
   // Get subjects for selected student
   const studentSubjects = useMemo(() => {
@@ -134,80 +158,104 @@ export const LessonForm: React.FC<LessonFormProps> = ({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Student selector */}
-          <FormField
-            control={form.control}
-            name="student"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Student</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    onStudentSelect?.(value);
-                    // Reset subject when student changes
-                    form.setValue('subject', '');
-                  }}
-                  disabled={isEditMode} // DISABLED in edit mode
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a student" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {students.map((student) => (
-                      <SelectItem key={student.id} value={String(student.id)}>
-                        {student.full_name || student.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isEditMode && (
-                  <FormDescription className="text-xs text-muted-foreground">
-                    Student cannot be changed when editing
-                  </FormDescription>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Student display/selector */}
+          {isEditMode ? (
+            // Edit mode: readonly text display
+            <div className="space-y-2">
+              <FormLabel>Student</FormLabel>
+              <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                {(() => {
+                  const studentId = extractId(initialData?.student);
+                  const student = students.find((s) => s.id === studentId);
+                  return student?.full_name || student?.name || 'Unknown';
+                })()}
+              </div>
+              <FormDescription className="text-xs text-muted-foreground">
+                Student cannot be changed when editing
+              </FormDescription>
+            </div>
+          ) : (
+            // Create mode: editable select
+            <FormField
+              control={form.control}
+              name="student"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Student</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      onStudentSelect?.(value);
+                      // Reset subject when student changes
+                      form.setValue('subject' as any, '');
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a student" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {students.map((student) => (
+                        <SelectItem key={student.id} value={String(student.id)}>
+                          {student.full_name || student.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
-          {/* Subject selector */}
-          <FormField
-            control={form.control}
-            name="subject"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Subject</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={isEditMode} // DISABLED in edit mode
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a subject" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {studentSubjects.map((subject) => (
-                      <SelectItem key={subject.id} value={String(subject.id)}>
-                        {subject.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isEditMode && (
-                  <FormDescription className="text-xs text-muted-foreground">
-                    Subject cannot be changed when editing
-                  </FormDescription>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Subject display/selector */}
+          {isEditMode ? (
+            // Edit mode: readonly text display
+            <div className="space-y-2">
+              <FormLabel>Subject</FormLabel>
+              <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                {(() => {
+                  const subjectId = extractId(initialData?.subject);
+                  const subject = subjects.find((s) => s.id === subjectId);
+                  return subject?.name || 'Unknown';
+                })()}
+              </div>
+              <FormDescription className="text-xs text-muted-foreground">
+                Subject cannot be changed when editing
+              </FormDescription>
+            </div>
+          ) : (
+            // Create mode: editable select
+            <FormField
+              control={form.control}
+              name="subject"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Subject</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a subject" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {studentSubjects.map((subject) => (
+                        <SelectItem key={subject.id} value={String(subject.id)}>
+                          {subject.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         {/* Date picker */}
@@ -261,7 +309,14 @@ export const LessonForm: React.FC<LessonFormProps> = ({
               <FormItem>
                 <FormLabel>Start Time</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <Input
+                    type="time"
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -274,7 +329,14 @@ export const LessonForm: React.FC<LessonFormProps> = ({
               <FormItem>
                 <FormLabel>End Time</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <Input
+                    type="time"
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

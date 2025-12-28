@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Forum Fix Test</title>
+</head>
+<body>
+  <h1>Testing Forum.tsx fix for React Error #306</h1>
+  <pre id="output"></pre>
+  <script>
+    const output = document.getElementById('output');
+    
+    // Simulate the bug scenario
+    const chats = [
+      { id: 1, name: 'Chat 1', subject: { name: 'Math' }, participants: [{ full_name: 'John' }] },
+      { id: 2, name: 'Chat 2', subject: null, participants: [{ full_name: 'Jane' }] }, // This caused the error!
+      { id: 3, name: 'Chat 3', subject: undefined, participants: [{ full_name: 'Bob' }] } // This too!
+    ];
+    
+    const searchQuery = 'test';
+    const query = searchQuery.toLowerCase();
+    
+    // OLD CODE (would crash):
+    try {
+      const filteredOld = chats.filter(chat => 
+        chat.name.toLowerCase().includes(query) ||
+        chat.subject?.name.toLowerCase().includes(query) || // BUG: subject?.name can be undefined!
+        chat.participants.some(p => p.full_name.toLowerCase().includes(query))
+      );
+      output.textContent += 'OLD CODE: Would have crashed ❌\n';
+    } catch (e) {
+      output.textContent += `OLD CODE ERROR: ${e.message} ❌\n`;
+    }
+    
+    // NEW CODE (fixed):
+    try {
+      const filteredNew = chats.filter(chat =>
+        chat.name.toLowerCase().includes(query) ||
+        chat.subject?.name?.toLowerCase().includes(query) || // FIXED: Added extra ?. for name
+        chat.participants.some(p => p.full_name.toLowerCase().includes(query))
+      );
+      output.textContent += `NEW CODE: Success! Filtered ${filteredNew.length} chats ✅\n`;
+      output.textContent += `Chats: ${filteredNew.map(c => c.name).join(', ')}\n`;
+    } catch (e) {
+      output.textContent += `NEW CODE ERROR: ${e.message} ❌\n`;
+    }
+  </script>
+</body>
+</html>

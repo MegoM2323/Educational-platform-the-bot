@@ -56,12 +56,10 @@ export const lessonSchema = z
   );
 
 // Schema for UPDATING lesson (NO student and subject - they are read-only)
-// Student and subject fields will be disabled in the form, not validated
+// Student and subject fields are EXCLUDED completely from update schema
 export const lessonUpdateSchema = z
   .object({
-    // Student and subject - completely bypass validation (disabled in form)
-    student: z.any().optional(),
-    subject: z.any().optional(),
+    // NO student and subject fields at all - they are read-only in edit mode
     ...baseLessonFields,
   })
   .refine(

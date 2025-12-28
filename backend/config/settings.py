@@ -641,10 +641,15 @@ CORS_ALLOW_METHODS = [
 ]
 
 # REST Framework settings
+# ВАЖНО: TokenAuthentication должен быть ПЕРВЫМ!
+# SessionAuthentication требует CSRF для unsafe methods (POST, PATCH, DELETE).
+# Если SessionAuthentication первый и запрос приходит с session cookie,
+# DRF выполнит CSRF проверку даже если есть Token header.
+# С TokenAuthentication первым - запросы с Token header не требуют CSRF.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

@@ -265,7 +265,7 @@ export const ProgressViewerTab: React.FC<ProgressViewerTabProps> = ({ subjectId 
           {isLoadingProgress ? (
             <div className="grid gap-4 md:grid-cols-4">
               {[...Array(4)].map((_, i) => (
-                <Card key={i}>
+                <Card key={`progress-skeleton-${i}`}>
                   <CardContent className="p-6">
                     <Skeleton className="h-20 w-full" />
                   </CardContent>
@@ -420,7 +420,7 @@ export const ProgressViewerTab: React.FC<ProgressViewerTabProps> = ({ subjectId 
                 {isLoadingLessons ? (
                   <div className="space-y-2">
                     {[...Array(5)].map((_, i) => (
-                      <Skeleton key={i} className="h-16 w-full" />
+                      <Skeleton key={`lesson-skeleton-${i}`} className="h-16 w-full" />
                     ))}
                   </div>
                 ) : lessonsError ? (

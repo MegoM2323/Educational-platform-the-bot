@@ -235,7 +235,7 @@ const TeacherAssignments: React.FC = () => {
                   {isLoading ? (
                     <div className="space-y-4">
                       {[...Array(3)].map((_, i) => (
-                        <Card key={i}>
+                        <Card key={`assignment-skeleton-${i}`}>
                           <CardContent className="p-6">
                             <div className="space-y-3">
                               <Skeleton className="h-6 w-1/2" />

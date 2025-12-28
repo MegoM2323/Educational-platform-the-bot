@@ -54,7 +54,7 @@ vi.mock('@/hooks/useForumMessageDelete', () => ({
 // Mock WebSocket service
 vi.mock('@/services/chatWebSocketService', () => ({
   chatWebSocketService: {
-    connectToRoom: vi.fn(() => true),
+    connectToRoom: vi.fn(() => Promise.resolve(true)),
     disconnectFromRoom: vi.fn(),
     isConnected: vi.fn(() => true),
     sendMessage: vi.fn(),

@@ -23,6 +23,10 @@ const DEFAULT_CONFIG: CacheConfig = {
   prefix: 'cache_',
 };
 
+// Cache version for invalidation on breaking changes
+const CACHE_VERSION = '2.0.0'; // Increment when cache structure changes
+const CACHE_VERSION_KEY = 'cache_version';
+
 class CacheService {
   private cache: Map<string, CacheEntry> = new Map();
   private config: CacheConfig;
@@ -31,7 +35,27 @@ class CacheService {
   constructor(config: Partial<CacheConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.initializeStorage();
+    this.checkCacheVersion();
     this.loadFromStorage();
+  }
+
+  private checkCacheVersion(): void {
+    if (!this.storage) return;
+
+    try {
+      const storedVersion = this.storage.getItem(CACHE_VERSION_KEY);
+      if (storedVersion !== CACHE_VERSION) {
+        logger.info(`[CacheService] Cache version mismatch (${storedVersion} -> ${CACHE_VERSION}), clearing old cache`);
+        // Clear all cache entries but preserve other localStorage items
+        const keys = Object.keys(this.storage);
+        const cacheKeys = keys.filter(key => key.startsWith(this.config.prefix));
+        cacheKeys.forEach(key => this.storage!.removeItem(key));
+        // Update version
+        this.storage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
+      }
+    } catch (error) {
+      logger.error('[CacheService] Failed to check cache version:', error);
+    }
   }
 
   private initializeStorage(): void {

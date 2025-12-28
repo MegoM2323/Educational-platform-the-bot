@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db import transaction
 from .models import ChatRoom, Message, MessageRead, ChatParticipant
 from .serializers import MessageSerializer
+from .permissions import check_parent_access_to_room
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -62,6 +63,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         logger.warning(f'[GroupAdd] Room={self.room_id}, Group={self.room_group_name}, Channel={self.channel_name}, User={self.scope["user"].username}')
 
         await self.accept()
+
+        # Добавляем родителя в participants после успешного подключения (если нужно)
+        await self.add_parent_to_participants_if_needed()
 
         # Очищаем счётчик непрочитанных сообщений для этого пользователя
         await self.clear_unread_count()
@@ -369,8 +373,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         4. Родительский доступ: если пользователь - родитель и его ребёнок является участником
 
         Дополнительная проверка для teacher:
-        - Teacher может подключаться только к FORUM_SUBJECT чатам
-        - Teacher должен быть назначенным учителем через enrollment
+        - Teacher может подключаться к FORUM_SUBJECT чатам (через enrollment или как participant)
+        - Teacher может подключаться к FORUM_TUTOR чатам если явно добавлен как participant
         """
         try:
             room = ChatRoom.objects.select_related('enrollment').get(id=self.room_id)
@@ -383,43 +387,52 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     logger.info(f'[check_room_access] Admin {user_id} granted read-only access to room {self.room_id}')
                     return True
 
-            # Дополнительная проверка для teacher: только FORUM_SUBJECT чаты
-            # где teacher назначен через enrollment
+            # Дополнительная проверка для teacher
             if user.role == 'teacher':
-                if room.type != ChatRoom.Type.FORUM_SUBJECT:
-                    logger.warning(
-                        f'[check_room_access] Access denied: teacher {user_id} cannot access '
-                        f'room {self.room_id} (type={room.type}, expected=forum_subject)'
-                    )
-                    return False
+                # Teacher has access to FORUM_SUBJECT chats
+                if room.type == ChatRoom.Type.FORUM_SUBJECT:
+                    # Check enrollment assignment
+                    if room.enrollment and room.enrollment.teacher_id == user_id:
+                        if room.participants.filter(id=user_id).exists():
+                            logger.debug(f'[check_room_access] Teacher {user_id} has access via enrollment')
+                            return True
+                    # Or if teacher is a participant (e.g., added by admin or created chat)
+                    if room.participants.filter(id=user_id).exists():
+                        logger.info(f'[check_room_access] Teacher {user_id} accessing FORUM_SUBJECT room {self.room_id} as participant')
+                        return True
 
-                # Проверяем что teacher назначен через enrollment
-                if not room.enrollment or room.enrollment.teacher_id != user_id:
-                    logger.warning(
-                        f'[check_room_access] Access denied: teacher {user_id} is not assigned '
-                        f'to room {self.room_id} via enrollment'
-                    )
-                    return False
+                # Teacher can also access FORUM_TUTOR if explicitly added as participant
+                elif room.type == ChatRoom.Type.FORUM_TUTOR:
+                    if room.participants.filter(id=user_id).exists():
+                        logger.info(f'[check_room_access] Teacher {user_id} accessing FORUM_TUTOR room {self.room_id} as participant')
+                        return True
 
-                # Teacher назначен через enrollment - проверяем что в participants
-                if room.participants.filter(id=user_id).exists():
-                    logger.debug(f'[check_room_access] Teacher {user_id} has access via enrollment')
-                    return True
-
-                logger.warning(
-                    f'[check_room_access] Access denied: teacher {user_id} not in participants '
-                    f'for room {self.room_id}'
-                )
+                logger.warning(f'[check_room_access] Access denied for teacher {user_id} to room {self.room_id}')
                 return False
 
-            # Дополнительная проверка для tutor: только FORUM_TUTOR чаты
+            # Дополнительная проверка для tutor
             if user.role == 'tutor':
-                if room.type != ChatRoom.Type.FORUM_TUTOR:
-                    logger.warning(
-                        f'[check_room_access] Access denied: tutor {user_id} cannot access '
-                        f'room {self.room_id} (type={room.type}, expected=forum_tutor)'
-                    )
-                    return False
+                # Tutor has access to FORUM_TUTOR chats
+                if room.type == ChatRoom.Type.FORUM_TUTOR:
+                    # Check if tutor is participant
+                    if room.participants.filter(id=user_id).exists():
+                        logger.debug(f'[check_room_access] Tutor {user_id} has access to FORUM_TUTOR room {self.room_id}')
+                        return True
+                    # Or check via student's tutor relationship
+                    from accounts.models import StudentProfile
+                    student_ids = room.participants.filter(role='student').values_list('id', flat=True)
+                    if StudentProfile.objects.filter(user_id__in=student_ids, tutor=user).exists():
+                        logger.debug(f'[check_room_access] Tutor {user_id} has access via student relationship')
+                        return True
+
+                # Tutor can also access FORUM_SUBJECT if explicitly added as participant
+                elif room.type == ChatRoom.Type.FORUM_SUBJECT:
+                    if room.participants.filter(id=user_id).exists():
+                        logger.info(f'[check_room_access] Tutor {user_id} accessing FORUM_SUBJECT room {self.room_id} as participant')
+                        return True
+
+                logger.warning(f'[check_room_access] Access denied for tutor {user_id} to room {self.room_id}')
+                return False
 
             # Проверка 1: M2M participants
             if room.participants.filter(id=user_id).exists():
@@ -435,24 +448,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Проверка 3: Родительский доступ к чатам детей
             # Родители могут просматривать FORUM_SUBJECT и FORUM_TUTOR чаты своих детей
+            # Используем централизованную функцию из permissions.py БЕЗ побочных эффектов
+            # (добавление в participants будет после успешного accept)
             if user.role == 'parent':
-                from accounts.models import StudentProfile
-                # Получаем ID всех детей этого родителя
-                children_ids = StudentProfile.objects.filter(
-                    parent=user
-                ).values_list('user_id', flat=True)
-
-                # Проверяем, является ли хотя бы один ребёнок участником комнаты
-                if children_ids and room.participants.filter(id__in=children_ids).exists():
-                    # Добавляем родителя в участники для будущих проверок
-                    # Wrap in transaction to ensure M2M and ChatParticipant are consistent
-                    with transaction.atomic():
-                        room.participants.add(user)
-                        ChatParticipant.objects.get_or_create(room=room, user=user)
-                    logger.info(
-                        f'[check_room_access] Parent {user_id} granted access to room {self.room_id} '
-                        f'via child relationship and added to participants'
-                    )
+                if check_parent_access_to_room(user, room, add_to_participants=False):
+                    logger.info(f'[check_room_access] Parent {user_id} has child participant in room {self.room_id}')
+                    # Сохраняем флаг для добавления родителя в participants после успешного connect
+                    self.parent_needs_participant_add = True
+                    self.parent_user_id = user_id
                     return True
 
             logger.warning(
@@ -465,6 +468,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return False
 
     @database_sync_to_async
+    def add_parent_to_participants_if_needed(self):
+        """
+        Добавляет родителя в participants комнаты после успешного WebSocket подключения.
+        Вызывается только если self.parent_needs_participant_add = True (установлен в check_room_access).
+        """
+        if not getattr(self, 'parent_needs_participant_add', False):
+            return
+
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
+            user = User.objects.get(id=self.parent_user_id)
+            with transaction.atomic():
+                room.participants.add(user)
+                ChatParticipant.objects.get_or_create(room=room, user=user)
+            logger.info(f'[add_parent_to_participants] Added parent {self.parent_user_id} to room {self.room_id}')
+            self.parent_needs_participant_add = False
+        except Exception as e:
+            logger.error(f'[add_parent_to_participants] Error adding parent to participants: {e}')
+
+    @database_sync_to_async
     def check_user_is_participant(self, room_id):
         """
         Проверка, что текущий пользователь является участником комнаты.
@@ -474,8 +497,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         2. ChatRoom.participants M2M (fallback для старых чатов)
 
         Дополнительные проверки для ролей:
-        - Teacher может быть участником только FORUM_SUBJECT чатов
-        - Tutor может быть участником только FORUM_TUTOR чатов
+        - Teacher может быть участником FORUM_SUBJECT и FORUM_TUTOR чатов (если добавлен как participant)
+        - Tutor может быть участником FORUM_TUTOR и FORUM_SUBJECT чатов (если добавлен как participant)
         """
         user = self.scope['user']
 
@@ -485,15 +508,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return False
 
         # Проверка типа чата для teacher
+        # Teacher can access FORUM_SUBJECT and FORUM_TUTOR (if participant)
         if user.role == 'teacher':
-            if room.type != ChatRoom.Type.FORUM_SUBJECT:
-                return False
-            if not room.enrollment or room.enrollment.teacher_id != user.id:
+            if room.type not in [ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR]:
                 return False
 
         # Проверка типа чата для tutor
         if user.role == 'tutor':
-            if room.type != ChatRoom.Type.FORUM_TUTOR:
+            # Tutor can access FORUM_TUTOR and FORUM_SUBJECT (if participant)
+            if room.type not in [ChatRoom.Type.FORUM_TUTOR, ChatRoom.Type.FORUM_SUBJECT]:
                 return False
 
         # Сначала проверяем ChatParticipant (быстрее и надежнее)

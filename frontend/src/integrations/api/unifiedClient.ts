@@ -603,7 +603,8 @@ class UnifiedAPIClient {
       !endpoint.includes('/accounts/users/') &&
       !endpoint.includes('/auth/staff/') &&
       !endpoint.includes('/tutor/students/') &&
-      !endpoint.includes('/profile/'); // Don't cache any profile endpoints
+      !endpoint.includes('/profile/') && // Don't cache any profile endpoints
+      !endpoint.includes('/scheduling/lessons'); // Don't cache lessons (needs real-time updates)
     if (shouldUseCache) {
       const cachedData = cacheService.get<T>(endpoint);
       if (cachedData !== null) {
@@ -823,7 +824,8 @@ class UnifiedAPIClient {
         !endpoint.includes('/accounts/users/') &&
         !endpoint.includes('/auth/staff/') &&
         !endpoint.includes('/tutor/students/') &&
-        !endpoint.includes('/profile/'); // Don't cache profile endpoints
+        !endpoint.includes('/profile/') && // Don't cache profile endpoints
+        !endpoint.includes('/scheduling/lessons'); // Don't cache lessons (needs real-time updates)
       if (shouldCache) {
         cacheService.set(endpoint, apiResponse.data);
       }

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { logger } from '@/utils/logger';
-import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
+import { useQueryClient, useMutation, useQuery, InfiniteData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -187,7 +187,7 @@ const ChatList = ({
     return chats.filter(
       (chat) =>
         chat.name.toLowerCase().includes(query) ||
-        chat.subject?.name.toLowerCase().includes(query) ||
+        chat.subject?.name?.toLowerCase().includes(query) ||
         chat.participants.some((p) => p.full_name.toLowerCase().includes(query))
     );
   }, [chats, searchQuery]);
@@ -258,6 +258,7 @@ const ChatWindow = ({
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
+  isSwitchingChat = false,
 }: ChatWindowProps) => {
   const [messageInput, setMessageInput] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -708,7 +709,18 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
       return;
     }
 
+    // Валидация: для FORUM_SUBJECT чата (с преподавателем) требуется subject_id
+    if (contact.role === 'teacher' && !contact.subject?.id) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось создать чат: предмет не найден',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // For new chats, call API
+    // Примечание: для FORUM_TUTOR чата (с тьютором) subject_id может быть null - это OK
     initiateChatMutation.mutate({
       contactUserId: contact.id,
       subjectId: contact.subject?.id,
@@ -788,7 +800,7 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
             <div className="space-y-3" data-testid="contacts-skeleton">
               {[...Array(5)].map((_, i) => (
                 <div
-                  key={i}
+                  key={`contact-skeleton-${i}`}
                   className="flex items-center gap-3 p-3 rounded-lg border animate-pulse"
                 >
                   <Skeleton className="w-10 h-10 rounded-full" />
@@ -984,6 +996,7 @@ function Forum() {
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [isSwitchingChat, setIsSwitchingChat] = useState(false);
   const queryClient = useQueryClient();
+  const typingTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
 
   // Edit/Delete message state
   const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(
@@ -1060,30 +1073,44 @@ function Forum() {
         };
 
         logger.debug('[Forum] Updating TanStack Query cache for chat:', selectedChat.id);
-        // Update TanStack Query cache with new message - update ALL caches for this chat
+        // Update TanStack Query cache with new message - update InfiniteData structure
         // Use partial key matching to update all queries for this chatId (regardless of limit/offset)
-        queryClient.setQueriesData<ForumMessage[]>(
+        queryClient.setQueriesData<InfiniteData<ForumMessage[]>>(
           { queryKey: ['forum-messages', selectedChat.id], exact: false },
-          (oldData: ForumMessage[] | undefined) => {
-            if (!oldData) {
-              logger.debug('[Forum] No existing data, creating new array with message');
-              return [forumMessage];
+          (oldData) => {
+            // Handle undefined oldData (first message in empty chat or cache not initialized)
+            if (!oldData || !oldData.pages) {
+              logger.debug('[Forum] No existing data, creating new InfiniteData with message');
+              return {
+                pages: [[forumMessage]],
+                pageParams: [0],
+              };
             }
 
-            // Check if message already exists (avoid duplicates)
-            const exists = oldData.some((msg: ForumMessage) => msg.id === forumMessage.id);
+            // Check if message already exists in any page (avoid duplicates)
+            const exists = oldData.pages.some((page) =>
+              page.some((msg) => msg.id === forumMessage.id)
+            );
+
             if (exists) {
               logger.debug('[Forum] Message already exists in cache, skipping');
               return oldData;
             }
 
-            logger.debug('[Forum] Adding new message to cache');
-            return [...oldData, forumMessage];
+            logger.debug('[Forum] Adding new message to last page of InfiniteData');
+            // Add new message to the last page (most recent messages)
+            const newPages = [...oldData.pages];
+            const lastPageIndex = newPages.length - 1;
+            newPages[lastPageIndex] = [...newPages[lastPageIndex], forumMessage];
+
+            return {
+              ...oldData,
+              pages: newPages,
+            };
           }
         );
 
-        // Also invalidate to trigger refetch and update chat list
-        queryClient.invalidateQueries({ queryKey: ['forum-messages', selectedChat.id] });
+        // Update chat list to reflect new message (without refetch)
         queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
 
         // Clear any errors on successful message
@@ -1102,14 +1129,31 @@ function Forum() {
       return [...filtered, user];
     });
 
+    // Clear existing timeout for this user if any
+    const existingTimeout = typingTimeoutsRef.current.get(user.id);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
     // Remove user from typing list after 3 seconds
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setTypingUsers((prev) => prev.filter((u) => u.id !== user.id));
+      typingTimeoutsRef.current.delete(user.id);
     }, 3000);
+
+    // Store timeout ID for cleanup
+    typingTimeoutsRef.current.set(user.id, timeoutId);
   }, []);
 
   const handleTypingStop = useCallback((user: TypingUser) => {
     setTypingUsers((prev) => prev.filter((u) => u.id !== user.id));
+
+    // Clear timeout for this user if exists
+    const existingTimeout = typingTimeoutsRef.current.get(user.id);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      typingTimeoutsRef.current.delete(user.id);
+    }
   }, []);
 
   const handleError = useCallback((errorMessage: string) => {
@@ -1131,12 +1175,14 @@ function Forum() {
     };
 
     // Connect to WebSocket for this chat room
-    const connectionSuccess = chatWebSocketService.connectToRoom(chatId, handlers);
+    (async () => {
+      const connectionSuccess = await chatWebSocketService.connectToRoom(chatId, handlers);
 
-    if (!connectionSuccess) {
-      logger.error('[Forum] Failed to connect to chat room:', chatId);
-      setError('Не удалось подключиться к чату. Проверьте авторизацию.');
-    }
+      if (!connectionSuccess) {
+        logger.error('[Forum] Failed to connect to chat room:', chatId);
+        setError('Не удалось подключиться к чату. Проверьте авторизацию.');
+      }
+    })();
 
     // CRITICAL FIX: Set initial connection state immediately
     const initiallyConnected = chatWebSocketService.isConnected();
@@ -1163,6 +1209,10 @@ function Forum() {
     return () => {
       chatWebSocketService.disconnectFromRoom(chatId);
       setTypingUsers([]);
+
+      // Clear all typing timeouts to prevent memory leaks
+      typingTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+      typingTimeoutsRef.current.clear();
     };
   }, [selectedChat, user, handleWebSocketMessage, handleTyping, handleTypingStop, handleError]);
 
@@ -1377,3 +1427,5 @@ function Forum() {
     </SidebarProvider>
   );
 }
+
+export default Forum;

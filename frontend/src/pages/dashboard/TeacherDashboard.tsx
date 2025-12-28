@@ -252,7 +252,7 @@ const TeacherDashboard = () => {
                 <div className="space-y-6">
                   <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {[1, 2, 3, 4].map((i) => (
-                      <Card key={i} className="p-4">
+                      <Card key={`stat-skeleton-${i}`} className="p-4">
                         <Skeleton className="h-12 w-12 mb-3" />
                         <Skeleton className="h-6 w-16 mb-2" />
                         <Skeleton className="h-4 w-20" />
@@ -264,7 +264,7 @@ const TeacherDashboard = () => {
                       <Skeleton className="h-6 w-32 mb-4" />
                       <div className="space-y-3">
                         {[1, 2, 3].map((i) => (
-                          <Skeleton key={i} className="h-16 w-full" />
+                          <Skeleton key={`lesson-skeleton-${i}`} className="h-16 w-full" />
                         ))}
                       </div>
                     </Card>
@@ -272,7 +272,7 @@ const TeacherDashboard = () => {
                       <Skeleton className="h-6 w-32 mb-4" />
                       <div className="space-y-3">
                         {[1, 2, 3].map((i) => (
-                          <Skeleton key={i} className="h-16 w-full" />
+                          <Skeleton key={`assignment-skeleton-${i}`} className="h-16 w-full" />
                         ))}
                       </div>
                     </Card>

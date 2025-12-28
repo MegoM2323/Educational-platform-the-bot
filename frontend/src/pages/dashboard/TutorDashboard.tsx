@@ -151,7 +151,7 @@ const TutorDashboard = () => {
                 {isLoading && (
                   <div className="grid md:grid-cols-2 gap-4">
                     {[1, 2, 3, 4].map((i) => (
-                      <Card key={i} className="p-4">
+                      <Card key={`student-skeleton-${i}`} className="p-4">
                         <div className="flex items-start gap-3">
                           <Skeleton className="h-12 w-12 rounded-full" />
                           <div className="flex-1 space-y-2">

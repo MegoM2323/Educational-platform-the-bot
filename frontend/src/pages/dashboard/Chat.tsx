@@ -29,7 +29,7 @@ export default function Chat() {
             <div className="space-y-2">
               {chats.map((chat, index) => (
                 <div
-                  key={index}
+                  key={`chat-${chat.name}-${index}`}
                   onClick={() => setSelectedChat(index)}
                   className={`p-3 rounded-lg cursor-pointer transition-colors ${
                     selectedChat === index ? "bg-primary/10 border-primary" : "hover:bg-muted"
@@ -78,7 +78,7 @@ export default function Chat() {
             <div className="space-y-4">
               {messages.map((msg, index) => (
                 <div
-                  key={index}
+                  key={`message-${msg.time}-${index}`}
                   className={`flex ${msg.isOwn ? "justify-end" : "justify-start"}`}
                 >
                   <div

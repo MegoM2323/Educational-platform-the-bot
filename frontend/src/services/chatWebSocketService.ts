@@ -212,9 +212,9 @@ export class ChatWebSocketService {
   /**
    * Подключение к конкретной чат-комнате
    * CRITICAL: Ensures auth token is available before establishing WebSocket connection
-   * @returns true если подключение успешно инициировано, false при ошибке авторизации
+   * @returns Promise<boolean> - true если подключение установлено, false при ошибке
    */
-  connectToRoom(roomId: number, handlers: ChatEventHandlers): boolean {
+  async connectToRoom(roomId: number, handlers: ChatEventHandlers): Promise<boolean> {
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
 
     const channel = `chat_${roomId}`;
@@ -253,21 +253,52 @@ export class ChatWebSocketService {
       fullUrl
     });
 
-    try {
-      websocketService.connect(fullUrl);
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        logger.warn('[ChatWebSocket] Connection timeout');
+        this.setConnectionStatus('error');
+        resolve(false);
+      }, 5000);
 
-      // Успешное подключение будет обработано через onConnectionChange
-      // Но мы можем добавить дополнительную логику здесь, если нужно
+      const checkConnection = () => {
+        const status = this.getConnectionStatus();
+        if (status === 'connected') {
+          clearTimeout(timeout);
+          resolve(true);
+        } else if (status === 'error' || status === 'auth_error') {
+          clearTimeout(timeout);
+          resolve(false);
+        }
+      };
 
-      return true; // Подключение успешно инициировано
-    } catch (error) {
-      logger.error('[ChatWebSocket] Failed to connect:', error);
-      this.setConnectionStatus('error');
-      if (handlers.onError) {
-        handlers.onError(error instanceof Error ? error.message : 'Unknown error');
+      // Subscribe to status changes
+      const unsubscribe = this.onConnectionStatusChange((status) => {
+        if (status === 'connected') {
+          clearTimeout(timeout);
+          unsubscribe();
+          resolve(true);
+        } else if (status === 'error' || status === 'auth_error') {
+          clearTimeout(timeout);
+          unsubscribe();
+          resolve(false);
+        }
+      });
+
+      try {
+        websocketService.connect(fullUrl);
+        // Check if already connected (synchronous connect)
+        checkConnection();
+      } catch (error) {
+        clearTimeout(timeout);
+        unsubscribe();
+        logger.error('[ChatWebSocket] Failed to connect:', error);
+        this.setConnectionStatus('error');
+        if (handlers.onError) {
+          handlers.onError(error instanceof Error ? error.message : 'Unknown error');
+        }
+        resolve(false);
       }
-      return false;
-    }
+    });
   }
 
   /**

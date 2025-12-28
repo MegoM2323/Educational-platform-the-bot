@@ -431,7 +431,7 @@ export default function StudentMaterials() {
       {loading && (
         <div className="grid md:grid-cols-2 gap-6">
           {[...Array(4)].map((_, i) => (
-            <Card key={i} className="p-6">
+            <Card key={`material-skeleton-${i}`} className="p-6">
               <div className="flex items-start gap-4">
                 <Skeleton className="w-12 h-12 rounded-lg" />
                 <div className="flex-1 space-y-2">

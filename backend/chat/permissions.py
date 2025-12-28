@@ -4,15 +4,110 @@ Permission classes for chat system.
 Handles authorization checks for chat operations:
 - Verify user can initiate chat with another user
 - Check enrollment and relationship permissions
+- Parent access to children's chat rooms
 """
 
 import logging
+from django.db import transaction
 from rest_framework import permissions
 from accounts.models import StudentProfile
 from materials.models import SubjectEnrollment
 from chat.models import ChatParticipant
 
 logger = logging.getLogger(__name__)
+
+
+def check_parent_access_to_room(parent_user, room, add_to_participants: bool = True) -> bool:
+    """
+    Проверяет доступ родителя к комнате чата.
+    Родитель имеет доступ если один из его детей является участником.
+
+    При положительной проверке и add_to_participants=True родитель
+    автоматически добавляется в участники комнаты.
+
+    Args:
+        parent_user: User с ролью parent
+        room: ChatRoom объект
+        add_to_participants: Добавлять ли родителя в participants (default True)
+
+    Returns:
+        bool: True если родитель имеет доступ
+    """
+    if parent_user.role != 'parent':
+        return False
+
+    # Получаем ID всех детей этого родителя
+    children_ids = list(StudentProfile.objects.filter(
+        parent=parent_user
+    ).values_list('user_id', flat=True))
+
+    if not children_ids:
+        return False
+
+    # Проверяем, является ли хотя бы один ребёнок участником комнаты
+    if not room.participants.filter(id__in=children_ids).exists():
+        return False
+
+    # Добавляем родителя в участники для будущих проверок (если нужно)
+    if add_to_participants:
+        with transaction.atomic():
+            room.participants.add(parent_user)
+            ChatParticipant.objects.get_or_create(room=room, user=parent_user)
+        logger.info(
+            f'[check_parent_access_to_room] Parent {parent_user.id} granted access to room {room.id} '
+            f'via child relationship and added to participants'
+        )
+    else:
+        logger.info(
+            f'[check_parent_access_to_room] Parent {parent_user.id} granted access to room {room.id} '
+            f'via child relationship (not added to participants)'
+        )
+
+    return True
+
+
+def check_teacher_access_to_room(teacher_user, room, add_to_participants: bool = True) -> bool:
+    """
+    Проверяет доступ учителя к комнате чата через enrollment.
+    Учитель имеет доступ если он назначен учителем в enrollment этого чата.
+
+    При положительной проверке и add_to_participants=True учитель
+    автоматически добавляется в участники комнаты.
+
+    Args:
+        teacher_user: User с ролью teacher
+        room: ChatRoom объект
+        add_to_participants: Добавлять ли учителя в participants (default True)
+
+    Returns:
+        bool: True если учитель имеет доступ
+    """
+    if teacher_user.role != 'teacher':
+        return False
+
+    # Проверяем через enrollment: учитель должен быть назначен в enrollment этого чата
+    if not room.enrollment:
+        return False
+
+    if room.enrollment.teacher_id != teacher_user.id:
+        return False
+
+    # Добавляем учителя в участники для будущих проверок (если нужно)
+    if add_to_participants:
+        with transaction.atomic():
+            room.participants.add(teacher_user)
+            ChatParticipant.objects.get_or_create(room=room, user=teacher_user)
+        logger.info(
+            f'[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} '
+            f'via enrollment relationship and added to participants'
+        )
+    else:
+        logger.info(
+            f'[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} '
+            f'via enrollment relationship (not added to participants)'
+        )
+
+    return True
 
 
 class CanInitiateChat(permissions.BasePermission):

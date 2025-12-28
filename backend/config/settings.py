@@ -192,6 +192,11 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'config.urls'
 
+# Disable automatic slash appending to prevent 307 redirects on POST requests
+# This fixes the issue where Django tries to redirect /api/auth/login to /api/auth/login/
+# but can't maintain POST data during redirect
+APPEND_SLASH = False
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

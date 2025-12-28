@@ -111,7 +111,7 @@ class Message(models.Model):
         verbose_name='Отправитель'
     )
     
-    content = models.TextField(verbose_name='Содержание')
+    content = models.TextField(blank=True, default='', verbose_name='Содержание')
     message_type = models.CharField(
         max_length=20,
         choices=Type.choices,

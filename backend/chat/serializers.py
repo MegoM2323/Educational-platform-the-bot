@@ -266,11 +266,15 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class MessageCreateSerializer(serializers.ModelSerializer):
     """
-    Сериализатор для создания сообщения
+    Сериализатор для создания сообщения.
+
+    Поле content может быть пустым если прикреплён файл.
     """
+    content = serializers.CharField(required=False, allow_blank=True, default='')
+
     class Meta:
         model = Message
-        fields = ('room', 'content', 'message_type', 'file', 'image', 'reply_to')
+        fields = ('room', 'content', 'message_type', 'reply_to')
 
     def create(self, validated_data):
         validated_data['sender'] = self.context['request'].user

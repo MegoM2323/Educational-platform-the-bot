@@ -21,15 +21,29 @@ ALLOWED_MIME_TYPES = {
         'application/octet-stream'
     ],
     'txt': ['text/plain'],
+    'xls': ['application/vnd.ms-excel'],
+    'xlsx': [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/octet-stream'
+    ],
+    'csv': ['text/csv', 'text/plain', 'application/csv'],
 
     # Изображения
     'jpg': ['image/jpeg'],
     'jpeg': ['image/jpeg'],
     'png': ['image/png'],
+    'gif': ['image/gif'],
+    'webp': ['image/webp'],
+    'bmp': ['image/bmp', 'image/x-ms-bmp'],
+    'svg': ['image/svg+xml'],
+    'ico': ['image/x-icon', 'image/vnd.microsoft.icon'],
 
     # Архивы
     'zip': ['application/zip', 'application/x-zip-compressed'],
-    'rar': ['application/x-rar-compressed', 'application/x-rar'],
+    'rar': ['application/x-rar-compressed', 'application/x-rar', 'application/vnd.rar'],
+    '7z': ['application/x-7z-compressed'],
+    'tar': ['application/x-tar'],
+    'gz': ['application/gzip', 'application/x-gzip'],
 }
 
 

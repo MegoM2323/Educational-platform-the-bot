@@ -44,7 +44,6 @@ ENV PYTHONPATH="/opt/venv/lib/python3.13/site-packages:$PYTHONPATH"
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
     --compile \
-    --no-deps \
     -r requirements.txt
 
 # Clean up pip cache to reduce builder image size
@@ -90,14 +89,16 @@ COPY --chown=appuser:appgroup . .
 
 # Create required directories with proper permissions
 RUN mkdir -p /app/logs && \
-    chown -R appuser:appgroup /app/logs
+    chown -R appuser:appgroup /app/logs && \
+    find /app/backend -type f -name "*.py" -exec chmod 644 {} \; && \
+    find /app/backend -type d -exec chmod 755 {} \;
 
 # Switch to non-root user
 USER appuser
 
 # Health check to monitor application readiness
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/api/system/health/ || exit 1
+    CMD curl -f http://localhost:8000/api/system/health/live/ || exit 1
 
 # Run with Daphne (supports both ASGI and WebSocket)
 # Alternative: Use gunicorn with uvicorn workers for WSGI

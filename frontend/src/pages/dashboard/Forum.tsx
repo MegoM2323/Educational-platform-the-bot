@@ -260,6 +260,7 @@ const ChatWindow = ({
   isFetchingNextPage,
   isSwitchingChat = false,
 }: ChatWindowProps) => {
+  const { toast } = useToast();
   const [messageInput, setMessageInput] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -298,7 +299,11 @@ const ChatWindow = ({
       // Validate file size (max 10MB)
       const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
-        alert('Файл слишком большой. Максимальный размер: 10 МБ');
+        toast({
+          variant: "destructive",
+          title: "Файл слишком большой",
+          description: "Максимальный размер файла: 10 МБ"
+        });
         return;
       }
       setSelectedFile(file);
@@ -483,23 +488,23 @@ const ChatWindow = ({
                     {/* Message content */}
                     <p className="text-sm break-words pr-6">{msg.content}</p>
 
-                    {/* File attachment */}
-                    {msg.is_image && msg.image_url && (
+                    {/* File attachment - унифицированная обработка для API и WebSocket */}
+                    {msg.is_image && (msg.image_url || (msg as any).image) && (
                       <div className="mt-2">
-                        <a href={msg.image_url} target="_blank" rel="noopener noreferrer">
+                        <a href={msg.image_url || (msg as any).image} target="_blank" rel="noopener noreferrer">
                           <img
-                            src={msg.image_url}
+                            src={msg.image_url || (msg as any).image}
                             alt={msg.file_name || 'Image'}
                             className="max-w-xs rounded border cursor-pointer hover:opacity-90 transition-opacity"
                           />
                         </a>
                       </div>
                     )}
-                    {msg.file_url && !msg.is_image && (
+                    {(msg.file_url || (msg as any).file) && !msg.is_image && (
                       <div className="mt-2 flex items-center gap-2 p-2 bg-background/10 rounded border">
                         <FileText className="w-4 h-4" />
                         <a
-                          href={msg.file_url}
+                          href={msg.file_url || (msg as any).file}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm hover:underline flex-1 truncate"
@@ -1216,7 +1221,7 @@ function Forum() {
     };
   }, [selectedChat, user, handleWebSocketMessage, handleTyping, handleTypingStop, handleError]);
 
-  const handleSelectChat = (chat: ForumChat) => {
+  const handleSelectChat = async (chat: ForumChat) => {
     // Show loading state during chat switch
     setIsSwitchingChat(true);
     setSelectedChat(chat);
@@ -1224,10 +1229,24 @@ function Forum() {
     setError(null);
     setTypingUsers([]);
 
-    // Reset loading state after a brief delay to allow WebSocket connection
+    // Mark chat as read to reset unread_count
+    if (chat.unread_count > 0) {
+      try {
+        await forumAPI.markChatAsRead(chat.id);
+        // Update local state - reset unread_count for this chat
+        queryClient.setQueryData<ForumChat[]>(['forum', 'chats'], (oldChats) => {
+          if (!oldChats) return oldChats;
+          return oldChats.map((c) => (c.id === chat.id ? { ...c, unread_count: 0 } : c));
+        });
+      } catch (error) {
+        logger.error('Failed to mark chat as read:', error);
+      }
+    }
+
+    // Reset loading state after WebSocket connection established (увеличен timeout с 300ms до 500ms)
     setTimeout(() => {
       setIsSwitchingChat(false);
-    }, 300);
+    }, 500);
   };
 
   const handleSendMessage = (content: string, file?: File) => {

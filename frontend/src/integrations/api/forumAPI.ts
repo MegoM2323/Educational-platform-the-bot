@@ -357,4 +357,17 @@ export const forumAPI = {
       throw new Error(response.error);
     }
   },
+
+  markChatAsRead: async (chatId: number): Promise<void> => {
+    const response = await unifiedAPI.request(
+      `/chat/forum/${chatId}/mark_read/`,
+      {
+        method: 'POST',
+      }
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+  },
 };

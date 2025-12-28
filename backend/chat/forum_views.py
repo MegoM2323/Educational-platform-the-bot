@@ -16,6 +16,7 @@ from typing import List
 from django.db import transaction
 from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, Case, When, IntegerField, Value, F, Exists
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import viewsets, status, permissions
@@ -26,12 +27,12 @@ from rest_framework.views import APIView
 
 from accounts.models import StudentProfile, User
 from materials.models import SubjectEnrollment, Subject
-from .models import ChatRoom, Message, ChatParticipant
+from .models import ChatRoom, Message, ChatParticipant, MessageThread
 from .serializers import (
     ChatRoomListSerializer, MessageSerializer, MessageCreateSerializer,
     InitiateChatRequestSerializer, ChatDetailSerializer, AvailableContactSerializer
 )
-from .permissions import CanInitiateChat, check_parent_access_to_room, check_teacher_access_to_room
+from .permissions import CanInitiateChat, CanModerateChat, check_parent_access_to_room, check_teacher_access_to_room
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +101,13 @@ class ForumChatViewSet(viewsets.ViewSet):
                 ).order_by('-updated_at')
 
             elif user.role == 'teacher':
-                # Teacher sees FORUM_SUBJECT chats where they are assigned teacher OR chat creator
+                # Teacher sees FORUM_SUBJECT chats where they are assigned teacher
+                # OR chat creator (but only if enrollment has no other teacher assigned)
                 chats = base_queryset.filter(
                     type=ChatRoom.Type.FORUM_SUBJECT
                 ).filter(
-                    Q(enrollment__teacher=user) | Q(created_by=user)
+                    Q(enrollment__teacher=user) |
+                    Q(created_by=user, enrollment__teacher__isnull=True)
                 ).order_by('-updated_at')
 
             elif user.role == 'tutor':
@@ -277,6 +280,15 @@ class ForumChatViewSet(viewsets.ViewSet):
             # Проверка 4: Учительский доступ через enrollment
             if not has_access:
                 has_access = check_teacher_access_to_room(user, chat)
+
+            # Проверка 5: Admin/staff/superuser имеют read-only доступ ко всем чатам
+            if not has_access:
+                if user.role == 'admin' or user.is_staff or user.is_superuser:
+                    has_access = True
+                    logger.info(
+                        f'[messages] Admin/staff access granted: user {user.id} '
+                        f'to room {pk} (type={chat.type})'
+                    )
 
             if not has_access:
                 logger.warning(
@@ -561,6 +573,530 @@ class ForumChatViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=True, methods=['patch'], url_path='messages/(?P<message_id>[^/.]+)/edit')
+    def edit_message(self, request: Request, pk: str = None, message_id: str = None) -> Response:
+        """
+        Edit message in forum chat.
+
+        PATCH /api/chat/forum/{chat_id}/messages/{message_id}/edit/
+
+        Only the message author can edit their own messages.
+
+        Request body:
+        {
+            "content": "new message content"
+        }
+
+        Validation:
+        - User must be the author of the message
+        - Message must not be deleted
+        - Message must belong to this chat
+        - New content must be provided
+
+        On success:
+        - Updates message content
+        - Sets is_edited=True
+        - Updates updated_at timestamp
+        - Broadcasts edit via WebSocket
+
+        Args:
+            pk: ChatRoom ID
+            message_id: Message ID
+
+        Returns:
+            Response with updated message
+        """
+        try:
+            # Получить чат
+            chat = ChatRoom.objects.get(id=pk)
+            user = request.user
+
+            # Проверка доступа к чату
+            has_access = chat.participants.filter(id=user.id).exists()
+            if not has_access:
+                has_access = ChatParticipant.objects.filter(room=chat, user=user).exists()
+
+            if not has_access:
+                return Response(
+                    {'success': False, 'error': 'Access denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Получить сообщение
+            try:
+                message = Message.objects.select_related('sender').get(
+                    id=message_id,
+                    room=chat
+                )
+            except Message.DoesNotExist:
+                return Response(
+                    {'success': False, 'error': 'Message not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Проверка что сообщение не удалено
+            if message.is_deleted:
+                return Response(
+                    {'success': False, 'error': 'Cannot edit deleted message'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Проверка что пользователь - автор сообщения
+            if message.sender_id != user.id:
+                logger.warning(
+                    f'[edit_message] Access denied: user {user.id} is not the author '
+                    f'of message {message_id} (author: {message.sender_id})'
+                )
+                return Response(
+                    {'success': False, 'error': 'You can only edit your own messages'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Получить новый контент
+            new_content = request.data.get('content', '').strip()
+            if not new_content:
+                return Response(
+                    {'success': False, 'error': 'Content is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Обновить сообщение
+            message.content = new_content
+            message.is_edited = True
+            message.save(update_fields=['content', 'is_edited', 'updated_at'])
+
+            logger.info(
+                f'[edit_message] User {user.id} edited message {message_id} in room {pk}'
+            )
+
+            # Broadcast edit via WebSocket
+            try:
+                channel_layer = get_channel_layer()
+                message_data = MessageSerializer(
+                    message,
+                    context={'request': request}
+                ).data
+
+                room_group_name = f'chat_{chat.id}'
+                async_to_sync(channel_layer.group_send)(
+                    room_group_name,
+                    {
+                        'type': 'message_edited',
+                        'message': message_data
+                    }
+                )
+                logger.info(f'Broadcasted edit for message {message.id} to group {room_group_name}')
+            except Exception as e:
+                logger.error(f'Failed to broadcast message edit via WebSocket: {str(e)}')
+
+            return Response({
+                'success': True,
+                'message': MessageSerializer(
+                    message,
+                    context={'request': request}
+                ).data
+            })
+
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'Chat not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error editing message {message_id} in chat {pk}: {str(e)}")
+            return Response(
+                {'success': False, 'error': 'Failed to edit message'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['delete'], url_path='messages/(?P<message_id>[^/.]+)/delete')
+    def delete_message(self, request: Request, pk: str = None, message_id: str = None) -> Response:
+        """
+        Delete message in forum chat (soft delete).
+
+        DELETE /api/chat/forum/{chat_id}/messages/{message_id}/delete/
+
+        Permission:
+        - Message author can delete their own messages
+        - Moderators (teacher, tutor for FORUM_TUTOR, admin, staff) can delete any message
+
+        On success:
+        - Sets is_deleted=True
+        - Sets deleted_at=now()
+        - Sets deleted_by=user
+        - Broadcasts deletion via WebSocket
+
+        Args:
+            pk: ChatRoom ID
+            message_id: Message ID
+
+        Returns:
+            Response with success status
+        """
+        try:
+            # Получить чат
+            chat = ChatRoom.objects.get(id=pk)
+            user = request.user
+
+            # Проверка доступа к чату
+            has_access = chat.participants.filter(id=user.id).exists()
+            if not has_access:
+                has_access = ChatParticipant.objects.filter(room=chat, user=user).exists()
+
+            if not has_access:
+                return Response(
+                    {'success': False, 'error': 'Access denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Получить сообщение
+            try:
+                message = Message.objects.select_related('sender').get(
+                    id=message_id,
+                    room=chat
+                )
+            except Message.DoesNotExist:
+                return Response(
+                    {'success': False, 'error': 'Message not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Проверка что сообщение не удалено
+            if message.is_deleted:
+                return Response(
+                    {'success': False, 'error': 'Message already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Проверка прав: автор ИЛИ модератор
+            is_author = message.sender_id == user.id
+            is_moderator = self._check_moderation_permission(user, chat)
+
+            if not is_author and not is_moderator:
+                logger.warning(
+                    f'[delete_message] Access denied: user {user.id} is not the author '
+                    f'of message {message_id} and is not a moderator'
+                )
+                return Response(
+                    {'success': False, 'error': 'You can only delete your own messages or be a moderator'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Soft delete сообщения
+            message.is_deleted = True
+            message.deleted_at = timezone.now()
+            message.deleted_by = user
+            message.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+
+            deleted_by_role = 'author' if is_author else 'moderator'
+            logger.info(
+                f'[delete_message] User {user.id} ({deleted_by_role}) deleted message {message_id} in room {pk}'
+            )
+
+            # Broadcast deletion via WebSocket
+            try:
+                channel_layer = get_channel_layer()
+                room_group_name = f'chat_{chat.id}'
+                async_to_sync(channel_layer.group_send)(
+                    room_group_name,
+                    {
+                        'type': 'message_deleted',
+                        'message_id': str(message_id),
+                        'deleted_by': user.id,
+                        'deleted_by_role': deleted_by_role
+                    }
+                )
+                logger.info(f'Broadcasted deletion for message {message_id} to group {room_group_name}')
+            except Exception as e:
+                logger.error(f'Failed to broadcast message deletion via WebSocket: {str(e)}')
+
+            return Response({
+                'success': True,
+                'message_id': str(message_id),
+                'deleted_by': user.id,
+                'deleted_by_role': deleted_by_role,
+                'deleted_at': message.deleted_at.isoformat()
+            })
+
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'Chat not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error deleting message {message_id} in chat {pk}: {str(e)}")
+            return Response(
+                {'success': False, 'error': 'Failed to delete message'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _check_moderation_permission(self, user, chat) -> bool:
+        """
+        Проверяет права модерации для пользователя в чате.
+
+        Модератором может быть:
+        1. staff/superuser
+        2. ChatParticipant с is_admin=True
+        3. teacher
+        4. tutor для FORUM_TUTOR чатов
+
+        Args:
+            user: User объект
+            chat: ChatRoom объект
+
+        Returns:
+            bool: True если пользователь может модерировать
+        """
+        # Staff/superuser может всё
+        if user.is_staff or user.is_superuser:
+            return True
+
+        # Проверка что пользователь является участником
+        try:
+            participant = ChatParticipant.objects.get(room=chat, user=user)
+            if participant.is_admin:
+                return True
+        except ChatParticipant.DoesNotExist:
+            logger.warning(
+                f"[moderation] User {user.id} is not a participant in room {chat.id}"
+            )
+            return False
+
+        # Teacher может модерировать
+        if user.role == 'teacher':
+            return True
+
+        # Tutor может модерировать FORUM_TUTOR чаты
+        if user.role == 'tutor' and chat.type == ChatRoom.Type.FORUM_TUTOR:
+            return True
+
+        return False
+
+    @action(detail=True, methods=['post'], url_path='messages/(?P<message_id>[^/.]+)/pin')
+    def pin_message(self, request: Request, pk: str = None, message_id: str = None) -> Response:
+        """
+        Закрепить/открепить сообщение в чате.
+
+        POST /api/chat/forum/{chat_id}/messages/{message_id}/pin/
+
+        Только для модераторов (teacher, tutor, admin).
+        Toggle is_pinned на сообщении.
+
+        Args:
+            pk: ChatRoom ID
+            message_id: Message ID
+
+        Returns:
+            Response с результатом операции
+        """
+        try:
+            chat = ChatRoom.objects.get(id=pk)
+            user = request.user
+
+            # Проверка прав модерации
+            if not self._check_moderation_permission(user, chat):
+                return Response(
+                    {'success': False, 'error': 'Permission denied. Moderation rights required.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Получить сообщение
+            try:
+                message = Message.objects.get(id=message_id, room=chat, is_deleted=False)
+            except Message.DoesNotExist:
+                return Response(
+                    {'success': False, 'error': 'Message not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Для pin/unpin нужно привязать сообщение к треду
+            # Если сообщение не в треде - создаём новый тред
+            if not message.thread:
+                # Создаём тред для этого сообщения
+                thread = MessageThread.objects.create(
+                    room=chat,
+                    title=message.content[:100] if message.content else f"Thread #{message.id}",
+                    created_by=message.sender
+                )
+                message.thread = thread
+                message.save(update_fields=['thread'])
+                logger.info(f"Created thread {thread.id} for message {message.id}")
+
+            # Toggle is_pinned на треде
+            thread = message.thread
+            thread.is_pinned = not thread.is_pinned
+            thread.save(update_fields=['is_pinned', 'updated_at'])
+
+            action_str = 'pinned' if thread.is_pinned else 'unpinned'
+            logger.info(
+                f"[pin_message] User {user.id} {action_str} message {message_id} "
+                f"(thread {thread.id}) in room {pk}"
+            )
+
+            return Response({
+                'success': True,
+                'message_id': message_id,
+                'thread_id': str(thread.id),
+                'is_pinned': thread.is_pinned,
+                'action': action_str
+            })
+
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'Chat not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error pinning message {message_id} in chat {pk}: {str(e)}")
+            return Response(
+                {'success': False, 'error': 'Failed to pin message'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'], url_path='lock')
+    def lock_chat(self, request: Request, pk: str = None) -> Response:
+        """
+        Заблокировать/разблокировать чат.
+
+        POST /api/chat/forum/{chat_id}/lock/
+
+        Только для модераторов (teacher, tutor, admin).
+        Toggle is_active на ChatRoom (блокировка = is_active=False).
+
+        Args:
+            pk: ChatRoom ID
+
+        Returns:
+            Response с результатом операции
+        """
+        try:
+            chat = ChatRoom.objects.get(id=pk)
+            user = request.user
+
+            # Проверка прав модерации
+            if not self._check_moderation_permission(user, chat):
+                return Response(
+                    {'success': False, 'error': 'Permission denied. Moderation rights required.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Toggle is_active (locked = not active)
+            chat.is_active = not chat.is_active
+            chat.save(update_fields=['is_active', 'updated_at'])
+
+            is_locked = not chat.is_active
+            action_str = 'locked' if is_locked else 'unlocked'
+
+            logger.info(
+                f"[lock_chat] User {user.id} {action_str} room {pk}"
+            )
+
+            return Response({
+                'success': True,
+                'chat_id': pk,
+                'is_locked': is_locked,
+                'is_active': chat.is_active,
+                'action': action_str
+            })
+
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'Chat not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error locking chat {pk}: {str(e)}")
+            return Response(
+                {'success': False, 'error': 'Failed to lock chat'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'], url_path='participants/(?P<user_id>[^/.]+)/mute')
+    def mute_participant(self, request: Request, pk: str = None, user_id: str = None) -> Response:
+        """
+        Заглушить/разглушить участника чата.
+
+        POST /api/chat/forum/{chat_id}/participants/{user_id}/mute/
+
+        Только для модераторов (teacher, tutor, admin).
+        Toggle is_muted на ChatParticipant.
+
+        Args:
+            pk: ChatRoom ID
+            user_id: User ID участника
+
+        Returns:
+            Response с результатом операции
+        """
+        try:
+            chat = ChatRoom.objects.get(id=pk)
+            user = request.user
+
+            # Проверка прав модерации
+            if not self._check_moderation_permission(user, chat):
+                return Response(
+                    {'success': False, 'error': 'Permission denied. Moderation rights required.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Нельзя замутить самого себя
+            if str(user.id) == user_id:
+                return Response(
+                    {'success': False, 'error': 'Cannot mute yourself'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Получить участника
+            try:
+                target_user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response(
+                    {'success': False, 'error': 'User not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Нельзя замутить teacher или admin
+            if target_user.role in ['teacher', 'admin'] or target_user.is_staff or target_user.is_superuser:
+                return Response(
+                    {'success': False, 'error': 'Cannot mute teacher or admin'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Получить или создать ChatParticipant
+            participant, created = ChatParticipant.objects.get_or_create(
+                room=chat,
+                user=target_user
+            )
+
+            # Toggle is_muted
+            participant.is_muted = not participant.is_muted
+            participant.save(update_fields=['is_muted'])
+
+            action_str = 'muted' if participant.is_muted else 'unmuted'
+            logger.info(
+                f"[mute_participant] User {user.id} {action_str} user {user_id} in room {pk}"
+            )
+
+            return Response({
+                'success': True,
+                'chat_id': pk,
+                'user_id': user_id,
+                'is_muted': participant.is_muted,
+                'action': action_str
+            })
+
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'Chat not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error muting participant {user_id} in chat {pk}: {str(e)}")
+            return Response(
+                {'success': False, 'error': 'Failed to mute participant'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class AvailableContactsView(APIView):
     """
@@ -586,9 +1122,43 @@ class AvailableContactsView(APIView):
     Query optimization:
     - Uses select_related to avoid N+1 queries
     - Uses distinct() to eliminate duplicates
-    - Checks for existing active chats
+    - Pre-fetches all user chats to avoid N+1 for existing_chat checks
+    - Checks for existing active chats via mapping
     """
     permission_classes = [permissions.IsAuthenticated]
+
+    def _build_contact_to_chat_mapping(self, user: User) -> tuple:
+        """
+        Получить все existing chats пользователя ОДНИМ запросом.
+        Возвращает tuple: (contact_to_chat, enrollment_to_chat)
+
+        contact_to_chat: mapping (contact_id, chat_type) -> chat
+        enrollment_to_chat: mapping enrollment_id -> chat
+
+        Оптимизация N+1: вместо запроса для каждого контакта,
+        делаем один запрос и строим lookup dictionary.
+        """
+        user_chats = ChatRoom.objects.filter(
+            participants=user,
+            type__in=[ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR],
+            is_active=True
+        ).prefetch_related('participants')
+
+        # Mapping: (contact_id, chat_type) -> chat
+        contact_to_chat = {}
+        # Mapping: enrollment_id -> chat (для teacher role)
+        enrollment_to_chat = {}
+
+        for chat in user_chats:
+            for participant in chat.participants.all():
+                if participant.id != user.id:
+                    # Ключ: (contact_id, chat_type) для точного матчинга
+                    contact_to_chat[(participant.id, chat.type)] = chat
+            # Также храним по enrollment_id если есть
+            if chat.enrollment_id:
+                enrollment_to_chat[chat.enrollment_id] = chat
+
+        return contact_to_chat, enrollment_to_chat
 
     def get(self, request: Request) -> Response:
         """
@@ -604,6 +1174,9 @@ class AvailableContactsView(APIView):
         contacts = []
 
         try:
+            # Оптимизация N+1: получаем ВСЕ чаты пользователя ОДНИМ запросом
+            contact_to_chat, enrollment_to_chat = self._build_contact_to_chat_mapping(user)
+
             if user.role == 'student':
                 # Получить всех учителей из зачислений студента
                 student_enrollments = SubjectEnrollment.objects.filter(
@@ -627,11 +1200,8 @@ class AvailableContactsView(APIView):
 
                 # Добавить учителей в контакты (без дубликатов)
                 for teacher_id, data in teachers_seen.items():
-                    # Проверка existing_chat
-                    existing_chat = ChatRoom.objects.filter(
-                        type=ChatRoom.Type.FORUM_SUBJECT,
-                        participants=user
-                    ).filter(participants=data['user']).filter(is_active=True).first()
+                    # Используем mapping вместо запроса (оптимизация N+1)
+                    existing_chat = contact_to_chat.get((teacher_id, ChatRoom.Type.FORUM_SUBJECT))
 
                     contacts.append({
                         'user': data['user'],
@@ -646,18 +1216,13 @@ class AvailableContactsView(APIView):
                 try:
                     student_profile = StudentProfile.objects.select_related('tutor').get(user=user)
                     if student_profile.tutor and student_profile.tutor.role == 'tutor':
-                        # Проверить наличие активного чата с тьютором
-                        # Для FORUM_TUTOR тип нужно найти чат через enrollment с student=user
+                        # Берем любое зачисление для связи с чатом
                         tutor_enrollment = SubjectEnrollment.objects.filter(
                             student=user
-                        ).first()  # Берем любое зачисление для связи с чатом
-
-                        existing_chat = ChatRoom.objects.filter(
-                            type=ChatRoom.Type.FORUM_TUTOR,
-                            enrollment__student=user,
-                            participants=student_profile.tutor,
-                            is_active=True
                         ).first()
+
+                        # Используем mapping вместо запроса (оптимизация N+1)
+                        existing_chat = contact_to_chat.get((student_profile.tutor.id, ChatRoom.Type.FORUM_TUTOR))
 
                         contacts.append({
                             'user': student_profile.tutor,
@@ -683,12 +1248,8 @@ class AvailableContactsView(APIView):
                 for enrollment in student_enrollments:
                     student = enrollment.student
                     if student and student.role == 'student':
-                        # Проверить наличие активного чата
-                        existing_chat = ChatRoom.objects.filter(
-                            type=ChatRoom.Type.FORUM_SUBJECT,
-                            enrollment=enrollment,
-                            is_active=True
-                        ).first()
+                        # Используем enrollment_to_chat для точного матчинга (оптимизация N+1)
+                        existing_chat = enrollment_to_chat.get(enrollment.id)
 
                         contacts.append({
                             'user': student,
@@ -704,7 +1265,7 @@ class AvailableContactsView(APIView):
 
                 # Находим тьюторов через StudentProfile.tutor и User.created_by_tutor
                 tutors = User.objects.filter(
-                    Q(tutored_students__user_id__in=student_ids) |
+                    Q(tutored_students__id__in=student_ids) |
                     Q(created_students__id__in=student_ids),
                     role='tutor'
                 ).distinct()
@@ -719,14 +1280,8 @@ class AvailableContactsView(APIView):
                         is_active=True
                     ).first()
 
-                    # Проверить наличие активного чата (двойной filter по M2M)
-                    existing_chat = ChatRoom.objects.filter(
-                        type=ChatRoom.Type.FORUM_TUTOR,
-                        participants=user,
-                        is_active=True
-                    ).filter(
-                        participants=tutor
-                    ).first()
+                    # Используем mapping вместо запроса (оптимизация N+1)
+                    existing_chat = contact_to_chat.get((tutor.id, ChatRoom.Type.FORUM_TUTOR))
 
                     contacts.append({
                         'user': tutor,
@@ -745,23 +1300,22 @@ class AvailableContactsView(APIView):
 
                 students = [profile.user for profile in student_profiles]
 
+                # Оптимизация N+1: получаем все enrollments для студентов одним запросом
+                student_ids = [s.id for s in students if s and s.role == 'student']
+                student_enrollments_map = {}
+                if student_ids:
+                    for enrollment in SubjectEnrollment.objects.filter(student_id__in=student_ids):
+                        if enrollment.student_id not in student_enrollments_map:
+                            student_enrollments_map[enrollment.student_id] = enrollment
+
                 # Добавить студентов в контакты
                 for student in students:
                     if student and student.role == 'student':
-                        # Найти enrollment для создания чата (берем первый)
-                        student_enrollment = SubjectEnrollment.objects.filter(
-                            student=student
-                        ).first()
+                        # Используем предзагруженный enrollment (оптимизация N+1)
+                        student_enrollment = student_enrollments_map.get(student.id)
 
-                        # Check for existing active chat between tutor and student
-                        # Используем двойной filter по M2M participants для корректной проверки
-                        existing_chat = ChatRoom.objects.filter(
-                            type=ChatRoom.Type.FORUM_TUTOR,
-                            participants=student,
-                            is_active=True
-                        ).filter(
-                            participants=user
-                        ).first()
+                        # Используем mapping вместо запроса (оптимизация N+1)
+                        existing_chat = contact_to_chat.get((student.id, ChatRoom.Type.FORUM_TUTOR))
 
                         contacts.append({
                             'user': student,
@@ -787,14 +1341,12 @@ class AvailableContactsView(APIView):
                         if teacher and teacher.role == 'teacher' and teacher.id not in seen_teachers:
                             seen_teachers.add(teacher.id)
 
-                            # Проверить наличие активного чата между тьютором и учителем
-                            existing_chat = ChatRoom.objects.filter(
-                                type__in=[ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR],
-                                participants=user,
-                                is_active=True
-                            ).filter(
-                                participants=teacher
-                            ).first()
+                            # Используем mapping вместо запроса (оптимизация N+1)
+                            # Проверяем оба типа чатов
+                            existing_chat = (
+                                contact_to_chat.get((teacher.id, ChatRoom.Type.FORUM_SUBJECT)) or
+                                contact_to_chat.get((teacher.id, ChatRoom.Type.FORUM_TUTOR))
+                            )
 
                             contacts.append({
                                 'user': teacher,
@@ -825,13 +1377,8 @@ class AvailableContactsView(APIView):
                         if teacher and teacher.role == 'teacher' and teacher.id not in seen_teachers:
                             seen_teachers.add(teacher.id)
 
-                            # Проверяем существующий чат родителя с учителем
-                            existing_chat = ChatRoom.objects.filter(
-                                type=ChatRoom.Type.FORUM_SUBJECT,
-                                participants=user
-                            ).filter(
-                                participants=teacher
-                            ).filter(is_active=True).first()
+                            # Используем mapping вместо запроса (оптимизация N+1)
+                            existing_chat = contact_to_chat.get((teacher.id, ChatRoom.Type.FORUM_SUBJECT))
 
                             contacts.append({
                                 'user': teacher,
@@ -842,18 +1389,16 @@ class AvailableContactsView(APIView):
                             })
 
                     # Получить тьюторов детей
+                    seen_tutors = set()
                     for profile in children_profiles:
                         if profile.tutor and profile.tutor.role == 'tutor':
-                            # Избегаем дублирования тьюторов
-                            tutor_key = profile.tutor.id
-                            if tutor_key not in [c['user'].id for c in contacts if c['user'].role == 'tutor']:
-                                # Проверяем существующий чат родителя с тьютором
-                                existing_chat = ChatRoom.objects.filter(
-                                    type=ChatRoom.Type.FORUM_TUTOR,
-                                    participants=user
-                                ).filter(
-                                    participants=profile.tutor
-                                ).filter(is_active=True).first()
+                            tutor_id = profile.tutor.id
+                            # Используем set для дедупликации (оптимизация)
+                            if tutor_id not in seen_tutors:
+                                seen_tutors.add(tutor_id)
+
+                                # Используем mapping вместо запроса (оптимизация N+1)
+                                existing_chat = contact_to_chat.get((tutor_id, ChatRoom.Type.FORUM_TUTOR))
 
                                 contacts.append({
                                     'user': profile.tutor,

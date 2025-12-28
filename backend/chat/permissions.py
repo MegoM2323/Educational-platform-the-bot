@@ -533,7 +533,8 @@ class CanModerateChat(permissions.BasePermission):
             return True
 
         # Tutors can moderate FORUM_TUTOR chats
-        if user.role == 'tutor' and room.type == 'forum_tutor':
+        from chat.models import ChatRoom
+        if user.role == 'tutor' and room.type == ChatRoom.Type.FORUM_TUTOR:
             return True
 
         logger.warning(

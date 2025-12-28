@@ -113,12 +113,12 @@ export const useSendForumMessage = () => {
       // Snapshot previous value for rollback (InfiniteData structure)
       const previousMessages = queryClient.getQueryData<InfiniteData<ForumMessage[]>>(['forum-messages', chatId]);
 
-      // Create unique temporary ID
-      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Create unique temporary ID using negative timestamp (ensures uniqueness and type safety)
+      const tempId = -Date.now();
 
       // Create temporary optimistic message with REAL current user data
       const optimisticMessage: ForumMessage = {
-        id: tempId as any, // Temporary string ID
+        id: tempId, // Temporary negative number ID
         content: data.content,
         sender: {
           id: user?.id || 0, // REAL current user ID - determines message side (left/right)

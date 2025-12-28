@@ -19,8 +19,10 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
       // Cancel outgoing refetches for all queries matching this chatId
       await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
 
-      // Snapshot previous value - get first matching query data
-      const previousMessages = queryClient.getQueryData<ForumMessage[]>(['forum-messages', chatId, 50, 0]);
+      // Snapshot previous value - get ALL matching queries using pattern matching
+      const previousQueries = queryClient.getQueriesData<ForumMessage[]>({
+        queryKey: ['forum-messages', chatId],
+      });
 
       // Optimistically update ALL queries for this chat
       queryClient.setQueriesData<ForumMessage[]>(
@@ -33,16 +35,15 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
           )
       );
 
-      return { previousMessages };
+      return { previousQueries };
     },
 
     onError: (error, variables, context) => {
-      // Rollback on error - restore to all queries
-      if (context?.previousMessages) {
-        queryClient.setQueriesData(
-          { queryKey: ['forum-messages', chatId], exact: false },
-          context.previousMessages
-        );
+      // Rollback on error - restore ALL previous queries
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
       toast.error('Не удалось отредактировать сообщение');
       onError?.(error as Error);

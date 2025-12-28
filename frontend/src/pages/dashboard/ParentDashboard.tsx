@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, FileText, MessageCircle, TrendingUp, Calendar, CreditCard, AlertCircle, ExternalLink } from "lucide-react";
+import { Users, FileText, MessageCircle, MessageSquare, TrendingUp, Calendar, CreditCard, AlertCircle, ExternalLink } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -549,9 +549,9 @@ const ParentDashboard = () => {
                   {/* Quick Actions */}
                   <Card className="p-6">
                     <h3 className="text-xl font-bold mb-4">Быстрые действия</h3>
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <Button type="button" 
-                        variant="outline" 
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                      <Button type="button"
+                        variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/parent/children')}
                       >
@@ -561,21 +561,29 @@ const ParentDashboard = () => {
                       <Button type="button"
                         variant="outline"
                         className="h-auto flex-col gap-2 py-6"
+                        onClick={() => navigate('/dashboard/parent/forum')}
+                      >
+                        <MessageSquare className="w-6 h-6" />
+                        <span>Форум</span>
+                      </Button>
+                      <Button type="button"
+                        variant="outline"
+                        className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/parent/payment-history')}
                       >
                         <CreditCard className="w-6 h-6" />
                         <span>Оплаты</span>
                       </Button>
-                      <Button type="button" 
-                        variant="outline" 
+                      <Button type="button"
+                        variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/parent/reports')}
                       >
                         <FileText className="w-6 h-6" />
                         <span>Отчёты</span>
                       </Button>
-                      <Button type="button" 
-                        variant="outline" 
+                      <Button type="button"
+                        variant="outline"
                         className="h-auto flex-col gap-2 py-6"
                         onClick={() => navigate('/dashboard/parent/statistics')}
                       >

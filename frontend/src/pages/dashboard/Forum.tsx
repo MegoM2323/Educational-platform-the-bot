@@ -183,8 +183,8 @@ const ChatList = ({
   }, [chats, searchQuery]);
 
   return (
-    <Card className="p-4 md:col-span-1 flex flex-col h-full" data-testid="chat-list">
-      <div className="relative mb-4">
+    <Card className="p-4 md:col-span-1 flex flex-col h-full overflow-hidden" data-testid="chat-list">
+      <div className="relative mb-4 flex-shrink-0">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Поиск чатов..."
@@ -194,7 +194,7 @@ const ChatList = ({
           data-testid="chat-search"
         />
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="space-y-2 pr-4">
           {isLoading ? (
             <>
@@ -274,7 +274,7 @@ const ChatWindow = ({
   if (!chat) {
     return (
       <Card
-        className="p-6 md:col-span-2 flex flex-col items-center justify-center h-full"
+        className="p-6 md:col-span-2 flex flex-col items-center justify-center h-full overflow-hidden"
         data-testid="chat-window-empty"
       >
         <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
@@ -291,7 +291,7 @@ const ChatWindow = ({
   const displayName = chat.name || otherParticipants || 'Чат';
 
   return (
-    <Card className="p-6 md:col-span-2 flex flex-col h-full" data-testid="chat-window">
+    <Card className="p-6 md:col-span-2 flex flex-col h-full overflow-hidden" data-testid="chat-window">
       {/* Error Banner */}
       {error && (
         <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3 flex-shrink-0">
@@ -357,7 +357,7 @@ const ChatWindow = ({
       </div>
 
       {/* Messages - Scrollable Area */}
-      <div className="flex-1 overflow-y-auto py-4 pr-4">
+      <div className="flex-1 overflow-y-auto py-4 pr-4 min-h-0">
         <div className="space-y-4">
           {isLoadingMessages ? (
             <>
@@ -1175,10 +1175,10 @@ export default function Forum() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full">
+      <div className="flex h-screen w-full overflow-hidden">
         <SidebarComponent />
-        <SidebarInset>
-          <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
+        <SidebarInset className="flex flex-col h-full overflow-hidden">
+          <header className="flex-shrink-0 flex h-16 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             <h1 className="text-2xl font-bold ml-4">Форум</h1>
             <div className="flex-1" />
@@ -1193,13 +1193,13 @@ export default function Forum() {
               Новый чат
             </Button>
           </header>
-          <main className="flex-1 overflow-auto p-6">
-            <div className="space-y-6">
-              <div>
-                <p className="text-muted-foreground">Общайтесь с преподавателями и тьюторами</p>
-              </div>
+          <main className="flex-1 overflow-hidden flex flex-col p-6 min-h-0">
+            <div className="flex-shrink-0 mb-4">
+              <p className="text-muted-foreground">Общайтесь с преподавателями и тьюторами</p>
+            </div>
 
-              {/* Global Connection Status Banner */}
+            {/* Global Connection Status Banner */}
+            <div className="flex-shrink-0">
               <ConnectionBanner
                 status={wsStatus}
                 onRetry={() => {
@@ -1208,37 +1208,37 @@ export default function Forum() {
                   // User can manually open a chat to reconnect
                 }}
               />
+            </div>
 
-              <div className="grid md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-                <ChatList
-                  chats={chats}
-                  selectedChat={selectedChat}
-                  onSelectChat={handleSelectChat}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  isLoading={isLoadingChats}
-                  currentUserId={user?.id || 0}
-                />
+            <div className="grid md:grid-cols-3 gap-6 flex-1 overflow-hidden min-h-0">
+              <ChatList
+                chats={chats}
+                selectedChat={selectedChat}
+                onSelectChat={handleSelectChat}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                isLoading={isLoadingChats}
+                currentUserId={user?.id || 0}
+              />
 
-                <ChatWindow
-                  chat={selectedChat}
-                  messages={messages}
-                  isLoadingMessages={isLoadingMessages}
-                  isSending={sendMessageMutation.isPending}
-                  onSendMessage={handleSendMessage}
-                  isConnected={isConnected}
-                  typingUsers={typingUsers}
-                  error={error}
-                  onRetryConnection={handleRetryConnection}
-                  onEditMessage={handleEditMessage}
-                  onDeleteMessage={handleDeleteMessage}
-                  isEditingOrDeleting={
-                    editMessageMutation.isPending || deleteMessageMutation.isPending
-                  }
-                  currentUserId={user?.id || 0}
-                  currentUserRole={user?.role || ''}
-                />
-              </div>
+              <ChatWindow
+                chat={selectedChat}
+                messages={messages}
+                isLoadingMessages={isLoadingMessages}
+                isSending={sendMessageMutation.isPending}
+                onSendMessage={handleSendMessage}
+                isConnected={isConnected}
+                typingUsers={typingUsers}
+                error={error}
+                onRetryConnection={handleRetryConnection}
+                onEditMessage={handleEditMessage}
+                onDeleteMessage={handleDeleteMessage}
+                isEditingOrDeleting={
+                  editMessageMutation.isPending || deleteMessageMutation.isPending
+                }
+                currentUserId={user?.id || 0}
+                currentUserRole={user?.role || ''}
+              />
             </div>
           </main>
         </SidebarInset>

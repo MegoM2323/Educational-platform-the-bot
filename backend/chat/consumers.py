@@ -295,11 +295,53 @@ class ChatConsumer(AsyncWebsocketConsumer):
         1. M2M participants (ChatRoom.participants)
         2. ChatParticipant записи (для обратной совместимости)
         3. Родительский доступ: если пользователь - родитель и его ребёнок является участником
+
+        Дополнительная проверка для teacher:
+        - Teacher может подключаться только к FORUM_SUBJECT чатам
+        - Teacher должен быть назначенным учителем через enrollment
         """
         try:
-            room = ChatRoom.objects.get(id=self.room_id)
+            room = ChatRoom.objects.select_related('enrollment').get(id=self.room_id)
             user = self.scope['user']
             user_id = user.id
+
+            # Дополнительная проверка для teacher: только FORUM_SUBJECT чаты
+            # где teacher назначен через enrollment
+            if user.role == 'teacher':
+                if room.type != ChatRoom.Type.FORUM_SUBJECT:
+                    logger.warning(
+                        f'[check_room_access] Access denied: teacher {user_id} cannot access '
+                        f'room {self.room_id} (type={room.type}, expected=forum_subject)'
+                    )
+                    return False
+
+                # Проверяем что teacher назначен через enrollment
+                if not room.enrollment or room.enrollment.teacher_id != user_id:
+                    logger.warning(
+                        f'[check_room_access] Access denied: teacher {user_id} is not assigned '
+                        f'to room {self.room_id} via enrollment'
+                    )
+                    return False
+
+                # Teacher назначен через enrollment - проверяем что в participants
+                if room.participants.filter(id=user_id).exists():
+                    logger.debug(f'[check_room_access] Teacher {user_id} has access via enrollment')
+                    return True
+
+                logger.warning(
+                    f'[check_room_access] Access denied: teacher {user_id} not in participants '
+                    f'for room {self.room_id}'
+                )
+                return False
+
+            # Дополнительная проверка для tutor: только FORUM_TUTOR чаты
+            if user.role == 'tutor':
+                if room.type != ChatRoom.Type.FORUM_TUTOR:
+                    logger.warning(
+                        f'[check_room_access] Access denied: tutor {user_id} cannot access '
+                        f'room {self.room_id} (type={room.type}, expected=forum_tutor)'
+                    )
+                    return False
 
             # Проверка 1: M2M participants
             if room.participants.filter(id=user_id).exists():
@@ -350,26 +392,45 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Проверяет в двух местах для обратной совместимости:
         1. ChatParticipant (предпочтительно)
         2. ChatRoom.participants M2M (fallback для старых чатов)
+
+        Дополнительные проверки для ролей:
+        - Teacher может быть участником только FORUM_SUBJECT чатов
+        - Tutor может быть участником только FORUM_TUTOR чатов
         """
+        user = self.scope['user']
+
+        try:
+            room = ChatRoom.objects.select_related('enrollment').get(id=room_id)
+        except ChatRoom.DoesNotExist:
+            return False
+
+        # Проверка типа чата для teacher
+        if user.role == 'teacher':
+            if room.type != ChatRoom.Type.FORUM_SUBJECT:
+                return False
+            if not room.enrollment or room.enrollment.teacher_id != user.id:
+                return False
+
+        # Проверка типа чата для tutor
+        if user.role == 'tutor':
+            if room.type != ChatRoom.Type.FORUM_TUTOR:
+                return False
+
         # Сначала проверяем ChatParticipant (быстрее и надежнее)
         if ChatParticipant.objects.filter(
             room_id=room_id,
-            user=self.scope['user']
+            user=user
         ).exists():
             return True
 
         # Fallback: проверяем M2M participants для обратной совместимости
-        try:
-            room = ChatRoom.objects.get(id=room_id)
-            if room.participants.filter(id=self.scope['user'].id).exists():
-                # Создаем ChatParticipant для будущих проверок
-                ChatParticipant.objects.get_or_create(
-                    room=room,
-                    user=self.scope['user']
-                )
-                return True
-        except ChatRoom.DoesNotExist:
-            pass
+        if room.participants.filter(id=user.id).exists():
+            # Создаем ChatParticipant для будущих проверок
+            ChatParticipant.objects.get_or_create(
+                room=room,
+                user=user
+            )
+            return True
 
         return False
 

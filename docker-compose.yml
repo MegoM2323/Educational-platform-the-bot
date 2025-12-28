@@ -176,7 +176,8 @@ services:
       - "${FRONTEND_PORT:-3000}:3000"
 
     volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
+      # NOTE: Don't mount ./frontend/dist in production - use Docker build output
+      # - ./frontend/dist:/usr/share/nginx/html:ro
       - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./frontend/nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
 

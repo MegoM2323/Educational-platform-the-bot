@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { logger } from '@/utils/logger';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -44,6 +44,11 @@ import {
   Plus,
   CheckCircle2,
   Filter,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  Download,
+  X,
 } from 'lucide-react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
@@ -82,7 +87,7 @@ interface ChatWindowProps {
   messages: ForumMessage[];
   isLoadingMessages: boolean;
   isSending: boolean;
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, file?: File) => void;
   isConnected: boolean;
   typingUsers: TypingUser[];
   error: string | null;
@@ -246,12 +251,44 @@ const ChatWindow = ({
   currentUserRole,
 }: ChatWindowProps) => {
   const [messageInput, setMessageInput] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSend = () => {
-    if (messageInput.trim() && !isSending) {
-      onSendMessage(messageInput.trim());
+    if ((messageInput.trim() || selectedFile) && !isSending) {
+      onSendMessage(messageInput.trim(), selectedFile || undefined);
       setMessageInput('');
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert('Файл слишком большой. Максимальный размер: 10 МБ');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const handleMessageChange = (value: string) => {
@@ -395,6 +432,33 @@ const ChatWindow = ({
                     {/* Message content */}
                     <p className="text-sm break-words pr-6">{msg.content}</p>
 
+                    {/* File attachment */}
+                    {msg.is_image && msg.image_url && (
+                      <div className="mt-2">
+                        <a href={msg.image_url} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={msg.image_url}
+                            alt={msg.file_name || 'Image'}
+                            className="max-w-xs rounded border cursor-pointer hover:opacity-90 transition-opacity"
+                          />
+                        </a>
+                      </div>
+                    )}
+                    {msg.file_url && !msg.is_image && (
+                      <div className="mt-2 flex items-center gap-2 p-2 bg-background/10 rounded border">
+                        <FileText className="w-4 h-4" />
+                        <a
+                          href={msg.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm hover:underline flex-1 truncate"
+                        >
+                          {msg.file_name || 'Файл'}
+                        </a>
+                        <Download className="w-4 h-4" />
+                      </div>
+                    )}
+
                     {/* Timestamp and edited indicator */}
                     <div
                       className={`text-xs mt-1 flex items-center gap-1 ${
@@ -428,23 +492,66 @@ const ChatWindow = ({
       </div>
 
       {/* Message Input - Fixed at Bottom */}
-      <div className="flex gap-2 pt-4 border-t flex-shrink-0">
-        <Input
-          placeholder="Введите сообщение..."
-          value={messageInput}
-          onChange={(e) => handleMessageChange(e.target.value)}
-          onKeyPress={handleKeyPress}
-          disabled={isSending}
-          className="text-sm"
-        />
-        <Button
-          type="button"
-          onClick={handleSend}
-          disabled={!messageInput.trim()}
-          className="gradient-primary"
-        >
-          <Send className="w-4 h-4" />
-        </Button>
+      <div className="pt-4 border-t flex-shrink-0">
+        {/* Selected file preview */}
+        {selectedFile && (
+          <div className="mb-2 flex items-center gap-2 p-2 bg-muted rounded-lg border">
+            {selectedFile.type.startsWith('image/') ? (
+              <ImageIcon className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <FileText className="w-4 h-4 text-muted-foreground" />
+            )}
+            <span className="text-sm flex-1 truncate">
+              {selectedFile.name} ({formatFileSize(selectedFile.size)})
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRemoveFile}
+              className="h-6 w-6 p-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* Input area */}
+        <div className="flex gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSending}
+            className="shrink-0"
+          >
+            <Paperclip className="w-4 h-4" />
+          </Button>
+          <Input
+            placeholder="Введите сообщение..."
+            value={messageInput}
+            onChange={(e) => handleMessageChange(e.target.value)}
+            onKeyPress={handleKeyPress}
+            disabled={isSending}
+            className="text-sm"
+          />
+          <Button
+            type="button"
+            onClick={handleSend}
+            disabled={!messageInput.trim() && !selectedFile}
+            className="gradient-primary"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Offline Notice */}
@@ -1006,7 +1113,7 @@ export default function Forum() {
     setTypingUsers([]);
   };
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = (content: string, file?: File) => {
     if (!selectedChat) return;
 
     setError(null);
@@ -1017,6 +1124,7 @@ export default function Forum() {
     sendMessageMutation.mutate({
       chatId: selectedChat.id,
       data: { content },
+      file,
     });
   };
 

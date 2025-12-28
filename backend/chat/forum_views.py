@@ -361,25 +361,34 @@ class ForumChatViewSet(viewsets.ViewSet):
         """
         Send message to forum chat.
 
+        Supports both JSON and multipart/form-data requests:
+        - JSON: { "content": "text", "message_type": "text", "reply_to": null }
+        - FormData: content (text), file (optional), message_type (optional), reply_to (optional)
+
         Validates:
         - User is participant of the chat
-        - Message content is provided
+        - Message content or file is provided
         - Chat is active
+        - File type and size (if file uploaded)
 
         On success:
-        - Creates Message instance
+        - Creates Message instance with optional file/image attachment
         - Triggers Pachca notification signal
         - Updates ChatRoom.updated_at
+        - Broadcasts message via WebSocket
 
         Args:
             pk: ChatRoom ID
-            content: Message content (required)
+            content: Message content (required if no file)
             message_type: Message type, default 'text' (optional)
             reply_to: ID of message being replied to (optional)
+            file: Uploaded file (optional, via multipart/form-data)
 
         Returns:
             Response with created message
         """
+        from core.validators import validate_uploaded_file
+
         try:
             # Get chat room and verify access
             chat = ChatRoom.objects.get(id=pk)
@@ -419,9 +428,43 @@ class ForumChatViewSet(viewsets.ViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # Extract data from request (supports both JSON and FormData)
+            content = request.data.get('content', '')
+            message_type = request.data.get('message_type', Message.Type.TEXT)
+            reply_to = request.data.get('reply_to')
+            uploaded_file = request.FILES.get('file')
+
+            # Validate: either content or file must be provided
+            if not content and not uploaded_file:
+                return Response(
+                    {'success': False, 'error': 'Either content or file must be provided'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Validate uploaded file if present
+            if uploaded_file:
+                is_valid, error_message = validate_uploaded_file(
+                    uploaded_file,
+                    max_size_mb=50  # 50MB limit for chat attachments
+                )
+                if not is_valid:
+                    return Response(
+                        {'success': False, 'error': error_message},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # Build serializer data
+            serializer_data = {
+                'room': chat.id,
+                'content': content or '',
+                'message_type': message_type,
+            }
+            if reply_to:
+                serializer_data['reply_to'] = reply_to
+
             # Create message with serializer
             serializer = MessageCreateSerializer(
-                data={**request.data, 'room': chat.id},
+                data=serializer_data,
                 context={'request': request}
             )
 
@@ -431,6 +474,28 @@ class ForumChatViewSet(viewsets.ViewSet):
                 with transaction.atomic():
                     # Save message (will trigger signal for Pachca notification)
                     message = serializer.save(sender=request.user, room=chat)
+
+                    # Handle file attachment if present
+                    if uploaded_file:
+                        # Determine if file is an image
+                        file_name = uploaded_file.name.lower()
+                        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
+                        is_image = any(file_name.endswith(ext) for ext in image_extensions)
+
+                        if is_image:
+                            # Save to image field and set message_type to IMAGE
+                            message.image = uploaded_file
+                            message.message_type = Message.Type.IMAGE
+                        else:
+                            # Save to file field and set message_type to FILE
+                            message.file = uploaded_file
+                            message.message_type = Message.Type.FILE
+
+                        message.save(update_fields=['file', 'image', 'message_type'])
+                        logger.info(
+                            f'[send_message] File attached to message {message.id}: '
+                            f'{uploaded_file.name} ({uploaded_file.size} bytes), is_image={is_image}'
+                        )
 
                     # Update chat's updated_at timestamp
                     chat.save(update_fields=['updated_at'])

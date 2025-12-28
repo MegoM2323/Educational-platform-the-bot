@@ -28,9 +28,9 @@ export const useSendForumMessage = () => {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: ({ chatId, data }: { chatId: number; data: SendForumMessageRequest }) =>
-      forumAPI.sendForumMessage(chatId, data),
-    onMutate: async ({ chatId, data }) => {
+    mutationFn: ({ chatId, data, file }: { chatId: number; data: SendForumMessageRequest; file?: File }) =>
+      forumAPI.sendForumMessage(chatId, { ...data, file }),
+    onMutate: async ({ chatId, data, file }) => {
       // Cancel outgoing refetches to avoid overwriting our optimistic update
       await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
 
@@ -58,7 +58,10 @@ export const useSendForumMessage = () => {
             updated_at: new Date().toISOString(),
             is_read: false,
             is_edited: false,
-            message_type: 'text',
+            message_type: file ? 'file' : 'text',
+            file_name: file?.name,
+            file_type: file?.type,
+            is_image: file ? file.type.startsWith('image/') : false,
           };
 
           // Add optimistic message to the end

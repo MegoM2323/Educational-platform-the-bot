@@ -138,12 +138,18 @@ class MessageSerializer(serializers.ModelSerializer):
     thread_title = serializers.CharField(source='thread.title', read_only=True)
     file_url = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
+    # Метаданные файла для frontend
+    file_name = serializers.SerializerMethodField()
+    file_size = serializers.SerializerMethodField()
+    file_type = serializers.SerializerMethodField()
+    is_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = (
             'id', 'room', 'thread', 'thread_title', 'sender', 'sender_name', 'sender_avatar', 'sender_role',
-            'content', 'message_type', 'file', 'file_url', 'image', 'image_url', 'is_edited',
+            'content', 'message_type', 'file', 'file_url', 'file_name', 'file_size', 'file_type',
+            'image', 'image_url', 'is_image', 'is_edited',
             'reply_to', 'created_at', 'updated_at', 'is_read', 'replies_count'
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
@@ -181,7 +187,69 @@ class MessageSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return None
-    
+
+    def get_file_name(self, obj):
+        """Возвращает имя файла (file или image)"""
+        import os
+        if obj.file:
+            return os.path.basename(obj.file.name)
+        if obj.image:
+            return os.path.basename(obj.image.name)
+        return None
+
+    def get_file_size(self, obj):
+        """Возвращает размер файла в байтах"""
+        try:
+            if obj.file and obj.file.name:
+                return obj.file.size
+            if obj.image and obj.image.name:
+                return obj.image.size
+        except (OSError, ValueError):
+            # Файл может не существовать на диске
+            return None
+        return None
+
+    def get_file_type(self, obj):
+        """
+        Возвращает тип файла: 'image', 'document', 'archive'
+        Определяется по расширению файла
+        """
+        import os
+
+        # Расширения для определения типа
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'}
+        archive_extensions = {'.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz'}
+
+        # Проверяем image поле
+        if obj.image and obj.image.name:
+            return 'image'
+
+        # Проверяем file поле
+        if obj.file and obj.file.name:
+            _, ext = os.path.splitext(obj.file.name.lower())
+            if ext in image_extensions:
+                return 'image'
+            if ext in archive_extensions:
+                return 'archive'
+            return 'document'
+
+        return None
+
+    def get_is_image(self, obj):
+        """Проверяет, является ли вложение изображением"""
+        # Если есть image поле - это изображение
+        if obj.image and obj.image.name:
+            return True
+
+        # Проверяем file поле по расширению
+        if obj.file and obj.file.name:
+            import os
+            image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'}
+            _, ext = os.path.splitext(obj.file.name.lower())
+            return ext in image_extensions
+
+        return False
+
     def get_is_read(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:

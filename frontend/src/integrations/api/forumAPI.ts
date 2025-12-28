@@ -22,6 +22,9 @@ export interface ForumMessage {
   message_type?: string;
   file_url?: string;
   image_url?: string;
+  file_name?: string;
+  file_type?: string;
+  is_image?: boolean;
 }
 
 export interface ForumChat {
@@ -60,6 +63,7 @@ export interface SendForumMessageRequest {
   content: string;
   message_type?: string;
   reply_to?: number;
+  file?: File;
 }
 
 export interface SendForumMessageResponse {
@@ -193,6 +197,36 @@ export const forumAPI = {
     chatId: number,
     data: SendForumMessageRequest
   ): Promise<ForumMessage> => {
+    // If file is provided, use FormData
+    if (data.file) {
+      const formData = new FormData();
+      formData.append('content', data.content);
+      formData.append('file', data.file);
+      if (data.message_type) {
+        formData.append('message_type', data.message_type);
+      }
+      if (data.reply_to) {
+        formData.append('reply_to', String(data.reply_to));
+      }
+
+      const response = await unifiedAPI.request<SendForumMessageResponse>(
+        `/chat/forum/${chatId}/send_message/`,
+        {
+          method: 'POST',
+          body: formData,
+          // Don't set Content-Type header - browser will set it with boundary for FormData
+        }
+      );
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      if (!response.data?.message) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data.message;
+    }
+
+    // Otherwise use JSON
     const response = await unifiedAPI.request<SendForumMessageResponse>(
       `/chat/forum/${chatId}/send_message/`,
       {

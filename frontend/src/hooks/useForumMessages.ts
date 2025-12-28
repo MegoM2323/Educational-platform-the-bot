@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { forumAPI, ForumMessage, SendForumMessageRequest, EditMessageRequest } from '../integrations/api/forumAPI';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useForumMessages = (chatId: number | null, limit: number = 50, offset: number = 0) => {
   const query = useQuery<ForumMessage[]>({
@@ -24,6 +25,7 @@ export const useForumMessages = (chatId: number | null, limit: number = 50, offs
 
 export const useSendForumMessage = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: ({ chatId, data }: { chatId: number; data: SendForumMessageRequest }) =>
@@ -41,14 +43,16 @@ export const useSendForumMessage = () => {
         (oldData) => {
           if (!oldData) return oldData;
 
-          // Create temporary optimistic message
+          // Create temporary optimistic message with REAL current user data
           const optimisticMessage: ForumMessage = {
             id: Date.now(), // Temporary ID
             content: data.content,
             sender: {
-              id: 0, // Will be filled by server
-              full_name: 'Вы',
-              role: '',
+              id: user?.id || 0, // REAL current user ID - determines message side (left/right)
+              full_name: user?.first_name && user?.last_name
+                ? `${user.first_name} ${user.last_name}`.trim()
+                : user?.email || 'Вы',
+              role: user?.role || '',
             },
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -71,8 +75,12 @@ export const useSendForumMessage = () => {
         (oldData) => {
           if (!oldData) return [message];
 
-          // Remove temporary optimistic message and add real message
-          const withoutOptimistic = oldData.filter((msg) => msg.id !== message.id && msg.sender.id !== 0);
+          // Remove temporary optimistic message (has temporary timestamp-based ID)
+          // Keep only messages with real server IDs (< Date.now() threshold)
+          const now = Date.now();
+          const withoutOptimistic = oldData.filter((msg) =>
+            msg.id < now - 60000 // Real message IDs are much smaller than timestamps
+          );
 
           // Check if real message already exists (from WebSocket)
           const exists = withoutOptimistic.some((msg) => msg.id === message.id);

@@ -523,7 +523,8 @@ const ChatWindow = ({
             ref={fileInputRef}
             onChange={handleFileSelect}
             accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
-            className="hidden"
+            style={{ display: 'none' }}
+            data-testid="file-input-hidden"
           />
           <Button
             type="button"
@@ -532,6 +533,7 @@ const ChatWindow = ({
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending}
             className="shrink-0"
+            data-testid="file-attach-button"
           >
             <Paperclip className="w-4 h-4" />
           </Button>

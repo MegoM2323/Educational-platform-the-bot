@@ -185,24 +185,37 @@ def send_forum_notification(sender, instance: Message, created: bool, **kwargs) 
         # Dispatch Celery task for async processing with retry
         from chat.tasks import send_pachca_forum_notification_task
 
-        send_pachca_forum_notification_task.apply_async(
-            args=[instance.id, chat_room.id],
-            countdown=2,  # Wait 2 seconds before sending (debounce)
-        )
-
-        logger.info(
-            f"Pachca notification task queued for message {instance.id} in chat {chat_room.id}",
-            extra={
-                'message_id': instance.id,
-                'chat_room_id': chat_room.id,
-                'chat_type': chat_room.type
-            }
-        )
+        try:
+            send_pachca_forum_notification_task.apply_async(
+                args=[instance.id, chat_room.id],
+                countdown=2,  # Wait 2 seconds before sending (debounce)
+            )
+            logger.info(
+                f"Pachca notification task queued for message {instance.id} in chat {chat_room.id}",
+                extra={
+                    'message_id': instance.id,
+                    'chat_room_id': chat_room.id,
+                    'chat_type': chat_room.type
+                }
+            )
+        except Exception as e:
+            # Celery/Redis connection failed - log warning but don't block message sending
+            # Message is already saved and broadcast via WebSocket, notification is optional
+            logger.warning(
+                f"Failed to queue Pachca notification task for message {instance.id}: {e}",
+                extra={
+                    'message_id': instance.id,
+                    'chat_room_id': chat_room.id,
+                    'error_type': type(e).__name__,
+                    'error': str(e)
+                }
+            )
+            # Don't re-raise - notification failure shouldn't break message sending
 
     except Exception as e:
-        # Critical: Celery task dispatch failed
+        # Critical: unexpected error during notification setup
         logger.error(
-            f"Error dispatching Pachca notification task for message {instance.id}: {str(e)}",
+            f"Error in notification signal for message {instance.id}: {str(e)}",
             exc_info=True,
             extra={
                 'message_id': instance.id,

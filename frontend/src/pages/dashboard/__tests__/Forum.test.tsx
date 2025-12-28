@@ -8,6 +8,24 @@ import * as useForumChatsHook from '@/hooks/useForumChats';
 import * as useForumMessagesHook from '@/hooks/useForumMessages';
 import * as React from 'react';
 
+// Mock AuthContext
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: vi.fn(() => ({
+    user: {
+      id: 1,
+      email: 'student@test.com',
+      first_name: 'John',
+      last_name: 'Student',
+      role: 'student',
+    },
+    isAuthenticated: true,
+    login: vi.fn(),
+    logout: vi.fn(),
+    loading: false,
+  })),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 // Mock hooks
 vi.mock('@/hooks/useForumChats', () => ({
   useForumChats: vi.fn(),
@@ -17,6 +35,66 @@ vi.mock('@/hooks/useForumChats', () => ({
 vi.mock('@/hooks/useForumMessages', () => ({
   useForumMessages: vi.fn(),
   useSendForumMessage: vi.fn(),
+}));
+
+vi.mock('@/hooks/useForumMessageUpdate', () => ({
+  useForumMessageUpdate: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
+}));
+
+vi.mock('@/hooks/useForumMessageDelete', () => ({
+  useForumMessageDelete: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
+}));
+
+// Mock WebSocket service
+vi.mock('@/services/chatWebSocketService', () => ({
+  chatWebSocketService: {
+    connectToRoom: vi.fn(() => true),
+    disconnectFromRoom: vi.fn(),
+    isConnected: vi.fn(() => true),
+    sendMessage: vi.fn(),
+    sendTyping: vi.fn(),
+    sendTypingStop: vi.fn(),
+    onConnectionChange: vi.fn(),
+  },
+}));
+
+// Mock layout components
+vi.mock('@/components/layout/StudentSidebar', () => ({
+  StudentSidebar: () => <div data-testid="student-sidebar" />,
+}));
+
+vi.mock('@/components/layout/TeacherSidebar', () => ({
+  TeacherSidebar: () => <div data-testid="teacher-sidebar" />,
+}));
+
+vi.mock('@/components/layout/TutorSidebar', () => ({
+  TutorSidebar: () => <div data-testid="tutor-sidebar" />,
+}));
+
+vi.mock('@/components/layout/ParentSidebar', () => ({
+  ParentSidebar: () => <div data-testid="parent-sidebar" />,
+}));
+
+// Mock forum components
+vi.mock('@/components/forum/MessageActions', () => ({
+  MessageActions: () => <div data-testid="message-actions" />,
+}));
+
+vi.mock('@/components/forum/EditMessageDialog', () => ({
+  EditMessageDialog: () => <div data-testid="edit-message-dialog" />,
+}));
+
+// Mock toast
+vi.mock('@/hooks/use-toast', () => ({
+  useToast: vi.fn(() => ({
+    toast: vi.fn(),
+  })),
 }));
 
 // Mock UI components
@@ -57,12 +135,67 @@ vi.mock('@/components/ui/skeleton', () => ({
   Skeleton: (props: any) => <div data-testid="skeleton" {...props} />,
 }));
 
-vi.mock('lucide-react', () => ({
-  MessageCircle: () => <div data-testid="icon-message-circle" />,
-  Send: () => <div data-testid="icon-send" />,
-  Search: () => <div data-testid="icon-search" />,
-  Loader2: () => <div data-testid="icon-loader2" />,
+vi.mock('@/components/ui/sidebar', () => ({
+  SidebarProvider: ({ children }: any) => <div data-testid="sidebar-provider">{children}</div>,
+  SidebarInset: ({ children }: any) => <div data-testid="sidebar-inset">{children}</div>,
+  SidebarTrigger: () => <div data-testid="sidebar-trigger" />,
 }));
+
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ children }: any) => <div data-testid="dialog">{children}</div>,
+  DialogContent: ({ children }: any) => <div data-testid="dialog-content">{children}</div>,
+  DialogHeader: ({ children }: any) => <div data-testid="dialog-header">{children}</div>,
+  DialogTitle: ({ children }: any) => <div data-testid="dialog-title">{children}</div>,
+  DialogDescription: ({ children }: any) => <div data-testid="dialog-description">{children}</div>,
+}));
+
+vi.mock('@/components/ui/alert-dialog', () => ({
+  AlertDialog: ({ children }: any) => <div data-testid="alert-dialog">{children}</div>,
+  AlertDialogAction: ({ children, onClick }: any) => <button data-testid="alert-dialog-action" onClick={onClick}>{children}</button>,
+  AlertDialogCancel: ({ children }: any) => <button data-testid="alert-dialog-cancel">{children}</button>,
+  AlertDialogContent: ({ children }: any) => <div data-testid="alert-dialog-content">{children}</div>,
+  AlertDialogDescription: ({ children }: any) => <div data-testid="alert-dialog-description">{children}</div>,
+  AlertDialogFooter: ({ children }: any) => <div data-testid="alert-dialog-footer">{children}</div>,
+  AlertDialogHeader: ({ children }: any) => <div data-testid="alert-dialog-header">{children}</div>,
+  AlertDialogTitle: ({ children }: any) => <div data-testid="alert-dialog-title">{children}</div>,
+}));
+
+vi.mock('@/components/ui/select', () => ({
+  Select: ({ children }: any) => <div data-testid="select">{children}</div>,
+  SelectContent: ({ children }: any) => <div data-testid="select-content">{children}</div>,
+  SelectItem: ({ children }: any) => <div data-testid="select-item">{children}</div>,
+  SelectTrigger: ({ children }: any) => <div data-testid="select-trigger">{children}</div>,
+  SelectValue: () => <div data-testid="select-value" />,
+}));
+
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    MessageCircle: () => <div data-testid="icon-message-circle" />,
+    Send: () => <div data-testid="icon-send" />,
+    Search: () => <div data-testid="icon-search" />,
+    Loader2: () => <div data-testid="icon-loader2" />,
+    // Include other icons that might be needed
+    Home: () => <div data-testid="icon-home" />,
+    BookOpen: () => <div data-testid="icon-book-open" />,
+    Calendar: () => <div data-testid="icon-calendar" />,
+    User: () => <div data-testid="icon-user" />,
+    Settings: () => <div data-testid="icon-settings" />,
+    LogOut: () => <div data-testid="icon-logout" />,
+    Wifi: () => <div data-testid="icon-wifi" />,
+    WifiOff: () => <div data-testid="icon-wifi-off" />,
+    AlertCircle: () => <div data-testid="icon-alert-circle" />,
+    Plus: () => <div data-testid="icon-plus" />,
+    CheckCircle2: () => <div data-testid="icon-check-circle" />,
+    Filter: () => <div data-testid="icon-filter" />,
+    Paperclip: () => <div data-testid="icon-paperclip" />,
+    FileText: () => <div data-testid="icon-file-text" />,
+    Image: () => <div data-testid="icon-image" />,
+    Download: () => <div data-testid="icon-download" />,
+    X: () => <div data-testid="icon-x" />,
+  };
+});
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -163,13 +296,10 @@ const mockForumMessages = [
   },
 ];
 
+// InfiniteData structure that useInfiniteQuery returns
 const mockMessagesResponse = {
-  success: true,
-  chat_id: 1,
-  limit: 50,
-  offset: 0,
-  count: 2,
-  results: mockForumMessages,
+  pages: [mockForumMessages], // Array of pages, each page is an array of messages
+  pageParams: [0], // Array of page params used for pagination
 };
 
 describe('Forum Component', () => {
@@ -179,20 +309,15 @@ describe('Forum Component', () => {
 
     // Default mock implementations
     vi.mocked(useForumChatsHook.useForumChats).mockReturnValue({
-      data: mockForumChats,
-      isLoading: false,
-      isError: false,
-      isSuccess: true,
-      error: null,
-      refetch: vi.fn(),
-      isFetching: false,
-      status: 'success',
-      dataUpdatedAt: Date.now(),
-      errorUpdatedAt: 0,
-      failureCount: 0,
-      failureReason: null,
-      isPending: false,
-      isPaused: false,
+      chats: mockForumChats,
+      isLoadingChats: false,
+      chatsError: null,
+      availableContacts: [],
+      isLoadingContacts: false,
+      contactsError: null,
+      initiateChat: vi.fn(),
+      isInitiatingChat: false,
+      initiateChatError: null,
     } as any);
 
     vi.mocked(useForumMessagesHook.useForumMessages).mockReturnValue({
@@ -442,7 +567,7 @@ describe('Forum Component', () => {
 
   it('должен показывать скелеты при загрузке сообщений', async () => {
     vi.mocked(useForumMessagesHook.useForumMessages).mockReturnValue({
-      data: undefined,
+      data: undefined, // InfiniteData is undefined when loading
       isLoading: true,
       isError: false,
       isSuccess: false,

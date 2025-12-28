@@ -84,7 +84,7 @@ class ChatRoom(models.Model):
     
     @property
     def last_message(self):
-        return self.messages.last()
+        return self.messages.filter(is_deleted=False).last()
 
 
 class Message(models.Model):
@@ -176,6 +176,8 @@ class Message(models.Model):
         ordering = ['created_at']
         indexes = [
             models.Index(fields=['is_deleted'], name='message_deleted_idx'),
+            models.Index(fields=['room', 'is_deleted'], name='message_room_deleted_idx'),
+            models.Index(fields=['room', 'created_at'], name='message_room_created_idx'),
         ]
 
     def __str__(self):
@@ -259,11 +261,11 @@ class MessageThread(models.Model):
     
     @property
     def messages_count(self):
-        return self.messages.count()
-    
+        return self.messages.filter(is_deleted=False).count()
+
     @property
     def last_message(self):
-        return self.messages.last()
+        return self.messages.filter(is_deleted=False).last()
 
 
 class ChatParticipant(models.Model):
@@ -301,6 +303,9 @@ class ChatParticipant(models.Model):
     def unread_count(self):
         if self.last_read_at:
             return self.room.messages.filter(
-                created_at__gt=self.last_read_at
+                created_at__gt=self.last_read_at,
+                is_deleted=False
             ).exclude(sender=self.user).count()
-        return self.room.messages.exclude(sender=self.user).count()
+        return self.room.messages.filter(
+            is_deleted=False
+        ).exclude(sender=self.user).count()

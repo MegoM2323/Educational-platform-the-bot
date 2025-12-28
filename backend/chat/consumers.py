@@ -5,6 +5,7 @@ from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django.db import transaction
 from .models import ChatRoom, Message, MessageRead, ChatParticipant
 from .serializers import MessageSerializer
 
@@ -61,6 +62,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         logger.warning(f'[GroupAdd] Room={self.room_id}, Group={self.room_group_name}, Channel={self.channel_name}, User={self.scope["user"].username}')
 
         await self.accept()
+
+        # Очищаем счётчик непрочитанных сообщений для этого пользователя
+        await self.clear_unread_count()
 
         # Отправляем историю сообщений
         await self.send_room_history()
@@ -138,6 +142,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             if message_type == 'chat_message':
                 await self.handle_chat_message(data)
+            elif message_type == 'message_edit':
+                await self.handle_message_edit(data)
             elif message_type == 'typing':
                 await self.handle_typing(data)
             elif message_type == 'mark_read':
@@ -249,6 +255,61 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if message_id:
             await self.mark_message_read(message_id)
 
+    async def handle_message_edit(self, data):
+        """Обработка редактирования сообщения"""
+        message_id = data.get('message_id')
+        new_content = data.get('content', '').strip()
+
+        if not message_id:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Message ID required',
+                'code': 'validation_error'
+            }))
+            return
+
+        if not new_content:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Message content required',
+                'code': 'validation_error'
+            }))
+            return
+
+        # Редактируем сообщение в БД
+        result = await self.edit_message(message_id, new_content)
+
+        if result.get('error'):
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': result['error'],
+                'code': result.get('code', 'edit_error')
+            }))
+            return
+
+        # Подтверждаем редактору успешное редактирование
+        await self.send(text_data=json.dumps({
+            'type': 'message_edit_confirmed',
+            'message_id': message_id,
+            'status': 'edited'
+        }))
+
+        # Рассылаем обновление всем участникам комнаты
+        logger.info(f'[HandleMessageEdit] Broadcasting edit to group {self.room_group_name}, message_id={message_id}')
+        try:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'message_edited',
+                    'message_id': message_id,
+                    'content': new_content,
+                    'is_edited': True,
+                    'edited_at': result['edited_at'],
+                }
+            )
+        except Exception as e:
+            logger.error(f'Channel layer error broadcasting message_edited in room {self.room_id}: {e}', exc_info=True)
+
     async def chat_message(self, event):
         """Отправка сообщения клиенту"""
         logger.warning(f'[ChatMessage Handler] CALLED! Event={event}')
@@ -284,6 +345,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'user_left',
             'user': event['user']
+        }))
+
+    async def message_edited(self, event):
+        """Отправка уведомления о редактировании сообщения клиенту"""
+        await self.send(text_data=json.dumps({
+            'type': 'message_edited',
+            'message_id': event['message_id'],
+            'content': event['content'],
+            'is_edited': event['is_edited'],
+            'edited_at': event['edited_at'],
         }))
 
     @database_sync_to_async
@@ -367,8 +438,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 # Проверяем, является ли хотя бы один ребёнок участником комнаты
                 if children_ids and room.participants.filter(id__in=children_ids).exists():
                     # Добавляем родителя в участники для будущих проверок
-                    room.participants.add(user)
-                    ChatParticipant.objects.get_or_create(room=room, user=user)
+                    # Wrap in transaction to ensure M2M and ChatParticipant are consistent
+                    with transaction.atomic():
+                        room.participants.add(user)
+                        ChatParticipant.objects.get_or_create(room=room, user=user)
                     logger.info(
                         f'[check_room_access] Parent {user_id} granted access to room {self.room_id} '
                         f'via child relationship and added to participants'
@@ -480,6 +553,79 @@ class ChatConsumer(AsyncWebsocketConsumer):
             pass
 
     @database_sync_to_async
+    def edit_message(self, message_id, new_content):
+        """
+        Редактирование сообщения в БД.
+
+        Проверяет:
+        - Существование сообщения
+        - Что пользователь является автором сообщения
+        - Что сообщение принадлежит текущей комнате
+        - Что сообщение не удалено
+
+        Возвращает dict с edited_at или error.
+        """
+        from django.utils import timezone
+
+        try:
+            message = Message.objects.get(id=message_id)
+        except Message.DoesNotExist:
+            return {'error': 'Message not found', 'code': 'not_found'}
+
+        # Проверяем что сообщение принадлежит текущей комнате
+        if str(message.room_id) != str(self.room_id):
+            logger.warning(
+                f'[edit_message] Access denied: message {message_id} belongs to room {message.room_id}, '
+                f'not {self.room_id}'
+            )
+            return {'error': 'Message does not belong to this room', 'code': 'access_denied'}
+
+        # Проверяем что пользователь является автором
+        if message.sender_id != self.scope['user'].id:
+            logger.warning(
+                f'[edit_message] Access denied: user {self.scope["user"].id} is not the sender of message {message_id}'
+            )
+            return {'error': 'You can only edit your own messages', 'code': 'access_denied'}
+
+        # Проверяем что сообщение не удалено
+        if message.is_deleted:
+            return {'error': 'Cannot edit deleted message', 'code': 'validation_error'}
+
+        # Обновляем сообщение
+        message.content = new_content
+        message.is_edited = True
+        message.save(update_fields=['content', 'is_edited', 'updated_at'])
+
+        logger.info(f'[edit_message] Message {message_id} edited by user {self.scope["user"].id}')
+        return {'edited_at': message.updated_at.isoformat()}
+
+    @database_sync_to_async
+    def clear_unread_count(self):
+        """
+        Очистка счётчика непрочитанных сообщений при открытии чата.
+        Обновляет last_read_at в ChatParticipant на текущее время.
+        """
+        from django.utils import timezone
+
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
+            user = self.scope['user']
+
+            # Обновляем или создаём запись ChatParticipant с текущим временем прочтения
+            participant, created = ChatParticipant.objects.get_or_create(
+                room=room,
+                user=user
+            )
+            participant.last_read_at = timezone.now()
+            participant.save(update_fields=['last_read_at'])
+
+            logger.debug(f'[clear_unread_count] Cleared unread count for user {user.id} in room {self.room_id}')
+        except ObjectDoesNotExist:
+            logger.warning(f'[clear_unread_count] Room {self.room_id} not found')
+        except Exception as e:
+            logger.error(f'[clear_unread_count] Error clearing unread count: {e}')
+
+    @database_sync_to_async
     def get_room_history(self):
         """Получение истории сообщений комнаты из БД"""
         try:
@@ -525,6 +671,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
+        # Очищаем счётчик непрочитанных сообщений для общего чата
+        await self.clear_general_unread_count()
+
         # Отправляем историю сообщений
         await self.send_general_chat_history()
 
@@ -558,6 +707,8 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
 
             if message_type == 'chat_message':
                 await self.handle_chat_message(data)
+            elif message_type == 'message_edit':
+                await self.handle_message_edit(data)
             elif message_type == 'typing':
                 await self.handle_typing(data)
             elif message_type == 'typing_stop':
@@ -669,6 +820,117 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
             'user': event['user']
         }))
 
+    async def handle_message_edit(self, data):
+        """Обработка редактирования сообщения в общем чате"""
+        message_id = data.get('message_id')
+        new_content = data.get('content', '').strip()
+
+        if not message_id:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Message ID required',
+                'code': 'validation_error'
+            }))
+            return
+
+        if not new_content:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Message content required',
+                'code': 'validation_error'
+            }))
+            return
+
+        # Редактируем сообщение в БД
+        result = await self.edit_general_message(message_id, new_content)
+
+        if result.get('error'):
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': result['error'],
+                'code': result.get('code', 'edit_error')
+            }))
+            return
+
+        # Подтверждаем редактору успешное редактирование
+        await self.send(text_data=json.dumps({
+            'type': 'message_edit_confirmed',
+            'message_id': message_id,
+            'status': 'edited'
+        }))
+
+        # Рассылаем обновление всем участникам общего чата
+        logger.info(f'[HandleMessageEdit] Broadcasting edit to general chat, message_id={message_id}')
+        try:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'message_edited',
+                    'message_id': message_id,
+                    'content': new_content,
+                    'is_edited': True,
+                    'edited_at': result['edited_at'],
+                }
+            )
+        except Exception as e:
+            logger.error(f'Channel layer error broadcasting message_edited in general chat: {e}', exc_info=True)
+
+    async def message_edited(self, event):
+        """Отправка уведомления о редактировании сообщения клиенту"""
+        await self.send(text_data=json.dumps({
+            'type': 'message_edited',
+            'message_id': event['message_id'],
+            'content': event['content'],
+            'is_edited': event['is_edited'],
+            'edited_at': event['edited_at'],
+        }))
+
+    @database_sync_to_async
+    def edit_general_message(self, message_id, new_content):
+        """
+        Редактирование сообщения в общем чате.
+
+        Проверяет:
+        - Существование сообщения
+        - Что сообщение принадлежит общему чату
+        - Что пользователь является автором сообщения
+        - Что сообщение не удалено
+
+        Возвращает dict с edited_at или error.
+        """
+        from django.utils import timezone
+
+        try:
+            message = Message.objects.get(id=message_id)
+        except Message.DoesNotExist:
+            return {'error': 'Message not found', 'code': 'not_found'}
+
+        # Проверяем что сообщение принадлежит общему чату
+        if message.room.type != ChatRoom.Type.GENERAL:
+            logger.warning(
+                f'[edit_general_message] Access denied: message {message_id} does not belong to general chat'
+            )
+            return {'error': 'Message does not belong to general chat', 'code': 'access_denied'}
+
+        # Проверяем что пользователь является автором
+        if message.sender_id != self.scope['user'].id:
+            logger.warning(
+                f'[edit_general_message] Access denied: user {self.scope["user"].id} is not the sender of message {message_id}'
+            )
+            return {'error': 'You can only edit your own messages', 'code': 'access_denied'}
+
+        # Проверяем что сообщение не удалено
+        if message.is_deleted:
+            return {'error': 'Cannot edit deleted message', 'code': 'validation_error'}
+
+        # Обновляем сообщение
+        message.content = new_content
+        message.is_edited = True
+        message.save(update_fields=['content', 'is_edited', 'updated_at'])
+
+        logger.info(f'[edit_general_message] Message {message_id} edited by user {self.scope["user"].id}')
+        return {'edited_at': message.updated_at.isoformat()}
+
     @database_sync_to_async
     def create_general_message(self, content):
         """Создание нового сообщения в общем чате"""
@@ -714,6 +976,33 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error getting general chat history: {e}")
             return []
+
+    @database_sync_to_async
+    def clear_general_unread_count(self):
+        """
+        Очистка счётчика непрочитанных сообщений для общего чата.
+        Обновляет last_read_at в ChatParticipant на текущее время.
+        """
+        from django.utils import timezone
+
+        try:
+            room = ChatRoom.objects.filter(type=ChatRoom.Type.GENERAL).first()
+            if not room:
+                return
+
+            user = self.scope['user']
+
+            # Обновляем или создаём запись ChatParticipant с текущим временем прочтения
+            participant, created = ChatParticipant.objects.get_or_create(
+                room=room,
+                user=user
+            )
+            participant.last_read_at = timezone.now()
+            participant.save(update_fields=['last_read_at'])
+
+            logger.debug(f'[clear_general_unread_count] Cleared unread count for user {user.id} in general chat')
+        except Exception as e:
+            logger.error(f'[clear_general_unread_count] Error clearing unread count: {e}')
 
 
 class NotificationConsumer(AsyncWebsocketConsumer):

@@ -93,10 +93,28 @@ const TeacherSchedulePage: React.FC = () => {
 
   const handleEditLesson = (lesson: any) => {
     // Convert HH:MM:SS to HH:MM for form compatibility
+    // Convert student/subject IDs to strings for form compatibility
+    // Handle cases where student/subject might be objects with id property
+    const studentId = typeof lesson.student === 'object'
+      ? String(lesson.student?.id || lesson.student)
+      : String(lesson.student);
+    const subjectId = typeof lesson.subject === 'object'
+      ? String(lesson.subject?.id || lesson.subject)
+      : String(lesson.subject);
+
     const lessonData = {
-      ...lesson,
+      id: lesson.id,
+      student: studentId,
+      subject: subjectId,
+      date: lesson.date,
       start_time: lesson.start_time.substring(0, 5), // HH:MM:SS -> HH:MM
       end_time: lesson.end_time.substring(0, 5), // HH:MM:SS -> HH:MM
+      description: lesson.description || '',
+      telemost_link: lesson.telemost_link || '',
+      status: lesson.status,
+      teacher: lesson.teacher,
+      created_at: lesson.created_at,
+      updated_at: lesson.updated_at,
     };
     setEditingId(lesson.id);
     setLessonToEdit(lessonData);
@@ -107,22 +125,30 @@ const TeacherSchedulePage: React.FC = () => {
 
     try {
       // Convert HH:MM to HH:MM:SS for backend compatibility
+      // DON'T send student and subject - they are read-only on update
       const payload = {
-        ...formData,
+        date: formData.date,
         start_time: formData.start_time.includes(':') && formData.start_time.split(':').length === 2
           ? formData.start_time + ':00'
           : formData.start_time,
         end_time: formData.end_time.includes(':') && formData.end_time.split(':').length === 2
           ? formData.end_time + ':00'
           : formData.end_time,
+        description: formData.description || '',
+        telemost_link: formData.telemost_link || '',
       };
 
       // Call mutation (hook handles success/error toasts and query invalidation)
-      updateLesson({ id: editingId, payload });
-
-      // Close dialog immediately (optimistic UI)
-      setEditingId(null);
-      setLessonToEdit(null);
+      updateLesson(
+        { id: editingId, payload },
+        {
+          onSuccess: () => {
+            // Close dialog only after successful update and cache invalidation
+            setEditingId(null);
+            setLessonToEdit(null);
+          }
+        }
+      );
     } catch (error) {
       toast({
         title: 'Error',
@@ -253,6 +279,7 @@ const TeacherSchedulePage: React.FC = () => {
                   isLoading={isUpdating}
                   students={students}
                   subjects={subjects}
+                  isEditMode={true} // IMPORTANT: use update schema
                 />
               </DialogContent>
             </Dialog>

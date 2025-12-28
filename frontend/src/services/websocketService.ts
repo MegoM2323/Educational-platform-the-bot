@@ -176,15 +176,25 @@ export class WebSocketService {
   disconnect(): void {
     this.stopHeartbeat();
     this.clearReconnectTimer();
-    
+
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
       this.ws = null;
     }
-    
+
     this.connectionState = 'disconnected';
     this.isConnecting = false;
     this.notifyConnectionChange(false);
+  }
+
+  /**
+   * Ручная повторная попытка подключения (сброс счетчика попыток)
+   */
+  retryConnection(): void {
+    logger.info('[WebSocket] Manual retry connection requested');
+    this.clearReconnectTimer();
+    this.reconnectAttempts = 0;
+    this.connect();
   }
 
   /**
@@ -266,6 +276,24 @@ export class WebSocketService {
   }
 
   /**
+   * Получение информации о текущем состоянии переподключения
+   */
+  getReconnectionInfo(): {
+    isReconnecting: boolean;
+    attempt: number;
+    maxAttempts: number;
+    nextRetryDelay: number;
+  } {
+    const isReconnecting = this.reconnectTimer !== null;
+    return {
+      isReconnecting,
+      attempt: this.reconnectAttempts,
+      maxAttempts: this.config.maxReconnectAttempts || 10,
+      nextRetryDelay: isReconnecting ? this.getReconnectDelay() : 0,
+    };
+  }
+
+  /**
    * Подписка на ошибки аутентификации
    * @param callback - Функция обработчик, принимающая код ошибки и описание
    */
@@ -323,20 +351,33 @@ export class WebSocketService {
   }
 
   /**
-   * Планирование переподключения
+   * Вычисление задержки переподключения с экспоненциальной отсрочкой
+   * Начинается с 1s, удваивается каждую попытку: 1s, 2s, 4s, 8s, 16s, 30s (max)
+   */
+  private getReconnectDelay(): number {
+    const baseDelay = 1000; // 1 секунда
+    const maxDelay = 30000; // 30 секунд максимум
+    const exponentialDelay = baseDelay * Math.pow(2, this.reconnectAttempts);
+    return Math.min(exponentialDelay, maxDelay);
+  }
+
+  /**
+   * Планирование переподключения с экспоненциальной отсрочкой
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts!) {
-      logger.error('Max reconnection attempts reached');
+      logger.error(`[WebSocket] Max reconnection attempts (${this.config.maxReconnectAttempts}) reached`);
+      this.notifyConnectionChange(false);
       return;
     }
 
     this.reconnectAttempts++;
-    const delay = this.config.reconnectInterval! * Math.pow(2, this.reconnectAttempts - 1);
-    
-    logger.debug(`Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`);
-    
+    const delay = this.getReconnectDelay();
+
+    logger.info(`[WebSocket] Scheduling reconnection attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts} in ${delay}ms`);
+
     this.reconnectTimer = setTimeout(() => {
+      logger.info(`[WebSocket] Executing reconnection attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts}`);
       this.connect();
     }, delay);
   }
@@ -388,12 +429,29 @@ export class WebSocketService {
    * Обработка очереди сообщений
    */
   private processMessageQueue(): void {
+    if (this.messageQueue.length === 0) {
+      return;
+    }
+
+    logger.info(`[WebSocket] Processing message queue: ${this.messageQueue.length} messages`);
+
+    let processedCount = 0;
     while (this.messageQueue.length > 0 && this.isConnected()) {
       const message = this.messageQueue.shift();
       if (message) {
-        this.send(message);
+        try {
+          this.send(message);
+          processedCount++;
+        } catch (error) {
+          logger.error('[WebSocket] Error processing queued message:', error);
+          // Если ошибка при отправке, возвращаем сообщение в очередь
+          this.messageQueue.unshift(message);
+          break;
+        }
       }
     }
+
+    logger.info(`[WebSocket] Processed ${processedCount} queued messages, ${this.messageQueue.length} remaining`);
   }
 
   /**

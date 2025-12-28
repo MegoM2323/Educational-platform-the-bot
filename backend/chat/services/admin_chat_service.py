@@ -77,7 +77,12 @@ class AdminChatService:
             'thread'
         ).prefetch_related(
             'read_by',
-            'replies'
+            Prefetch(
+                'replies',
+                queryset=Message.objects.filter(is_deleted=False)
+            )
+        ).annotate(
+            annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False))
         ).order_by('-created_at')[offset:offset + limit]
 
         return messages

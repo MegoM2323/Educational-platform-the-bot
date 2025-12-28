@@ -31,6 +31,7 @@ urlpatterns = [
     path('refresh/', views.refresh_token_view, name='refresh_token'),
 
     # Профиль пользователя (общий endpoint)
+    path('me/', views.CurrentUserProfileView.as_view(), name='current_user_me'),  # Алиас для фронтенда
     path('profile/', views.CurrentUserProfileView.as_view(), name='current_user_profile'),
     path('profile/update/', views.update_profile, name='update_profile'),
     path('change-password/', views.change_password, name='change_password'),

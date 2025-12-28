@@ -15,6 +15,7 @@ from typing import List
 
 from django.db import transaction
 from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, Case, When, IntegerField, Value, F, Exists
+from django.db.models.functions import Coalesce
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import viewsets, status, permissions
@@ -55,8 +56,10 @@ def check_parent_access_to_room(user: User, chat: ChatRoom) -> bool:
     # Проверяем, является ли хотя бы один ребёнок участником комнаты
     if children_ids and chat.participants.filter(id__in=children_ids).exists():
         # Добавляем родителя в участники для будущих проверок
-        chat.participants.add(user)
-        ChatParticipant.objects.get_or_create(room=chat, user=user)
+        # Wrap in transaction to ensure M2M and ChatParticipant are consistent
+        with transaction.atomic():
+            chat.participants.add(user)
+            ChatParticipant.objects.get_or_create(room=chat, user=user)
         logger.info(
             f'[check_parent_access_to_room] Parent {user.id} granted access to room {chat.id} '
             f'via child relationship and added to participants'
@@ -299,15 +302,27 @@ class ForumChatViewSet(viewsets.ViewSet):
             sender_id = request.query_params.get('sender', '').strip()
 
             # Base queryset - exclude deleted messages
+            # Оптимизация N+1: используем select_related, prefetch_related и аннотации
             messages = Message.objects.filter(
                 room=chat,
                 is_deleted=False
             ).select_related(
                 'sender',
+                'thread',
                 'reply_to__sender'
             ).prefetch_related(
-                'replies',
+                # Prefetch только не-удалённые replies для подсчёта в serializer
+                Prefetch(
+                    'replies',
+                    queryset=Message.objects.filter(is_deleted=False).only('id', 'is_deleted')
+                ),
                 'read_by'
+            ).annotate(
+                # Аннотация для replies_count - избегает N+1 при сериализации
+                annotated_replies_count=Count(
+                    'replies',
+                    filter=Q(replies__is_deleted=False)
+                )
             )
 
             # Apply search filter

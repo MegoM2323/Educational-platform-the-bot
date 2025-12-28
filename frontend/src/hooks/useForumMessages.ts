@@ -1,11 +1,71 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { forumAPI, ForumMessage, SendForumMessageRequest, EditMessageRequest } from '../integrations/api/forumAPI';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from '@tanstack/react-query';
+import { forumAPI, ForumMessage, SendForumMessageRequest } from '../integrations/api/forumAPI';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
-export const useForumMessages = (chatId: number | null, limit: number = 50, offset: number = 0) => {
+/**
+ * Hook для загрузки сообщений форума с infinite scroll поддержкой
+ * Использует useInfiniteQuery для эффективного управления пагинацией и кешем
+ */
+export const useForumMessages = (chatId: number | null) => {
+  const MESSAGES_PER_PAGE = 50;
+
+  return useInfiniteQuery<ForumMessage[], Error>({
+    queryKey: ['forum-messages', chatId],
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!chatId) {
+        throw new Error('Chat ID is required');
+      }
+
+      try {
+        // Fetch messages from API with pagination
+        const messages = await forumAPI.getForumMessages(
+          chatId,
+          MESSAGES_PER_PAGE,
+          pageParam as number
+        );
+
+        return messages;
+      } catch (error: any) {
+        // Provide user-friendly error messages
+        const errorMessage = error?.response?.data?.detail ||
+                            error?.message ||
+                            'Не удалось загрузить сообщения';
+        throw new Error(errorMessage);
+      }
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      // Calculate total fetched messages
+      const totalFetched = allPages.reduce((sum, page) => sum + page.length, 0);
+
+      // If last page has full page of results, there might be more
+      // Return next offset, otherwise undefined (no more pages)
+      return lastPage.length === MESSAGES_PER_PAGE ? totalFetched : undefined;
+    },
+    initialPageParam: 0,
+    enabled: !!chatId,
+    staleTime: 1000 * 60, // Consider data stale after 1 minute
+    refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: false, // Don't refetch on window focus to reduce server load
+    retry: (failureCount, error) => {
+      // Don't retry on authentication errors (401, 403)
+      if (error.message.includes('401') || error.message.includes('403') ||
+          error.message.includes('авторизован') || error.message.includes('доступ')) {
+        return false;
+      }
+      // Retry up to 2 times for other errors
+      return failureCount < 2;
+    },
+  });
+};
+
+/**
+ * Legacy hook для обратной совместимости с существующим кодом
+ * @deprecated Используйте useForumMessages вместо этого
+ */
+export const useForumMessagesLegacy = (chatId: number | null, limit: number = 50, offset: number = 0) => {
   const query = useQuery<ForumMessage[]>({
-    queryKey: ['forum-messages', chatId, limit, offset],
+    queryKey: ['forum-messages-legacy', chatId, limit, offset],
     queryFn: async () => {
       if (!chatId) {
         throw new Error('Chat ID is required');
@@ -26,76 +86,110 @@ export const useForumMessages = (chatId: number | null, limit: number = 50, offs
 export const useSendForumMessage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { toast: toastHook } = useAuth(); // Get toast from context if available
 
   return useMutation({
-    mutationFn: ({ chatId, data, file }: { chatId: number; data: SendForumMessageRequest; file?: File }) =>
-      forumAPI.sendForumMessage(chatId, { ...data, file }),
+    mutationFn: async ({ chatId, data, file }: { chatId: number; data: SendForumMessageRequest; file?: File }) => {
+      try {
+        return await forumAPI.sendForumMessage(chatId, { ...data, file });
+      } catch (error: any) {
+        // Provide user-friendly error messages
+        const errorMessage = error?.response?.data?.detail ||
+                            error?.message ||
+                            'Не удалось отправить сообщение';
+        throw new Error(errorMessage);
+      }
+    },
     onMutate: async ({ chatId, data, file }) => {
       // Cancel outgoing refetches to avoid overwriting our optimistic update
       await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
 
-      // Snapshot previous value for rollback
-      const previousMessages = queryClient.getQueryData<ForumMessage[]>(['forum-messages', chatId]);
+      // Snapshot previous value for rollback (InfiniteData structure)
+      const previousMessages = queryClient.getQueryData<InfiniteData<ForumMessage[]>>(['forum-messages', chatId]);
 
-      // Optimistic update: IMMEDIATELY add temporary message to cache
-      queryClient.setQueriesData<ForumMessage[]>(
-        { queryKey: ['forum-messages', chatId], exact: false },
+      // Create temporary optimistic message with REAL current user data
+      const optimisticMessage: ForumMessage = {
+        id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as any, // Temporary ID with collision prevention
+        content: data.content,
+        sender: {
+          id: user?.id || 0, // REAL current user ID - determines message side (left/right)
+          full_name: user?.first_name && user?.last_name
+            ? `${user.first_name} ${user.last_name}`.trim()
+            : user?.email || 'Вы',
+          role: user?.role || '',
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_read: false,
+        is_edited: false,
+        message_type: file ? 'file' : 'text',
+        file_name: file?.name,
+        file_type: file?.type,
+        is_image: file ? file.type.startsWith('image/') : false,
+      };
+
+      // Optimistic update: IMMEDIATELY add temporary message to InfiniteData cache
+      queryClient.setQueryData<InfiniteData<ForumMessage[]>>(
+        ['forum-messages', chatId],
         (oldData) => {
           if (!oldData) return oldData;
 
-          // Create temporary optimistic message with REAL current user data
-          const optimisticMessage: ForumMessage = {
-            id: Date.now(), // Temporary ID
-            content: data.content,
-            sender: {
-              id: user?.id || 0, // REAL current user ID - determines message side (left/right)
-              full_name: user?.first_name && user?.last_name
-                ? `${user.first_name} ${user.last_name}`.trim()
-                : user?.email || 'Вы',
-              role: user?.role || '',
-            },
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            is_read: false,
-            is_edited: false,
-            message_type: file ? 'file' : 'text',
-            file_name: file?.name,
-            file_type: file?.type,
-            is_image: file ? file.type.startsWith('image/') : false,
-          };
+          // Add optimistic message to the last page
+          const newPages = [...oldData.pages];
+          const lastPageIndex = newPages.length - 1;
+          newPages[lastPageIndex] = [...newPages[lastPageIndex], optimisticMessage];
 
-          // Add optimistic message to the end
-          return [...oldData, optimisticMessage];
+          return {
+            ...oldData,
+            pages: newPages,
+          };
         }
       );
 
       return { previousMessages };
     },
     onSuccess: (message, variables) => {
-      // Replace optimistic message with real server response
-      queryClient.setQueriesData<ForumMessage[]>(
-        { queryKey: ['forum-messages', variables.chatId], exact: false },
+      // Replace optimistic message with real server response in InfiniteData structure
+      queryClient.setQueryData<InfiniteData<ForumMessage[]>>(
+        ['forum-messages', variables.chatId],
         (oldData) => {
-          if (!oldData) return [message];
+          if (!oldData) {
+            return {
+              pages: [[message]],
+              pageParams: [0],
+            };
+          }
 
-          // Remove temporary optimistic message (has temporary timestamp-based ID)
-          // Keep only messages with real server IDs (< Date.now() threshold)
-          const now = Date.now();
-          const withoutOptimistic = oldData.filter((msg) =>
-            msg.id < now - 60000 // Real message IDs are much smaller than timestamps
-          );
+          // Update all pages: remove temp message, check for duplicates, add real message
+          const newPages = oldData.pages.map((page, index) => {
+            // Remove temporary optimistic messages (string IDs starting with 'temp-')
+            const withoutOptimistic = page.filter((msg) => typeof msg.id === 'number');
 
-          // Check if real message already exists (from WebSocket)
-          const exists = withoutOptimistic.some((msg) => msg.id === message.id);
-          if (exists) return withoutOptimistic;
+            // Add real message only to the last page
+            if (index === oldData.pages.length - 1) {
+              // Check if real message already exists (from WebSocket)
+              const exists = withoutOptimistic.some((msg) => msg.id === message.id);
+              if (!exists) {
+                return [...withoutOptimistic, message];
+              }
+            }
 
-          // Add real message
-          return [...withoutOptimistic, message];
+            return withoutOptimistic;
+          });
+
+          return {
+            ...oldData,
+            pages: newPages,
+          };
         }
       );
 
+      // Invalidate messages cache to ensure all queries are fresh
+      queryClient.invalidateQueries({ queryKey: ['forum-messages', variables.chatId] });
+
       // Update forum chats to show last_message
       queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+
       toast.success('Сообщение отправлено');
     },
     onError: (error: Error, variables, context) => {
@@ -108,46 +202,6 @@ export const useSendForumMessage = () => {
   });
 };
 
-export const usePaginatedForumMessages = (chatId: number | null) => {
-  const [limit, setLimit] = [50, () => {}];
-  const [offset, setOffset] = [0, () => {}];
-
-  const query = useForumMessages(chatId, limit, offset);
-
-  return {
-    ...query,
-    offset,
-    setOffset,
-    loadMore: () => setOffset((prev: number) => prev + limit),
-    loadBefore: () => setOffset((prev: number) => Math.max(0, prev - limit)),
-  };
-};
-
-export const useEditForumMessage = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ messageId, data }: { messageId: number; data: EditMessageRequest }) =>
-      forumAPI.editForumMessage(messageId, data),
-    onSuccess: (updatedMessage, variables) => {
-      // Update the message in all cached queries
-      queryClient.setQueriesData<ForumMessage[]>(
-        { queryKey: ['forum-messages'] },
-        (oldData) => {
-          if (!oldData) return oldData;
-          return oldData.map((msg) =>
-            msg.id === updatedMessage.id ? updatedMessage : msg
-          );
-        }
-      );
-
-      toast.success('Сообщение отредактировано');
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка редактирования: ${error.message}`);
-    },
-  });
-};
 
 export const useDeleteForumMessage = () => {
   const queryClient = useQueryClient();
@@ -155,14 +209,29 @@ export const useDeleteForumMessage = () => {
   return useMutation({
     mutationFn: (messageId: number) => forumAPI.deleteForumMessage(messageId),
     onSuccess: (_, messageId) => {
-      // Remove the message from all cached queries
-      queryClient.setQueriesData<ForumMessage[]>(
+      // Remove the message from all cached InfiniteData queries
+      queryClient.setQueriesData<InfiniteData<ForumMessage[]>>(
         { queryKey: ['forum-messages'] },
         (oldData) => {
           if (!oldData) return oldData;
-          return oldData.filter((msg) => msg.id !== messageId);
+
+          // Filter out deleted message from all pages
+          const newPages = oldData.pages.map((page) =>
+            page.filter((msg) => msg.id !== messageId)
+          );
+
+          return {
+            ...oldData,
+            pages: newPages,
+          };
         }
       );
+
+      // Invalidate messages cache to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ['forum-messages'] });
+
+      // Update forum chats to show updated last_message after deletion
+      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
 
       toast.success('Сообщение удалено');
     },

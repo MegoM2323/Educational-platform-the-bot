@@ -127,13 +127,25 @@ class ChatRoomCreateSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     """
-    Сериализатор для сообщений
+    Сериализатор для сообщений.
+
+    Оптимизация N+1 queries:
+    - replies_count: использует аннотацию из queryset или prefetched данные
+    - is_read: использует prefetched read_by данные
+    - sender поля: требуют select_related('sender') в queryset
+
+    Требования к queryset для оптимальной производительности:
+    - select_related('sender', 'thread', 'reply_to__sender')
+    - prefetch_related('replies', 'read_by')
+    - annotate(annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False)))
     """
     sender = serializers.SerializerMethodField()
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
     sender_avatar = serializers.SerializerMethodField()
     sender_role = serializers.CharField(source='sender.role', read_only=True)
     is_read = serializers.SerializerMethodField()
+    # Поддерживает аннотированное значение из queryset (annotated_replies_count)
+    # или fallback на prefetched/direct count
     replies_count = serializers.SerializerMethodField()
     thread_title = serializers.CharField(source='thread.title', read_only=True)
     file_url = serializers.SerializerMethodField()
@@ -251,13 +263,47 @@ class MessageSerializer(serializers.ModelSerializer):
         return False
 
     def get_is_read(self, obj):
+        """
+        Проверяет, прочитано ли сообщение текущим пользователем.
+
+        Оптимизация: использует prefetched read_by данные если доступны,
+        избегая N+1 запросов при итерации по списку сообщений.
+        """
         request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            return obj.read_by.filter(user=request.user).exists()
-        return False
-    
+        if not request or not request.user.is_authenticated:
+            return False
+
+        user_id = request.user.id
+
+        # Проверяем prefetched данные (read_by уже загружены)
+        # Если prefetch_related('read_by') был вызван, _prefetched_cache будет содержать данные
+        if hasattr(obj, '_prefetched_objects_cache') and 'read_by' in obj._prefetched_objects_cache:
+            # Используем prefetched данные без дополнительного запроса
+            return any(read.user_id == user_id for read in obj.read_by.all())
+
+        # Fallback: прямой запрос (для единичных объектов или без prefetch)
+        return obj.read_by.filter(user_id=user_id).exists()
+
     def get_replies_count(self, obj):
-        return obj.replies.count()
+        """
+        Возвращает количество ответов на сообщение.
+
+        Оптимизация:
+        1. Использует аннотированное значение annotated_replies_count если доступно
+        2. Fallback на prefetched replies данные
+        3. Последний fallback: прямой count запрос
+        """
+        # Приоритет 1: Аннотированное значение из queryset (самый оптимальный способ)
+        if hasattr(obj, 'annotated_replies_count'):
+            return obj.annotated_replies_count
+
+        # Приоритет 2: Prefetched данные - считаем в Python без запроса
+        if hasattr(obj, '_prefetched_objects_cache') and 'replies' in obj._prefetched_objects_cache:
+            # Фильтруем не-удалённые ответы в памяти
+            return sum(1 for reply in obj.replies.all() if not reply.is_deleted)
+
+        # Fallback: прямой запрос к базе (для единичных объектов)
+        return obj.replies.filter(is_deleted=False).count()
     
     def create(self, validated_data):
         validated_data['sender'] = self.context['request'].user

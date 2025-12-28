@@ -49,6 +49,8 @@ import {
   Image as ImageIcon,
   Download,
   X,
+  MessageSquare,
+  Users,
 } from 'lucide-react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
@@ -96,6 +98,7 @@ interface ChatWindowProps {
   isEditingOrDeleting: boolean;
   currentUserId: number;
   currentUserRole: string;
+  isSwitchingChat?: boolean;
 }
 
 const ChatListItem = ({
@@ -211,9 +214,10 @@ const ChatList = ({
               className="flex flex-col items-center justify-center py-8 text-center"
               data-testid="no-chats-message"
             >
-              <MessageCircle className="w-8 h-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                {searchQuery ? 'Чатов не найдено' : 'Нет активных чатов'}
+              <MessageSquare className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium">Нет чатов</h3>
+              <p className="text-gray-500">
+                {searchQuery ? 'Чатов не найдено' : 'У вас пока нет доступных чатов. Начните общение!'}
               </p>
             </div>
           ) : (
@@ -313,8 +317,11 @@ const ChatWindow = ({
         className="p-6 md:col-span-2 flex flex-col items-center justify-center h-full overflow-hidden"
         data-testid="chat-window-empty"
       >
-        <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">Выберите чат для начала общения</p>
+        <Users className="h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium">Выберите чат</h3>
+        <p className="text-gray-500">
+          Выберите чат из списка слева для начала общения
+        </p>
       </Card>
     );
   }
@@ -395,16 +402,25 @@ const ChatWindow = ({
       {/* Messages - Scrollable Area */}
       <div className="flex-1 overflow-y-auto py-4 pr-4 min-h-0">
         <div className="space-y-4">
-          {isLoadingMessages ? (
-            <>
+          {isSwitchingChat || isLoadingMessages ? (
+            <div className="space-y-4" data-testid="messages-loading">
               <Skeleton className="h-12 rounded w-[70%]" />
               <Skeleton className="h-12 rounded w-[70%] ml-auto" />
               <Skeleton className="h-12 rounded w-[70%]" />
-            </>
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
+                <span className="text-sm text-muted-foreground">
+                  {isSwitchingChat ? 'Переключение чата...' : 'Загрузка сообщений...'}
+                </span>
+              </div>
+            </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <MessageCircle className="w-8 h-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Начните общение с первого сообщения</p>
+              <MessageCircle className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium">Нет сообщений</h3>
+              <p className="text-gray-500">
+                Напишите первое сообщение в этом чате!
+              </p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -547,10 +563,10 @@ const ChatWindow = ({
           <Button
             type="button"
             onClick={handleSend}
-            disabled={!messageInput.trim() && !selectedFile}
+            disabled={isSending || (!messageInput.trim() && !selectedFile)}
             className="gradient-primary"
           >
-            <Send className="w-4 h-4" />
+            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>
       </div>
@@ -922,7 +938,7 @@ const getSidebarComponent = (role: string) => {
   }
 };
 
-export default function Forum() {
+function Forum() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [selectedChat, setSelectedChat] = useState<ForumChat | null>(null);
@@ -931,6 +947,7 @@ export default function Forum() {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [isSwitchingChat, setIsSwitchingChat] = useState(false);
   const queryClient = useQueryClient();
 
   // Edit/Delete message state
@@ -1107,10 +1124,17 @@ export default function Forum() {
   }, [selectedChat, user, handleWebSocketMessage, handleTyping, handleTypingStop, handleError]);
 
   const handleSelectChat = (chat: ForumChat) => {
+    // Show loading state during chat switch
+    setIsSwitchingChat(true);
     setSelectedChat(chat);
     setSearchQuery('');
     setError(null);
     setTypingUsers([]);
+
+    // Reset loading state after a brief delay to allow WebSocket connection
+    setTimeout(() => {
+      setIsSwitchingChat(false);
+    }, 300);
   };
 
   const handleSendMessage = (content: string, file?: File) => {
@@ -1254,6 +1278,7 @@ export default function Forum() {
                 }
                 currentUserId={user?.id || 0}
                 currentUserRole={user?.role || ''}
+                isSwitchingChat={isSwitchingChat}
               />
             </div>
           </main>

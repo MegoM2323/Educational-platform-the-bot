@@ -54,7 +54,11 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
     },
 
     onSettled: () => {
+      // Invalidate messages cache to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId] });
+
+      // Update forum chats to show edited last_message if needed
+      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
     },
   });
 };

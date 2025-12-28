@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { lessonSchema, type LessonFormData } from '@/schemas/lesson';
+import { lessonSchema, lessonUpdateSchema, type LessonFormData, type LessonUpdateFormData } from '@/schemas/lesson';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -43,12 +43,13 @@ interface Student {
 }
 
 interface LessonFormProps {
-  onSubmit: (data: LessonFormData) => Promise<void>;
+  onSubmit: (data: LessonFormData | LessonUpdateFormData) => Promise<void>;
   isLoading?: boolean;
   initialData?: Partial<Lesson>;
   students: Student[];
   subjects: Subject[];
   onStudentSelect?: (studentId: string) => void;
+  isEditMode?: boolean; // NEW: determines which schema to use
 }
 
 export const LessonForm: React.FC<LessonFormProps> = ({
@@ -58,13 +59,25 @@ export const LessonForm: React.FC<LessonFormProps> = ({
   students,
   subjects,
   onStudentSelect,
+  isEditMode = false, // Default to create mode
 }) => {
-  const form = useForm<LessonFormData>({
-    resolver: zodResolver(lessonSchema),
+  // Use different schema based on mode
+  const schema = isEditMode ? lessonUpdateSchema : lessonSchema;
+
+  // Extract ID from student/subject - handle both string IDs and objects with id property
+  const extractId = (value: any): string => {
+    if (typeof value === 'object' && value?.id) {
+      return String(value.id);
+    }
+    return String(value || '');
+  };
+
+  const form = useForm<LessonFormData | LessonUpdateFormData>({
+    resolver: zodResolver(schema),
     defaultValues: initialData
       ? {
-          student: initialData.student || '',
-          subject: initialData.subject || '',
+          student: extractId(initialData.student),
+          subject: extractId(initialData.subject),
           date: initialData.date || '',
           start_time: initialData.start_time || '09:00',
           end_time: initialData.end_time || '10:00',
@@ -84,6 +97,21 @@ export const LessonForm: React.FC<LessonFormProps> = ({
 
   const selectedStudentId = form.watch('student');
 
+  // Reset form when initialData changes (for edit mode)
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        student: extractId(initialData.student),
+        subject: extractId(initialData.subject),
+        date: initialData.date || '',
+        start_time: initialData.start_time || '09:00',
+        end_time: initialData.end_time || '10:00',
+        description: initialData.description || '',
+        telemost_link: initialData.telemost_link || '',
+      });
+    }
+  }, [initialData, form, extractId]);
+
   // Get subjects for selected student
   const studentSubjects = useMemo(() => {
     const student = students.find((s) => s.id === selectedStudentId);
@@ -91,7 +119,7 @@ export const LessonForm: React.FC<LessonFormProps> = ({
     return student.subjects || subjects;
   }, [selectedStudentId, students, subjects]);
 
-  const handleSubmit = async (data: LessonFormData) => {
+  const handleSubmit = async (data: LessonFormData | LessonUpdateFormData) => {
     try {
       await onSubmit(data);
       if (!initialData) {
@@ -121,6 +149,7 @@ export const LessonForm: React.FC<LessonFormProps> = ({
                     // Reset subject when student changes
                     form.setValue('subject', '');
                   }}
+                  disabled={isEditMode} // DISABLED in edit mode
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -129,12 +158,17 @@ export const LessonForm: React.FC<LessonFormProps> = ({
                   </FormControl>
                   <SelectContent>
                     {students.map((student) => (
-                      <SelectItem key={student.id} value={student.id}>
+                      <SelectItem key={student.id} value={String(student.id)}>
                         {student.full_name || student.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {isEditMode && (
+                  <FormDescription className="text-xs text-muted-foreground">
+                    Student cannot be changed when editing
+                  </FormDescription>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -147,7 +181,11 @@ export const LessonForm: React.FC<LessonFormProps> = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Subject</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={isEditMode} // DISABLED in edit mode
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a subject" />
@@ -155,12 +193,17 @@ export const LessonForm: React.FC<LessonFormProps> = ({
                   </FormControl>
                   <SelectContent>
                     {studentSubjects.map((subject) => (
-                      <SelectItem key={subject.id} value={subject.id}>
+                      <SelectItem key={subject.id} value={String(subject.id)}>
                         {subject.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {isEditMode && (
+                  <FormDescription className="text-xs text-muted-foreground">
+                    Subject cannot be changed when editing
+                  </FormDescription>
+                )}
                 <FormMessage />
               </FormItem>
             )}

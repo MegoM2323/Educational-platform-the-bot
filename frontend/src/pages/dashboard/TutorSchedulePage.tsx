@@ -40,8 +40,8 @@ const TutorSchedulePage: React.FC = () => {
       if (activeTab === 'upcoming' && !isUpcoming) return false;
       if (activeTab === 'past' && isUpcoming) return false;
 
-      if (selectedSubject && lesson.subject_name !== selectedSubject) return false;
-      if (selectedTeacher && lesson.teacher_name !== selectedTeacher) return false;
+      if (selectedSubject && selectedSubject !== 'all' && lesson.subject_name !== selectedSubject) return false;
+      if (selectedTeacher && selectedTeacher !== 'all' && lesson.teacher_name !== selectedTeacher) return false;
 
       return true;
     }).sort((a, b) => {
@@ -142,7 +142,7 @@ const TutorSchedulePage: React.FC = () => {
                               <SelectValue placeholder="Все предметы" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Все предметы</SelectItem>
+                              <SelectItem value="all">Все предметы</SelectItem>
                               {uniqueSubjects.map(subject => (
                                 <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                               ))}
@@ -156,7 +156,7 @@ const TutorSchedulePage: React.FC = () => {
                               <SelectValue placeholder="Все преподаватели" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Все преподаватели</SelectItem>
+                              <SelectItem value="all">Все преподаватели</SelectItem>
                               {uniqueTeachers.map(teacher => (
                                 <SelectItem key={teacher} value={teacher}>{teacher}</SelectItem>
                               ))}

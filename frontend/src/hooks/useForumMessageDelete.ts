@@ -48,7 +48,11 @@ export const useForumMessageDelete = ({ chatId, onSuccess, onError }: UseForumMe
     },
 
     onSettled: () => {
+      // Invalidate messages cache to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId] });
+
+      // Update forum chats to show updated last_message after deletion
+      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
     },
   });
 };

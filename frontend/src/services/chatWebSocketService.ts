@@ -594,6 +594,26 @@ export class ChatWebSocketService {
   onConnectionChange(callback: (connected: boolean) => void): void {
     websocketService.onConnectionChange(callback);
   }
+
+  /**
+   * Получение информации о переподключении
+   */
+  getReconnectionInfo(): {
+    isReconnecting: boolean;
+    attempt: number;
+    maxAttempts: number;
+    nextRetryDelay: number;
+  } {
+    return websocketService.getReconnectionInfo();
+  }
+
+  /**
+   * Ручная повторная попытка подключения
+   */
+  retryConnection(): void {
+    logger.info('[ChatWebSocket] Manual retry connection requested');
+    websocketService.retryConnection();
+  }
 }
 
 // Создаем глобальный экземпляр сервиса чата

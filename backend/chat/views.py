@@ -3,7 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q
+from django.db import transaction
+from django.db.models import Q, Count, Prefetch
 from django.utils import timezone
 
 from .models import ChatRoom, Message, MessageRead, ChatParticipant, MessageThread
@@ -44,9 +45,16 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         return ChatRoom.objects.filter(participants=user)
     
     def perform_create(self, serializer):
-        room = serializer.save(created_by=self.request.user)
-        # Добавляем создателя в участники
-        room.participants.add(self.request.user)
+        # Wrap in transaction to ensure room creation and participant addition are atomic
+        with transaction.atomic():
+            room = serializer.save(created_by=self.request.user)
+            # Добавляем создателя в участники
+            room.participants.add(self.request.user)
+            # Create ChatParticipant record for consistency
+            ChatParticipant.objects.get_or_create(
+                room=room,
+                user=self.request.user
+            )
     
     @action(detail=True, methods=['post'])
     def join(self, request, pk=None):
@@ -85,13 +93,44 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
         """
-        Получить сообщения чата
+        Получить сообщения чата.
+
+        Оптимизация N+1 queries:
+        - select_related для sender, thread, reply_to
+        - prefetch_related для replies, read_by
+        - annotate для replies_count
         """
         room = self.get_object()
-        limit = request.query_params.get('limit', 50)
-        offset = request.query_params.get('offset', 0)
-        
-        messages = room.messages.all()[int(offset):int(offset) + int(limit)]
+
+        # Безопасное преобразование параметров пагинации
+        try:
+            offset = int(request.query_params.get('offset', 0))
+            limit = int(request.query_params.get('limit', 50))
+        except (ValueError, TypeError):
+            offset = 0
+            limit = 50
+
+        # Проверка границ
+        offset = max(0, offset)
+        limit = max(1, min(limit, 100))
+
+        # Оптимизированный queryset с select_related, prefetch_related и аннотациями
+        messages = room.messages.filter(
+            is_deleted=False
+        ).select_related(
+            'sender',
+            'thread',
+            'reply_to__sender'
+        ).prefetch_related(
+            Prefetch(
+                'replies',
+                queryset=Message.objects.filter(is_deleted=False).only('id', 'is_deleted')
+            ),
+            'read_by'
+        ).annotate(
+            annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False))
+        ).order_by('created_at')[offset:offset + limit]
+
         serializer = MessageSerializer(messages, many=True, context={'request': request})
         return Response(serializer.data)
     
@@ -186,10 +225,30 @@ class MessageViewSet(viewsets.ModelViewSet):
         """
         Пользователи видят только сообщения из чатов, в которых они участвуют.
         Удалённые сообщения (soft delete) исключаются из выборки.
+
+        Оптимизация N+1 queries:
+        - select_related для sender, thread, reply_to
+        - prefetch_related для replies, read_by
+        - annotate для replies_count
         """
         user = self.request.user
         user_rooms = ChatRoom.objects.filter(participants=user)
-        return Message.objects.filter(room__in=user_rooms, is_deleted=False)
+        return Message.objects.filter(
+            room__in=user_rooms,
+            is_deleted=False
+        ).select_related(
+            'sender',
+            'thread',
+            'reply_to__sender'
+        ).prefetch_related(
+            Prefetch(
+                'replies',
+                queryset=Message.objects.filter(is_deleted=False).only('id', 'is_deleted')
+            ),
+            'read_by'
+        ).annotate(
+            annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False))
+        )
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
@@ -263,10 +322,27 @@ class MessageViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def replies(self, request, pk=None):
         """
-        Получить ответы на сообщение
+        Получить ответы на сообщение.
+
+        Оптимизация N+1 queries для вложенных ответов.
         """
         message = self.get_object()
-        replies = message.replies.all()
+        # Оптимизированный queryset для ответов
+        replies = message.replies.filter(
+            is_deleted=False
+        ).select_related(
+            'sender',
+            'thread',
+            'reply_to__sender'
+        ).prefetch_related(
+            Prefetch(
+                'replies',
+                queryset=Message.objects.filter(is_deleted=False).only('id', 'is_deleted')
+            ),
+            'read_by'
+        ).annotate(
+            annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False))
+        )
         serializer = MessageSerializer(replies, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -389,9 +465,18 @@ class GeneralChatViewSet(viewsets.ViewSet):
         Получить сообщения общего чата
         """
         try:
-            limit = int(request.query_params.get('limit', 50))
-            offset = int(request.query_params.get('offset', 0))
-            
+            # Безопасное преобразование параметров пагинации
+            try:
+                offset = int(request.query_params.get('offset', 0))
+                limit = int(request.query_params.get('limit', 50))
+            except (ValueError, TypeError):
+                offset = 0
+                limit = 50
+
+            # Проверка границ
+            offset = max(0, offset)
+            limit = max(1, min(limit, 100))
+
             messages = GeneralChatService.get_general_chat_messages(limit, offset)
             serializer = MessageSerializer(messages, many=True, context={'request': request})
             return Response(serializer.data)
@@ -453,9 +538,18 @@ class GeneralChatViewSet(viewsets.ViewSet):
         Получить треды общего чата
         """
         try:
-            limit = int(request.query_params.get('limit', 20))
-            offset = int(request.query_params.get('offset', 0))
-            
+            # Безопасное преобразование параметров пагинации
+            try:
+                offset = int(request.query_params.get('offset', 0))
+                limit = int(request.query_params.get('limit', 20))
+            except (ValueError, TypeError):
+                offset = 0
+                limit = 20
+
+            # Проверка границ
+            offset = max(0, offset)
+            limit = max(1, min(limit, 100))
+
             threads = GeneralChatService.get_general_chat_threads(limit, offset)
             serializer = MessageThreadSerializer(threads, many=True, context={'request': request})
             return Response(serializer.data)
@@ -535,9 +629,19 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         """
         try:
             thread = self.get_object()
-            limit = int(request.query_params.get('limit', 50))
-            offset = int(request.query_params.get('offset', 0))
-            
+
+            # Безопасное преобразование параметров пагинации
+            try:
+                offset = int(request.query_params.get('offset', 0))
+                limit = int(request.query_params.get('limit', 50))
+            except (ValueError, TypeError):
+                offset = 0
+                limit = 50
+
+            # Проверка границ
+            offset = max(0, offset)
+            limit = max(1, min(limit, 100))
+
             messages = GeneralChatService.get_thread_messages(thread, limit, offset)
             serializer = MessageSerializer(messages, many=True, context={'request': request})
             return Response(serializer.data)

@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Q, Count, Prefetch
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
@@ -58,18 +59,20 @@ class GeneralChatService:
                 User.Role.PARENT,
             ]
         )
-        
-        for user in all_users:
-            chat_room.participants.add(user)
-            # Администраторы: преподаватели (и при необходимости можно расширить)
-            ChatParticipant.objects.get_or_create(
-                room=chat_room,
-                user=user,
-                defaults={
-                    'is_admin': user.role == User.Role.TEACHER,
-                    'joined_at': timezone.now()
-                }
-            )
+
+        # Wrap in transaction to ensure all user additions are atomic
+        with transaction.atomic():
+            for user in all_users:
+                chat_room.participants.add(user)
+                # Администраторы: преподаватели (и при необходимости можно расширить)
+                ChatParticipant.objects.get_or_create(
+                    room=chat_room,
+                    user=user,
+                    defaults={
+                        'is_admin': user.role == User.Role.TEACHER,
+                        'joined_at': timezone.now()
+                    }
+                )
     
     @staticmethod
     def cleanup_old_messages():
@@ -147,19 +150,21 @@ class GeneralChatService:
         Добавить пользователя в общий чат
         """
         general_chat = GeneralChatService.get_or_create_general_chat()
-        
+
         if not general_chat.participants.filter(id=user.id).exists():
-            general_chat.participants.add(user)
-            ChatParticipant.objects.get_or_create(
-                room=general_chat,
-                user=user,
-                defaults={
-                    'is_admin': user.role == User.Role.TEACHER,
-                    'joined_at': timezone.now()
-                }
-            )
+            # Wrap in transaction to ensure M2M and ChatParticipant are consistent
+            with transaction.atomic():
+                general_chat.participants.add(user)
+                ChatParticipant.objects.get_or_create(
+                    room=general_chat,
+                    user=user,
+                    defaults={
+                        'is_admin': user.role == User.Role.TEACHER,
+                        'joined_at': timezone.now()
+                    }
+                )
             return True
-        
+
         return False
     
     @staticmethod
@@ -184,22 +189,24 @@ class GeneralChatService:
         """
         if not room.participants.filter(id=sender.id).exists():
             raise PermissionError("Пользователь не является участником чата")
-        
+
         if thread.is_locked and not GeneralChatService._can_moderate(sender, room):
             raise PermissionError("Тред заблокирован")
-        
-        message = Message.objects.create(
-            room=room,
-            thread=thread,
-            sender=sender,
-            content=content,
-            message_type=message_type
-        )
-        
-        # Обновляем время последнего обновления треда
-        thread.updated_at = timezone.now()
-        thread.save(update_fields=['updated_at'])
-        
+
+        # Wrap in transaction to ensure message creation and thread update are atomic
+        with transaction.atomic():
+            message = Message.objects.create(
+                room=room,
+                thread=thread,
+                sender=sender,
+                content=content,
+                message_type=message_type
+            )
+
+            # Обновляем время последнего обновления треда
+            thread.updated_at = timezone.now()
+            thread.save(update_fields=['updated_at'])
+
         return message
     
     @staticmethod
@@ -225,18 +232,57 @@ class GeneralChatService:
     @staticmethod
     def get_thread_messages(thread, limit=50, offset=0):
         """
-        Получить сообщения треда с пагинацией
+        Получить сообщения треда с пагинацией.
+
+        Оптимизация N+1 queries:
+        - select_related для sender, reply_to
+        - prefetch_related для replies, read_by
+        - annotate для replies_count
         """
-        return thread.messages.all()[offset:offset + limit]
-    
+        return thread.messages.filter(
+            is_deleted=False
+        ).select_related(
+            'sender',
+            'thread',
+            'reply_to__sender'
+        ).prefetch_related(
+            Prefetch(
+                'replies',
+                queryset=Message.objects.filter(is_deleted=False).only('id', 'is_deleted')
+            ),
+            'read_by'
+        ).annotate(
+            annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False))
+        ).order_by('created_at')[offset:offset + limit]
+
     @staticmethod
     @cache_chat_data(timeout=60)  # 1 минута
     def get_general_chat_messages(limit=50, offset=0):
         """
-        Получить сообщения общего чата с пагинацией
+        Получить сообщения общего чата с пагинацией.
+
+        Оптимизация N+1 queries:
+        - select_related для sender, reply_to
+        - prefetch_related для replies, read_by
+        - annotate для replies_count
         """
         general_chat = GeneralChatService.get_or_create_general_chat()
-        return general_chat.messages.filter(thread__isnull=True)[offset:offset + limit]
+        return general_chat.messages.filter(
+            thread__isnull=True,
+            is_deleted=False
+        ).select_related(
+            'sender',
+            'thread',
+            'reply_to__sender'
+        ).prefetch_related(
+            Prefetch(
+                'replies',
+                queryset=Message.objects.filter(is_deleted=False).only('id', 'is_deleted')
+            ),
+            'read_by'
+        ).annotate(
+            annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False))
+        ).order_by('created_at')[offset:offset + limit]
     
     @staticmethod
     @cache_chat_data(timeout=300)  # 5 минут

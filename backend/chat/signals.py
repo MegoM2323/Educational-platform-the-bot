@@ -8,6 +8,7 @@ Includes:
 """
 
 import logging
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
@@ -71,25 +72,28 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
         ).first()
 
         if not existing_forum_chat:
-            forum_chat = ChatRoom.objects.create(
-                name=forum_chat_name,
-                type=ChatRoom.Type.FORUM_SUBJECT,
-                enrollment=instance,
-                created_by=instance.student,
-                description=f"Forum for {subject_name} between {student_name} and {teacher_name}"
-            )
-            # Add student and teacher as participants (M2M)
-            forum_chat.participants.add(instance.student, instance.teacher)
+            # Wrap in transaction to ensure consistency
+            # If ChatParticipant creation fails, ChatRoom creation is rolled back
+            with transaction.atomic():
+                forum_chat = ChatRoom.objects.create(
+                    name=forum_chat_name,
+                    type=ChatRoom.Type.FORUM_SUBJECT,
+                    enrollment=instance,
+                    created_by=instance.student,
+                    description=f"Forum for {subject_name} between {student_name} and {teacher_name}"
+                )
+                # Add student and teacher as participants (M2M)
+                forum_chat.participants.add(instance.student, instance.teacher)
 
-            # Create ChatParticipant records for unread_count tracking and WebSocket access
-            ChatParticipant.objects.get_or_create(
-                room=forum_chat,
-                user=instance.student
-            )
-            ChatParticipant.objects.get_or_create(
-                room=forum_chat,
-                user=instance.teacher
-            )
+                # Create ChatParticipant records for unread_count tracking and WebSocket access
+                ChatParticipant.objects.get_or_create(
+                    room=forum_chat,
+                    user=instance.student
+                )
+                ChatParticipant.objects.get_or_create(
+                    room=forum_chat,
+                    user=instance.teacher
+                )
 
             logger.info(
                 f"Created forum_subject chat '{forum_chat.name}' for enrollment {instance.id}"
@@ -111,25 +115,27 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
             ).first()
 
             if not existing_tutor_chat:
-                tutor_chat = ChatRoom.objects.create(
-                    name=tutor_chat_name,
-                    type=ChatRoom.Type.FORUM_TUTOR,
-                    enrollment=instance,
-                    created_by=instance.student,
-                    description=f"Forum for {subject_name} between {student_name} and {tutor_name}"
-                )
-                # Add student and tutor as participants (M2M)
-                tutor_chat.participants.add(instance.student, student_profile.tutor)
+                # Wrap in transaction to ensure consistency
+                with transaction.atomic():
+                    tutor_chat = ChatRoom.objects.create(
+                        name=tutor_chat_name,
+                        type=ChatRoom.Type.FORUM_TUTOR,
+                        enrollment=instance,
+                        created_by=instance.student,
+                        description=f"Forum for {subject_name} between {student_name} and {tutor_name}"
+                    )
+                    # Add student and tutor as participants (M2M)
+                    tutor_chat.participants.add(instance.student, student_profile.tutor)
 
-                # Create ChatParticipant records for unread_count tracking and WebSocket access
-                ChatParticipant.objects.get_or_create(
-                    room=tutor_chat,
-                    user=instance.student
-                )
-                ChatParticipant.objects.get_or_create(
-                    room=tutor_chat,
-                    user=student_profile.tutor
-                )
+                    # Create ChatParticipant records for unread_count tracking and WebSocket access
+                    ChatParticipant.objects.get_or_create(
+                        room=tutor_chat,
+                        user=instance.student
+                    )
+                    ChatParticipant.objects.get_or_create(
+                        room=tutor_chat,
+                        user=student_profile.tutor
+                    )
 
                 logger.info(
                     f"Created forum_tutor chat '{tutor_chat.name}' for enrollment {instance.id}"
@@ -266,19 +272,21 @@ def add_user_to_general_chat(sender, instance: User, created: bool, **kwargs) ->
             )
             return
 
-        # Add user to participants (M2M relation)
-        if not general_chat.participants.filter(id=instance.id).exists():
-            general_chat.participants.add(instance)
+        # Wrap in transaction to ensure consistency between M2M and ChatParticipant
+        with transaction.atomic():
+            # Add user to participants (M2M relation)
+            if not general_chat.participants.filter(id=instance.id).exists():
+                general_chat.participants.add(instance)
 
-        # Create ChatParticipant record with proper metadata
-        participant, participant_created = ChatParticipant.objects.get_or_create(
-            room=general_chat,
-            user=instance,
-            defaults={
-                'is_admin': instance.role == User.Role.TEACHER,
-                'joined_at': timezone.now()
-            }
-        )
+            # Create ChatParticipant record with proper metadata
+            participant, participant_created = ChatParticipant.objects.get_or_create(
+                room=general_chat,
+                user=instance,
+                defaults={
+                    'is_admin': instance.role == User.Role.TEACHER,
+                    'joined_at': timezone.now()
+                }
+            )
 
         if participant_created:
             logger.info(

@@ -32,8 +32,9 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: LessonUpdatePayload }) =>
       schedulingAPI.updateLesson(id, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onSuccess: async () => {
+      // Сначала инвалидируем и ждём рефетч
+      await queryClient.invalidateQueries({
         queryKey: ['lessons', 'teacher'],
         exact: false
       });

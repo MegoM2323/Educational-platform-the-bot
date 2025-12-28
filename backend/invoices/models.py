@@ -150,10 +150,10 @@ class Invoice(models.Model):
             models.Index(fields=['due_date', 'status'], name='idx_invoice_due_status'),
             # Для истории счетов студента
             models.Index(fields=['student', '-created_at'], name='idx_invoice_student_date'),
-            # Для быстрого поиска счета по платежу
-            models.Index(fields=['payment'], name='idx_invoice_payment', condition=models.Q(payment__isnull=False)),
+            # Для быстрого поиска счета по платежу (partial index)
+            models.Index(fields=['payment'], name='idx_invoice_payment'),
             # Для быстрого поиска по Telegram message ID
-            models.Index(fields=['telegram_message_id'], name='idx_invoice_telegram', condition=models.Q(telegram_message_id__isnull=False)),
+            models.Index(fields=['telegram_message_id'], name='idx_invoice_telegram'),
         ]
         constraints = [
             # Сумма должна быть больше 0

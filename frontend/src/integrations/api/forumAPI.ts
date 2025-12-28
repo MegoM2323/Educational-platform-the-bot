@@ -107,7 +107,11 @@ export interface ChatDetail {
   other_user: Contact;
   created_at: string;
   name: string;
-  last_message?: any;
+  last_message?: {
+    content: string;
+    created_at: string;
+    sender: ForumUser;
+  };
   unread_count: number;
 }
 
@@ -120,7 +124,7 @@ export interface InitiateChatResponse {
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
     console.log('[forumAPI] getForumChats called');
-    const response = await unifiedAPI.request<any>(
+    const response = await unifiedAPI.request<ForumChatsResponse>(
       '/chat/forum/'
     );
 
@@ -165,13 +169,13 @@ export const forumAPI = {
     offset: number = 0
   ): Promise<ForumMessage[]> => {
     const params = new URLSearchParams();
-    if (limit) params.append('limit', String(limit));
-    if (offset) params.append('offset', String(offset));
+    if (typeof limit === 'number') params.append('limit', String(limit));
+    if (typeof offset === 'number') params.append('offset', String(offset));
 
     const queryString = params.toString();
     const url = `/chat/forum/${chatId}/messages/${queryString ? '?' + queryString : ''}`;
 
-    const response = await unifiedAPI.request<any>(url);
+    const response = await unifiedAPI.request<ForumMessagesResponse>(url);
 
     if (response.error) {
       throw new Error(response.error);

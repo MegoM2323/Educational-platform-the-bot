@@ -8,12 +8,27 @@ export const useForumChats = () => {
   // Основной запрос для списка чатов
   const chatsQuery = useQuery({
     queryKey: ['forum', 'chats'],
-    queryFn: () => {
+    queryFn: async () => {
       console.log('[useForumChats] queryFn executing for chats');
-      return forumAPI.getForumChats();
+      try {
+        return await forumAPI.getForumChats();
+      } catch (error: any) {
+        // Provide user-friendly error messages
+        const errorMessage = error?.response?.data?.detail ||
+                            error?.message ||
+                            'Не удалось загрузить список чатов';
+        throw new Error(errorMessage);
+      }
     },
     staleTime: 60000, // 1 minute (reduced from 5 minutes for more frequent updates)
-    retry: 2,
+    retry: (failureCount, error) => {
+      // Don't retry on authentication errors
+      if (error.message.includes('401') || error.message.includes('403') ||
+          error.message.includes('авторизован') || error.message.includes('доступ')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
     refetchOnMount: true, // Explicitly enable refetch on component mount
     refetchOnWindowFocus: false,
   });
@@ -21,11 +36,24 @@ export const useForumChats = () => {
   // Запрос для доступных контактов
   const contactsQuery = useQuery({
     queryKey: ['forum', 'available-contacts'],
-    queryFn: () => {
+    queryFn: async () => {
       console.log('[useForumChats] queryFn executing for contacts');
-      return forumAPI.getAvailableContacts();
+      try {
+        return await forumAPI.getAvailableContacts();
+      } catch (error: any) {
+        const errorMessage = error?.response?.data?.detail ||
+                            error?.message ||
+                            'Не удалось загрузить контакты';
+        throw new Error(errorMessage);
+      }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error) => {
+      if (error.message.includes('401') || error.message.includes('403')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
     refetchOnMount: true,
     refetchOnWindowFocus: false,
   });

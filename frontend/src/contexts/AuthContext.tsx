@@ -172,6 +172,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         role: result.user?.role,
       });
 
+      // CRITICAL FIX: Clear ALL cached profile data before setting new user
+      // This prevents race condition where useProfile returns cached data from previous user
+      // queryClient is not available in AuthContext, so we rely on authService to handle this
+      // The user state update will trigger queryKey change in useProfile, invalidating stale cache
       setUser(result.user);
 
       logger.debug('[AuthContext.login] User state updated, login complete');

@@ -174,8 +174,9 @@ INSTALLED_APPS = [
 ]
 
 # Add daphne only if not in test mode (to avoid Twisted SSL issues during testing)
-if environment != 'test':
-    INSTALLED_APPS.insert(0, 'daphne')  # ASGI server для WebSocket
+# ВРЕМЕННО ОТКЛЮЧЕНО: проблема совместимости pyOpenSSL 25.3.0 с Python 3.13
+# if environment != 'test':
+#     INSTALLED_APPS.insert(0, 'daphne')  # ASGI server для WebSocket
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',

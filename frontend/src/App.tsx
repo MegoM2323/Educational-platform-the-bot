@@ -32,9 +32,9 @@ const ParentPaymentHistory = lazy(() => import("./pages/dashboard/parent/Payment
 const ParentPaymentSuccess = lazy(() => import("./pages/dashboard/parent/PaymentSuccess"));
 const ParentInvoices = lazy(() => import("./pages/dashboard/parent/InvoicesPage"));
 
-// Lazy load только тяжелые компоненты дашбордов
-// Преимущество: эти чанки загружаются только когда пользователь переходит на соответствующие роли
-const StudentDashboard = lazy(() => import("./pages/dashboard/StudentDashboard"));
+// Import StudentDashboard directly to avoid React Router context timing issues
+// Other dashboards can be lazy-loaded as they don't have the same initialization dependencies
+import StudentDashboard from "./pages/dashboard/StudentDashboard";
 const TeacherDashboard = lazy(() => import("./pages/dashboard/TeacherDashboard"));
 const TutorDashboard = lazy(() => import("./pages/dashboard/TutorDashboard"));
 const StudentMaterials = lazy(() => import("./pages/dashboard/student/Materials"));
@@ -242,9 +242,7 @@ const App = () => (
           {/* Student Routes */}
           <Route path="/dashboard/student" element={
             <ProtectedRoute requiredRole="student">
-              <Suspense fallback={<LoadingSpinner size="lg" />}>
-                <StudentDashboard />
-              </Suspense>
+              <StudentDashboard />
             </ProtectedRoute>
           } />
           <Route path="/dashboard/student/subjects" element={

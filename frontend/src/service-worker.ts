@@ -17,7 +17,8 @@
 declare const self: ServiceWorkerGlobalScope;
 
 // Cache configuration with versions
-const CACHE_VERSION = 'v1';
+// IMPORTANT: Increment version to force cache invalidation after updates
+const CACHE_VERSION = 'v2';
 const CACHE_NAMES = {
   APP_SHELL: `app-shell-${CACHE_VERSION}`,
   API_RESPONSES: `api-responses-${CACHE_VERSION}`,

@@ -58,7 +58,6 @@ import {
   chatWebSocketService,
   ChatMessage,
   TypingUser,
-  ConnectionStatus,
 } from '@/services/chatWebSocketService';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -932,7 +931,6 @@ export default function Forum() {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
-  const [wsStatus, setWsStatus] = useState<ConnectionStatus>('disconnected');
   const queryClient = useQueryClient();
 
   // Edit/Delete message state
@@ -942,16 +940,7 @@ export default function Forum() {
   const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
-  // Subscribe to global connection status changes
-  useEffect(() => {
-    // Subscribe to connection status changes
-    const unsubscribe = chatWebSocketService.onConnectionStatusChange(setWsStatus);
-
-    // Set initial status
-    setWsStatus(chatWebSocketService.getConnectionStatus());
-
-    return unsubscribe;
-  }, []);
+  // Connection status is managed per-chat in the WebSocket connection effect below
 
   const { chats = [], isLoadingChats, chatsError } = useForumChats();
   const { data: messages = [], isLoading: isLoadingMessages } = useForumMessages(
@@ -1198,88 +1187,6 @@ export default function Forum() {
     }
   };
 
-  // ConnectionBanner component to display global connection status
-  const ConnectionBanner = ({
-    status,
-    onRetry,
-  }: {
-    status: ConnectionStatus;
-    onRetry?: () => void;
-  }) => {
-    if (status === 'connected') {
-      return null; // No banner when connected
-    }
-
-    const getBannerConfig = () => {
-      switch (status) {
-        case 'disconnected':
-          return {
-            icon: WifiOff,
-            message: 'Соединение потеряно. Сообщения не будут доставлены в реальном времени.',
-            bgColor: 'bg-yellow-50 dark:bg-yellow-950',
-            borderColor: 'border-yellow-200 dark:border-yellow-700',
-            textColor: 'text-yellow-800 dark:text-yellow-200',
-            iconColor: 'text-yellow-600',
-          };
-        case 'connecting':
-          return {
-            icon: Wifi,
-            message: 'Подключение к чату...',
-            bgColor: 'bg-blue-50 dark:bg-blue-950',
-            borderColor: 'border-blue-200 dark:border-blue-700',
-            textColor: 'text-blue-800 dark:text-blue-200',
-            iconColor: 'text-blue-600',
-          };
-        case 'auth_error':
-          return {
-            icon: AlertCircle,
-            message: 'Ошибка аутентификации. Пожалуйста, перезагрузитесь.',
-            bgColor: 'bg-red-50 dark:bg-red-950',
-            borderColor: 'border-red-200 dark:border-red-700',
-            textColor: 'text-red-800 dark:text-red-200',
-            iconColor: 'text-red-600',
-          };
-        case 'error':
-          return {
-            icon: AlertCircle,
-            message: 'Ошибка подключения к чату.',
-            bgColor: 'bg-red-50 dark:bg-red-950',
-            borderColor: 'border-red-200 dark:border-red-700',
-            textColor: 'text-red-800 dark:text-red-200',
-            iconColor: 'text-red-600',
-          };
-        default:
-          return null;
-      }
-    };
-
-    const config = getBannerConfig();
-    if (!config) return null;
-
-    const Icon = config.icon;
-
-    return (
-      <div
-        className={`${config.bgColor} border-l-4 ${config.borderColor} p-4 mb-4 flex items-center justify-between`}
-      >
-        <div className="flex items-center space-x-3">
-          <Icon className={`h-5 w-5 ${config.iconColor}`} />
-          <span className={`text-sm font-medium ${config.textColor}`}>{config.message}</span>
-        </div>
-        {(status === 'disconnected' || status === 'error') && onRetry && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onRetry}
-            className={config.textColor}
-          >
-            Повторить
-          </Button>
-        )}
-      </div>
-    );
-  };
 
   // Get the appropriate sidebar component based on user role
   const SidebarComponent = getSidebarComponent(user?.role || '');
@@ -1317,17 +1224,7 @@ export default function Forum() {
               <p className="text-muted-foreground">Общайтесь с преподавателями и тьюторами</p>
             </div>
 
-            {/* Global Connection Status Banner */}
-            <div className="flex-shrink-0">
-              <ConnectionBanner
-                status={wsStatus}
-                onRetry={() => {
-                  setWsStatus('disconnected');
-                  // This will trigger UI to show disconnected state
-                  // User can manually open a chat to reconnect
-                }}
-              />
-            </div>
+            {/* Connection status is shown in the chat header, no need for global banner */}
 
             <div className="grid md:grid-cols-3 gap-6 flex-1 overflow-hidden min-h-0">
               <ChatList

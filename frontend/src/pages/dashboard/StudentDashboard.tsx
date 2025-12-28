@@ -137,7 +137,7 @@ const StudentDashboard = () => {
             <SidebarTrigger />
             <div className="flex-1" />
           </header>
-          <main className="p-6">
+          <main className="px-6 pb-6 pt-4">
             <div className="space-y-6">
               <div>
                 <h1 className="text-3xl font-bold">

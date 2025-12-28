@@ -294,7 +294,7 @@ const ChatWindow = ({
     <Card className="p-6 md:col-span-2 flex flex-col h-full" data-testid="chat-window">
       {/* Error Banner */}
       {error && (
-        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3">
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3 flex-shrink-0">
           <AlertCircle className="w-5 h-5 text-destructive" />
           <div className="flex-1">
             <p className="text-sm text-destructive font-medium">{error}</p>
@@ -311,8 +311,8 @@ const ChatWindow = ({
         </div>
       )}
 
-      {/* Chat Header */}
-      <div className="flex items-center gap-3 pb-4 border-b" data-testid="chat-header">
+      {/* Chat Header - Fixed */}
+      <div className="flex items-center gap-3 pb-4 border-b flex-shrink-0" data-testid="chat-header">
         <Avatar className="w-10 h-10">
           <AvatarFallback className="gradient-primary text-primary-foreground">
             {chat.participants
@@ -356,8 +356,8 @@ const ChatWindow = ({
         </div>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 py-4 pr-4">
+      {/* Messages - Scrollable Area */}
+      <div className="flex-1 overflow-y-auto py-4 pr-4">
         <div className="space-y-4">
           {isLoadingMessages ? (
             <>
@@ -371,87 +371,64 @@ const ChatWindow = ({
               <p className="text-sm text-muted-foreground">Начните общение с первого сообщения</p>
             </div>
           ) : (
-            <>
-              {messages.map((msg) => {
-                const isOwn = msg.sender.id === currentUserId;
-                const canModerate = ['teacher', 'tutor', 'admin'].includes(currentUserRole);
+            messages.map((msg) => {
+              const isOwn = msg.sender.id === currentUserId;
+              const canModerate = ['teacher', 'tutor', 'admin'].includes(currentUserRole);
 
-                return (
+              return (
+                <div
+                  key={msg.id}
+                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}
+                >
                   <div
-                    key={msg.id}
-                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}
+                    className={`max-w-[70%] p-3 rounded-lg relative ${
+                      isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                    }`}
                   >
+                    {/* Sender name for other's messages */}
+                    {!isOwn && (
+                      <p className="text-xs font-medium mb-1 opacity-75">
+                        {msg.sender.full_name}
+                      </p>
+                    )}
+
+                    {/* Message content */}
+                    <p className="text-sm break-words pr-6">{msg.content}</p>
+
+                    {/* Timestamp and edited indicator */}
                     <div
-                      className={`max-w-[70%] p-3 rounded-lg relative ${
-                        isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                      className={`text-xs mt-1 flex items-center gap-1 ${
+                        isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
                       }`}
                     >
-                      {/* Sender name for other's messages */}
-                      {!isOwn && (
-                        <p className="text-xs font-medium mb-1 opacity-75">
-                          {msg.sender.full_name}
-                        </p>
-                      )}
+                      {msg.is_edited && <span className="italic">(ред.)</span>}
+                      {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
 
-                      {/* Message content */}
-                      <p className="text-sm break-words pr-6">{msg.content}</p>
-
-                      {/* Timestamp and edited indicator */}
-                      <div
-                        className={`text-xs mt-1 flex items-center gap-1 ${
-                          isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                        }`}
-                      >
-                        {msg.is_edited && <span className="italic">(ред.)</span>}
-                        {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </div>
-
-                      {/* Message actions dropdown */}
-                      <div className="absolute top-2 right-2">
-                        <MessageActions
-                          messageId={msg.id}
-                          isOwner={isOwn}
-                          canModerate={canModerate}
-                          onEdit={() => onEditMessage(msg.id, msg.content)}
-                          onDelete={() => onDeleteMessage(msg.id)}
-                          disabled={isEditingOrDeleting}
-                        />
-                      </div>
+                    {/* Message actions dropdown */}
+                    <div className="absolute top-2 right-2">
+                      <MessageActions
+                        messageId={msg.id}
+                        isOwner={isOwn}
+                        canModerate={canModerate}
+                        onEdit={() => onEditMessage(msg.id, msg.content)}
+                        onDelete={() => onDeleteMessage(msg.id)}
+                        disabled={isEditingOrDeleting}
+                      />
                     </div>
                   </div>
-                );
-              })}
-
-              {/* Typing Indicator */}
-              {typingUsers.length > 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                  <div className="flex -space-x-1">
-                    {typingUsers.slice(0, 3).map((user) => (
-                      <Avatar key={user.id} className="w-6 h-6 border-2 border-background">
-                        <AvatarFallback className="text-xs">
-                          {user.first_name.charAt(0)}
-                          {user.last_name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))}
-                  </div>
-                  <span>
-                    {typingUsers.length === 1
-                      ? `${typingUsers[0].first_name} печатает...`
-                      : `${typingUsers.length} пользователя печатают...`}
-                  </span>
                 </div>
-              )}
-            </>
+              );
+            })
           )}
         </div>
-      </ScrollArea>
+      </div>
 
-      {/* Message Input */}
-      <div className="flex gap-2 pt-4 border-t">
+      {/* Message Input - Fixed at Bottom */}
+      <div className="flex gap-2 pt-4 border-t flex-shrink-0">
         <Input
           placeholder="Введите сообщение..."
           value={messageInput}
@@ -463,16 +440,16 @@ const ChatWindow = ({
         <Button
           type="button"
           onClick={handleSend}
-          disabled={!messageInput.trim() || isSending}
+          disabled={!messageInput.trim()}
           className="gradient-primary"
         >
-          {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          <Send className="w-4 h-4" />
         </Button>
       </div>
 
       {/* Offline Notice */}
       {!isConnected && (
-        <div className="pt-2 text-xs text-muted-foreground text-center">
+        <div className="pt-2 text-xs text-muted-foreground text-center flex-shrink-0">
           Сообщения будут отправлены при восстановлении соединения
         </div>
       )}

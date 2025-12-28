@@ -28,31 +28,70 @@ export const useSendForumMessage = () => {
   return useMutation({
     mutationFn: ({ chatId, data }: { chatId: number; data: SendForumMessageRequest }) =>
       forumAPI.sendForumMessage(chatId, data),
+    onMutate: async ({ chatId, data }) => {
+      // Cancel outgoing refetches to avoid overwriting our optimistic update
+      await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
+
+      // Snapshot previous value for rollback
+      const previousMessages = queryClient.getQueryData<ForumMessage[]>(['forum-messages', chatId]);
+
+      // Optimistic update: IMMEDIATELY add temporary message to cache
+      queryClient.setQueriesData<ForumMessage[]>(
+        { queryKey: ['forum-messages', chatId], exact: false },
+        (oldData) => {
+          if (!oldData) return oldData;
+
+          // Create temporary optimistic message
+          const optimisticMessage: ForumMessage = {
+            id: Date.now(), // Temporary ID
+            content: data.content,
+            sender: {
+              id: 0, // Will be filled by server
+              full_name: 'Вы',
+              role: '',
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_read: false,
+            is_edited: false,
+            message_type: 'text',
+          };
+
+          // Add optimistic message to the end
+          return [...oldData, optimisticMessage];
+        }
+      );
+
+      return { previousMessages };
+    },
     onSuccess: (message, variables) => {
-      // Optimistic update: immediately add the message to ALL caches for this chat
-      // Use partial key matching to update all queries for this chatId (regardless of limit/offset)
+      // Replace optimistic message with real server response
       queryClient.setQueriesData<ForumMessage[]>(
         { queryKey: ['forum-messages', variables.chatId], exact: false },
         (oldData) => {
           if (!oldData) return [message];
 
-          // Check if message already exists (avoid duplicates)
-          const exists = oldData.some((msg) => msg.id === message.id);
-          if (exists) return oldData;
+          // Remove temporary optimistic message and add real message
+          const withoutOptimistic = oldData.filter((msg) => msg.id !== message.id && msg.sender.id !== 0);
 
-          // Add new message to the end (chronological order)
-          return [...oldData, message];
+          // Check if real message already exists (from WebSocket)
+          const exists = withoutOptimistic.some((msg) => msg.id === message.id);
+          if (exists) return withoutOptimistic;
+
+          // Add real message
+          return [...withoutOptimistic, message];
         }
       );
-
-      // Also invalidate to trigger refetch (ensures data consistency)
-      queryClient.invalidateQueries({ queryKey: ['forum-messages', variables.chatId] });
 
       // Update forum chats to show last_message
       queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
       toast.success('Сообщение отправлено');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
+      // Rollback optimistic update on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['forum-messages', variables.chatId], context.previousMessages);
+      }
       toast.error(`Ошибка отправки сообщения: ${error.message}`);
     },
   });

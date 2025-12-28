@@ -1029,24 +1029,18 @@ export default function Forum() {
     setTypingUsers([]);
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = (content: string) => {
     if (!selectedChat) return;
 
-    try {
-      setError(null);
+    setError(null);
 
-      // Send ONLY via REST API to persist in database
-      // Backend will broadcast via WebSocket to other connected users
-      // This prevents duplicate sends and ensures message persistence
-      await sendMessageMutation.mutateAsync({
-        chatId: selectedChat.id,
-        data: { content },
-      });
-    } catch (error: any) {
-      logger.error('Error sending message:', error);
-      const errorMessage = error?.message || 'Ошибка отправки сообщения';
-      setError(errorMessage);
-    }
+    // Send via REST API to persist in database
+    // Optimistic update shows message immediately (in useSendForumMessage)
+    // Backend will broadcast via WebSocket to other connected users
+    sendMessageMutation.mutate({
+      chatId: selectedChat.id,
+      data: { content },
+    });
   };
 
   const handleRetryConnection = () => {

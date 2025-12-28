@@ -86,8 +86,20 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   // FIX (T002): Консолидированная проверка эффективного пользователя
-  // Используем user из профиля или fallback к AuthContext
-  const effectiveUser = user || authContextUser;
+  // CRITICAL: Use authContextUser as PRIMARY source (fresh from login)
+  // Only fallback to user from useProfile if authContextUser is not available
+  // This prevents stale cached profile data from overriding fresh login data
+  const effectiveUser = authContextUser || user;
+
+  // DEBUG: Log user source for troubleshooting
+  if (effectiveUser) {
+    logger.debug('[ProtectedRoute] Effective user determined:', {
+      source: authContextUser ? 'AuthContext' : 'useProfile',
+      userId: effectiveUser.id,
+      role: effectiveUser.role,
+      requiredRole
+    });
+  }
 
   // Ошибка при загрузке профиля (например, сессия истекла)
   // НО: если есть effectiveUser, ошибка профиля не критична (используем fallback)

@@ -158,22 +158,22 @@ class Invoice(models.Model):
         constraints = [
             # Сумма должна быть больше 0
             models.CheckConstraint(
-                check=models.Q(amount__gt=0),
+                condition=models.Q(amount__gt=0),
                 name='check_invoice_amount_positive'
             ),
             # sent_at должен быть >= created_at
             models.CheckConstraint(
-                check=models.Q(sent_at__isnull=True) | models.Q(sent_at__gte=models.F('created_at')),
+                condition=models.Q(sent_at__isnull=True) | models.Q(sent_at__gte=models.F('created_at')),
                 name='check_invoice_sent_after_created'
             ),
             # viewed_at должен быть >= sent_at
             models.CheckConstraint(
-                check=models.Q(viewed_at__isnull=True) | models.Q(sent_at__isnull=True) | models.Q(viewed_at__gte=models.F('sent_at')),
+                condition=models.Q(viewed_at__isnull=True) | models.Q(sent_at__isnull=True) | models.Q(viewed_at__gte=models.F('sent_at')),
                 name='check_invoice_viewed_after_sent'
             ),
             # paid_at должен быть >= viewed_at (если viewed_at установлен)
             models.CheckConstraint(
-                check=models.Q(paid_at__isnull=True) | models.Q(viewed_at__isnull=True) | models.Q(paid_at__gte=models.F('viewed_at')),
+                condition=models.Q(paid_at__isnull=True) | models.Q(viewed_at__isnull=True) | models.Q(paid_at__gte=models.F('viewed_at')),
                 name='check_invoice_paid_after_viewed'
             ),
             # Предотвращение дублирования активных счетов

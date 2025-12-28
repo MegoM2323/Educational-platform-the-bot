@@ -34,58 +34,58 @@ const ParentInvoices = lazy(() => import("./pages/dashboard/parent/InvoicesPage"
 
 // Lazy load только тяжелые компоненты дашбордов
 // Преимущество: эти чанки загружаются только когда пользователь переходит на соответствующие роли
-const StudentDashboard = lazy(() => import(/* webpackChunkName: "student-dashboard" */ "./pages/dashboard/StudentDashboard"));
-const TeacherDashboard = lazy(() => import(/* webpackChunkName: "teacher-dashboard" */ "./pages/dashboard/TeacherDashboard"));
-const TutorDashboard = lazy(() => import(/* webpackChunkName: "tutor-dashboard" */ "./pages/dashboard/TutorDashboard"));
-const StudentMaterials = lazy(() => import(/* webpackChunkName: "student-materials" */ "./pages/dashboard/student/Materials"));
-const StudentSubjects = lazy(() => import(/* webpackChunkName: "student-subjects" */ "./pages/dashboard/student/Subjects"));
-const StudentAssignments = lazy(() => import(/* webpackChunkName: "student-assignments" */ "./pages/dashboard/student/Assignments"));
-const TeacherMaterials = lazy(() => import(/* webpackChunkName: "teacher-materials" */ "./pages/dashboard/teacher/Materials"));
-const CreateMaterial = lazy(() => import(/* webpackChunkName: "create-material" */ "./pages/dashboard/teacher/CreateMaterial"));
-const TeacherReports = lazy(() => import(/* webpackChunkName: "teacher-reports" */ "./pages/dashboard/teacher/Reports"));
-const StudyPlans = lazy(() => import(/* webpackChunkName: "study-plans" */ "./pages/dashboard/teacher/StudyPlans"));
-const TeacherSubmissions = lazy(() => import(/* webpackChunkName: "teacher-submissions" */ "./pages/dashboard/teacher/Submissions"));
-const AssignSubject = lazy(() => import(/* webpackChunkName: "assign-subject" */ "./pages/dashboard/teacher/AssignSubject"));
-const TeacherAssignments = lazy(() => import(/* webpackChunkName: "teacher-assignments" */ "./pages/dashboard/teacher/Assignments"));
-const TeacherStudyPlanGenerator = lazy(() => import(/* webpackChunkName: "study-plan-generator" */ "./pages/dashboard/TeacherStudyPlanGeneratorPage"));
-const TutorReports = lazy(() => import(/* webpackChunkName: "tutor-reports" */ "./pages/dashboard/tutor/Reports"));
-const TutorStudents = lazy(() => import(/* webpackChunkName: "tutor-students" */ "./pages/dashboard/tutor/Students"));
-const TutorInvoices = lazy(() => import(/* webpackChunkName: "tutor-invoices" */ "./pages/dashboard/tutor/InvoicesPage"));
-const ParentChildren = lazy(() => import(/* webpackChunkName: "parent-children" */ "./pages/dashboard/parent/Children"));
-const ParentChildDetail = lazy(() => import(/* webpackChunkName: "parent-child-detail" */ "./pages/dashboard/parent/ChildDetail"));
-const ParentStatistics = lazy(() => import(/* webpackChunkName: "parent-stats" */ "./pages/dashboard/parent/Statistics"));
-const ParentReports = lazy(() => import(/* webpackChunkName: "parent-reports" */ "./pages/dashboard/parent/Reports"));
-const Chat = lazy(() => import(/* webpackChunkName: "chat" */ "./pages/dashboard/Chat"));
+const StudentDashboard = lazy(() => import("./pages/dashboard/StudentDashboard"));
+const TeacherDashboard = lazy(() => import("./pages/dashboard/TeacherDashboard"));
+const TutorDashboard = lazy(() => import("./pages/dashboard/TutorDashboard"));
+const StudentMaterials = lazy(() => import("./pages/dashboard/student/Materials"));
+const StudentSubjects = lazy(() => import("./pages/dashboard/student/Subjects"));
+const StudentAssignments = lazy(() => import("./pages/dashboard/student/Assignments"));
+const TeacherMaterials = lazy(() => import("./pages/dashboard/teacher/Materials"));
+const CreateMaterial = lazy(() => import("./pages/dashboard/teacher/CreateMaterial"));
+const TeacherReports = lazy(() => import("./pages/dashboard/teacher/Reports"));
+const StudyPlans = lazy(() => import("./pages/dashboard/teacher/StudyPlans"));
+const TeacherSubmissions = lazy(() => import("./pages/dashboard/teacher/Submissions"));
+const AssignSubject = lazy(() => import("./pages/dashboard/teacher/AssignSubject"));
+const TeacherAssignments = lazy(() => import("./pages/dashboard/teacher/Assignments"));
+const TeacherStudyPlanGenerator = lazy(() => import("./pages/dashboard/TeacherStudyPlanGeneratorPage"));
+const TutorReports = lazy(() => import("./pages/dashboard/tutor/Reports"));
+const TutorStudents = lazy(() => import("./pages/dashboard/tutor/Students"));
+const TutorInvoices = lazy(() => import("./pages/dashboard/tutor/InvoicesPage"));
+const ParentChildren = lazy(() => import("./pages/dashboard/parent/Children"));
+const ParentChildDetail = lazy(() => import("./pages/dashboard/parent/ChildDetail"));
+const ParentStatistics = lazy(() => import("./pages/dashboard/parent/Statistics"));
+const ParentReports = lazy(() => import("./pages/dashboard/parent/Reports"));
+const Chat = lazy(() => import("./pages/dashboard/Chat"));
 
 // Scheduling components
-const StudentSchedulePage = lazy(() => import(/* webpackChunkName: "student-schedule" */ "./pages/dashboard/StudentSchedulePage"));
-const TeacherSchedulePage = lazy(() => import(/* webpackChunkName: "teacher-schedule" */ "./pages/dashboard/TeacherSchedulePage"));
-const TutorSchedulePage = lazy(() => import(/* webpackChunkName: "tutor-schedule" */ "./pages/dashboard/TutorSchedulePage"));
-const ParentSchedulePage = lazy(() => import(/* webpackChunkName: "parent-schedule" */ "./pages/dashboard/ParentSchedulePage"));
+const StudentSchedulePage = lazy(() => import("./pages/dashboard/StudentSchedulePage"));
+const TeacherSchedulePage = lazy(() => import("./pages/dashboard/TeacherSchedulePage"));
+const TutorSchedulePage = lazy(() => import("./pages/dashboard/TutorSchedulePage"));
+const ParentSchedulePage = lazy(() => import("./pages/dashboard/ParentSchedulePage"));
 
 // Forum page
-const Forum = lazy(() => import(/* webpackChunkName: "forum" */ "./pages/dashboard/Forum"));
+const Forum = lazy(() => import("./pages/dashboard/Forum"));
 
 // Lesson Viewer
-const LessonViewer = lazy(() => import(/* webpackChunkName: "lesson-viewer" */ "./pages/lessons/LessonViewer"));
-const LessonViewerPage = lazy(() => import(/* webpackChunkName: "lesson-viewer-page" */ "./pages/dashboard/student/LessonViewerPage"));
+const LessonViewer = lazy(() => import("./pages/lessons/LessonViewer"));
+const LessonViewerPage = lazy(() => import("./pages/dashboard/student/LessonViewerPage"));
 
 // Knowledge Graph components
-const KnowledgeGraphPage = lazy(() => import(/* webpackChunkName: "knowledge-graph" */ "./pages/dashboard/student/KnowledgeGraphPage"));
-const ContentCreatorPage = lazy(() => import(/* webpackChunkName: "content-creator" */ "./pages/dashboard/teacher/ContentCreatorPage"));
-const LessonCreatorPage = lazy(() => import(/* webpackChunkName: "lesson-creator" */ "./pages/dashboard/teacher/LessonCreatorPage"));
-const GraphEditorPage = lazy(() => import(/* webpackChunkName: "graph-editor" */ "./pages/dashboard/teacher/GraphEditorPage"));
-const ProgressViewerPage = lazy(() => import(/* webpackChunkName: "progress-viewer" */ "./pages/dashboard/teacher/ProgressViewerPage"));
+const KnowledgeGraphPage = lazy(() => import("./pages/dashboard/student/KnowledgeGraphPage"));
+const ContentCreatorPage = lazy(() => import("./pages/dashboard/teacher/ContentCreatorPage"));
+const LessonCreatorPage = lazy(() => import("./pages/dashboard/teacher/LessonCreatorPage"));
+const GraphEditorPage = lazy(() => import("./pages/dashboard/teacher/GraphEditorPage"));
+const ProgressViewerPage = lazy(() => import("./pages/dashboard/teacher/ProgressViewerPage"));
 
 // Profile pages
-const ProfilePage = lazy(() => import(/* webpackChunkName: "profile" */ "./pages/profile/ProfilePage"));
-const StudentProfilePage = lazy(() => import(/* webpackChunkName: "student-profile" */ "./pages/profile/StudentProfilePage"));
-const TeacherProfilePage = lazy(() => import(/* webpackChunkName: "teacher-profile" */ "./pages/profile/TeacherProfilePage"));
-const TutorProfilePage = lazy(() => import(/* webpackChunkName: "tutor-profile" */ "./pages/profile/TutorProfilePage"));
-const ParentProfilePage = lazy(() => import(/* webpackChunkName: "parent-profile" */ "./pages/profile/ParentProfilePage"));
+const ProfilePage = lazy(() => import("./pages/profile/ProfilePage"));
+const StudentProfilePage = lazy(() => import("./pages/profile/StudentProfilePage"));
+const TeacherProfilePage = lazy(() => import("./pages/profile/TeacherProfilePage"));
+const TutorProfilePage = lazy(() => import("./pages/profile/TutorProfilePage"));
+const ParentProfilePage = lazy(() => import("./pages/profile/ParentProfilePage"));
 
 // Settings pages
-const NotificationSettings = lazy(() => import(/* webpackChunkName: "notification-settings" */ "./pages/settings/NotificationSettings"));
+const NotificationSettings = lazy(() => import("./pages/settings/NotificationSettings"));
 
 // Dashboard redirect component - redirects to role-specific dashboard
 const DashboardRedirect = () => {

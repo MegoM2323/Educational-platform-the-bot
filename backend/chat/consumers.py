@@ -288,11 +288,37 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def check_room_access(self):
-        """Проверка доступа к комнате"""
+        """
+        Проверка доступа к комнате.
+
+        Проверяет доступ через:
+        1. M2M participants (ChatRoom.participants)
+        2. ChatParticipant записи (для обратной совместимости)
+        """
         try:
             room = ChatRoom.objects.get(id=self.room_id)
-            return room.participants.filter(id=self.scope['user'].id).exists()
+            user = self.scope['user']
+            user_id = user.id
+
+            # Проверка 1: M2M participants
+            if room.participants.filter(id=user_id).exists():
+                logger.debug(f'[check_room_access] User {user_id} has access via M2M participants')
+                return True
+
+            # Проверка 2: ChatParticipant (fallback для старых чатов)
+            if ChatParticipant.objects.filter(room=room, user=user).exists():
+                # Синхронизируем: добавляем в M2M если ещё нет
+                room.participants.add(user)
+                logger.info(f'[check_room_access] User {user_id} synced from ChatParticipant to M2M')
+                return True
+
+            logger.warning(
+                f'[check_room_access] Access denied: user {user_id} (role={user.role}) '
+                f'is not a participant in room {self.room_id} (type={room.type})'
+            )
+            return False
         except ObjectDoesNotExist:
+            logger.warning(f'[check_room_access] Room {self.room_id} does not exist')
             return False
 
     @database_sync_to_async

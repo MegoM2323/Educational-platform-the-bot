@@ -428,10 +428,35 @@ def create_tutor_chats_on_tutor_assignment(sender, instance: StudentProfile, cre
             ).first()
 
             if existing_chat:
-                skipped_count += 1
-                logger.debug(
-                    f"[Signal] FORUM_TUTOR chat already exists for enrollment {enrollment.id}, skipping"
-                )
+                # BUG FIX: When tutor is changed, add new tutor to existing chat
+                # Check if new tutor is already a participant
+                if not existing_chat.participants.filter(id=instance.tutor.id).exists():
+                    # Add new tutor as participant (M2M)
+                    existing_chat.participants.add(instance.tutor)
+
+                    # Import ChatParticipant for unread tracking
+                    from chat.models import ChatParticipant
+                    ChatParticipant.objects.get_or_create(
+                        room=existing_chat,
+                        user=instance.tutor
+                    )
+
+                    # Update chat name to reflect new tutor
+                    subject_name = enrollment.get_subject_name()
+                    student_name = instance.user.get_full_name()
+                    tutor_name = instance.tutor.get_full_name()
+                    existing_chat.name = f"{subject_name} - {student_name} <-> {tutor_name}"
+                    existing_chat.save(update_fields=['name'])
+
+                    logger.info(
+                        f"[Signal] Added new tutor {instance.tutor.id} to existing FORUM_TUTOR chat {existing_chat.id} "
+                        f"for enrollment {enrollment.id}"
+                    )
+                else:
+                    skipped_count += 1
+                    logger.debug(
+                        f"[Signal] Tutor {instance.tutor.id} already in FORUM_TUTOR chat for enrollment {enrollment.id}, skipping"
+                    )
                 continue
 
             # Create FORUM_TUTOR chat

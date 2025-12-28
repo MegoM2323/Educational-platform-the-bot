@@ -128,29 +128,40 @@ class CanInitiateChat(permissions.BasePermission):
 
         # Check student-tutor relationship
         if requester.role == 'student' and contact_user.role == 'tutor':
+            # Check TWO ways a tutor can be linked to a student:
+            # 1. Via StudentProfile.tutor (direct assignment)
+            # 2. Via User.created_by_tutor (tutor who created the student)
+            is_tutor_linked = False
+
             try:
                 student_profile = StudentProfile.objects.get(user=requester)
                 if student_profile.tutor_id == contact_user.id:
-                    # Get any enrollment for this student (for FORUM_TUTOR type)
-                    # Use subject_id if provided, otherwise get first enrollment
-                    enrollment = SubjectEnrollment.objects.filter(
-                        student=requester
-                    ).first()
-
-                    if subject_id:
-                        # Prefer enrollment with specified subject
-                        specific_enrollment = SubjectEnrollment.objects.filter(
-                            student=requester,
-                            subject_id=subject_id
-                        ).first()
-                        if specific_enrollment:
-                            enrollment = specific_enrollment
-
-                    if enrollment:
-                        return True, 'FORUM_TUTOR', enrollment
-
+                    is_tutor_linked = True
             except StudentProfile.DoesNotExist:
                 pass
+
+            # Also check if tutor created this student
+            if not is_tutor_linked and requester.created_by_tutor_id == contact_user.id:
+                is_tutor_linked = True
+
+            if is_tutor_linked:
+                # Get any enrollment for this student (for FORUM_TUTOR type)
+                # Use subject_id if provided, otherwise get first enrollment
+                enrollment = SubjectEnrollment.objects.filter(
+                    student=requester
+                ).first()
+
+                if subject_id:
+                    # Prefer enrollment with specified subject
+                    specific_enrollment = SubjectEnrollment.objects.filter(
+                        student=requester,
+                        subject_id=subject_id
+                    ).first()
+                    if specific_enrollment:
+                        enrollment = specific_enrollment
+
+                if enrollment:
+                    return True, 'FORUM_TUTOR', enrollment
 
             logger.warning(
                 f"Student {requester.id} does not have tutor {contact_user.id}"
@@ -159,26 +170,37 @@ class CanInitiateChat(permissions.BasePermission):
 
         # Check tutor-student relationship (reverse)
         if requester.role == 'tutor' and contact_user.role == 'student':
+            # Check TWO ways a tutor can be linked to a student:
+            # 1. Via StudentProfile.tutor (direct assignment)
+            # 2. Via User.created_by_tutor (tutor who created the student)
+            is_tutor_linked = False
+
             try:
                 student_profile = StudentProfile.objects.get(user=contact_user)
                 if student_profile.tutor_id == requester.id:
-                    enrollment = SubjectEnrollment.objects.filter(
-                        student=contact_user
-                    ).first()
-
-                    if subject_id:
-                        specific_enrollment = SubjectEnrollment.objects.filter(
-                            student=contact_user,
-                            subject_id=subject_id
-                        ).first()
-                        if specific_enrollment:
-                            enrollment = specific_enrollment
-
-                    if enrollment:
-                        return True, 'FORUM_TUTOR', enrollment
-
+                    is_tutor_linked = True
             except StudentProfile.DoesNotExist:
                 pass
+
+            # Also check if tutor created this student
+            if not is_tutor_linked and contact_user.created_by_tutor_id == requester.id:
+                is_tutor_linked = True
+
+            if is_tutor_linked:
+                enrollment = SubjectEnrollment.objects.filter(
+                    student=contact_user
+                ).first()
+
+                if subject_id:
+                    specific_enrollment = SubjectEnrollment.objects.filter(
+                        student=contact_user,
+                        subject_id=subject_id
+                    ).first()
+                    if specific_enrollment:
+                        enrollment = specific_enrollment
+
+                if enrollment:
+                    return True, 'FORUM_TUTOR', enrollment
 
             logger.warning(
                 f"Tutor {requester.id} not assigned to student {contact_user.id}"
@@ -189,8 +211,11 @@ class CanInitiateChat(permissions.BasePermission):
         # Tutor can chat with teachers of their assigned students
         if requester.role == 'tutor' and contact_user.role == 'teacher':
             # Find if teacher teaches any of tutor's students
+            # Check both StudentProfile.tutor and User.created_by_tutor
+            from django.db.models import Q
             enrollment = SubjectEnrollment.objects.filter(
-                student__student_profile__tutor=requester,
+                Q(student__student_profile__tutor=requester) |
+                Q(student__created_by_tutor=requester),
                 teacher=contact_user,
                 is_active=True
             ).first()
@@ -209,8 +234,11 @@ class CanInitiateChat(permissions.BasePermission):
         # Teacher can chat with tutor of their students
         if requester.role == 'teacher' and contact_user.role == 'tutor':
             # Find if tutor supervises any of teacher's students
+            # Check both StudentProfile.tutor and User.created_by_tutor
+            from django.db.models import Q
             enrollment = SubjectEnrollment.objects.filter(
-                student__student_profile__tutor=contact_user,
+                Q(student__student_profile__tutor=contact_user) |
+                Q(student__created_by_tutor=contact_user),
                 teacher=requester,
                 is_active=True
             ).first()
@@ -265,9 +293,12 @@ class CanInitiateChat(permissions.BasePermission):
         # Parent can chat with tutor of their child
         if requester.role == 'parent' and contact_user.role == 'tutor':
             # Find if tutor supervises parent's child
+            # Check both StudentProfile.tutor and User.created_by_tutor
+            from django.db.models import Q
             student_profile = StudentProfile.objects.filter(
-                parent=requester,
-                tutor=contact_user
+                parent=requester
+            ).filter(
+                Q(tutor=contact_user) | Q(user__created_by_tutor=contact_user)
             ).first()
 
             if student_profile:
@@ -287,9 +318,12 @@ class CanInitiateChat(permissions.BasePermission):
 
         # Check tutor-parent relationship (reverse)
         if requester.role == 'tutor' and contact_user.role == 'parent':
+            # Check both StudentProfile.tutor and User.created_by_tutor
+            from django.db.models import Q
             student_profile = StudentProfile.objects.filter(
-                parent=contact_user,
-                tutor=requester
+                parent=contact_user
+            ).filter(
+                Q(tutor=requester) | Q(user__created_by_tutor=requester)
             ).first()
 
             if student_profile:

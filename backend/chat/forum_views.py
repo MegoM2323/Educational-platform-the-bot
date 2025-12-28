@@ -221,8 +221,27 @@ class ForumChatViewSet(viewsets.ViewSet):
         try:
             # Get chat room and verify access
             chat = ChatRoom.objects.get(id=pk)
+            user = request.user
 
-            if not chat.participants.filter(id=request.user.id).exists():
+            # Проверка 1: M2M participants
+            has_access = chat.participants.filter(id=user.id).exists()
+
+            # Проверка 2: ChatParticipant (fallback для обратной совместимости)
+            if not has_access:
+                has_access = ChatParticipant.objects.filter(room=chat, user=user).exists()
+                if has_access:
+                    # Синхронизируем: добавляем в M2M если ещё нет
+                    chat.participants.add(user)
+                    logger.info(
+                        f'[messages] User {user.id} synced from ChatParticipant to M2M '
+                        f'for room {pk}'
+                    )
+
+            if not has_access:
+                logger.warning(
+                    f'[messages] Access denied: user {user.id} (role={user.role}) '
+                    f'is not a participant in room {pk} (type={chat.type})'
+                )
                 return Response(
                     {'success': False, 'error': 'Access denied'},
                     status=status.HTTP_403_FORBIDDEN
@@ -322,8 +341,27 @@ class ForumChatViewSet(viewsets.ViewSet):
         try:
             # Get chat room and verify access
             chat = ChatRoom.objects.get(id=pk)
+            user = request.user
 
-            if not chat.participants.filter(id=request.user.id).exists():
+            # Проверка 1: M2M participants
+            has_access = chat.participants.filter(id=user.id).exists()
+
+            # Проверка 2: ChatParticipant (fallback для обратной совместимости)
+            if not has_access:
+                has_access = ChatParticipant.objects.filter(room=chat, user=user).exists()
+                if has_access:
+                    # Синхронизируем: добавляем в M2M если ещё нет
+                    chat.participants.add(user)
+                    logger.info(
+                        f'[send_message] User {user.id} synced from ChatParticipant to M2M '
+                        f'for room {pk}'
+                    )
+
+            if not has_access:
+                logger.warning(
+                    f'[send_message] Access denied: user {user.id} (role={user.role}) '
+                    f'is not a participant in room {pk} (type={chat.type})'
+                )
                 return Response(
                     {'success': False, 'error': 'Access denied'},
                     status=status.HTTP_403_FORBIDDEN
@@ -527,9 +565,10 @@ class AvailableContactsView(APIView):
 
             elif user.role == 'tutor':
                 # Получить всех студентов тьютора
+                # Проверяем оба способа связи: StudentProfile.tutor и User.created_by_tutor
                 student_profiles = StudentProfile.objects.filter(
-                    tutor=user
-                ).select_related('user')
+                    Q(tutor=user) | Q(user__created_by_tutor=user)
+                ).select_related('user').distinct()
 
                 students = [profile.user for profile in student_profiles]
 
@@ -728,35 +767,50 @@ class InitiateChatView(APIView):
                     'error': 'No enrollment found for this relationship'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Проверить наличие существующего чата (idempotency)
+            # Проверить наличие существующего чата (без фильтра is_active для UNIQUE constraint)
             existing_chat = ChatRoom.objects.filter(
                 type=getattr(ChatRoom.Type, chat_type),
-                enrollment=enrollment,
-                is_active=True
+                enrollment=enrollment
             ).prefetch_related('participants').first()
 
             if existing_chat:
-                # Проверить что оба участника в чате
-                participant_ids = set(existing_chat.participants.values_list('id', flat=True))
-                expected_ids = {request.user.id, contact_user.id}
+                # Чат с таким type+enrollment уже существует
+                # Реактивировать если неактивен и обновить участников
+                with transaction.atomic():
+                    if not existing_chat.is_active:
+                        existing_chat.is_active = True
+                        existing_chat.save(update_fields=['is_active'])
+                        logger.info(f"Reactivated chat {existing_chat.id}")
 
-                if participant_ids == expected_ids:
-                    # Чат уже существует, вернуть его
-                    logger.info(
-                        f"Existing chat {existing_chat.id} found for users "
-                        f"{request.user.id} and {contact_user_id}"
-                    )
+                    # Убедиться что оба участника в чате
+                    current_participants = set(existing_chat.participants.values_list('id', flat=True))
+                    expected_participants = {request.user.id, contact_user.id}
+                    missing_participants = expected_participants - current_participants
 
-                    response_serializer = ChatDetailSerializer(
-                        existing_chat,
-                        context={'request': request}
-                    )
+                    if missing_participants:
+                        for user_id in missing_participants:
+                            existing_chat.participants.add(user_id)
+                            ChatParticipant.objects.get_or_create(
+                                room=existing_chat,
+                                user_id=user_id
+                            )
+                        logger.info(f"Added missing participants to chat {existing_chat.id}: {missing_participants}")
 
-                    return Response({
-                        'success': True,
-                        'chat': response_serializer.data,
-                        'created': False
-                    }, status=status.HTTP_200_OK)
+                logger.info(
+                    f"Returning existing chat {existing_chat.id} for users "
+                    f"{request.user.id} and {contact_user_id}"
+                )
+
+                response_serializer = ChatDetailSerializer(
+                    existing_chat,
+                    context={'request': request}
+                )
+
+                return Response({
+                    'success': True,
+                    'chat': response_serializer.data,
+                    'created': False
+                }, status=status.HTTP_200_OK)
 
             # Создать новый чат
             with transaction.atomic():
@@ -779,14 +833,24 @@ class InitiateChatView(APIView):
                 else:
                     chat_name = f"Chat {request.user.get_full_name()} ↔ {contact_user.get_full_name()}"
 
-                # Создать ChatRoom
-                new_chat = ChatRoom.objects.create(
-                    name=chat_name,
+                # Создать ChatRoom с get_or_create для race condition safety
+                new_chat, created = ChatRoom.objects.get_or_create(
                     type=getattr(ChatRoom.Type, chat_type),
                     enrollment=enrollment,
-                    created_by=request.user,
-                    is_active=True
+                    defaults={
+                        'name': chat_name,
+                        'created_by': request.user,
+                        'is_active': True
+                    }
                 )
+
+                if not created:
+                    # Race condition: чат был создан между проверкой и созданием
+                    # Реактивировать если неактивен
+                    if not new_chat.is_active:
+                        new_chat.is_active = True
+                        new_chat.save(update_fields=['is_active'])
+                    logger.info(f"Race condition resolved: returning existing chat {new_chat.id}")
 
                 # Добавить участников
                 new_chat.participants.add(request.user, contact_user)
@@ -801,10 +865,11 @@ class InitiateChatView(APIView):
                     user=contact_user
                 )
 
-                logger.info(
-                    f"Created new chat {new_chat.id} ({chat_type}) for users "
-                    f"{request.user.id} and {contact_user_id}"
-                )
+                if created:
+                    logger.info(
+                        f"Created new chat {new_chat.id} ({chat_type}) for users "
+                        f"{request.user.id} and {contact_user_id}"
+                    )
 
                 # Сериализовать ответ
                 response_serializer = ChatDetailSerializer(
@@ -815,8 +880,8 @@ class InitiateChatView(APIView):
                 return Response({
                     'success': True,
                     'chat': response_serializer.data,
-                    'created': True
-                }, status=status.HTTP_201_CREATED)
+                    'created': created
+                }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
         except Exception as e:
             logger.error(

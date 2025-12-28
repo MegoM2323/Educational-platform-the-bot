@@ -49,6 +49,10 @@ def check_file_access_permission(user, file_path):
         # Сгенерированные файлы учебных планов через AI
         return _check_generated_file_access(user, file_path)
 
+    elif file_path.startswith('chat/'):
+        # Файлы чата (изображения, вложения) - проверяем через chat модели
+        return _check_chat_file_access(user, file_path)
+
     else:
         # Для остальных файлов требуется явная проверка
         logger.warning(f"Unknown file path type: {file_path}")
@@ -214,6 +218,64 @@ def _check_generated_file_access(user, file_path):
     except Exception as e:
         logger.error(f"Error checking generated file access: {e}")
         return False, f"Ошибка проверки доступа: {str(e)}"
+
+
+def _check_chat_file_access(user, file_path):
+    """
+    Проверка доступа к файлам чата (изображения, вложения).
+
+    В development режиме: все аутентифицированные пользователи имеют доступ.
+    В production режиме: проверяем участие в чат-комнате.
+
+    Args:
+        user: User объект
+        file_path: Путь к файлу относительно MEDIA_ROOT (например, chat/images/test.png)
+
+    Returns:
+        tuple: (bool, str) - (имеет ли доступ, причина отказа)
+    """
+    from django.conf import settings
+
+    # В development режиме разрешаем доступ всем аутентифицированным пользователям
+    # Это упрощает тестирование и разработку
+    if settings.DEBUG:
+        return True, None
+
+    # В production режиме проверяем участие в чат-комнате
+    try:
+        from django.db.models import Q
+        from chat.models import Message, ChatRoom
+
+        # Извлекаем имя файла
+        filename = file_path.split('/')[-1]
+
+        # Ищем сообщение с этим файлом (изображением или вложением)
+        message = Message.objects.select_related('room').filter(
+            Q(image__icontains=filename) | Q(file__icontains=filename)
+        ).first()
+
+        if not message:
+            # Файл не привязан к сообщению - в production это ошибка
+            # Возможно, это системный файл (placeholder и т.п.) - разрешаем
+            if 'placeholder' in filename.lower():
+                return True, None
+            logger.warning(f"Chat file not linked to any message: {file_path}")
+            return False, "Файл чата не найден"
+
+        room = message.room
+
+        # Проверяем участие пользователя в чат-комнате
+        if room.participants.filter(id=user.id).exists():
+            return True, None
+
+        return False, "Вы не являетесь участником этого чата"
+
+    except Exception as e:
+        logger.error(f"Error checking chat file access: {e}")
+        # В случае ошибки в production - запрещаем доступ
+        if not settings.DEBUG:
+            return False, f"Ошибка проверки доступа: {str(e)}"
+        return True, None
 
 
 @api_view(['GET', 'HEAD'])

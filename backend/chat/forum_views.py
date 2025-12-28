@@ -479,7 +479,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                     if uploaded_file:
                         # Determine if file is an image
                         file_name = uploaded_file.name.lower()
-                        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
+                        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'}
                         is_image = any(file_name.endswith(ext) for ext in image_extensions)
 
                         if is_image:

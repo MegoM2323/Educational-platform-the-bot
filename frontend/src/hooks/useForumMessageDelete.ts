@@ -15,24 +15,28 @@ export const useForumMessageDelete = ({ chatId, onSuccess, onError }: UseForumMe
     mutationFn: (messageId: number) => forumAPI.deleteForumMessage(messageId),
 
     onMutate: async (messageId) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId, 50, 0] });
+      // Cancel outgoing refetches for all queries matching this chatId
+      await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
 
-      // Snapshot previous value
+      // Snapshot previous value - get first matching query data
       const previousMessages = queryClient.getQueryData<ForumMessage[]>(['forum-messages', chatId, 50, 0]);
 
-      // Optimistically remove message
-      queryClient.setQueryData<ForumMessage[]>(['forum-messages', chatId, 50, 0], (old) =>
-        old?.filter((msg) => msg.id !== messageId)
+      // Optimistically remove message from ALL queries for this chat
+      queryClient.setQueriesData<ForumMessage[]>(
+        { queryKey: ['forum-messages', chatId], exact: false },
+        (old) => old?.filter((msg) => msg.id !== messageId)
       );
 
       return { previousMessages };
     },
 
     onError: (error, messageId, context) => {
-      // Rollback on error
+      // Rollback on error - restore to all queries
       if (context?.previousMessages) {
-        queryClient.setQueryData(['forum-messages', chatId, 50, 0], context.previousMessages);
+        queryClient.setQueriesData(
+          { queryKey: ['forum-messages', chatId], exact: false },
+          context.previousMessages
+        );
       }
       toast.error('Не удалось удалить сообщение');
       onError?.(error as Error);
@@ -44,7 +48,7 @@ export const useForumMessageDelete = ({ chatId, onSuccess, onError }: UseForumMe
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId, 50, 0] });
+      queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId] });
     },
   });
 };

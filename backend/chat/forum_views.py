@@ -26,6 +26,44 @@ from rest_framework.views import APIView
 from accounts.models import StudentProfile, User
 from materials.models import SubjectEnrollment, Subject
 from .models import ChatRoom, Message, ChatParticipant
+
+
+def check_parent_access_to_room(user: User, chat: ChatRoom) -> bool:
+    """
+    Проверяет, имеет ли родитель доступ к комнате чата через своих детей.
+
+    Родители могут получить доступ к FORUM_SUBJECT и FORUM_TUTOR чатам,
+    если хотя бы один из их детей является участником комнаты.
+
+    При положительной проверке родитель автоматически добавляется в участники.
+
+    Args:
+        user: Пользователь (должен быть родителем)
+        chat: Комната чата
+
+    Returns:
+        True если доступ разрешён, False иначе
+    """
+    if user.role != 'parent':
+        return False
+
+    # Получаем ID всех детей этого родителя
+    children_ids = StudentProfile.objects.filter(
+        parent=user
+    ).values_list('user_id', flat=True)
+
+    # Проверяем, является ли хотя бы один ребёнок участником комнаты
+    if children_ids and chat.participants.filter(id__in=children_ids).exists():
+        # Добавляем родителя в участники для будущих проверок
+        chat.participants.add(user)
+        ChatParticipant.objects.get_or_create(room=chat, user=user)
+        logger.info(
+            f'[check_parent_access_to_room] Parent {user.id} granted access to room {chat.id} '
+            f'via child relationship and added to participants'
+        )
+        return True
+
+    return False
 from .serializers import (
     ChatRoomListSerializer, MessageSerializer, MessageCreateSerializer,
     InitiateChatRequestSerializer, ChatDetailSerializer, AvailableContactSerializer
@@ -237,6 +275,10 @@ class ForumChatViewSet(viewsets.ViewSet):
                         f'for room {pk}'
                     )
 
+            # Проверка 3: Родительский доступ к чатам детей
+            if not has_access:
+                has_access = check_parent_access_to_room(user, chat)
+
             if not has_access:
                 logger.warning(
                     f'[messages] Access denied: user {user.id} (role={user.role}) '
@@ -356,6 +398,10 @@ class ForumChatViewSet(viewsets.ViewSet):
                         f'[send_message] User {user.id} synced from ChatParticipant to M2M '
                         f'for room {pk}'
                     )
+
+            # Проверка 3: Родительский доступ к чатам детей
+            if not has_access:
+                has_access = check_parent_access_to_room(user, chat)
 
             if not has_access:
                 logger.warning(

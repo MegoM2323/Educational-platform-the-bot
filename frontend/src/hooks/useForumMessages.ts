@@ -29,9 +29,10 @@ export const useSendForumMessage = () => {
     mutationFn: ({ chatId, data }: { chatId: number; data: SendForumMessageRequest }) =>
       forumAPI.sendForumMessage(chatId, data),
     onSuccess: (message, variables) => {
-      // Optimistic update: immediately add the message to the cache
-      queryClient.setQueryData<ForumMessage[]>(
-        ['forum-messages', variables.chatId, 50, 0],
+      // Optimistic update: immediately add the message to ALL caches for this chat
+      // Use partial key matching to update all queries for this chatId (regardless of limit/offset)
+      queryClient.setQueriesData<ForumMessage[]>(
+        { queryKey: ['forum-messages', variables.chatId], exact: false },
         (oldData) => {
           if (!oldData) return [message];
 
@@ -44,9 +45,10 @@ export const useSendForumMessage = () => {
         }
       );
 
-      // IMPORTANT: Don't invalidate forum-messages to preserve the optimistic update
-      // The WebSocket will handle real-time updates from other users
-      // Only invalidate forum chats to update last_message
+      // Also invalidate to trigger refetch (ensures data consistency)
+      queryClient.invalidateQueries({ queryKey: ['forum-messages', variables.chatId] });
+
+      // Update forum chats to show last_message
       queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
       toast.success('Сообщение отправлено');
     },

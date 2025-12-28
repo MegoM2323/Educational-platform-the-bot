@@ -116,6 +116,7 @@ export default defineConfig(({ mode, command }) => {
         '/ws': {
           target: 'ws://localhost:8000',
           ws: true,
+          changeOrigin: true,
         }
       }
     },
@@ -153,6 +154,8 @@ export default defineConfig(({ mode, command }) => {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
+      // Ensure single instance of React packages to prevent context issues
+      dedupe: ['react', 'react-dom', 'react-router-dom'],
     },
     define: {
       // Передаем переменные окружения в приложение
@@ -228,14 +231,29 @@ export default defineConfig(({ mode, command }) => {
           },
 
           manualChunks(id) {
-            // React и зависящие от него библиотеки должны быть в одном vendor чанке
-            // чтобы гарантировать правильный порядок загрузки
-            if (id.includes('node_modules/react/') ||
-                id.includes('node_modules/react-dom/') ||
-                id.includes('node_modules/react-router-dom/') ||
-                id.includes('node_modules/@radix-ui/') ||
-                id.includes('node_modules/@tanstack/react-query/')) {
-              return 'vendor';
+            // КРИТИЧНО: React core должен быть в отдельном чанке для правильной инициализации
+            if (id.includes('node_modules/react/') && !id.includes('node_modules/react-dom/')) {
+              return 'react-core';
+            }
+
+            // React DOM должен быть отдельно после React
+            if (id.includes('node_modules/react-dom/')) {
+              return 'react-dom';
+            }
+
+            // React Router после React DOM
+            if (id.includes('node_modules/react-router') || id.includes('node_modules/@remix-run/router')) {
+              return 'react-router';
+            }
+
+            // Radix UI и другие React компоненты после основных библиотек
+            if (id.includes('node_modules/@radix-ui/')) {
+              return 'radix-ui';
+            }
+
+            // TanStack Query отдельно
+            if (id.includes('node_modules/@tanstack/react-query/')) {
+              return 'react-query';
             }
 
             // Тяжелые библиотеки в отдельные чанки

@@ -16,28 +16,33 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
       forumAPI.editForumMessage(messageId, data),
 
     onMutate: async ({ messageId, data }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId, 50, 0] });
+      // Cancel outgoing refetches for all queries matching this chatId
+      await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
 
-      // Snapshot previous value
+      // Snapshot previous value - get first matching query data
       const previousMessages = queryClient.getQueryData<ForumMessage[]>(['forum-messages', chatId, 50, 0]);
 
-      // Optimistically update
-      queryClient.setQueryData<ForumMessage[]>(['forum-messages', chatId, 50, 0], (old) =>
-        old?.map((msg) =>
-          msg.id === messageId
-            ? { ...msg, content: data.content, is_edited: true, updated_at: new Date().toISOString() }
-            : msg
-        )
+      // Optimistically update ALL queries for this chat
+      queryClient.setQueriesData<ForumMessage[]>(
+        { queryKey: ['forum-messages', chatId], exact: false },
+        (old) =>
+          old?.map((msg) =>
+            msg.id === messageId
+              ? { ...msg, content: data.content, is_edited: true, updated_at: new Date().toISOString() }
+              : msg
+          )
       );
 
       return { previousMessages };
     },
 
     onError: (error, variables, context) => {
-      // Rollback on error
+      // Rollback on error - restore to all queries
       if (context?.previousMessages) {
-        queryClient.setQueryData(['forum-messages', chatId, 50, 0], context.previousMessages);
+        queryClient.setQueriesData(
+          { queryKey: ['forum-messages', chatId], exact: false },
+          context.previousMessages
+        );
       }
       toast.error('Не удалось отредактировать сообщение');
       onError?.(error as Error);
@@ -49,7 +54,7 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId, 50, 0] });
+      queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId] });
     },
   });
 };

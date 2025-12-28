@@ -294,6 +294,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Проверяет доступ через:
         1. M2M participants (ChatRoom.participants)
         2. ChatParticipant записи (для обратной совместимости)
+        3. Родительский доступ: если пользователь - родитель и его ребёнок является участником
         """
         try:
             room = ChatRoom.objects.get(id=self.room_id)
@@ -311,6 +312,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 room.participants.add(user)
                 logger.info(f'[check_room_access] User {user_id} synced from ChatParticipant to M2M')
                 return True
+
+            # Проверка 3: Родительский доступ к чатам детей
+            # Родители могут просматривать FORUM_SUBJECT и FORUM_TUTOR чаты своих детей
+            if user.role == 'parent':
+                from accounts.models import StudentProfile
+                # Получаем ID всех детей этого родителя
+                children_ids = StudentProfile.objects.filter(
+                    parent=user
+                ).values_list('user_id', flat=True)
+
+                # Проверяем, является ли хотя бы один ребёнок участником комнаты
+                if children_ids and room.participants.filter(id__in=children_ids).exists():
+                    # Добавляем родителя в участники для будущих проверок
+                    room.participants.add(user)
+                    ChatParticipant.objects.get_or_create(room=room, user=user)
+                    logger.info(
+                        f'[check_room_access] Parent {user_id} granted access to room {self.room_id} '
+                        f'via child relationship and added to participants'
+                    )
+                    return True
 
             logger.warning(
                 f'[check_room_access] Access denied: user {user_id} (role={user.role}) '

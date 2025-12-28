@@ -867,7 +867,7 @@ export default function Forum() {
     return unsubscribe;
   }, []);
 
-  const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useForumChats();
+  const { chats = [], isLoadingChats, chatsError } = useForumChats();
   const { data: messages = [], isLoading: isLoadingMessages } = useForumMessages(
     selectedChat?.id || null
   );
@@ -920,13 +920,15 @@ export default function Forum() {
           created_at: wsMessage.created_at,
           updated_at: wsMessage.updated_at,
           is_read: wsMessage.is_read,
+          is_edited: wsMessage.is_edited || false,
           message_type: wsMessage.message_type,
         };
 
         logger.debug('[Forum] Updating TanStack Query cache for chat:', selectedChat.id);
-        // Update TanStack Query cache with new message
-        queryClient.setQueryData(
-          ['forum-messages', selectedChat.id, 50, 0],
+        // Update TanStack Query cache with new message - update ALL caches for this chat
+        // Use partial key matching to update all queries for this chatId (regardless of limit/offset)
+        queryClient.setQueriesData<ForumMessage[]>(
+          { queryKey: ['forum-messages', selectedChat.id], exact: false },
           (oldData: ForumMessage[] | undefined) => {
             if (!oldData) {
               logger.debug('[Forum] No existing data, creating new array with message');
@@ -945,7 +947,8 @@ export default function Forum() {
           }
         );
 
-        // Also invalidate chat list to update last_message and unread_count
+        // Also invalidate to trigger refetch and update chat list
+        queryClient.invalidateQueries({ queryKey: ['forum-messages', selectedChat.id] });
         queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
 
         // Clear any errors on successful message

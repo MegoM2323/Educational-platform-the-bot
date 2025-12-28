@@ -55,8 +55,15 @@ class LessonViewSet(viewsets.ModelViewSet):
             ).values_list('user_id', flat=True)
 
             queryset = Lesson.objects.filter(student_id__in=student_ids)
+        elif user.role == 'parent':
+            # Parents see lessons for their children
+            from accounts.models import StudentProfile
+            children_ids = StudentProfile.objects.filter(
+                parent=user
+            ).values_list('user_id', flat=True)
+            queryset = Lesson.objects.filter(student_id__in=children_ids)
         else:
-            # Parents and other roles see nothing (no access)
+            # Other roles see nothing
             queryset = Lesson.objects.none()
 
         # Always optimize queries
@@ -321,16 +328,17 @@ class LessonViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def student_schedule(self, request):
         """
-        Get lessons for a specific student (tutor only).
+        Get lessons for a specific student (tutor or parent).
 
-        GET /api/scheduling/lessons/student/{student_id}/
+        GET /api/scheduling/lessons/student_schedule/?student_id={student_id}
 
         Only tutors can access their students' schedules.
+        Parents can access their children's schedules.
         """
-        # Only tutors can access
-        if request.user.role != 'tutor':
+        # Only tutors and parents can access
+        if request.user.role not in ['tutor', 'parent']:
             return Response(
-                {'error': 'Only tutors can view student schedules'},
+                {'error': 'Only tutors and parents can view student schedules'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -342,11 +350,28 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            # Use service to get lessons (validates tutor manages student)
-            queryset = LessonService.get_tutor_student_lessons(
-                tutor=request.user,
-                student_id=int(student_id)
-            )
+            student_id_int = int(student_id)
+
+            if request.user.role == 'tutor':
+                # Use service to get lessons (validates tutor manages student)
+                queryset = LessonService.get_tutor_student_lessons(
+                    tutor=request.user,
+                    student_id=student_id_int
+                )
+            else:
+                # Parent role - verify parent relationship
+                from accounts.models import StudentProfile
+                if not StudentProfile.objects.filter(
+                    user_id=student_id_int,
+                    parent=request.user
+                ).exists():
+                    return Response(
+                        {'error': 'You can only view schedules for your children'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                queryset = Lesson.objects.filter(
+                    student_id=student_id_int
+                ).select_related('teacher', 'student', 'subject')
 
             # Apply filters
             date_from = request.query_params.get('date_from')
@@ -388,7 +413,21 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Verify permission to view history
-        if lesson.teacher != request.user and lesson.student != request.user:
+        # Teacher, student, tutor (via get_queryset), or parent of student
+        has_permission = (
+            lesson.teacher == request.user or
+            lesson.student == request.user
+        )
+
+        # Check if parent has access to this lesson (child is the student)
+        if not has_permission and request.user.role == 'parent':
+            from accounts.models import StudentProfile
+            has_permission = StudentProfile.objects.filter(
+                user=lesson.student,
+                parent=request.user
+            ).exists()
+
+        if not has_permission:
             return Response(
                 {'error': 'You do not have permission to view this lesson'},
                 status=status.HTTP_403_FORBIDDEN

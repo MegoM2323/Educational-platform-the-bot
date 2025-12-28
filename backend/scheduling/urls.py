@@ -17,6 +17,10 @@ from scheduling.tutor_views import (
     get_student_schedule,
     get_all_student_schedules
 )
+from scheduling.parent_views import (
+    get_child_schedule,
+    get_all_children_schedules
+)
 
 # Create router for viewsets
 router = DefaultRouter()
@@ -32,4 +36,7 @@ urlpatterns = [
     # Tutor endpoints
     path('tutor/students/<int:student_id>/schedule/', get_student_schedule, name='tutor-student-schedule'),
     path('tutor/schedule/', get_all_student_schedules, name='tutor-all-schedules'),
+    # Parent endpoints
+    path('parent/children/<int:child_id>/schedule/', get_child_schedule, name='parent-child-schedule'),
+    path('parent/schedule/', get_all_children_schedules, name='parent-all-schedules'),
 ]

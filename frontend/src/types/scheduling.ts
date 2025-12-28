@@ -11,10 +11,12 @@ export interface Lesson {
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   created_at: string;
   updated_at: string;
-  // Computed fields from API
+  // Computed fields from API (optional - some endpoints return them)
   teacher_name?: string;
   student_name?: string;
   subject_name?: string;
+  teacher_id?: string; // Some endpoints return this
+  subject_id?: string; // Some endpoints return this
   is_upcoming?: boolean;
   can_cancel?: boolean;
   datetime_start?: string; // ISO datetime for countdown
@@ -32,11 +34,12 @@ export interface LessonCreatePayload {
 }
 
 export interface LessonUpdatePayload {
-  description?: string;
-  telemost_link?: string;
+  date?: string;
   start_time?: string;
   end_time?: string;
-  date?: string;
+  description?: string;
+  telemost_link?: string;
+  status?: 'pending' | 'confirmed' | 'completed' | 'cancelled';
 }
 
 export interface LessonFilters {
@@ -45,4 +48,29 @@ export interface LessonFilters {
   subject?: string;
   teacher?: string;
   status?: string;
+}
+
+export interface AdminLesson extends Lesson {
+  teacher_name: string;
+  student_name: string;
+  subject_name: string;
+}
+
+export interface ParentChildScheduleResponse {
+  student: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  lessons: Lesson[];
+  total_lessons: number;
+}
+
+export interface ParentAllSchedulesResponse {
+  children: Array<{
+    id: string;
+    name: string;
+    lessons: Lesson[];
+  }>;
+  total_children: number;
 }

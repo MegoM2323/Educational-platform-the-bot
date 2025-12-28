@@ -10,3 +10,4 @@ export * from './useLessonProgress';
 export * from './useNotificationAnalytics';
 export * from './useAnalyticsDashboard';
 export * from './useNotificationCenter';
+export * from './useParentChildSchedule';

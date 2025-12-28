@@ -10,24 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { LessonDetailModal } from '@/components/admin/LessonDetailModal';
 import { useToast } from '@/hooks/use-toast';
-
-interface AdminLesson {
-  id: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  teacher: number;
-  teacher_name: string;
-  student: number;
-  student_name: string;
-  subject: number;
-  subject_name: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  description?: string;
-  telemost_link?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+import { AdminLesson } from '@/types/scheduling';
 
 interface FilterOption {
   id: number;

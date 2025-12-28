@@ -99,5 +99,99 @@ export const schedulingAPI = {
     // Backend returns {results: [...]} with pagination
     const data = response.data;
     return Array.isArray(data) ? data : (data as { results: Lesson[] }).results;
+  },
+
+  getParentChildSchedule: async (childId: string, filters?: Record<string, any>): Promise<{
+    student: { id: string; name: string; email: string };
+    lessons: Lesson[];
+    total_lessons: number;
+  }> => {
+    // Backend endpoint: GET /api/scheduling/parent/children/{child_id}/schedule/
+    const response = await unifiedAPI.get<{
+      student: { id: string; name: string; email: string };
+      lessons: any[];
+      total_lessons: number
+    }>(
+      `/scheduling/parent/children/${childId}/schedule/`,
+      { params: filters }
+    );
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    // Backend возвращает { student: {...}, lessons: [...], total_lessons: number }
+    // Backend field names: teacher, subject (strings)
+    // Frontend expects: teacher_name, subject_name
+    const data = response.data;
+    if (data && typeof data === 'object' && 'lessons' in data) {
+      // Map backend field names to frontend expectations
+      return {
+        student: data.student,
+        lessons: data.lessons.map((lesson: any) => ({
+          id: lesson.id,
+          teacher: lesson.teacher_id, // UUID
+          student: childId, // UUID
+          subject: lesson.subject_id, // UUID
+          teacher_name: lesson.teacher, // Backend returns full name as 'teacher'
+          subject_name: lesson.subject, // Backend returns name as 'subject'
+          date: lesson.date,
+          start_time: lesson.start_time,
+          end_time: lesson.end_time,
+          status: lesson.status,
+          description: lesson.description || '',
+          telemost_link: lesson.telemost_link || '',
+          created_at: lesson.created_at || new Date().toISOString(),
+          updated_at: lesson.updated_at || new Date().toISOString(),
+        })),
+        total_lessons: data.total_lessons,
+      };
+    }
+    return {
+      student: { id: childId, name: '', email: '' },
+      lessons: [],
+      total_lessons: 0,
+    };
+  },
+
+  getParentAllSchedules: async (): Promise<{ children: Array<{ id: string; name: string; lessons: Lesson[] }>; total_children: number }> => {
+    const response = await unifiedAPI.get<{
+      children: Array<{
+        id: string;
+        name: string;
+        lessons: any[];
+      }>;
+      total_children: number;
+    }>('/scheduling/parent/schedule/');
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    // Backend возвращает { children: [{id, name, lessons: [...]}], total_children: number }
+    // Map backend field names to frontend expectations
+    const data = response.data;
+    if (data && typeof data === 'object' && 'children' in data) {
+      return {
+        children: data.children.map((child: any) => ({
+          id: child.id,
+          name: child.name,
+          lessons: child.lessons.map((lesson: any) => ({
+            id: lesson.id,
+            teacher: lesson.teacher_id, // UUID
+            student: child.id, // UUID
+            subject: lesson.subject_id, // UUID
+            teacher_name: lesson.teacher, // Backend returns full name as 'teacher'
+            subject_name: lesson.subject, // Backend returns name as 'subject'
+            date: lesson.date,
+            start_time: lesson.start_time,
+            end_time: lesson.end_time,
+            status: lesson.status,
+            description: lesson.description || '',
+            telemost_link: lesson.telemost_link || '',
+            created_at: lesson.created_at || new Date().toISOString(),
+            updated_at: lesson.updated_at || new Date().toISOString(),
+          })),
+        })),
+        total_children: data.total_children,
+      };
+    }
+    return { children: [], total_children: 0 };
   }
 };

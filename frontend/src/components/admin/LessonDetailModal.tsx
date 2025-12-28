@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Clock, User, BookOpen, ExternalLink, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { AdminLesson } from '@/types/scheduling';
 
 interface LessonDetailModalProps {
   lesson: AdminLesson | null;
@@ -18,28 +19,10 @@ interface LessonDetailModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface AdminLesson {
-  id: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  teacher: number;
-  teacher_name: string;
-  student: number;
-  student_name: string;
-  subject: number;
-  subject_name: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  description?: string;
-  telemost_link?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
-  confirmed: 'bg-green-100 text-green-800',
-  completed: 'bg-blue-100 text-blue-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  completed: 'bg-green-100 text-green-800',
   cancelled: 'bg-red-100 text-red-800',
 };
 

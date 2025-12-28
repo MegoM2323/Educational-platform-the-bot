@@ -3,6 +3,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Edit2, Trash2, Clock } from 'lucide-react';
 import { Lesson } from '@/types/scheduling';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 interface LessonRowProps {
   lesson: Lesson;
@@ -17,18 +19,17 @@ export const LessonRow: React.FC<LessonRowProps> = ({
   onDelete,
   isDeleting = false,
 }) => {
-  const formatTime = (date: string, time: string) => {
+  const formatDate = (date: string): string => {
     try {
-      const [year, month, day] = date.split('-');
-      const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
-      return dateObj.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      });
+      return format(new Date(date), 'EEE, d MMM', { locale: ru });
     } catch {
       return date;
     }
+  };
+
+  const formatTime = (time: string): string => {
+    // time is "HH:MM:SS" format, return "HH:MM"
+    return time.slice(0, 5);
   };
 
   return (
@@ -45,7 +46,7 @@ export const LessonRow: React.FC<LessonRowProps> = ({
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="w-4 h-4" />
             <span>
-              {formatTime(lesson.date, lesson.start_time)} • {lesson.start_time} - {lesson.end_time}
+              {formatDate(lesson.date)} • {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
             </span>
           </div>
 
@@ -58,11 +59,11 @@ export const LessonRow: React.FC<LessonRowProps> = ({
               <span
                 className={`text-xs px-2 py-1 rounded-full ${
                   lesson.status === 'confirmed'
-                    ? 'bg-green-100 text-green-800'
+                    ? 'bg-blue-100 text-blue-800'
                     : lesson.status === 'pending'
                       ? 'bg-yellow-100 text-yellow-800'
                       : lesson.status === 'completed'
-                        ? 'bg-blue-100 text-blue-800'
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
                 }`}
               >

@@ -30,6 +30,15 @@ export const LessonCard: React.FC<LessonCardProps> = ({ lesson }) => {
     cancelled: 'Отменено',
   };
 
+  // Безопасное получение инициалов преподавателя
+  const getInitials = (name?: string): string => {
+    if (!name) return 'T';
+    const parts = name.trim().split(' ').filter(Boolean);
+    if (parts.length === 0) return 'T';
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   return (
     <Card className={`border-l-4 overflow-hidden transition-shadow hover:shadow-md ${
       isUpcoming ? 'border-l-blue-500' : 'border-l-gray-400'
@@ -39,17 +48,13 @@ export const LessonCard: React.FC<LessonCardProps> = ({ lesson }) => {
           <div className="flex gap-3 flex-1 min-w-0">
             <Avatar className="w-10 h-10 flex-shrink-0">
               <AvatarFallback className="bg-blue-100 text-blue-900 text-xs font-bold">
-                {lesson.teacher_name
-                  .split(' ')
-                  .map(n => n[0])
-                  .join('')
-                  .toUpperCase()}
+                {getInitials(lesson.teacher_name)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-base truncate">{lesson.subject_name}</h3>
+              <h3 className="font-semibold text-base truncate">{lesson.subject_name || 'Занятие'}</h3>
               <p className="text-sm text-muted-foreground truncate">
-                Преподаватель: {lesson.teacher_name}
+                Преподаватель: {lesson.teacher_name || 'Не указан'}
               </p>
             </div>
           </div>

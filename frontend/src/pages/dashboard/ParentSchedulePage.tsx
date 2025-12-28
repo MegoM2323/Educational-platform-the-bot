@@ -4,8 +4,7 @@ import { ParentSidebar } from "@/components/layout/ParentSidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { useParentDashboard } from "@/hooks/useParent";
-import { useQuery } from "@tanstack/react-query";
-import { schedulingAPI } from "@/integrations/api/schedulingAPI";
+import { useParentChildSchedule } from "@/hooks/useParentChildSchedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,11 +22,12 @@ const ParentSchedulePage: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedTeacher, setSelectedTeacher] = useState<string>('');
 
-  const { data: lessons = [], isLoading: lessonsLoading, error } = useQuery({
-    queryKey: ['lessons', 'parent-child', selectedChildId],
-    queryFn: () => (selectedChildId ? schedulingAPI.getStudentSchedule(selectedChildId) : Promise.resolve([])),
-    enabled: !!selectedChildId
-  });
+  const { data: scheduleData, isLoading: lessonsLoading, error } = useParentChildSchedule(
+    selectedChildId || null,
+    { subjectId: selectedSubject, status: selectedTeacher }
+  );
+
+  const lessons = scheduleData?.lessons || [];
 
   if (user?.role !== 'parent') {
     return <Navigate to="/dashboard" replace />;
@@ -44,8 +44,8 @@ const ParentSchedulePage: React.FC = () => {
       if (activeTab === 'upcoming' && !isUpcoming) return false;
       if (activeTab === 'past' && isUpcoming) return false;
 
-      if (selectedSubject && lesson.subject_name !== selectedSubject) return false;
-      if (selectedTeacher && lesson.teacher_name !== selectedTeacher) return false;
+      if (selectedSubject && selectedSubject !== 'all' && lesson.subject_name !== selectedSubject) return false;
+      if (selectedTeacher && selectedTeacher !== 'all' && lesson.teacher_name !== selectedTeacher) return false;
 
       return true;
     }).sort((a, b) => {
@@ -107,13 +107,13 @@ const ParentSchedulePage: React.FC = () => {
                   {selectedChild && (
                     <div className="mt-4 p-4 bg-muted rounded-lg">
                       <p className="text-sm font-medium">{selectedChild.full_name}</p>
-                      {selectedChild.subjects_data && selectedChild.subjects_data.length > 0 && (
+                      {selectedChild.subjects && selectedChild.subjects.length > 0 && (
                         <div className="mt-2">
                           <p className="text-xs text-muted-foreground">Предметы:</p>
                           <div className="flex flex-wrap gap-2 mt-1">
-                            {selectedChild.subjects_data.map((subject: any) => (
+                            {selectedChild.subjects.map((subject) => (
                               <span
-                                key={subject.id}
+                                key={subject.enrollment_id}
                                 className="text-xs px-2 py-1 bg-background rounded-md"
                               >
                                 {subject.name}
@@ -146,7 +146,7 @@ const ParentSchedulePage: React.FC = () => {
                               <SelectValue placeholder="Все предметы" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Все предметы</SelectItem>
+                              <SelectItem value="all">Все предметы</SelectItem>
                               {uniqueSubjects.map(subject => (
                                 <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                               ))}
@@ -160,7 +160,7 @@ const ParentSchedulePage: React.FC = () => {
                               <SelectValue placeholder="Все преподаватели" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Все преподаватели</SelectItem>
+                              <SelectItem value="all">Все преподаватели</SelectItem>
                               {uniqueTeachers.map(teacher => (
                                 <SelectItem key={teacher} value={teacher}>{teacher}</SelectItem>
                               ))}

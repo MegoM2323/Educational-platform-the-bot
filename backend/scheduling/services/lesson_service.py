@@ -87,6 +87,7 @@ class LessonService:
                     )
 
     @staticmethod
+    @transaction.atomic
     def create_lesson(
         teacher: User,
         student: User,
@@ -448,6 +449,19 @@ class LessonService:
 
             queryset = Lesson.objects.filter(
                 student_id__in=student_ids,
+                date__gte=now.date(),
+                status__in=['pending', 'confirmed']
+            )
+        elif user.role == 'parent':
+            # Get lessons for parent's children
+            from accounts.models import StudentProfile
+
+            children_ids = StudentProfile.objects.filter(
+                parent=user
+            ).values_list('user_id', flat=True)
+
+            queryset = Lesson.objects.filter(
+                student_id__in=children_ids,
                 date__gte=now.date(),
                 status__in=['pending', 'confirmed']
             )

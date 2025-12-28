@@ -1089,8 +1089,17 @@ export default function Forum() {
       setError('Не удалось подключиться к чату. Проверьте авторизацию.');
     }
 
+    // CRITICAL FIX: Set initial connection state immediately
+    const initiallyConnected = chatWebSocketService.isConnected();
+    logger.debug('[Forum] Initial connection state:', initiallyConnected);
+    setIsConnected(initiallyConnected);
+    if (initiallyConnected) {
+      setError(null);
+    }
+
     // Subscribe to connection state changes
     const connectionCallback = (connected: boolean) => {
+      logger.debug('[Forum] Connection state changed to:', connected);
       setIsConnected(connected);
       if (!connected) {
         setError('Соединение потеряно. Попытка переподключения...');

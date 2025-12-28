@@ -98,7 +98,7 @@ const ParentSchedulePage: React.FC = () => {
                       <SelectContent>
                         {children.map(child => (
                           <SelectItem key={child.id} value={String(child.id)}>
-                            {child.full_name}
+                            {child.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -106,7 +106,7 @@ const ParentSchedulePage: React.FC = () => {
                   )}
                   {selectedChild && (
                     <div className="mt-4 p-4 bg-muted rounded-lg">
-                      <p className="text-sm font-medium">{selectedChild.full_name}</p>
+                      <p className="text-sm font-medium">{selectedChild.name}</p>
                       {selectedChild.subjects && selectedChild.subjects.length > 0 && (
                         <div className="mt-2">
                           <p className="text-xs text-muted-foreground">Предметы:</p>

@@ -9,6 +9,7 @@ from django.db import transaction
 from .models import ChatRoom, Message, MessageRead, ChatParticipant
 from .serializers import MessageSerializer
 from .permissions import check_parent_access_to_room
+from accounts.models import User as UserModel
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -92,6 +93,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             logger.error(f'Channel layer error broadcasting user_joined in room {self.room_id}: {e}', exc_info=True)
 
     async def disconnect(self, close_code):
+        # Безопасное получение user из scope
+        user = self.scope.get('user')
+
+        # Проверяем, что user существует и аутентифицирован
+        if not user or not getattr(user, 'is_authenticated', False):
+            # Если пользователь не аутентифицирован, просто покидаем группу
+            if hasattr(self, 'room_group_name') and self.room_group_name:
+                try:
+                    await self.channel_layer.group_discard(
+                        self.room_group_name,
+                        self.channel_name
+                    )
+                except Exception as e:
+                    logger.error(f'Error leaving group on disconnect (unauthenticated): {e}', exc_info=True)
+            return
+
+        # Безопасное получение room_id
+        room_id = getattr(self, 'room_id', None)
+
         if hasattr(self, 'room_group_name') and self.room_group_name:
             # Очищаем индикатор печати для отключающегося пользователя
             try:
@@ -100,13 +120,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     {
                         'type': 'typing_stop',
                         'user': {
-                            'id': self.scope['user'].id,
-                            'username': self.scope['user'].username,
+                            'id': user.id,
+                            'username': user.username,
                         }
                     }
                 )
             except Exception as e:
-                logger.error(f'Error clearing typing on disconnect in room {self.room_id}: {e}', exc_info=True)
+                room_info = f'room {room_id}' if room_id else 'unknown room'
+                logger.error(f'Error clearing typing on disconnect in {room_info}: {e}', exc_info=True)
 
             # Уведомляем других участников об отключении
             try:
@@ -115,20 +136,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     {
                         'type': 'user_left',
                         'user': {
-                            'id': self.scope['user'].id,
-                            'username': self.scope['user'].username,
+                            'id': user.id,
+                            'username': user.username,
                         }
                     }
                 )
             except Exception as e:
-                logger.error(f'Channel layer error broadcasting user_left in room {self.room_id}: {e}', exc_info=True)
+                room_info = f'room {room_id}' if room_id else 'unknown room'
+                logger.error(f'Channel layer error broadcasting user_left in {room_info}: {e}', exc_info=True)
 
             # Покидаем группу комнаты
-            await self.channel_layer.group_discard(
-                self.room_group_name,
-                self.channel_name
-            )
-            logger.warning(f'[GroupDiscard] Group={self.room_group_name}, Channel={self.channel_name}')
+            try:
+                await self.channel_layer.group_discard(
+                    self.room_group_name,
+                    self.channel_name
+                )
+                logger.warning(f'[GroupDiscard] Group={self.room_group_name}, Channel={self.channel_name}')
+            except Exception as e:
+                logger.error(f'Error leaving group {self.room_group_name}: {e}', exc_info=True)
 
     async def receive(self, text_data):
         # Проверяем размер сообщения для защиты от DoS
@@ -257,7 +282,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Обработка отметки о прочтении"""
         message_id = data.get('message_id')
         if message_id:
-            await self.mark_message_read(message_id)
+            try:
+                await self.mark_message_read(message_id)
+            except Exception as e:
+                # Не распространяем ошибку клиенту - silent fail для отметок о прочтении
+                logger.error(f'Error marking message as read: {e}', exc_info=True)
 
     async def handle_message_edit(self, data):
         """Обработка редактирования сообщения"""
@@ -382,13 +411,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             user_id = user.id
 
             # Admin/Staff bypass - read-only access to all forum chats
-            if user.is_staff or user.is_superuser or getattr(user, 'role', None) == 'admin':
+            if user.is_staff or user.is_superuser:
                 if room.type in [ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR]:
                     logger.info(f'[check_room_access] Admin {user_id} granted read-only access to room {self.room_id}')
                     return True
 
             # Дополнительная проверка для teacher
-            if user.role == 'teacher':
+            if user.role == UserModel.Role.TEACHER:
                 # Teacher has access to FORUM_SUBJECT chats
                 if room.type == ChatRoom.Type.FORUM_SUBJECT:
                     # Check enrollment assignment
@@ -411,7 +440,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 return False
 
             # Дополнительная проверка для tutor
-            if user.role == 'tutor':
+            if user.role == UserModel.Role.TUTOR:
                 # Tutor has access to FORUM_TUTOR chats
                 if room.type == ChatRoom.Type.FORUM_TUTOR:
                     # Check if tutor is participant
@@ -420,7 +449,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         return True
                     # Or check via student's tutor relationship
                     from accounts.models import StudentProfile
-                    student_ids = room.participants.filter(role='student').values_list('id', flat=True)
+                    student_ids = room.participants.filter(role=UserModel.Role.STUDENT).values_list('id', flat=True)
                     if StudentProfile.objects.filter(user_id__in=student_ids, tutor=user).exists():
                         logger.debug(f'[check_room_access] Tutor {user_id} has access via student relationship')
                         return True
@@ -441,8 +470,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Проверка 2: ChatParticipant (fallback для старых чатов)
             if ChatParticipant.objects.filter(room=room, user=user).exists():
-                # Синхронизируем: добавляем в M2M если ещё нет
-                room.participants.add(user)
+                # Синхронизируем: добавляем в M2M атомарно
+                with transaction.atomic():
+                    # M2M add безопасен для дубликатов, не вызывает IntegrityError
+                    room.participants.add(user)
                 logger.info(f'[check_room_access] User {user_id} synced from ChatParticipant to M2M')
                 return True
 
@@ -450,7 +481,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Родители могут просматривать FORUM_SUBJECT и FORUM_TUTOR чаты своих детей
             # Используем централизованную функцию из permissions.py БЕЗ побочных эффектов
             # (добавление в participants будет после успешного accept)
-            if user.role == 'parent':
+            if user.role == UserModel.Role.PARENT:
                 if check_parent_access_to_room(user, room, add_to_participants=False):
                     logger.info(f'[check_room_access] Parent {user_id} has child participant in room {self.room_id}')
                     # Сохраняем флаг для добавления родителя в participants после успешного connect
@@ -509,12 +540,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # Проверка типа чата для teacher
         # Teacher can access FORUM_SUBJECT and FORUM_TUTOR (if participant)
-        if user.role == 'teacher':
+        if user.role == UserModel.Role.TEACHER:
             if room.type not in [ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR]:
                 return False
 
         # Проверка типа чата для tutor
-        if user.role == 'tutor':
+        if user.role == UserModel.Role.TUTOR:
             # Tutor can access FORUM_TUTOR and FORUM_SUBJECT (if participant)
             if room.type not in [ChatRoom.Type.FORUM_TUTOR, ChatRoom.Type.FORUM_SUBJECT]:
                 return False
@@ -528,11 +559,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # Fallback: проверяем M2M participants для обратной совместимости
         if room.participants.filter(id=user.id).exists():
-            # Создаем ChatParticipant для будущих проверок
-            ChatParticipant.objects.get_or_create(
-                room=room,
-                user=user
-            )
+            # Создаем ChatParticipant атомарно для будущих проверок
+            try:
+                with transaction.atomic():
+                    ChatParticipant.objects.get_or_create(
+                        room=room,
+                        user=user
+                    )
+            except Exception as e:
+                # Игнорируем ошибки создания (возможен race condition), участник уже есть в M2M
+                logger.debug(f'[check_user_is_participant] ChatParticipant sync skipped: {e}')
             return True
 
         return False
@@ -550,11 +586,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if not is_participant:
                 # Fallback: проверяем M2M participants
                 if room.participants.filter(id=self.scope['user'].id).exists():
-                    # Создаем ChatParticipant для будущих проверок
-                    ChatParticipant.objects.get_or_create(
-                        room=room,
-                        user=self.scope['user']
-                    )
+                    # Создаем ChatParticipant атомарно для будущих проверок
+                    try:
+                        with transaction.atomic():
+                            ChatParticipant.objects.get_or_create(
+                                room=room,
+                                user=self.scope['user']
+                            )
+                    except Exception as e:
+                        # Игнорируем ошибки создания (возможен race condition), участник уже есть в M2M
+                        logger.debug(f'[create_message] ChatParticipant sync skipped: {e}')
                     is_participant = True
 
             if not is_participant:
@@ -715,6 +756,22 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
         await self.send_general_chat_history()
 
     async def disconnect(self, close_code):
+        # Безопасное получение user из scope
+        user = self.scope.get('user')
+
+        # Проверяем, что user существует и аутентифицирован
+        if not user or not getattr(user, 'is_authenticated', False):
+            # Если пользователь не аутентифицирован, просто покидаем группу
+            if hasattr(self, 'room_group_name') and self.room_group_name:
+                try:
+                    await self.channel_layer.group_discard(
+                        self.room_group_name,
+                        self.channel_name
+                    )
+                except Exception as e:
+                    logger.error(f'Error leaving general chat group on disconnect (unauthenticated): {e}', exc_info=True)
+            return
+
         if hasattr(self, 'room_group_name') and self.room_group_name:
             # Очищаем индикатор печати для отключающегося пользователя
             try:
@@ -723,8 +780,8 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
                     {
                         'type': 'typing_stop',
                         'user': {
-                            'id': self.scope['user'].id,
-                            'username': self.scope['user'].username,
+                            'id': user.id,
+                            'username': user.username,
                         }
                     }
                 )
@@ -732,10 +789,13 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
                 logger.error(f'Error clearing typing on disconnect in general chat: {e}', exc_info=True)
 
             # Покидаем группу общего чата
-            await self.channel_layer.group_discard(
-                self.room_group_name,
-                self.channel_name
-            )
+            try:
+                await self.channel_layer.group_discard(
+                    self.room_group_name,
+                    self.channel_name
+                )
+            except Exception as e:
+                logger.error(f'Error leaving general chat group: {e}', exc_info=True)
 
     async def receive(self, text_data):
         try:

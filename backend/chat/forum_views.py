@@ -13,7 +13,7 @@ import logging
 import json
 from typing import List
 
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, Case, When, IntegerField, Value, F, Exists
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -95,9 +95,11 @@ class ForumChatViewSet(viewsets.ViewSet):
             # Filter by chat type and user role
             if user.role == 'student':
                 # Student sees ONLY their own FORUM_SUBJECT and FORUM_TUTOR chats
+                # FORUM_SUBJECT: require enrollment__student=user for subject-specific filtering
+                # FORUM_TUTOR: enrollment may be NULL, use participants filter (already in base_queryset)
                 chats = base_queryset.filter(
                     Q(type=ChatRoom.Type.FORUM_SUBJECT, enrollment__student=user) |
-                    Q(type=ChatRoom.Type.FORUM_TUTOR, enrollment__student=user)
+                    Q(type=ChatRoom.Type.FORUM_TUTOR)
                 ).order_by('-updated_at')
 
             elif user.role == 'teacher':
@@ -300,14 +302,40 @@ class ForumChatViewSet(viewsets.ViewSet):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Get pagination parameters
-            limit = min(int(request.query_params.get('limit', 50)), 100)
-            offset = int(request.query_params.get('offset', 0))
+            # Get pagination parameters with validation
+            try:
+                limit = int(request.query_params.get('limit', 50))
+                limit = max(1, min(limit, 100))  # Between 1 and 100
+                offset = int(request.query_params.get('offset', 0))
+                offset = max(0, offset)  # Must be >= 0
+            except (ValueError, TypeError):
+                return Response(
+                    {'success': False, 'error': 'Неверные параметры пагинации'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             # Get filter parameters
             search = request.query_params.get('search', '').strip()
             message_type = request.query_params.get('message_type', '').strip()
             sender_id = request.query_params.get('sender', '').strip()
+
+            # Валидация sender_id - должен быть числом если указан
+            if sender_id:
+                try:
+                    sender_id = int(sender_id)
+                except (ValueError, TypeError):
+                    return Response(
+                        {'success': False, 'error': 'Неверный ID отправителя'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # Валидация message_type - должен быть одним из допустимых значений
+            allowed_types = ['text', 'file', 'image', 'system']
+            if message_type and message_type not in allowed_types:
+                return Response(
+                    {'success': False, 'error': f'Неверный тип сообщения. Допустимые значения: {", ".join(allowed_types)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             # Base queryset - exclude deleted messages
             # Оптимизация N+1: используем select_related, prefetch_related и аннотации
@@ -446,6 +474,19 @@ class ForumChatViewSet(viewsets.ViewSet):
                 )
                 return Response(
                     {'success': False, 'error': 'Access denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Block admin/staff from sending messages (read-only oversight)
+            # Parent role CAN send messages - they are NOT blocked
+            if user.is_staff or user.is_superuser:
+                logger.warning(
+                    f'[send_message] Admin/staff blocked from sending: user {user.id} '
+                    f'(is_staff={user.is_staff}, is_superuser={user.is_superuser}) '
+                    f'attempted to send message to room {pk}'
+                )
+                return Response(
+                    {'success': False, 'error': 'Администраторы имеют доступ только для чтения'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -1606,16 +1647,48 @@ class InitiateChatView(APIView):
                 else:
                     chat_name = f"Chat {request.user.get_full_name()} ↔ {contact_user.get_full_name()}"
 
+                # T046: Валидация имени чата - проверка на пустое/пробельное значение
+                if not chat_name or not chat_name.strip():
+                    # Генерируем дефолтное имя если имя пустое
+                    chat_name = f"Chat #{enrollment_locked.id}"
+                    logger.warning(
+                        f"[InitiateChatView] Empty chat name generated, using fallback: {chat_name}"
+                    )
+                else:
+                    chat_name = chat_name.strip()
+
                 # Создать ChatRoom с get_or_create для race condition safety
-                new_chat, created = ChatRoom.objects.get_or_create(
-                    type=getattr(ChatRoom.Type, chat_type),
-                    enrollment=enrollment_locked,
-                    defaults={
-                        'name': chat_name,
-                        'created_by': request.user,
-                        'is_active': True
-                    }
-                )
+                # Обёрнуто в try-except для обработки IntegrityError при concurrent запросах
+                try:
+                    new_chat, created = ChatRoom.objects.get_or_create(
+                        type=getattr(ChatRoom.Type, chat_type),
+                        enrollment=enrollment_locked,
+                        defaults={
+                            'name': chat_name,
+                            'created_by': request.user,
+                            'is_active': True
+                        }
+                    )
+                except IntegrityError:
+                    # Другой concurrent запрос уже создал чат - получить существующий
+                    logger.warning(
+                        f"IntegrityError caught during chat creation for enrollment {enrollment_locked.id}. "
+                        f"Fetching existing chat."
+                    )
+                    new_chat = ChatRoom.objects.filter(
+                        type=getattr(ChatRoom.Type, chat_type),
+                        enrollment=enrollment_locked
+                    ).first()
+
+                    if new_chat:
+                        created = False
+                        logger.info(f"Found existing chat {new_chat.id} after IntegrityError")
+                    else:
+                        # Очень редкий edge case - перезапустить транзакцию
+                        logger.error(
+                            f"IntegrityError but no existing chat found for enrollment {enrollment_locked.id}"
+                        )
+                        raise
 
                 if not created:
                     # Race condition: чат был создан между проверкой и созданием

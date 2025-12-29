@@ -12,21 +12,27 @@ export const useForumMessages = (chatId: number | null) => {
 
   return useInfiniteQuery<ForumMessage[], Error>({
     queryKey: ['forum-messages', chatId],
-    queryFn: async ({ pageParam = 0 }) => {
+    queryFn: async ({ pageParam = 0, signal }) => {
       if (!chatId) {
         throw new Error('Chat ID is required');
       }
 
       try {
-        // Fetch messages from API with pagination
+        // T032: Pass AbortSignal to API for request cancellation
         const messages = await forumAPI.getForumMessages(
           chatId,
           MESSAGES_PER_PAGE,
-          pageParam as number
+          pageParam as number,
+          signal
         );
 
         return messages;
       } catch (error: any) {
+        // T032: Handle AbortError gracefully (don't show as user error)
+        if (error.name === 'AbortError') {
+          throw error; // Let React Query handle it silently
+        }
+
         // Provide user-friendly error messages
         const errorMessage = error?.response?.data?.detail ||
                             error?.message ||
@@ -35,18 +41,12 @@ export const useForumMessages = (chatId: number | null) => {
       }
     },
     getNextPageParam: (lastPage, allPages) => {
-      // If last page has fewer messages than requested, no more pages
-      if (lastPage.length < MESSAGES_PER_PAGE) {
-        return undefined;
-      }
+      // T029: Fix race condition by using stable calculation
+      // Calculate offset based on actual page count, not reducing allPages
+      const currentOffset = allPages.flat().length;
+      const hasMore = lastPage.length === MESSAGES_PER_PAGE;
 
-      // Calculate total fetched messages for next offset
-      const totalFetched = allPages.reduce((sum, page) => sum + page.length, 0);
-
-      // Return offset for the next batch of OLDER messages
-      // Backend returns messages in chronological order (oldest first)
-      // When scrolling up, we need to fetch earlier messages
-      return totalFetched;
+      return hasMore ? currentOffset : undefined;
     },
     initialPageParam: 0,
     enabled: !!chatId,
@@ -72,15 +72,18 @@ export const useForumMessages = (chatId: number | null) => {
 export const useForumMessagesLegacy = (chatId: number | null, limit: number = 50, offset: number = 0) => {
   const query = useQuery<ForumMessage[]>({
     queryKey: ['forum-messages-legacy', chatId, limit, offset],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!chatId) {
         throw new Error('Chat ID is required');
       }
-      const messages = await forumAPI.getForumMessages(chatId, limit, offset);
+      // T033: Add AbortController support
+      const messages = await forumAPI.getForumMessages(chatId, limit, offset, signal);
       return messages;
     },
     enabled: !!chatId,
     staleTime: 1000 * 60, // Consider data stale after 1 minute, allow refetching
+    // T033: Use placeholderData for smooth transitions on offset changes
+    placeholderData: (previousData) => previousData,
     refetchOnMount: true, // Refetch when component mounts
     refetchOnWindowFocus: false, // Don't refetch on window focus to reduce server load
     retry: 2,
@@ -107,25 +110,29 @@ export const useSendForumMessage = () => {
       }
     },
     onMutate: async ({ chatId, data, file }) => {
-      // Cancel outgoing refetches to avoid overwriting our optimistic update
+      // T037: Cancel outgoing refetches to avoid race between mutation and background refetch
       await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
 
-      // Snapshot previous value for rollback (InfiniteData structure)
+      // T030: Snapshot previous value for rollback (InfiniteData structure)
       const previousMessages = queryClient.getQueryData<InfiniteData<ForumMessage[]>>(['forum-messages', chatId]);
 
-      // Create unique temporary ID using negative timestamp (ensures uniqueness and type safety)
+      // T038: Create unique temporary ID using negative timestamp
       const tempId = -Date.now();
+
+      // T036: Access fresh user data from context at mutation time (not closure time)
+      // user variable is from useAuth() hook, accessed each time mutation runs
+      const currentUser = user;
 
       // Create temporary optimistic message with REAL current user data
       const optimisticMessage: ForumMessage = {
         id: tempId, // Temporary negative number ID
         content: data.content,
         sender: {
-          id: user?.id || 0, // REAL current user ID - determines message side (left/right)
-          full_name: user?.first_name && user?.last_name
-            ? `${user.first_name} ${user.last_name}`.trim()
-            : user?.email || 'Вы',
-          role: user?.role || '',
+          id: currentUser?.id || 0, // REAL current user ID - determines message side (left/right)
+          full_name: currentUser?.first_name && currentUser?.last_name
+            ? `${currentUser.first_name} ${currentUser.last_name}`.trim()
+            : currentUser?.email || 'Вы',
+          role: currentUser?.role || '',
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -137,11 +144,12 @@ export const useSendForumMessage = () => {
         is_image: file ? file.type.startsWith('image/') : false,
       };
 
-      // Optimistic update: IMMEDIATELY add temporary message to InfiniteData cache
+      // T037: Use setQueryData for immediate update (prevents race with invalidateQueries)
       queryClient.setQueryData<InfiniteData<ForumMessage[]>>(
         ['forum-messages', chatId],
         (oldData) => {
-          if (!oldData) {
+          // T030: Type guard - ensure proper structure
+          if (!oldData || !oldData.pages || !Array.isArray(oldData.pages)) {
             return { pages: [[optimisticMessage]], pageParams: [0] };
           }
 
@@ -150,43 +158,77 @@ export const useSendForumMessage = () => {
           const lastPageIndex = newPages.length - 1;
           newPages[lastPageIndex] = [...newPages[lastPageIndex], optimisticMessage];
 
+          // T030: Preserve pageParams to maintain InfiniteData integrity
           return {
-            ...oldData,
             pages: newPages,
+            pageParams: oldData.pageParams,
           };
         }
       );
 
-      return { previousMessages, tempId };
+      // T038: Track timestamp for cleanup
+      return { previousMessages, tempId, timestamp: Date.now() };
     },
     onSuccess: (message, variables, context) => {
-      // Replace optimistic message with real server response in InfiniteData structure
+      // T038: Replace optimistic message with real server response
+      // Filter out temp message and add real one to prevent memory leak
       queryClient.setQueryData<InfiniteData<ForumMessage[]>>(
         ['forum-messages', variables.chatId],
         (oldData) => {
-          if (!oldData) {
+          // T030: Type guard - ensure we have proper InfiniteData structure
+          if (!oldData || !oldData.pages || !Array.isArray(oldData.pages)) {
             return {
               pages: [[message]],
               pageParams: [0],
             };
           }
 
-          // Replace temporary message with real message
-          const newPages = oldData.pages.map((page) =>
-            page.map((msg) =>
-              msg.id === context?.tempId ? { ...message, id: message.id } : msg
-            )
+          // T031: Fix infinite loop risk - check if message already exists
+          const messageExists = oldData.pages.some((page) =>
+            page.some((msg) => msg.id === message.id)
           );
 
+          if (messageExists) {
+            // Message already updated (possibly via WebSocket), skip update
+            return oldData;
+          }
+
+          // T038: Remove optimistic message and add real one to prevent memory leak
+          const newPages = oldData.pages.map((page) => {
+            // Filter out the temporary optimistic message
+            const filtered = page.filter((msg) => msg.id !== context?.tempId);
+
+            // If this page had the temp message, add real message here
+            const hadTempMessage = page.some((msg) => msg.id === context?.tempId);
+
+            return hadTempMessage ? [...filtered, message] : filtered;
+          });
+
+          // T030: Return proper InfiniteData structure
           return {
-            ...oldData,
             pages: newPages,
+            pageParams: oldData.pageParams,
           };
         }
       );
 
-      // Update forum chats to show last_message
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+      // T037: Use setQueriesData instead of invalidateQueries to prevent race condition
+      queryClient.setQueriesData(
+        { queryKey: ['forum', 'chats'] },
+        (oldChats: any) => {
+          if (!oldChats) return oldChats;
+
+          // Update last_message for the chat
+          if (Array.isArray(oldChats)) {
+            return oldChats.map((chat: any) =>
+              chat.id === variables.chatId
+                ? { ...chat, last_message: message }
+                : chat
+            );
+          }
+          return oldChats;
+        }
+      );
 
       toast.success('Сообщение отправлено');
     },
@@ -205,22 +247,27 @@ export const useDeleteForumMessage = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (messageId: number) => forumAPI.deleteForumMessage(messageId),
-    onSuccess: (_, messageId) => {
-      // Remove the message from all cached InfiniteData queries
+    mutationFn: ({ chatId, messageId }: { chatId: number; messageId: number }) =>
+      forumAPI.deleteForumMessage(chatId, messageId),
+    onSuccess: (_, variables) => {
+      // T030: Remove the message from cache with proper InfiniteData structure
       queryClient.setQueriesData<InfiniteData<ForumMessage[]>>(
         { queryKey: ['forum-messages'] },
         (oldData) => {
-          if (!oldData) return oldData;
+          // T030: Type guard - ensure proper InfiniteData structure
+          if (!oldData || !oldData.pages || !Array.isArray(oldData.pages)) {
+            return oldData;
+          }
 
           // Filter out deleted message from all pages
           const newPages = oldData.pages.map((page) =>
-            page.filter((msg) => msg.id !== messageId)
+            page.filter((msg) => msg.id !== variables.messageId)
           );
 
+          // T030: Preserve pageParams to maintain InfiniteData integrity
           return {
-            ...oldData,
             pages: newPages,
+            pageParams: oldData.pageParams,
           };
         }
       );

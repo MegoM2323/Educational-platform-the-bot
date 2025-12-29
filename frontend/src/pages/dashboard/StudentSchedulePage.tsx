@@ -12,6 +12,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Filter } from "lucide-react";
 import { LessonCard } from "@/components/scheduling/student/LessonCard";
 
+/**
+ * Безопасный парсинг даты и времени с обработкой ошибок
+ * Возвращает null для невалидных дат вместо падения приложения
+ */
+const parseDateTime = (date: string, time: string): Date | null => {
+  try {
+    const dt = new Date(`${date}T${time}`);
+    return isNaN(dt.getTime()) ? null : dt;
+  } catch {
+    return null;
+  }
+};
+
 const StudentSchedulePage: React.FC = () => {
   const { user } = useAuth();
   const { lessons, isLoading, error } = useStudentSchedule();
@@ -24,26 +37,51 @@ const StudentSchedulePage: React.FC = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const now = new Date();
-
   const filteredLessons = useMemo(() => {
+    // Создаём актуальную метку времени внутри useMemo для правильной фильтрации
+    // Округляем до минуты для оптимизации пересчётов (изменяется раз в минуту)
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const nowTimestamp = now.getTime();
+
     return lessons.filter(lesson => {
-      const lessonDateTime = new Date(`${lesson.date}T${lesson.start_time}`);
-      const isUpcoming = lessonDateTime > now;
+      // Безопасный парсинг даты с обработкой невалидных значений
+      const lessonDateTime = parseDateTime(lesson.date, lesson.start_time);
+
+      // Пропускаем уроки с невалидными датами
+      if (!lessonDateTime) {
+        console.warn(`Invalid date/time for lesson ${lesson.id}: ${lesson.date} ${lesson.start_time}`);
+        return false;
+      }
+
+      // Фильтрация по времени: предстоящие vs прошедшие
+      const isUpcoming = lessonDateTime.getTime() > nowTimestamp;
 
       if (activeTab === 'upcoming' && !isUpcoming) return false;
       if (activeTab === 'past' && isUpcoming) return false;
 
+      // Фильтрация по предмету
       if (selectedSubject && selectedSubject !== 'all' && lesson.subject_name !== selectedSubject) return false;
+
+      // Фильтрация по преподавателю
       if (selectedTeacher && selectedTeacher !== 'all' && lesson.teacher_name !== selectedTeacher) return false;
 
       return true;
     }).sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.start_time}`);
-      const dateB = new Date(`${b.date}T${b.start_time}`);
-      return activeTab === 'upcoming' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+      // Сортировка с безопасным парсингом дат
+      const dateA = parseDateTime(a.date, a.start_time);
+      const dateB = parseDateTime(b.date, b.start_time);
+
+      // Невалидные даты в конец списка
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+
+      // Предстоящие: от раннего к позднему, Прошедшие: от позднего к раннему
+      return activeTab === 'upcoming'
+        ? dateA.getTime() - dateB.getTime()
+        : dateB.getTime() - dateA.getTime();
     });
-  }, [lessons, activeTab, selectedSubject, selectedTeacher, now]);
+  }, [lessons, activeTab, selectedSubject, selectedTeacher]);
 
   const uniqueSubjects = useMemo(() => {
     return [...new Set(lessons.map(l => l.subject_name).filter(Boolean))].sort();

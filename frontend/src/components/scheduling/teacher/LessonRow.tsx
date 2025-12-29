@@ -10,15 +10,17 @@ interface LessonRowProps {
   lesson: Lesson;
   onEdit?: () => void;
   onDelete?: () => void;
-  isDeleting?: boolean;
+  deletingId?: string | null;
 }
 
 export const LessonRow: React.FC<LessonRowProps> = ({
   lesson,
   onEdit,
   onDelete,
-  isDeleting = false,
+  deletingId = null,
 }) => {
+  // Проверяем, удаляется ли именно этот урок
+  const isDeleting = deletingId === lesson.id;
   const formatDate = (date: string): string => {
     try {
       return format(new Date(date), 'EEE, d MMM', { locale: ru });

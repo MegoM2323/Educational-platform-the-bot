@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db.models import Prefetch
 
 from accounts.models import User, StudentProfile
 from .models import Lesson
@@ -43,7 +44,7 @@ def get_child_schedule(request, child_id):
         403: Ребёнок не принадлежит этому родителю
     """
     # Проверить что ребёнок существует и имеет роль student
-    child = get_object_or_404(User, id=child_id, role='student')
+    child = get_object_or_404(User, id=child_id, role=User.Role.STUDENT)
 
     # Проверить что ребёнок принадлежит этому родителю
     try:
@@ -102,22 +103,29 @@ def get_all_children_schedules(request):
     Returns:
         Response with all children, their lessons, and statistics
     """
-    # Получить всех детей этого родителя с оптимизацией
+    # Оптимизация N+1: Создаём Prefetch объект для уроков детей.
+    # Это позволяет загрузить все уроки всех детей одним запросом вместо
+    # отдельного запроса для каждого ребёнка (было N+1 queries, стало 2 queries).
+    # Уроки сортируются по дате и времени начала.
+    lessons_prefetch = Prefetch(
+        'student_lessons',
+        queryset=Lesson.objects.select_related('teacher', 'subject').order_by('date', 'start_time'),
+        to_attr='prefetched_lessons'
+    )
+
+    # Получить всех детей этого родителя с оптимизацией.
+    # prefetch_related загружает уроки одним дополнительным запросом.
     children = User.objects.filter(
-        role='student',
+        role=User.Role.STUDENT,
         student_profile__parent=request.user
-    ).select_related('student_profile')
+    ).select_related('student_profile').prefetch_related(lessons_prefetch)
 
     children_data = []
     for child in children:
-        # Получить уроки ребёнка с оптимизацией
-        lessons = Lesson.objects.filter(
-            student=child
-        ).select_related('teacher', 'subject').order_by('date', 'start_time')
-
-        # Сериализовать уроки
+        # Используем предзагруженные уроки (to_attr='prefetched_lessons')
+        # вместо дополнительного запроса Lesson.objects.filter(student=child)
         lessons_list = []
-        for lesson in lessons:
+        for lesson in child.prefetched_lessons:
             lessons_list.append({
                 'id': str(lesson.id),
                 'teacher': lesson.teacher.get_full_name(),

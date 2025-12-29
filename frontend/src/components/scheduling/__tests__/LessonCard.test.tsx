@@ -26,7 +26,7 @@ const createMockLesson = (overrides?: Partial<Lesson>): Lesson => ({
   teacher: 'teacher-1',
   student: 'student-1',
   subject: 'subject-1',
-  date: '2025-12-15',
+  date: '2026-01-15',
   start_time: '09:00:00',
   end_time: '10:00:00',
   description: 'Test lesson description',
@@ -58,7 +58,7 @@ describe('LessonCard Component', () => {
     });
 
     it('should render lesson date in correct format', () => {
-      const lesson = createMockLesson({ date: '2025-12-15' });
+      const lesson = createMockLesson({ date: '2026-01-15' });
       render(<LessonCard lesson={lesson} />);
 
       // Date should be rendered (exact format checked by date-fns mock)
@@ -253,7 +253,7 @@ describe('LessonCard Component', () => {
     it('should have blue left border for upcoming lessons', () => {
       const lesson = createMockLesson({
         is_upcoming: true,
-        date: '2025-12-20',
+        date: '2026-01-15',
       });
       const { container } = render(<LessonCard lesson={lesson} />);
 
@@ -390,7 +390,7 @@ describe('LessonCard Component', () => {
         teacher: 'teacher-1',
         student: 'student-1',
         subject: 'subject-1',
-        date: '2025-12-15',
+        date: '2026-01-15',
         start_time: '09:00:00',
         end_time: '10:00:00',
         description: '',

@@ -44,6 +44,7 @@ interface Student {
 
 interface LessonFormProps {
   onSubmit: (data: LessonFormData | LessonUpdateFormData) => Promise<void>;
+  onSuccess?: () => void; // Callback after successful submission
   isLoading?: boolean;
   initialData?: Partial<Lesson>;
   students: Student[];
@@ -54,6 +55,7 @@ interface LessonFormProps {
 
 export const LessonForm: React.FC<LessonFormProps> = ({
   onSubmit,
+  onSuccess,
   isLoading = false,
   initialData,
   students,
@@ -106,7 +108,10 @@ export const LessonForm: React.FC<LessonFormProps> = ({
         },
   });
 
-  const selectedStudentId = !isEditMode ? form.watch('student' as any) : extractId(initialData?.student);
+  // Получаем ID выбранного студента с проверкой на undefined
+  const selectedStudentId = !isEditMode
+    ? form.watch('student' as any)
+    : (initialData?.student ? extractId(initialData.student) : '');
 
   // Reset form when initialData changes (for edit mode)
   useEffect(() => {
@@ -136,19 +141,36 @@ export const LessonForm: React.FC<LessonFormProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData, isEditMode]);
 
-  // Get subjects for selected student
+  // Get subjects for selected student - fallback when no student selected
   const studentSubjects = useMemo(() => {
+    // Если студент не выбран или не найден, возвращаем все предметы
+    if (!selectedStudentId) return subjects;
+
     const student = students.find((s) => s.id === selectedStudentId);
     if (!student) return subjects;
-    return student.subjects || subjects;
+
+    // Возвращаем предметы студента или все предметы, если у студента их нет
+    return student.subjects && student.subjects.length > 0 ? student.subjects : subjects;
   }, [selectedStudentId, students, subjects]);
 
   const handleSubmit = async (data: LessonFormData | LessonUpdateFormData) => {
+    // Валидация: проверяем, что студент выбран (только для режима создания)
+    if (!isEditMode && !data.student) {
+      form.setError('student' as any, {
+        type: 'manual',
+        message: 'Please select a student',
+      });
+      return;
+    }
+
     try {
       await onSubmit(data);
-      if (!initialData) {
+      // Сбрасываем форму после успешного создания
+      if (!isEditMode) {
         form.reset();
       }
+      // Вызываем callback после успешного сабмита
+      onSuccess?.();
     } catch (error) {
       // Error is handled by the caller
     }

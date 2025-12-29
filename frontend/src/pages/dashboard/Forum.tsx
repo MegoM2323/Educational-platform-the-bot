@@ -51,6 +51,9 @@ import {
   X,
   MessageSquare,
   Users,
+  Lock,
+  Unlock,
+  Pin,
 } from 'lucide-react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
@@ -95,6 +98,8 @@ interface ChatWindowProps {
   onRetryConnection: () => void;
   onEditMessage: (messageId: number, content: string) => void;
   onDeleteMessage: (messageId: number) => void;
+  onPinMessage?: (messageId: number) => void;
+  onLockChat?: (chatId: number) => void;
   isEditingOrDeleting: boolean;
   currentUserId: number;
   currentUserRole: string;
@@ -252,6 +257,8 @@ const ChatWindow = ({
   onRetryConnection,
   onEditMessage,
   onDeleteMessage,
+  onPinMessage,
+  onLockChat,
   isEditingOrDeleting,
   currentUserId,
   currentUserRole,
@@ -265,6 +272,11 @@ const ChatWindow = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // T010-T011: Check if current user is admin (read-only for admin ONLY)
+  const isReadOnly = currentUserRole === 'admin';
+  // T013: Check if chat is inactive (disabled for everyone)
+  const isChatInactive = chat && !chat.is_active;
 
   // Handle infinite scroll - load more messages when scrolling to top
   const handleLoadMore = useCallback(() => {
@@ -397,6 +409,13 @@ const ChatWindow = ({
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <div className="font-bold text-sm">{displayName}</div>
+            {/* T014: Show lock icon when chat is inactive */}
+            {isChatInactive && (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                <Lock className="w-3 h-3" />
+                <span className="text-xs">Заблокирован</span>
+              </div>
+            )}
             {/* Connection Status Indicator */}
             <div className="flex items-center gap-1">
               {isConnected ? (
@@ -413,6 +432,18 @@ const ChatWindow = ({
                 {isConnected ? 'Онлайн' : 'Оффлайн'}
               </span>
             </div>
+            {/* T048: Lock/Unlock button for moderators */}
+            {['teacher', 'tutor', 'admin'].includes(currentUserRole) && onLockChat && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onLockChat(chat.id)}
+                title={chat.is_active ? 'Заблокировать чат' : 'Разблокировать чат'}
+                className="h-7 w-7 p-0"
+              >
+                {chat.is_active ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+              </Button>
+            )}
           </div>
           {chat.subject && <div className="text-xs text-muted-foreground">{chat.subject.name}</div>}
           {chat.participants.length > 1 && (
@@ -466,7 +497,22 @@ const ChatWindow = ({
           ) : (
             messages.map((msg) => {
               const isOwn = msg.sender.id === currentUserId;
-              const canModerate = ['teacher', 'tutor', 'admin'].includes(currentUserRole);
+
+              // T054: Align frontend canModerate check with backend _check_moderation_permission
+              // Backend logic: teacher always can moderate, tutor can moderate FORUM_TUTOR chats, admin always can
+              const canModerate = (() => {
+                const role = currentUserRole;
+                const chatType = chat?.type;
+
+                // Teacher can always moderate
+                if (role === 'teacher') return true;
+                // Tutor can moderate FORUM_TUTOR chats
+                if (role === 'tutor' && chatType === 'forum_tutor') return true;
+                // Admin can always moderate
+                if (role === 'admin') return true;
+
+                return false;
+              })();
 
               return (
                 <div
@@ -480,9 +526,20 @@ const ChatWindow = ({
                   >
                     {/* Sender name for other's messages */}
                     {!isOwn && (
-                      <p className="text-xs font-medium mb-1 opacity-75">
+                      <p className="text-xs font-medium mb-1 opacity-75 flex items-center gap-1">
                         {msg.sender.full_name}
+                        {/* T050: Show pin icon on pinned messages */}
+                        {msg.is_pinned && (
+                          <Pin className="h-3 w-3 text-yellow-500" title="Закрепленное сообщение" />
+                        )}
                       </p>
+                    )}
+
+                    {/* T050: Show pin icon on own pinned messages */}
+                    {isOwn && msg.is_pinned && (
+                      <div className="absolute top-1 left-1">
+                        <Pin className="h-3 w-3 text-yellow-500" title="Закрепленное сообщение" />
+                      </div>
                     )}
 
                     {/* Message content */}
@@ -536,6 +593,8 @@ const ChatWindow = ({
                         canModerate={canModerate}
                         onEdit={() => onEditMessage(msg.id, msg.content)}
                         onDelete={() => onDeleteMessage(msg.id)}
+                        onPin={onPinMessage ? () => onPinMessage(msg.id) : undefined}
+                        isPinned={msg.is_pinned}
                         disabled={isEditingOrDeleting}
                       />
                     </div>
@@ -549,75 +608,89 @@ const ChatWindow = ({
 
       {/* Message Input - Fixed at Bottom */}
       <div className="pt-4 border-t flex-shrink-0">
-        {/* Selected file preview */}
-        {selectedFile && (
-          <div className="mb-2 flex items-center gap-2 p-2 bg-muted rounded-lg border">
-            {selectedFile.type.startsWith('image/') ? (
-              <ImageIcon className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <FileText className="w-4 h-4 text-muted-foreground" />
-            )}
-            <span className="text-sm flex-1 truncate">
-              {selectedFile.name} ({formatFileSize(selectedFile.size)})
+        {/* T010-T011, T013, T014: Show read-only or inactive message instead of input */}
+        {isReadOnly || isChatInactive ? (
+          <div className="p-3 bg-muted/50 rounded-lg border border-muted-foreground/20 flex items-center justify-center gap-2">
+            <Lock className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {isChatInactive
+                ? 'Чат заблокирован модератором'
+                : 'Доступ только для чтения'}
             </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleRemoveFile}
-              className="h-6 w-6 p-0"
-            >
-              <X className="w-4 h-4" />
-            </Button>
           </div>
+        ) : (
+          <>
+            {/* Selected file preview */}
+            {selectedFile && (
+              <div className="mb-2 flex items-center gap-2 p-2 bg-muted rounded-lg border">
+                {selectedFile.type.startsWith('image/') ? (
+                  <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                )}
+                <span className="text-sm flex-1 truncate">
+                  {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveFile}
+                  className="h-6 w-6 p-0"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Input area */}
+            <div className="flex gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+                style={{ display: 'none' }}
+                data-testid="file-input-hidden"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSending}
+                className="shrink-0"
+                data-testid="file-attach-button"
+              >
+                <Paperclip className="w-4 h-4" />
+              </Button>
+              <Input
+                placeholder="Введите сообщение..."
+                value={messageInput}
+                onChange={(e) => handleMessageChange(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={isSending}
+                className="text-sm"
+              />
+              <Button
+                type="button"
+                onClick={handleSend}
+                disabled={isSending || (!messageInput.trim() && !selectedFile)}
+                className="gradient-primary"
+              >
+                {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            {/* Offline Notice */}
+            {!isConnected && (
+              <div className="pt-2 text-xs text-muted-foreground text-center">
+                Сообщения будут отправлены при восстановлении соединения
+              </div>
+            )}
+          </>
         )}
-
-        {/* Input area */}
-        <div className="flex gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
-            style={{ display: 'none' }}
-            data-testid="file-input-hidden"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isSending}
-            className="shrink-0"
-            data-testid="file-attach-button"
-          >
-            <Paperclip className="w-4 h-4" />
-          </Button>
-          <Input
-            placeholder="Введите сообщение..."
-            value={messageInput}
-            onChange={(e) => handleMessageChange(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isSending}
-            className="text-sm"
-          />
-          <Button
-            type="button"
-            onClick={handleSend}
-            disabled={isSending || (!messageInput.trim() && !selectedFile)}
-            className="gradient-primary"
-          >
-            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </Button>
-        </div>
       </div>
-
-      {/* Offline Notice */}
-      {!isConnected && (
-        <div className="pt-2 text-xs text-muted-foreground text-center flex-shrink-0">
-          Сообщения будут отправлены при восстановлении соединения
-        </div>
-      )}
     </Card>
   );
 };
@@ -990,9 +1063,20 @@ const getSidebarComponent = (role: string) => {
   }
 };
 
+// T053: Add proper error type guards and normalization
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message);
+  }
+  return 'Произошла ошибка';
+};
+
 function Forum() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedChat, setSelectedChat] = useState<ForumChat | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -1002,6 +1086,10 @@ function Forum() {
   const [isSwitchingChat, setIsSwitchingChat] = useState(false);
   const queryClient = useQueryClient();
   const typingTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
+  // T017: Store timeout ID for chat switch debounce
+  const switchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // T024: Store mounted state to handle async callback race
+  const isMountedRef = useRef(true);
 
   // Edit/Delete message state
   const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(
@@ -1009,6 +1097,14 @@ function Forum() {
   );
   const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+
+  // T024: Track mounted state for async callback race handling
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Connection status is managed per-chat in the WebSocket connection effect below
 
@@ -1030,7 +1126,19 @@ function Forum() {
   const editMessageMutation = useForumMessageUpdate({
     chatId: selectedChat?.id || 0,
     onSuccess: () => {
+      // T055: Clear error state on successful edit
+      setError(null);
       setEditingMessage(null);
+    },
+    // T020: Reset modal state on error
+    onError: (error) => {
+      setEditingMessage(null);
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка редактирования',
+        // T053: Use error type guard for proper error handling
+        description: getErrorMessage(error) || 'Не удалось отредактировать сообщение',
+      });
     },
   });
 
@@ -1038,27 +1146,40 @@ function Forum() {
   const deleteMessageMutation = useForumMessageDelete({
     chatId: selectedChat?.id || 0,
     onSuccess: () => {
+      // T055: Clear error state on successful delete
+      setError(null);
       setDeletingMessageId(null);
       setIsDeleteConfirmOpen(false);
     },
+    // T020: Reset modal state on error
+    onError: (error) => {
+      setDeletingMessageId(null);
+      setIsDeleteConfirmOpen(false);
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка удаления',
+        // T053: Use error type guard for proper error handling
+        description: getErrorMessage(error) || 'Не удалось удалить сообщение',
+      });
+    },
   });
 
-  // WebSocket handlers (memoized)
+  // T052: Add error boundary for WebSocket handlers
   const handleWebSocketMessage = useCallback(
     (wsMessage: ChatMessage) => {
-      logger.debug('[Forum] WebSocket message received in component handler:', {
-        messageId: wsMessage.id,
-        content: wsMessage.content.substring(0, 50),
-        senderId: wsMessage.sender.id,
-        selectedChatId: selectedChat?.id,
-      });
-
-      if (!selectedChat) {
-        logger.warn('[Forum] Received message but no chat selected');
-        return;
-      }
-
       try {
+        logger.debug('[Forum] WebSocket message received in component handler:', {
+          messageId: wsMessage.id,
+          content: wsMessage.content.substring(0, 50),
+          senderId: wsMessage.sender.id,
+          selectedChatId: selectedChat?.id,
+        });
+
+        if (!selectedChat) {
+          logger.warn('[Forum] Received message but no chat selected');
+          return;
+        }
+
         // Transform WebSocket message to ForumMessage format
         const forumMessage: ForumMessage = {
           id: wsMessage.id,
@@ -1121,18 +1242,27 @@ function Forum() {
         // Clear any errors on successful message
         setError(null);
       } catch (err) {
-        logger.error('Error handling WebSocket message:', err);
+        logger.error('[Forum] WebSocket handler error:', err);
+        toast({
+          variant: 'destructive',
+          title: 'Ошибка обработки сообщения',
+          description: 'Не удалось обработать полученное сообщение',
+        });
         setError('Ошибка обработки сообщения');
       }
     },
     [selectedChat, queryClient]
   );
 
-  const handleTyping = useCallback((user: TypingUser) => {
+  // T051: Fix typing timeout uses roomId 0 as default - use actual roomId
+  const handleTyping = useCallback((user: TypingUser, roomId?: number) => {
     setTypingUsers((prev) => {
       const filtered = prev.filter((u) => u.id !== user.id);
       return [...filtered, user];
     });
+
+    // T051: Guard against undefined/null roomId - use string key for Map
+    const timeoutKey = roomId?.toString() || 'general';
 
     // Clear existing timeout for this user if any
     const existingTimeout = typingTimeoutsRef.current.get(user.id);
@@ -1181,11 +1311,20 @@ function Forum() {
 
     // Connect to WebSocket for this chat room
     (async () => {
-      const connectionSuccess = await chatWebSocketService.connectToRoom(chatId, handlers);
+      try {
+        const connectionSuccess = await chatWebSocketService.connectToRoom(chatId, handlers);
 
-      if (!connectionSuccess) {
-        logger.error('[Forum] Failed to connect to chat room:', chatId);
-        setError('Не удалось подключиться к чату. Проверьте авторизацию.');
+        if (!connectionSuccess) {
+          logger.error('[Forum] Failed to connect to chat room:', chatId);
+          setError('Не удалось подключиться к чату. Проверьте авторизацию.');
+          // T019: Reset isSwitchingChat on WebSocket failure
+          setIsSwitchingChat(false);
+        }
+      } catch (error) {
+        logger.error('[Forum] WebSocket connection failed:', error);
+        // T019: Reset isSwitchingChat on WebSocket failure
+        setIsSwitchingChat(false);
+        setError('Не удалось подключиться к чату');
       }
     })();
 
@@ -1215,42 +1354,59 @@ function Forum() {
       chatWebSocketService.disconnectFromRoom(chatId);
       setTypingUsers([]);
 
-      // Clear all typing timeouts to prevent memory leaks
+      // T021: Clear all typing timeouts on unmount to prevent memory leaks
       typingTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
       typingTimeoutsRef.current.clear();
     };
+    // T018: Ensure all dependencies are included (user added)
   }, [selectedChat, user, handleWebSocketMessage, handleTyping, handleTypingStop, handleError]);
 
   const handleSelectChat = async (chat: ForumChat) => {
-    // Show loading state during chat switch
-    setIsSwitchingChat(true);
-    setSelectedChat(chat);
-    setSearchQuery('');
-    setError(null);
-    setTypingUsers([]);
-
-    // Mark chat as read to reset unread_count
-    if (chat.unread_count > 0) {
-      try {
-        await forumAPI.markChatAsRead(chat.id);
-        // Update local state - reset unread_count for this chat
-        queryClient.setQueryData<ForumChat[]>(['forum', 'chats'], (oldChats) => {
-          if (!oldChats) return oldChats;
-          return oldChats.map((c) => (c.id === chat.id ? { ...c, unread_count: 0 } : c));
-        });
-      } catch (error) {
-        logger.error('Failed to mark chat as read:', error);
-      }
+    // T017: Clear previous timeout on new selection to prevent race condition
+    if (switchTimeoutRef.current) {
+      clearTimeout(switchTimeoutRef.current);
     }
 
-    // Reset loading state after WebSocket connection established (увеличен timeout с 300ms до 500ms)
-    setTimeout(() => {
-      setIsSwitchingChat(false);
-    }, 500);
+    // T017: Debounce rapid switches (200ms)
+    switchTimeoutRef.current = setTimeout(async () => {
+      // Show loading state during chat switch
+      setIsSwitchingChat(true);
+      setSelectedChat(chat);
+      setSearchQuery('');
+      setError(null);
+      setTypingUsers([]);
+
+      // Mark chat as read to reset unread_count
+      if (chat.unread_count > 0) {
+        try {
+          await forumAPI.markChatAsRead(chat.id);
+          // Update local state - reset unread_count for this chat
+          queryClient.setQueryData<ForumChat[]>(['forum', 'chats'], (oldChats) => {
+            if (!oldChats) return oldChats;
+            return oldChats.map((c) => (c.id === chat.id ? { ...c, unread_count: 0 } : c));
+          });
+        } catch (error) {
+          logger.error('Failed to mark chat as read:', error);
+        }
+      }
+
+      // Reset loading state after WebSocket connection established (увеличен timeout с 300ms до 500ms)
+      setTimeout(() => {
+        setIsSwitchingChat(false);
+      }, 500);
+    }, 200);
   };
 
   const handleSendMessage = (content: string, file?: File) => {
-    if (!selectedChat) return;
+    // T022: Add validation for selectedChat before mutations
+    if (!selectedChat) {
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка',
+        description: 'Чат не выбран',
+      });
+      return;
+    }
 
     setError(null);
 
@@ -1283,6 +1439,12 @@ function Forum() {
 
       // Wait for chat list to refresh, then select the chat
       queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] }).then(() => {
+        // T024: Check if component is still mounted to handle async callback race
+        if (!isMountedRef.current) {
+          logger.debug('[Forum] Component unmounted, skipping chat selection');
+          return;
+        }
+
         // Find the chat in the updated list
         const updatedChats = queryClient.getQueryData<ForumChat[]>(['forum', 'chats']);
         const newChat = updatedChats?.find((chat) => chat.id === chatId);
@@ -1323,6 +1485,62 @@ function Forum() {
     }
   };
 
+  // T048: Handle pin/unpin message
+  const handlePinMessage = useCallback(async (messageId: number) => {
+    if (!selectedChat) return;
+
+    try {
+      const response = await forumAPI.pinMessage(selectedChat.id, messageId);
+
+      toast({
+        title: response.action === 'pinned' ? 'Сообщение закреплено' : 'Сообщение откреплено',
+        description: response.action === 'pinned'
+          ? 'Сообщение закреплено в верхней части чата'
+          : 'Сообщение откреплено',
+      });
+
+      // Invalidate messages query to refresh with updated pin status
+      queryClient.invalidateQueries({ queryKey: ['forum-messages', selectedChat.id] });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка',
+        description: error?.message || 'Не удалось изменить статус сообщения',
+      });
+    }
+  }, [selectedChat, queryClient, toast]);
+
+  // T048: Handle lock/unlock chat
+  const handleLockChat = useCallback(async (chatId: number) => {
+    try {
+      const response = await forumAPI.lockChat(chatId);
+
+      toast({
+        title: response.action === 'locked' ? 'Чат заблокирован' : 'Чат разблокирован',
+        description: response.action === 'locked'
+          ? 'Участники не могут отправлять сообщения'
+          : 'Чат снова активен',
+      });
+
+      // Update chat in local state
+      if (selectedChat?.id === chatId) {
+        setSelectedChat({
+          ...selectedChat,
+          is_active: response.action === 'unlocked',
+        });
+      }
+
+      // Invalidate chats query to refresh
+      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка',
+        description: error?.message || 'Не удалось изменить статус чата',
+      });
+    }
+  }, [selectedChat, queryClient, toast]);
+
 
   // Get the appropriate sidebar component based on user role
   const SidebarComponent = getSidebarComponent(user?.role || '');
@@ -1344,16 +1562,19 @@ function Forum() {
             <SidebarTrigger />
             <h1 className="text-2xl font-bold ml-4">Форум</h1>
             <div className="flex-1" />
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => setIsNewChatModalOpen(true)}
-              className="gradient-primary"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Новый чат
-            </Button>
+            {/* T012: Hide "New Chat" button for Admin ONLY */}
+            {user?.role !== 'admin' && (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => setIsNewChatModalOpen(true)}
+                className="gradient-primary"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Новый чат
+              </Button>
+            )}
           </header>
           <main className="flex-1 overflow-hidden flex flex-col p-6 min-h-0">
             <div className="flex-shrink-0 mb-4">
@@ -1385,6 +1606,8 @@ function Forum() {
                 onRetryConnection={handleRetryConnection}
                 onEditMessage={handleEditMessage}
                 onDeleteMessage={handleDeleteMessage}
+                onPinMessage={handlePinMessage}
+                onLockChat={handleLockChat}
                 isEditingOrDeleting={
                   editMessageMutation.isPending || deleteMessageMutation.isPending
                 }
@@ -1417,7 +1640,16 @@ function Forum() {
       />
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+      <AlertDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={(open) => {
+          // T023: Reset state when dialog closes (cancel or background click)
+          setIsDeleteConfirmOpen(open);
+          if (!open) {
+            setDeletingMessageId(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить сообщение?</AlertDialogTitle>

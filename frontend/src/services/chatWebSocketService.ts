@@ -49,6 +49,9 @@ export interface ChatEventHandlers {
   onError?: (error: string, code?: string) => void;
   onConnect?: () => void;
   onMessageDelivered?: (messageId: number) => void;
+  onMessagePinned?: (data: { message_id: number; is_pinned: boolean; thread_id?: number }) => void;
+  onChatLocked?: (data: { chat_id: number; is_active: boolean }) => void;
+  onUserMuted?: (data: { user_id: number; is_muted: boolean }) => void;
 }
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'auth_error' | 'error';
@@ -59,10 +62,13 @@ export class ChatWebSocketService {
   private eventHandlers: ChatEventHandlers = {};
   private connectionStatus: ConnectionStatus = 'disconnected';
   private connectionStatusCallbacks: ((status: ConnectionStatus) => void)[] = [];
+  private connectionUnsubscribe: (() => void) | null = null;
+  private authErrorUnsubscribe: (() => void) | null = null;
+  private activeSubscriptions = new Map<number, string>();
 
   constructor() {
     // Подписываемся на системные события WebSocket
-    websocketService.onConnectionChange((connected) => {
+    this.connectionUnsubscribe = websocketService.onConnectionChange((connected) => {
       if (connected) {
         this.setConnectionStatus('connected');
         this.resubscribeAll();
@@ -76,7 +82,7 @@ export class ChatWebSocketService {
     });
 
     // Подписываемся на ошибки аутентификации
-    websocketService.onAuthError((code, reason) => {
+    this.authErrorUnsubscribe = websocketService.onAuthError((code, reason) => {
       logger.error('[ChatWebSocket] Auth error received:', { code, reason });
       this.handleAuthError(code, reason);
     });
@@ -229,7 +235,7 @@ export class ChatWebSocketService {
       if (handlers.onError) {
         handlers.onError(errorMsg);
       }
-      return false;
+      return Promise.reject(new Error(errorMsg));
     }
 
     // Устанавливаем статус "подключение"
@@ -240,6 +246,7 @@ export class ChatWebSocketService {
     });
 
     this.subscriptions.set(channel, subscriptionId);
+    this.activeSubscriptions.set(roomId, subscriptionId);
 
     // Формируем URL для WebSocket подключения
     const baseUrl = getWebSocketBaseUrl();
@@ -253,34 +260,39 @@ export class ChatWebSocketService {
       fullUrl
     });
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      let unsubscribe: (() => void) | null = null;
+
       const timeout = setTimeout(() => {
+        if (unsubscribe) unsubscribe();
         logger.warn('[ChatWebSocket] Connection timeout');
         this.setConnectionStatus('error');
-        resolve(false);
+        reject(new Error('Connection timeout'));
       }, 5000);
 
       const checkConnection = () => {
         const status = this.getConnectionStatus();
         if (status === 'connected') {
           clearTimeout(timeout);
+          if (unsubscribe) unsubscribe();
           resolve(true);
         } else if (status === 'error' || status === 'auth_error') {
           clearTimeout(timeout);
-          resolve(false);
+          if (unsubscribe) unsubscribe();
+          reject(new Error(`Connection failed with status: ${status}`));
         }
       };
 
       // Subscribe to status changes
-      const unsubscribe = this.onConnectionStatusChange((status) => {
+      unsubscribe = this.onConnectionStatusChange((status) => {
         if (status === 'connected') {
           clearTimeout(timeout);
-          unsubscribe();
+          if (unsubscribe) unsubscribe();
           resolve(true);
         } else if (status === 'error' || status === 'auth_error') {
           clearTimeout(timeout);
-          unsubscribe();
-          resolve(false);
+          if (unsubscribe) unsubscribe();
+          reject(new Error(`Connection failed with status: ${status}`));
         }
       });
 
@@ -290,13 +302,14 @@ export class ChatWebSocketService {
         checkConnection();
       } catch (error) {
         clearTimeout(timeout);
-        unsubscribe();
+        if (unsubscribe) unsubscribe();
         logger.error('[ChatWebSocket] Failed to connect:', error);
         this.setConnectionStatus('error');
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         if (handlers.onError) {
-          handlers.onError(error instanceof Error ? error.message : 'Unknown error');
+          handlers.onError(errorMsg);
         }
-        resolve(false);
+        reject(new Error(errorMsg));
       }
     });
   }
@@ -305,6 +318,11 @@ export class ChatWebSocketService {
    * Отключение от конкретной комнаты
    */
   disconnectFromRoom(roomId: number): void {
+    if (!this.activeSubscriptions.has(roomId)) {
+      logger.warn('[ChatWebSocket] Already disconnected from room', roomId);
+      return;
+    }
+
     const channel = `chat_${roomId}`;
     const subscriptionId = this.subscriptions.get(channel);
 
@@ -312,6 +330,8 @@ export class ChatWebSocketService {
       websocketService.unsubscribe(subscriptionId);
       this.subscriptions.delete(channel);
     }
+
+    this.activeSubscriptions.delete(roomId);
 
     // Очищаем таймер печати для этой комнаты
     const timeoutKey = roomId;
@@ -346,6 +366,18 @@ export class ChatWebSocketService {
       websocketService.unsubscribe(subscriptionId);
     });
     this.subscriptions.clear();
+    this.activeSubscriptions.clear();
+
+    // Отписываемся от системных событий
+    if (this.connectionUnsubscribe) {
+      this.connectionUnsubscribe();
+      this.connectionUnsubscribe = null;
+    }
+
+    if (this.authErrorUnsubscribe) {
+      this.authErrorUnsubscribe();
+      this.authErrorUnsubscribe = null;
+    }
 
     // Очищаем обработчики событий
     this.eventHandlers = {};
@@ -404,6 +436,38 @@ export class ChatWebSocketService {
     websocketService.send({
       type: 'mark_read',
       data: { message_id: messageId }
+    });
+  }
+
+  /**
+   * Закрепить/открепить сообщение
+   */
+  sendPinMessage(roomId: number, messageId: number): void {
+    websocketService.send({
+      type: 'pin_message',
+      room_id: roomId,
+      message_id: messageId,
+    });
+  }
+
+  /**
+   * Заблокировать/разблокировать чат
+   */
+  sendLockChat(roomId: number): void {
+    websocketService.send({
+      type: 'lock_chat',
+      room_id: roomId,
+    });
+  }
+
+  /**
+   * Замутить/размутить пользователя
+   */
+  sendMuteUser(roomId: number, userId: number): void {
+    websocketService.send({
+      type: 'mute_user',
+      room_id: roomId,
+      user_id: userId,
     });
   }
 
@@ -556,6 +620,37 @@ export class ChatWebSocketService {
         });
         if (message.message_id && this.eventHandlers.onMessageDelivered) {
           this.eventHandlers.onMessageDelivered(message.message_id);
+        }
+        break;
+
+      case 'message_pinned':
+        logger.debug('[ChatWebSocketService] Message pinned event:', {
+          messageId: message.data?.message_id,
+          isPinned: message.data?.is_pinned,
+          threadId: message.data?.thread_id
+        });
+        if (message.data && this.eventHandlers.onMessagePinned) {
+          this.eventHandlers.onMessagePinned(message.data);
+        }
+        break;
+
+      case 'chat_locked':
+        logger.debug('[ChatWebSocketService] Chat locked event:', {
+          chatId: message.data?.chat_id,
+          isActive: message.data?.is_active
+        });
+        if (message.data && this.eventHandlers.onChatLocked) {
+          this.eventHandlers.onChatLocked(message.data);
+        }
+        break;
+
+      case 'user_muted':
+        logger.debug('[ChatWebSocketService] User muted event:', {
+          userId: message.data?.user_id,
+          isMuted: message.data?.is_muted
+        });
+        if (message.data && this.eventHandlers.onUserMuted) {
+          this.eventHandlers.onUserMuted(message.data);
         }
         break;
 

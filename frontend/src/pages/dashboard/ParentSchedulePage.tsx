@@ -19,12 +19,13 @@ const ParentSchedulePage: React.FC = () => {
 
   const [selectedChildId, setSelectedChildId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedTeacher, setSelectedTeacher] = useState<string>('');
+  const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedTeacher, setSelectedTeacher] = useState<string>('all');
 
+  // Note: API пока не поддерживает фильтрацию по teacher_id, поэтому фильтруем на клиенте
   const { data: scheduleData, isLoading: lessonsLoading, error } = useParentChildSchedule(
     selectedChildId || null,
-    { subjectId: selectedSubject, status: selectedTeacher }
+    { subjectId: selectedSubject !== 'all' ? selectedSubject : undefined }
   );
 
   const lessons = scheduleData?.lessons || [];
@@ -34,11 +35,19 @@ const ParentSchedulePage: React.FC = () => {
   }
 
   const children = dashboardData?.children || [];
-  const now = new Date();
 
   const filteredLessons = useMemo(() => {
+    // Создаём 'now' внутри useMemo для стабильности мемоизации
+    const now = new Date();
+
     return lessons.filter(lesson => {
+      // Безопасный парсинг даты - проверяем наличие обязательных полей
+      if (!lesson.date || !lesson.start_time) return false;
+
       const lessonDateTime = new Date(`${lesson.date}T${lesson.start_time}`);
+      // Проверяем валидность распарсенной даты
+      if (isNaN(lessonDateTime.getTime())) return false;
+
       const isUpcoming = lessonDateTime > now;
 
       if (activeTab === 'upcoming' && !isUpcoming) return false;
@@ -53,7 +62,7 @@ const ParentSchedulePage: React.FC = () => {
       const dateB = new Date(`${b.date}T${b.start_time}`);
       return activeTab === 'upcoming' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
     });
-  }, [lessons, activeTab, selectedSubject, selectedTeacher, now]);
+  }, [lessons, activeTab, selectedSubject, selectedTeacher]);
 
   const uniqueSubjects = useMemo(() => {
     return [...new Set(lessons.map(l => l.subject_name).filter(Boolean))].sort();

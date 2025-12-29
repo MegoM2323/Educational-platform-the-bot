@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,7 +30,8 @@ export default function AdminSchedulePage() {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
   // Вычисляем диапазон дат в зависимости от режима просмотра
-  const getDateRange = () => {
+  // Мемоизируем, чтобы избежать пересчета на каждом рендере
+  const dateRange = useMemo(() => {
     if (viewMode === 'month') {
       return {
         from: format(startOfMonth(currentDate), 'yyyy-MM-dd'),
@@ -50,9 +51,7 @@ export default function AdminSchedulePage() {
         to: format(currentDate, 'yyyy-MM-dd'),
       };
     }
-  };
-
-  const dateRange = getDateRange();
+  }, [currentDate, viewMode]);
 
   const { lessons, teachers, subjects, students, isLoading, error, filtersError, refetch } = useAdminSchedule({
     teacher_id: selectedTeacher !== 'all' ? selectedTeacher : undefined,
@@ -73,8 +72,14 @@ export default function AdminSchedulePage() {
     }
   }, [filtersError, toast]);
 
+  // Очищаем развернутые дни при изменении режима просмотра
+  useEffect(() => {
+    setExpandedDays(new Set());
+  }, [viewMode]);
+
   // Получаем дни для отображения в зависимости от режима
-  const getDaysToDisplay = () => {
+  // Мемоизируем, чтобы избежать пересчета массива дней на каждом рендере
+  const days = useMemo(() => {
     if (viewMode === 'month') {
       const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
       const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 });
@@ -87,9 +92,7 @@ export default function AdminSchedulePage() {
       // day mode
       return [currentDate];
     }
-  };
-
-  const days = getDaysToDisplay();
+  }, [currentDate, viewMode]);
 
   // Группируем уроки по датам
   const lessonsByDate = lessons.reduce((acc: Record<string, AdminLesson[]>, lesson: AdminLesson) => {
@@ -182,7 +185,9 @@ export default function AdminSchedulePage() {
 
   // Вычисляем статистику
   const todayDate = format(new Date(), 'yyyy-MM-dd');
-  const todayLessons = lessonsByDate[todayDate] || [];
+  // Проверяем, что сегодня входит в выбранный диапазон дат
+  const isTodayInRange = todayDate >= dateRange.from && todayDate <= dateRange.to;
+  const todayLessons = isTodayInRange ? (lessonsByDate[todayDate] || []) : [];
   const totalLessons = lessons.length;
   const pendingLessons = lessons.filter(l => l.status === 'pending').length;
   const completedLessons = lessons.filter(l => l.status === 'completed').length;

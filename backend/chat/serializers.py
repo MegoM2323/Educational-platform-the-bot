@@ -30,7 +30,14 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         return obj.participants.count()
 
     def get_participants(self, obj):
-        """Return full participant objects for frontend ForumChat interface"""
+        """
+        Return full participant objects for frontend ForumChat interface.
+
+        Оптимизация N+1: использует prefetched данные если доступны.
+        Требуется prefetch_related('participants') в view queryset.
+        """
+        # Проверяем prefetched данные (избегаем N+1 query)
+        # obj.participants.all() использует prefetched cache если доступен
         return [{
             'id': user.id,
             'full_name': user.get_full_name(),
@@ -105,8 +112,9 @@ class ChatRoomDetailSerializer(serializers.ModelSerializer):
         } for user in obj.participants.all()]
     
     def get_messages(self, obj):
-        messages = obj.messages.all()[:50]  # Последние 50 сообщений
-        return MessageSerializer(messages, many=True).data
+        # Prefetch related data and filter properly for optimal performance
+        messages = obj.messages.filter(is_deleted=False).select_related('sender').order_by('-created_at')[:50]
+        return MessageSerializer(messages, many=True, context=self.context).data
 
 
 class ChatRoomCreateSerializer(serializers.ModelSerializer):

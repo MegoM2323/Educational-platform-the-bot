@@ -3,15 +3,19 @@ Service for admin schedule management.
 Provides access to all lessons across all teachers.
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import List, Optional, Dict, Any
 from django.db.models import Q, QuerySet
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from scheduling.models import Lesson
 from scheduling.serializers import LessonSerializer
 
 User = get_user_model()
+
+# Допустимые статусы уроков из модели Lesson
+VALID_STATUSES = {choice[0] for choice in Lesson.STATUS_CHOICES}
 
 
 class AdminScheduleService:
@@ -64,7 +68,10 @@ class AdminScheduleService:
             queryset = queryset.filter(date__lte=date_to)
 
         if status:
-            queryset = queryset.filter(status=status)
+            # Валидация статуса против допустимых значений из Lesson.STATUS_CHOICES
+            if status in VALID_STATUSES:
+                queryset = queryset.filter(status=status)
+            # Если статус невалидный, игнорируем фильтр (возвращаем все)
 
         return queryset
 
@@ -74,11 +81,16 @@ class AdminScheduleService:
         Get statistics for admin dashboard.
 
         Returns:
-            Dictionary with schedule statistics
+            Dictionary with schedule statistics including:
+            - total_lessons: общее количество уроков
+            - today_lessons: уроки сегодня
+            - week_ahead_lessons: уроки на следующую неделю (НЕ включая сегодня)
+            - week_ago_lessons: уроки за прошлую неделю (для статистики)
+            - pending_lessons: уроки в ожидании
+            - completed_lessons: завершенные уроки
+            - cancelled_lessons: отмененные уроки
         """
-        from django.utils import timezone
-        from datetime import timedelta
-
+        # Используем timezone-aware дату для корректного сравнения
         today = timezone.now().date()
         week_ago = today - timedelta(days=7)
         week_ahead = today + timedelta(days=7)
@@ -86,9 +98,15 @@ class AdminScheduleService:
         return {
             'total_lessons': Lesson.objects.count(),
             'today_lessons': Lesson.objects.filter(date=today).count(),
+            # week_ahead_lessons НЕ включает сегодня (date__gt вместо date__gte)
             'week_ahead_lessons': Lesson.objects.filter(
-                date__gte=today,
+                date__gt=today,
                 date__lte=week_ahead
+            ).count(),
+            # Используем week_ago для статистики прошедшей недели
+            'week_ago_lessons': Lesson.objects.filter(
+                date__gte=week_ago,
+                date__lt=today
             ).count(),
             'pending_lessons': Lesson.objects.filter(status='pending').count(),
             'completed_lessons': Lesson.objects.filter(status='completed').count(),

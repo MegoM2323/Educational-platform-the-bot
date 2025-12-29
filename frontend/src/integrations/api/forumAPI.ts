@@ -19,6 +19,7 @@ export interface ForumMessage {
   updated_at: string;
   is_read: boolean;
   is_edited?: boolean;
+  is_pinned?: boolean;
   message_type?: string;
   file_url?: string;
   image_url?: string;
@@ -121,6 +122,26 @@ export interface InitiateChatResponse {
   created: boolean;
 }
 
+export interface PinResponse {
+  success: boolean;
+  action: 'pinned' | 'unpinned';
+  message_id: number;
+  thread_id?: number;
+}
+
+export interface LockResponse {
+  success: boolean;
+  action: 'locked' | 'unlocked';
+  chat_id: number;
+}
+
+export interface MuteResponse {
+  success: boolean;
+  action: 'muted' | 'unmuted';
+  user_id: number;
+  muted_until?: string;
+}
+
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
     console.log('[forumAPI] getForumChats called');
@@ -166,7 +187,8 @@ export const forumAPI = {
   getForumMessages: async (
     chatId: number,
     limit: number = 50,
-    offset: number = 0
+    offset: number = 0,
+    signal?: AbortSignal
   ): Promise<ForumMessage[]> => {
     const params = new URLSearchParams();
     if (typeof limit === 'number') params.append('limit', String(limit));
@@ -175,7 +197,9 @@ export const forumAPI = {
     const queryString = params.toString();
     const url = `/chat/forum/${chatId}/messages/${queryString ? '?' + queryString : ''}`;
 
-    const response = await unifiedAPI.request<ForumMessagesResponse>(url);
+    const response = await unifiedAPI.request<ForumMessagesResponse>(url, {
+      signal, // Pass AbortSignal to enable request cancellation
+    });
 
     if (response.error) {
       throw new Error(response.error);
@@ -325,9 +349,9 @@ export const forumAPI = {
     return response.data;
   },
 
-  editForumMessage: async (messageId: number, data: EditMessageRequest): Promise<ForumMessage> => {
+  editForumMessage: async (chatId: number, messageId: number, data: EditMessageRequest): Promise<ForumMessage> => {
     const response = await unifiedAPI.request<ForumMessage>(
-      `/chat/messages/${messageId}/`,
+      `/chat/forum/${chatId}/messages/${messageId}/edit/`,
       {
         method: 'PATCH',
         body: JSON.stringify(data),
@@ -345,9 +369,9 @@ export const forumAPI = {
     return response.data;
   },
 
-  deleteForumMessage: async (messageId: number): Promise<void> => {
+  deleteForumMessage: async (chatId: number, messageId: number): Promise<void> => {
     const response = await unifiedAPI.request(
-      `/chat/messages/${messageId}/`,
+      `/chat/forum/${chatId}/messages/${messageId}/delete/`,
       {
         method: 'DELETE',
       }
@@ -369,5 +393,62 @@ export const forumAPI = {
     if (response.error) {
       throw new Error(response.error);
     }
+  },
+
+  pinMessage: async (chatId: number, messageId: number): Promise<PinResponse> => {
+    const response = await unifiedAPI.request<PinResponse>(
+      `/chat/forum/${chatId}/messages/${messageId}/pin/`,
+      {
+        method: 'POST',
+      }
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    if (!response.data) {
+      throw new Error('Invalid response from server: missing data');
+    }
+
+    return response.data;
+  },
+
+  lockChat: async (chatId: number): Promise<LockResponse> => {
+    const response = await unifiedAPI.request<LockResponse>(
+      `/chat/forum/${chatId}/lock/`,
+      {
+        method: 'POST',
+      }
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    if (!response.data) {
+      throw new Error('Invalid response from server: missing data');
+    }
+
+    return response.data;
+  },
+
+  muteParticipant: async (chatId: number, userId: number): Promise<MuteResponse> => {
+    const response = await unifiedAPI.request<MuteResponse>(
+      `/chat/forum/${chatId}/participants/${userId}/mute/`,
+      {
+        method: 'POST',
+      }
+    );
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    if (!response.data) {
+      throw new Error('Invalid response from server: missing data');
+    }
+
+    return response.data;
   },
 };

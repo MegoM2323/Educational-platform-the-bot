@@ -112,9 +112,13 @@ describe('useStudentSchedule', () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // Hook has retry: 1, so it will retry once before failing
+    // Wait for error to appear after retry completes
+    await waitFor(() => {
+      expect(result.current.error).toBeTruthy();
+    }, { timeout: 5000 });
 
-    expect(result.current.error).toBeTruthy();
+    // Lessons should be empty array on error
     expect(result.current.lessons).toEqual([]);
   });
 
@@ -169,15 +173,27 @@ describe('useStudentSchedule', () => {
     it('should update grouping when lessons change', async () => {
       vi.mocked(schedulingAPI.getMySchedule).mockResolvedValue([mockLessons[0]]);
 
-      const { result, rerender } = renderHook(() => useStudentSchedule(), {
-        wrapper: createWrapper(),
+      const queryClient = new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+        },
+      });
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      );
+
+      const { result } = renderHook(() => useStudentSchedule(), {
+        wrapper,
       });
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(result.current.lessonsBySubject['Mathematics']).toHaveLength(1);
 
+      // Update mock data and invalidate query to trigger refetch
       vi.mocked(schedulingAPI.getMySchedule).mockResolvedValue(mockLessons);
-      rerender();
+      await queryClient.invalidateQueries({ queryKey: ['lessons'] });
 
       await waitFor(() => {
         expect(result.current.lessonsBySubject['Mathematics']).toHaveLength(2);
@@ -214,15 +230,27 @@ describe('useStudentSchedule', () => {
     it('should update upcoming lessons when data changes', async () => {
       vi.mocked(schedulingAPI.getMySchedule).mockResolvedValue([mockLessons[2]]);
 
-      const { result, rerender } = renderHook(() => useStudentSchedule(), {
-        wrapper: createWrapper(),
+      const queryClient = new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+        },
+      });
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      );
+
+      const { result } = renderHook(() => useStudentSchedule(), {
+        wrapper,
       });
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(result.current.upcomingLessons).toHaveLength(0);
 
+      // Update mock data and invalidate query to trigger refetch
       vi.mocked(schedulingAPI.getMySchedule).mockResolvedValue(mockLessons);
-      rerender();
+      await queryClient.invalidateQueries({ queryKey: ['lessons'] });
 
       await waitFor(() => {
         expect(result.current.upcomingLessons).toHaveLength(2);

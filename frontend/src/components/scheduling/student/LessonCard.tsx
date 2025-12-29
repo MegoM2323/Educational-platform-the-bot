@@ -13,8 +13,21 @@ interface LessonCardProps {
 }
 
 export const LessonCard: React.FC<LessonCardProps> = ({ lesson }) => {
-  const lessonDateTime = new Date(`${lesson.date}T${lesson.start_time}`);
-  const isUpcoming = lessonDateTime > new Date();
+  // Безопасное получение инициалов преподавателя - все первые буквы для многословных имен
+  const getInitials = (name?: string): string => {
+    if (!name) return 'NN'; // No Name fallback
+    return name.split(' ').filter(Boolean).map(part => part[0].toUpperCase()).join('');
+  };
+
+  // Безопасный парсинг даты и времени
+  const parseDateTime = (date?: string, time?: string): Date | null => {
+    if (!date || !time) return null;
+    const dt = new Date(`${date}T${time}`);
+    return isNaN(dt.getTime()) ? null : dt;
+  };
+
+  const lessonDateTime = parseDateTime(lesson.date, lesson.start_time);
+  const isUpcoming = lessonDateTime ? lessonDateTime > new Date() : false;
 
   const statusColors: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -28,15 +41,6 @@ export const LessonCard: React.FC<LessonCardProps> = ({ lesson }) => {
     confirmed: 'Подтверждено',
     completed: 'Завершено',
     cancelled: 'Отменено',
-  };
-
-  // Безопасное получение инициалов преподавателя
-  const getInitials = (name?: string): string => {
-    if (!name) return 'T';
-    const parts = name.trim().split(' ').filter(Boolean);
-    if (parts.length === 0) return 'T';
-    if (parts.length === 1) return parts[0][0].toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   return (
@@ -69,11 +73,21 @@ export const LessonCard: React.FC<LessonCardProps> = ({ lesson }) => {
         <div className="grid sm:grid-cols-2 gap-3">
           <div className="flex items-center gap-2 text-sm">
             <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <span>{format(new Date(lesson.date), 'd MMMM yyyy', { locale: ru })}</span>
+            <span>
+              {lesson.date
+                ? format(new Date(lesson.date), 'd MMMM yyyy', { locale: ru })
+                : 'Дата не указана'
+              }
+            </span>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <span>{lesson.start_time.slice(0, 5)} - {lesson.end_time.slice(0, 5)}</span>
+            <span>
+              {lesson.start_time && lesson.end_time
+                ? `${lesson.start_time.slice(0, 5)} - ${lesson.end_time.slice(0, 5)}`
+                : 'Время не указано'
+              }
+            </span>
           </div>
         </div>
 

@@ -450,7 +450,50 @@ export const adminAPI = {
     }
 
     const url = `/admin/schedule/lessons/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return apiClient.request(url);
+    const response = await apiClient.request<{
+      success: boolean;
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: Array<{
+        id: string;
+        date: string;
+        start_time: string;
+        end_time: string;
+        teacher: number;
+        teacher_name: string;
+        student: number;
+        student_name: string;
+        subject: number;
+        subject_name: string;
+        status: string;
+        description?: string;
+        telemost_link?: string;
+        created_at: string;
+        updated_at: string;
+      }>;
+    }>(url);
+
+    // Transform backend response: results -> lessons
+    if (!response.data) {
+      return {
+        ...response,
+        data: {
+          success: false,
+          count: 0,
+          lessons: []
+        }
+      };
+    }
+
+    return {
+      ...response,
+      data: {
+        success: response.data.success ?? false,
+        count: response.data.count ?? 0,
+        lessons: response.data.results ?? []
+      }
+    };
   },
 
   /**

@@ -6,12 +6,14 @@ import { Lesson, LessonFilters } from '@/types/scheduling';
 
 export const useStudentSchedule = (filters?: LessonFilters) => {
   const query = useQuery({
-    queryKey: ['lessons', 'student', filters],
+    // QueryKey структура: каждое поле фильтра отдельно для стабильных ссылок
+    // Это предотвращает ненужные ре-рендеры при изменении объекта filters
+    queryKey: ['lessons', 'student', filters?.date_from, filters?.date_to, filters?.subject, filters?.status],
     queryFn: async () => {
       try {
-        // Используем getLessons() - backend автоматически фильтрует уроки по роли
-        // Студенты видят только свои уроки через get_queryset() в LessonViewSet
-        return await schedulingAPI.getLessons(filters);
+        // Используем getMySchedule() - специализированный endpoint для студентов
+        // Backend автоматически фильтрует уроки по текущему пользователю
+        return await schedulingAPI.getMySchedule(filters);
       } catch (error) {
         logger.error('Error fetching student schedule:', error);
         throw error;

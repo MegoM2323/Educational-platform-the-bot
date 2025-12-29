@@ -19,8 +19,8 @@ const TutorSchedulePage: React.FC = () => {
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedTeacher, setSelectedTeacher] = useState<string>('');
+  const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedTeacher, setSelectedTeacher] = useState<string>('all');
 
   const { lessons, isLoading: lessonsLoading, error } = useTutorStudentSchedule(
     selectedStudentId || null
@@ -30,11 +30,20 @@ const TutorSchedulePage: React.FC = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const now = new Date();
+  // Безопасная функция парсинга даты
+  const parseDateTime = (date: string, time: string): Date => {
+    try {
+      return new Date(`${date}T${time}`);
+    } catch {
+      return new Date(); // Fallback для невалидных дат
+    }
+  };
 
   const filteredLessons = useMemo(() => {
+    const now = new Date(); // Перемещаем 'now' внутрь useMemo
+
     return lessons.filter(lesson => {
-      const lessonDateTime = new Date(`${lesson.date}T${lesson.start_time}`);
+      const lessonDateTime = parseDateTime(lesson.date, lesson.start_time);
       const isUpcoming = lessonDateTime > now;
 
       if (activeTab === 'upcoming' && !isUpcoming) return false;
@@ -45,11 +54,11 @@ const TutorSchedulePage: React.FC = () => {
 
       return true;
     }).sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.start_time}`);
-      const dateB = new Date(`${b.date}T${b.start_time}`);
+      const dateA = parseDateTime(a.date, a.start_time);
+      const dateB = parseDateTime(b.date, b.start_time);
       return activeTab === 'upcoming' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
     });
-  }, [lessons, activeTab, selectedSubject, selectedTeacher, now]);
+  }, [lessons, activeTab, selectedSubject, selectedTeacher]);
 
   const uniqueSubjects = useMemo(() => {
     return [...new Set(lessons.map(l => l.subject_name).filter(Boolean))].sort();

@@ -10,6 +10,7 @@ from datetime import datetime
 from accounts.permissions import IsAdminUser
 from scheduling.admin_schedule_service import AdminScheduleService
 from scheduling.serializers import AdminLessonSerializer
+from scheduling.views import LessonPagination
 
 
 @api_view(['GET'])
@@ -79,13 +80,32 @@ def admin_schedule_view(request):
             status=status_filter
         )
 
-        # Serialize the data
-        serializer = AdminLessonSerializer(lessons, many=True)
+        # Оптимизация: получаем count из queryset ДО сериализации
+        # Это выполняет COUNT(*) запрос вместо загрузки всех записей в память
+        total_count = lessons.count()
 
+        # Применяем пагинацию для оптимизации при большом количестве записей
+        paginator = LessonPagination()
+        page = paginator.paginate_queryset(lessons, request)
+
+        if page is not None:
+            # Сериализуем только текущую страницу
+            serializer = AdminLessonSerializer(page, many=True)
+            # Возвращаем пагинированный ответ с count, next, previous, results
+            return Response({
+                'success': True,
+                'count': total_count,
+                'next': paginator.get_next_link(),
+                'previous': paginator.get_previous_link(),
+                'results': serializer.data
+            })
+
+        # Fallback если пагинация отключена (например, для совместимости)
+        serializer = AdminLessonSerializer(lessons, many=True)
         return Response({
             'success': True,
-            'count': len(serializer.data),
-            'lessons': serializer.data
+            'count': total_count,
+            'results': serializer.data
         })
 
     except Exception as e:

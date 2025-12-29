@@ -8,12 +8,86 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 
 interface TutorStudentScheduleProps {
-  studentId: string;
+  studentId: string | null; // Может быть null, если студент не выбран
 }
+
+// Компонент для отображения фильтров (избегаем дублирования)
+interface FiltersProps {
+  statusFilter: string;
+  subjectFilter: string;
+  subjects: string[];
+  lessonCount: number;
+  onStatusChange: (value: string) => void;
+  onSubjectChange: (value: string) => void;
+}
+
+const Filters: React.FC<FiltersProps> = ({
+  statusFilter,
+  subjectFilter,
+  subjects,
+  lessonCount,
+  onStatusChange,
+  onSubjectChange,
+}) => (
+  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+    <div className="flex items-center gap-2">
+      <Filter className="w-4 h-4 text-muted-foreground" />
+      <span className="text-sm font-medium">Фильтры:</span>
+    </div>
+    <Select value={statusFilter} onValueChange={onStatusChange}>
+      <SelectTrigger className="w-[180px]">
+        <SelectValue placeholder="Статус" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Все статусы</SelectItem>
+        <SelectItem value="pending">Ожидание</SelectItem>
+        <SelectItem value="confirmed">Подтверждено</SelectItem>
+        <SelectItem value="completed">Завершено</SelectItem>
+        <SelectItem value="cancelled">Отменено</SelectItem>
+      </SelectContent>
+    </Select>
+    {subjects.length > 0 && (
+      <Select value={subjectFilter} onValueChange={onSubjectChange}>
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Предмет" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Все предметы</SelectItem>
+          {subjects.map(subject => (
+            <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )}
+    <Badge variant="secondary">{lessonCount} уроков</Badge>
+  </div>
+);
 
 export const TutorStudentSchedule: React.FC<TutorStudentScheduleProps> = ({ studentId }) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
+
+  // Безопасная функция парсинга даты и времени
+  const parseDateTime = (date?: string, time?: string): number => {
+    if (!date || !time) return 0;
+    const dt = new Date(`${date}T${time}`);
+    return isNaN(dt.getTime()) ? 0 : dt.getTime();
+  };
+
+  // Ранний возврат, если студент не выбран
+  if (studentId === null) {
+    return (
+      <Card>
+        <CardContent className="p-12 text-center">
+          <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <h3 className="text-lg font-semibold mb-2">Студент не выбран</h3>
+          <p className="text-muted-foreground">
+            Выберите студента для просмотра расписания
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const { lessons, isLoading, error } = useTutorStudentSchedule(studentId);
 
@@ -42,10 +116,11 @@ export const TutorStudentSchedule: React.FC<TutorStudentScheduleProps> = ({ stud
     });
   }, [lessons, statusFilter, subjectFilter]);
 
+  // Сортировка уроков с безопасным парсингом дат
   const sortedLessons = useMemo(() => {
     return [...filteredLessons].sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.start_time}`).getTime();
-      const dateB = new Date(`${b.date}T${b.start_time}`).getTime();
+      const dateA = parseDateTime(a.date, a.start_time);
+      const dateB = parseDateTime(b.date, b.start_time);
       return dateA - dateB;
     });
   }, [filteredLessons]);
@@ -86,43 +161,18 @@ export const TutorStudentSchedule: React.FC<TutorStudentScheduleProps> = ({ stud
     );
   }
 
+  // Если нет уроков после фильтрации
   if (sortedLessons.length === 0 && (statusFilter !== 'all' || subjectFilter !== 'all')) {
     return (
       <div className="space-y-4">
-        {/* Фильтры */}
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Фильтры:</span>
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Статус" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Все статусы</SelectItem>
-              <SelectItem value="pending">Ожидание</SelectItem>
-              <SelectItem value="confirmed">Подтверждено</SelectItem>
-              <SelectItem value="completed">Завершено</SelectItem>
-              <SelectItem value="cancelled">Отменено</SelectItem>
-            </SelectContent>
-          </Select>
-          {subjects.length > 0 && (
-            <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Предмет" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все предметы</SelectItem>
-                {subjects.map(subject => (
-                  <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Badge variant="secondary">{sortedLessons.length} уроков</Badge>
-        </div>
-
+        <Filters
+          statusFilter={statusFilter}
+          subjectFilter={subjectFilter}
+          subjects={subjects}
+          lessonCount={sortedLessons.length}
+          onStatusChange={setStatusFilter}
+          onSubjectChange={setSubjectFilter}
+        />
         <Card>
           <CardContent className="p-12 text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -152,39 +202,14 @@ export const TutorStudentSchedule: React.FC<TutorStudentScheduleProps> = ({ stud
 
   return (
     <div className="space-y-4">
-      {/* Фильтры */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Фильтры:</span>
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Статус" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все статусы</SelectItem>
-            <SelectItem value="pending">Ожидание</SelectItem>
-            <SelectItem value="confirmed">Подтверждено</SelectItem>
-            <SelectItem value="completed">Завершено</SelectItem>
-            <SelectItem value="cancelled">Отменено</SelectItem>
-          </SelectContent>
-        </Select>
-        {subjects.length > 0 && (
-          <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Предмет" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Все предметы</SelectItem>
-              {subjects.map(subject => (
-                <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Badge variant="secondary">{sortedLessons.length} уроков</Badge>
-      </div>
+      <Filters
+        statusFilter={statusFilter}
+        subjectFilter={subjectFilter}
+        subjects={subjects}
+        lessonCount={sortedLessons.length}
+        onStatusChange={setStatusFilter}
+        onSubjectChange={setSubjectFilter}
+      />
 
       {/* Список уроков */}
       {sortedLessons.map(lesson => (

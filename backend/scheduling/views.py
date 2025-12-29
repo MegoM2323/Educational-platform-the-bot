@@ -10,6 +10,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 from scheduling.models import Lesson, LessonHistory
@@ -24,6 +25,20 @@ from scheduling.permissions import IsTeacher, IsStudent
 from materials.models import Subject
 
 
+class LessonPagination(PageNumberPagination):
+    """
+    Пагинация для списка уроков.
+
+    Параметры:
+    - page_size: 50 элементов на страницу по умолчанию
+    - max_page_size: максимум 100 элементов на страницу
+    - page_size_query_param: клиент может запросить размер через ?page_size=N
+    """
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class LessonViewSet(viewsets.ModelViewSet):
     """
     ViewSet for lesson management.
@@ -34,6 +49,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = LessonPagination
 
     def get_queryset(self):
         """Get lessons filtered by user role."""
@@ -75,13 +91,30 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         """
-        List lessons for current user.
+        List lessons for current user with pagination.
 
         GET /api/scheduling/lessons/
+        GET /api/scheduling/lessons/?page=2
+        GET /api/scheduling/lessons/?page_size=25
 
-        Returns lessons filtered by user role via get_queryset().
+        Returns paginated lessons filtered by user role via get_queryset().
+        Response structure:
+        {
+            "count": 150,
+            "next": "http://api/scheduling/lessons/?page=2",
+            "previous": null,
+            "results": [...]
+        }
         """
         queryset = self.filter_queryset(self.get_queryset())
+
+        # Применяем пагинацию
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        # Fallback если пагинация отключена
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -296,9 +329,17 @@ class LessonViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def my_schedule(self, request):
         """
-        Get current user's schedule (role-aware).
+        Get current user's schedule (role-aware) with pagination.
 
         GET /api/scheduling/lessons/my-schedule/
+        GET /api/scheduling/lessons/my-schedule/?page=2
+        GET /api/scheduling/lessons/my-schedule/?page_size=25
+
+        Query params:
+        - date_from: filter by start date (YYYY-MM-DD)
+        - date_to: filter by end date (YYYY-MM-DD)
+        - status: filter by lesson status
+        - subject_id: filter by subject
 
         Returns:
         - Teacher: lessons they created
@@ -322,15 +363,31 @@ class LessonViewSet(viewsets.ModelViewSet):
         if subject_id:
             queryset = queryset.filter(subject_id=subject_id)
 
+        # Применяем пагинацию
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        # Fallback если пагинация отключена
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def student_schedule(self, request):
         """
-        Get lessons for a specific student (tutor or parent).
+        Get lessons for a specific student (tutor or parent) with pagination.
 
         GET /api/scheduling/lessons/student_schedule/?student_id={student_id}
+        GET /api/scheduling/lessons/student_schedule/?student_id={student_id}&page=2
+        GET /api/scheduling/lessons/student_schedule/?student_id={student_id}&page_size=25
+
+        Query params:
+        - student_id: required, ID of the student
+        - date_from: filter by start date (YYYY-MM-DD)
+        - date_to: filter by end date (YYYY-MM-DD)
+        - status: filter by lesson status
+        - subject_id: filter by subject
 
         Only tutors can access their students' schedules.
         Parents can access their children's schedules.
@@ -349,9 +406,16 @@ class LessonViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Валидация формата student_id (должен быть целым числом)
         try:
             student_id_int = int(student_id)
+        except ValueError:
+            return Response(
+                {'error': 'Invalid student_id format. Expected integer.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        try:
             if request.user.role == 'tutor':
                 # Use service to get lessons (validates tutor manages student)
                 queryset = LessonService.get_tutor_student_lessons(
@@ -388,6 +452,13 @@ class LessonViewSet(viewsets.ModelViewSet):
             if subject_id:
                 queryset = queryset.filter(subject_id=subject_id)
 
+            # Применяем пагинацию
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            # Fallback если пагинация отключена
             serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data)
 

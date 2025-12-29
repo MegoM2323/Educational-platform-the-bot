@@ -12,7 +12,7 @@ export const useForumMessageDelete = ({ chatId, onSuccess, onError }: UseForumMe
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (messageId: number) => forumAPI.deleteForumMessage(messageId),
+    mutationFn: (messageId: number) => forumAPI.deleteForumMessage(chatId, messageId),
 
     onMutate: async (messageId) => {
       // Cancel outgoing refetches for all queries matching this chatId

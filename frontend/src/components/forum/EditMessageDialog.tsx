@@ -37,6 +37,9 @@ export const EditMessageDialog: React.FC<EditMessageDialogProps> = ({
     }
   }, [isOpen, messageContent]);
 
+  // T034: Check if content is unchanged
+  const isUnchanged = content.trim() === messageContent.trim();
+
   const handleSave = () => {
     const trimmedContent = content.trim();
 
@@ -50,7 +53,8 @@ export const EditMessageDialog: React.FC<EditMessageDialogProps> = ({
       return;
     }
 
-    if (trimmedContent === messageContent) {
+    // T034: Don't save if unchanged
+    if (trimmedContent === messageContent.trim()) {
       onClose();
       return;
     }
@@ -61,7 +65,9 @@ export const EditMessageDialog: React.FC<EditMessageDialogProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault();
-      handleSave();
+      if (!isUnchanged) {
+        handleSave();
+      }
     }
   };
 
@@ -90,6 +96,12 @@ export const EditMessageDialog: React.FC<EditMessageDialogProps> = ({
           {error && (
             <p className="text-sm text-destructive mt-2">{error}</p>
           )}
+          {/* T034: Show hint when content is unchanged */}
+          {isUnchanged && !error && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Сообщение не изменено
+            </p>
+          )}
           <p className="text-xs text-muted-foreground mt-2">
             {content.length}/5000 символов
           </p>
@@ -98,7 +110,8 @@ export const EditMessageDialog: React.FC<EditMessageDialogProps> = ({
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Отмена
           </Button>
-          <Button onClick={handleSave} disabled={isLoading}>
+          {/* T034: Disable save button if content unchanged */}
+          <Button onClick={handleSave} disabled={isLoading || isUnchanged}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

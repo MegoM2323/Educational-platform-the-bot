@@ -11,15 +11,12 @@ import { Lesson } from "@/types/scheduling";
 
 export const TeacherScheduleWidget = () => {
   const navigate = useNavigate();
-  const { lessons, isLoading } = useTeacherLessons();
+  const { lessons, isLoading, error } = useTeacherLessons();
 
+  // Используем поле is_upcoming из backend вместо ручного сравнения дат
   const upcomingLessons = useMemo(() => {
-    const now = new Date();
     return lessons
-      .filter((lesson: Lesson) => {
-        const lessonDate = new Date(`${lesson.date}T${lesson.start_time}`);
-        return lessonDate > now && (lesson.status === 'confirmed' || lesson.status === 'pending');
-      })
+      .filter((lesson: Lesson) => lesson.is_upcoming)
       .sort((a: Lesson, b: Lesson) =>
         new Date(`${a.date}T${a.start_time}`).getTime() -
         new Date(`${b.date}T${b.start_time}`).getTime()
@@ -27,6 +24,27 @@ export const TeacherScheduleWidget = () => {
       .slice(0, 3);
   }, [lessons]);
 
+  // Обработка ошибок загрузки
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-primary" />
+            Следующие занятия
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-destructive">
+            <p className="text-sm">Ошибка загрузки расписания</p>
+            <p className="text-xs text-muted-foreground mt-2">Попробуйте обновить страницу</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Состояние загрузки со скелетонами
   if (isLoading) {
     return (
       <Card>
@@ -61,8 +79,10 @@ export const TeacherScheduleWidget = () => {
             <div key={lesson.id} className={`border-b pb-4 last:border-0 last:pb-0 ${idx > 0 ? 'pt-4' : ''}`}>
               <div className="flex justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm">{lesson.student_name}</p>
-                  <p className="text-sm text-muted-foreground">{lesson.subject_name}</p>
+                  {/* Null check для student_name */}
+                  <p className="font-semibold text-sm">{lesson.student_name || 'Студент'}</p>
+                  {/* Null check для subject_name */}
+                  <p className="text-sm text-muted-foreground">{lesson.subject_name || 'Предмет'}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                     <Calendar className="w-3 h-3" />
                     <span>{format(new Date(`${lesson.date}T${lesson.start_time}`), 'd MMM yyyy', { locale: ru })}</span>

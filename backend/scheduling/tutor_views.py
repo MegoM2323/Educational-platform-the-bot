@@ -24,6 +24,12 @@ def get_student_schedule(request, student_id):
 
     GET /api/scheduling/tutor/students/{student_id}/schedule/
 
+    Query params:
+        date_from: Filter lessons from this date (YYYY-MM-DD)
+        date_to: Filter lessons until this date (YYYY-MM-DD)
+        subject_id: Filter by subject ID
+        status: Filter by lesson status
+
     Args:
         request: HTTP request with authenticated tutor
         student_id: ID студента
@@ -36,11 +42,12 @@ def get_student_schedule(request, student_id):
         403: Студент не назначен этому тьютору
     """
     # Проверить что студент существует и имеет роль student
-    student = get_object_or_404(User, id=student_id, role='student')
-    student_profile = get_object_or_404(StudentProfile, user=student)
+    student = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
 
     # Проверить что студент принадлежит этому тьютору
-    if student_profile.tutor_id != request.user.id:
+    try:
+        student_profile = StudentProfile.objects.get(user=student, tutor=request.user)
+    except StudentProfile.DoesNotExist:
         return Response(
             {'error': 'Student not assigned to you'},
             status=status.HTTP_403_FORBIDDEN
@@ -50,6 +57,21 @@ def get_student_schedule(request, student_id):
     lessons = Lesson.objects.filter(
         student=student
     ).select_related('teacher', 'subject').order_by('date', 'start_time')
+
+    # Применить фильтры
+    date_from = request.query_params.get('date_from')
+    date_to = request.query_params.get('date_to')
+    subject_id = request.query_params.get('subject_id')
+    lesson_status = request.query_params.get('status')
+
+    if date_from:
+        lessons = lessons.filter(date__gte=date_from)
+    if date_to:
+        lessons = lessons.filter(date__lte=date_to)
+    if subject_id:
+        lessons = lessons.filter(subject_id=subject_id)
+    if lesson_status:
+        lessons = lessons.filter(status=lesson_status)
 
     # Сериализовать уроки
     lessons_data = []
@@ -95,9 +117,9 @@ def get_all_student_schedules(request):
     """
     # Получить всех студентов этого тьютора с оптимизацией
     students = User.objects.filter(
-        role='student',
+        role=User.Role.STUDENT,
         student_profile__tutor=request.user
-    ).select_related('student_profile').prefetch_related('student_lessons')
+    ).select_related('student_profile')
 
     students_data = []
     for student in students:

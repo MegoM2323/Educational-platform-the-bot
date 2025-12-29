@@ -26,6 +26,7 @@ const TeacherSchedulePage: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [lessonToEdit, setLessonToEdit] = useState<any | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const {
     lessons,
@@ -59,22 +60,25 @@ const TeacherSchedulePage: React.FC = () => {
   });
   const subjects = Array.from(subjectsMap.values());
 
+  // Утилита для конвертации времени HH:MM в HH:MM:SS
+  const formatTime = (time: string): string => {
+    const parts = time.split(':');
+    return parts.length === 2 ? `${time}:00` : time;
+  };
+
   const handleCreateLesson = async (formData: LessonFormData) => {
     try {
-      // Convert HH:MM to HH:MM:SS for backend compatibility
+      // Конвертируем HH:MM в HH:MM:SS для бэкенда
       const payload = {
         ...formData,
-        start_time: formData.start_time.includes(':') && formData.start_time.split(':').length === 2
-          ? formData.start_time + ':00'
-          : formData.start_time,
-        end_time: formData.end_time.includes(':') && formData.end_time.split(':').length === 2
-          ? formData.end_time + ':00'
-          : formData.end_time,
+        start_time: formatTime(formData.start_time),
+        end_time: formatTime(formData.end_time),
       };
 
-      createLesson(payload);
-      // Form will reset on success due to mutation onSuccess invalidating cache
-      // Toast will be shown by the form's error handling
+      // Используем async/await для корректной обработки мутации
+      await createLesson(payload);
+
+      // Закрываем форму только после успешного создания
       setIsFormOpen(false);
     } catch (error) {
       toast({
@@ -87,8 +91,15 @@ const TeacherSchedulePage: React.FC = () => {
   };
 
   const handleDeleteLesson = (lessonId: string) => {
-    // Mutation handles success/error toasts and query invalidation
-    deleteLesson(lessonId);
+    // Устанавливаем ID удаляемого урока для отображения loading state
+    setDeletingId(lessonId);
+    // Мутация обрабатывает success/error тосты и инвалидацию запросов
+    deleteLesson(lessonId, {
+      onSettled: () => {
+        // Сбрасываем deletingId после завершения операции (успех или ошибка)
+        setDeletingId(null);
+      }
+    });
   };
 
   const handleEditLesson = (lesson: any) => {
@@ -124,31 +135,22 @@ const TeacherSchedulePage: React.FC = () => {
     if (!editingId) return;
 
     try {
-      // Convert HH:MM to HH:MM:SS for backend compatibility
-      // DON'T send student and subject - they are read-only on update
+      // Конвертируем HH:MM в HH:MM:SS для бэкенда
+      // НЕ отправляем student и subject - они read-only при обновлении
       const payload = {
         date: formData.date,
-        start_time: formData.start_time.includes(':') && formData.start_time.split(':').length === 2
-          ? formData.start_time + ':00'
-          : formData.start_time,
-        end_time: formData.end_time.includes(':') && formData.end_time.split(':').length === 2
-          ? formData.end_time + ':00'
-          : formData.end_time,
+        start_time: formatTime(formData.start_time),
+        end_time: formatTime(formData.end_time),
         description: formData.description || '',
         telemost_link: formData.telemost_link || '',
       };
 
-      // Call mutation (hook handles success/error toasts and query invalidation)
-      updateLesson(
-        { id: editingId, payload },
-        {
-          onSuccess: () => {
-            // Close dialog only after successful update and cache invalidation
-            setEditingId(null);
-            setLessonToEdit(null);
-          }
-        }
-      );
+      // Используем async/await для корректной обработки мутации
+      await updateLesson({ id: editingId, payload });
+
+      // Очищаем состояние диалога только после успешного обновления
+      setEditingId(null);
+      setLessonToEdit(null);
     } catch (error) {
       toast({
         title: 'Error',
@@ -249,7 +251,7 @@ const TeacherSchedulePage: React.FC = () => {
                         lesson={lesson}
                         onEdit={() => handleEditLesson(lesson)}
                         onDelete={() => handleDeleteLesson(lesson.id)}
-                        isDeleting={isDeleting}
+                        deletingId={deletingId}
                       />
                     ))}
                   </div>

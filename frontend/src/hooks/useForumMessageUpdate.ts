@@ -13,7 +13,7 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
 
   return useMutation({
     mutationFn: ({ messageId, data }: { messageId: number; data: EditMessageRequest }) =>
-      forumAPI.editForumMessage(messageId, data),
+      forumAPI.editForumMessage(chatId, messageId, data),
 
     onMutate: async ({ messageId, data }) => {
       // Cancel outgoing refetches for all queries matching this chatId

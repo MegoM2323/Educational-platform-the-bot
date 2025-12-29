@@ -100,8 +100,8 @@ export const useTeacherLessons = (filters?: Record<string, any>) => {
     lessons: lessonsQuery.data || [],
     isLoading: lessonsQuery.isLoading,
     error: lessonsQuery.error,
-    createLesson: createMutation.mutate,
-    updateLesson: updateMutation.mutate,
+    createLesson: createMutation.mutateAsync, // Используем mutateAsync для async/await
+    updateLesson: updateMutation.mutateAsync, // Используем mutateAsync для async/await
     deleteLesson: deleteMutation.mutate,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,

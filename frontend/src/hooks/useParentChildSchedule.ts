@@ -24,7 +24,10 @@ export function useParentChildSchedule(
   options: UseParentChildScheduleOptions = {}
 ) {
   return useQuery<ParentChildScheduleResult>({
-    queryKey: ['lessons', 'parent-child', childId, options],
+    // queryKey: spread options properties to avoid unstable object references
+    // Structure: [scope, feature, childId, ...filter params]
+    // This ensures proper cache invalidation when any filter changes
+    queryKey: ['lessons', 'parent-child', childId, options?.dateFrom, options?.dateTo, options?.subjectId, options?.status],
     queryFn: async () => {
       if (!childId) throw new Error('No child selected');
       const response = await schedulingAPI.getParentChildSchedule(childId, {
@@ -40,7 +43,7 @@ export function useParentChildSchedule(
       };
     },
     enabled: !!childId,
-    staleTime: 60000,
+    staleTime: 30000,
     refetchOnMount: true,
   });
 }

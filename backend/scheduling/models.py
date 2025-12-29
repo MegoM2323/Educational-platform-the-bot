@@ -14,6 +14,27 @@ from django.utils import timezone
 User = get_user_model()
 
 
+class LessonManager(models.Manager):
+    """
+    Кастомный менеджер для модели Lesson.
+
+    Обеспечивает вызов валидации при создании через Manager.create().
+    Это предотвращает обход валидации при использовании Lesson.objects.create().
+    """
+
+    def create(self, **kwargs):
+        """
+        Создание урока с обязательной валидацией.
+
+        Переопределяет стандартный create() чтобы гарантировать вызов full_clean()
+        перед сохранением, независимо от способа создания объекта.
+        """
+        obj = self.model(**kwargs)
+        obj.full_clean()
+        obj.save(force_insert=True, using=self.db)
+        return obj
+
+
 class Lesson(models.Model):
     """
     Single lesson between teacher and student.
@@ -79,6 +100,9 @@ class Lesson(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Кастомный менеджер для валидации при create()
+    objects = LessonManager()
+
     class Meta:
         verbose_name = 'Lesson'
         verbose_name_plural = 'Lessons'
@@ -101,13 +125,25 @@ class Lesson(models.Model):
     def datetime_start(self):
         """Full datetime of lesson start."""
         dt = timezone.datetime.combine(self.date, self.start_time)
-        return timezone.make_aware(dt) if not timezone.is_aware(dt) else dt
+        if timezone.is_aware(dt):
+            return dt
+        try:
+            return timezone.make_aware(dt)
+        except Exception:
+            # Если не удалось сделать datetime aware, возвращаем naive datetime
+            return dt
 
     @property
     def datetime_end(self):
         """Full datetime of lesson end."""
         dt = timezone.datetime.combine(self.date, self.end_time)
-        return timezone.make_aware(dt) if not timezone.is_aware(dt) else dt
+        if timezone.is_aware(dt):
+            return dt
+        try:
+            return timezone.make_aware(dt)
+        except Exception:
+            # Если не удалось сделать datetime aware, возвращаем naive datetime
+            return dt
 
     @property
     def is_upcoming(self):
@@ -152,16 +188,18 @@ class Lesson(models.Model):
                     f'{self.subject.name} to student {self.student.get_full_name()}'
                 )
 
-    def save(self, *args, skip_validation=False, **kwargs):
+    def save(self, *args, **kwargs):
         """
         Override save to enforce validation.
 
-        Args:
-            skip_validation: Set to True to bypass validation (for tests/migrations only)
+        Всегда вызывает full_clean() перед сохранением.
+        Это гарантирует что:
+        - start_time < end_time
+        - date не в прошлом
+        - Существует активный SubjectEnrollment для teacher/student/subject
         """
-        if not skip_validation:
-            # Запускаем полную валидацию перед сохранением
-            self.full_clean()
+        # Всегда запускаем полную валидацию перед сохранением
+        self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -224,4 +262,6 @@ class LessonHistory(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.lesson} - {self.get_action_display()} - {self.timestamp}"
+        # Обрабатываем случай когда performed_by может быть None
+        performer = self.performed_by.get_full_name() if self.performed_by else 'System'
+        return f"{self.lesson} - {self.get_action_display()} by {performer} - {self.timestamp}"

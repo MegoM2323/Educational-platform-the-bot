@@ -6,6 +6,8 @@ Defines role-based access control for lesson management.
 
 from rest_framework import permissions
 
+from accounts.models import User
+
 
 class IsTeacher(permissions.BasePermission):
     """
@@ -17,7 +19,7 @@ class IsTeacher(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role == 'teacher'
+            request.user.role == User.Role.TEACHER
         )
 
 
@@ -31,7 +33,7 @@ class IsStudent(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role == 'student'
+            request.user.role == User.Role.STUDENT
         )
 
 
@@ -45,7 +47,7 @@ class IsTutor(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role == 'tutor'
+            request.user.role == User.Role.TUTOR
         )
 
 
@@ -60,20 +62,40 @@ class IsParent(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role == 'parent'
+            request.user.role == User.Role.PARENT
         )
 
 
 class IsParentOfStudent(permissions.BasePermission):
     """
     Permission check for parent accessing their child's data.
+
+    Проверяет, что пользователь является родителем и имеет право
+    доступа к данным конкретного ребёнка (студента).
     """
     message = "You can only view your own children's data."
 
+    def has_permission(self, request, view):
+        """Проверяет, что пользователь является родителем."""
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.role == User.Role.PARENT
+        )
+
     def has_object_permission(self, request, view, obj):
-        """Check if parent owns the student (child)."""
+        """Проверяет, что родитель имеет доступ к данным ребёнка."""
         from accounts.models import StudentProfile
-        # obj is the student User
+
+        # Проверяем, что obj является экземпляром User
+        if not isinstance(obj, User):
+            return False
+
+        # Проверяем, что obj - студент
+        if obj.role != User.Role.STUDENT:
+            return False
+
+        # Проверяем, что студент принадлежит этому родителю
         try:
             profile = StudentProfile.objects.get(user=obj)
             return profile.parent == request.user
@@ -91,5 +113,5 @@ class IsTeacherOrStudent(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role in ['teacher', 'student']
+            request.user.role in [User.Role.TEACHER, User.Role.STUDENT]
         )

@@ -137,7 +137,7 @@ describe('useTeacherSchedule', () => {
 
       expect(result.current.lessons).toHaveLength(4);
       expect(result.current.lessons[0].teacher_name).toBe('John Doe');
-      expect(schedulingAPI.getMySchedule).toHaveBeenCalledWith('2025-12-01', '2025-12-31');
+      expect(schedulingAPI.getMySchedule).toHaveBeenCalledWith({ date_from: '2025-12-01', date_to: '2025-12-31' });
     });
 
     it('should handle API errors gracefully', async () => {
@@ -204,7 +204,7 @@ describe('useTeacherSchedule', () => {
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      expect(schedulingAPI.getMySchedule).toHaveBeenCalledWith('2025-12-01', '2025-12-15');
+      expect(schedulingAPI.getMySchedule).toHaveBeenCalledWith({ date_from: '2025-12-01', date_to: '2025-12-15' });
 
       vi.clearAllMocks();
       vi.mocked(schedulingAPI.getMySchedule).mockResolvedValue(mockScheduleData);
@@ -212,7 +212,7 @@ describe('useTeacherSchedule', () => {
       rerender({ dateFrom: '2025-12-16', dateTo: '2025-12-31' });
 
       await waitFor(() => {
-        expect(schedulingAPI.getMySchedule).toHaveBeenCalledWith('2025-12-16', '2025-12-31');
+        expect(schedulingAPI.getMySchedule).toHaveBeenCalledWith({ date_from: '2025-12-16', date_to: '2025-12-31' });
       });
     });
 
@@ -691,7 +691,7 @@ describe('useTeacherSchedule', () => {
       });
 
       await waitFor(() => {
-        expect(schedulingAPI.getMySchedule).toHaveBeenCalledWith('2025-12-01', '2025-12-31');
+        expect(schedulingAPI.getMySchedule).toHaveBeenCalledWith({ date_from: '2025-12-01', date_to: '2025-12-31' });
       });
     });
 

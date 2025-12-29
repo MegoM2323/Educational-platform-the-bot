@@ -252,7 +252,7 @@ jobs:
           docker system prune -f
 
       - name: Delete old artifacts
-        uses: geekyeggo/delete-artifact@v2
+        uses: geekyeggo/delete-artifact@v5
         with:
           name: '*-test-results'
           failOnError: false

@@ -172,7 +172,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache Docker layers for backend
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/.buildx-cache-backend
           key: buildx-backend-${{ github.ref }}-${{ github.sha }}
@@ -268,7 +268,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache Docker layers for frontend
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/.buildx-cache-frontend
           key: buildx-frontend-${{ github.ref }}-${{ github.sha }}
@@ -277,7 +277,7 @@ jobs:
             buildx-frontend-main-
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.npm

@@ -193,7 +193,7 @@ export default function StudentMaterials() {
         return;
       }
 
-      const response = await fetch(`/api/materials/materials/${material.id}/download/`, {
+      const response = await fetch(`/api/materials/${material.id}/download/`, {
         headers: {
           'Authorization': `Token ${localStorage.getItem('authToken') || ''}`,
         },

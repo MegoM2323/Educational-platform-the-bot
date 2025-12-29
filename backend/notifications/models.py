@@ -42,7 +42,12 @@ class Notification(models.Model):
         NORMAL = 'normal', 'Обычный'
         HIGH = 'high', 'Высокий'
         URGENT = 'urgent', 'Срочный'
-    
+
+    class Scope(models.TextChoices):
+        USER = 'user', 'User-specific'
+        SYSTEM = 'system', 'System-wide'
+        ADMIN = 'admin', 'Admin-only'
+
     title = models.CharField(max_length=200, verbose_name='Заголовок')
     message = models.TextField(verbose_name='Сообщение')
     
@@ -66,7 +71,15 @@ class Notification(models.Model):
         default=Priority.NORMAL,
         verbose_name='Приоритет'
     )
-    
+
+    scope = models.CharField(
+        max_length=20,
+        choices=Scope.choices,
+        default=Scope.USER,
+        verbose_name='Scope (user/system/admin)',
+        db_index=True
+    )
+
     is_read = models.BooleanField(
         default=False,
         verbose_name='Прочитано'

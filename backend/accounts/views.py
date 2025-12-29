@@ -127,11 +127,23 @@ def login_view(request):
         # Если дошли до сюда — пользователь аутентифицирован (либо Django, либо Supabase)
         if authenticated_user and authenticated_user.is_active:
             # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
-            Token.objects.filter(user=authenticated_user).delete()
+            deleted_count, _ = Token.objects.filter(user=authenticated_user).delete()
             token = Token.objects.create(user=authenticated_user)
 
-            print(f"[login] Created new token for user: {authenticated_user.username}, role: {authenticated_user.role}")
-            
+            # Логируем успешный вход
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(
+                f"[login] Successful login for user: {authenticated_user.email}, "
+                f"role: {authenticated_user.role}, "
+                f"deleted old tokens: {deleted_count}"
+            )
+
+            # Если есть сессия, обновляем её
+            if hasattr(request, 'session'):
+                request.session.create()
+                logger.debug(f"[login] Session created for user: {authenticated_user.email}")
+
             return Response({
                 'success': True,
                 'data': {
@@ -157,14 +169,35 @@ def login_view(request):
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     """
-    Выход пользователя
+    Выход пользователя.
+
+    Удаляет:
+    - Токен аутентификации
+    - Сессию пользователя
+    - Cookies (обработано Django)
+
+    Returns:
+        Response: Success message
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     try:
-        request.user.auth_token.delete()
-    except:
-        pass
-    logout(request)
-    return Response({'message': 'Выход выполнен успешно'})
+        user = request.user
+        # Удаляем токен
+        Token.objects.filter(user=user).delete()
+        logger.info(f"[logout] Token deleted for user: {user.email}")
+    except Exception as e:
+        logger.warning(f"[logout] Failed to delete token: {str(e)}")
+
+    try:
+        # Удаляем сессию
+        logout(request)
+        logger.info(f"[logout] User logged out successfully: {request.user.email if request.user.is_authenticated else 'anonymous'}")
+    except Exception as e:
+        logger.warning(f"[logout] Failed to logout: {str(e)}")
+
+    return Response({'message': 'Выход выполнен успешно', 'success': True})
 
 
 @api_view(['POST'])
@@ -172,34 +205,148 @@ def logout_view(request):
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 def refresh_token_view(request):
     """
-    Обновление токена аутентификации
-    Удаляет старый токен и создает новый для текущего пользователя
+    Обновление токена аутентификации.
+
+    Удаляет старый токен и создает новый для текущего пользователя.
+    Также обновляет сессию для продления timeout.
+
+    Returns:
+        Response: {
+            'success': True,
+            'data': {
+                'token': str,
+                'user': dict,
+                'message': str,
+                'expires_in': int (seconds)
+            }
+        }
     """
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+
         user = request.user
 
+        # Логируем попытку обновления
+        old_token = Token.objects.filter(user=user).first()
+        if old_token:
+            logger.info(f"[refresh_token] Refreshing token for user: {user.email}, role: {user.role}")
+
         # Удаляем старый токен
-        Token.objects.filter(user=user).delete()
+        deleted_count, _ = Token.objects.filter(user=user).delete()
 
         # Создаем новый токен
         new_token = Token.objects.create(user=user)
 
-        print(f"[refresh_token] Created new token for user: {user.username}, role: {user.role}")
+        # Обновляем сессию для продления timeout
+        if hasattr(request, 'session') and request.session:
+            request.session.modified = True
+            logger.debug(f"[refresh_token] Session updated for user: {user.email}")
+
+        # Получаем время истечения токена из настроек
+        from django.conf import settings
+        session_timeout = getattr(settings, 'SESSION_COOKIE_AGE', 86400)
+
+        logger.info(
+            f"[refresh_token] New token created for user: {user.email}, "
+            f"role: {user.role}, deleted old tokens: {deleted_count}"
+        )
 
         return Response({
             'success': True,
             'data': {
                 'token': new_token.key,
                 'user': UserSerializer(user).data,
-                'message': 'Токен успешно обновлен'
+                'message': 'Токен успешно обновлен',
+                'expires_in': session_timeout  # Token validity duration in seconds
             }
         }, status=status.HTTP_200_OK)
 
     except Exception as e:
-        print(f"[refresh_token] Error: {str(e)}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[refresh_token] Error: {str(e)}", exc_info=True)
         return Response({
             'success': False,
             'error': f'Ошибка обновления токена: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+def session_status(request):
+    """
+    Get current session and token status for debugging.
+
+    Returns:
+        Response: {
+            'session': {
+                'session_key': str,
+                'session_age': int (seconds remaining),
+                'user': str (email)
+            },
+            'token': {
+                'valid': bool,
+                'expires_in': int (seconds)
+            },
+            'message': str
+        }
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        from django.conf import settings
+        user = request.user
+
+        # Get session info
+        session_info = {
+            'session_key': request.session.session_key if hasattr(request, 'session') else None,
+            'session_age': None,
+            'user': user.email
+        }
+
+        # Calculate session age
+        if hasattr(request.session, 'get_expiry_date'):
+            try:
+                from django.utils.timezone import now
+                expiry = request.session.get_expiry_date()
+                age_seconds = int((expiry - now()).total_seconds())
+                session_info['session_age'] = max(0, age_seconds)
+            except Exception:
+                pass
+
+        # Get token info
+        token_valid = False
+        token_expires_in = 0
+        try:
+            if hasattr(request, 'auth') and request.auth:
+                token_key = request.auth.key if hasattr(request.auth, 'key') else str(request.auth)
+                token = Token.objects.filter(key=token_key).first()
+                if token:
+                    token_valid = True
+                    token_expires_in = getattr(settings, 'SESSION_COOKIE_AGE', 86400)
+        except Exception:
+            pass
+
+        logger.info(f"[session_status] User: {user.email}, Session age: {session_info['session_age']}s, Token valid: {token_valid}")
+
+        return Response({
+            'session': session_info,
+            'token': {
+                'valid': token_valid,
+                'expires_in': token_expires_in
+            },
+            'message': 'Session and token are valid',
+            'success': True
+        })
+
+    except Exception as e:
+        logger.error(f"[session_status] Error: {str(e)}", exc_info=True)
+        return Response({
+            'success': False,
+            'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

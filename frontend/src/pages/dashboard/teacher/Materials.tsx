@@ -71,7 +71,7 @@ const Materials = () => {
         setError(null);
         
         // Загружаем материалы
-        const materialsResponse = await apiClient.request<any>('/materials/materials/');
+        const materialsResponse = await apiClient.request<any>('/materials/');
         if (materialsResponse.data) {
           // Учитываем пагинацию DRF: { count, next, previous, results }
           const items = Array.isArray(materialsResponse.data)
@@ -130,9 +130,9 @@ const Materials = () => {
 
   const handleDeleteMaterial = async (materialId: number) => {
     if (!confirm('Вы уверены, что хотите удалить этот материал?')) return;
-    
+
     try {
-      const response = await apiClient.request(`/materials/materials/${materialId}/`, {
+      const response = await apiClient.request(`/materials/${materialId}/`, {
         method: 'DELETE'
       });
       

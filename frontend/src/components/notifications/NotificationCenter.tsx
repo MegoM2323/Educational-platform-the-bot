@@ -149,9 +149,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose 
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('');
-  const [filterPriority, setFilterPriority] = useState<string>('');
-  const [filterReadStatus, setFilterReadStatus] = useState<string>('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [filterReadStatus, setFilterReadStatus] = useState<string>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -190,7 +190,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose 
       setFilterType(type);
       setFilters({
         ...filters,
-        type: type || undefined,
+        type: type && type !== 'all' ? type : undefined,
       });
       setPage(1);
     },
@@ -202,7 +202,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose 
       setFilterPriority(priority);
       setFilters({
         ...filters,
-        priority: priority || undefined,
+        priority: priority && priority !== 'all' ? priority : undefined,
       });
       setPage(1);
     },
@@ -212,7 +212,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose 
   const handleFilterReadStatus = useCallback(
     (status: string) => {
       setFilterReadStatus(status);
-      if (status === '') {
+      if (status === 'all' || status === '') {
         const newFilters = { ...filters };
         delete newFilters.is_read;
         setFilters(newFilters);
@@ -370,7 +370,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose 
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All types</SelectItem>
+                <SelectItem value="all">All types</SelectItem>
                 {notificationTypes.map((type) => (
                   <SelectItem key={type} value={type}>
                     {type.replace(/_/g, ' ')}
@@ -388,7 +388,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose 
                 <SelectValue placeholder="All priorities" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All priorities</SelectItem>
+                <SelectItem value="all">All priorities</SelectItem>
                 {priorityOptions.map((priority) => (
                   <SelectItem key={priority} value={priority}>
                     {priority.charAt(0).toUpperCase() + priority.slice(1)}
@@ -406,7 +406,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose 
                 <SelectValue placeholder="All notifications" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All notifications</SelectItem>
+                <SelectItem value="all">All notifications</SelectItem>
                 <SelectItem value="unread">Unread only</SelectItem>
                 <SelectItem value="read">Read only</SelectItem>
               </SelectContent>

@@ -130,7 +130,7 @@ export const NotificationArchive: React.FC<NotificationArchiveProps> = ({ onClos
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('');
+  const [filterType, setFilterType] = useState<string>('all');
   const [sortBy, setSortBy] = useState('date');
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -170,7 +170,7 @@ export const NotificationArchive: React.FC<NotificationArchiveProps> = ({ onClos
     setFilterType(type);
     setFilters({
       ...filters,
-      type: type || undefined,
+      type: type && type !== 'all' ? type : undefined,
     });
     setPage(1);
   }, [filters, setFilters, setPage]);
@@ -349,7 +349,7 @@ export const NotificationArchive: React.FC<NotificationArchiveProps> = ({ onClos
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="system">System</SelectItem>
                 <SelectItem value="message_new">Message</SelectItem>
                 <SelectItem value="assignment_submitted">Assignment</SelectItem>

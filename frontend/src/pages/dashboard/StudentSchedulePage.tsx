@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentSidebar } from "@/components/layout/StudentSidebar";
-import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
 import { useStudentSchedule } from "@/hooks/useStudentSchedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,16 +24,11 @@ const parseDateTime = (date: string, time: string): Date | null => {
 };
 
 const StudentSchedulePage: React.FC = () => {
-  const { user } = useAuth();
   const { lessons, isLoading, error } = useStudentSchedule();
 
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedTeacher, setSelectedTeacher] = useState<string>('all');
-
-  if (user?.role !== 'student') {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   const filteredLessons = useMemo(() => {
     // Создаём актуальную метку времени внутри useMemo для правильной фильтрации

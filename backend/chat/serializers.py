@@ -158,6 +158,7 @@ class MessageSerializer(serializers.ModelSerializer):
     # или fallback на prefetched/direct count
     replies_count = serializers.SerializerMethodField()
     thread_title = serializers.CharField(source='thread.title', read_only=True)
+    is_pinned = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
     # Метаданные файла для frontend
@@ -172,7 +173,7 @@ class MessageSerializer(serializers.ModelSerializer):
             'id', 'room', 'thread', 'thread_title', 'sender', 'sender_name', 'sender_avatar', 'sender_role',
             'content', 'message_type', 'file', 'file_url', 'file_name', 'file_size', 'file_type',
             'image', 'image_url', 'is_image', 'is_edited',
-            'reply_to', 'created_at', 'updated_at', 'is_read', 'replies_count'
+            'reply_to', 'created_at', 'updated_at', 'is_read', 'is_pinned', 'replies_count'
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
@@ -310,7 +311,18 @@ class MessageSerializer(serializers.ModelSerializer):
         logger = logging.getLogger(__name__)
         logger.warning(f'Message {obj.id} missing annotated_replies_count annotation')
         return 0
-    
+
+    def get_is_pinned(self, obj):
+        """
+        Возвращает, закреплено ли сообщение в своем треде.
+
+        Проверяет, принадлежит ли сообщение закреплённому треду.
+        Требует select_related('thread') в queryset для оптимальной производительности.
+        """
+        if obj.thread and obj.thread.is_pinned:
+            return True
+        return False
+
     def create(self, validated_data):
         validated_data['sender'] = self.context['request'].user
         return super().create(validated_data)
@@ -540,17 +552,26 @@ class AvailableContactSerializer(serializers.Serializer):
     Returns user info along with chat status and subject info.
     """
     id = serializers.SerializerMethodField()
+    user_id = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     first_name = serializers.SerializerMethodField()
     last_name = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
+    is_teacher = serializers.SerializerMethodField()
+    is_tutor = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
     subject = serializers.SerializerMethodField()
     has_active_chat = serializers.BooleanField()
     chat_id = serializers.IntegerField(allow_null=True)
 
     def get_id(self, obj):
         """Extract user ID from contact dict"""
+        return obj['user'].id
+
+    def get_user_id(self, obj):
+        """Extract user ID (alias for id)"""
         return obj['user'].id
 
     def get_email(self, obj):
@@ -565,9 +586,21 @@ class AvailableContactSerializer(serializers.Serializer):
         """Extract user last_name from contact dict"""
         return obj['user'].last_name
 
+    def get_full_name(self, obj):
+        """Extract user full name from contact dict"""
+        return obj['user'].get_full_name()
+
     def get_role(self, obj):
         """Extract user role from contact dict"""
         return obj['user'].role
+
+    def get_is_teacher(self, obj):
+        """Check if contact is a teacher"""
+        return obj['user'].role == 'teacher'
+
+    def get_is_tutor(self, obj):
+        """Check if contact is a tutor"""
+        return obj['user'].role == 'tutor'
 
     def get_avatar(self, obj):
         """Extract user avatar URL from contact dict"""
@@ -578,6 +611,10 @@ class AvailableContactSerializer(serializers.Serializer):
                 return request.build_absolute_uri(user.avatar.url)
             return user.avatar.url
         return None
+
+    def get_avatar_url(self, obj):
+        """Alias for avatar field for compatibility"""
+        return self.get_avatar(obj)
 
     def get_subject(self, obj):
         """Extract subject info if available"""

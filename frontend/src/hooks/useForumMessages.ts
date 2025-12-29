@@ -11,6 +11,7 @@ export const useForumMessages = (chatId: number | null) => {
   const MESSAGES_PER_PAGE = 50;
 
   return useInfiniteQuery<ForumMessage[], Error>({
+    // T008: Query key includes chatId to ensure cache isolation between chats
     queryKey: ['forum-messages', chatId],
     queryFn: async ({ pageParam = 0, signal }) => {
       if (!chatId) {
@@ -49,10 +50,14 @@ export const useForumMessages = (chatId: number | null) => {
       return hasMore ? currentOffset : undefined;
     },
     initialPageParam: 0,
-    enabled: !!chatId,
+    // T008: Enable query only when chatId is available and valid
+    enabled: !!chatId && chatId > 0,
+    // T008: Keep data fresh but don't background refetch frequently
     staleTime: 1000 * 60, // Consider data stale after 1 minute
-    refetchOnMount: true, // Refetch when component mounts
-    refetchOnWindowFocus: false, // Don't refetch on window focus to reduce server load
+    // T008: Refetch when component mounts to ensure fresh data for new chat
+    refetchOnMount: 'stale',
+    // Don't refetch on window focus to reduce server load
+    refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
       // Don't retry on authentication errors (401, 403)
       if (error.message.includes('401') || error.message.includes('403') ||
@@ -183,17 +188,13 @@ export const useSendForumMessage = () => {
             };
           }
 
-          // T031: Fix infinite loop risk - check if message already exists
-          const messageExists = oldData.pages.some((page) =>
-            page.some((msg) => msg.id === message.id)
-          );
+          // T038: Always run cleanup and add real message - never return early!
+          // This fixes the double message bug where:
+          // 1. Optimistic message added with tempId (negative number)
+          // 2. Real message arrives from server with real ID
+          // 3. Early return prevented cleanup, so both messages existed
+          // 4. Solution: always filter out tempId and add real message
 
-          if (messageExists) {
-            // Message already updated (possibly via WebSocket), skip update
-            return oldData;
-          }
-
-          // T038: Remove optimistic message and add real one to prevent memory leak
           const newPages = oldData.pages.map((page) => {
             // Filter out the temporary optimistic message
             const filtered = page.filter((msg) => msg.id !== context?.tempId);
@@ -201,7 +202,11 @@ export const useSendForumMessage = () => {
             // If this page had the temp message, add real message here
             const hadTempMessage = page.some((msg) => msg.id === context?.tempId);
 
-            return hadTempMessage ? [...filtered, message] : filtered;
+            // Also check if real message already exists (WebSocket update)
+            const realMessageExists = page.some((msg) => msg.id === message.id);
+
+            // Only add real message if it doesn't already exist
+            return hadTempMessage && !realMessageExists ? [...filtered, message] : filtered;
           });
 
           // T030: Return proper InfiniteData structure

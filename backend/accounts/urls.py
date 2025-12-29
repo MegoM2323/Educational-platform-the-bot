@@ -29,6 +29,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('refresh/', views.refresh_token_view, name='refresh_token'),
+    path('session-status/', views.session_status, name='session_status'),  # Debug endpoint
 
     # Профиль пользователя (общий endpoint)
     path('me/', views.CurrentUserProfileView.as_view(), name='current_user_me'),  # Алиас для фронтенда

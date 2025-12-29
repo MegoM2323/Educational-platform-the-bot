@@ -271,7 +271,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </Card>
             ))}
           </>
-        ) : data ? (
+        ) : data?.metrics ? (
           <>
             {/* Total Students KPI */}
             <Card>
@@ -283,10 +283,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {data.metrics.total_students}
+                  {data.metrics?.total_students ?? 0}
                 </div>
                 <Badge className="mt-2">
-                  {data.metrics.active_students} Active
+                  {data.metrics?.active_students ?? 0} Active
                 </Badge>
               </CardContent>
             </Card>
@@ -301,15 +301,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {Math.round(data.metrics.average_progress * 10) / 10}%
+                  {Math.round(((data.metrics?.average_progress ?? 0) * 10) / 10)}%
                 </div>
                 <Badge className="mt-2">
-                  {data.metrics.completion_rate > 70 ? (
+                  {(data.metrics?.completion_rate ?? 0) > 70 ? (
                     <TrendingUp className="h-3 w-3 mr-1" />
                   ) : (
                     <TrendingDown className="h-3 w-3 mr-1" />
                   )}
-                  {Math.round(data.metrics.completion_rate)}% Complete
+                  {Math.round(data.metrics?.completion_rate ?? 0)}% Complete
                 </Badge>
               </CardContent>
             </Card>
@@ -324,11 +324,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {Math.round(data.metrics.average_score * 10) / 10}%
+                  {Math.round(((data.metrics?.average_score ?? 0) * 10) / 10)}%
                 </div>
                 <Badge className="mt-2">
-                  {data.metrics.completed_assignments}/
-                  {data.metrics.total_assignments} Completed
+                  {data.metrics?.completed_assignments ?? 0}/
+                  {data.metrics?.total_assignments ?? 0} Completed
                 </Badge>
               </CardContent>
             </Card>
@@ -343,13 +343,21 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {Math.round(data.metrics.average_engagement * 10) / 10}%
+                  {Math.round(((data.metrics?.average_engagement ?? 0) * 10) / 10)}%
                 </div>
                 <Badge className="mt-2">Last 30 days</Badge>
               </CardContent>
             </Card>
           </>
-        ) : null}
+        ) : (
+          <Card className="md:col-span-2 lg:col-span-4">
+            <CardContent className="pt-6">
+              <div className="h-32 flex items-center justify-center text-muted-foreground">
+                No metrics data available
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Charts Section */}
@@ -768,7 +776,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       </Tabs>
 
       {/* Footer with metadata */}
-      {data && (
+      {data?.date_range && data?.generated_at && (
         <div className="text-xs text-muted-foreground text-center">
           Data range: {format(new Date(data.date_range.start_date), 'dd MMMM yyyy', { locale: ru })} -{' '}
           {format(new Date(data.date_range.end_date), 'dd MMMM yyyy', { locale: ru })} •

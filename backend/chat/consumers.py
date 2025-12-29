@@ -57,11 +57,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         # Присоединяемся к группе комнаты
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-        logger.warning(f'[GroupAdd] Room={self.room_id}, Group={self.room_group_name}, Channel={self.channel_name}, User={self.scope["user"].username}')
+        user = self.scope['user']
+        user_role = getattr(user, 'role', 'unknown')
+        logger.warning(f'[GroupAdd] BEFORE: Room={self.room_id}, User={user.username} (role={user_role}), Channel={self.channel_name}')
+
+        try:
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+            logger.warning(f'[GroupAdd] SUCCESS: Room={self.room_id}, Group={self.room_group_name}, Channel={self.channel_name}, User={user.username} (role={user_role})')
+        except Exception as e:
+            logger.error(f'[GroupAdd] FAILED to add to group: Room={self.room_id}, User={user.username}, Error={e}', exc_info=True)
+            raise
 
         await self.accept()
 
@@ -224,8 +232,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'message_id': message.get('id'),
                 'status': 'delivered'
             }))
+
+            # Убедиться, что все участники находятся в группе перед трансляцией
+            participant_count = await self.verify_all_participants_in_group()
+
             # Отправляем сообщение всем участникам группы
-            logger.warning(f'[HandleChatMessage] Broadcasting to group {self.room_group_name}, message_id={message.get("id", "unknown")}')
+            logger.warning(f'[HandleChatMessage] Broadcasting to group {self.room_group_name}, message_id={message.get("id", "unknown")}, participant_count={participant_count}')
             try:
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -234,7 +246,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         'message': message
                     }
                 )
-                logger.warning(f'[HandleChatMessage] Broadcast completed for message_id={message.get("id", "unknown")}')
+                logger.warning(f'[HandleChatMessage] Broadcast completed for message_id={message.get("id", "unknown")} to {participant_count} participants')
             except Exception as e:
                 logger.error(f'Channel layer error in room {self.room_id}: {e}', exc_info=True)
                 await self.send(text_data=json.dumps({
@@ -345,12 +357,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         """Отправка сообщения клиенту"""
-        logger.warning(f'[ChatMessage Handler] CALLED! Event={event}')
-        await self.send(text_data=json.dumps({
-            'type': 'chat_message',
-            'message': event['message']
-        }))
-        logger.warning(f'[ChatMessage Handler] SENT to client! message_id={event["message"].get("id", "unknown")}')
+        message_id = event['message'].get('id', 'unknown')
+        user = self.scope['user']
+        user_role = getattr(user, 'role', 'unknown')
+        logger.warning(f'[ChatMessage Handler] CALLED! message_id={message_id}, recipient={user.username} (role={user_role}), room={self.room_id}')
+
+        try:
+            await self.send(text_data=json.dumps({
+                'type': 'chat_message',
+                'message': event['message']
+            }))
+            logger.warning(f'[ChatMessage Handler] SENT to client! message_id={message_id}, recipient={user.username} (role={user_role})')
+        except Exception as e:
+            logger.error(f'[ChatMessage Handler] FAILED to send! message_id={message_id}, recipient={user.username}, Error={e}', exc_info=True)
 
     async def typing(self, event):
         """Отправка индикатора печати клиенту"""
@@ -445,14 +464,61 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 if room.type == ChatRoom.Type.FORUM_TUTOR:
                     # Check if tutor is participant
                     if room.participants.filter(id=user_id).exists():
-                        logger.debug(f'[check_room_access] Tutor {user_id} has access to FORUM_TUTOR room {self.room_id}')
+                        logger.debug(f'[check_room_access] Tutor {user_id} has access to FORUM_TUTOR room {self.room_id} via M2M')
                         return True
-                    # Or check via student's tutor relationship
+
+                    # Check via enrollment relationship (if FORUM_TUTOR is linked to enrollment)
+                    if room.enrollment:
+                        from materials.models import SubjectEnrollment
+                        # Check if tutor is linked to the student in enrollment
+                        try:
+                            enrollment = SubjectEnrollment.objects.select_related('student', 'student__student_profile').get(id=room.enrollment.id)
+                            student = enrollment.student
+
+                            # Check if tutor is linked to student via StudentProfile.tutor OR created the student
+                            is_student_tutor = (
+                                (student.student_profile and student.student_profile.tutor_id == user_id) or
+                                (student.created_by_tutor_id == user_id)
+                            )
+
+                            if is_student_tutor:
+                                logger.info(f'[check_room_access] Tutor {user_id} verified via enrollment.student relationship, adding to room {self.room_id}')
+                                # Add tutor to participants for faster future access
+                                with transaction.atomic():
+                                    room.participants.add(user)
+                                    ChatParticipant.objects.get_or_create(room=room, user=user)
+                                self.tutor_added_to_participants = True
+                                return True
+                            else:
+                                logger.warning(f'[check_room_access] Tutor {user_id} is not linked to student in enrollment {room.enrollment.id}')
+                        except ObjectDoesNotExist:
+                            logger.warning(f'[check_room_access] Enrollment {room.enrollment.id} not found for tutor {user_id}')
+
+                    # Check via student's tutor relationship (without enrollment)
                     from accounts.models import StudentProfile
                     student_ids = room.participants.filter(role=UserModel.Role.STUDENT).values_list('id', flat=True)
-                    if StudentProfile.objects.filter(user_id__in=student_ids, tutor=user).exists():
-                        logger.debug(f'[check_room_access] Tutor {user_id} has access via student relationship')
-                        return True
+
+                    if student_ids:
+                        related_students = StudentProfile.objects.filter(
+                            user_id__in=student_ids,
+                            tutor=user
+                        )
+
+                        if related_students.exists():
+                            logger.info(f'[check_room_access] Tutor {user_id} verified via StudentProfile.tutor relationship, adding to room {self.room_id}')
+                            # Add tutor to participants for faster future access
+                            with transaction.atomic():
+                                room.participants.add(user)
+                                ChatParticipant.objects.get_or_create(room=room, user=user)
+                            self.tutor_added_to_participants = True
+                            return True
+                        else:
+                            logger.debug(f'[check_room_access] Tutor {user_id} has no StudentProfile.tutor matches in room {self.room_id}')
+                    else:
+                        logger.debug(f'[check_room_access] No student participants found in room {self.room_id}')
+
+                    logger.warning(f'[check_room_access] Access denied for tutor {user_id} to FORUM_TUTOR room {self.room_id} - not linked to students')
+                    return False
 
                 # Tutor can also access FORUM_SUBJECT if explicitly added as participant
                 elif room.type == ChatRoom.Type.FORUM_SUBJECT:
@@ -460,7 +526,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         logger.info(f'[check_room_access] Tutor {user_id} accessing FORUM_SUBJECT room {self.room_id} as participant')
                         return True
 
-                logger.warning(f'[check_room_access] Access denied for tutor {user_id} to room {self.room_id}')
+                    logger.warning(f'[check_room_access] Access denied for tutor {user_id} to FORUM_SUBJECT room {self.room_id} - not a participant')
+                    return False
+
+                # Access denied for other room types
+                logger.warning(f'[check_room_access] Access denied for tutor {user_id} to room {self.room_id} (type={room.type})')
                 return False
 
             # Проверка 1: M2M participants
@@ -574,6 +644,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return False
 
     @database_sync_to_async
+    def verify_all_participants_in_group(self):
+        """
+        Убедиться, что все участники комнаты находятся в WebSocket группе.
+
+        Проверяет всех участников комнаты и убеждается, что они в группе.
+        Возвращает количество участников.
+
+        Примечание: На уровне WebSocket мы не можем напрямую добавить других пользователей в группу,
+        но мы можем логировать отсутствующих участников для отладки.
+        """
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
+
+            # Получаем всех участников комнаты
+            participants = list(room.participants.all().values_list('id', 'username', 'role'))
+
+            if participants:
+                logger.info(f'[verify_all_participants_in_group] Room {self.room_id} has {len(participants)} participants: {[p[1] for p in participants]}')
+
+            return len(participants)
+        except ObjectDoesNotExist:
+            logger.warning(f'[verify_all_participants_in_group] Room {self.room_id} not found')
+            return 0
+        except Exception as e:
+            logger.error(f'[verify_all_participants_in_group] Error verifying participants in room {self.room_id}: {e}', exc_info=True)
+            return 0
+
+    @database_sync_to_async
     def create_message(self, content):
         """Создание нового сообщения"""
         try:
@@ -586,7 +684,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if not is_participant:
                 # Fallback: проверяем M2M participants
                 if room.participants.filter(id=self.scope['user'].id).exists():
-                    # Создаем ChatParticipant атомарно для будущих проверок
+                    # Создаем ChatParticipant атомарно для будущых проверок
                     try:
                         with transaction.atomic():
                             ChatParticipant.objects.get_or_create(

@@ -65,11 +65,11 @@ export interface ClassAnalytics {
  * Complete dashboard data structure
  */
 export interface AnalyticsDashboardData {
-  metrics: DashboardMetrics;
-  learning_progress: LearningProgress[];
-  engagement_trend: EngagementData[];
-  top_performers: StudentPerformance[];
-  class_analytics: ClassAnalytics[];
+  metrics?: DashboardMetrics;
+  learning_progress?: LearningProgress[];
+  engagement_trend?: EngagementData[];
+  top_performers?: StudentPerformance[];
+  class_analytics?: ClassAnalytics[];
   date_range: {
     start_date: string;
     end_date: string;
@@ -165,10 +165,61 @@ export const useAnalyticsDashboard = (
       if (classId) params.append('class_id', classId.toString());
       if (studentId) params.append('student_id', studentId.toString());
 
-      const endpoint = `/reports/analytics-data/?${params.toString()}`;
+      const endpoint = `/api/reports/analytics/dashboard/?${params.toString()}`;
       const response = await apiClient.get(endpoint);
 
-      setData(response.data);
+      // Transform the API response to match the AnalyticsDashboardData interface
+      // The API returns: { dashboard: {...}, summary: {...}, metadata: {...} }
+      const apiResponse = response.data;
+      const dashboard = apiResponse.dashboard || {};
+      const summary = apiResponse.summary || {};
+      const metadata = apiResponse.metadata || {};
+
+      // Build metrics from summary
+      const metrics: DashboardMetrics = {
+        total_students: summary.total_students || 0,
+        active_students: summary.active_students || 0,
+        average_engagement: summary.avg_engagement || 0,
+        average_progress: summary.avg_progress || 0,
+        total_assignments: summary.total_assignments || 0,
+        completed_assignments: dashboard.assignments?.completed || 0,
+        average_score: summary.avg_grade || 0,
+        completion_rate: summary.avg_completion_rate || 0,
+      };
+
+      // Build learning progress array (simplified for now)
+      const learningProgress: LearningProgress[] = [{
+        period: 'Last 30 days',
+        student_count: metrics.active_students,
+        average_progress: metrics.average_progress,
+        completion_rate: metrics.completion_rate,
+        active_students: metrics.active_students,
+      }];
+
+      // Build engagement trend (simplified)
+      const engagementTrend: EngagementData[] = [{
+        date: metadata.date_from || new Date().toISOString().split('T')[0],
+        engagement_score: metrics.average_engagement,
+        active_users: metrics.active_students,
+        total_messages: 0,
+        assignments_submitted: metrics.completed_assignments,
+      }];
+
+      // Build the complete dashboard data
+      const dashboardData: AnalyticsDashboardData = {
+        metrics,
+        learning_progress: learningProgress,
+        engagement_trend: engagementTrend,
+        top_performers: [],
+        class_analytics: [],
+        date_range: {
+          start_date: metadata.date_from || '',
+          end_date: metadata.date_to || '',
+        },
+        generated_at: metadata.generated_at || new Date().toISOString(),
+      };
+
+      setData(dashboardData);
       setError(null);
     } catch (err) {
       const error =
@@ -184,7 +235,7 @@ export const useAnalyticsDashboard = (
         setLoading(false);
       }
     }
-  }, [dateFrom, dateTo, classId, studentId, enabled, loading, isRefetching]);
+  }, [dateFrom, dateTo, classId, studentId, enabled]);
 
   useEffect(() => {
     fetchData();
@@ -225,9 +276,9 @@ export const useLearningProgress = (
         if (dateTo) params.append('date_to', dateTo);
 
         const response = await apiClient.get(
-          `/reports/analytics-data/learning-progress/?${params.toString()}`
+          `/api/reports/analytics/progress/?${params.toString()}`
         );
-        setData(response.data.learning_progress);
+        setData(response.data.metadata ? response.data.weeks : []);
       } catch (err) {
         setError(
           err instanceof Error
@@ -271,9 +322,11 @@ export const useEngagementMetrics = (
         if (dateTo) params.append('date_to', dateTo);
 
         const response = await apiClient.get(
-          `/reports/analytics-data/engagement/?${params.toString()}`
+          `/api/reports/analytics/engagement/?${params.toString()}`
         );
-        setData(response.data.engagement_trend);
+        // Transform the engagement response data to match EngagementData interface
+        const engagementRecords = response.data.data || [];
+        setData(engagementRecords);
       } catch (err) {
         setError(
           err instanceof Error
@@ -315,9 +368,19 @@ export const useStudentPerformance = (
         if (classId) params.append('class_id', classId.toString());
 
         const response = await apiClient.get(
-          `/reports/analytics-data/performance/?${params.toString()}`
+          `/api/reports/analytics/students/?${params.toString()}`
         );
-        setData(response.data.top_performers);
+        // Transform student analytics records to StudentPerformance interface
+        const studentRecords = response.data.data || [];
+        const performers = studentRecords.map((record: any, idx: number) => ({
+          student_id: record.student_id,
+          student_name: record.name,
+          average_score: record.avg_grade || 0,
+          progress: record.progress_pct || 0,
+          completion_rate: (record.submission_count / 30) * 100 || 0,
+          rank: idx + 1,
+        }));
+        setData(performers);
       } catch (err) {
         setError(
           err instanceof Error
@@ -354,9 +417,19 @@ export const useClassAnalytics = (classId?: number) => {
         if (classId) params.append('class_id', classId.toString());
 
         const response = await apiClient.get(
-          `/reports/analytics-data/classes/?${params.toString()}`
+          `/api/reports/analytics/dashboard/comparison/?${params.toString()}`
         );
-        setData(response.data.class_analytics);
+        // Transform comparison response to ClassAnalytics interface
+        const classesByClass = response.data.by_class || {};
+        const classAnalytics = Object.entries(classesByClass).map(([className, stats]: any) => ({
+          class_id: 0, // Not provided by API, would need separate lookup
+          class_name: className,
+          total_students: stats.students || 0,
+          average_score: stats.avg_grade || 0,
+          average_progress: 0,
+          engagement_level: stats.engagement_level || 0,
+        }));
+        setData(classAnalytics);
       } catch (err) {
         setError(
           err instanceof Error

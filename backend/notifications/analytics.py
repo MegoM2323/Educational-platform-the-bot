@@ -23,7 +23,7 @@ class NotificationAnalytics:
     CACHE_TIMEOUT = 300
 
     @staticmethod
-    def _get_cache_key(date_from, date_to, notification_type=None, channel=None, granularity='day'):
+    def _get_cache_key(date_from, date_to, notification_type=None, channel=None, granularity='day', scope=None):
         """
         Generate cache key based on parameters
         """
@@ -34,11 +34,12 @@ class NotificationAnalytics:
             notification_type or 'all_types',
             channel or 'all_channels',
             granularity,
+            scope or 'all_scopes',
         ]
         return ':'.join(key_parts)
 
     @staticmethod
-    def get_metrics(date_from=None, date_to=None, notification_type=None, channel=None, granularity='day'):
+    def get_metrics(date_from=None, date_to=None, notification_type=None, channel=None, granularity='day', scope=None):
         """
         Get aggregated notification metrics
 
@@ -48,6 +49,7 @@ class NotificationAnalytics:
             notification_type: Filter by notification type (e.g., 'assignment_new')
             channel: Filter by channel ('email', 'push', 'sms', 'in_app')
             granularity: Time grouping ('hour', 'day', 'week')
+            scope: Filter by scope ('user', 'system', 'admin') - if None, includes all scopes
 
         Returns:
             Dictionary with metrics and analytics
@@ -56,12 +58,18 @@ class NotificationAnalytics:
         if date_from is None:
             date_from = timezone.now() - timedelta(days=7)
         elif isinstance(date_from, str):
-            date_from = datetime.fromisoformat(date_from)
+            try:
+                date_from = datetime.fromisoformat(date_from)
+            except (ValueError, TypeError):
+                date_from = timezone.now() - timedelta(days=7)
 
         if date_to is None:
             date_to = timezone.now()
         elif isinstance(date_to, str):
-            date_to = datetime.fromisoformat(date_to)
+            try:
+                date_to = datetime.fromisoformat(date_to)
+            except (ValueError, TypeError):
+                date_to = timezone.now()
 
         # Ensure datetime objects are timezone-aware
         if date_from.tzinfo is None:
@@ -71,7 +79,7 @@ class NotificationAnalytics:
 
         # Try to get from cache
         cache_key = NotificationAnalytics._get_cache_key(
-            date_from, date_to, notification_type, channel, granularity
+            date_from, date_to, notification_type, channel, granularity, scope
         )
         cached_result = cache.get(cache_key)
         if cached_result:
@@ -88,7 +96,12 @@ class NotificationAnalytics:
             created_at__lte=date_to
         )
 
-        # Apply filters
+        # Apply scope filter if specified
+        if scope:
+            notifications_qs = notifications_qs.filter(scope=scope)
+            queue_qs = queue_qs.filter(notification__scope=scope)
+
+        # Apply type filter
         if notification_type:
             notifications_qs = notifications_qs.filter(type=notification_type)
             queue_qs = queue_qs.filter(notification__type=notification_type)
@@ -260,37 +273,47 @@ class NotificationAnalytics:
         """
         Get summary statistics
         """
-        # Calculate average delivery time
-        delivery_times = queue_qs.filter(
-            status='sent',
-            processed_at__isnull=False
-        ).annotate(
-            delivery_time=F('processed_at') - F('created_at')
-        ).values_list('delivery_time', flat=True)
-
         avg_delivery_time = None
-        if delivery_times:
-            total_seconds = sum(
-                (t.total_seconds() if hasattr(t, 'total_seconds') else 0)
-                for t in delivery_times
-            )
-            avg_seconds = total_seconds / len(delivery_times)
-            avg_delivery_time = f"{avg_seconds:.1f} seconds"
+        error_list = []
 
-        # Get failure reasons
-        failure_errors = (
-            queue_qs
-            .filter(status='failed')
-            .values('error_message')
-            .annotate(count=Count('id'))
-            .order_by('-count')[:5]
-        )
+        try:
+            # Handle case when queue_qs is None or empty
+            if queue_qs is not None and queue_qs.exists():
+                # Calculate average delivery time
+                delivery_times = queue_qs.filter(
+                    status='sent',
+                    processed_at__isnull=False
+                ).annotate(
+                    delivery_time=F('processed_at') - F('created_at')
+                ).values_list('delivery_time', flat=True)
 
-        error_list = [
-            f"{err['error_message']} ({err['count']})"
-            for err in failure_errors
-            if err['error_message']
-        ]
+                if delivery_times:
+                    total_seconds = sum(
+                        (t.total_seconds() if hasattr(t, 'total_seconds') else 0)
+                        for t in delivery_times
+                    )
+                    if len(delivery_times) > 0:
+                        avg_seconds = total_seconds / len(delivery_times)
+                        avg_delivery_time = f"{avg_seconds:.1f} seconds"
+
+                # Get failure reasons
+                failure_errors = (
+                    queue_qs
+                    .filter(status='failed')
+                    .values('error_message')
+                    .annotate(count=Count('id'))
+                    .order_by('-count')[:5]
+                )
+
+                error_list = [
+                    f"{err.get('error_message', 'Unknown')} ({err.get('count', 0)})"
+                    for err in failure_errors
+                    if err.get('error_message')
+                ]
+        except Exception as e:
+            # Log error but don't crash - return default values
+            error_list = []
+            avg_delivery_time = None
 
         return {
             'total_sent': total_sent,
@@ -304,7 +327,7 @@ class NotificationAnalytics:
         }
 
     @staticmethod
-    def invalidate_cache(date_from=None, date_to=None, notification_type=None, channel=None):
+    def invalidate_cache(date_from=None, date_to=None, notification_type=None, channel=None, scope=None):
         """
         Invalidate cache for specific metrics
 
@@ -318,7 +341,7 @@ class NotificationAnalytics:
         # Invalidate all granularity levels for the given parameters
         for granularity in ['hour', 'day', 'week']:
             cache_key = NotificationAnalytics._get_cache_key(
-                date_from, date_to, notification_type, channel, granularity
+                date_from, date_to, notification_type, channel, granularity, scope
             )
             cache.delete(cache_key)
 

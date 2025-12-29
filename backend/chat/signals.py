@@ -104,8 +104,19 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
             )
 
         # Create student-tutor forum chat if student has a tutor
+        # Check TWO ways a student can have a tutor:
+        # 1. Via StudentProfile.tutor (direct assignment)
+        # 2. Via User.created_by_tutor (tutor who created the student)
+        tutors_to_add = []
         if student_profile and student_profile.tutor:
-            tutor_name = student_profile.tutor.get_full_name()
+            tutors_to_add.append(student_profile.tutor)
+        if instance.student.created_by_tutor:
+            tutors_to_add.append(instance.student.created_by_tutor)
+
+        if tutors_to_add:
+            # Build chat name using first tutor (or both if needed)
+            first_tutor = tutors_to_add[0]
+            tutor_name = first_tutor.get_full_name()
             tutor_chat_name = f"{subject_name} - {student_name} ↔ {tutor_name}"
 
             # Check if tutor chat already exists
@@ -122,28 +133,53 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                         type=ChatRoom.Type.FORUM_TUTOR,
                         enrollment=instance,
                         created_by=instance.student,
-                        description=f"Forum for {subject_name} between {student_name} and {tutor_name}"
+                        description=f"Forum for {subject_name} between {student_name} and {', '.join([t.get_full_name() for t in tutors_to_add])}"
                     )
-                    # Add student and tutor as participants (M2M)
-                    tutor_chat.participants.add(instance.student, student_profile.tutor)
-
-                    # Create ChatParticipant records for unread_count tracking and WebSocket access
+                    # Add student as participant
+                    tutor_chat.participants.add(instance.student)
+                    # Add ChatParticipant record for student
                     ChatParticipant.objects.get_or_create(
                         room=tutor_chat,
                         user=instance.student
                     )
-                    ChatParticipant.objects.get_or_create(
-                        room=tutor_chat,
-                        user=student_profile.tutor
-                    )
+
+                    # Add all tutors as participants (removes duplicates automatically)
+                    tutor_chat.participants.add(*tutors_to_add)
+
+                    # Create ChatParticipant records for each tutor (idempotent via get_or_create)
+                    for tutor in tutors_to_add:
+                        ChatParticipant.objects.get_or_create(
+                            room=tutor_chat,
+                            user=tutor
+                        )
 
                 logger.info(
-                    f"Created forum_tutor chat '{tutor_chat.name}' for enrollment {instance.id}"
+                    f"Created forum_tutor chat '{tutor_chat.name}' for enrollment {instance.id} "
+                    f"with {len(tutors_to_add)} tutor(s)"
                 )
             else:
-                logger.info(
-                    f"Forum_tutor chat already exists for enrollment {instance.id}, skipping creation"
-                )
+                # Check if we need to add any missing tutors to existing chat
+                existing_participants = set(existing_tutor_chat.participants.values_list('id', flat=True))
+                tutors_ids = set(t.id for t in tutors_to_add)
+                missing_tutors = [t for t in tutors_to_add if t.id not in existing_participants]
+
+                if missing_tutors:
+                    # Add missing tutors to existing chat
+                    with transaction.atomic():
+                        existing_tutor_chat.participants.add(*missing_tutors)
+                        for tutor in missing_tutors:
+                            ChatParticipant.objects.get_or_create(
+                                room=existing_tutor_chat,
+                                user=tutor
+                            )
+                    logger.info(
+                        f"Added {len(missing_tutors)} missing tutor(s) to existing forum_tutor chat "
+                        f"for enrollment {instance.id}"
+                    )
+                else:
+                    logger.info(
+                        f"Forum_tutor chat already exists for enrollment {instance.id} with all tutors"
+                    )
 
     except Exception as e:
         logger.error(

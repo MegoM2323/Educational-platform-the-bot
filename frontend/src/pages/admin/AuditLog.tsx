@@ -213,7 +213,7 @@ export default function AuditLog() {
   const handleFilterChange = (key: keyof AuditLogFilters, value: any) => {
     setFilters((prev) => ({
       ...prev,
-      [key]: value || undefined,
+      [key]: (value && value !== 'all') ? value : undefined,
     }));
     setCurrentPage(1);
   };
@@ -399,16 +399,16 @@ export default function AuditLog() {
             <div className="space-y-2">
               <Label>User</Label>
               <Select
-                value={filters.user_id?.toString() || ''}
+                value={filters.user_id?.toString() || 'all'}
                 onValueChange={(value) =>
-                  handleFilterChange('user_id', value ? parseInt(value) : undefined)
+                  handleFilterChange('user_id', value !== 'all' && value ? parseInt(value) : undefined)
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All users" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All users</SelectItem>
+                  <SelectItem value="all">All users</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id.toString()}>
                       {user.full_name || user.email}
@@ -422,14 +422,14 @@ export default function AuditLog() {
             <div className="space-y-2">
               <Label>Action</Label>
               <Select
-                value={filters.action || ''}
+                value={filters.action || 'all'}
                 onValueChange={(value) => handleFilterChange('action', value || undefined)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All actions" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All actions</SelectItem>
+                  <SelectItem value="all">All actions</SelectItem>
                   <SelectItem value="create">Create</SelectItem>
                   <SelectItem value="read">Read</SelectItem>
                   <SelectItem value="update">Update</SelectItem>
@@ -445,14 +445,14 @@ export default function AuditLog() {
             <div className="space-y-2">
               <Label>Resource</Label>
               <Select
-                value={filters.resource || ''}
+                value={filters.resource || 'all'}
                 onValueChange={(value) => handleFilterChange('resource', value || undefined)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All resources" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All resources</SelectItem>
+                  <SelectItem value="all">All resources</SelectItem>
                   <SelectItem value="User">User</SelectItem>
                   <SelectItem value="Material">Material</SelectItem>
                   <SelectItem value="Assignment">Assignment</SelectItem>
@@ -467,14 +467,14 @@ export default function AuditLog() {
             <div className="space-y-2">
               <Label>Status</Label>
               <Select
-                value={filters.status || ''}
+                value={filters.status || 'all'}
                 onValueChange={(value) => handleFilterChange('status', value || undefined)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
+                  <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="success">Success</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>

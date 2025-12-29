@@ -22,6 +22,30 @@ vi.mock('sonner', () => ({
   },
 }));
 
+// Mock useAuth hook
+const mockUser = {
+  id: 1,
+  email: 'test@test.com',
+  first_name: 'Test',
+  last_name: 'User',
+  role: 'student',
+};
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: vi.fn(() => ({
+    user: mockUser,
+    isAuthenticated: true,
+    isLoading: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    signOut: vi.fn(),
+    refreshToken: vi.fn(),
+  })),
+  useAuthState: vi.fn(),
+  useUserRole: vi.fn(),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -455,8 +479,14 @@ describe('useSendForumMessage', () => {
       },
     });
 
-    // Pre-populate cache with existing messages
-    queryClient.setQueryData(['forum-messages', 1, 50, 0], mockForumMessages);
+    // Pre-populate cache with InfiniteData structure (as expected by useForumMessages)
+    queryClient.setQueryData(
+      ['forum-messages', 1],
+      {
+        pages: [mockForumMessages],
+        pageParams: [0],
+      }
+    );
 
     vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
 
@@ -474,10 +504,11 @@ describe('useSendForumMessage', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     // Check that cache was updated with new message
-    const cachedMessages = queryClient.getQueryData<typeof mockForumMessages>(['forum-messages', 1, 50, 0]);
-    expect(cachedMessages).toBeDefined();
-    expect(cachedMessages).toHaveLength(mockForumMessages.length + 1);
-    expect(cachedMessages?.[cachedMessages.length - 1].content).toBe('Brand new message');
+    const cachedData = queryClient.getQueryData<any>(['forum-messages', 1]);
+    expect(cachedData).toBeDefined();
+    expect(cachedData?.pages[0]).toBeDefined();
+    expect(cachedData.pages[0]).toHaveLength(mockForumMessages.length + 1);
+    expect(cachedData.pages[0][cachedData.pages[0].length - 1].content).toBe('Brand new message');
   });
 
   it('должен предотвращать дублирование сообщений в кеше', async () => {
@@ -490,8 +521,14 @@ describe('useSendForumMessage', () => {
       },
     });
 
-    // Pre-populate cache with existing messages
-    queryClient.setQueryData(['forum-messages', 1, 50, 0], mockForumMessages);
+    // Pre-populate cache with InfiniteData structure
+    queryClient.setQueryData(
+      ['forum-messages', 1],
+      {
+        pages: [mockForumMessages],
+        pageParams: [0],
+      }
+    );
 
     vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
 
@@ -509,7 +546,173 @@ describe('useSendForumMessage', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     // Check that cache still has same number of messages (no duplicate)
-    const cachedMessages = queryClient.getQueryData<typeof mockForumMessages>(['forum-messages', 1, 50, 0]);
-    expect(cachedMessages).toHaveLength(mockForumMessages.length); // Should NOT increase
+    const cachedData = queryClient.getQueryData<any>(['forum-messages', 1]);
+    expect(cachedData?.pages[0]).toHaveLength(mockForumMessages.length); // Should NOT increase
+  });
+
+  it('FIX A7: должен заменять временное сообщение реальным без дублирования', async () => {
+    // T_W14_014: Fix for double message bug
+    // Scenario: Student sends message, optimistic update shows temp message,
+    // server responds with real message. Temp message should be removed.
+
+    const realMessage = {
+      id: 100, // Real ID from server
+      content: 'Student test message',
+      sender: {
+        id: 1,
+        full_name: 'John Student',
+        role: 'student',
+      },
+      created_at: '2025-01-15T14:00:00Z',
+      updated_at: '2025-01-15T14:00:00Z',
+      is_read: false,
+      message_type: 'text',
+    };
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    // Pre-populate cache with existing messages
+    queryClient.setQueryData(
+      ['forum-messages', 1],
+      {
+        pages: [mockForumMessages],
+        pageParams: [0],
+      }
+    );
+
+    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(realMessage);
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useSendForumMessage(), { wrapper });
+
+    // Get initial cache state
+    const initialCached = queryClient.getQueryData<any>(
+      ['forum-messages', 1]
+    );
+    const initialMessageCount = initialCached.pages[0].length;
+
+    // Send message
+    result.current.mutate({
+      chatId: 1,
+      data: { content: 'Student test message' },
+    });
+
+    // Wait for server response and onSuccess callback to complete
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 3000 });
+
+    // After server response, check the final state
+    const cachedAfterSuccess = queryClient.getQueryData<any>(
+      ['forum-messages', 1]
+    );
+
+    expect(cachedAfterSuccess).toBeDefined();
+    expect(cachedAfterSuccess?.pages[0]).toBeDefined();
+    const finalMessages = cachedAfterSuccess.pages[0];
+
+    // Should have real message ID
+    const hasRealMessage = finalMessages.some((msg: any) => msg.id === 100);
+    expect(hasRealMessage).toBe(true);
+
+    // Should NOT have any negative temporary IDs (temp messages should be cleaned up)
+    const hasTempMessages = finalMessages.some((msg: any) => msg.id < 0);
+    expect(hasTempMessages).toBe(false);
+
+    // Final message should be the real one
+    expect(finalMessages[finalMessages.length - 1].id).toBe(100);
+  });
+
+  it('FIX A7: должен обрабатывать случай когда реальное сообщение уже в кеше (WebSocket)', async () => {
+    // T_W14_014: Handle race condition where WebSocket updates cache before server response
+    // Scenario:
+    // 1. User sends message → optimistic update adds temp message
+    // 2. WebSocket receives real message → adds real message to cache
+    // 3. Server response arrives → should replace temp with real (but real already exists)
+    // 4. Result: No duplicates, temp message cleaned up
+
+    const realMessage = {
+      id: 101,
+      content: 'Message via WebSocket',
+      sender: {
+        id: 1,
+        full_name: 'John Student',
+        role: 'student',
+      },
+      created_at: '2025-01-15T14:30:00Z',
+      updated_at: '2025-01-15T14:30:00Z',
+      is_read: false,
+      message_type: 'text',
+    };
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    // Pre-populate cache
+    queryClient.setQueryData(
+      ['forum-messages', 1],
+      {
+        pages: [mockForumMessages],
+        pageParams: [0],
+      }
+    );
+
+    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(realMessage);
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useSendForumMessage(), { wrapper });
+
+    // Send message
+    result.current.mutate({
+      chatId: 1,
+      data: { content: 'Message via WebSocket' },
+    });
+
+    // Simulate WebSocket arriving before server response
+    // Add real message to cache (WebSocket update)
+    queryClient.setQueryData(['forum-messages', 1], (oldData: any) => {
+      if (!oldData) return oldData;
+      const lastPage = [...oldData.pages[oldData.pages.length - 1]];
+      lastPage.push(realMessage);
+      return {
+        ...oldData,
+        pages: [...oldData.pages.slice(0, -1), lastPage],
+      };
+    });
+
+    // Count after WebSocket update
+    const cachedAfterWebSocket = queryClient.getQueryData<any>(['forum-messages', 1]);
+    const countAfterWebSocket = cachedAfterWebSocket.pages[0].length;
+
+    // Now server response arrives and onSuccess is called
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 3000 });
+
+    // After server response, cache should be cleaned up
+    const cachedAfterServer = queryClient.getQueryData<any>(['forum-messages', 1]);
+    const finalMessages = cachedAfterServer.pages[0];
+
+    // Final state checks:
+    // 1. No duplicate real messages with ID 101
+    const realMessageCount = finalMessages.filter((msg: any) => msg.id === 101).length;
+    expect(realMessageCount).toBe(1);
+
+    // 2. No temporary messages (negative IDs)
+    const tempMessageCount = finalMessages.filter((msg: any) => msg.id < 0).length;
+    expect(tempMessageCount).toBe(0);
+
+    // 3. Real message is in the final cache
+    const hasRealMessage = finalMessages.some((msg: any) => msg.id === 101);
+    expect(hasRealMessage).toBe(true);
   });
 });

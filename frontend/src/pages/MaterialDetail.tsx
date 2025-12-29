@@ -504,7 +504,7 @@ export default function MaterialDetail() {
 
       try {
         const response = await apiClient.request<Material>(
-          `/materials/materials/${id}/`,
+          `/materials/${id}/`,
           {
             signal: controller.signal,
           }
@@ -581,7 +581,7 @@ export default function MaterialDetail() {
 
     try {
       const response = await fetch(
-        `/api/materials/materials/${material.id}/download/`,
+        `/api/materials/${material.id}/download/`,
         {
           headers: {
             Authorization: `Token ${localStorage.getItem("authToken") || ""}`,

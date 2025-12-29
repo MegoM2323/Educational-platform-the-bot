@@ -187,6 +187,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'config.middleware.session_refresh_middleware.SessionRefreshMiddleware',  # Refresh session on every request
+    'config.middleware.session_refresh_middleware.CSRFTokenRefreshMiddleware',  # Manage CSRF tokens
     'config.sentry.SentryMiddleware',  # Sentry middleware for error tracking (must be near end)
 ]
 
@@ -568,12 +570,27 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Session settings
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-SESSION_COOKIE_AGE = 86400  # 24 hours
+
+# Session timeout configuration
+# For testing: 2 hours (7200 seconds)
+# For production: 24 hours (86400 seconds)
+# Can be overridden via SESSION_TIMEOUT env variable
+TESTING_SESSION_TIMEOUT = int(os.getenv('TESTING_SESSION_TIMEOUT', '7200'))  # 2 hours for testing
+PRODUCTION_SESSION_TIMEOUT = int(os.getenv('PRODUCTION_SESSION_TIMEOUT', '86400'))  # 24 hours
+SESSION_COOKIE_AGE = TESTING_SESSION_TIMEOUT if DEBUG else PRODUCTION_SESSION_TIMEOUT
+
 # SESSION_COOKIE_SECURE управляется через условие DEBUG выше
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'  # Allow cookies on redirect from YooKassa (not 'Strict')
 SESSION_COOKIE_DOMAIN = env_config.get_session_cookie_domain()
+
+# CRITICAL: Save session on every request to refresh timeout
+# This prevents random logouts during navigation
 SESSION_SAVE_EVERY_REQUEST = True
+
+# Session expiry behavior
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Session persists even after browser close
+SESSION_COOKIE_AGE_ON_REDIRECT = SESSION_COOKIE_AGE  # Keep timeout on redirects
 
 # CSRF settings
 CSRF_COOKIE_SAMESITE = 'Lax'  # Allow CSRF cookies on redirect from YooKassa
@@ -1099,6 +1116,16 @@ LOGGING = {
         'accounts.retry_logic': {
             'handlers': ['console', 'admin_file'],
             'level': 'INFO',
+            'propagate': False
+        },
+        'accounts.views': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'config.middleware.session_refresh_middleware': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'DEBUG',
             'propagate': False
         },
         'celery': {

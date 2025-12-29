@@ -266,25 +266,30 @@ class NotificationMetricsQuerySerializer(serializers.Serializer):
     """
     date_from = serializers.DateField(
         required=False,
+        allow_null=True,
         help_text='Start date (YYYY-MM-DD), defaults to 7 days ago'
     )
     date_to = serializers.DateField(
         required=False,
+        allow_null=True,
         help_text='End date (YYYY-MM-DD), defaults to today'
     )
     type = serializers.ChoiceField(
         choices=[choice[0] for choice in Notification.Type.choices],
         required=False,
+        allow_null=True,
         help_text='Filter by notification type'
     )
     channel = serializers.ChoiceField(
         choices=['email', 'push', 'sms', 'in_app'],
         required=False,
+        allow_null=True,
         help_text='Filter by delivery channel'
     )
     granularity = serializers.ChoiceField(
         choices=['hour', 'day', 'week'],
         default='day',
+        required=False,
         help_text='Time grouping for metrics'
     )
 

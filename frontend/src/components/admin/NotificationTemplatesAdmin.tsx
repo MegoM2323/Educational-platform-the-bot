@@ -91,6 +91,52 @@ const templateFormSchema = z.object({
 type TemplateFormData = z.infer<typeof templateFormSchema>;
 
 /**
+ * Parse API error response and return readable error message
+ * Handles different response formats from backend:
+ * - {success: false, error: "message"}
+ * - {detail: "message"}
+ * - {field: ["error1", "error2"], ...} (DRF validation errors)
+ */
+const parseApiError = (response: any): string => {
+  // Check for string error field
+  if (response.error && typeof response.error === 'string') {
+    return response.error;
+  }
+
+  // Check for detail field (DRF standard)
+  if (response.data?.detail && typeof response.data.detail === 'string') {
+    return response.data.detail;
+  }
+
+  // Check for error field in data
+  if (response.data?.error && typeof response.data.error === 'string') {
+    return response.data.error;
+  }
+
+  // Handle validation errors (dict of field: errors)
+  if (response.data && typeof response.data === 'object') {
+    const errors: string[] = [];
+
+    Object.entries(response.data).forEach(([field, fieldErrors]: [string, any]) => {
+      if (Array.isArray(fieldErrors)) {
+        // Array of error messages
+        errors.push(`${field}: ${fieldErrors.join(', ')}`);
+      } else if (typeof fieldErrors === 'string') {
+        // Single error message
+        errors.push(`${field}: ${fieldErrors}`);
+      }
+    });
+
+    if (errors.length > 0) {
+      return errors.join('; ');
+    }
+  }
+
+  // Default fallback
+  return 'Неизвестная ошибка сервера';
+};
+
+/**
  * Available notification types
  */
 const NOTIFICATION_TYPES: Array<{ value: NotificationType; label: string }> = [
@@ -154,6 +200,7 @@ const TemplateDialog = ({
     register,
     handleSubmit,
     watch,
+    getValues,
     formState: { errors },
     reset,
     setValue,
@@ -172,6 +219,7 @@ const TemplateDialog = ({
   const titleTemplate = watch('title_template');
   const messageTemplate = watch('message_template');
   const type = watch('type');
+  const isActive = watch('is_active');
 
   useEffect(() => {
     if (open && template) {
@@ -188,6 +236,25 @@ const TemplateDialog = ({
     }
   }, [open, template, reset]);
 
+  /**
+   * Render template with variable substitution
+   * Replaces {{variable}} with provided context values
+   */
+  const renderTemplate = (
+    templateStr: string,
+    context: Record<string, string>
+  ): string => {
+    if (!templateStr) return '';
+
+    let rendered = templateStr;
+    Object.entries(context).forEach(([key, value]) => {
+      const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+      rendered = rendered.replace(regex, value || `[${key}]`);
+    });
+
+    return rendered;
+  };
+
   const onSubmit = async (data: TemplateFormData) => {
     setLoading(true);
     setValidationErrors([]);
@@ -203,7 +270,9 @@ const TemplateDialog = ({
           onSuccess();
           onOpenChange(false);
         } else {
-          toast.error(response.error || 'Ошибка обновления');
+          // Parse error from response (handles multiple error formats)
+          const errorMessage = parseApiError(response);
+          toast.error(errorMessage);
         }
       } else {
         const response = await notificationTemplatesAPI.createTemplate(data);
@@ -212,7 +281,9 @@ const TemplateDialog = ({
           onSuccess();
           onOpenChange(false);
         } else {
-          toast.error(response.error || 'Ошибка создания');
+          // Parse error from response (handles multiple error formats)
+          const errorMessage = parseApiError(response);
+          toast.error(errorMessage);
         }
       }
     } catch (err: any) {
@@ -227,6 +298,27 @@ const TemplateDialog = ({
     setValidationErrors([]);
 
     try {
+      // Get current form values
+      const formValues = getValues();
+
+      // Validate required fields
+      const errors: string[] = [];
+      if (!formValues.type) {
+        errors.push('Выберите тип уведомления');
+      }
+      if (!formValues.title_template) {
+        errors.push('Заполните шаблон заголовка');
+      }
+      if (!formValues.message_template) {
+        errors.push('Заполните шаблон сообщения');
+      }
+
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        setPreviewLoading(false);
+        return;
+      }
+
       const sampleContext = {
         user_name: 'Иван Сидоров',
         user_email: 'ivan@example.com',
@@ -237,7 +329,8 @@ const TemplateDialog = ({
         feedback: 'Отличная работа!',
       };
 
-      if (template) {
+      // For existing templates, use API preview
+      if (template?.id) {
         const response = await notificationTemplatesAPI.previewTemplate(
           template.id,
           sampleContext
@@ -249,8 +342,24 @@ const TemplateDialog = ({
           });
           setPreviewOpen(true);
         } else {
-          setValidationErrors([response.error || 'Ошибка предпросмотра']);
+          // Fall back to local rendering if API fails
+          const renderedTitle = renderTemplate(formValues.title_template, sampleContext);
+          const renderedMessage = renderTemplate(formValues.message_template, sampleContext);
+          setPreview({
+            title: renderedTitle,
+            message: renderedMessage,
+          });
+          setPreviewOpen(true);
         }
+      } else {
+        // For new templates, use local rendering
+        const renderedTitle = renderTemplate(formValues.title_template, sampleContext);
+        const renderedMessage = renderTemplate(formValues.message_template, sampleContext);
+        setPreview({
+          title: renderedTitle,
+          message: renderedMessage,
+        });
+        setPreviewOpen(true);
       }
     } catch (err: any) {
       setValidationErrors([err?.message || 'Ошибка предпросмотра']);
@@ -311,7 +420,7 @@ const TemplateDialog = ({
             <div>
               <Label htmlFor="type">Тип уведомления</Label>
               <Select
-                defaultValue={type}
+                value={type || ''}
                 onValueChange={(value) => setValue('type', value)}
               >
                 <SelectTrigger>
@@ -397,7 +506,8 @@ const TemplateDialog = ({
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="is_active"
-                {...register('is_active')}
+                checked={isActive}
+                onCheckedChange={(checked) => setValue('is_active', checked as boolean)}
               />
               <Label htmlFor="is_active" className="cursor-pointer">
                 Активен
@@ -406,21 +516,19 @@ const TemplateDialog = ({
 
             {/* Preview and Submit */}
             <DialogFooter className="space-x-2">
-              {template && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePreview}
-                  disabled={previewLoading || !titleTemplate || !messageTemplate}
-                >
-                  {previewLoading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Eye className="h-4 w-4 mr-2" />
-                  )}
-                  Предпросмотр
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePreview}
+                disabled={previewLoading || !titleTemplate || !messageTemplate}
+              >
+                {previewLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Eye className="h-4 w-4 mr-2" />
+                )}
+                Предпросмотр
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -507,8 +615,8 @@ export const NotificationTemplatesAdmin = () => {
   const [deleting, setDeleting] = useState(false);
 
   // Filters
-  const [typeFilter, setTypeFilter] = useState<string>('');
-  const [activeFilter, setActiveFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -524,8 +632,8 @@ export const NotificationTemplatesAdmin = () => {
         currentPage,
         pageSize,
         {
-          type: (typeFilter || undefined) as NotificationType | undefined,
-          is_active: activeFilter ? activeFilter === 'true' : undefined,
+          type: (typeFilter && typeFilter !== 'all' ? typeFilter : undefined) as NotificationType | undefined,
+          is_active: activeFilter && activeFilter !== 'all' ? activeFilter === 'true' : undefined,
           search: searchQuery || undefined,
         }
       );
@@ -555,7 +663,9 @@ export const NotificationTemplatesAdmin = () => {
         setDeleteTargetId(null);
         loadTemplates();
       } else {
-        toast.error(response.error || 'Ошибка удаления');
+        // Parse error from response (handles multiple error formats)
+        const errorMessage = parseApiError(response);
+        toast.error(errorMessage);
       }
     } catch (err: any) {
       toast.error(err?.message || 'Ошибка удаления');
@@ -571,7 +681,9 @@ export const NotificationTemplatesAdmin = () => {
         toast.success('Шаблон скопирован');
         loadTemplates();
       } else {
-        toast.error(response.error || 'Ошибка копирования');
+        // Parse error from response (handles multiple error formats)
+        const errorMessage = parseApiError(response);
+        toast.error(errorMessage);
       }
     } catch (err: any) {
       toast.error(err?.message || 'Ошибка копирования');
@@ -649,7 +761,7 @@ export const NotificationTemplatesAdmin = () => {
                   <SelectValue placeholder="Все типы" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все типы</SelectItem>
+                  <SelectItem value="all">Все типы</SelectItem>
                   {NOTIFICATION_TYPES.map((t) => (
                     <SelectItem key={t.value} value={t.value}>
                       {t.label}
@@ -673,7 +785,7 @@ export const NotificationTemplatesAdmin = () => {
                   <SelectValue placeholder="Все" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все</SelectItem>
+                  <SelectItem value="all">Все</SelectItem>
                   <SelectItem value="true">Активные</SelectItem>
                   <SelectItem value="false">Неактивные</SelectItem>
                 </SelectContent>

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnalyticsDashboard as AnalyticsDashboardComponent } from '@/components/analytics/AnalyticsDashboard';
 import { useAuth } from '@/hooks/useAuth';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
@@ -95,14 +96,47 @@ export const AnalyticsDashboardPage: React.FC = () => {
     );
   }
 
+  const handleAnalyticsError = (error: Error) => {
+    // Log to error tracking service (e.g., Sentry)
+    console.error('Analytics Dashboard Error:', error);
+
+    // In production, send to error tracking service
+    if (process.env.NODE_ENV === 'production') {
+      // TODO: Send to error tracking service like Sentry
+      // captureException(error, { tags: { component: 'AnalyticsDashboard' } });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <AnalyticsDashboardComponent
-        initialDateFrom={dateFrom}
-        initialDateTo={dateTo}
-        classId={classId}
-        studentId={studentId}
-      />
+      <ErrorBoundary
+        onError={handleAnalyticsError}
+        fallback={
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <Card className="w-full max-w-md p-6 text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-8 h-8 text-destructive" />
+                </div>
+
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold">Failed to Load Analytics</h2>
+                  <p className="text-muted-foreground">
+                    The analytics dashboard encountered an error. Please try refreshing the page.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        }
+      >
+        <AnalyticsDashboardComponent
+          initialDateFrom={dateFrom}
+          initialDateTo={dateTo}
+          classId={classId}
+          studentId={studentId}
+        />
+      </ErrorBoundary>
     </div>
   );
 };

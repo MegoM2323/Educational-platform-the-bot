@@ -278,11 +278,11 @@ export const NotificationAnalytics = () => {
     if (!analyticsData) return null;
 
     return {
-      totalSent: analyticsData.total_sent,
-      totalDelivered: analyticsData.total_delivered,
-      totalOpened: analyticsData.total_opened,
-      deliveryRate: analyticsData.delivery_rate,
-      openRate: analyticsData.open_rate,
+      totalSent: analyticsData.total_sent ?? 0,
+      totalDelivered: analyticsData.total_delivered ?? 0,
+      totalOpened: analyticsData.total_opened ?? 0,
+      deliveryRate: analyticsData.delivery_rate ?? 0,
+      openRate: analyticsData.open_rate ?? 0,
     };
   }, [analyticsData]);
 
@@ -348,36 +348,43 @@ export const NotificationAnalytics = () => {
       <FilterBar onFilterChange={handleFilterChange} currentFilters={filters} />
 
       {/* Key Metrics */}
-      {stats && (
+      {stats ? (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <MetricCard
             title="Total Sent"
-            value={stats.totalSent.toLocaleString()}
+            value={(stats.totalSent ?? 0).toLocaleString()}
             icon={<Send className="w-4 h-4" />}
           />
           <MetricCard
             title="Delivered"
-            value={stats.totalDelivered.toLocaleString()}
+            value={(stats.totalDelivered ?? 0).toLocaleString()}
             icon={<CheckCircle className="w-4 h-4" />}
           />
           <MetricCard
             title="Opened"
-            value={stats.totalOpened.toLocaleString()}
+            value={(stats.totalOpened ?? 0).toLocaleString()}
             icon={<Zap className="w-4 h-4" />}
           />
           <MetricCard
             title="Delivery Rate"
-            value={`${stats.deliveryRate.toFixed(1)}%`}
+            value={`${(stats.deliveryRate ?? 0).toFixed(1)}%`}
             unit="% of sent"
             icon={<BarChart3 className="w-4 h-4" />}
           />
           <MetricCard
             title="Open Rate"
-            value={`${stats.openRate.toFixed(1)}%`}
+            value={`${(stats.openRate ?? 0).toFixed(1)}%`}
             unit="% of sent"
             icon={<TrendingUp className="w-4 h-4" />}
           />
         </div>
+      ) : (
+        <Alert className="border-blue-200 bg-blue-50">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-700">
+            No analytics data available for the selected period
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Time Series Chart */}
@@ -480,14 +487,14 @@ export const NotificationAnalytics = () => {
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: CHANNEL_COLORS[channel.channel] || COLORS[0] }}
                     />
-                    <span className="font-medium text-sm text-gray-700 capitalize">{channel.channel}</span>
+                    <span className="font-medium text-sm text-gray-700 capitalize">{channel.channel || 'Unknown'}</span>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-sm text-gray-600">
-                      {channel.delivery_rate.toFixed(1)}% delivery rate
+                      {((channel.delivery_rate ?? 0) as number).toFixed(1)}% delivery rate
                     </span>
                     <span className="text-xs text-gray-500">
-                      {channel.delivered}/{channel.count}
+                      {(channel.delivered ?? 0).toLocaleString()}/{(channel.count ?? 0).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -530,22 +537,22 @@ export const NotificationAnalytics = () => {
                 {/* Type Summary Table */}
                 <div className="mt-6 space-y-2">
                   {typeChartData.map((type, index) => (
-                    <div key={type.type} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <div key={type.type || index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                       <div className="flex items-center gap-2">
                         <div
                           className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: COLORS[index % COLORS.length] }}
                         />
                         <span className="font-medium text-sm text-gray-700 capitalize">
-                          {type.type.replace(/_/g, ' ')}
+                          {(type.type || 'Unknown').replace(/_/g, ' ')}
                         </span>
                       </div>
                       <div className="flex items-center gap-4">
                         <span className="text-sm text-gray-600">
-                          {type.open_rate.toFixed(1)}% open rate
+                          {((type.open_rate ?? 0) as number).toFixed(1)}% open rate
                         </span>
                         <span className="text-xs text-gray-500">
-                          {type.count} sent
+                          {(type.count ?? 0).toLocaleString()} sent
                         </span>
                       </div>
                     </div>
@@ -562,7 +569,7 @@ export const NotificationAnalytics = () => {
       </div>
 
       {/* Detailed Summary */}
-      {analyticsData?.summary && (
+      {analyticsData?.summary ? (
         <Card>
           <CardHeader>
             <CardTitle>Delivery Summary</CardTitle>
@@ -573,30 +580,34 @@ export const NotificationAnalytics = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Average Delivery Time</p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {analyticsData.summary.avg_delivery_time}
+                  {analyticsData.summary.avg_delivery_time ?? 'N/A'}
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Failed</p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {analyticsData.summary.total_failed}
+                  {(analyticsData.summary.total_failed ?? 0).toLocaleString()}
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Success Rate</p>
                 <p className="text-2xl font-bold text-green-600 mt-2">
-                  {((1 - analyticsData.summary.failures / (analyticsData.summary.failures + analyticsData.summary.total_sent)) * 100).toFixed(1)}%
+                  {((analyticsData.summary.failures ?? 0) + (analyticsData.summary.total_sent ?? 0) > 0
+                    ? ((1 - (analyticsData.summary.failures ?? 0) / ((analyticsData.summary.failures ?? 0) + (analyticsData.summary.total_sent ?? 0))) * 100).toFixed(1)
+                    : '0')}%
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Engagement Rate</p>
                 <p className="text-2xl font-bold text-blue-600 mt-2">
-                  {((analyticsData.summary.total_opened / analyticsData.summary.total_sent) * 100).toFixed(1)}%
+                  {((analyticsData.summary.total_sent ?? 0) > 0
+                    ? (((analyticsData.summary.total_opened ?? 0) / (analyticsData.summary.total_sent ?? 0)) * 100).toFixed(1)
+                    : '0')}%
                 </p>
               </div>
             </div>
 
-            {analyticsData.summary.error_reasons.length > 0 && (
+            {analyticsData.summary.error_reasons && analyticsData.summary.error_reasons.length > 0 && (
               <div className="mt-6 pt-6 border-t">
                 <h4 className="font-medium text-gray-900 mb-3">Top Error Reasons</h4>
                 <ul className="space-y-2">
@@ -611,7 +622,7 @@ export const NotificationAnalytics = () => {
             )}
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 };

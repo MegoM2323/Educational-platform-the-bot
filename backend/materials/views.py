@@ -370,6 +370,13 @@ class MaterialViewSet(viewsets.ModelViewSet):
         """
         Скачать файл материала с логированием загрузки
         """
+        # Проверяем аутентификацию
+        if not request.user.is_authenticated:
+            return Response(
+                {'error': 'Требуется аутентификация'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
         material = self.get_object()
 
         # Проверяем права доступа
@@ -379,10 +386,20 @@ class MaterialViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Проверяем наличие файла
         if not material.file:
             return Response(
                 {'error': 'Файл не найден'},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_410_GONE
+            )
+
+        # Проверяем корректность файла
+        try:
+            file_size = material.file.size
+        except (AttributeError, OSError):
+            return Response(
+                {'error': 'Файл недоступен или повреждён'},
+                status=status.HTTP_410_GONE
             )
 
         # Проверка ограничения на загрузки по IP
@@ -406,20 +423,27 @@ class MaterialViewSet(viewsets.ModelViewSet):
         # Логирование загрузки (с дедупликацией)
         try:
             if DownloadLogger.should_log_download(material.id, request.user.id):
-                file_size = material.file.size if material.file else 0
                 DownloadLogger.log_download(material, request.user, request, file_size)
         except Exception as e:
             # Логирование ошибки, но не блокируем скачивание
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"Failed to log download for material {material.id}: {str(e)}")
 
+        # Подготавливаем имя файла
+        filename = material.file.name.split('/')[-1] if material.file.name else 'download'
+
         from django.http import FileResponse
-        return FileResponse(
+        response = FileResponse(
             material.file,
             as_attachment=True,
-            filename=material.file.name.split('/')[-1]
+            filename=filename
         )
+
+        # Устанавливаем правильные заголовки
+        response['Content-Type'] = 'application/octet-stream'
+        response['Content-Length'] = file_size
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        return response
     
     @action(detail=True, methods=['get'])
     def submissions(self, request, pk=None):

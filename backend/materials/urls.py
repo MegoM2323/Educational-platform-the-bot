@@ -61,14 +61,14 @@ urlpatterns = [
     path('student/subjects/<int:subject_id>/study-plans/', student_dashboard_views.student_study_plans_by_subject, name='student-study-plans-by-subject'),
     
     # Student materials API endpoints
-    path('materials/student/list/', views.MaterialViewSet.as_view({'get': 'student_materials'}), name='student-materials'),
-    path('materials/<int:pk>/download/', views.MaterialViewSet.as_view({'get': 'download_file'}), name='material-download'),
+    path('student/list/', views.MaterialViewSet.as_view({'get': 'student_materials'}), name='student-materials'),
+    path('<int:pk>/download/', views.MaterialViewSet.as_view({'get': 'download_file'}), name='material-download'),
     
     # Teacher dashboard endpoints
     path('teacher/', teacher_dashboard_views.teacher_dashboard, name='teacher-dashboard'),
     path('teacher/students/', teacher_dashboard_views.teacher_students, name='teacher-students'),
-    path('materials/teacher/', teacher_dashboard_views.teacher_materials, name='teacher-materials'),
-    path('materials/teacher/distribute/', teacher_dashboard_views.distribute_material, name='distribute-material'),
+    path('teacher/', teacher_dashboard_views.teacher_materials, name='teacher-materials'),
+    path('teacher/distribute/', teacher_dashboard_views.distribute_material, name='distribute-material'),
     path('teacher/students/<int:student_id>/subjects/', teacher_dashboard_views.teacher_student_subjects, name='teacher-student-subjects'),
     path('teacher/subjects/<int:subject_id>/students/', teacher_dashboard_views.subject_students, name='teacher-subject-students'),
     path('teacher/subjects/', teacher_dashboard_views.get_all_subjects, name='teacher-all-subjects'),
@@ -123,7 +123,7 @@ urlpatterns = [
     path('bulk-assign-materials/', bulk_assign_materials_endpoint, name='bulk-assign-materials'),
 
     # Submission file upload endpoints (T_MAT_008)
-    path('materials/<int:pk>/submit-files/',
+    path('<int:pk>/submit-files/',
          submission_file_views.MaterialSubmitFilesViewSet.as_view({'post': 'submit_files'}),
          name='submit-files'),
     path('submission-files/<int:submission_id>/',

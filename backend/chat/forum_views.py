@@ -113,11 +113,51 @@ class ForumChatViewSet(viewsets.ViewSet):
                 ).order_by('-updated_at')
 
             elif user.role == 'tutor':
-                # Tutor sees ONLY FORUM_TUTOR chats where they are a participant
-                # base_queryset already filters by participants=user, so just filter by type
-                chats = base_queryset.filter(
-                    type=ChatRoom.Type.FORUM_TUTOR
-                ).order_by('-updated_at')
+                # Tutor sees ONLY FORUM_TUTOR chats for their enrolled students
+                # BUG FIX A1: Tutor links to students in TWO ways:
+                # 1. StudentProfile.tutor (direct assignment)
+                # 2. User.created_by_tutor (created via enrollment)
+                # Must check BOTH relationships to get all student chats
+
+                logger.debug(
+                    f'[tutor_chat_list] Getting chats for tutor {user.id}'
+                )
+
+                # Get all students where tutor is linked (both paths)
+                tutored_student_ids = StudentProfile.objects.filter(
+                    Q(tutor=user) | Q(user__created_by_tutor=user)
+                ).values_list('user_id', flat=True).distinct()
+
+                logger.debug(
+                    f'[tutor_chat_list] Found {len(list(tutored_student_ids))} students for tutor {user.id}'
+                )
+
+                # Get all FORUM_TUTOR chats for these students
+                chats = ChatRoom.objects.filter(
+                    type=ChatRoom.Type.FORUM_TUTOR,
+                    is_active=True,
+                    enrollment__student_id__in=tutored_student_ids
+                ).select_related(
+                    'created_by',
+                    'enrollment__subject',
+                    'enrollment__teacher',
+                    'enrollment__student'
+                ).prefetch_related(
+                    'participants'
+                ).distinct().order_by('-updated_at')
+
+                logger.debug(
+                    f'[tutor_chat_list] Found {chats.count()} active chats for tutor {user.id}'
+                )
+
+                # Add tutor to participants if missing (sync old chats)
+                for chat in chats:
+                    if not chat.participants.filter(id=user.id).exists():
+                        chat.participants.add(user)
+                        logger.info(
+                            f'[tutor_chat_list] Added tutor {user.id} to chat {chat.id} '
+                            f'(student={chat.enrollment.student_id})'
+                        )
 
             elif user.role == 'parent':
                 # Родители видят чаты своих детей
@@ -568,26 +608,11 @@ class ForumChatViewSet(viewsets.ViewSet):
                     # Update chat's updated_at timestamp
                     chat.save(update_fields=['updated_at'])
 
-                # Broadcast message to all connected WebSocket clients in this chat room
-                # WebSocket broadcast is OUTSIDE transaction - failure here doesn't affect DB
-                try:
-                    channel_layer = get_channel_layer()
-                    message_data = MessageSerializer(
-                        message,
-                        context={'request': request}
-                    ).data
-
-                    room_group_name = f'chat_{chat.id}'
-                    async_to_sync(channel_layer.group_send)(
-                        room_group_name,
-                        {
-                            'type': 'chat_message',
-                            'message': message_data
-                        }
-                    )
-                    logger.info(f'Broadcasted message {message.id} to group {room_group_name}')
-                except Exception as e:
-                    logger.error(f'Failed to broadcast message via WebSocket: {str(e)}')
+                # FIX A7: Removed WebSocket broadcast from REST endpoint
+                # Reason: REST response is already sent via onSuccess handler (optimistic update)
+                # Other clients will receive message via WebSocket broadcast from consumer
+                # (when other users send messages via WebSocket directly)
+                # Sender gets message in REST response, avoiding duplicate
 
                 return Response({
                     'success': True,
@@ -1306,14 +1331,15 @@ class AvailableContactsView(APIView):
 
                 # Находим тьюторов через StudentProfile.tutor и User.created_by_tutor
                 tutors = User.objects.filter(
-                    Q(tutored_students__id__in=student_ids) |
-                    Q(created_students__id__in=student_ids),
+                    Q(tutored_students__user_id__in=student_ids) |
+                    Q(created_users__id__in=student_ids),
                     role='tutor'
                 ).distinct()
 
                 # Для каждого тьютора находим enrollment для создания чата
                 for tutor in tutors:
-                    # Найти enrollment через общего студента
+                    # Найти enrollment через общего студента (студента, которого учит тьютор и этот учитель)
+                    # Note: For FORUM_TUTOR chats, enrollment_id may be None as it's not required
                     tutor_enrollment = SubjectEnrollment.objects.filter(
                         Q(student__student_profile__tutor=tutor) |
                         Q(student__created_by_tutor=tutor),

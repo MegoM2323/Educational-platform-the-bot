@@ -104,7 +104,7 @@ const CreateMaterial = () => {
         submitData.append('file', file);
       }
 
-      const response = await apiClient.request('/materials/materials/', {
+      const response = await apiClient.request('/materials/', {
         method: 'POST',
         body: submitData
       });

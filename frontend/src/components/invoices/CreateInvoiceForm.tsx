@@ -123,7 +123,7 @@ export const CreateInvoiceForm = ({ open, onOpenChange }: CreateInvoiceFormProps
         amount: formData.amount,
         description: formData.description.trim(),
         due_date: formData.due_date,
-        enrollment_id: formData.enrollment_id ? parseInt(formData.enrollment_id) : undefined,
+        enrollment_id: formData.enrollment_id && formData.enrollment_id !== 'none' ? parseInt(formData.enrollment_id) : undefined,
       });
 
       onOpenChange(false);
@@ -205,7 +205,7 @@ export const CreateInvoiceForm = ({ open, onOpenChange }: CreateInvoiceFormProps
                   <SelectValue placeholder="Выберите предмет (если применимо)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Не указывать предмет</SelectItem>
+                  <SelectItem value="none">Не указывать предмет</SelectItem>
                   {selectedStudent.enrollments.map((enrollment) => (
                     <SelectItem key={enrollment.id} value={String(enrollment.id)}>
                       {enrollment.subject.name}

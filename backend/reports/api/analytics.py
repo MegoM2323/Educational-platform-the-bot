@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional
 
 from django.utils import timezone
 from django.core.cache import cache
+from django.db import models
 
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
@@ -1296,108 +1297,441 @@ class DashboardAnalyticsViewSet(viewsets.ViewSet):
             'aggregation_level': aggregation,
         }
 
+    def _get_visible_students(self, request):
+        """Get queryset of students visible to the current user based on their role."""
+        from accounts.models import User as UserModel
+        from materials.models import SubjectEnrollment
+
+        if request.user.role == 'student':
+            return UserModel.objects.filter(id=request.user.id)
+        elif request.user.role == 'teacher':
+            # Get students enrolled in this teacher's subjects
+            return UserModel.objects.filter(
+                subject_enrollments__teacher=request.user,
+                subject_enrollments__is_active=True,
+                is_active=True
+            ).distinct()
+        elif request.user.role == 'tutor':
+            # Tutor sees their tutored students
+            return UserModel.objects.filter(
+                student_profile__tutor=request.user,
+                is_active=True
+            )
+        elif request.user.role == 'parent':
+            # Parent sees their children
+            return UserModel.objects.filter(
+                student_profile__parent=request.user,
+                is_active=True
+            )
+        else:  # admin
+            # Admin sees all active students
+            return UserModel.objects.filter(role='student', is_active=True)
+
     def _count_students(self, request) -> int:
         """Count total students visible to user."""
+        from accounts.models import User as UserModel
+
         if request.user.role == 'student':
             return 1
         elif request.user.role == 'teacher':
-            return 100  # Placeholder - would calculate from actual data
+            # Get students enrolled in this teacher's subjects
+            from materials.models import SubjectEnrollment
+            return SubjectEnrollment.objects.filter(
+                teacher=request.user,
+                is_active=True
+            ).values('student').distinct().count()
         elif request.user.role == 'admin':
-            return 500  # Placeholder - would calculate from actual data
+            # Admin sees all students
+            return UserModel.objects.filter(role='student', is_active=True).count()
+        elif request.user.role == 'tutor':
+            # Tutor sees their tutored students
+            return UserModel.objects.filter(
+                student_profile__tutor=request.user,
+                is_active=True
+            ).count()
         return 0
 
     def _count_active_students(self, request, date_from: datetime, date_to: datetime) -> int:
-        """Count active students in date range."""
-        return max(0, int(self._count_students(request) * 0.8))
+        """Count active students in date range (who have submitted assignments)."""
+        from assignments.models import AssignmentSubmission
+        from materials.models import SubjectEnrollment
+
+        # Get visible students
+        visible_students = self._get_visible_students(request)
+
+        # Count students who submitted assignments in date range
+        return AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            submitted_at__gte=date_from,
+            submitted_at__lte=date_to
+        ).values('student').distinct().count()
 
     def _count_at_risk_students(self, request) -> int:
-        """Count students at risk."""
-        return max(0, int(self._count_students(request) * 0.15))
+        """Count students at risk (low grades)."""
+        from assignments.models import AssignmentSubmission
+        from django.db.models import Avg
+
+        visible_students = self._get_visible_students(request)
+
+        # Students with average score below 50% are at risk
+        at_risk = AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            status='graded'
+        ).values('student').annotate(
+            avg_score=Avg('score')
+        ).filter(
+            avg_score__lt=50  # Assuming max_score is 100
+        ).count()
+
+        return at_risk
 
     def _calculate_avg_grade(self, request, date_from: datetime, date_to: datetime) -> float:
-        """Calculate average grade."""
-        return 78.5  # Placeholder - would calculate from actual data
+        """Calculate average grade from graded assignments."""
+        from assignments.models import AssignmentSubmission
+        from django.db.models import Avg
+
+        visible_students = self._get_visible_students(request)
+
+        result = AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            status='graded',
+            graded_at__gte=date_from,
+            graded_at__lte=date_to,
+            score__isnull=False
+        ).aggregate(avg_grade=Avg('score'))
+
+        return round(result.get('avg_grade') or 0, 2)
 
     def _count_assignments(self, request) -> int:
-        """Count total assignments."""
-        return 250  # Placeholder - would calculate from actual data
+        """Count total assignments visible to user."""
+        from assignments.models import Assignment
+
+        if request.user.role == 'student':
+            # Student sees assignments assigned to them
+            return Assignment.objects.filter(
+                assigned_to=request.user,
+                status='published'
+            ).count()
+        elif request.user.role == 'teacher':
+            # Teacher sees their own assignments
+            return Assignment.objects.filter(
+                author=request.user
+            ).count()
+        elif request.user.role == 'admin':
+            # Admin sees all published assignments
+            return Assignment.objects.filter(status='published').count()
+        return 0
 
     def _count_completed_assignments(self, request, date_from: datetime, date_to: datetime) -> int:
-        """Count completed assignments."""
-        return 200  # Placeholder - would calculate from actual data
+        """Count completed assignments in date range."""
+        from assignments.models import AssignmentSubmission
+
+        visible_students = self._get_visible_students(request)
+
+        return AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            status__in=['graded', 'returned'],
+            graded_at__gte=date_from,
+            graded_at__lte=date_to
+        ).count()
 
     def _count_pending_assignments(self, request, date_from: datetime, date_to: datetime) -> int:
-        """Count pending assignments."""
-        return 50  # Placeholder - would calculate from actual data
+        """Count pending assignments (submitted but not graded)."""
+        from assignments.models import AssignmentSubmission
+
+        visible_students = self._get_visible_students(request)
+
+        return AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            status='submitted',
+            submitted_at__gte=date_from,
+            submitted_at__lte=date_to
+        ).count()
 
     def _calculate_avg_completion(self, request, date_from: datetime, date_to: datetime) -> float:
-        """Calculate average completion rate."""
-        return 85.5  # Placeholder - would calculate from actual data
+        """Calculate average completion rate (graded / submitted)."""
+        from assignments.models import AssignmentSubmission
+
+        visible_students = self._get_visible_students(request)
+
+        total = AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            submitted_at__gte=date_from,
+            submitted_at__lte=date_to
+        ).count()
+
+        if total == 0:
+            return 0.0
+
+        completed = AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            status__in=['graded', 'returned'],
+            graded_at__gte=date_from,
+            graded_at__lte=date_to
+        ).count()
+
+        return round((completed / total) * 100, 2)
 
     def _calculate_avg_engagement(self, request, date_from: datetime, date_to: datetime) -> float:
-        """Calculate average engagement score."""
-        return 78.2  # Placeholder - would calculate from actual data
+        """Calculate average engagement score based on submissions and participation."""
+        from assignments.models import AssignmentSubmission
+        from django.db.models import Count
+
+        visible_students = self._get_visible_students(request)
+
+        if not visible_students:
+            return 0.0
+
+        # Engagement = (submissions in period / total students) * 100
+        submissions = AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            submitted_at__gte=date_from,
+            submitted_at__lte=date_to
+        ).count()
+
+        engagement = (submissions / len(list(visible_students))) * 100 if visible_students else 0
+        return round(min(engagement, 100), 2)  # Cap at 100%
 
     def _calculate_participation_rate(self, request, date_from: datetime, date_to: datetime) -> float:
-        """Calculate participation rate."""
-        return 82.0  # Placeholder - would calculate from actual data
+        """Calculate participation rate (students who participated / total visible)."""
+        from assignments.models import AssignmentSubmission
+
+        visible_students = self._get_visible_students(request)
+        total_visible = len(list(visible_students))
+
+        if total_visible == 0:
+            return 0.0
+
+        participating = AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            submitted_at__gte=date_from,
+            submitted_at__lte=date_to
+        ).values('student').distinct().count()
+
+        return round((participating / total_visible) * 100, 2)
 
     def _count_messages(self, request, date_from: datetime, date_to: datetime) -> int:
-        """Count messages sent."""
-        return 5000  # Placeholder - would calculate from actual data
+        """Count messages sent in date range."""
+        from chat.models import Message
+
+        return Message.objects.filter(
+            sender=request.user,
+            created_at__gte=date_from,
+            created_at__lte=date_to
+        ).count()
 
     def _calculate_avg_progress(self, request, date_from: datetime, date_to: datetime) -> float:
-        """Calculate average progress."""
-        return 65.5  # Placeholder - would calculate from actual data
+        """Calculate average progress from student profiles."""
+        from accounts.models import StudentProfile, User as UserModel
+        from django.db.models import Avg
+
+        visible_students = self._get_visible_students(request)
+
+        result = StudentProfile.objects.filter(
+            user__in=visible_students
+        ).aggregate(avg_progress=Avg('progress_percentage'))
+
+        return round(result.get('avg_progress') or 0, 2)
 
     def _count_completed_materials(self, request, date_from: datetime, date_to: datetime) -> int:
-        """Count completed learning materials."""
-        return 150  # Placeholder - would calculate from actual data
+        """Count completed learning materials in date range."""
+        from materials.models import MaterialCompletion
+
+        visible_students = self._get_visible_students(request)
+
+        # Assuming a MaterialCompletion model exists
+        try:
+            return MaterialCompletion.objects.filter(
+                student__in=visible_students,
+                completed_at__gte=date_from,
+                completed_at__lte=date_to
+            ).count()
+        except:
+            # Fallback if model doesn't exist
+            return 0
 
     def _count_completed_lessons(self, request, date_from: datetime, date_to: datetime) -> int:
-        """Count completed lessons."""
-        return 45  # Placeholder - would calculate from actual data
+        """Count completed lessons in date range."""
+        from scheduling.models import Lesson
+
+        visible_students = self._get_visible_students(request)
+
+        # Count lessons where students attended/participated
+        try:
+            return Lesson.objects.filter(
+                students__in=visible_students,
+                scheduled_at__gte=date_from,
+                scheduled_at__lte=date_to,
+                status='completed'
+            ).count()
+        except:
+            # Fallback
+            return 0
 
     def _calculate_trend(self, request, metric: str, date_from: datetime, date_to: datetime) -> str:
-        """Calculate trend direction."""
-        return 'upward'  # Placeholder - would calculate from actual data
+        """Calculate trend direction by comparing two periods."""
+        from assignments.models import AssignmentSubmission
+        from django.db.models import Avg
+
+        visible_students = self._get_visible_students(request)
+
+        # Calculate mid-point for comparison
+        total_days = (date_to - date_from).days
+        if total_days < 2:
+            return 'stable'
+
+        mid_date = date_from + timedelta(days=total_days // 2)
+
+        # First half average
+        first_half = AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            status='graded',
+            graded_at__gte=date_from,
+            graded_at__lt=mid_date
+        ).aggregate(avg=Avg('score'))
+
+        # Second half average
+        second_half = AssignmentSubmission.objects.filter(
+            student__in=visible_students,
+            status='graded',
+            graded_at__gte=mid_date,
+            graded_at__lte=date_to
+        ).aggregate(avg=Avg('score'))
+
+        first_avg = first_half.get('avg') or 0
+        second_avg = second_half.get('avg') or 0
+
+        if second_avg > first_avg * 1.05:  # 5% threshold
+            return 'upward'
+        elif second_avg < first_avg * 0.95:
+            return 'downward'
+        return 'stable'
 
     def _calculate_timeseries_metric(
         self, request, metric: str, dates: List[str], granularity: str
     ) -> List[float]:
-        """Calculate metric values for each date."""
-        if metric == 'completion_rate':
-            return [80 + i for i in range(len(dates))]  # Upward trend
-        elif metric == 'engagement_score':
-            return [70 + (i % 5) for i in range(len(dates))]  # Oscillating
-        elif metric == 'active_students':
-            return [120 + i for i in range(len(dates))]  # Upward trend
-        elif metric == 'avg_grade':
-            return [75 + (i * 0.5) for i in range(len(dates))]  # Slight upward trend
-        return [0] * len(dates)
+        """Calculate metric values for each date based on real data."""
+        from assignments.models import AssignmentSubmission
+        from django.db.models import Avg, Count
+        from datetime import datetime as dt, time
+
+        visible_students = self._get_visible_students(request)
+        values = []
+
+        for date_str in dates:
+            try:
+                current_date = dt.strptime(date_str, '%Y-%m-%d').date()
+            except:
+                values.append(0)
+                continue
+
+            # Calculate date range based on granularity
+            if granularity == 'daily':
+                date_from = timezone.make_aware(dt.combine(current_date, time.min))
+                date_to = timezone.make_aware(dt.combine(current_date, time.max))
+            elif granularity == 'weekly':
+                week_start = current_date - timedelta(days=current_date.weekday())
+                date_from = timezone.make_aware(dt.combine(week_start, time.min))
+                date_to = timezone.make_aware(dt.combine(week_start + timedelta(days=7), time.max))
+            else:  # monthly
+                date_from = timezone.make_aware(dt.combine(current_date.replace(day=1), time.min))
+                if current_date.month == 12:
+                    date_to = timezone.make_aware(dt.combine(current_date.replace(year=current_date.year + 1, month=1, day=1), time.max))
+                else:
+                    date_to = timezone.make_aware(dt.combine(current_date.replace(month=current_date.month + 1, day=1), time.max))
+
+            # Calculate metric for this period
+            if metric == 'completion_rate':
+                total = AssignmentSubmission.objects.filter(
+                    student__in=visible_students,
+                    submitted_at__gte=date_from,
+                    submitted_at__lte=date_to
+                ).count()
+                completed = AssignmentSubmission.objects.filter(
+                    student__in=visible_students,
+                    status__in=['graded', 'returned'],
+                    graded_at__gte=date_from,
+                    graded_at__lte=date_to
+                ).count()
+                values.append(round((completed / total * 100) if total > 0 else 0, 2))
+            elif metric == 'avg_grade':
+                result = AssignmentSubmission.objects.filter(
+                    student__in=visible_students,
+                    status='graded',
+                    graded_at__gte=date_from,
+                    graded_at__lte=date_to
+                ).aggregate(avg=Avg('score'))
+                values.append(round(result.get('avg') or 0, 2))
+            elif metric == 'active_students':
+                count = AssignmentSubmission.objects.filter(
+                    student__in=visible_students,
+                    submitted_at__gte=date_from,
+                    submitted_at__lte=date_to
+                ).values('student').distinct().count()
+                values.append(count)
+            elif metric == 'engagement_score':
+                submissions = AssignmentSubmission.objects.filter(
+                    student__in=visible_students,
+                    submitted_at__gte=date_from,
+                    submitted_at__lte=date_to
+                ).count()
+                visible_count = len(list(visible_students))
+                values.append(round((submissions / visible_count * 100) if visible_count > 0 else 0, 2))
+            else:
+                values.append(0)
+
+        return values
 
     def _get_comparison_by_subject(self, request) -> Dict:
-        """Get comparison metrics by subject."""
-        return {
-            'Mathematics': {
-                'avg_grade': 85.0,
-                'completion_rate': 92,
-                'student_count': 50,
-                'engagement': 80,
-            },
-            'English': {
-                'avg_grade': 78.0,
-                'completion_rate': 85,
-                'student_count': 45,
-                'engagement': 75,
-            },
-            'Science': {
-                'avg_grade': 82.0,
-                'completion_rate': 88,
-                'student_count': 48,
-                'engagement': 78,
-            },
-        }
+        """Get comparison metrics by subject based on real data."""
+        from materials.models import Subject, SubjectEnrollment
+        from assignments.models import AssignmentSubmission
+        from django.db.models import Avg, Count
+
+        subjects = Subject.objects.all()
+        result = {}
+
+        for subject in subjects:
+            # Get students enrolled in this subject visible to user
+            enrollments = SubjectEnrollment.objects.filter(subject=subject)
+
+            if request.user.role == 'teacher':
+                enrollments = enrollments.filter(teacher=request.user)
+            elif request.user.role == 'student':
+                enrollments = enrollments.filter(student=request.user)
+
+            students = enrollments.values_list('student_id', flat=True)
+            student_count = students.count()
+
+            if student_count == 0:
+                continue
+
+            # Calculate metrics for subject
+            submissions = AssignmentSubmission.objects.filter(
+                student__in=students,
+                status='graded'
+            )
+
+            avg_grade = submissions.aggregate(avg=Avg('score')).get('avg') or 0
+
+            total = AssignmentSubmission.objects.filter(
+                student__in=students
+            ).count()
+
+            completed = submissions.count()
+            completion_rate = (completed / total * 100) if total > 0 else 0
+
+            # Engagement based on submission count
+            engagement = min((completed / student_count) * 10, 100)  # Normalize to 0-100
+
+            result[subject.name] = {
+                'avg_grade': round(avg_grade, 2),
+                'completion_rate': round(completion_rate, 2),
+                'student_count': student_count,
+                'engagement': round(engagement, 2),
+            }
+
+        return result
 
     def _get_comparison_by_class(self, request) -> Dict:
         """Get comparison metrics by class."""

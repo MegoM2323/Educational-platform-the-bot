@@ -193,7 +193,7 @@ export default function MaterialsList() {
       }
 
       const response = await fetch(
-        `/api/materials/materials/${material.id}/download/`,
+        `/api/materials/${material.id}/download/`,
         {
           headers: {
             Authorization: `Token ${localStorage.getItem("authToken") || ""}`,

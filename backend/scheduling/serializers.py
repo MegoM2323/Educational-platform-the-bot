@@ -79,6 +79,10 @@ class LessonSerializer(serializers.ModelSerializer):
         source='subject.name',
         read_only=True
     )
+    # Explicit ID fields for frontend compatibility
+    teacher_id = serializers.UUIDField(source='teacher.id', read_only=True)
+    subject_id = serializers.UUIDField(source='subject.id', read_only=True)
+    student_id = serializers.UUIDField(source='student.id', read_only=True)
     is_upcoming = serializers.BooleanField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
     datetime_start = serializers.DateTimeField(read_only=True)
@@ -88,6 +92,7 @@ class LessonSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = [
             'id', 'teacher', 'student', 'subject',
+            'teacher_id', 'student_id', 'subject_id',
             'teacher_name', 'student_name', 'subject_name',
             'date', 'start_time', 'end_time',
             'description', 'telemost_link',
@@ -95,7 +100,11 @@ class LessonSerializer(serializers.ModelSerializer):
             'datetime_start', 'datetime_end',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'teacher_name', 'student_name', 'subject_name']
+        read_only_fields = [
+            'id', 'created_at', 'updated_at',
+            'teacher_name', 'student_name', 'subject_name',
+            'teacher_id', 'student_id', 'subject_id'
+        ]
 
     def validate(self, data):
         """Validate lesson data."""
@@ -288,7 +297,7 @@ class AdminLessonSerializer(serializers.ModelSerializer):
 
     teacher_name = serializers.SerializerMethodField()
     student_name = serializers.SerializerMethodField()
-    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    subject_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
@@ -304,12 +313,22 @@ class AdminLessonSerializer(serializers.ModelSerializer):
 
     def get_teacher_name(self, obj):
         """Get full teacher name."""
+        if not obj.teacher:
+            return "(Удаленный преподаватель)"
         if obj.teacher.first_name or obj.teacher.last_name:
             return f"{obj.teacher.first_name} {obj.teacher.last_name}".strip()
         return obj.teacher.email
 
     def get_student_name(self, obj):
         """Get full student name."""
+        if not obj.student:
+            return "(Удаленный студент)"
         if obj.student.first_name or obj.student.last_name:
             return f"{obj.student.first_name} {obj.student.last_name}".strip()
         return obj.student.email
+
+    def get_subject_name(self, obj):
+        """Get subject name with fallback for deleted subjects."""
+        if not obj.subject:
+            return "(Удаленный предмет)"
+        return obj.subject.name

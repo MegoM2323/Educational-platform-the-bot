@@ -1301,6 +1301,9 @@ function Forum() {
     if (!selectedChat || !user) return;
 
     const chatId = selectedChat.id;
+    let isEffectActive = true;
+
+    logger.debug('[Forum] Chat selected, setting up WebSocket for chat:', chatId);
 
     const handlers = {
       onMessage: handleWebSocketMessage,
@@ -1312,38 +1315,58 @@ function Forum() {
     // Connect to WebSocket for this chat room
     (async () => {
       try {
+        // T008: Check if effect is still active before attempting connection
+        if (!isEffectActive) {
+          logger.debug('[Forum] Effect unmounted, skipping WebSocket connection');
+          return;
+        }
+
+        logger.debug('[Forum] Connecting to chat room:', chatId);
         const connectionSuccess = await chatWebSocketService.connectToRoom(chatId, handlers);
 
         if (!connectionSuccess) {
           logger.error('[Forum] Failed to connect to chat room:', chatId);
-          setError('Не удалось подключиться к чату. Проверьте авторизацию.');
-          // T019: Reset isSwitchingChat on WebSocket failure
-          setIsSwitchingChat(false);
+          if (isEffectActive) {
+            setError('Не удалось подключиться к чату. Проверьте авторизацию.');
+            // T008: Reset isSwitchingChat on WebSocket failure
+            setIsSwitchingChat(false);
+          }
+        } else {
+          logger.debug('[Forum] Successfully connected to chat room:', chatId);
+          if (isEffectActive) {
+            setIsSwitchingChat(false);
+          }
         }
       } catch (error) {
         logger.error('[Forum] WebSocket connection failed:', error);
-        // T019: Reset isSwitchingChat on WebSocket failure
-        setIsSwitchingChat(false);
-        setError('Не удалось подключиться к чату');
+        if (isEffectActive) {
+          // T008: Reset isSwitchingChat on WebSocket failure
+          setIsSwitchingChat(false);
+          setError('Не удалось подключиться к чату');
+        }
       }
     })();
 
     // CRITICAL FIX: Set initial connection state immediately
     const initiallyConnected = chatWebSocketService.isConnected();
     logger.debug('[Forum] Initial connection state:', initiallyConnected);
-    setIsConnected(initiallyConnected);
-    if (initiallyConnected) {
-      setError(null);
+    if (isEffectActive) {
+      setIsConnected(initiallyConnected);
+      if (initiallyConnected) {
+        setError(null);
+      }
     }
 
     // Subscribe to connection state changes
     const connectionCallback = (connected: boolean) => {
       logger.debug('[Forum] Connection state changed to:', connected);
-      setIsConnected(connected);
-      if (!connected) {
-        setError('Соединение потеряно. Попытка переподключения...');
-      } else {
-        setError(null);
+      if (isEffectActive) {
+        setIsConnected(connected);
+        if (!connected) {
+          setError('Соединение потеряно. Попытка переподключения...');
+        } else {
+          setError(null);
+        }
       }
     };
 
@@ -1351,6 +1374,10 @@ function Forum() {
 
     // Cleanup: disconnect when chat changes or component unmounts
     return () => {
+      isEffectActive = false;
+
+      logger.debug('[Forum] Cleaning up WebSocket for chat:', chatId);
+      // T008: Disconnect from the old chat room
       chatWebSocketService.disconnectFromRoom(chatId);
       setTypingUsers([]);
 
@@ -1362,19 +1389,35 @@ function Forum() {
   }, [selectedChat, user, handleWebSocketMessage, handleTyping, handleTypingStop, handleError]);
 
   const handleSelectChat = async (chat: ForumChat) => {
-    // T017: Clear previous timeout on new selection to prevent race condition
+    // T008: Clear previous timeout on new selection to prevent race condition
     if (switchTimeoutRef.current) {
       clearTimeout(switchTimeoutRef.current);
     }
 
-    // T017: Debounce rapid switches (200ms)
+    // T008: Debounce rapid switches (200ms)
     switchTimeoutRef.current = setTimeout(async () => {
-      // Show loading state during chat switch
+      // T008: Show loading state during chat switch
       setIsSwitchingChat(true);
-      setSelectedChat(chat);
-      setSearchQuery('');
       setError(null);
       setTypingUsers([]);
+
+      // T008: CRITICAL FIX - Clear old chat messages cache before switching
+      // This prevents messages from old chat appearing in new chat
+      const previousChatId = selectedChat?.id;
+      if (previousChatId && previousChatId !== chat.id) {
+        logger.debug('[Forum] Clearing message cache for previous chat:', previousChatId);
+        // Remove the old chat's messages from cache completely
+        queryClient.removeQueries({ queryKey: ['forum-messages', previousChatId] });
+      }
+
+      // T008: Select new chat (this will trigger useForumMessages with new chatId)
+      setSelectedChat(chat);
+      setSearchQuery('');
+
+      // T008: Cancel any pending message requests for the old chat
+      if (previousChatId && previousChatId !== chat.id) {
+        await queryClient.cancelQueries({ queryKey: ['forum-messages', previousChatId] });
+      }
 
       // Mark chat as read to reset unread_count
       if (chat.unread_count > 0) {
@@ -1390,9 +1433,11 @@ function Forum() {
         }
       }
 
-      // Reset loading state after WebSocket connection established (увеличен timeout с 300ms до 500ms)
+      // T008: Reset loading state after WebSocket connection established
       setTimeout(() => {
-        setIsSwitchingChat(false);
+        if (isMountedRef.current) {
+          setIsSwitchingChat(false);
+        }
       }, 500);
     }, 200);
   };

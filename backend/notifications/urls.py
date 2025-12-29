@@ -13,5 +13,9 @@ router.register(r'analytics', views.AnalyticsViewSet, basename='analytics')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('analytics/metrics/', views.AnalyticsViewSet.as_view({'get': 'metrics'}), name='analytics-metrics'),
+    path('analytics/performance/', views.AnalyticsViewSet.as_view({'get': 'performance'}), name='analytics-performance'),
+    path('analytics/top-types/', views.AnalyticsViewSet.as_view({'get': 'top_types'}), name='analytics-top-types'),
+    path('analytics/track-click/', views.AnalyticsViewSet.as_view({'post': 'track_click'}), name='analytics-track-click'),
     path('unsubscribe/<str:token>/', views.UnsubscribeView.as_view(), name='unsubscribe'),
 ]

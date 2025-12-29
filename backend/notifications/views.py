@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Count
 from django.utils import timezone
@@ -498,14 +499,14 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
     """
     queryset = NotificationTemplate.objects.all()
     serializer_class = NotificationTemplateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['type', 'is_active']
     search_fields = ['name', 'description']
     ordering_fields = ['created_at', 'name']
     ordering = ['-created_at']
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def preview(self, request, pk=None):
         """
         Предпросмотр шаблона с подставленными значениями
@@ -548,7 +549,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def validate(self, request):
         """
         Валидирует синтаксис шаблонов заголовка и сообщения
@@ -582,7 +583,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
             'errors': errors
         })
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def clone(self, request, pk=None):
         """
         Создает копию шаблона с суффиксом "_copy"
@@ -677,7 +678,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
         Check if user has admin permission
         """
         if not request.user.is_staff:
-            raise permissions.PermissionDenied(
+            raise PermissionDenied(
                 "Только администраторы могут просматривать аналитику"
             )
 
@@ -692,24 +693,33 @@ class AnalyticsViewSet(viewsets.ViewSet):
         - type: Notification type filter (e.g., assignment_new)
         - channel: Delivery channel filter (email, push, sms, in_app)
         - granularity: Time grouping (hour, day, week), default: day
+        - scope: Filter by scope (user, system, admin), default: all scopes
         """
         self._check_admin_permission(request)
 
-        # Parse query parameters
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
-        notification_type = request.query_params.get('type')
-        channel = request.query_params.get('channel')
-        granularity = request.query_params.get('granularity', 'day')
+        # Parse query parameters (convert empty strings to None)
+        date_from = request.query_params.get('date_from') or None
+        date_to = request.query_params.get('date_to') or None
+        notification_type = request.query_params.get('type') or None
+        channel = request.query_params.get('channel') or None
+        granularity = request.query_params.get('granularity', 'day') or 'day'
+        scope = request.query_params.get('scope') or None
+
+        # Build data dict for serializer (exclude None values)
+        data = {
+            'granularity': granularity,
+        }
+        if date_from is not None:
+            data['date_from'] = date_from
+        if date_to is not None:
+            data['date_to'] = date_to
+        if notification_type is not None:
+            data['type'] = notification_type
+        if channel is not None:
+            data['channel'] = channel
 
         # Validate parameters
-        serializer = NotificationMetricsQuerySerializer(data={
-            'date_from': date_from,
-            'date_to': date_to,
-            'type': notification_type,
-            'channel': channel,
-            'granularity': granularity,
-        })
+        serializer = NotificationMetricsQuerySerializer(data=data)
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -717,13 +727,15 @@ class AnalyticsViewSet(viewsets.ViewSet):
         validated_data = serializer.validated_data
 
         try:
-            # Get metrics from analytics service
+            # Get metrics from analytics service with optional scope filter
+            # Pass None for optional filters that weren't provided
             metrics = NotificationAnalytics.get_metrics(
                 date_from=validated_data.get('date_from'),
                 date_to=validated_data.get('date_to'),
                 notification_type=validated_data.get('type'),
                 channel=validated_data.get('channel'),
                 granularity=validated_data.get('granularity', 'day'),
+                scope=scope,  # Pass scope parameter
             )
 
             # Serialize response

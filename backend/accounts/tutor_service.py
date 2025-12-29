@@ -234,12 +234,24 @@ class SubjectAssignmentService:
             raise ValueError("Указанный пользователь не является студентом")
         
         # Проверка, что данный студент привязан к этому тьютору
-        # Проверяем через tutor в профиле студента или через created_by_tutor в User
+        # Проверяем через tutor в профиле студента ИЛИ через created_by_tutor в User
+        # Используем OR логику: если студент назначен в профиле ИЛИ создан тьютором, разрешаем
+
+        # Проверка через StudentProfile.tutor
+        is_assigned_via_profile = False
         try:
-            if student.student_profile.tutor_id != tutor.id and student.created_by_tutor_id != tutor.id:
-                raise PermissionError("Студент не принадлежит тьютору")
+            profile = student.student_profile
+            is_assigned_via_profile = profile.tutor_id == tutor.id
         except StudentProfile.DoesNotExist:
-            raise ValueError("Профиль студента не найден")
+            # Профиль может не существовать, это нормально, проверим created_by_tutor
+            is_assigned_via_profile = False
+
+        # Проверка через User.created_by_tutor
+        is_created_by_tutor = student.created_by_tutor_id == tutor.id
+
+        # Студент принадлежит тьютору, если выполнено ИЛИ условие
+        if not (is_assigned_via_profile or is_created_by_tutor):
+            raise PermissionError("Студент не принадлежит тьютору")
 
         # Если преподаватель указан, проверяем его
         if teacher is not None:
@@ -332,12 +344,24 @@ class SubjectAssignmentService:
         except SubjectEnrollment.DoesNotExist:
             return
         # Разрешаем только для своих студентов
-        # Проверяем через tutor в профиле студента или через created_by_tutor в User
+        # Проверяем через tutor в профиле студента ИЛИ через created_by_tutor в User
+        # Используем OR логику: если студент назначен в профиле ИЛИ создан тьютором, разрешаем
+
+        # Проверка через StudentProfile.tutor
+        is_assigned_via_profile = False
         try:
-            if enrollment.student.student_profile.tutor_id != tutor.id and enrollment.student.created_by_tutor_id != tutor.id:
-                raise PermissionError("Студент не принадлежит тьютору")
+            profile = enrollment.student.student_profile
+            is_assigned_via_profile = profile.tutor_id == tutor.id
         except StudentProfile.DoesNotExist:
-            raise ValueError("Профиль студента не найден")
+            # Профиль может не существовать, это нормально, проверим created_by_tutor
+            is_assigned_via_profile = False
+
+        # Проверка через User.created_by_tutor
+        is_created_by_tutor = enrollment.student.created_by_tutor_id == tutor.id
+
+        # Студент принадлежит тьютору, если выполнено ИЛИ условие
+        if not (is_assigned_via_profile or is_created_by_tutor):
+            raise PermissionError("Студент не принадлежит тьютору")
         enrollment.is_active = False
         enrollment.save()
 

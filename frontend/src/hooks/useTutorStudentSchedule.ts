@@ -10,7 +10,7 @@ import { logger } from '@/utils/logger';
  */
 export const useTutorStudentSchedule = (studentId: string | null, filters?: LessonFilters) => {
   const query = useQuery<Lesson[]>({
-    queryKey: ['tutor', 'student', studentId, ...Object.values(filters || {})],
+    queryKey: ['tutor', 'student', studentId, filters?.date_from, filters?.date_to, filters?.subject, filters?.status],
     queryFn: async () => {
       if (!studentId) {
         logger.warn('[useTutorStudentSchedule] studentId is null, returning empty array');

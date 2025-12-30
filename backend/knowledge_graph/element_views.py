@@ -26,11 +26,16 @@ class ElementListCreateView(generics.ListCreateAPIView):
     - search: поиск по названию
     - page: номер страницы (пагинация по 20 элементов)
     """
+
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['title', 'description']
-    ordering_fields = ['created_at', 'difficulty', 'estimated_time_minutes']
-    ordering = ['-created_at']
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    search_fields = ["title", "description"]
+    ordering_fields = ["created_at", "difficulty", "estimated_time_minutes"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         """
@@ -40,18 +45,20 @@ class ElementListCreateView(generics.ListCreateAPIView):
         """
         user = self.request.user
         # T006: prefetch files to avoid N+1 queries for files_count
-        queryset = Element.objects.select_related('created_by').prefetch_related('files').filter(
-            Q(is_public=True) | Q(created_by=user)
+        queryset = (
+            Element.objects.select_related("created_by")
+            .prefetch_related("files")
+            .filter(Q(is_public=True) | Q(created_by=user))
         )
 
         # Фильтр по типу
-        element_type = self.request.query_params.get('type')
+        element_type = self.request.query_params.get("type")
         if element_type:
             queryset = queryset.filter(element_type=element_type)
 
         # Фильтр по автору
-        created_by = self.request.query_params.get('created_by')
-        if created_by == 'me':
+        created_by = self.request.query_params.get("created_by")
+        if created_by == "me":
             queryset = queryset.filter(created_by=user)
         elif created_by and created_by.isdigit():
             queryset = queryset.filter(created_by_id=int(created_by))
@@ -60,7 +67,7 @@ class ElementListCreateView(generics.ListCreateAPIView):
 
     def get_serializer_class(self):
         """Использовать разные serializers для list и create"""
-        if self.request.method == 'GET':
+        if self.request.method == "GET":
             return ElementListSerializer
         return ElementSerializer
 
@@ -76,17 +83,19 @@ class ElementListCreateView(generics.ListCreateAPIView):
                 return self.get_paginated_response(serializer.data)
 
             serializer = self.get_serializer(queryset, many=True)
-            return Response({
-                'success': True,
-                'data': serializer.data,
-                'count': queryset.count()
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {"success": True, "data": serializer.data, "count": queryset.count()},
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             logger.error(f"Error in ElementListCreateView.list: {e}", exc_info=True)
             return Response(
-                {'success': False, 'error': f'Ошибка при получении элементов: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {
+                    "success": False,
+                    "error": f"Ошибка при получении элементов: {str(e)}",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def create(self, request, *args, **kwargs):
@@ -95,21 +104,21 @@ class ElementListCreateView(generics.ListCreateAPIView):
             serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 return Response(
-                    {'success': False, 'error': serializer.errors},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"success": False, "error": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             self.perform_create(serializer)
             return Response(
-                {'success': True, 'data': serializer.data},
-                status=status.HTTP_201_CREATED
+                {"success": True, "data": serializer.data},
+                status=status.HTTP_201_CREATED,
             )
 
         except Exception as e:
             logger.error(f"Error in ElementListCreateView.create: {e}", exc_info=True)
             return Response(
-                {'success': False, 'error': f'Ошибка при создании элемента: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"success": False, "error": f"Ошибка при создании элемента: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -119,8 +128,9 @@ class ElementRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     PATCH /api/knowledge-graph/elements/{id}/ - обновить элемент (только владелец)
     DELETE /api/knowledge-graph/elements/{id}/ - удалить элемент (только владелец)
     """
+
     # T006: prefetch files to include in detail view
-    queryset = Element.objects.select_related('created_by').prefetch_related('files')
+    queryset = Element.objects.select_related("created_by").prefetch_related("files")
     serializer_class = ElementSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
 
@@ -130,57 +140,68 @@ class ElementRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
             instance = self.get_object()
             serializer = self.get_serializer(instance)
             return Response(
-                {'success': True, 'data': serializer.data},
-                status=status.HTTP_200_OK
+                {"success": True, "data": serializer.data}, status=status.HTTP_200_OK
             )
         except Element.DoesNotExist:
             return Response(
-                {'success': False, 'error': 'Элемент не найден'},
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": "Элемент не найден"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
-            logger.error(f"Error in ElementRetrieveUpdateDestroyView.retrieve: {e}", exc_info=True)
+            logger.error(
+                f"Error in ElementRetrieveUpdateDestroyView.retrieve: {e}",
+                exc_info=True,
+            )
             return Response(
-                {'success': False, 'error': f'Ошибка при получении элемента: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"success": False, "error": f"Ошибка при получении элемента: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def update(self, request, *args, **kwargs):
         """Обновить элемент (только владелец)"""
         try:
-            partial = kwargs.pop('partial', True)  # По умолчанию PATCH
+            partial = kwargs.pop("partial", True)  # По умолчанию PATCH
             instance = self.get_object()
 
             # Проверка прав
             if instance.created_by != request.user and not request.user.is_staff:
                 return Response(
-                    {'success': False, 'error': 'Только владелец может редактировать элемент'},
-                    status=status.HTTP_403_FORBIDDEN
+                    {
+                        "success": False,
+                        "error": "Только владелец может редактировать элемент",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
-            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer = self.get_serializer(
+                instance, data=request.data, partial=partial
+            )
             if not serializer.is_valid():
                 return Response(
-                    {'success': False, 'error': serializer.errors},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"success": False, "error": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             self.perform_update(serializer)
             return Response(
-                {'success': True, 'data': serializer.data},
-                status=status.HTTP_200_OK
+                {"success": True, "data": serializer.data}, status=status.HTTP_200_OK
             )
 
         except Element.DoesNotExist:
             return Response(
-                {'success': False, 'error': 'Элемент не найден'},
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": "Элемент не найден"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
-            logger.error(f"Error in ElementRetrieveUpdateDestroyView.update: {e}", exc_info=True)
+            logger.error(
+                f"Error in ElementRetrieveUpdateDestroyView.update: {e}", exc_info=True
+            )
             return Response(
-                {'success': False, 'error': f'Ошибка при обновлении элемента: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {
+                    "success": False,
+                    "error": f"Ошибка при обновлении элемента: {str(e)}",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def destroy(self, request, *args, **kwargs):
@@ -191,31 +212,36 @@ class ElementRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
             # Проверка прав
             if instance.created_by != request.user and not request.user.is_staff:
                 return Response(
-                    {'success': False, 'error': 'Только владелец может удалить элемент'},
-                    status=status.HTTP_403_FORBIDDEN
+                    {
+                        "success": False,
+                        "error": "Только владелец может удалить элемент",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
             # Проверка что элемент не используется в уроках
             if instance.lessons.exists():
                 return Response(
-                    {'success': False, 'error': 'Элемент используется в уроках и не может быть удален'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {
+                        "success": False,
+                        "error": "Элемент используется в уроках и не может быть удален",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             self.perform_destroy(instance)
-            return Response(
-                {'success': True, 'message': 'Элемент успешно удален'},
-                status=status.HTTP_204_NO_CONTENT
-            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
         except Element.DoesNotExist:
             return Response(
-                {'success': False, 'error': 'Элемент не найден'},
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": "Элемент не найден"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
-            logger.error(f"Error in ElementRetrieveUpdateDestroyView.destroy: {e}", exc_info=True)
+            logger.error(
+                f"Error in ElementRetrieveUpdateDestroyView.destroy: {e}", exc_info=True
+            )
             return Response(
-                {'success': False, 'error': f'Ошибка при удалении элемента: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"success": False, "error": f"Ошибка при удалении элемента: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

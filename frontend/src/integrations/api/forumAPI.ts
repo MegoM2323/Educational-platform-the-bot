@@ -77,10 +77,8 @@ export interface EditMessageRequest {
 }
 
 export interface EditMessageResponse {
-  id: number;
-  content: string;
-  is_edited: boolean;
-  updated_at: string;
+  success: boolean;
+  message: ForumMessage;
 }
 
 export interface Contact {
@@ -104,7 +102,7 @@ export interface ContactsResponse {
 export interface ChatDetail {
   id: number;
   room_id: string;
-  type: 'FORUM_SUBJECT' | 'FORUM_TUTOR';
+  type: 'forum_subject' | 'forum_tutor';
   other_user: Contact;
   created_at: string;
   name: string;
@@ -350,7 +348,7 @@ export const forumAPI = {
   },
 
   editForumMessage: async (chatId: number, messageId: number, data: EditMessageRequest): Promise<ForumMessage> => {
-    const response = await unifiedAPI.request<ForumMessage>(
+    const response = await unifiedAPI.request<EditMessageResponse>(
       `/chat/forum/${chatId}/messages/${messageId}/edit/`,
       {
         method: 'PATCH',
@@ -362,11 +360,11 @@ export const forumAPI = {
       throw new Error(response.error);
     }
 
-    if (!response.data) {
-      throw new Error('Invalid response from server: missing data');
+    if (!response.data?.message) {
+      throw new Error('Invalid response from server: missing message');
     }
 
-    return response.data;
+    return response.data.message;
   },
 
   deleteForumMessage: async (chatId: number, messageId: number): Promise<void> => {

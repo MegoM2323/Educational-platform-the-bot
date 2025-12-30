@@ -550,7 +550,7 @@ export const knowledgeGraphAPI = {
     const response = await unifiedAPI.get<{
       success: boolean;
       data: {
-        graph_lesson: {
+        graph_lesson?: {
           id: string;
           lesson: {
             id: string;
@@ -560,10 +560,17 @@ export const knowledgeGraphAPI = {
           status: string;
           unlocked_at: string;
         };
+        lesson?: {
+          id: string;
+          title: string;
+          description: string;
+          total_elements?: number;
+          total_duration_minutes?: number;
+        };
         elements: Array<{
           id: string;
           order: number;
-          element: {
+          element?: {
             id: string;
             title: string;
             element_type: 'text_problem' | 'quick_question' | 'theory' | 'video';
@@ -571,6 +578,10 @@ export const knowledgeGraphAPI = {
             max_score: number;
             estimated_time_minutes: number;
           };
+          title?: string;
+          type?: string;
+          content?: any;
+          max_score?: number;
           progress?: {
             id: string;
             status: 'not_started' | 'in_progress' | 'completed';
@@ -579,13 +590,17 @@ export const knowledgeGraphAPI = {
             started_at: string | null;
             completed_at: string | null;
           };
+          status?: string;
+          score?: number | null;
         }>;
         progress: {
-          id: string;
+          id?: string;
           status: string;
           completion_percent: number;
           total_score: number;
           max_possible_score: number;
+          completed_elements?: number;
+          total_elements?: number;
         };
         next_element_id: string | null;
       };
@@ -599,7 +614,14 @@ export const knowledgeGraphAPI = {
       throw new Error('Урок не найден');
     }
 
-    return response.data.data;
+    const data = response.data.data;
+    const lesson = data.graph_lesson || data.lesson;
+
+    return {
+      ...data,
+      lesson,
+      graph_lesson: data.graph_lesson,
+    };
   },
 
   /**

@@ -8,53 +8,55 @@ class User(AbstractUser):
     Расширенная модель пользователя с ролями
     Аутентификация происходит через Supabase
     """
+
     class Role(models.TextChoices):
-        STUDENT = 'student', 'Студент'
-        TEACHER = 'teacher', 'Преподаватель'
-        TUTOR = 'tutor', 'Тьютор'
-        PARENT = 'parent', 'Родитель'
+        STUDENT = "student", "Студент"
+        TEACHER = "teacher", "Преподаватель"
+        TUTOR = "tutor", "Тьютор"
+        PARENT = "parent", "Родитель"
 
     # Делаем пароль необязательным, так как аутентификация через Supabase
     password = models.CharField(max_length=128, blank=True, null=True)
-    
+
     role = models.CharField(
-        max_length=20,
-        choices=Role.choices,
-        default=Role.STUDENT,
-        verbose_name='Роль'
+        max_length=20, choices=Role.choices, default=Role.STUDENT, verbose_name="Роль"
     )
-    
+
     phone = models.CharField(
         max_length=20,
-        validators=[RegexValidator(
-            regex=r'^\+?1?\d{9,15}$',
-            message="Номер телефона должен быть в формате: '+999999999'. До 15 цифр."
-        )],
+        validators=[
+            RegexValidator(
+                regex=r"^\+?1?\d{9,15}$",
+                message="Номер телефона должен быть в формате: '+999999999'. До 15 цифр.",
+            )
+        ],
         blank=True,
-        verbose_name='Телефон'
+        verbose_name="Телефон",
     )
-    
+
     avatar = models.ImageField(
-        upload_to='avatars/',
-        blank=True,
-        null=True,
-        verbose_name='Аватар'
+        upload_to="avatars/", blank=True, null=True, verbose_name="Аватар"
     )
-    
-    is_verified = models.BooleanField(
-        default=False,
-        verbose_name='Подтвержден'
-    )
-    
+
+    is_verified = models.BooleanField(default=False, verbose_name="Подтвержден")
+
     created_by_tutor = models.ForeignKey(
-        'self',
+        "self",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='created_users',
-        verbose_name='Создан тьютором'
+        related_name="created_users",
+        verbose_name="Создан тьютором",
     )
-    
+
+    telegram_id = models.BigIntegerField(
+        null=True,
+        blank=True,
+        unique=True,
+        verbose_name="Telegram ID",
+        help_text="Числовой ID пользователя в Telegram",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -66,31 +68,24 @@ class StudentProfile(models.Model):
     """
     Профиль студента
     """
+
     user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name='student_profile'
+        User, on_delete=models.CASCADE, related_name="student_profile"
     )
 
     grade = models.CharField(
-        max_length=10,
-        blank=True,
-        default='',
-        verbose_name='Класс'
+        max_length=10, blank=True, default="", verbose_name="Класс"
     )
 
-    goal = models.TextField(
-        blank=True,
-        verbose_name='Цель обучения'
-    )
+    goal = models.TextField(blank=True, verbose_name="Цель обучения")
 
     tutor = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='tutored_students',
-        verbose_name='Тьютор'
+        related_name="tutored_students",
+        verbose_name="Тьютор",
     )
 
     parent = models.ForeignKey(
@@ -98,53 +93,39 @@ class StudentProfile(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='children_students',
-        limit_choices_to={'role': 'parent'},
-        verbose_name='Родитель'
+        related_name="children_students",
+        limit_choices_to={"role": "parent"},
+        verbose_name="Родитель",
     )
 
     progress_percentage = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Прогресс (%)'
+        default=0, verbose_name="Прогресс (%)"
     )
 
-    streak_days = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Дней подряд'
-    )
+    streak_days = models.PositiveIntegerField(default=0, verbose_name="Дней подряд")
 
-    total_points = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Общие баллы'
-    )
+    total_points = models.PositiveIntegerField(default=0, verbose_name="Общие баллы")
 
     accuracy_percentage = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Точность (%)'
+        default=0, verbose_name="Точность (%)"
     )
 
     generated_username = models.CharField(
-        max_length=150,
-        blank=True,
-        verbose_name='Сгенерированное имя пользователя'
+        max_length=150, blank=True, verbose_name="Сгенерированное имя пользователя"
     )
     generated_password = models.CharField(
-        max_length=128,
-        blank=True,
-        verbose_name='Сгенерированный пароль'
+        max_length=128, blank=True, verbose_name="Сгенерированный пароль"
     )
 
     telegram = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name='Telegram (например: @username)'
+        max_length=100, blank=True, verbose_name="Telegram (например: @username)"
     )
 
     telegram_id = models.CharField(
         max_length=50,
         blank=True,
-        verbose_name='Telegram Chat ID',
-        help_text='Числовой ID чата Telegram для отправки уведомлений (например: 123456789)'
+        verbose_name="Telegram Chat ID",
+        help_text="Числовой ID чата Telegram для отправки уведомлений (например: 123456789)",
     )
 
     def __str__(self):
@@ -155,40 +136,30 @@ class TeacherProfile(models.Model):
     """
     Профиль преподавателя
     """
+
     user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name='teacher_profile'
+        User, on_delete=models.CASCADE, related_name="teacher_profile"
     )
 
     subject = models.CharField(
-        max_length=100,
-        blank=True,
-        default='',
-        verbose_name='Предмет'
+        max_length=100, blank=True, default="", verbose_name="Предмет"
     )
 
     experience_years = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Опыт работы (лет)'
+        default=0, verbose_name="Опыт работы (лет)"
     )
 
-    bio = models.TextField(
-        blank=True,
-        verbose_name='Биография'
-    )
+    bio = models.TextField(blank=True, verbose_name="Биография")
 
     telegram = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name='Telegram (например: @username)'
+        max_length=100, blank=True, verbose_name="Telegram (например: @username)"
     )
 
     telegram_id = models.CharField(
         max_length=50,
         blank=True,
-        verbose_name='Telegram Chat ID',
-        help_text='Числовой ID чата Telegram для отправки уведомлений (например: 123456789)'
+        verbose_name="Telegram Chat ID",
+        help_text="Числовой ID чата Telegram для отправки уведомлений (например: 123456789)",
     )
 
     def __str__(self):
@@ -199,40 +170,30 @@ class TutorProfile(models.Model):
     """
     Профиль тьютора
     """
+
     user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name='tutor_profile'
+        User, on_delete=models.CASCADE, related_name="tutor_profile"
     )
 
     specialization = models.CharField(
-        max_length=200,
-        blank=True,
-        default='',
-        verbose_name='Специализация'
+        max_length=200, blank=True, default="", verbose_name="Специализация"
     )
 
     experience_years = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Опыт работы (лет)'
+        default=0, verbose_name="Опыт работы (лет)"
     )
 
-    bio = models.TextField(
-        blank=True,
-        verbose_name='Биография'
-    )
+    bio = models.TextField(blank=True, verbose_name="Биография")
 
     telegram = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name='Telegram (например: @username)'
+        max_length=100, blank=True, verbose_name="Telegram (например: @username)"
     )
 
     telegram_id = models.CharField(
         max_length=50,
         blank=True,
-        verbose_name='Telegram Chat ID',
-        help_text='Числовой ID чата Telegram для отправки уведомлений (например: 123456789)'
+        verbose_name="Telegram Chat ID",
+        help_text="Числовой ID чата Telegram для отправки уведомлений (например: 123456789)",
     )
 
     def __str__(self):
@@ -243,23 +204,20 @@ class ParentProfile(models.Model):
     """
     Профиль родителя
     """
+
     user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name='parent_profile'
+        User, on_delete=models.CASCADE, related_name="parent_profile"
     )
 
     telegram = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name='Telegram (например: @username)'
+        max_length=100, blank=True, verbose_name="Telegram (например: @username)"
     )
 
     telegram_id = models.CharField(
         max_length=50,
         blank=True,
-        verbose_name='Telegram Chat ID',
-        help_text='Числовой ID чата Telegram для отправки уведомлений (например: 123456789)'
+        verbose_name="Telegram Chat ID",
+        help_text="Числовой ID чата Telegram для отправки уведомлений (например: 123456789)",
     )
 
     def __str__(self):
@@ -271,8 +229,7 @@ class ParentProfile(models.Model):
         Получить детей родителя через обратную связь StudentProfile.parent
         """
         return User.objects.filter(
-            student_profile__parent=self.user,
-            role=User.Role.STUDENT
+            student_profile__parent=self.user, role=User.Role.STUDENT
         )
 
 
@@ -280,29 +237,63 @@ class TutorStudentCreation(models.Model):
     """
     Запись о создании ученика тьютором с сохранением выданных учетных данных
     """
+
     tutor = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='created_students',
-        verbose_name='Тьютор'
+        related_name="created_students",
+        verbose_name="Тьютор",
     )
     student = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='creation_record',
-        verbose_name='Ученик'
+        related_name="creation_record",
+        verbose_name="Ученик",
     )
     parent = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='parent_creation_record',
-        verbose_name='Родитель'
+        related_name="parent_creation_record",
+        verbose_name="Родитель",
     )
-    student_credentials = models.JSONField(verbose_name='Учетные данные ученика')
-    parent_credentials = models.JSONField(verbose_name='Учетные данные родителя')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    student_credentials = models.JSONField(verbose_name="Учетные данные ученика")
+    parent_credentials = models.JSONField(verbose_name="Учетные данные родителя")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
     class Meta:
-        verbose_name = 'Создание ученика тьютором'
-        verbose_name_plural = 'Создания учеников тьютором'
-        ordering = ['-created_at']
+        verbose_name = "Создание ученика тьютором"
+        verbose_name_plural = "Создания учеников тьютором"
+        ordering = ["-created_at"]
+
+
+class TelegramLinkToken(models.Model):
+    """
+    Токен для привязки Telegram аккаунта к веб-аккаунту пользователя
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="telegram_link_tokens",
+        verbose_name="Пользователь",
+    )
+    token = models.CharField(
+        max_length=64, unique=True, db_index=True, verbose_name="Токен"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
+    expires_at = models.DateTimeField(verbose_name="Истекает")
+    is_used = models.BooleanField(default=False, verbose_name="Использован")
+    used_at = models.DateTimeField(null=True, blank=True, verbose_name="Использован в")
+
+    class Meta:
+        verbose_name = "Токен привязки Telegram"
+        verbose_name_plural = "Токены привязки Telegram"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"TelegramLinkToken({self.user.email}, used={self.is_used})"
+
+    def is_expired(self):
+        from django.utils import timezone
+
+        return timezone.now() > self.expires_at

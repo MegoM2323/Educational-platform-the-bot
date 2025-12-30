@@ -75,6 +75,10 @@ TELEGRAM_PUBLIC_CHAT_ID = os.getenv("TELEGRAM_PUBLIC_CHAT_ID", TELEGRAM_CHAT_ID)
 TELEGRAM_LOG_CHAT_ID = os.getenv("TELEGRAM_LOG_CHAT_ID", TELEGRAM_CHAT_ID)
 TELEGRAM_DISABLED = os.getenv('ENVIRONMENT', 'production').lower() == 'test'
 
+# Telegram Link settings (for account linking security)
+TELEGRAM_BOT_SECRET = os.getenv("TELEGRAM_BOT_SECRET", "")
+TELEGRAM_LINK_TOKEN_TTL_MINUTES = int(os.getenv("TELEGRAM_LINK_TOKEN_TTL_MINUTES", "10"))
+
 # OpenRouter API settings (for study plan generation)
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
 

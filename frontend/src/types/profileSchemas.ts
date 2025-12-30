@@ -25,7 +25,7 @@ export const studentProfileSchema = baseProfileSchema.extend({
     .optional()
     .or(z.literal('')),
   goal: z.string()
-    .max(500, 'Цель не должна превышать 500 символов')
+    .max(1000, 'Цель не должна превышать 1000 символов')
     .optional()
     .or(z.literal('')),
   telegram: z.string()
@@ -39,8 +39,8 @@ export const teacherProfileSchema = baseProfileSchema.extend({
     .max(1000, 'Биография не должна превышать 1000 символов')
     .optional()
     .or(z.literal('')),
-  specialization: z.string()
-    .max(200, 'Специализация не должна превышать 200 символов')
+  subject: z.string()
+    .max(100, 'Предмет не должен превышать 100 символов')
     .optional()
     .or(z.literal('')),
   experience_years: z.number()

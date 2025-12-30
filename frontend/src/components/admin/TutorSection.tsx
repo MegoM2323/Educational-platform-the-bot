@@ -347,7 +347,14 @@ export default function TutorSection({ onUpdate }: TutorSectionProps) {
         <EditTutorDialog
           tutor={editTutorDialog.tutor}
           open={editTutorDialog.open}
-          onOpenChange={(open) => setEditTutorDialog({ open, tutor: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditTutorDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setEditTutorDialog({ open: false, tutor: null }), 300);
+            } else {
+              setEditTutorDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             toast.success('Тьютор успешно обновлен');
             load();
@@ -361,7 +368,14 @@ export default function TutorSection({ onUpdate }: TutorSectionProps) {
         <ResetPasswordDialog
           user={resetPasswordDialog.item.user}
           open={resetPasswordDialog.open}
-          onOpenChange={(open) => setResetPasswordDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setResetPasswordDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setResetPasswordDialog({ open: false, item: null }), 300);
+            } else {
+              setResetPasswordDialog((prev) => ({ ...prev, open }));
+            }
+          }}
         />
       )}
 
@@ -370,7 +384,14 @@ export default function TutorSection({ onUpdate }: TutorSectionProps) {
         <DeleteUserDialog
           user={deleteUserDialog.item.user}
           open={deleteUserDialog.open}
-          onOpenChange={(open) => setDeleteUserDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteUserDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setDeleteUserDialog({ open: false, item: null }), 300);
+            } else {
+              setDeleteUserDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             load();
             onUpdate?.();
@@ -382,7 +403,14 @@ export default function TutorSection({ onUpdate }: TutorSectionProps) {
       {detailModal.item && (
         <UserDetailModal
           open={detailModal.open}
-          onOpenChange={(open) => setDetailModal({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailModal((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setDetailModal({ open: false, item: null }), 300);
+            } else {
+              setDetailModal((prev) => ({ ...prev, open }));
+            }
+          }}
           userId={detailModal.item.user.id}
           role="tutor"
           onUpdate={() => {
@@ -395,7 +423,14 @@ export default function TutorSection({ onUpdate }: TutorSectionProps) {
       {/* Диалог реактивации пользователя */}
       <Dialog
         open={reactivateDialog.open}
-        onOpenChange={(open) => setReactivateDialog({ ...reactivateDialog, open })}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReactivateDialog((prev) => ({ ...prev, open: false }));
+            setTimeout(() => setReactivateDialog({ open: false, item: null, isLoading: false }), 300);
+          } else {
+            setReactivateDialog((prev) => ({ ...prev, open }));
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>

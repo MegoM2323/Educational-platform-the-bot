@@ -19,10 +19,10 @@ class TelegramValidator:
             return
 
         # Удаляем @ если присутствует
-        username = value.lstrip('@')
+        username = value.lstrip("@")
 
         # Telegram username должен быть 5-32 символа, только буквы/цифры/подчеркивание
-        if not re.match(r'^[a-zA-Z0-9_]{5,32}$', username):
+        if not re.match(r"^[a-zA-Z0-9_]{5,32}$", username):
             raise serializers.ValidationError(
                 "Telegram должен быть в формате @username или username, "
                 "содержать только буквы, цифры и подчеркивание (5-32 символа)"
@@ -39,10 +39,10 @@ class PhoneValidator:
             return
 
         # Убираем пробелы, тире и скобки для проверки
-        clean_phone = re.sub(r'[\s\-\(\)]', '', value)
+        clean_phone = re.sub(r"[\s\-\(\)]", "", value)
 
         # Телефон должен содержать минимум 9 цифр
-        digits = re.findall(r'\d', clean_phone)
+        digits = re.findall(r"\d", clean_phone)
         if len(digits) < 9:
             raise serializers.ValidationError(
                 "Телефон должен содержать как минимум 9 цифр"
@@ -55,17 +55,46 @@ class StudentProfileDetailSerializer(serializers.ModelSerializer):
 
     Включает все поля профиля с полной информацией о связях.
     """
-    tutor_name = serializers.CharField(source='tutor.get_full_name', read_only=True, required=False)
-    parent_name = serializers.CharField(source='parent.get_full_name', read_only=True, required=False)
+
+    tutor_name = serializers.CharField(
+        source="tutor.get_full_name", read_only=True, required=False
+    )
+    parent_name = serializers.CharField(
+        source="parent.get_full_name", read_only=True, required=False
+    )
+    telegram_id = serializers.IntegerField(
+        read_only=True, source="user.telegram_id", allow_null=True
+    )
+    is_telegram_linked = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
         fields = (
-            'id', 'grade', 'goal', 'tutor', 'tutor_name',
-            'parent', 'parent_name', 'progress_percentage', 'streak_days',
-            'total_points', 'accuracy_percentage', 'telegram'
+            "id",
+            "grade",
+            "goal",
+            "tutor",
+            "tutor_name",
+            "parent",
+            "parent_name",
+            "progress_percentage",
+            "streak_days",
+            "total_points",
+            "accuracy_percentage",
+            "telegram",
+            "telegram_id",
+            "is_telegram_linked",
         )
-        read_only_fields = ('id', 'progress_percentage', 'streak_days', 'total_points', 'accuracy_percentage')
+        read_only_fields = (
+            "id",
+            "progress_percentage",
+            "streak_days",
+            "total_points",
+            "accuracy_percentage",
+        )
+
+    def get_is_telegram_linked(self, obj):
+        return bool(obj.user.telegram_id) if hasattr(obj, "user") else False
 
     def validate_grade(self, value):
         """Валидация поля класса"""
@@ -85,16 +114,18 @@ class StudentProfileDetailSerializer(serializers.ModelSerializer):
     def validate_goal(self, value):
         """Валидация цели обучения"""
         if value and len(value) > 1000:
-            raise serializers.ValidationError("Цель обучения не может быть длиннее 1000 символов")
+            raise serializers.ValidationError(
+                "Цель обучения не может быть длиннее 1000 символов"
+            )
 
-        return value or ''
+        return value or ""
 
     def validate_telegram(self, value):
         """Валидация Telegram username"""
         if value:
             validator = TelegramValidator()
             validator(value)
-        return value or ''
+        return value or ""
 
 
 class TeacherProfileDetailSerializer(serializers.ModelSerializer):
@@ -103,49 +134,72 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
 
     Включает информацию об опыте работы, биографию и контактные данные.
     """
+
     subjects_list = serializers.SerializerMethodField()
+    telegram_id = serializers.IntegerField(
+        read_only=True, source="user.telegram_id", allow_null=True
+    )
+    is_telegram_linked = serializers.SerializerMethodField()
 
     class Meta:
         model = TeacherProfile
         fields = (
-            'id', 'subject', 'experience_years', 'bio', 'telegram', 'subjects_list'
+            "id",
+            "subject",
+            "experience_years",
+            "bio",
+            "telegram",
+            "subjects_list",
+            "telegram_id",
+            "is_telegram_linked",
         )
+
+    def get_is_telegram_linked(self, obj):
+        return bool(obj.user.telegram_id) if hasattr(obj, "user") else False
 
     def validate_subject(self, value):
         """Валидация предмета"""
         if value and len(value) > 100:
-            raise serializers.ValidationError("Предмет не может быть длиннее 100 символов")
-        return value or ''
+            raise serializers.ValidationError(
+                "Предмет не может быть длиннее 100 символов"
+            )
+        return value or ""
 
     def validate_experience_years(self, value):
         """Валидация опыта работы"""
         if value is not None:
             if value < 0:
-                raise serializers.ValidationError("Опыт работы не может быть отрицательным")
+                raise serializers.ValidationError(
+                    "Опыт работы не может быть отрицательным"
+                )
             if value > 80:
-                raise serializers.ValidationError("Опыт работы не может быть больше 80 лет")
+                raise serializers.ValidationError(
+                    "Опыт работы не может быть больше 80 лет"
+                )
         return value or 0
 
     def validate_bio(self, value):
         """Валидация биографии"""
         if value and len(value) > 1000:
-            raise serializers.ValidationError("Биография не может быть длиннее 1000 символов")
-        return value or ''
+            raise serializers.ValidationError(
+                "Биография не может быть длиннее 1000 символов"
+            )
+        return value or ""
 
     def validate_telegram(self, value):
         """Валидация Telegram username"""
         if value:
             validator = TelegramValidator()
             validator(value)
-        return value or ''
+        return value or ""
 
     def get_subjects_list(self, obj):
         """Возвращает список предметов преподавателя из TeacherSubject"""
         from materials.models import TeacherSubject
+
         teacher_subjects = TeacherSubject.objects.filter(
-            teacher=obj.user,
-            is_active=True
-        ).select_related('subject')
+            teacher=obj.user, is_active=True
+        ).select_related("subject")
         return [ts.subject.name for ts in teacher_subjects]
 
 
@@ -155,21 +209,43 @@ class TutorProfileDetailSerializer(serializers.ModelSerializer):
 
     Включает информацию о специализации, опыте и контактных данных.
     """
+
     reportsCount = serializers.SerializerMethodField()
+    telegram_id = serializers.IntegerField(
+        read_only=True, source="user.telegram_id", allow_null=True
+    )
+    is_telegram_linked = serializers.SerializerMethodField()
 
     class Meta:
         model = TutorProfile
         fields = (
-            'id', 'specialization', 'experience_years', 'bio', 'telegram', 'reportsCount'
+            "id",
+            "specialization",
+            "experience_years",
+            "bio",
+            "telegram",
+            "reportsCount",
+            "telegram_id",
+            "is_telegram_linked",
         )
+
+    def get_is_telegram_linked(self, obj):
+        return bool(obj.user.telegram_id) if hasattr(obj, "user") else False
 
     def validate_specialization(self, value):
         """Валидация специализации"""
+        if self.partial and value is None:
+            return self.instance.specialization if self.instance else ""
+
         if not value or not str(value).strip():
+            if self.partial:
+                return self.instance.specialization if self.instance else ""
             raise serializers.ValidationError("Специализация обязательна")
 
         if len(value) > 200:
-            raise serializers.ValidationError("Специализация не может быть длиннее 200 символов")
+            raise serializers.ValidationError(
+                "Специализация не может быть длиннее 200 символов"
+            )
 
         return value.strip()
 
@@ -177,32 +253,39 @@ class TutorProfileDetailSerializer(serializers.ModelSerializer):
         """Валидация опыта работы"""
         if value is not None:
             if value < 0:
-                raise serializers.ValidationError("Опыт работы не может быть отрицательным")
+                raise serializers.ValidationError(
+                    "Опыт работы не может быть отрицательным"
+                )
             if value > 80:
-                raise serializers.ValidationError("Опыт работы не может быть больше 80 лет")
+                raise serializers.ValidationError(
+                    "Опыт работы не может быть больше 80 лет"
+                )
         return value or 0
 
     def validate_bio(self, value):
         """Валидация биографии"""
         if value and len(value) > 1000:
-            raise serializers.ValidationError("Биография не может быть длиннее 1000 символов")
-        return value or ''
+            raise serializers.ValidationError(
+                "Биография не может быть длиннее 1000 символов"
+            )
+        return value or ""
 
     def validate_telegram(self, value):
         """Валидация Telegram username"""
         if value:
             validator = TelegramValidator()
             validator(value)
-        return value or ''
+        return value or ""
 
     def get_reportsCount(self, obj):
         """Получить количество отправленных отчётов тьютора"""
         from reports.models import TutorWeeklyReport
-        return TutorWeeklyReport.objects.filter(
-            tutor=obj.user
-        ).exclude(
-            status=TutorWeeklyReport.Status.DRAFT
-        ).count()
+
+        return (
+            TutorWeeklyReport.objects.filter(tutor=obj.user)
+            .exclude(status=TutorWeeklyReport.Status.DRAFT)
+            .count()
+        )
 
 
 class ParentProfileDetailSerializer(serializers.ModelSerializer):
@@ -212,16 +295,24 @@ class ParentProfileDetailSerializer(serializers.ModelSerializer):
     Включает информацию о детях и контактные данные.
     """
 
+    telegram_id = serializers.IntegerField(
+        read_only=True, source="user.telegram_id", allow_null=True
+    )
+    is_telegram_linked = serializers.SerializerMethodField()
+
     class Meta:
         model = ParentProfile
-        fields = ('id', 'telegram')
+        fields = ("id", "telegram", "telegram_id", "is_telegram_linked")
+
+    def get_is_telegram_linked(self, obj):
+        return bool(obj.user.telegram_id) if hasattr(obj, "user") else False
 
     def validate_telegram(self, value):
         """Валидация Telegram username"""
         if value:
             validator = TelegramValidator()
             validator(value)
-        return value or ''
+        return value or ""
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
@@ -233,19 +324,21 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'phone', 'avatar')
+        fields = ("first_name", "last_name", "email", "phone", "avatar")
 
     def validate_first_name(self, value):
         """Валидация имени"""
         if value and len(value) > 150:
             raise serializers.ValidationError("Имя не может быть длиннее 150 символов")
-        return value or ''
+        return value or ""
 
     def validate_last_name(self, value):
         """Валидация фамилии"""
         if value and len(value) > 150:
-            raise serializers.ValidationError("Фамилия не может быть длиннее 150 символов")
-        return value or ''
+            raise serializers.ValidationError(
+                "Фамилия не может быть длиннее 150 символов"
+            )
+        return value or ""
 
     def validate_email(self, value):
         """Валидация email"""
@@ -253,18 +346,19 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
             # Django's built-in email validator
             from django.core.validators import validate_email
             from django.core.exceptions import ValidationError
+
             try:
                 validate_email(value)
             except ValidationError:
                 raise serializers.ValidationError("Введите корректный email адрес")
-        return value or ''
+        return value or ""
 
     def validate_phone(self, value):
         """Валидация телефонного номера"""
         if value:
             validator = PhoneValidator()
             validator(value)
-        return value or ''
+        return value or ""
 
     def validate_avatar(self, value):
         """Валидация аватара"""
@@ -276,8 +370,8 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
                 )
 
             # Проверяем расширение файла
-            allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp']
-            file_extension = value.name.split('.')[-1].lower()
+            allowed_extensions = ["jpg", "jpeg", "png", "gif", "webp"]
+            file_extension = value.name.split(".")[-1].lower()
             if file_extension not in allowed_extensions:
                 raise serializers.ValidationError(
                     f"Поддерживаются только форматы: {', '.join(allowed_extensions)}"

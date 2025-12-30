@@ -10,13 +10,14 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db.models import Prefetch
 
 from accounts.models import User, StudentProfile
 from .models import Lesson
 from .permissions import IsTutor
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated, IsTutor])
 def get_student_schedule(request, student_id):
     """
@@ -49,20 +50,21 @@ def get_student_schedule(request, student_id):
         student_profile = StudentProfile.objects.get(user=student, tutor=request.user)
     except StudentProfile.DoesNotExist:
         return Response(
-            {'error': 'Student not assigned to you'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Student not assigned to you"}, status=status.HTTP_403_FORBIDDEN
         )
 
     # Получить уроки студента с оптимизацией запросов
-    lessons = Lesson.objects.filter(
-        student=student
-    ).select_related('teacher', 'subject').order_by('date', 'start_time')
+    lessons = (
+        Lesson.objects.filter(student=student)
+        .select_related("teacher", "subject")
+        .order_by("date", "start_time")
+    )
 
     # Применить фильтры
-    date_from = request.query_params.get('date_from')
-    date_to = request.query_params.get('date_to')
-    subject_id = request.query_params.get('subject_id')
-    lesson_status = request.query_params.get('status')
+    date_from = request.query_params.get("date_from")
+    date_to = request.query_params.get("date_to")
+    subject_id = request.query_params.get("subject_id")
+    lesson_status = request.query_params.get("status")
 
     if date_from:
         lessons = lessons.filter(date__gte=date_from)
@@ -76,32 +78,36 @@ def get_student_schedule(request, student_id):
     # Сериализовать уроки
     lessons_data = []
     for lesson in lessons:
-        lessons_data.append({
-            'id': str(lesson.id),
-            'teacher': lesson.teacher.get_full_name(),
-            'teacher_id': lesson.teacher.id,
-            'subject': lesson.subject.name if lesson.subject else None,
-            'subject_id': lesson.subject.id if lesson.subject else None,
-            'date': lesson.date,
-            'start_time': lesson.start_time,
-            'end_time': lesson.end_time,
-            'status': lesson.status,
-            'description': lesson.description,
-            'telemost_link': lesson.telemost_link,
-        })
+        lessons_data.append(
+            {
+                "id": str(lesson.id),
+                "teacher": lesson.teacher.get_full_name(),
+                "teacher_id": str(lesson.teacher.id),
+                "subject": lesson.subject.name if lesson.subject else None,
+                "subject_id": str(lesson.subject.id) if lesson.subject else None,
+                "date": lesson.date,
+                "start_time": lesson.start_time,
+                "end_time": lesson.end_time,
+                "status": lesson.status,
+                "description": lesson.description,
+                "telemost_link": lesson.telemost_link,
+            }
+        )
 
-    return Response({
-        'student': {
-            'id': student.id,
-            'name': student.get_full_name(),
-            'email': student.email,
-        },
-        'lessons': lessons_data,
-        'total_lessons': len(lessons),
-    })
+    return Response(
+        {
+            "student": {
+                "id": student.id,
+                "name": student.get_full_name(),
+                "email": student.email,
+            },
+            "lessons": lessons_data,
+            "total_lessons": len(lessons),
+        }
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated, IsTutor])
 def get_all_student_schedules(request):
     """
@@ -115,47 +121,58 @@ def get_all_student_schedules(request):
     Returns:
         Response with all students, their lessons, and statistics
     """
+    # Оптимизация N+1: Создаём Prefetch объект для уроков студентов
+    lessons_prefetch = Prefetch(
+        "student_lessons",
+        queryset=Lesson.objects.select_related("teacher", "subject").order_by(
+            "date", "start_time"
+        ),
+        to_attr="prefetched_lessons",
+    )
+
     # Получить всех студентов этого тьютора с оптимизацией
-    students = User.objects.filter(
-        role=User.Role.STUDENT,
-        student_profile__tutor=request.user
-    ).select_related('student_profile')
+    students = (
+        User.objects.filter(role=User.Role.STUDENT, student_profile__tutor=request.user)
+        .select_related("student_profile")
+        .prefetch_related(lessons_prefetch)
+    )
 
     students_data = []
     for student in students:
-        # Получить уроки студента с оптимизацией
-        lessons = Lesson.objects.filter(
-            student=student
-        ).select_related('teacher', 'subject').order_by('date', 'start_time')
-
-        # Сериализовать уроки
+        # Используем предзагруженные уроки вместо дополнительного запроса
         lessons_list = []
-        for lesson in lessons:
-            lessons_list.append({
-                'id': str(lesson.id),
-                'teacher': lesson.teacher.get_full_name(),
-                'teacher_id': lesson.teacher.id,
-                'subject': lesson.subject.name if lesson.subject else None,
-                'subject_id': lesson.subject.id if lesson.subject else None,
-                'date': lesson.date,
-                'start_time': lesson.start_time,
-                'end_time': lesson.end_time,
-                'status': lesson.status,
-            })
+        for lesson in student.prefetched_lessons:
+            lessons_list.append(
+                {
+                    "id": str(lesson.id),
+                    "teacher": lesson.teacher.get_full_name(),
+                    "teacher_id": str(lesson.teacher.id),
+                    "subject": lesson.subject.name if lesson.subject else None,
+                    "subject_id": str(lesson.subject.id) if lesson.subject else None,
+                    "date": lesson.date,
+                    "start_time": lesson.start_time,
+                    "end_time": lesson.end_time,
+                    "status": lesson.status,
+                }
+            )
 
-        students_data.append({
-            'id': student.id,
-            'name': student.get_full_name(),
-            'email': student.email,
-            'lessons_count': lessons.count(),
-            'next_lesson': _get_next_lesson_data(lessons),
-            'lessons': lessons_list,
-        })
+        students_data.append(
+            {
+                "id": student.id,
+                "name": student.get_full_name(),
+                "email": student.email,
+                "lessons_count": len(lessons_list),
+                "next_lesson": _get_next_lesson_data(student.prefetched_lessons),
+                "lessons": lessons_list,
+            }
+        )
 
-    return Response({
-        'students': students_data,
-        'total_students': len(students),
-    })
+    return Response(
+        {
+            "students": students_data,
+            "total_students": len(students),
+        }
+    )
 
 
 def _get_next_lesson_data(lessons):
@@ -175,23 +192,27 @@ def _get_next_lesson_data(lessons):
         # Проверяем что урок в будущем
         if lesson.date > today:
             return {
-                'id': str(lesson.id),
-                'teacher': lesson.teacher.get_full_name(),
-                'teacher_id': lesson.teacher.id,
-                'date': lesson.date,
-                'start_time': lesson.start_time,
+                "id": str(lesson.id),
+                "teacher": lesson.teacher.get_full_name(),
+                "teacher_id": str(lesson.teacher.id),
+                "date": lesson.date,
+                "start_time": lesson.start_time,
             }
         elif lesson.date == today:
             # Если урок сегодня, проверяем время
             lesson_time = timezone.datetime.combine(lesson.date, lesson.start_time)
-            lesson_time = timezone.make_aware(lesson_time) if not timezone.is_aware(lesson_time) else lesson_time
+            lesson_time = (
+                timezone.make_aware(lesson_time)
+                if not timezone.is_aware(lesson_time)
+                else lesson_time
+            )
             if lesson_time > now:
                 return {
-                    'id': str(lesson.id),
-                    'teacher': lesson.teacher.get_full_name(),
-                    'teacher_id': lesson.teacher.id,
-                    'date': lesson.date,
-                    'start_time': lesson.start_time,
+                    "id": str(lesson.id),
+                    "teacher": lesson.teacher.get_full_name(),
+                    "teacher_id": str(lesson.teacher.id),
+                    "date": lesson.date,
+                    "start_time": lesson.start_time,
                 }
 
     return None

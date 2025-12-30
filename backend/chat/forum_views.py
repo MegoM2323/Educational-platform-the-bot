@@ -150,14 +150,31 @@ class ForumChatViewSet(viewsets.ViewSet):
                     f'[tutor_chat_list] Found {chats.count()} active chats for tutor {user.id}'
                 )
 
-                # Add tutor to participants if missing (sync old chats)
+                # Add tutor to participants if missing (sync old chats) - BULK optimization
+                chats_needing_tutor = []
+                participant_records = []
                 for chat in chats:
                     if not chat.participants.filter(id=user.id).exists():
-                        chat.participants.add(user)
-                        logger.info(
-                            f'[tutor_chat_list] Added tutor {user.id} to chat {chat.id} '
-                            f'(student={chat.enrollment.student_id})'
+                        chats_needing_tutor.append(chat)
+                        participant_records.append(
+                            ChatParticipant(room=chat, user=user)
                         )
+
+                if chats_needing_tutor:
+                    # Bulk add tutor to M2M participants
+                    for chat in chats_needing_tutor:
+                        chat.participants.add(user)
+
+                    # Bulk create ChatParticipant records (ignore conflicts)
+                    ChatParticipant.objects.bulk_create(
+                        participant_records,
+                        ignore_conflicts=True
+                    )
+
+                    logger.info(
+                        f'[tutor_chat_list] Added tutor {user.id} to {len(chats_needing_tutor)} chats '
+                        f'in bulk: {[c.id for c in chats_needing_tutor]}'
+                    )
 
             elif user.role == 'parent':
                 # Родители видят чаты своих детей

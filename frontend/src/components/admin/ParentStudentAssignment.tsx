@@ -51,12 +51,12 @@ export const ParentStudentAssignment = ({ open, onOpenChange, onSuccess }: Paren
       }
 
       if (studentsResponse.success && studentsResponse.data) {
-        const studentsList = studentsResponse.data.results.map((s) => ({
+        const studentsList = studentsResponse.data?.results?.map((s) => ({
           id: s.id,
           name: s.user.full_name,
           grade: s.grade,
           currentParent: s.parent_id ? `ID: ${s.parent_id}` : 'Не назначен',
-        }));
+        })) || [];
         setStudents(studentsList);
       }
     } catch (err) {

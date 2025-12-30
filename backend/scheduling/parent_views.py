@@ -18,7 +18,7 @@ from .permissions import IsParent
 from .serializers import LessonSerializer
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated, IsParent])
 def get_child_schedule(request, child_id):
     """
@@ -51,20 +51,21 @@ def get_child_schedule(request, child_id):
         student_profile = StudentProfile.objects.get(user=child, parent=request.user)
     except StudentProfile.DoesNotExist:
         return Response(
-            {'error': 'Child not assigned to you'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Child not assigned to you"}, status=status.HTTP_403_FORBIDDEN
         )
 
     # Получить уроки ребёнка с оптимизацией запросов
-    lessons = Lesson.objects.filter(
-        student=child
-    ).select_related('teacher', 'subject').order_by('date', 'start_time')
+    lessons = (
+        Lesson.objects.filter(student=child)
+        .select_related("teacher", "subject")
+        .order_by("date", "start_time")
+    )
 
     # Применить фильтры
-    date_from = request.query_params.get('date_from')
-    date_to = request.query_params.get('date_to')
-    subject_id = request.query_params.get('subject_id')
-    lesson_status = request.query_params.get('status')
+    date_from = request.query_params.get("date_from")
+    date_to = request.query_params.get("date_to")
+    subject_id = request.query_params.get("subject_id")
+    lesson_status = request.query_params.get("status")
 
     if date_from:
         lessons = lessons.filter(date__gte=date_from)
@@ -78,18 +79,20 @@ def get_child_schedule(request, child_id):
     # Сериализовать уроки используя LessonSerializer
     serializer = LessonSerializer(lessons, many=True)
 
-    return Response({
-        'student': {
-            'id': child.id,
-            'name': child.get_full_name(),
-            'email': child.email,
-        },
-        'lessons': serializer.data,
-        'total_lessons': len(serializer.data),
-    })
+    return Response(
+        {
+            "student": {
+                "id": child.id,
+                "name": child.get_full_name(),
+                "email": child.email,
+            },
+            "lessons": serializer.data,
+            "total_lessons": len(serializer.data),
+        }
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated, IsParent])
 def get_all_children_schedules(request):
     """
@@ -108,17 +111,22 @@ def get_all_children_schedules(request):
     # отдельного запроса для каждого ребёнка (было N+1 queries, стало 2 queries).
     # Уроки сортируются по дате и времени начала.
     lessons_prefetch = Prefetch(
-        'student_lessons',
-        queryset=Lesson.objects.select_related('teacher', 'subject').order_by('date', 'start_time'),
-        to_attr='prefetched_lessons'
+        "student_lessons",
+        queryset=Lesson.objects.select_related("teacher", "subject").order_by(
+            "date", "start_time"
+        ),
+        to_attr="prefetched_lessons",
     )
 
     # Получить всех детей этого родителя с оптимизацией.
     # prefetch_related загружает уроки одним дополнительным запросом.
-    children = User.objects.filter(
-        role=User.Role.STUDENT,
-        student_profile__parent=request.user
-    ).select_related('student_profile').prefetch_related(lessons_prefetch)
+    children = (
+        User.objects.filter(
+            role=User.Role.STUDENT, student_profile__parent=request.user
+        )
+        .select_related("student_profile")
+        .prefetch_related(lessons_prefetch)
+    )
 
     children_data = []
     for child in children:
@@ -126,25 +134,31 @@ def get_all_children_schedules(request):
         # вместо дополнительного запроса Lesson.objects.filter(student=child)
         lessons_list = []
         for lesson in child.prefetched_lessons:
-            lessons_list.append({
-                'id': str(lesson.id),
-                'teacher': lesson.teacher.get_full_name(),
-                'teacher_id': lesson.teacher.id,
-                'subject': lesson.subject.name if lesson.subject else None,
-                'subject_id': lesson.subject.id if lesson.subject else None,
-                'date': lesson.date,
-                'start_time': lesson.start_time,
-                'end_time': lesson.end_time,
-                'status': lesson.status,
-            })
+            lessons_list.append(
+                {
+                    "id": str(lesson.id),
+                    "teacher": lesson.teacher.get_full_name(),
+                    "teacher_id": str(lesson.teacher.id),
+                    "subject": lesson.subject.name if lesson.subject else None,
+                    "subject_id": str(lesson.subject.id) if lesson.subject else None,
+                    "date": lesson.date,
+                    "start_time": lesson.start_time,
+                    "end_time": lesson.end_time,
+                    "status": lesson.status,
+                }
+            )
 
-        children_data.append({
-            'id': child.id,
-            'name': child.get_full_name(),
-            'lessons': lessons_list,
-        })
+        children_data.append(
+            {
+                "id": child.id,
+                "name": child.get_full_name(),
+                "lessons": lessons_list,
+            }
+        )
 
-    return Response({
-        'children': children_data,
-        'total_children': len(children),
-    })
+    return Response(
+        {
+            "children": children_data,
+            "total_children": len(children),
+        }
+    )

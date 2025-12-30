@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 from django.db import transaction
-from .models import ChatRoom, Message, MessageRead, ChatParticipant
+from .models import ChatRoom, Message, MessageRead, ChatParticipant, MessageThread
 from .serializers import MessageSerializer
 from .permissions import check_parent_access_to_room
 from accounts.models import User as UserModel
@@ -181,12 +181,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_chat_message(data)
             elif message_type == 'message_edit':
                 await self.handle_message_edit(data)
+            elif message_type == 'message_delete':
+                await self.handle_message_delete(data)
             elif message_type == 'typing':
                 await self.handle_typing(data)
             elif message_type == 'mark_read':
                 await self.handle_mark_read(data)
             elif message_type == 'typing_stop':
                 await self.handle_typing_stop(data)
+            elif message_type == 'pin_message':
+                await self.handle_pin_message(data)
+            elif message_type == 'lock_chat':
+                await self.handle_lock_chat(data)
 
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
@@ -408,6 +414,241 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'is_edited': event['is_edited'],
             'edited_at': event['edited_at'],
         }))
+
+    async def message_deleted(self, event):
+        """Отправка уведомления об удалении сообщения клиенту"""
+        await self.send(text_data=json.dumps({
+            'type': 'message_deleted',
+            'message_id': event['message_id'],
+            'deleted_by': event.get('deleted_by'),
+            'deleted_by_role': event.get('deleted_by_role'),
+        }))
+
+    async def message_pinned(self, event):
+        """Отправка уведомления о закреплении сообщения клиенту"""
+        await self.send(text_data=json.dumps({
+            'type': 'message_pinned',
+            'data': {
+                'message_id': event['message_id'],
+                'is_pinned': event['is_pinned'],
+                'thread_id': event.get('thread_id'),
+            }
+        }))
+
+    async def chat_locked(self, event):
+        """Отправка уведомления о блокировке чата клиенту"""
+        await self.send(text_data=json.dumps({
+            'type': 'chat_locked',
+            'data': {
+                'chat_id': event['chat_id'],
+                'is_active': event['is_active'],
+            }
+        }))
+
+    async def handle_message_delete(self, data):
+        """Обработка удаления сообщения"""
+        message_id = data.get('message_id')
+
+        if not message_id:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Message ID required',
+                'code': 'validation_error'
+            }))
+            return
+
+        result = await self.delete_message(message_id)
+
+        if result.get('error'):
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': result['error'],
+                'code': result.get('code', 'delete_error')
+            }))
+            return
+
+        await self.send(text_data=json.dumps({
+            'type': 'message_delete_confirmed',
+            'message_id': message_id,
+            'status': 'deleted'
+        }))
+
+        logger.info(f'[HandleMessageDelete] Broadcasting delete to group {self.room_group_name}, message_id={message_id}')
+        try:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'message_deleted',
+                    'message_id': message_id,
+                    'deleted_by': self.scope['user'].id,
+                    'deleted_by_role': result.get('deleted_by_role', 'author'),
+                }
+            )
+        except Exception as e:
+            logger.error(f'Channel layer error broadcasting message_deleted in room {self.room_id}: {e}', exc_info=True)
+
+    async def handle_pin_message(self, data):
+        """Обработка закрепления сообщения"""
+        message_id = data.get('message_id')
+
+        if not message_id:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Message ID required',
+                'code': 'validation_error'
+            }))
+            return
+
+        result = await self.pin_message(message_id)
+
+        if result.get('error'):
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': result['error'],
+                'code': result.get('code', 'pin_error')
+            }))
+            return
+
+        logger.info(f'[HandlePinMessage] Broadcasting pin to group {self.room_group_name}, message_id={message_id}')
+        try:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'message_pinned',
+                    'message_id': message_id,
+                    'is_pinned': result['is_pinned'],
+                    'thread_id': result.get('thread_id'),
+                }
+            )
+        except Exception as e:
+            logger.error(f'Channel layer error broadcasting message_pinned in room {self.room_id}: {e}', exc_info=True)
+
+    async def handle_lock_chat(self, data):
+        """Обработка блокировки чата"""
+        result = await self.lock_chat()
+
+        if result.get('error'):
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': result['error'],
+                'code': result.get('code', 'lock_error')
+            }))
+            return
+
+        logger.info(f'[HandleLockChat] Broadcasting lock to group {self.room_group_name}')
+        try:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'chat_locked',
+                    'chat_id': self.room_id,
+                    'is_active': result['is_active'],
+                }
+            )
+        except Exception as e:
+            logger.error(f'Channel layer error broadcasting chat_locked in room {self.room_id}: {e}', exc_info=True)
+
+    @database_sync_to_async
+    def delete_message(self, message_id):
+        """
+        Удаление сообщения (soft delete).
+
+        Проверяет:
+        - Существование сообщения
+        - Принадлежность сообщения текущей комнате
+        - Что пользователь является автором или модератором
+
+        Возвращает dict с результатом или error.
+        """
+        from django.utils import timezone
+
+        try:
+            message = Message.objects.get(id=message_id)
+        except Message.DoesNotExist:
+            return {'error': 'Message not found', 'code': 'not_found'}
+
+        if str(message.room_id) != str(self.room_id):
+            return {'error': 'Message does not belong to this room', 'code': 'access_denied'}
+
+        user = self.scope['user']
+        is_author = message.sender_id == user.id
+        is_moderator = user.is_staff or user.is_superuser or user.role in ['teacher', 'admin']
+
+        if not is_author and not is_moderator:
+            return {'error': 'You can only delete your own messages', 'code': 'access_denied'}
+
+        if message.is_deleted:
+            return {'error': 'Message already deleted', 'code': 'validation_error'}
+
+        message.is_deleted = True
+        message.deleted_at = timezone.now()
+        message.deleted_by = user
+        message.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+
+        logger.info(f'[delete_message] Message {message_id} deleted by user {user.id}')
+        return {'deleted_by_role': 'author' if is_author else 'moderator'}
+
+    @database_sync_to_async
+    def pin_message(self, message_id):
+        """
+        Закрепление/открепление сообщения.
+
+        Только для модераторов (teacher, tutor, admin, staff).
+
+        Возвращает dict с is_pinned или error.
+        """
+        try:
+            message = Message.objects.get(id=message_id, room_id=self.room_id, is_deleted=False)
+        except Message.DoesNotExist:
+            return {'error': 'Message not found', 'code': 'not_found'}
+
+        user = self.scope['user']
+        is_moderator = user.is_staff or user.is_superuser or user.role in ['teacher', 'tutor', 'admin']
+
+        if not is_moderator:
+            return {'error': 'Permission denied. Moderation rights required.', 'code': 'access_denied'}
+
+        if not message.thread:
+            thread = MessageThread.objects.create(
+                room_id=self.room_id,
+                title=message.content[:100] if message.content else f"Thread #{message.id}",
+                created_by=message.sender
+            )
+            message.thread = thread
+            message.save(update_fields=['thread'])
+
+        thread = message.thread
+        thread.is_pinned = not thread.is_pinned
+        thread.save(update_fields=['is_pinned', 'updated_at'])
+
+        logger.info(f'[pin_message] Message {message_id} {"pinned" if thread.is_pinned else "unpinned"} by user {user.id}')
+        return {'is_pinned': thread.is_pinned, 'thread_id': str(thread.id)}
+
+    @database_sync_to_async
+    def lock_chat(self):
+        """
+        Блокировка/разблокировка чата.
+
+        Только для модераторов (teacher, tutor, admin, staff).
+
+        Возвращает dict с is_active или error.
+        """
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
+        except ChatRoom.DoesNotExist:
+            return {'error': 'Chat not found', 'code': 'not_found'}
+
+        user = self.scope['user']
+        is_moderator = user.is_staff or user.is_superuser or user.role in ['teacher', 'tutor', 'admin']
+
+        if not is_moderator:
+            return {'error': 'Permission denied. Moderation rights required.', 'code': 'access_denied'}
+
+        room.is_active = not room.is_active
+        room.save(update_fields=['is_active', 'updated_at'])
+
+        logger.info(f'[lock_chat] Room {self.room_id} {"unlocked" if room.is_active else "locked"} by user {user.id}')
+        return {'is_active': room.is_active}
 
     @database_sync_to_async
     def check_room_access(self):

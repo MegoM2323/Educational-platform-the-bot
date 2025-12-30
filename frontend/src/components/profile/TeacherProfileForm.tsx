@@ -42,7 +42,7 @@ export const TeacherProfileForm = ({
       last_name: initialData?.last_name || '',
       phone: initialData?.phone || '',
       bio: initialData?.bio || '',
-      specialization: initialData?.specialization || '',
+      subject: initialData?.subject || '',
       experience_years: initialData?.experience_years || undefined,
       telegram: initialData?.telegram || '',
     },
@@ -172,21 +172,21 @@ export const TeacherProfileForm = ({
 
             <FormField
               control={form.control}
-              name="specialization"
+              name="subject"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="specialization">Специализация</FormLabel>
+                  <FormLabel htmlFor="subject">Предмет</FormLabel>
                   <FormControl>
                     <Input
-                      id="specialization"
-                      placeholder="Ваша специализация"
+                      id="subject"
+                      placeholder="Ваш предмет"
                       {...field}
-                      aria-label="Специализация учителя"
+                      aria-label="Предмет учителя"
                       disabled={isLoading}
                     />
                   </FormControl>
                   <p className="text-xs text-gray-500">
-                    Максимум 200 символов
+                    Максимум 100 символов
                   </p>
                   <FormMessage />
                 </FormItem>

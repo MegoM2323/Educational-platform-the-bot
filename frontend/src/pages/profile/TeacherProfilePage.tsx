@@ -17,6 +17,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ChevronLeft, Upload, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { TelegramLinkButton } from '@/components/profile/TelegramLinkButton';
 
 interface Subject {
   id: number;
@@ -27,7 +28,7 @@ interface Subject {
 export const TeacherProfilePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile, isLoading, updateProfile, isUpdating } = useTeacherProfile();
+  const { profile, isLoading, updateProfile, isUpdating, refetch } = useTeacherProfile();
 
   const { data: allSubjects } = useQuery({
     queryKey: ['allSubjects'],
@@ -448,6 +449,19 @@ export const TeacherProfilePage = () => {
                       className="h-10"
                     />
                     <p className="text-xs text-[hsl(240,5%,55%)]">Формат: @username или username</p>
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t">
+                    <Label className="text-sm font-medium">
+                      Привязка Telegram
+                    </Label>
+                    <p className="text-xs text-[hsl(240,5%,55%)] mb-2">
+                      Привяжите аккаунт Telegram для получения уведомлений
+                    </p>
+                    <TelegramLinkButton
+                      isLinked={!!profile?.profile?.is_telegram_linked}
+                      onStatusChange={refetch}
+                    />
                   </div>
                 </CardContent>
 

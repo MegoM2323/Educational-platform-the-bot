@@ -103,7 +103,7 @@ const TutorSchedulePage: React.FC = () => {
                       <SelectContent>
                         {students?.map(student => (
                           <SelectItem key={student.id} value={String(student.id)}>
-                            {student.full_name}
+                            {student.full_name || student.name || `Student ${student.id}`}
                           </SelectItem>
                         ))}
                       </SelectContent>

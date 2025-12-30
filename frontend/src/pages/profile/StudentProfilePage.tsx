@@ -14,11 +14,12 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ChevronLeft, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { TelegramLinkButton } from '@/components/profile/TelegramLinkButton';
 
 export const StudentProfilePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile, isLoading, updateProfile, isUpdating } = useStudentProfile();
+  const { profile, isLoading, updateProfile, isUpdating, refetch } = useStudentProfile();
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -379,6 +380,19 @@ export const StudentProfilePage = () => {
                       className="h-10"
                     />
                     <p className="text-xs text-[hsl(240,5%,55%)]">Формат: @username или username</p>
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t">
+                    <Label className="text-sm font-medium">
+                      Привязка Telegram
+                    </Label>
+                    <p className="text-xs text-[hsl(240,5%,55%)] mb-2">
+                      Привяжите аккаунт Telegram для получения уведомлений
+                    </p>
+                    <TelegramLinkButton
+                      isLinked={!!profile?.profile?.is_telegram_linked}
+                      onStatusChange={refetch}
+                    />
                   </div>
                 </CardContent>
 

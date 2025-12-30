@@ -52,6 +52,8 @@ export interface ChatEventHandlers {
   onMessagePinned?: (data: { message_id: number; is_pinned: boolean; thread_id?: number }) => void;
   onChatLocked?: (data: { chat_id: number; is_active: boolean }) => void;
   onUserMuted?: (data: { user_id: number; is_muted: boolean }) => void;
+  onMessageEdited?: (data: { message_id: number; content: string; is_edited: boolean; edited_at: string }) => void;
+  onMessageDeleted?: (data: { message_id: number }) => void;
 }
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'auth_error' | 'error';
@@ -489,8 +491,12 @@ export class ChatWebSocketService {
         if (!message.message || typeof message.message !== 'object') {
           return { valid: false, error: 'chat_message must contain message object' };
         }
-        if (!message.message.id || !message.message.content) {
-          return { valid: false, error: 'chat_message.message must have id and content' };
+        if (!message.message.id) {
+          return { valid: false, error: 'chat_message.message must have id' };
+        }
+        // Allow empty content for file/image messages
+        if (!message.message.content && !message.message.file && !message.message.image) {
+          return { valid: false, error: 'chat_message.message must have content, file, or image' };
         }
         break;
 
@@ -651,6 +657,32 @@ export class ChatWebSocketService {
         });
         if (message.data && this.eventHandlers.onUserMuted) {
           this.eventHandlers.onUserMuted(message.data);
+        }
+        break;
+
+      case 'message_edited':
+        logger.debug('[ChatWebSocketService] Message edited event:', {
+          messageId: message.message_id || message.data?.message_id,
+          content: message.content || message.data?.content
+        });
+        if (this.eventHandlers.onMessageEdited) {
+          const editData = message.data || {
+            message_id: message.message_id,
+            content: message.content,
+            is_edited: message.is_edited,
+            edited_at: message.edited_at
+          };
+          this.eventHandlers.onMessageEdited(editData);
+        }
+        break;
+
+      case 'message_deleted':
+        logger.debug('[ChatWebSocketService] Message deleted event:', {
+          messageId: message.message_id || message.data?.message_id
+        });
+        if (this.eventHandlers.onMessageDeleted) {
+          const deleteData = message.data || { message_id: message.message_id };
+          this.eventHandlers.onMessageDeleted(deleteData);
         }
         break;
 

@@ -102,6 +102,7 @@ export interface Tutor {
 export interface Parent {
   id: number;
   user: User;
+  children_count?: number;
 }
 
 /**

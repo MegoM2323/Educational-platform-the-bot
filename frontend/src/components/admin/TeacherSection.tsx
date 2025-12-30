@@ -381,7 +381,14 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
         <EditTeacherDialog
           teacher={editTeacherDialog.teacher}
           open={editTeacherDialog.open}
-          onOpenChange={(open) => setEditTeacherDialog({ open, teacher: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditTeacherDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setEditTeacherDialog({ open: false, teacher: null }), 300);
+            } else {
+              setEditTeacherDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             toast.success('Преподаватель успешно обновлен');
             load();
@@ -395,7 +402,14 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
         <EditTeacherSubjectsDialog
           teacher={editSubjectsDialog.teacher}
           open={editSubjectsDialog.open}
-          onOpenChange={(open) => setEditSubjectsDialog({ open, teacher: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditSubjectsDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setEditSubjectsDialog({ open: false, teacher: null }), 300);
+            } else {
+              setEditSubjectsDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             toast.success('Предметы обновлены');
             load();
@@ -408,7 +422,14 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
         <ResetPasswordDialog
           user={resetPasswordDialog.item.user}
           open={resetPasswordDialog.open}
-          onOpenChange={(open) => setResetPasswordDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setResetPasswordDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setResetPasswordDialog({ open: false, item: null }), 300);
+            } else {
+              setResetPasswordDialog((prev) => ({ ...prev, open }));
+            }
+          }}
         />
       )}
 
@@ -417,7 +438,14 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
         <DeleteUserDialog
           user={deleteUserDialog.item.user}
           open={deleteUserDialog.open}
-          onOpenChange={(open) => setDeleteUserDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteUserDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setDeleteUserDialog({ open: false, item: null }), 300);
+            } else {
+              setDeleteUserDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             load();
             onUpdate?.();
@@ -428,7 +456,14 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
       {/* Диалог реактивации пользователя */}
       <Dialog
         open={reactivateDialog.open}
-        onOpenChange={(open) => setReactivateDialog({ ...reactivateDialog, open })}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReactivateDialog((prev) => ({ ...prev, open: false }));
+            setTimeout(() => setReactivateDialog({ open: false, item: null, isLoading: false }), 300);
+          } else {
+            setReactivateDialog((prev) => ({ ...prev, open }));
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>
@@ -461,7 +496,14 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
       {detailModal.item && (
         <UserDetailModal
           open={detailModal.open}
-          onOpenChange={(open) => setDetailModal({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailModal((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setDetailModal({ open: false, item: null }), 300);
+            } else {
+              setDetailModal((prev) => ({ ...prev, open }));
+            }
+          }}
           userId={detailModal.item.user.id}
           role="teacher"
           onUpdate={() => {

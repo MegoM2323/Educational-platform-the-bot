@@ -263,7 +263,14 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
         <EditUserDialog
           user={editUserDialog.item.user}
           open={editUserDialog.open}
-          onOpenChange={(open) => setEditUserDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditUserDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setEditUserDialog({ open: false, item: null }), 300);
+            } else {
+              setEditUserDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             loadParents();
             onUpdate?.();
@@ -276,7 +283,14 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
         <ResetPasswordDialog
           user={resetPasswordDialog.item.user}
           open={resetPasswordDialog.open}
-          onOpenChange={(open) => setResetPasswordDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setResetPasswordDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setResetPasswordDialog({ open: false, item: null }), 300);
+            } else {
+              setResetPasswordDialog((prev) => ({ ...prev, open }));
+            }
+          }}
         />
       )}
 
@@ -285,7 +299,14 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
         <DeleteUserDialog
           user={deleteUserDialog.item.user}
           open={deleteUserDialog.open}
-          onOpenChange={(open) => setDeleteUserDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteUserDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setDeleteUserDialog({ open: false, item: null }), 300);
+            } else {
+              setDeleteUserDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             loadParents();
             onUpdate?.();
@@ -297,7 +318,14 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
       {detailModal.item && (
         <UserDetailModal
           open={detailModal.open}
-          onOpenChange={(open) => setDetailModal({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailModal((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setDetailModal({ open: false, item: null }), 300);
+            } else {
+              setDetailModal((prev) => ({ ...prev, open }));
+            }
+          }}
           userId={detailModal.item.user.id}
           role="parent"
           onUpdate={() => {
@@ -310,7 +338,14 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
       {/* Диалог реактивации пользователя */}
       <Dialog
         open={reactivateDialog.open}
-        onOpenChange={(open) => setReactivateDialog({ ...reactivateDialog, open })}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReactivateDialog((prev) => ({ ...prev, open: false }));
+            setTimeout(() => setReactivateDialog({ open: false, item: null, isLoading: false }), 300);
+          } else {
+            setReactivateDialog((prev) => ({ ...prev, open }));
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>

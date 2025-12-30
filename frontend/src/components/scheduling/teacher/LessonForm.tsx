@@ -407,7 +407,10 @@ export const LessonForm: React.FC<LessonFormProps> = ({
         />
 
         <Button type="submit" disabled={isLoading} className="w-full">
-          {isLoading ? 'Creating...' : initialData ? 'Update Lesson' : 'Create Lesson'}
+          {isLoading
+            ? (initialData ? 'Saving...' : 'Creating...')
+            : (initialData ? 'Update Lesson' : 'Create Lesson')
+          }
         </Button>
       </form>
     </Form>

@@ -18,7 +18,7 @@ from scheduling.serializers import (
     LessonSerializer,
     LessonCreateSerializer,
     LessonUpdateSerializer,
-    LessonHistorySerializer
+    LessonHistorySerializer,
 )
 from scheduling.services.lesson_service import LessonService
 from scheduling.permissions import IsTeacher, IsStudent
@@ -34,8 +34,9 @@ class LessonPagination(PageNumberPagination):
     - max_page_size: максимум 100 элементов на страницу
     - page_size_query_param: клиент может запросить размер через ?page_size=N
     """
+
     page_size = 50
-    page_size_query_param = 'page_size'
+    page_size_query_param = "page_size"
     max_page_size = 100
 
 
@@ -54,38 +55,38 @@ class LessonViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Get lessons filtered by user role."""
         user = self.request.user
-        now = timezone.now()
 
-        if user.role == 'teacher':
+        if user.role == "teacher":
             # Teachers see their created lessons
             queryset = Lesson.objects.filter(teacher=user)
-        elif user.role == 'student':
+        elif user.role == "student":
             # Students see their own lessons
             queryset = Lesson.objects.filter(student=user)
-        elif user.role == 'tutor':
+        elif user.role == "tutor":
             # Tutors see lessons for their students
             from accounts.models import StudentProfile
 
-            student_ids = StudentProfile.objects.filter(
-                tutor=user
-            ).values_list('user_id', flat=True)
+            student_ids = StudentProfile.objects.filter(tutor=user).values_list(
+                "user_id", flat=True
+            )
 
             queryset = Lesson.objects.filter(student_id__in=student_ids)
-        elif user.role == 'parent':
+        elif user.role == "parent":
             # Parents see lessons for their children
             from accounts.models import StudentProfile
-            children_ids = StudentProfile.objects.filter(
-                parent=user
-            ).values_list('user_id', flat=True)
+
+            children_ids = StudentProfile.objects.filter(parent=user).values_list(
+                "user_id", flat=True
+            )
             queryset = Lesson.objects.filter(student_id__in=children_ids)
         else:
             # Other roles see nothing
             queryset = Lesson.objects.none()
 
         # Always optimize queries
-        queryset = queryset.select_related(
-            'teacher', 'student', 'subject'
-        ).order_by('date', 'start_time')
+        queryset = queryset.select_related("teacher", "student", "subject").order_by(
+            "date", "start_time"
+        )
 
         return queryset
 
@@ -134,54 +135,48 @@ class LessonViewSet(viewsets.ModelViewSet):
         }
         """
         # Only teachers can create lessons
-        if request.user.role != 'teacher':
+        if request.user.role != "teacher":
             return Response(
-                {'error': 'Only teachers can create lessons'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Only teachers can create lessons"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Validate input
         serializer = LessonCreateSerializer(
-            data=request.data,
-            context={'request': request}
+            data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
 
         try:
             # Use service to create lesson
-            student_id = serializer.validated_data['student']
-            subject_id = serializer.validated_data['subject']
+            student_id = serializer.validated_data["student"]
+            subject_id = serializer.validated_data["subject"]
 
             # Fetch actual objects
             from django.contrib.auth import get_user_model
+
             User = get_user_model()
 
-            student_obj = User.objects.get(id=student_id, role='student')
+            student_obj = User.objects.get(id=student_id, role="student")
             subject_obj = Subject.objects.get(id=subject_id)
 
             lesson = LessonService.create_lesson(
                 teacher=request.user,
                 student=student_obj,
                 subject=subject_obj,
-                date=serializer.validated_data['date'],
-                start_time=serializer.validated_data['start_time'],
-                end_time=serializer.validated_data['end_time'],
-                description=serializer.validated_data.get('description', ''),
-                telemost_link=serializer.validated_data.get('telemost_link', '')
+                date=serializer.validated_data["date"],
+                start_time=serializer.validated_data["start_time"],
+                end_time=serializer.validated_data["end_time"],
+                description=serializer.validated_data.get("description", ""),
+                telemost_link=serializer.validated_data.get("telemost_link", ""),
             )
 
             # Return created lesson
             output_serializer = LessonSerializer(lesson)
-            return Response(
-                output_serializer.data,
-                status=status.HTTP_201_CREATED
-            )
+            return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
         except (DjangoValidationError, User.DoesNotExist, Subject.DoesNotExist) as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
         """
@@ -200,30 +195,26 @@ class LessonViewSet(viewsets.ModelViewSet):
             lesson = self.get_object()
         except Lesson.DoesNotExist:
             return Response(
-                {'error': 'Lesson not found'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Lesson not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         # Only teacher can update
         if lesson.teacher != request.user:
             return Response(
-                {'error': 'Only the teacher who created this lesson can update it'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Only the teacher who created this lesson can update it"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Validate input
         serializer = LessonUpdateSerializer(
-            data=request.data,
-            context={'lesson': lesson}
+            data=request.data, context={"lesson": lesson}
         )
         serializer.is_valid(raise_exception=True)
 
         try:
             # Use service to update lesson
             updated_lesson = LessonService.update_lesson(
-                lesson=lesson,
-                updates=serializer.validated_data,
-                user=request.user
+                lesson=lesson, updates=serializer.validated_data, user=request.user
             )
 
             # Return updated lesson
@@ -231,10 +222,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             return Response(output_serializer.data)
 
         except DjangoValidationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def partial_update(self, request, pk=None):
         """
@@ -253,31 +241,26 @@ class LessonViewSet(viewsets.ModelViewSet):
             lesson = self.get_object()
         except Lesson.DoesNotExist:
             return Response(
-                {'error': 'Lesson not found'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Lesson not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         # Only teacher can update
         if lesson.teacher != request.user:
             return Response(
-                {'error': 'Only the teacher who created this lesson can update it'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Only the teacher who created this lesson can update it"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Validate input (partial=True allows optional fields)
         serializer = LessonUpdateSerializer(
-            data=request.data,
-            partial=True,
-            context={'lesson': lesson}
+            data=request.data, partial=True, context={"lesson": lesson}
         )
         serializer.is_valid(raise_exception=True)
 
         try:
             # Use service to update lesson
             updated_lesson = LessonService.update_lesson(
-                lesson=lesson,
-                updates=serializer.validated_data,
-                user=request.user
+                lesson=lesson, updates=serializer.validated_data, user=request.user
             )
 
             # Return updated lesson
@@ -285,10 +268,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             return Response(output_serializer.data)
 
         except DjangoValidationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
         """
@@ -302,15 +282,14 @@ class LessonViewSet(viewsets.ModelViewSet):
             lesson = self.get_object()
         except Lesson.DoesNotExist:
             return Response(
-                {'error': 'Lesson not found'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Lesson not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         # Only teacher can delete
         if lesson.teacher != request.user:
             return Response(
-                {'error': 'Only the teacher who created this lesson can cancel it'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Only the teacher who created this lesson can cancel it"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         try:
@@ -321,12 +300,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         except DjangoValidationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def my_schedule(self, request):
         """
         Get current user's schedule (role-aware) with pagination.
@@ -349,10 +325,10 @@ class LessonViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
 
         # Apply date filters if provided
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
-        status_filter = request.query_params.get('status')
-        subject_id = request.query_params.get('subject_id')
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        status_filter = request.query_params.get("status")
+        subject_id = request.query_params.get("subject_id")
 
         if date_from:
             queryset = queryset.filter(date__gte=date_from)
@@ -373,7 +349,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def student_schedule(self, request):
         """
         Get lessons for a specific student (tutor or parent) with pagination.
@@ -393,17 +369,16 @@ class LessonViewSet(viewsets.ModelViewSet):
         Parents can access their children's schedules.
         """
         # Only tutors and parents can access
-        if request.user.role not in ['tutor', 'parent']:
+        if request.user.role not in ["tutor", "parent"]:
             return Response(
-                {'error': 'Only tutors and parents can view student schedules'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Only tutors and parents can view student schedules"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-        student_id = request.query_params.get('student_id')
+        student_id = request.query_params.get("student_id")
         if not student_id:
             return Response(
-                {'error': 'student_id is required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         # Валидация формата student_id (должен быть целым числом)
@@ -411,37 +386,36 @@ class LessonViewSet(viewsets.ModelViewSet):
             student_id_int = int(student_id)
         except ValueError:
             return Response(
-                {'error': 'Invalid student_id format. Expected integer.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Invalid student_id format. Expected integer."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            if request.user.role == 'tutor':
+            if request.user.role == "tutor":
                 # Use service to get lessons (validates tutor manages student)
                 queryset = LessonService.get_tutor_student_lessons(
-                    tutor=request.user,
-                    student_id=student_id_int
+                    tutor=request.user, student_id=student_id_int
                 )
             else:
                 # Parent role - verify parent relationship
                 from accounts.models import StudentProfile
+
                 if not StudentProfile.objects.filter(
-                    user_id=student_id_int,
-                    parent=request.user
+                    user_id=student_id_int, parent=request.user
                 ).exists():
                     return Response(
-                        {'error': 'You can only view schedules for your children'},
-                        status=status.HTTP_403_FORBIDDEN
+                        {"error": "You can only view schedules for your children"},
+                        status=status.HTTP_403_FORBIDDEN,
                     )
                 queryset = Lesson.objects.filter(
                     student_id=student_id_int
-                ).select_related('teacher', 'student', 'subject')
+                ).select_related("teacher", "student", "subject")
 
             # Apply filters
-            date_from = request.query_params.get('date_from')
-            date_to = request.query_params.get('date_to')
-            status_filter = request.query_params.get('status')
-            subject_id = request.query_params.get('subject_id')
+            date_from = request.query_params.get("date_from")
+            date_to = request.query_params.get("date_to")
+            status_filter = request.query_params.get("status")
+            subject_id = request.query_params.get("subject_id")
 
             if date_from:
                 queryset = queryset.filter(date__gte=date_from)
@@ -463,12 +437,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
 
         except DjangoValidationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def history(self, request, pk=None):
         """
         Get history of changes for a lesson.
@@ -479,36 +450,34 @@ class LessonViewSet(viewsets.ModelViewSet):
             lesson = self.get_object()
         except Lesson.DoesNotExist:
             return Response(
-                {'error': 'Lesson not found'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Lesson not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         # Verify permission to view history
         # Teacher, student, tutor (via get_queryset), or parent of student
         has_permission = (
-            lesson.teacher == request.user or
-            lesson.student == request.user
+            lesson.teacher == request.user or lesson.student == request.user
         )
 
         # Check if parent has access to this lesson (child is the student)
-        if not has_permission and request.user.role == 'parent':
+        if not has_permission and request.user.role == "parent":
             from accounts.models import StudentProfile
+
             has_permission = StudentProfile.objects.filter(
-                user=lesson.student,
-                parent=request.user
+                user=lesson.student, parent=request.user
             ).exists()
 
         if not has_permission:
             return Response(
-                {'error': 'You do not have permission to view this lesson'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "You do not have permission to view this lesson"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-        history = LessonHistory.objects.filter(lesson=lesson).order_by('-timestamp')
+        history = LessonHistory.objects.filter(lesson=lesson).order_by("-timestamp")
         serializer = LessonHistorySerializer(history, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def upcoming(self, request):
         """
         Get next upcoming lessons for current user (role-aware).

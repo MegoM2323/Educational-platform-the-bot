@@ -34,8 +34,8 @@ def normalize_time_format(value):
         return value
 
     # Если строка в формате HH:MM - добавляем секунды
-    if isinstance(value, str) and value.count(':') == 1:
-        return value + ':00'
+    if isinstance(value, str) and value.count(":") == 1:
+        return value + ":00"
 
     return value
 
@@ -61,28 +61,19 @@ class SubjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Subject
-        fields = ['id', 'name', 'description', 'color']
+        fields = ["id", "name", "description", "color"]
 
 
 class LessonSerializer(serializers.ModelSerializer):
     """Serializer for lessons with computed fields."""
 
-    teacher_name = serializers.CharField(
-        source='teacher.get_full_name',
-        read_only=True
-    )
-    student_name = serializers.CharField(
-        source='student.get_full_name',
-        read_only=True
-    )
-    subject_name = serializers.CharField(
-        source='subject.name',
-        read_only=True
-    )
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    student_name = serializers.CharField(source="student.get_full_name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
     # Explicit ID fields for frontend compatibility
-    teacher_id = serializers.UUIDField(source='teacher.id', read_only=True)
-    subject_id = serializers.UUIDField(source='subject.id', read_only=True)
-    student_id = serializers.UUIDField(source='student.id', read_only=True)
+    teacher_id = serializers.UUIDField(source="teacher.id", read_only=True)
+    subject_id = serializers.UUIDField(source="subject.id", read_only=True)
+    student_id = serializers.UUIDField(source="student.id", read_only=True)
     is_upcoming = serializers.BooleanField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
     datetime_start = serializers.DateTimeField(read_only=True)
@@ -91,35 +82,55 @@ class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = [
-            'id', 'teacher', 'student', 'subject',
-            'teacher_id', 'student_id', 'subject_id',
-            'teacher_name', 'student_name', 'subject_name',
-            'date', 'start_time', 'end_time',
-            'description', 'telemost_link',
-            'status', 'is_upcoming', 'can_cancel',
-            'datetime_start', 'datetime_end',
-            'created_at', 'updated_at'
+            "id",
+            "teacher",
+            "student",
+            "subject",
+            "teacher_id",
+            "student_id",
+            "subject_id",
+            "teacher_name",
+            "student_name",
+            "subject_name",
+            "date",
+            "start_time",
+            "end_time",
+            "description",
+            "telemost_link",
+            "status",
+            "is_upcoming",
+            "can_cancel",
+            "datetime_start",
+            "datetime_end",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = [
-            'id', 'created_at', 'updated_at',
-            'teacher_name', 'student_name', 'subject_name',
-            'teacher_id', 'student_id', 'subject_id'
+            "id",
+            "created_at",
+            "updated_at",
+            "teacher_name",
+            "student_name",
+            "subject_name",
+            "teacher_id",
+            "student_id",
+            "subject_id",
         ]
 
     def validate(self, data):
         """Validate lesson data."""
         # Validate time range
-        if 'start_time' in data and 'end_time' in data:
-            if data['start_time'] >= data['end_time']:
+        if "start_time" in data and "end_time" in data:
+            if data["start_time"] >= data["end_time"]:
                 raise serializers.ValidationError(
-                    {'end_time': 'End time must be after start time'}
+                    {"end_time": "End time must be after start time"}
                 )
 
         # Validate date not in past
-        if 'date' in data:
-            if data['date'] < timezone.now().date():
+        if "date" in data:
+            if data["date"] < timezone.now().date():
                 raise serializers.ValidationError(
-                    {'date': 'Cannot create lesson in the past'}
+                    {"date": "Cannot create lesson in the past"}
                 )
 
         return data
@@ -139,9 +150,9 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
     def validate_student(self, value):
         """Validate student exists and has role=student."""
         try:
-            user = User.objects.get(id=value, role='student')
+            user = User.objects.get(id=value, role="student")
         except User.DoesNotExist:
-            raise serializers.ValidationError('Student not found')
+            raise serializers.ValidationError("Student not found")
         return value
 
     def validate_subject(self, value):
@@ -149,27 +160,27 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
         try:
             Subject.objects.get(id=value)
         except Subject.DoesNotExist:
-            raise serializers.ValidationError('Subject not found')
+            raise serializers.ValidationError("Subject not found")
         return value
 
     def validate(self, data):
         """Validate lesson creation."""
         # Проверяем наличие request в контексте
-        if 'request' not in self.context:
+        if "request" not in self.context:
             raise serializers.ValidationError(
-                {'non_field_errors': 'Request context is required for validation'}
+                {"non_field_errors": "Request context is required for validation"}
             )
 
         # Validate time range
-        if data['start_time'] >= data['end_time']:
+        if data["start_time"] >= data["end_time"]:
             raise serializers.ValidationError(
-                {'end_time': 'End time must be after start time'}
+                {"end_time": "End time must be after start time"}
             )
 
         # Validate date not in past
-        if data['date'] < timezone.now().date():
+        if data["date"] < timezone.now().date():
             raise serializers.ValidationError(
-                {'date': 'Cannot create lesson in the past'}
+                {"date": "Cannot create lesson in the past"}
             )
 
         # Validate teacher teaches subject to student
@@ -177,34 +188,34 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
         from scheduling.services.lesson_service import LessonService
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        teacher = self.context['request'].user
-        student_id = data['student']
-        subject_id = data['subject']
+        teacher = self.context["request"].user
+        student_id = data["student"]
+        subject_id = data["subject"]
 
         try:
             SubjectEnrollment.objects.get(
                 student_id=student_id,
                 teacher=teacher,
                 subject_id=subject_id,
-                is_active=True
+                is_active=True,
             )
         except SubjectEnrollment.DoesNotExist:
             raise serializers.ValidationError(
-                'You do not teach this subject to this student'
+                "You do not teach this subject to this student"
             )
 
         # Check for time conflicts
         try:
             student = User.objects.get(id=student_id)
             LessonService._check_time_conflicts(
-                date=data['date'],
-                start_time=data['start_time'],
-                end_time=data['end_time'],
+                date=data["date"],
+                start_time=data["start_time"],
+                end_time=data["end_time"],
                 teacher=teacher,
-                student=student
+                student=student,
             )
         except DjangoValidationError as e:
-            raise serializers.ValidationError({'non_field_errors': str(e)})
+            raise serializers.ValidationError({"non_field_errors": str(e)})
 
         return data
 
@@ -218,42 +229,43 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True)
     telemost_link = serializers.URLField(required=False, allow_blank=True)
     status = serializers.ChoiceField(
-        choices=['pending', 'confirmed', 'completed', 'cancelled'],
-        required=False
+        choices=["pending", "confirmed", "completed", "cancelled"], required=False
     )
 
     def validate(self, data):
         """Validate update data."""
         # Validate time range if both provided
-        if 'start_time' in data and 'end_time' in data:
-            if data['start_time'] >= data['end_time']:
+        if "start_time" in data and "end_time" in data:
+            if data["start_time"] >= data["end_time"]:
                 raise serializers.ValidationError(
-                    {'end_time': 'End time must be after start time'}
+                    {"end_time": "End time must be after start time"}
                 )
 
         # Validate date not in past
-        if 'date' in data:
-            if data['date'] < timezone.now().date():
+        if "date" in data:
+            if data["date"] < timezone.now().date():
                 raise serializers.ValidationError(
-                    {'date': 'Cannot set lesson to the past'}
+                    {"date": "Cannot set lesson to the past"}
                 )
 
         # Check for time conflicts if date/time changed
-        if any(field in data for field in ['date', 'start_time', 'end_time']):
+        if any(field in data for field in ["date", "start_time", "end_time"]):
             from scheduling.services.lesson_service import LessonService
             from django.core.exceptions import ValidationError as DjangoValidationError
 
             # Get lesson from context (set in view) - обязательно для проверки конфликтов
-            lesson = self.context.get('lesson')
+            lesson = self.context.get("lesson")
             if not lesson:
                 raise serializers.ValidationError(
-                    {'non_field_errors': 'Lesson context is required for time conflict validation'}
+                    {
+                        "non_field_errors": "Lesson context is required for time conflict validation"
+                    }
                 )
 
             # Use updated or existing values
-            check_date = data.get('date', lesson.date)
-            check_start = data.get('start_time', lesson.start_time)
-            check_end = data.get('end_time', lesson.end_time)
+            check_date = data.get("date", lesson.date)
+            check_start = data.get("start_time", lesson.start_time)
+            check_end = data.get("end_time", lesson.end_time)
 
             try:
                 LessonService._check_time_conflicts(
@@ -262,10 +274,10 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
                     end_time=check_end,
                     teacher=lesson.teacher,
                     student=lesson.student,
-                    exclude_lesson_id=lesson.id
+                    exclude_lesson_id=lesson.id,
                 )
             except DjangoValidationError as e:
-                raise serializers.ValidationError({'non_field_errors': str(e)})
+                raise serializers.ValidationError({"non_field_errors": str(e)})
 
         return data
 
@@ -273,23 +285,26 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
 class LessonHistorySerializer(serializers.ModelSerializer):
     """Serializer for lesson history entries."""
 
-    performed_by_name = serializers.CharField(
-        source='performed_by.get_full_name',
-        read_only=True
-    )
-    action_display = serializers.CharField(
-        source='get_action_display',
-        read_only=True
-    )
+    performed_by_name = serializers.SerializerMethodField()
+    action_display = serializers.CharField(source="get_action_display", read_only=True)
+
+    def get_performed_by_name(self, obj):
+        return obj.performed_by.get_full_name() if obj.performed_by else "System"
 
     class Meta:
         model = LessonHistory
         fields = [
-            'id', 'lesson', 'action', 'action_display',
-            'performed_by', 'performed_by_name',
-            'old_values', 'new_values', 'timestamp'
+            "id",
+            "lesson",
+            "action",
+            "action_display",
+            "performed_by",
+            "performed_by_name",
+            "old_values",
+            "new_values",
+            "timestamp",
         ]
-        read_only_fields = ['id', 'timestamp']
+        read_only_fields = ["id", "timestamp"]
 
 
 class AdminLessonSerializer(serializers.ModelSerializer):
@@ -302,14 +317,23 @@ class AdminLessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = [
-            'id', 'date', 'start_time', 'end_time',
-            'teacher', 'teacher_name',
-            'student', 'student_name',
-            'subject', 'subject_name',
-            'description', 'telemost_link', 'status',
-            'created_at', 'updated_at'
+            "id",
+            "date",
+            "start_time",
+            "end_time",
+            "teacher",
+            "teacher_name",
+            "student",
+            "student_name",
+            "subject",
+            "subject_name",
+            "description",
+            "telemost_link",
+            "status",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ["id", "created_at", "updated_at"]
 
     def get_teacher_name(self, obj):
         """Get full teacher name."""

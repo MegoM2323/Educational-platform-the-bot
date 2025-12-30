@@ -214,7 +214,7 @@ export const StudentProfileForm = ({
                     />
                   </FormControl>
                   <p className="text-xs text-gray-500">
-                    Максимум 500 символов
+                    Максимум 1000 символов
                   </p>
                   <FormMessage />
                 </FormItem>

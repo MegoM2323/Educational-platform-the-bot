@@ -468,7 +468,14 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
           user={editUserDialog.item.user}
           profile={editUserDialog.item}
           open={editUserDialog.open}
-          onOpenChange={(open) => setEditUserDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditUserDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setEditUserDialog({ open: false, item: null }), 300);
+            } else {
+              setEditUserDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             loadStudents(currentPage);
             onUpdate?.();
@@ -481,7 +488,14 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
         <ResetPasswordDialog
           user={resetPasswordDialog.item.user}
           open={resetPasswordDialog.open}
-          onOpenChange={(open) => setResetPasswordDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setResetPasswordDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setResetPasswordDialog({ open: false, item: null }), 300);
+            } else {
+              setResetPasswordDialog((prev) => ({ ...prev, open }));
+            }
+          }}
         />
       )}
 
@@ -490,7 +504,14 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
         <DeleteUserDialog
           user={deleteUserDialog.item.user}
           open={deleteUserDialog.open}
-          onOpenChange={(open) => setDeleteUserDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteUserDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setDeleteUserDialog({ open: false, item: null }), 300);
+            } else {
+              setDeleteUserDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           onSuccess={() => {
             loadStudents(currentPage);
             onUpdate?.();
@@ -501,7 +522,14 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
       {/* Диалог реактивации пользователя */}
       <Dialog
         open={reactivateDialog.open}
-        onOpenChange={(open) => setReactivateDialog({ ...reactivateDialog, open })}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReactivateDialog((prev) => ({ ...prev, open: false }));
+            setTimeout(() => setReactivateDialog({ open: false, item: null, isLoading: false }), 300);
+          } else {
+            setReactivateDialog((prev) => ({ ...prev, open }));
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>
@@ -534,7 +562,14 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
       {subjectAssignmentDialog.item && (
         <SubjectAssignmentDialog
           open={subjectAssignmentDialog.open}
-          onOpenChange={(open) => setSubjectAssignmentDialog({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSubjectAssignmentDialog((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setSubjectAssignmentDialog({ open: false, item: null }), 300);
+            } else {
+              setSubjectAssignmentDialog((prev) => ({ ...prev, open }));
+            }
+          }}
           studentId={subjectAssignmentDialog.item.id}
           studentName={subjectAssignmentDialog.item.user.full_name}
           onSuccess={() => {
@@ -547,7 +582,14 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
       {detailModal.item && (
         <UserDetailModal
           open={detailModal.open}
-          onOpenChange={(open) => setDetailModal({ open, item: null })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailModal((prev) => ({ ...prev, open: false }));
+              setTimeout(() => setDetailModal({ open: false, item: null }), 300);
+            } else {
+              setDetailModal((prev) => ({ ...prev, open }));
+            }
+          }}
           userId={detailModal.item.user.id}
           role="student"
           onUpdate={() => {

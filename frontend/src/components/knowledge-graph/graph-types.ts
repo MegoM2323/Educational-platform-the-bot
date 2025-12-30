@@ -1,5 +1,5 @@
 export interface GraphNode {
-  id: string;
+  id: number | string;
   title: string;
   status: 'not_started' | 'in_progress' | 'completed' | 'locked';
   x?: number;

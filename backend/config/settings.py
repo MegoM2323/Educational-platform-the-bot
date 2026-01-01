@@ -165,8 +165,8 @@ INSTALLED_APPS = [
     'django_filters',
     'channels',  # Django Channels для WebSocket
     'core',
-    'accounts',
     'materials',
+    'accounts',
     'scheduling',  # Система бронирования расписания (должна быть ПОСЛЕ materials, т.к. импортирует Subject)
     'assignments',
     'chat',

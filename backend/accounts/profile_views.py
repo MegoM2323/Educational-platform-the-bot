@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .permissions import IsStaffOrAdmin
+from .permissions import IsStaffOrAdmin, IsStudent, IsTeacher, IsTutor, IsParent
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.db import transaction
@@ -75,20 +75,15 @@ class StudentProfileView(APIView):
     """
 
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request) -> Response:
         """Получить данные профиля студента"""
-        if request.user.role != "student":
-            return Response(
-                {"error": "Only students can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
 
         try:
-            profile = StudentProfile.objects.select_related(
-                "user", "tutor", "parent"
-            ).get(user=request.user)
+            profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
+                user=request.user
+            )
         except StudentProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
             logger.warning(
@@ -117,16 +112,9 @@ class StudentProfileView(APIView):
     @transaction.atomic
     def patch(self, request) -> Response:
         """Обновить данные профиля студента"""
-        if request.user.role != "student":
-            return Response(
-                {"error": "Only students can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
 
         try:
-            profile = StudentProfile.objects.select_related("user").get(
-                user=request.user
-            )
+            profile = StudentProfile.objects.select_related("user").get(user=request.user)
         except StudentProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
             logger.warning(
@@ -259,30 +247,17 @@ class TeacherProfileView(APIView):
     """
 
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsTeacher]
 
     def get(self, request) -> Response:
         """Получить данные профиля преподавателя"""
-        # Production debugging: log request start
         logger.info(
             f"[TeacherProfileView] GET request from user_id={request.user.id} "
             f"email={request.user.email} role={request.user.role}"
         )
 
-        if request.user.role != "teacher":
-            logger.warning(
-                f"[TeacherProfileView] Access denied for non-teacher user_id={request.user.id} "
-                f"role={request.user.role}"
-            )
-            return Response(
-                {"error": "Only teachers can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         try:
-            profile = TeacherProfile.objects.select_related("user").get(
-                user=request.user
-            )
+            profile = TeacherProfile.objects.select_related("user").get(user=request.user)
             logger.debug(
                 f"[TeacherProfileView] TeacherProfile found for user_id={request.user.id} "
                 f"profile_id={profile.id}"
@@ -319,16 +294,8 @@ class TeacherProfileView(APIView):
     @transaction.atomic
     def patch(self, request) -> Response:
         """Обновить данные профиля преподавателя"""
-        if request.user.role != "teacher":
-            return Response(
-                {"error": "Only teachers can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         try:
-            profile = TeacherProfile.objects.select_related("user").get(
-                user=request.user
-            )
+            profile = TeacherProfile.objects.select_related("user").get(user=request.user)
         except TeacherProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
             logger.warning(
@@ -418,14 +385,12 @@ class TeacherProfileView(APIView):
         if to_add:
             subjects = Subject.objects.filter(id__in=to_add)
             for subject in subjects:
-                TeacherSubject.objects.create(
-                    teacher=teacher, subject=subject, is_active=True
-                )
+                TeacherSubject.objects.create(teacher=teacher, subject=subject, is_active=True)
 
         if to_remove:
-            TeacherSubject.objects.filter(
-                teacher=teacher, subject_id__in=to_remove
-            ).update(is_active=False)
+            TeacherSubject.objects.filter(teacher=teacher, subject_id__in=to_remove).update(
+                is_active=False
+            )
 
 
 class TutorProfileView(APIView):
@@ -448,15 +413,10 @@ class TutorProfileView(APIView):
     """
 
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsTutor]
 
     def get(self, request) -> Response:
         """Получить данные профиля тьютора"""
-        if request.user.role != "tutor":
-            return Response(
-                {"error": "Only tutors can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
 
         try:
             profile = TutorProfile.objects.select_related("user").get(user=request.user)
@@ -488,12 +448,6 @@ class TutorProfileView(APIView):
     @transaction.atomic
     def patch(self, request) -> Response:
         """Обновить данные профиля тьютора"""
-        if request.user.role != "tutor":
-            return Response(
-                {"error": "Only tutors can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         try:
             profile = TutorProfile.objects.select_related("user").get(user=request.user)
         except TutorProfile.DoesNotExist:
@@ -583,20 +537,13 @@ class ParentProfileView(APIView):
     """
 
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsParent]
 
     def get(self, request) -> Response:
         """Получить данные профиля родителя"""
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Only parents can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
 
         try:
-            profile = ParentProfile.objects.select_related("user").get(
-                user=request.user
-            )
+            profile = ParentProfile.objects.select_related("user").get(user=request.user)
         except ParentProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
             logger.warning(
@@ -625,16 +572,8 @@ class ParentProfileView(APIView):
     @transaction.atomic
     def patch(self, request) -> Response:
         """Обновить данные профиля родителя"""
-        if request.user.role != "parent":
-            return Response(
-                {"error": "Only parents can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         try:
-            profile = ParentProfile.objects.select_related("user").get(
-                user=request.user
-            )
+            profile = ParentProfile.objects.select_related("user").get(user=request.user)
         except ParentProfile.DoesNotExist:
             # Auto-create profile if missing (fallback for signal issues)
             logger.warning(
@@ -768,9 +707,7 @@ class AdminTeacherProfileEditView(APIView):
         try:
             teacher_user = User.objects.get(id=teacher_id, role="teacher")
         except User.DoesNotExist:
-            return Response(
-                {"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
 
         user_fields = ["first_name", "last_name", "email", "phone", "is_active"]
         profile_fields = ["subject", "experience_years", "bio", "telegram"]
@@ -787,9 +724,7 @@ class AdminTeacherProfileEditView(APIView):
                     teacher_user.save(update_fields=list(user_data.keys()))
 
                 try:
-                    profile = TeacherProfile.objects.select_related("user").get(
-                        user=teacher_user
-                    )
+                    profile = TeacherProfile.objects.select_related("user").get(user=teacher_user)
                 except TeacherProfile.DoesNotExist:
                     profile = TeacherProfile.objects.create(user=teacher_user)
 
@@ -854,9 +789,9 @@ class AdminTeacherProfileEditView(APIView):
                 )
 
         if to_remove:
-            TeacherSubject.objects.filter(
-                teacher=teacher, subject_id__in=to_remove
-            ).update(is_active=False)
+            TeacherSubject.objects.filter(teacher=teacher, subject_id__in=to_remove).update(
+                is_active=False
+            )
 
 
 class AdminTutorProfileEditView(APIView):
@@ -881,9 +816,7 @@ class AdminTutorProfileEditView(APIView):
         try:
             tutor_user = User.objects.get(id=tutor_id, role="tutor")
         except User.DoesNotExist:
-            return Response(
-                {"error": "Tutor not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Tutor not found"}, status=status.HTTP_404_NOT_FOUND)
 
         user_fields = ["first_name", "last_name", "email", "phone", "is_active"]
         profile_fields = ["specialization", "experience_years", "bio", "telegram"]
@@ -899,9 +832,7 @@ class AdminTutorProfileEditView(APIView):
                     tutor_user.save(update_fields=list(user_data.keys()))
 
                 try:
-                    profile = TutorProfile.objects.select_related("user").get(
-                        user=tutor_user
-                    )
+                    profile = TutorProfile.objects.select_related("user").get(user=tutor_user)
                 except TutorProfile.DoesNotExist:
                     profile = TutorProfile.objects.create(user=tutor_user)
 
@@ -961,9 +892,7 @@ class AdminUserProfileView(APIView):
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
-            return Response(
-                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Получаем профиль в зависимости от роли
         profile = None
@@ -971,9 +900,9 @@ class AdminUserProfileView(APIView):
 
         try:
             if user.role == "student":
-                profile = StudentProfile.objects.select_related(
-                    "user", "tutor", "parent"
-                ).get(user=user)
+                profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
+                    user=user
+                )
                 profile_serializer_class = StudentProfileDetailSerializer
             elif user.role == "teacher":
                 profile = TeacherProfile.objects.select_related("user").get(user=user)
@@ -1039,9 +968,7 @@ class AdminUserFullInfoView(APIView):
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
-            return Response(
-                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # User data
         user_data = {
@@ -1062,9 +989,9 @@ class AdminUserFullInfoView(APIView):
         profile_data = None
         try:
             if user.role == "student":
-                profile = StudentProfile.objects.select_related(
-                    "user", "tutor", "parent"
-                ).get(user=user)
+                profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
+                    user=user
+                )
                 profile_data = StudentProfileDetailSerializer(profile).data
             elif user.role == "teacher":
                 profile = TeacherProfile.objects.select_related("user").get(user=user)
@@ -1090,23 +1017,19 @@ class AdminUserFullInfoView(APIView):
         if user.role == "student":
             from materials.models import SubjectEnrollment
 
-            enrollments_qs = SubjectEnrollment.objects.filter(
-                student=user
-            ).select_related("subject", "teacher", "tutor")
+            enrollments_qs = SubjectEnrollment.objects.filter(student=user).select_related(
+                "subject", "teacher", "tutor"
+            )
 
             for enrollment in enrollments_qs:
                 enrollments.append(
                     {
                         "id": enrollment.id,
-                        "subject": enrollment.subject.name
-                        if enrollment.subject
-                        else None,
+                        "subject": enrollment.subject.name if enrollment.subject else None,
                         "teacher": enrollment.teacher.get_full_name()
                         if enrollment.teacher
                         else None,
-                        "tutor": enrollment.tutor.get_full_name()
-                        if enrollment.tutor
-                        else None,
+                        "tutor": enrollment.tutor.get_full_name() if enrollment.tutor else None,
                         "enrolled_at": enrollment.enrolled_at.isoformat()
                         if enrollment.enrolled_at
                         else None,
@@ -1129,27 +1052,17 @@ class AdminUserFullInfoView(APIView):
             else:
                 lessons_qs = Lesson.objects.none()
 
-            for lesson in lessons_qs.order_by("-date", "-start_time")[
-                :10
-            ]:  # Последние 10 уроков
+            for lesson in lessons_qs.order_by("-date", "-start_time")[:10]:  # Последние 10 уроков
                 schedule.append(
                     {
                         "id": lesson.id,
                         "title": lesson.title,
                         "subject": lesson.subject.name if lesson.subject else None,
                         "date": lesson.date.isoformat() if lesson.date else None,
-                        "start_time": lesson.start_time.isoformat()
-                        if lesson.start_time
-                        else None,
-                        "end_time": lesson.end_time.isoformat()
-                        if lesson.end_time
-                        else None,
-                        "student": lesson.student.get_full_name()
-                        if lesson.student
-                        else None,
-                        "teacher": lesson.teacher.get_full_name()
-                        if lesson.teacher
-                        else None,
+                        "start_time": lesson.start_time.isoformat() if lesson.start_time else None,
+                        "end_time": lesson.end_time.isoformat() if lesson.end_time else None,
+                        "student": lesson.student.get_full_name() if lesson.student else None,
+                        "teacher": lesson.teacher.get_full_name() if lesson.teacher else None,
                     }
                 )
         except Exception as e:
@@ -1173,18 +1086,12 @@ class AdminUserFullInfoView(APIView):
                             "id": invoice.id,
                             "amount": float(invoice.amount),
                             "status": invoice.status,
-                            "student": invoice.student.get_full_name()
-                            if invoice.student
-                            else None,
-                            "tutor": invoice.tutor.get_full_name()
-                            if invoice.tutor
-                            else None,
+                            "student": invoice.student.get_full_name() if invoice.student else None,
+                            "tutor": invoice.tutor.get_full_name() if invoice.tutor else None,
                             "created_at": invoice.created_at.isoformat()
                             if invoice.created_at
                             else None,
-                            "due_date": invoice.due_date.isoformat()
-                            if invoice.due_date
-                            else None,
+                            "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
                         }
                     )
             except Exception as e:
@@ -1196,9 +1103,9 @@ class AdminUserFullInfoView(APIView):
             from reports.models import TutorWeeklyReport, TeacherReport
 
             if user.role == "tutor":
-                reports_qs = TutorWeeklyReport.objects.filter(tutor=user).order_by(
-                    "-created_at"
-                )[:10]
+                reports_qs = TutorWeeklyReport.objects.filter(tutor=user).order_by("-created_at")[
+                    :10
+                ]
 
                 for report in reports_qs:
                     reports.append(
@@ -1213,9 +1120,7 @@ class AdminUserFullInfoView(APIView):
                     )
 
             elif user.role == "teacher":
-                reports_qs = TeacherReport.objects.filter(teacher=user).order_by(
-                    "-created_at"
-                )[:10]
+                reports_qs = TeacherReport.objects.filter(teacher=user).order_by("-created_at")[:10]
 
                 for report in reports_qs:
                     reports.append(
@@ -1261,9 +1166,9 @@ class CurrentUserProfileView(APIView):
         if user_role == "student":
             # Delegate to StudentProfileView logic
             try:
-                profile = StudentProfile.objects.select_related(
-                    "user", "tutor", "parent"
-                ).get(user=request.user)
+                profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
+                    user=request.user
+                )
             except StudentProfile.DoesNotExist:
                 logger.warning(
                     f"[CurrentUserProfileView] StudentProfile not found for user_id={request.user.id} "
@@ -1306,9 +1211,7 @@ class CurrentUserProfileView(APIView):
         elif user_role == "teacher":
             # Delegate to TeacherProfileView logic
             try:
-                profile = TeacherProfile.objects.select_related("user").get(
-                    user=request.user
-                )
+                profile = TeacherProfile.objects.select_related("user").get(user=request.user)
             except TeacherProfile.DoesNotExist:
                 logger.warning(
                     f"[CurrentUserProfileView] TeacherProfile not found for user_id={request.user.id} "
@@ -1342,9 +1245,7 @@ class CurrentUserProfileView(APIView):
         elif user_role == "tutor":
             # Delegate to TutorProfileView logic
             try:
-                profile = TutorProfile.objects.select_related("user").get(
-                    user=request.user
-                )
+                profile = TutorProfile.objects.select_related("user").get(user=request.user)
             except TutorProfile.DoesNotExist:
                 logger.warning(
                     f"[CurrentUserProfileView] TutorProfile not found for user_id={request.user.id} "
@@ -1380,6 +1281,155 @@ class CurrentUserProfileView(APIView):
                 {"error": f"Unknown or unsupported user role: {user_role}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class TeacherListView(APIView):
+    """
+    API endpoint для получения списка учителей.
+
+    GET /api/teachers/
+    - Возвращает список всех активных учителей
+    - Доступно аутентифицированным пользователям
+    - Поддерживает поиск по имени (query param: search)
+    - Пример: GET /api/teachers/?search=John
+
+    Возвращаемые данные для каждого учителя:
+    - id, email, first_name, last_name, full_name
+    - role, role_display
+    - bio, experience_years, avatar
+    - subject (основной предмет из профиля)
+    - subjects_list (список всех назначенных предметов)
+    """
+
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request) -> Response:
+        """Получить список учителей с опциональным поиском"""
+
+        search_query = request.query_params.get("search", "").strip()
+
+        teachers_qs = User.objects.filter(role="teacher", is_active=True).select_related(
+            "teacher_profile"
+        )
+
+        if search_query:
+            from django.db.models import Q
+
+            teachers_qs = teachers_qs.filter(
+                Q(first_name__icontains=search_query)
+                | Q(last_name__icontains=search_query)
+                | Q(email__icontains=search_query)
+            )
+
+        teachers_data = []
+        for teacher in teachers_qs.order_by("first_name", "last_name"):
+            try:
+                profile = TeacherProfile.objects.select_related("user").get(user=teacher)
+                profile_serializer = TeacherProfileDetailSerializer(profile)
+                profile_dict = profile_serializer.data
+            except TeacherProfile.DoesNotExist:
+                profile_dict = {
+                    "bio": "",
+                    "experience_years": 0,
+                    "subject": "",
+                    "subjects_list": [],
+                    "telegram_id": None,
+                    "is_telegram_linked": False,
+                }
+
+            teacher_dict = {
+                "id": teacher.id,
+                "email": teacher.email,
+                "first_name": teacher.first_name,
+                "last_name": teacher.last_name,
+                "full_name": teacher.get_full_name(),
+                "role": teacher.role,
+                "role_display": teacher.get_role_display(),
+                "avatar": teacher.avatar.url if teacher.avatar else None,
+                "bio": profile_dict.get("bio", ""),
+                "experience_years": profile_dict.get("experience_years", 0),
+                "subject": profile_dict.get("subject", ""),
+                "subjects_list": profile_dict.get("subjects_list", []),
+            }
+
+            teachers_data.append(teacher_dict)
+
+        logger.info(
+            f"[TeacherListView] Returned {len(teachers_data)} teachers "
+            f"(search_query='{search_query}')"
+        )
+
+        return Response({"count": len(teachers_data), "results": teachers_data})
+
+
+class TeacherDetailView(APIView):
+    """
+    API endpoint для получения профиля конкретного учителя.
+
+    GET /api/teachers/{id}/
+    - Возвращает полный профиль учителя с id={id}
+    - Доступно аутентифицированным пользователям
+    - Возвращает 404 если учитель не найден или неактивен
+
+    Возвращаемые данные:
+    - id, email, first_name, last_name, full_name
+    - role, role_display
+    - bio, experience_years, avatar
+    - subject (основной предмет)
+    - subjects_list (список всех предметов)
+    """
+
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, teacher_id: int) -> Response:
+        """Получить профиль учителя по ID"""
+
+        try:
+            teacher = User.objects.get(id=teacher_id, role="teacher", is_active=True)
+        except User.DoesNotExist:
+            logger.warning(
+                f"[TeacherDetailView] Teacher not found or inactive: teacher_id={teacher_id}"
+            )
+            return Response(
+                {"error": "Teacher not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            profile = TeacherProfile.objects.select_related("user").get(user=teacher)
+            profile_serializer = TeacherProfileDetailSerializer(profile)
+            profile_dict = profile_serializer.data
+        except TeacherProfile.DoesNotExist:
+            logger.warning(f"[TeacherDetailView] TeacherProfile not found for user_id={teacher_id}")
+            profile_dict = {
+                "bio": "",
+                "experience_years": 0,
+                "subject": "",
+                "subjects_list": [],
+                "telegram_id": None,
+                "is_telegram_linked": False,
+            }
+
+        teacher_dict = {
+            "id": teacher.id,
+            "email": teacher.email,
+            "first_name": teacher.first_name,
+            "last_name": teacher.last_name,
+            "full_name": teacher.get_full_name(),
+            "role": teacher.role,
+            "role_display": teacher.get_role_display(),
+            "avatar": teacher.avatar.url if teacher.avatar else None,
+            "bio": profile_dict.get("bio", ""),
+            "experience_years": profile_dict.get("experience_years", 0),
+            "subject": profile_dict.get("subject", ""),
+            "subjects_list": profile_dict.get("subjects_list", []),
+        }
+
+        logger.info(f"[TeacherDetailView] Returned teacher profile for teacher_id={teacher_id}")
+
+        return Response(teacher_dict)
 
 
 class NotificationSettingsView(APIView):
@@ -1418,9 +1468,7 @@ class NotificationSettingsView(APIView):
             from notifications.models import NotificationSettings
             from notifications.serializers import NotificationSettingsSerializer
 
-            settings, created = NotificationSettings.objects.get_or_create(
-                user=request.user
-            )
+            settings, created = NotificationSettings.objects.get_or_create(user=request.user)
             serializer = NotificationSettingsSerializer(settings)
             return Response(serializer.data)
         except Exception as e:
@@ -1438,9 +1486,7 @@ class NotificationSettingsView(APIView):
             from notifications.models import NotificationSettings
             from notifications.serializers import NotificationSettingsSerializer
 
-            settings, created = NotificationSettings.objects.get_or_create(
-                user=request.user
-            )
+            settings, created = NotificationSettings.objects.get_or_create(user=request.user)
             serializer = NotificationSettingsSerializer(
                 settings, data=request.data, partial=True, context={"request": request}
             )

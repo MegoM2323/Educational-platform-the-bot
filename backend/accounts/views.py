@@ -31,6 +31,24 @@ from .serializers import (
 from .supabase_service import SupabaseAuthService
 
 
+def _format_validation_error(errors):
+    """
+    Преобразует ошибки валидации DRF в единый формат.
+    Собирает первую ошибку в одной строке.
+    """
+    if isinstance(errors, dict):
+        for field, messages in errors.items():
+            if isinstance(messages, list) and messages:
+                return str(messages[0])
+            elif isinstance(messages, str):
+                return messages
+            elif isinstance(messages, dict):
+                return _format_validation_error(messages)
+    elif isinstance(errors, list) and errors:
+        return str(errors[0])
+    return "Ошибка валидации данных"
+
+
 @ratelimit(key="ip", rate="5/m", method="POST")  # 5 попыток входа в минуту с одного IP
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -40,10 +58,14 @@ def login_view(request):
     """
     Вход пользователя через Django аутентификацию (поддерживает email и username)
     """
+    from datetime import datetime
+
+    ip_address = request.META.get("REMOTE_ADDR", "unknown")
+
     try:
         # Логируем входящие данные БЕЗ пароля для безопасности
         safe_data = {k: v for k, v in request.data.items() if k != "password"}
-        logger.info(f"[login] Request data: {safe_data}")
+        logger.debug(f"[login] Request data: {safe_data}, ip: {ip_address}")
 
         # Валидируем данные
         serializer = UserLoginSerializer(data=request.data)
@@ -52,8 +74,17 @@ def login_view(request):
             safe_errors = {
                 k: v for k, v in serializer.errors.items() if k != "password"
             }
-            logger.warning(f"[login] Validation errors: {safe_errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            reason = list(safe_errors.keys())[0] if safe_errors else "unknown"
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            logger.warning(
+                f"[login] VALIDATION_ERROR - reason: {reason}, "
+                f"ip: {ip_address}, timestamp: {timestamp}"
+            )
+            error_msg = _format_validation_error(serializer.errors)
+            return Response(
+                {"success": False, "error": error_msg},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         email = serializer.validated_data.get("email")
         username = serializer.validated_data.get("username")
@@ -61,7 +92,11 @@ def login_view(request):
 
         # Логируем попытку входа с идентификатором (БЕЗ пароля)
         identifier = email or username
-        logger.info(f"[login] Login attempt for: {identifier}")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.info(
+            f"[login] Attempt - identifier: {identifier}, ip: {ip_address}, "
+            f"timestamp: {timestamp}"
+        )
 
         # Проверяем аутентификацию через Django; если не удалось, пробуем через Supabase
         from django.contrib.auth import authenticate
@@ -70,10 +105,8 @@ def login_view(request):
         user = None
         if email:
             user = User.objects.filter(email=email).first()
-            logger.debug(f"[login] User found by email: {user}")
         elif username:
             user = User.objects.filter(username=username).first()
-            logger.debug(f"[login] User found by username: {user}")
 
         # Если пользователь найден по username, но у него есть email, используем email для Supabase
         if user and not email and user.email:
@@ -88,6 +121,19 @@ def login_view(request):
                 authenticated_user = user
 
         if not authenticated_user:
+            # Логируем неудачную попытку входа (пользователь не найден или пароль неверен)
+            if not user:
+                logger.warning(
+                    f"[login] FAILED - identifier: {identifier}, "
+                    f"reason: user_not_found, ip: {ip_address}, "
+                    f"timestamp: {timestamp}"
+                )
+            else:
+                logger.warning(
+                    f"[login] FAILED - email: {user.email}, "
+                    f"reason: invalid_credentials, ip: {ip_address}, "
+                    f"timestamp: {timestamp}"
+                )
             # Фолбэк на Supabase: в проектах, где пароли не хранятся локально
             # ВАЖНО: Только если Supabase ДЕЙСТВИТЕЛЬНО настроен (не в development режиме)
             try:
@@ -104,6 +150,11 @@ def login_view(request):
                     if sb_login.get("success"):
                         # Если локального пользователя нет — сообщаем, чтобы создать/синхронизировать
                         if not user:
+                            logger.warning(
+                                f"[login] FAILED - email: {email}, "
+                                f"reason: user_not_in_local_db, ip: {ip_address}, "
+                                f"timestamp: {timestamp}"
+                            )
                             return Response(
                                 {
                                     "success": False,
@@ -116,6 +167,11 @@ def login_view(request):
                         authenticated_user = user if user.is_active else None
                     else:
                         # Нет успеха ни в Django, ни в Supabase
+                        logger.warning(
+                            f"[login] FAILED - email: {email}, "
+                            f"reason: invalid_credentials, ip: {ip_address}, "
+                            f"timestamp: {timestamp}"
+                        )
                         return Response(
                             {
                                 "success": False,
@@ -130,7 +186,9 @@ def login_view(request):
                     if user and user.is_active:
                         # Если найден пользователь и он активен, но пароль не совпал
                         logger.warning(
-                            f"[login] Local authentication failed for {identifier} (wrong password)"
+                            f"[login] FAILED - email: {user.email}, "
+                            f"reason: invalid_credentials, ip: {ip_address}, "
+                            f"timestamp: {timestamp}"
                         )
                         return Response(
                             {"success": False, "error": "Неверные учетные данные"},
@@ -138,8 +196,15 @@ def login_view(request):
                         )
                     else:
                         # Пользователь не найден или неактивен
+                        if not user:
+                            reason = "user_not_found"
+                        else:
+                            reason = "user_inactive"
+
                         logger.warning(
-                            f"[login] Login failed for {identifier}: Invalid credentials (Supabase disabled in development)"
+                            f"[login] FAILED - identifier: {identifier}, "
+                            f"reason: {reason}, ip: {ip_address}, "
+                            f"timestamp: {timestamp}"
                         )
                         return Response(
                             {"success": False, "error": "Неверные учетные данные"},
@@ -148,7 +213,9 @@ def login_view(request):
             except Exception as e:
                 # Если ошибка при работе с Supabase - считаем что он недоступен
                 logger.warning(
-                    f"[login] Supabase error (ignoring in development): {str(e)}"
+                    f"[login] FAILED - identifier: {identifier}, "
+                    f"reason: supabase_error, ip: {ip_address}, "
+                    f"error: {str(e)}, timestamp: {timestamp}"
                 )
                 return Response(
                     {"success": False, "error": "Неверные учетные данные"},
@@ -164,11 +231,11 @@ def login_view(request):
                 ).delete()
                 token = Token.objects.create(user=authenticated_user)
 
-                # Логируем успешный вход
+                # Логируем успешный вход с IP адресом и временем
                 logger.info(
-                    f"[login] Successful login for user: {authenticated_user.email}, "
-                    f"role: {authenticated_user.role}, "
-                    f"deleted old tokens: {deleted_count}"
+                    f"[login] SUCCESS - email: {authenticated_user.email}, "
+                    f"role: {authenticated_user.role}, ip: {ip_address}, "
+                    f"timestamp: {timestamp}"
                 )
 
                 # Если есть сессия, обновляем её (безопасно)
@@ -203,7 +270,11 @@ def login_view(request):
             except Exception as token_error:
                 import traceback
 
-                logger.error(f"[login] Token creation error: {str(token_error)}")
+                logger.error(
+                    f"[login] Token creation error - email: {authenticated_user.email}, "
+                    f"ip: {ip_address}, error: {str(token_error)}, "
+                    f"timestamp: {timestamp}"
+                )
                 logger.error(f"[login] Traceback: {traceback.format_exc()}")
                 return Response(
                     {
@@ -213,6 +284,11 @@ def login_view(request):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
+        logger.warning(
+            f"[login] FAILED - identifier: {authenticated_user.email if authenticated_user else identifier}, "
+            f"reason: user_inactive, ip: {ip_address}, "
+            f"timestamp: {timestamp}"
+        )
         return Response(
             {"success": False, "error": "Учетная запись отключена или недоступна"},
             status=status.HTTP_403_FORBIDDEN,
@@ -221,7 +297,10 @@ def login_view(request):
     except Exception as e:
         import traceback
 
-        logger.error(f"[login] Unexpected error: {str(e)}")
+        logger.error(
+            f"[login] Unexpected error - ip: {ip_address}, "
+            f"error: {str(e)}, timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
         logger.error(f"[login] Traceback: {traceback.format_exc()}")
         return Response(
             {"success": False, "error": f"Ошибка сервера: {str(e)}"},
@@ -516,10 +595,17 @@ def update_profile(request):
                 pass
 
         return Response(
-            {"user": UserSerializer(user).data, "message": "Профиль обновлен"}
+            {
+                "success": True,
+                "data": {"user": UserSerializer(user).data},
+                "message": "Профиль обновлен",
+            }
         )
 
-    return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    error_msg = _format_validation_error(user_serializer.errors)
+    return Response(
+        {"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 @api_view(["POST"])
@@ -535,8 +621,11 @@ def change_password(request):
         user = request.user
         user.set_password(serializer.validated_data["new_password"])
         user.save()
-        return Response({"message": "Пароль успешно изменен"})
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"success": True, "message": "Пароль успешно изменен"})
+    error_msg = _format_validation_error(serializer.errors)
+    return Response(
+        {"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 @api_view(["GET"])

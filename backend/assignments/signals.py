@@ -20,10 +20,12 @@ from .cache.stats import AssignmentStatsCache
 
 logger = logging.getLogger(__name__)
 
+
 # Import realtime service (avoid circular imports by importing in signal handlers)
 def get_dashboard_event_service():
     try:
         from reports.services.realtime import DashboardEventService
+
         return DashboardEventService
     except ImportError:
         return None
@@ -65,9 +67,7 @@ def validate_scheduling_dates(sender, instance, **kwargs):
 
     if instance.publish_at and instance.close_at:
         if instance.close_at <= instance.publish_at:
-            raise ValueError(
-                "close_at must be after publish_at"
-            )
+            raise ValueError("close_at must be after publish_at")
 
 
 @receiver(post_save, sender=Assignment)
@@ -102,12 +102,13 @@ def handle_assignment_status_change(sender, instance, created, **kwargs):
 
     # Status was already updated by this point in post_save
     # The Celery tasks handle actual publish/close operations
-    logger.info(
-        f"Assignment {instance.id} state checked: status={instance.status}"
-    )
+    logger.info(f"Assignment {instance.id} state checked: status={instance.status}")
 
     # T_REPORT_011: Broadcast assignment closed event
-    if instance.status == Assignment.Status.CLOSED and old_instance.status != Assignment.Status.CLOSED:
+    if (
+        instance.status == Assignment.Status.CLOSED
+        and old_instance.status != Assignment.Status.CLOSED
+    ):
         DashboardEventService = get_dashboard_event_service()
         if DashboardEventService:
             try:
@@ -153,19 +154,12 @@ def invalidate_stats_cache_on_submission_change(sender, instance, created, **kwa
         if DashboardEventService:
             try:
                 if created and instance.submitted_at:
-                    # Broadcast submission event
                     DashboardEventService.broadcast_submission(
-                        instance,
-                        instance.assignment,
-                        instance.student
+                        instance, instance.assignment, instance.student
                     )
-                elif instance.grade is not None:
-                    # Broadcast grade event (when grade is set)
+                elif instance.score is not None:
                     DashboardEventService.broadcast_grade(
-                        instance,
-                        instance.assignment,
-                        instance.student,
-                        instance.grade
+                        instance, instance.assignment, instance.student, instance.score
                     )
             except Exception as e:
                 logger.error(f"Error broadcasting dashboard event: {e}")
@@ -173,7 +167,7 @@ def invalidate_stats_cache_on_submission_change(sender, instance, created, **kwa
     except Exception as e:
         logger.error(
             f"Error invalidating cache for assignment {instance.assignment_id}: {e}",
-            exc_info=True
+            exc_info=True,
         )
 
 
@@ -200,5 +194,38 @@ def invalidate_stats_cache_on_submission_delete(sender, instance, **kwargs):
     except Exception as e:
         logger.error(
             f"Error invalidating cache for assignment {instance.assignment_id}: {e}",
-            exc_info=True
+            exc_info=True,
         )
+
+
+def send_submission_notification(submission: AssignmentSubmission) -> None:
+    """
+    Send notification to teacher when student submits assignment.
+
+    Args:
+        submission: The AssignmentSubmission instance
+    """
+    try:
+        if not submission.assignment_id or not submission.assignment.author_id:
+            logger.warning(
+                f"Cannot send notification for submission {submission.id}: missing data"
+            )
+            return
+
+        teacher = submission.assignment.author
+        Notification.objects.create(
+            recipient=teacher,
+            type="homework_submitted",
+            title="Новое решение задания",
+            message=f'{submission.student.get_full_name()} отправил решение на задание "{submission.assignment.title}"',
+            data={
+                "assignment_id": submission.assignment_id,
+                "submission_id": submission.id,
+                "student_id": submission.student_id,
+            },
+        )
+        logger.info(
+            f"Sent notification for submission {submission.id} to teacher {teacher.id}"
+        )
+    except Exception as e:
+        logger.error(f"Error sending submission notification: {e}", exc_info=True)

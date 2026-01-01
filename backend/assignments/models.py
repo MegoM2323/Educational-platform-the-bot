@@ -10,82 +10,64 @@ class Assignment(models.Model):
     """
     Задания для студентов
     """
+
     class Status(models.TextChoices):
-        DRAFT = 'draft', 'Черновик'
-        PUBLISHED = 'published', 'Опубликовано'
-        CLOSED = 'closed', 'Закрыто'
+        DRAFT = "draft", "Черновик"
+        PUBLISHED = "published", "Опубликовано"
+        CLOSED = "closed", "Закрыто"
 
     class Type(models.TextChoices):
-        HOMEWORK = 'homework', 'Домашнее задание'
-        TEST = 'test', 'Тест'
-        PROJECT = 'project', 'Проект'
-        ESSAY = 'essay', 'Эссе'
-        PRACTICAL = 'practical', 'Практическая работа'
+        HOMEWORK = "homework", "Домашнее задание"
+        TEST = "test", "Тест"
+        PROJECT = "project", "Проект"
+        ESSAY = "essay", "Эссе"
+        PRACTICAL = "practical", "Практическая работа"
 
-    title = models.CharField(max_length=200, verbose_name='Название')
-    description = models.TextField(verbose_name='Описание')
-    instructions = models.TextField(verbose_name='Инструкции')
+    title = models.CharField(max_length=200, verbose_name="Название")
+    description = models.TextField(verbose_name="Описание")
+    instructions = models.TextField(verbose_name="Инструкции")
 
     author = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='created_assignments',
-        verbose_name='Автор'
+        User, on_delete=models.CASCADE, related_name="created_assignments", verbose_name="Автор"
     )
 
     type = models.CharField(
-        max_length=20,
-        choices=Type.choices,
-        default=Type.HOMEWORK,
-        verbose_name='Тип'
+        max_length=20, choices=Type.choices, default=Type.HOMEWORK, verbose_name="Тип"
     )
 
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.DRAFT,
-        verbose_name='Статус'
+        max_length=20, choices=Status.choices, default=Status.DRAFT, verbose_name="Статус"
     )
 
     # Настройки задания
-    max_score = models.PositiveIntegerField(
-        default=100,
-        verbose_name='Максимальный балл'
-    )
+    max_score = models.PositiveIntegerField(default=100, verbose_name="Максимальный балл")
 
     time_limit = models.PositiveIntegerField(
         blank=True,
         null=True,
-        help_text='Время выполнения в минутах',
-        verbose_name='Временной лимит'
+        help_text="Время выполнения в минутах",
+        verbose_name="Временной лимит",
     )
 
-    attempts_limit = models.PositiveIntegerField(
-        default=1,
-        verbose_name='Лимит попыток'
-    )
+    attempts_limit = models.PositiveIntegerField(default=1, verbose_name="Лимит попыток")
 
     # Назначение
     assigned_to = models.ManyToManyField(
-        User,
-        related_name='assigned_assignments',
-        blank=True,
-        verbose_name='Назначено'
+        User, related_name="assigned_assignments", blank=True, verbose_name="Назначено"
     )
 
     # Временные рамки
-    start_date = models.DateTimeField(verbose_name='Дата начала')
+    start_date = models.DateTimeField(verbose_name="Дата начала")
     due_date = models.DateTimeField(
-        verbose_name='Срок сдачи',
-        help_text='Основная дата сдачи задания'
+        verbose_name="Срок сдачи", help_text="Основная дата сдачи задания"
     )
 
     # Метаданные
-    tags = models.CharField(max_length=500, blank=True, verbose_name='Теги')
+    tags = models.CharField(max_length=500, blank=True, verbose_name="Теги")
     difficulty_level = models.PositiveIntegerField(
         default=1,
-        choices=[(i, f'Уровень {i}') for i in range(1, 6)],
-        verbose_name='Уровень сложности'
+        choices=[(i, f"Уровень {i}") for i in range(1, 6)],
+        verbose_name="Уровень сложности",
     )
 
     # Временные метки
@@ -96,69 +78,69 @@ class Assignment(models.Model):
     late_submission_deadline = models.DateTimeField(
         blank=True,
         null=True,
-        verbose_name='Крайний срок для поздней сдачи',
-        help_text='Если установлено, позволяет сдавать только до этого времени'
+        verbose_name="Крайний срок для поздней сдачи",
+        help_text="Если установлено, позволяет сдавать только до этого времени",
     )
 
     late_penalty_type = models.CharField(
         max_length=20,
         choices=[
-            ('percentage', 'Процент от балла'),
-            ('fixed_points', 'Фиксированное количество баллов'),
+            ("percentage", "Процент от балла"),
+            ("fixed_points", "Фиксированное количество баллов"),
         ],
-        default='percentage',
-        verbose_name='Тип штрафа за позднюю сдачу',
-        help_text='Как считается штраф за позднюю сдачу'
+        default="percentage",
+        verbose_name="Тип штрафа за позднюю сдачу",
+        help_text="Как считается штраф за позднюю сдачу",
     )
 
     late_penalty_value = models.DecimalField(
         default=0,
         decimal_places=2,
         max_digits=5,
-        verbose_name='Значение штрафа за позднюю сдачу',
-        help_text='Процент или количество баллов, на которые снижается оценка за каждую единицу времени'
+        verbose_name="Значение штрафа за позднюю сдачу",
+        help_text="Процент или количество баллов, на которые снижается оценка за каждую единицу времени",
     )
 
     penalty_frequency = models.CharField(
         max_length=20,
         choices=[
-            ('per_day', 'За каждый день'),
-            ('per_hour', 'За каждый час'),
+            ("per_day", "За каждый день"),
+            ("per_hour", "За каждый час"),
         ],
-        default='per_day',
-        verbose_name='Частота штрафа',
-        help_text='Как часто применяется штраф (в день или в час)'
+        default="per_day",
+        verbose_name="Частота штрафа",
+        help_text="Как часто применяется штраф (в день или в час)",
     )
 
     max_penalty = models.DecimalField(
         default=50,
         decimal_places=2,
         max_digits=5,
-        verbose_name='Максимальный штраф',
-        help_text='Максимальный процент от балла, который можно потерять из-за позднего сдачи'
+        verbose_name="Максимальный штраф",
+        help_text="Максимальный процент от балла, который можно потерять из-за позднего сдачи",
     )
 
     allow_late_submission = models.BooleanField(
         default=True,
-        verbose_name='Разрешить поздние сдачи',
-        help_text='Если включено, студенты могут сдать задание после срока'
+        verbose_name="Разрешить поздние сдачи",
+        help_text="Если включено, студенты могут сдать задание после срока",
     )
 
     # T_ASN_006: Rubric for structured grading
     rubric = models.ForeignKey(
-        'GradingRubric',
+        "GradingRubric",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='assignments',
-        verbose_name='Рубрика оценивания',
-        help_text='Опциональная рубрика для структурированного оценивания'
+        related_name="assignments",
+        verbose_name="Рубрика оценивания",
+        help_text="Опциональная рубрика для структурированного оценивания",
     )
 
     class Meta:
-        verbose_name = 'Задание'
-        verbose_name_plural = 'Задания'
-        ordering = ['-created_at']
+        verbose_name = "Задание"
+        verbose_name_plural = "Задания"
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.title
@@ -166,6 +148,7 @@ class Assignment(models.Model):
     @property
     def is_overdue(self):
         from django.utils import timezone
+
         return timezone.now() > self.due_date
 
     def clone(self, cloner, new_title=None, new_due_date=None, randomize_questions=False):
@@ -218,6 +201,7 @@ class Assignment(models.Model):
                 # If randomizing, shuffle the options
                 if randomize_questions and cloned_question.options:
                     import random
+
                     options_copy = copy.deepcopy(cloned_question.options)
                     random.shuffle(options_copy)
                     cloned_question.options = options_copy
@@ -237,55 +221,44 @@ class AssignmentSubmission(models.Model):
     """
     Ответы студентов на задания
     """
+
     class Status(models.TextChoices):
-        SUBMITTED = 'submitted', 'Сдано'
-        GRADED = 'graded', 'Оценено'
-        RETURNED = 'returned', 'Возвращено на доработку'
+        SUBMITTED = "submitted", "Сдано"
+        GRADED = "graded", "Оценено"
+        RETURNED = "returned", "Возвращено на доработку"
 
     assignment = models.ForeignKey(
-        Assignment,
-        on_delete=models.CASCADE,
-        related_name='submissions',
-        verbose_name='Задание'
+        Assignment, on_delete=models.CASCADE, related_name="submissions", verbose_name="Задание"
     )
 
     student = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='assignment_submissions',
-        verbose_name='Студент'
+        related_name="assignment_submissions",
+        verbose_name="Студент",
     )
 
-    content = models.TextField(verbose_name='Ответ')
+    content = models.TextField(verbose_name="Ответ")
 
     # Файлы
     file = models.FileField(
-        upload_to='assignments/submissions/',
-        blank=True,
-        null=True,
-        verbose_name='Файл'
+        upload_to="assignments/submissions/", blank=True, null=True, verbose_name="Файл"
     )
 
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.SUBMITTED,
-        verbose_name='Статус'
+        max_length=20, choices=Status.choices, default=Status.SUBMITTED, verbose_name="Статус"
     )
 
     # T066/T_ASSIGN_012: Track late submissions
-    is_late = models.BooleanField(
-        default=False,
-        verbose_name='Поздняя сдача'
-    )
+    is_late = models.BooleanField(default=False, verbose_name="Поздняя сдача")
 
     # T_ASSIGN_012: Track days late for penalty calculation
     days_late = models.DecimalField(
         default=0,
         decimal_places=2,
         max_digits=10,
-        verbose_name='Дней с опозданием',
-        help_text='Количество дней/часов просрочки для расчета штрафа'
+        verbose_name="Дней с опозданием",
+        help_text="Количество дней/часов просрочки для расчета штрафа",
     )
 
     # T_ASSIGN_012: Track if penalty was applied
@@ -294,25 +267,18 @@ class AssignmentSubmission(models.Model):
         null=True,
         decimal_places=2,
         max_digits=5,
-        verbose_name='Примененный штраф',
-        help_text='Размер штрафа, примененный к оценке'
+        verbose_name="Примененный штраф",
+        help_text="Размер штрафа, примененный к оценке",
     )
 
     # Оценка
     score = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        validators=[MinValueValidator(0)],
-        verbose_name='Балл'
+        blank=True, null=True, validators=[MinValueValidator(0)], verbose_name="Балл"
     )
 
-    max_score = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        verbose_name='Максимальный балл'
-    )
+    max_score = models.PositiveIntegerField(blank=True, null=True, verbose_name="Максимальный балл")
 
-    feedback = models.TextField(blank=True, verbose_name='Комментарий преподавателя')
+    feedback = models.TextField(blank=True, verbose_name="Комментарий преподавателя")
 
     # Временные метки
     submitted_at = models.DateTimeField(auto_now_add=True)
@@ -320,10 +286,10 @@ class AssignmentSubmission(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Ответ на задание'
-        verbose_name_plural = 'Ответы на задания'
-        unique_together = ['assignment', 'student']
-        ordering = ['-submitted_at']
+        verbose_name = "Ответ на задание"
+        verbose_name_plural = "Ответы на задания"
+        unique_together = ["assignment", "student"]
+        ordering = ["-submitted_at"]
 
     def __str__(self):
         return f"{self.student} - {self.assignment}"
@@ -340,71 +306,55 @@ class AssignmentQuestion(models.Model):
     Вопросы в заданиях (для тестов)
     T_ASN_002: Assignment Question Order - Question ordering, randomization support
     """
+
     class Type(models.TextChoices):
-        SINGLE_CHOICE = 'single_choice', 'Один вариант'
-        MULTIPLE_CHOICE = 'multiple_choice', 'Несколько вариантов'
-        TEXT = 'text', 'Текстовый ответ'
-        NUMBER = 'number', 'Числовой ответ'
+        SINGLE_CHOICE = "single_choice", "Один вариант"
+        MULTIPLE_CHOICE = "multiple_choice", "Несколько вариантов"
+        TEXT = "text", "Текстовый ответ"
+        NUMBER = "number", "Числовой ответ"
 
     assignment = models.ForeignKey(
-        Assignment,
-        on_delete=models.CASCADE,
-        related_name='questions',
-        verbose_name='Задание'
+        Assignment, on_delete=models.CASCADE, related_name="questions", verbose_name="Задание"
     )
 
-    question_text = models.TextField(verbose_name='Текст вопроса')
+    question_text = models.TextField(verbose_name="Текст вопроса")
     question_type = models.CharField(
-        max_length=20,
-        choices=Type.choices,
-        default=Type.SINGLE_CHOICE,
-        verbose_name='Тип вопроса'
+        max_length=20, choices=Type.choices, default=Type.SINGLE_CHOICE, verbose_name="Тип вопроса"
     )
 
-    points = models.PositiveIntegerField(
-        default=1,
-        verbose_name='Баллы'
-    )
+    points = models.PositiveIntegerField(default=1, verbose_name="Баллы")
 
     # T_ASN_002: Order field (0-1000, unique per assignment)
     order = models.PositiveIntegerField(
         default=0,
-        verbose_name='Порядок',
-        validators=[MinValueValidator(0), MaxValueValidator(1000)]
+        verbose_name="Порядок",
+        validators=[MinValueValidator(0), MaxValueValidator(1000)],
     )
 
     # For questions with answer options
-    options = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name='Варианты ответов'
-    )
+    options = models.JSONField(default=list, blank=True, verbose_name="Варианты ответов")
 
-    correct_answer = models.JSONField(
-        default=dict,
-        blank=True,
-        verbose_name='Правильный ответ'
-    )
+    correct_answer = models.JSONField(default=dict, blank=True, verbose_name="Правильный ответ")
 
     # T_ASN_002: Support randomization per student
     randomize_options = models.BooleanField(
         default=False,
-        verbose_name='Randomize answer options',
-        help_text='If enabled, answer options will be randomized per student'
+        verbose_name="Randomize answer options",
+        help_text="If enabled, answer options will be randomized per student",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Вопрос'
-        verbose_name_plural = 'Вопросы'
-        ordering = ['order']
+        verbose_name = "Вопрос"
+        verbose_name_plural = "Вопросы"
+        ordering = ["order"]
         # T_ASN_002: Unique ordering per assignment
-        unique_together = [['assignment', 'order']]
+        unique_together = [["assignment", "order"]]
         indexes = [
-            models.Index(fields=['assignment', 'order'], name='question_assignment_order_idx'),
-            models.Index(fields=['assignment', 'randomize_options'], name='question_randomize_idx'),
+            models.Index(fields=["assignment", "order"], name="question_assignment_order_idx"),
+            models.Index(fields=["assignment", "randomize_options"], name="question_randomize_idx"),
         ]
 
     def __str__(self):
@@ -415,34 +365,28 @@ class AssignmentAnswer(models.Model):
     """
     Ответы студентов на вопросы
     """
+
     submission = models.ForeignKey(
         AssignmentSubmission,
         on_delete=models.CASCADE,
-        related_name='answers',
-        verbose_name='Ответ на задание'
+        related_name="answers",
+        verbose_name="Ответ на задание",
     )
 
     question = models.ForeignKey(
-        AssignmentQuestion,
-        on_delete=models.CASCADE,
-        related_name='answers',
-        verbose_name='Вопрос'
+        AssignmentQuestion, on_delete=models.CASCADE, related_name="answers", verbose_name="Вопрос"
     )
 
-    answer_text = models.TextField(blank=True, verbose_name='Текстовый ответ')
-    answer_choice = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name='Выбранные варианты'
-    )
+    answer_text = models.TextField(blank=True, verbose_name="Текстовый ответ")
+    answer_choice = models.JSONField(default=list, blank=True, verbose_name="Выбранные варианты")
 
-    is_correct = models.BooleanField(default=False, verbose_name='Правильный')
-    points_earned = models.PositiveIntegerField(default=0, verbose_name='Заработанные баллы')
+    is_correct = models.BooleanField(default=False, verbose_name="Правильный")
+    points_earned = models.PositiveIntegerField(default=0, verbose_name="Заработанные баллы")
 
     class Meta:
-        verbose_name = 'Ответ на вопрос'
-        verbose_name_plural = 'Ответы на вопросы'
-        unique_together = ['submission', 'question']
+        verbose_name = "Ответ на вопрос"
+        verbose_name_plural = "Ответы на вопросы"
+        unique_together = ["submission", "question"]
 
     def __str__(self):
         return f"{self.submission.student} - {self.question.question_text[:50]}"
@@ -464,21 +408,21 @@ class SubmissionExemption(models.Model):
     """
 
     class ExemptionType(models.TextChoices):
-        FULL = 'full', 'Полное - без штрафа'
-        CUSTOM_RATE = 'custom_rate', 'Пользовательская ставка'
+        FULL = "full", "Полное - без штрафа"
+        CUSTOM_RATE = "custom_rate", "Пользовательская ставка"
 
     submission = models.OneToOneField(
         AssignmentSubmission,
         on_delete=models.CASCADE,
-        related_name='exemption',
-        verbose_name='Ответ на задание'
+        related_name="exemption",
+        verbose_name="Ответ на задание",
     )
 
     exemption_type = models.CharField(
         max_length=20,
         choices=ExemptionType.choices,
         default=ExemptionType.FULL,
-        verbose_name='Тип освобождения'
+        verbose_name="Тип освобождения",
     )
 
     # For custom_rate exemption type
@@ -487,36 +431,30 @@ class SubmissionExemption(models.Model):
         null=True,
         decimal_places=2,
         max_digits=5,
-        verbose_name='Пользовательская ставка штрафа',
-        help_text="Используется вместо стандартной ставки если exemption_type='custom_rate'"
+        verbose_name="Пользовательская ставка штрафа",
+        help_text="Используется вместо стандартной ставки если exemption_type='custom_rate'",
     )
 
     reason = models.TextField(
-        verbose_name='Причина освобождения',
-        help_text='Объяснение причины освобождения от штрафа'
+        verbose_name="Причина освобождения", help_text="Объяснение причины освобождения от штрафа"
     )
 
     exemption_created_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='created_exemptions',
-        verbose_name='Создано'
+        User, on_delete=models.CASCADE, related_name="created_exemptions", verbose_name="Создано"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'Освобождение от штрафа'
-        verbose_name_plural = 'Освобождения от штрафа'
-        ordering = ['-created_at']
+        verbose_name = "Освобождение от штрафа"
+        verbose_name_plural = "Освобождения от штрафа"
+        ordering = ["-created_at"]
         indexes = [
             models.Index(
-                fields=['submission', 'exemption_type'],
-                name='exemption_submission_type_idx'
+                fields=["submission", "exemption_type"], name="exemption_submission_type_idx"
             ),
             models.Index(
-                fields=['exemption_created_by', '-created_at'],
-                name='exemption_creator_date_idx'
+                fields=["exemption_created_by", "-created_at"], name="exemption_creator_date_idx"
             ),
         ]
 
@@ -542,84 +480,74 @@ class PeerReviewAssignment(models.Model):
     """
 
     class AssignmentType(models.TextChoices):
-        RANDOM = 'random', 'Random Assignment'
-        MANUAL = 'manual', 'Manual Assignment'
-        AUTOMATIC = 'automatic', 'Automatic Assignment'
+        RANDOM = "random", "Random Assignment"
+        MANUAL = "manual", "Manual Assignment"
+        AUTOMATIC = "automatic", "Automatic Assignment"
 
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        IN_PROGRESS = 'in_progress', 'In Progress'
-        COMPLETED = 'completed', 'Completed'
-        SKIPPED = 'skipped', 'Skipped'
+        PENDING = "pending", "Pending"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        SKIPPED = "skipped", "Skipped"
 
     submission = models.ForeignKey(
         AssignmentSubmission,
         on_delete=models.CASCADE,
-        related_name='peer_review_assignments',
-        verbose_name='Submission to review'
+        related_name="peer_review_assignments",
+        verbose_name="Submission to review",
     )
 
     reviewer = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='peer_reviews_assigned',
-        verbose_name='Reviewer'
+        related_name="peer_reviews_assigned",
+        verbose_name="Reviewer",
     )
 
     assignment_type = models.CharField(
         max_length=20,
         choices=AssignmentType.choices,
         default=AssignmentType.RANDOM,
-        verbose_name='Assignment Type'
+        verbose_name="Assignment Type",
     )
 
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
-        verbose_name='Status'
+        max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="Status"
     )
 
     deadline = models.DateTimeField(
-        verbose_name='Review Deadline',
-        help_text='When the review must be completed'
+        verbose_name="Review Deadline", help_text="When the review must be completed"
     )
 
     is_anonymous = models.BooleanField(
         default=False,
-        verbose_name='Anonymous Review',
-        help_text='Hide reviewer identity from the student being reviewed'
+        verbose_name="Anonymous Review",
+        help_text="Hide reviewer identity from the student being reviewed",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Peer Review Assignment'
-        verbose_name_plural = 'Peer Review Assignments'
-        unique_together = ['submission', 'reviewer']
-        ordering = ['-created_at']
+        verbose_name = "Peer Review Assignment"
+        verbose_name_plural = "Peer Review Assignments"
+        unique_together = ["submission", "reviewer"]
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(
-                fields=['submission', 'status'],
-                name='pr_submission_status_idx'
-            ),
-            models.Index(
-                fields=['reviewer', 'status'],
-                name='pr_reviewer_status_idx'
-            ),
-            models.Index(
-                fields=['deadline'],
-                name='pr_deadline_idx'
-            ),
+            models.Index(fields=["submission", "status"], name="pr_submission_status_idx"),
+            models.Index(fields=["reviewer", "status"], name="pr_reviewer_status_idx"),
+            models.Index(fields=["deadline"], name="pr_deadline_idx"),
         ]
 
     def __str__(self):
-        return f"Review: {self.reviewer.get_full_name()} -> {self.submission.student.get_full_name()}"
+        return (
+            f"Review: {self.reviewer.get_full_name()} -> {self.submission.student.get_full_name()}"
+        )
 
     @property
     def is_overdue(self):
         from django.utils import timezone
+
         return self.status != self.Status.COMPLETED and timezone.now() > self.deadline
 
 
@@ -641,35 +569,34 @@ class PeerReview(models.Model):
     peer_assignment = models.OneToOneField(
         PeerReviewAssignment,
         on_delete=models.CASCADE,
-        related_name='review',
-        verbose_name='Peer Review Assignment'
+        related_name="review",
+        verbose_name="Peer Review Assignment",
     )
 
     score = models.PositiveIntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(100)],
-        verbose_name='Score (0-100)',
-        help_text='Score given by the peer reviewer'
+        verbose_name="Score (0-100)",
+        help_text="Score given by the peer reviewer",
     )
 
     feedback_text = models.TextField(
-        verbose_name='Feedback',
-        help_text='Detailed feedback from the peer reviewer'
+        verbose_name="Feedback", help_text="Detailed feedback from the peer reviewer"
     )
 
     rubric_scores = models.JSONField(
         default=dict,
         blank=True,
-        verbose_name='Rubric Scores',
-        help_text='Scores for each rubric criterion in JSON format'
+        verbose_name="Rubric Scores",
+        help_text="Scores for each rubric criterion in JSON format",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Peer Review'
-        verbose_name_plural = 'Peer Reviews'
-        ordering = ['-created_at']
+        verbose_name = "Peer Review"
+        verbose_name_plural = "Peer Reviews"
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"Review by {self.peer_assignment.reviewer.get_full_name()}"
@@ -703,21 +630,21 @@ class PlagiarismReport(models.Model):
     """
 
     class DetectionStatus(models.TextChoices):
-        PENDING = 'pending', 'Pending - Not yet submitted'
-        PROCESSING = 'processing', 'Processing - Awaiting results'
-        COMPLETED = 'completed', 'Completed - Results available'
-        FAILED = 'failed', 'Failed - Check could not complete'
+        PENDING = "pending", "Pending - Not yet submitted"
+        PROCESSING = "processing", "Processing - Awaiting results"
+        COMPLETED = "completed", "Completed - Results available"
+        FAILED = "failed", "Failed - Check could not complete"
 
     class PlagiarismService(models.TextChoices):
-        TURNITIN = 'turnitin', 'Turnitin'
-        COPYSCAPE = 'copyscape', 'Copyscape'
-        CUSTOM = 'custom', 'Custom/Internal'
+        TURNITIN = "turnitin", "Turnitin"
+        COPYSCAPE = "copyscape", "Copyscape"
+        CUSTOM = "custom", "Custom/Internal"
 
     submission = models.OneToOneField(
         AssignmentSubmission,
         on_delete=models.CASCADE,
-        related_name='plagiarism_report',
-        verbose_name='Assignment Submission'
+        related_name="plagiarism_report",
+        verbose_name="Assignment Submission",
     )
 
     similarity_score = models.DecimalField(
@@ -725,59 +652,55 @@ class PlagiarismReport(models.Model):
         decimal_places=2,
         max_digits=5,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
-        verbose_name='Similarity Score (%)'
+        verbose_name="Similarity Score (%)",
     )
 
     detection_status = models.CharField(
         max_length=20,
         choices=DetectionStatus.choices,
         default=DetectionStatus.PENDING,
-        verbose_name='Detection Status'
+        verbose_name="Detection Status",
     )
 
     # JSON format: [{"source": "url", "match_percent": 15, "matched_text": "..."}]
     sources = models.JSONField(
         default=list,
         blank=True,
-        verbose_name='Detected Sources',
-        help_text='List of sources with matched content'
+        verbose_name="Detected Sources",
+        help_text="List of sources with matched content",
     )
 
     service = models.CharField(
         max_length=20,
         choices=PlagiarismService.choices,
         default=PlagiarismService.CUSTOM,
-        verbose_name='Detection Service'
+        verbose_name="Detection Service",
     )
 
     service_report_id = models.CharField(
         max_length=255,
         blank=True,
         null=True,
-        verbose_name='External Service Report ID',
-        help_text='ID from external plagiarism service for reference'
+        verbose_name="External Service Report ID",
+        help_text="ID from external plagiarism service for reference",
     )
 
     error_message = models.TextField(
-        blank=True,
-        verbose_name='Error Message',
-        help_text='Error details if detection failed'
+        blank=True, verbose_name="Error Message", help_text="Error details if detection failed"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Queued at')
-    checked_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        verbose_name='Checked at'
-    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Queued at")
+    checked_at = models.DateTimeField(blank=True, null=True, verbose_name="Checked at")
 
     class Meta:
-        verbose_name = 'Plagiarism Report'
-        verbose_name_plural = 'Plagiarism Reports'
-        ordering = ['-created_at']
+        verbose_name = "Plagiarism Report"
+        verbose_name_plural = "Plagiarism Reports"
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['submission', 'detection_status'], name='plag_submission_status_idx'),
-            models.Index(fields=['detection_status', '-created_at'], name='plag_status_date_idx'),
+            models.Index(
+                fields=["submission", "detection_status"], name="plag_submission_status_idx"
+            ),
+            models.Index(fields=["detection_status", "-created_at"], name="plag_status_date_idx"),
         ]
 
     def __str__(self):
@@ -800,6 +723,7 @@ class PlagiarismReport(models.Model):
 # T_ASSIGN_010: Assignment History and Versioning Models
 # ====================================================
 
+
 class AssignmentHistory(models.Model):
     """
     Tracks all changes made to an Assignment.
@@ -812,11 +736,9 @@ class AssignmentHistory(models.Model):
         change_summary: Human-readable summary of what changed
         fields_changed: JSON list of field names that were modified
     """
+
     assignment = models.ForeignKey(
-        Assignment,
-        on_delete=models.CASCADE,
-        related_name='history',
-        verbose_name='Assignment'
+        Assignment, on_delete=models.CASCADE, related_name="history", verbose_name="Assignment"
     )
 
     changed_by = models.ForeignKey(
@@ -824,44 +746,41 @@ class AssignmentHistory(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='assignment_changes',
-        verbose_name='Changed By'
+        related_name="assignment_changes",
+        verbose_name="Changed By",
     )
 
-    change_time = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Change Time'
-    )
+    change_time = models.DateTimeField(auto_now_add=True, verbose_name="Change Time")
 
     # JSON diff: {'field_name': {'old': old_value, 'new': new_value}}
     changes_dict = models.JSONField(
         default=dict,
         blank=True,
-        verbose_name='Changes Dictionary',
-        help_text='JSON object with field diffs: {field_name: {old: value, new: value}}'
+        verbose_name="Changes Dictionary",
+        help_text="JSON object with field diffs: {field_name: {old: value, new: value}}",
     )
 
     change_summary = models.TextField(
         blank=True,
-        verbose_name='Change Summary',
-        help_text='Human-readable description of what changed'
+        verbose_name="Change Summary",
+        help_text="Human-readable description of what changed",
     )
 
     # JSON list of field names changed
     fields_changed = models.JSONField(
         default=list,
         blank=True,
-        verbose_name='Fields Changed',
-        help_text='List of field names that were modified'
+        verbose_name="Fields Changed",
+        help_text="List of field names that were modified",
     )
 
     class Meta:
-        verbose_name = 'Assignment History'
-        verbose_name_plural = 'Assignment Histories'
-        ordering = ['-change_time']
+        verbose_name = "Assignment History"
+        verbose_name_plural = "Assignment Histories"
+        ordering = ["-change_time"]
         indexes = [
-            models.Index(fields=['assignment', '-change_time']),
-            models.Index(fields=['changed_by', '-change_time']),
+            models.Index(fields=["assignment", "-change_time"]),
+            models.Index(fields=["changed_by", "-change_time"]),
         ]
 
     def __str__(self):
@@ -885,41 +804,30 @@ class SubmissionVersion(models.Model):
         is_final: Whether this is the final/current submission to be graded
         submitted_by: User who made this submission (usually the student)
     """
+
     submission = models.ForeignKey(
         AssignmentSubmission,
         on_delete=models.CASCADE,
-        related_name='versions',
-        verbose_name='Submission'
+        related_name="versions",
+        verbose_name="Submission",
     )
 
     version_number = models.PositiveIntegerField(
-        verbose_name='Version Number',
-        help_text='Sequential version number (1, 2, 3, ...)'
+        verbose_name="Version Number", help_text="Sequential version number (1, 2, 3, ...)"
     )
 
     # File content
     file = models.FileField(
-        upload_to='assignments/submissions/versions/',
-        blank=True,
-        null=True,
-        verbose_name='File'
+        upload_to="assignments/submissions/versions/", blank=True, null=True, verbose_name="File"
     )
 
     # Text content
-    content = models.TextField(
-        blank=True,
-        verbose_name='Content'
-    )
+    content = models.TextField(blank=True, verbose_name="Content")
 
-    submitted_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Submitted At'
-    )
+    submitted_at = models.DateTimeField(auto_now_add=True, verbose_name="Submitted At")
 
     is_final = models.BooleanField(
-        default=False,
-        verbose_name='Is Final',
-        help_text='This is the submission used for grading'
+        default=False, verbose_name="Is Final", help_text="This is the submission used for grading"
     )
 
     submitted_by = models.ForeignKey(
@@ -927,28 +835,28 @@ class SubmissionVersion(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='submission_versions',
-        verbose_name='Submitted By'
+        related_name="submission_versions",
+        verbose_name="Submitted By",
     )
 
     # Link to previous version for version history traversal
     previous_version = models.ForeignKey(
-        'self',
+        "self",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='next_version',
-        verbose_name='Previous Version'
+        related_name="next_version",
+        verbose_name="Previous Version",
     )
 
     class Meta:
-        verbose_name = 'Submission Version'
-        verbose_name_plural = 'Submission Versions'
-        ordering = ['version_number']
-        unique_together = ['submission', 'version_number']
+        verbose_name = "Submission Version"
+        verbose_name_plural = "Submission Versions"
+        ordering = ["version_number"]
+        unique_together = ["submission", "version_number"]
         indexes = [
-            models.Index(fields=['submission', 'version_number']),
-            models.Index(fields=['is_final']),
+            models.Index(fields=["submission", "version_number"]),
+            models.Index(fields=["is_final"]),
         ]
 
     def __str__(self):
@@ -965,38 +873,32 @@ class SubmissionVersionDiff(models.Model):
         diff_content: JSON containing the diff
         created_at: When the diff was computed
     """
+
     version_a = models.ForeignKey(
         SubmissionVersion,
         on_delete=models.CASCADE,
-        related_name='diffs_as_a',
-        verbose_name='Version A'
+        related_name="diffs_as_a",
+        verbose_name="Version A",
     )
 
     version_b = models.ForeignKey(
         SubmissionVersion,
         on_delete=models.CASCADE,
-        related_name='diffs_as_b',
-        verbose_name='Version B'
+        related_name="diffs_as_b",
+        verbose_name="Version B",
     )
 
     # JSON diff containing added/removed/changed lines
-    diff_content = models.JSONField(
-        default=dict,
-        blank=True,
-        verbose_name='Diff Content'
-    )
+    diff_content = models.JSONField(default=dict, blank=True, verbose_name="Diff Content")
 
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Created At'
-    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
 
     class Meta:
-        verbose_name = 'Submission Version Diff'
-        verbose_name_plural = 'Submission Version Diffs'
-        unique_together = ['version_a', 'version_b']
+        verbose_name = "Submission Version Diff"
+        verbose_name_plural = "Submission Version Diffs"
+        unique_together = ["version_a", "version_b"]
         indexes = [
-            models.Index(fields=['version_a', 'version_b']),
+            models.Index(fields=["version_a", "version_b"]),
         ]
 
     def __str__(self):
@@ -1015,19 +917,20 @@ class SubmissionVersionRestore(models.Model):
         restored_at: When the restore happened
         reason: Why the version was restored
     """
+
     submission = models.ForeignKey(
         AssignmentSubmission,
         on_delete=models.CASCADE,
-        related_name='version_restores',
-        verbose_name='Submission'
+        related_name="version_restores",
+        verbose_name="Submission",
     )
 
     restored_from_version = models.ForeignKey(
         SubmissionVersion,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='restored_as_source',
-        verbose_name='Restored From Version'
+        related_name="restored_as_source",
+        verbose_name="Restored From Version",
     )
 
     restored_to_version = models.ForeignKey(
@@ -1035,36 +938,31 @@ class SubmissionVersionRestore(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='restored_as_target',
-        verbose_name='Restored To Version'
+        related_name="restored_as_target",
+        verbose_name="Restored To Version",
     )
 
     restored_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='restored_submissions',
-        verbose_name='Restored By'
+        related_name="restored_submissions",
+        verbose_name="Restored By",
     )
 
-    restored_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Restored At'
-    )
+    restored_at = models.DateTimeField(auto_now_add=True, verbose_name="Restored At")
 
     reason = models.TextField(
-        blank=True,
-        verbose_name='Reason',
-        help_text='Reason for restoring a previous version'
+        blank=True, verbose_name="Reason", help_text="Reason for restoring a previous version"
     )
 
     class Meta:
-        verbose_name = 'Submission Version Restore'
-        verbose_name_plural = 'Submission Version Restores'
-        ordering = ['-restored_at']
+        verbose_name = "Submission Version Restore"
+        verbose_name_plural = "Submission Version Restores"
+        ordering = ["-restored_at"]
         indexes = [
-            models.Index(fields=['submission', '-restored_at']),
-            models.Index(fields=['restored_by', '-restored_at']),
+            models.Index(fields=["submission", "-restored_at"]),
+            models.Index(fields=["restored_by", "-restored_at"]),
         ]
 
     def __str__(self):
@@ -1097,106 +995,72 @@ class AssignmentAttempt(models.Model):
     """
 
     class Status(models.TextChoices):
-        SUBMITTED = 'submitted', 'Submitted'
-        IN_REVIEW = 'in_review', 'In Review'
-        GRADED = 'graded', 'Graded'
-        RETURNED = 'returned', 'Returned for Revision'
+        SUBMITTED = "submitted", "Submitted"
+        IN_REVIEW = "in_review", "In Review"
+        GRADED = "graded", "Graded"
+        RETURNED = "returned", "Returned for Revision"
 
     submission = models.ForeignKey(
         AssignmentSubmission,
         on_delete=models.CASCADE,
-        related_name='attempts',
-        verbose_name='Assignment Submission'
+        related_name="attempts",
+        verbose_name="Assignment Submission",
     )
 
     assignment = models.ForeignKey(
         Assignment,
         on_delete=models.CASCADE,
-        related_name='student_attempts',
-        verbose_name='Assignment'
+        related_name="student_attempts",
+        verbose_name="Assignment",
     )
 
     student = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='assignment_attempts',
-        verbose_name='Student'
+        User, on_delete=models.CASCADE, related_name="assignment_attempts", verbose_name="Student"
     )
 
     attempt_number = models.PositiveIntegerField(
-        default=1,
-        validators=[MinValueValidator(1)],
-        verbose_name='Attempt Number'
+        default=1, validators=[MinValueValidator(1)], verbose_name="Attempt Number"
     )
 
     score = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        validators=[MinValueValidator(0)],
-        verbose_name='Score'
+        blank=True, null=True, validators=[MinValueValidator(0)], verbose_name="Score"
     )
 
-    max_score = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        verbose_name='Maximum Score'
-    )
+    max_score = models.PositiveIntegerField(blank=True, null=True, verbose_name="Maximum Score")
 
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.SUBMITTED,
-        verbose_name='Status'
+        max_length=20, choices=Status.choices, default=Status.SUBMITTED, verbose_name="Status"
     )
 
-    submitted_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Submitted At'
-    )
+    submitted_at = models.DateTimeField(auto_now_add=True, verbose_name="Submitted At")
 
-    graded_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        verbose_name='Graded At'
-    )
+    graded_at = models.DateTimeField(blank=True, null=True, verbose_name="Graded At")
 
-    feedback = models.TextField(
-        blank=True,
-        verbose_name='Feedback'
-    )
+    feedback = models.TextField(blank=True, verbose_name="Feedback")
 
-    content = models.TextField(
-        verbose_name='Submission Content'
-    )
+    content = models.TextField(verbose_name="Submission Content")
 
     file = models.FileField(
-        upload_to='assignments/attempts/',
-        blank=True,
-        null=True,
-        verbose_name='File Attachment'
+        upload_to="assignments/attempts/", blank=True, null=True, verbose_name="File Attachment"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Assignment Attempt'
-        verbose_name_plural = 'Assignment Attempts'
-        unique_together = ['submission', 'attempt_number']
-        ordering = ['attempt_number']
+        verbose_name = "Assignment Attempt"
+        verbose_name_plural = "Assignment Attempts"
+        unique_together = ["submission", "attempt_number"]
+        ordering = ["attempt_number"]
         indexes = [
             models.Index(
-                fields=['submission', 'attempt_number'],
-                name='attempt_submission_number_idx'
+                fields=["submission", "attempt_number"], name="attempt_submission_number_idx"
             ),
             models.Index(
-                fields=['student', 'assignment', 'attempt_number'],
-                name='attempt_student_assignment_idx'
+                fields=["student", "assignment", "attempt_number"],
+                name="attempt_student_assignment_idx",
             ),
-            models.Index(
-                fields=['status', '-submitted_at'],
-                name='attempt_status_date_idx'
-            ),
+            models.Index(fields=["status", "-submitted_at"], name="attempt_status_date_idx"),
         ]
 
     def __str__(self):
@@ -1218,6 +1082,7 @@ class AssignmentAttempt(models.Model):
 # T_ASN_006: Assignment Rubric Support Models
 # =============================================
 
+
 class GradingRubric(models.Model):
     """
     T_ASN_006: Structured grading rubric for assignments.
@@ -1238,51 +1103,48 @@ class GradingRubric(models.Model):
 
     name = models.CharField(
         max_length=255,
-        verbose_name='Название рубрики',
-        help_text='Например: "Рубрика для оценки эссе"'
+        verbose_name="Название рубрики",
+        help_text='Например: "Рубрика для оценки эссе"',
     )
 
     description = models.TextField(
         blank=True,
-        verbose_name='Описание рубрики',
-        help_text='Подробное описание критериев оценивания'
+        verbose_name="Описание рубрики",
+        help_text="Подробное описание критериев оценивания",
     )
 
     created_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='created_rubrics',
-        verbose_name='Создано'
+        User, on_delete=models.CASCADE, related_name="created_rubrics", verbose_name="Создано"
     )
 
     is_template = models.BooleanField(
         default=False,
-        verbose_name='Является шаблоном',
-        help_text='Если включено, рубрика будет доступна как шаблон для других преподавателей'
+        verbose_name="Является шаблоном",
+        help_text="Если включено, рубрика будет доступна как шаблон для других преподавателей",
     )
 
     total_points = models.PositiveIntegerField(
         default=100,
-        verbose_name='Всего баллов',
-        help_text='Максимальное количество баллов по этой рубрике'
+        verbose_name="Всего баллов",
+        help_text="Максимальное количество баллов по этой рубрике",
     )
 
     is_deleted = models.BooleanField(
         default=False,
-        verbose_name='Удалено',
-        help_text='Мягкое удаление - рубрика не отображается в списках'
+        verbose_name="Удалено",
+        help_text="Мягкое удаление - рубрика не отображается в списках",
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата изменения')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата изменения")
 
     class Meta:
-        verbose_name = 'Рубрика оценивания'
-        verbose_name_plural = 'Рубрики оценивания'
-        ordering = ['-created_at']
+        verbose_name = "Рубрика оценивания"
+        verbose_name_plural = "Рубрики оценивания"
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['created_by', '-created_at']),
-            models.Index(fields=['is_template', 'is_deleted']),
+            models.Index(fields=["created_by", "-created_at"]),
+            models.Index(fields=["is_template", "is_deleted"]),
         ]
 
     def __str__(self):
@@ -1304,7 +1166,7 @@ class GradingRubric(models.Model):
             description=self.description,
             created_by=new_creator,
             is_template=self.is_template,
-            total_points=self.total_points
+            total_points=self.total_points,
         )
 
         # Clone all criteria
@@ -1315,7 +1177,7 @@ class GradingRubric(models.Model):
                 description=criterion.description,
                 max_points=criterion.max_points,
                 point_scales=criterion.point_scales,
-                order=criterion.order
+                order=criterion.order,
             )
 
         return cloned_rubric
@@ -1338,50 +1200,43 @@ class RubricCriterion(models.Model):
     """
 
     rubric = models.ForeignKey(
-        GradingRubric,
-        on_delete=models.CASCADE,
-        related_name='criteria',
-        verbose_name='Рубрика'
+        GradingRubric, on_delete=models.CASCADE, related_name="criteria", verbose_name="Рубрика"
     )
 
     name = models.CharField(
         max_length=255,
-        verbose_name='Название критерия',
-        help_text='Например: "Качество содержания"'
+        verbose_name="Название критерия",
+        help_text='Например: "Качество содержания"',
     )
 
     description = models.TextField(
-        verbose_name='Описание критерия',
-        help_text='Что оценивает этот критерий'
+        verbose_name="Описание критерия", help_text="Что оценивает этот критерий"
     )
 
     max_points = models.PositiveIntegerField(
-        verbose_name='Максимум баллов',
-        help_text='Максимальное количество баллов за этот критерий'
+        verbose_name="Максимум баллов", help_text="Максимальное количество баллов за этот критерий"
     )
 
     # JSON list: [[points, description], [points, description], ...]
     point_scales = models.JSONField(
         default=list,
-        verbose_name='Шкала оценивания',
-        help_text='Массив [баллы, описание] для каждого уровня выполнения'
+        verbose_name="Шкала оценивания",
+        help_text="Массив [баллы, описание] для каждого уровня выполнения",
     )
 
     order = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Порядок',
-        help_text='Порядок отображения критерия в рубрике'
+        default=0, verbose_name="Порядок", help_text="Порядок отображения критерия в рубрике"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
     class Meta:
-        verbose_name = 'Критерий рубрики'
-        verbose_name_plural = 'Критерии рубрики'
-        unique_together = ['rubric', 'name']
-        ordering = ['order']
+        verbose_name = "Критерий рубрики"
+        verbose_name_plural = "Критерии рубрики"
+        unique_together = ["rubric", "name"]
+        ordering = ["order"]
         indexes = [
-            models.Index(fields=['rubric', 'order']),
+            models.Index(fields=["rubric", "order"]),
         ]
 
     def __str__(self):
@@ -1393,38 +1248,36 @@ class RubricCriterion(models.Model):
 
         # Validate point_scales is a list
         if not isinstance(self.point_scales, list):
-            raise ValidationError({'point_scales': 'Шкала оценивания должна быть списком'})
+            raise ValidationError({"point_scales": "Шкала оценивания должна быть списком"})
 
         # Validate point_scales is not empty
         if not self.point_scales:
-            raise ValidationError({'point_scales': 'Шкала оценивания не может быть пустой'})
+            raise ValidationError({"point_scales": "Шкала оценивания не может быть пустой"})
 
         # Validate each scale entry format
         for scale_entry in self.point_scales:
             if not isinstance(scale_entry, (list, tuple)) or len(scale_entry) != 2:
-                raise ValidationError({
-                    'point_scales': 'Каждая запись должна быть [баллы, описание]'
-                })
+                raise ValidationError(
+                    {"point_scales": "Каждая запись должна быть [баллы, описание]"}
+                )
 
             points, description = scale_entry
 
             # Validate points is a number
             if not isinstance(points, (int, float)):
-                raise ValidationError({
-                    'point_scales': 'Баллы должны быть числом'
-                })
+                raise ValidationError({"point_scales": "Баллы должны быть числом"})
 
             # Validate points don't exceed max_points
             if points > self.max_points:
-                raise ValidationError({
-                    'point_scales': f'Баллы ({points}) не могут быть больше максимума ({self.max_points})'
-                })
+                raise ValidationError(
+                    {
+                        "point_scales": f"Баллы ({points}) не могут быть больше максимума ({self.max_points})"
+                    }
+                )
 
             # Validate description is not empty
             if not description or not str(description).strip():
-                raise ValidationError({
-                    'point_scales': 'Описание уровня не может быть пустым'
-                })
+                raise ValidationError({"point_scales": "Описание уровня не может быть пустым"})
 
 
 class RubricScore(models.Model):
@@ -1444,40 +1297,35 @@ class RubricScore(models.Model):
     submission = models.ForeignKey(
         AssignmentSubmission,
         on_delete=models.CASCADE,
-        related_name='rubric_scores',
-        verbose_name='Ответ на задание'
+        related_name="rubric_scores",
+        verbose_name="Ответ на задание",
     )
 
     criterion = models.ForeignKey(
         RubricCriterion,
         on_delete=models.CASCADE,
-        related_name='scores',
-        verbose_name='Критерий рубрики'
+        related_name="scores",
+        verbose_name="Критерий рубрики",
     )
 
     score = models.DecimalField(
-        decimal_places=2,
-        max_digits=10,
-        verbose_name='Баллы',
-        validators=[MinValueValidator(0)]
+        decimal_places=2, max_digits=10, verbose_name="Баллы", validators=[MinValueValidator(0)]
     )
 
     comment = models.TextField(
-        blank=True,
-        verbose_name='Комментарий',
-        help_text='Объяснение выставленной оценки'
+        blank=True, verbose_name="Комментарий", help_text="Объяснение выставленной оценки"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата изменения')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата изменения")
 
     class Meta:
-        verbose_name = 'Оценка по критерию'
-        verbose_name_plural = 'Оценки по критериям'
-        unique_together = ['submission', 'criterion']
-        ordering = ['criterion__order']
+        verbose_name = "Оценка по критерию"
+        verbose_name_plural = "Оценки по критериям"
+        unique_together = ["submission", "criterion"]
+        ordering = ["criterion__order"]
         indexes = [
-            models.Index(fields=['submission', 'criterion']),
+            models.Index(fields=["submission", "criterion"]),
         ]
 
     def __str__(self):
@@ -1488,9 +1336,11 @@ class RubricScore(models.Model):
         from django.core.exceptions import ValidationError
 
         if self.score > self.criterion.max_points:
-            raise ValidationError({
-                'score': f'Баллы ({self.score}) не могут быть больше максимума ({self.criterion.max_points})'
-            })
+            raise ValidationError(
+                {
+                    "score": f"Баллы ({self.score}) не могут быть больше максимума ({self.criterion.max_points})"
+                }
+            )
 
 
 class RubricTemplate(models.Model):
@@ -1510,58 +1360,47 @@ class RubricTemplate(models.Model):
     """
 
     ASSIGNMENT_TYPES = [
-        ('essay', 'Эссе'),
-        ('project', 'Проект'),
-        ('presentation', 'Презентация'),
-        ('research_paper', 'Исследовательская работа'),
-        ('coding', 'Программирование'),
-        ('creative', 'Творческая работа'),
-        ('practical', 'Практическая работа'),
+        ("essay", "Эссе"),
+        ("project", "Проект"),
+        ("presentation", "Презентация"),
+        ("research_paper", "Исследовательская работа"),
+        ("coding", "Программирование"),
+        ("creative", "Творческая работа"),
+        ("practical", "Практическая работа"),
     ]
 
-    name = models.CharField(
-        max_length=255,
-        verbose_name='Название шаблона'
-    )
+    name = models.CharField(max_length=255, verbose_name="Название шаблона")
 
-    description = models.TextField(
-        blank=True,
-        verbose_name='Описание шаблона'
-    )
+    description = models.TextField(blank=True, verbose_name="Описание шаблона")
 
     assignment_type = models.CharField(
-        max_length=50,
-        choices=ASSIGNMENT_TYPES,
-        verbose_name='Тип задания'
+        max_length=50, choices=ASSIGNMENT_TYPES, verbose_name="Тип задания"
     )
 
     rubric = models.OneToOneField(
-        GradingRubric,
-        on_delete=models.CASCADE,
-        related_name='template',
-        verbose_name='Рубрика'
+        GradingRubric, on_delete=models.CASCADE, related_name="template", verbose_name="Рубрика"
     )
 
     is_system = models.BooleanField(
         default=True,
-        verbose_name='Системный шаблон',
-        help_text='Создан администратором, доступен всем'
+        verbose_name="Системный шаблон",
+        help_text="Создан администратором, доступен всем",
     )
 
     is_active = models.BooleanField(
         default=True,
-        verbose_name='Активен',
-        help_text='Активные шаблоны отображаются в списке доступных'
+        verbose_name="Активен",
+        help_text="Активные шаблоны отображаются в списке доступных",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Шаблон рубрики'
-        verbose_name_plural = 'Шаблоны рубрик'
-        unique_together = ['assignment_type', 'name']
-        ordering = ['assignment_type', 'name']
+        verbose_name = "Шаблон рубрики"
+        verbose_name_plural = "Шаблоны рубрик"
+        unique_together = ["assignment_type", "name"]
+        ordering = ["assignment_type", "name"]
 
     def __str__(self):
         return f"{self.name} ({self.get_assignment_type_display()})"
@@ -1587,57 +1426,94 @@ class StudentDeadlineExtension(models.Model):
     assignment = models.ForeignKey(
         Assignment,
         on_delete=models.CASCADE,
-        related_name='deadline_extensions',
-        verbose_name='Задание'
+        related_name="deadline_extensions",
+        verbose_name="Задание",
     )
 
     student = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='deadline_extensions',
-        verbose_name='Студент'
+        User, on_delete=models.CASCADE, related_name="deadline_extensions", verbose_name="Студент"
     )
 
     extended_deadline = models.DateTimeField(
-        verbose_name='Новый срок сдачи',
-        help_text='Новый срок сдачи для этого студента'
+        verbose_name="Новый срок сдачи", help_text="Новый срок сдачи для этого студента"
     )
 
     reason = models.TextField(
         blank=True,
-        verbose_name='Причина расширения',
-        help_text='Объяснение причины расширения срока'
+        verbose_name="Причина расширения",
+        help_text="Объяснение причины расширения срока",
     )
 
     extended_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='granted_extensions',
-        verbose_name='Расширено'
+        User, on_delete=models.CASCADE, related_name="granted_extensions", verbose_name="Расширено"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создано')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
 
     class Meta:
-        verbose_name = 'Расширение сроков'
-        verbose_name_plural = 'Расширения сроков'
-        unique_together = ['assignment', 'student']
-        ordering = ['-created_at']
+        verbose_name = "Расширение сроков"
+        verbose_name_plural = "Расширения сроков"
+        unique_together = ["assignment", "student"]
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(
-                fields=['assignment', 'student'],
-                name='dl_ext_assign_student'
-            ),
-            models.Index(
-                fields=['student', '-extended_deadline'],
-                name='dl_ext_student_date'
-            ),
-            models.Index(
-                fields=['extended_by', '-created_at'],
-                name='dl_ext_creator_date'
-            ),
+            models.Index(fields=["assignment", "student"], name="dl_ext_assign_student"),
+            models.Index(fields=["student", "-extended_deadline"], name="dl_ext_student_date"),
+            models.Index(fields=["extended_by", "-created_at"], name="dl_ext_creator_date"),
         ]
 
     def __str__(self):
         return f"Extension: {self.student.get_full_name()} - {self.assignment.title} until {self.extended_deadline.date()}"
+
+
+class SubmissionFeedback(models.Model):
+    """
+    M6: Feedback record for assignment submissions.
+
+    Stores teacher feedback when grading submissions.
+    Linked to AssignmentSubmission and teacher.
+
+    Fields:
+        submission: The assignment submission being graded
+        teacher: The teacher/tutor who provided the feedback
+        grade: Score (0-10)
+        feedback_text: Detailed feedback text
+        created_at: When feedback was given
+        updated_at: Last modification time
+    """
+
+    submission = models.OneToOneField(
+        AssignmentSubmission,
+        on_delete=models.CASCADE,
+        related_name="submission_feedback",
+        verbose_name="Ответ на задание",
+    )
+
+    teacher = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="given_feedbacks", verbose_name="Преподаватель"
+    )
+
+    grade = models.PositiveIntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Оценка",
+        help_text="Оценка от 0 до 10",
+    )
+
+    feedback_text = models.TextField(
+        verbose_name="Текст обратной связи", help_text="Детальная обратная связь для студента"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
+
+    class Meta:
+        verbose_name = "Обратная связь на ответ"
+        verbose_name_plural = "Обратная связь на ответы"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["submission", "teacher"]),
+            models.Index(fields=["teacher", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Feedback: {self.submission.student.get_full_name()} - {self.grade}/10"

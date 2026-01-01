@@ -343,3 +343,83 @@ class IsAdminUser(BasePermission):
             return False
 
         return request.user.is_staff or request.user.is_superuser
+
+
+class IsStudent(BasePermission):
+    """
+    Разрешение только для студентов.
+
+    Бизнес-правила:
+    - Только пользователи с ролью STUDENT имеют доступ
+    - Используется для student-only endpoints
+    """
+
+    def has_permission(self, request, view) -> bool:
+        """Проверяет что пользователь студент"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if not request.user.is_active:
+            return False
+
+        return request.user.role == User.Role.STUDENT
+
+
+class IsTeacher(BasePermission):
+    """
+    Разрешение только для учителей.
+
+    Бизнес-правила:
+    - Только пользователи с ролью TEACHER имеют доступ
+    - Используется для teacher-only endpoints
+    """
+
+    def has_permission(self, request, view) -> bool:
+        """Проверяет что пользователь учитель"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if not request.user.is_active:
+            return False
+
+        return request.user.role == User.Role.TEACHER
+
+
+class IsTutor(BasePermission):
+    """
+    Разрешение только для тьюторов.
+
+    Бизнес-правила:
+    - Только пользователи с ролью TUTOR имеют доступ
+    - Используется для tutor-only endpoints
+    """
+
+    def has_permission(self, request, view) -> bool:
+        """Проверяет что пользователь тьютор"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if not request.user.is_active:
+            return False
+
+        return request.user.role == User.Role.TUTOR
+
+
+class IsParent(BasePermission):
+    """
+    Разрешение только для родителей.
+
+    Бизнес-правила:
+    - Только пользователи с ролью PARENT имеют доступ
+    - Используется для parent-only endpoints
+    """
+
+    def has_permission(self, request, view) -> bool:
+        """Проверяет что пользователь родитель"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if not request.user.is_active:
+            return False
+
+        return request.user.role == User.Role.PARENT

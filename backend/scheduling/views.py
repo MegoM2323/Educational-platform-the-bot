@@ -57,33 +57,29 @@ class LessonViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role == "teacher":
-            # Teachers see their created lessons
             queryset = Lesson.objects.filter(teacher=user)
         elif user.role == "student":
-            # Students see their own lessons
             queryset = Lesson.objects.filter(student=user)
         elif user.role == "tutor":
-            # Tutors see lessons for their students
             from accounts.models import StudentProfile
 
             student_ids = StudentProfile.objects.filter(tutor=user).values_list(
                 "user_id", flat=True
             )
-
             queryset = Lesson.objects.filter(student_id__in=student_ids)
         elif user.role == "parent":
-            # Parents see lessons for their children
             from accounts.models import StudentProfile
 
             children_ids = StudentProfile.objects.filter(parent=user).values_list(
                 "user_id", flat=True
             )
             queryset = Lesson.objects.filter(student_id__in=children_ids)
+        elif user.is_staff or user.is_superuser:
+            # Admins see all lessons
+            queryset = Lesson.objects.all()
         else:
-            # Other roles see nothing
             queryset = Lesson.objects.none()
 
-        # Always optimize queries
         queryset = queryset.select_related("teacher", "student", "subject").order_by(
             "date", "start_time"
         )
@@ -121,7 +117,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """
-        Create a new lesson (teacher only).
+        Create a new lesson (teacher or admin).
 
         POST /api/scheduling/lessons/
         {
@@ -133,11 +129,21 @@ class LessonViewSet(viewsets.ModelViewSet):
             "description": "Optional description",
             "telemost_link": "https://telemost.yandex.ru/..."
         }
+
+        Rules:
+        - Teachers can create lessons for their own students (must have SubjectEnrollment)
+        - Admins can create lessons for any student
+        - start_time must be before end_time
+        - Date cannot be in the past
         """
-        # Only teachers can create lessons
-        if request.user.role != "teacher":
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        # Only teachers and admins can create lessons
+        if request.user.role not in ("teacher", "admin"):
             return Response(
-                {"error": "Only teachers can create lessons"},
+                {"error": "Only teachers and admins can create lessons"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -148,18 +154,43 @@ class LessonViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         try:
-            # Use service to create lesson
             student_id = serializer.validated_data["student"]
             subject_id = serializer.validated_data["subject"]
 
-            # Fetch actual objects
-            from django.contrib.auth import get_user_model
+            # Fetch student and subject objects
+            try:
+                student_obj = User.objects.get(id=student_id, role="student")
+            except User.DoesNotExist:
+                return Response(
+                    {"error": f"Student with id {student_id} not found"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-            User = get_user_model()
+            try:
+                subject_obj = Subject.objects.get(id=subject_id)
+            except Subject.DoesNotExist:
+                return Response(
+                    {"error": f"Subject with id {subject_id} not found"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-            student_obj = User.objects.get(id=student_id, role="student")
-            subject_obj = Subject.objects.get(id=subject_id)
+            # Check teacher authorization
+            if request.user.role == "teacher":
+                # Teachers must have SubjectEnrollment with student
+                from materials.models import SubjectEnrollment
 
+                if not SubjectEnrollment.objects.filter(
+                    student=student_obj,
+                    teacher=request.user,
+                    subject=subject_obj,
+                    is_active=True,
+                ).exists():
+                    return Response(
+                        {"error": "You do not teach this subject to this student"},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
+            # Create lesson (admin or authorized teacher)
             lesson = LessonService.create_lesson(
                 teacher=request.user,
                 student=student_obj,
@@ -175,7 +206,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             output_serializer = LessonSerializer(lesson)
             return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
-        except (DjangoValidationError, User.DoesNotExist, Subject.DoesNotExist) as e:
+        except DjangoValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):

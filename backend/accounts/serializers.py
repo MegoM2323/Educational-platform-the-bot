@@ -17,32 +17,40 @@ class UserLoginSerializer(serializers.Serializer):
     """
     Сериализатор для входа пользователя (поддерживает email и username)
     """
+
     email = serializers.CharField(required=False, allow_blank=True)
     username = serializers.CharField(required=False, allow_blank=True)
-    password = serializers.CharField()
-    
+    password = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_email(self, value):
+        if value and isinstance(value, str):
+            value = value.strip()
+        return value
+
+    def validate_username(self, value):
+        if value and isinstance(value, str):
+            value = value.strip()
+        return value
+
+    def validate_password(self, value):
+        if not value:
+            raise serializers.ValidationError("Пароль не может быть пустым")
+        return value
+
     def validate(self, attrs):
-        email = attrs.get('email')
-        username = attrs.get('username')
-        password = attrs.get('password')
-        
-        # Должен быть указан либо email, либо username
+        email = attrs.get("email")
+        username = attrs.get("username")
+        password = attrs.get("password")
+
         if not email and not username:
-            raise serializers.ValidationError('Необходимо указать email или имя пользователя')
-        
-        if not password:
-            raise serializers.ValidationError('Необходимо указать пароль')
-        
-        # Если передан email, используем его; иначе используем username
-        if email:
-            attrs['email'] = email.strip() if email else None
-            attrs['username'] = None
-        elif username:
-            attrs['username'] = username.strip() if username else None
-            attrs['email'] = None
-        
-        attrs['password'] = password
-        
+            raise serializers.ValidationError(
+                "Необходимо указать email или имя пользователя"
+            )
+
+        attrs["email"] = email if email else None
+        attrs["username"] = username if username else None
+        attrs["password"] = password
+
         return attrs
 
 
@@ -50,17 +58,29 @@ class UserSerializer(serializers.ModelSerializer):
     """
     Сериализатор для отображения пользователя
     """
-    role_display = serializers.CharField(source='get_role_display', read_only=True)
+
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
     full_name = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = User
         fields = (
-            'id', 'email', 'first_name', 'last_name', 'role', 'role_display',
-            'phone', 'avatar', 'is_verified', 'is_active', 'is_staff', 'date_joined', 'full_name'
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "role_display",
+            "phone",
+            "avatar",
+            "is_verified",
+            "is_active",
+            "is_staff",
+            "date_joined",
+            "full_name",
         )
-        read_only_fields = ('id', 'date_joined', 'is_verified', 'is_staff')
-    
+        read_only_fields = ("id", "date_joined", "is_verified", "is_staff")
+
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
 
@@ -69,16 +89,26 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     """
     Сериализатор для профиля студента
     """
+
     user = UserSerializer(read_only=True)
-    tutor_name = serializers.CharField(source='tutor.get_full_name', read_only=True)
-    parent_name = serializers.CharField(source='parent.get_full_name', read_only=True)
-    
+    tutor_name = serializers.CharField(source="tutor.get_full_name", read_only=True)
+    parent_name = serializers.CharField(source="parent.get_full_name", read_only=True)
+
     class Meta:
         model = StudentProfile
         fields = (
-            'id', 'user', 'grade', 'goal', 'tutor', 'tutor_name',
-            'parent', 'parent_name', 'progress_percentage', 'streak_days',
-            'total_points', 'accuracy_percentage'
+            "id",
+            "user",
+            "grade",
+            "goal",
+            "tutor",
+            "tutor_name",
+            "parent",
+            "parent_name",
+            "progress_percentage",
+            "streak_days",
+            "total_points",
+            "accuracy_percentage",
         )
 
 
@@ -86,22 +116,21 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
     """
     Сериализатор для профиля преподавателя
     """
+
     user = UserSerializer(read_only=True)
     subjects_list = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = TeacherProfile
-        fields = (
-            'id', 'user', 'subject', 'experience_years', 'bio', 'subjects_list'
-        )
-    
+        fields = ("id", "user", "subject", "experience_years", "bio", "subjects_list")
+
     def get_subjects_list(self, obj):
         """Возвращает список предметов преподавателя из TeacherSubject"""
         from materials.models import TeacherSubject
+
         teacher_subjects = TeacherSubject.objects.filter(
-            teacher=obj.user,
-            is_active=True
-        ).select_related('subject')
+            teacher=obj.user, is_active=True
+        ).select_related("subject")
         return [ts.subject.name for ts in teacher_subjects]
 
 
@@ -109,67 +138,75 @@ class TutorProfileSerializer(serializers.ModelSerializer):
     """
     Сериализатор для профиля тьютора
     """
+
     user = UserSerializer(read_only=True)
     reportsCount = serializers.SerializerMethodField()
 
     class Meta:
         model = TutorProfile
         fields = (
-            'id', 'user', 'specialization', 'experience_years', 'bio', 'reportsCount'
+            "id",
+            "user",
+            "specialization",
+            "experience_years",
+            "bio",
+            "reportsCount",
         )
 
     def get_reportsCount(self, obj):
         """Получить количество отправленных отчётов тьютора"""
         from reports.models import TutorWeeklyReport
+
         # Считаем все отчёты с статусами SENT, READ и ARCHIVED (исключаем DRAFT)
-        return TutorWeeklyReport.objects.filter(
-            tutor=obj.user
-        ).exclude(
-            status=TutorWeeklyReport.Status.DRAFT
-        ).count()
+        return (
+            TutorWeeklyReport.objects.filter(tutor=obj.user)
+            .exclude(status=TutorWeeklyReport.Status.DRAFT)
+            .count()
+        )
 
 
 class ParentProfileSerializer(serializers.ModelSerializer):
     """
     Сериализатор для профиля родителя
     """
+
     user = UserSerializer(read_only=True)
     children = UserSerializer(many=True, read_only=True)
 
     class Meta:
         model = ParentProfile
-        fields = (
-            'id', 'user', 'children'
-        )
+        fields = ("id", "user", "children")
 
 
 class ParentProfileListSerializer(serializers.ModelSerializer):
     """
     Optimized serializer for parent list view (without children details to avoid N+1)
     """
+
     user = UserSerializer(read_only=True)
     children_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = ParentProfile
-        fields = ('id', 'user', 'children_count')
+        fields = ("id", "user", "children_count")
 
 
 class ChangePasswordSerializer(serializers.Serializer):
     """
     Сериализатор для смены пароля
     """
+
     old_password = serializers.CharField()
     new_password = serializers.CharField(validators=[validate_password])
     new_password_confirm = serializers.CharField()
 
     def validate(self, attrs):
-        if attrs['new_password'] != attrs['new_password_confirm']:
+        if attrs["new_password"] != attrs["new_password_confirm"]:
             raise serializers.ValidationError("Новые пароли не совпадают")
         return attrs
 
     def validate_old_password(self, value):
-        user = self.context['request'].user
+        user = self.context["request"].user
         if not user.check_password(value):
             raise serializers.ValidationError("Неверный текущий пароль")
         return value
@@ -179,6 +216,7 @@ class StudentListSerializer(serializers.ModelSerializer):
     """
     Сериализатор для списка студентов (краткая информация для админ-панели)
     """
+
     user = UserSerializer(read_only=True)
     tutor_info = serializers.SerializerMethodField()
     parent_info = serializers.SerializerMethodField()
@@ -187,18 +225,26 @@ class StudentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
         fields = (
-            'id', 'user', 'grade', 'goal', 'tutor_info', 'parent_info',
-            'progress_percentage', 'streak_days', 'total_points',
-            'accuracy_percentage', 'enrollments_count'
+            "id",
+            "user",
+            "grade",
+            "goal",
+            "tutor_info",
+            "parent_info",
+            "progress_percentage",
+            "streak_days",
+            "total_points",
+            "accuracy_percentage",
+            "enrollments_count",
         )
 
     def get_tutor_info(self, obj):
         """Информация о тьюторе"""
         if obj.tutor:
             return {
-                'id': obj.tutor.id,
-                'name': obj.tutor.get_full_name(),
-                'email': obj.tutor.email
+                "id": obj.tutor.id,
+                "name": obj.tutor.get_full_name(),
+                "email": obj.tutor.email,
             }
         return None
 
@@ -206,9 +252,9 @@ class StudentListSerializer(serializers.ModelSerializer):
         """Информация о родителе"""
         if obj.parent:
             return {
-                'id': obj.parent.id,
-                'name': obj.parent.get_full_name(),
-                'email': obj.parent.email
+                "id": obj.parent.id,
+                "name": obj.parent.get_full_name(),
+                "email": obj.parent.email,
             }
         return None
 
@@ -217,6 +263,7 @@ class EnrollmentDetailSerializer(serializers.Serializer):
     """
     Сериализатор для детальной информации о зачислении
     """
+
     id = serializers.IntegerField()
     subject_name = serializers.CharField()
     teacher_name = serializers.CharField()
@@ -233,6 +280,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     """
     Сериализатор для детальной информации о студенте (для админ-панели)
     """
+
     user = UserSerializer(read_only=True)
     tutor_info = serializers.SerializerMethodField()
     parent_info = serializers.SerializerMethodField()
@@ -244,20 +292,30 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
         fields = (
-            'id', 'user', 'grade', 'goal', 'tutor_info', 'parent_info',
-            'progress_percentage', 'streak_days', 'total_points',
-            'accuracy_percentage', 'enrollments', 'payment_history',
-            'reports_count', 'statistics'
+            "id",
+            "user",
+            "grade",
+            "goal",
+            "tutor_info",
+            "parent_info",
+            "progress_percentage",
+            "streak_days",
+            "total_points",
+            "accuracy_percentage",
+            "enrollments",
+            "payment_history",
+            "reports_count",
+            "statistics",
         )
 
     def get_tutor_info(self, obj):
         """Полная информация о тьюторе"""
         if obj.tutor:
             return {
-                'id': obj.tutor.id,
-                'name': obj.tutor.get_full_name(),
-                'email': obj.tutor.email,
-                'phone': obj.tutor.phone
+                "id": obj.tutor.id,
+                "name": obj.tutor.get_full_name(),
+                "email": obj.tutor.email,
+                "phone": obj.tutor.phone,
             }
         return None
 
@@ -265,10 +323,10 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         """Полная информация о родителе"""
         if obj.parent:
             return {
-                'id': obj.parent.id,
-                'name': obj.parent.get_full_name(),
-                'email': obj.parent.email,
-                'phone': obj.parent.phone
+                "id": obj.parent.id,
+                "name": obj.parent.get_full_name(),
+                "email": obj.parent.email,
+                "phone": obj.parent.phone,
             }
         return None
 
@@ -276,48 +334,48 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         """Список зачислений с детальной информацией"""
         from materials.models import SubjectEnrollment, MaterialProgress, Material
 
-        enrollments = SubjectEnrollment.objects.filter(
-            student=obj.user
-        ).select_related(
-            'subject', 'teacher', 'teacher__teacher_profile'
-        ).prefetch_related(
-            'subscription'
-        ).order_by('-enrolled_at')
+        enrollments = (
+            SubjectEnrollment.objects.filter(student=obj.user)
+            .select_related("subject", "teacher", "teacher__teacher_profile")
+            .prefetch_related("subscription")
+            .order_by("-enrolled_at")
+        )
 
         result = []
         for enrollment in enrollments:
             # Подсчет материалов
             materials_count = Material.objects.filter(
-                subject=enrollment.subject,
-                status='active'
+                subject=enrollment.subject, status="active"
             ).count()
 
             # Подсчет завершенных материалов
             completed_materials = MaterialProgress.objects.filter(
                 student=obj.user,
                 material__subject=enrollment.subject,
-                is_completed=True
+                is_completed=True,
             ).count()
 
             # Информация о подписке
-            subscription_status = 'inactive'
+            subscription_status = "inactive"
             next_payment_date = None
-            if hasattr(enrollment, 'subscription'):
+            if hasattr(enrollment, "subscription"):
                 subscription_status = enrollment.subscription.status
                 next_payment_date = enrollment.subscription.next_payment_date
 
-            result.append({
-                'id': enrollment.id,
-                'subject_name': enrollment.get_subject_name(),
-                'teacher_name': enrollment.teacher.get_full_name(),
-                'teacher_email': enrollment.teacher.email,
-                'enrolled_at': enrollment.enrolled_at,
-                'is_active': enrollment.is_active,
-                'materials_count': materials_count,
-                'completed_materials': completed_materials,
-                'subscription_status': subscription_status,
-                'next_payment_date': next_payment_date
-            })
+            result.append(
+                {
+                    "id": enrollment.id,
+                    "subject_name": enrollment.get_subject_name(),
+                    "teacher_name": enrollment.teacher.get_full_name(),
+                    "teacher_email": enrollment.teacher.email,
+                    "enrolled_at": enrollment.enrolled_at,
+                    "is_active": enrollment.is_active,
+                    "materials_count": materials_count,
+                    "completed_materials": completed_materials,
+                    "subscription_status": subscription_status,
+                    "next_payment_date": next_payment_date,
+                }
+            )
 
         return result
 
@@ -325,20 +383,20 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         """История платежей студента"""
         from materials.models import SubjectPayment
 
-        payments = SubjectPayment.objects.filter(
-            enrollment__student=obj.user
-        ).select_related(
-            'payment', 'enrollment__subject'
-        ).order_by('-created_at')[:10]  # Последние 10 платежей
+        payments = (
+            SubjectPayment.objects.filter(enrollment__student=obj.user)
+            .select_related("payment", "enrollment__subject")
+            .order_by("-created_at")[:10]
+        )  # Последние 10 платежей
 
         return [
             {
-                'id': payment.id,
-                'amount': str(payment.amount),
-                'status': payment.status,
-                'subject_name': payment.enrollment.get_subject_name(),
-                'created_at': payment.created_at,
-                'paid_at': payment.paid_at
+                "id": payment.id,
+                "amount": str(payment.amount),
+                "status": payment.status,
+                "subject_name": payment.enrollment.get_subject_name(),
+                "created_at": payment.created_at,
+                "paid_at": payment.paid_at,
             }
             for payment in payments
         ]
@@ -349,9 +407,9 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         tutor_reports = TutorWeeklyReport.objects.filter(student=obj.user).count()
 
         return {
-            'teacher_reports': teacher_reports,
-            'tutor_reports': tutor_reports,
-            'total': teacher_reports + tutor_reports
+            "teacher_reports": teacher_reports,
+            "tutor_reports": tutor_reports,
+            "total": teacher_reports + tutor_reports,
         }
 
     def get_statistics(self, obj):
@@ -362,30 +420,31 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         # Статистика по материалам
         total_materials = MaterialProgress.objects.filter(student=obj.user).count()
         completed_materials = MaterialProgress.objects.filter(
-            student=obj.user,
-            is_completed=True
+            student=obj.user, is_completed=True
         ).count()
 
         # Статистика по заданиям
-        total_assignments = AssignmentSubmission.objects.filter(student=obj.user).count()
+        total_assignments = AssignmentSubmission.objects.filter(
+            student=obj.user
+        ).count()
         reviewed_assignments = AssignmentSubmission.objects.filter(
-            student=obj.user,
-            status='reviewed'
+            student=obj.user, status="reviewed"
         ).count()
 
         # Средний прогресс
-        avg_progress = MaterialProgress.objects.filter(
-            student=obj.user
-        ).aggregate(
-            avg=models.Avg('progress_percentage')
-        )['avg'] or 0
+        avg_progress = (
+            MaterialProgress.objects.filter(student=obj.user).aggregate(
+                avg=models.Avg("progress_percentage")
+            )["avg"]
+            or 0
+        )
 
         return {
-            'total_materials': total_materials,
-            'completed_materials': completed_materials,
-            'total_assignments': total_assignments,
-            'reviewed_assignments': reviewed_assignments,
-            'average_progress': round(avg_progress, 2)
+            "total_materials": total_materials,
+            "completed_materials": completed_materials,
+            "total_assignments": total_assignments,
+            "reviewed_assignments": reviewed_assignments,
+            "average_progress": round(avg_progress, 2),
         }
 
 
@@ -406,7 +465,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('email', 'first_name', 'last_name', 'phone', 'is_active')
+        fields = ("email", "first_name", "last_name", "phone", "is_active")
 
     def validate_email(self, value):
         """
@@ -447,20 +506,21 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
     - tutor: ID тьютора (nullable)
     - parent: ID родителя (nullable)
     """
+
     tutor = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role=User.Role.TUTOR, is_active=True),
         required=False,
-        allow_null=True
+        allow_null=True,
     )
     parent = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role=User.Role.PARENT, is_active=True),
         required=False,
-        allow_null=True
+        allow_null=True,
     )
 
     class Meta:
         model = StudentProfile
-        fields = ('grade', 'goal', 'tutor', 'parent')
+        fields = ("grade", "goal", "tutor", "parent")
 
     def validate_tutor(self, value):
         """
@@ -497,14 +557,12 @@ class TeacherProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherProfile
-        fields = ('experience_years', 'bio')
+        fields = ("experience_years", "bio")
 
     def validate_experience_years(self, value):
         """Валидация опыта работы (не может быть отрицательным)"""
         if value is not None and value < 0:
-            raise serializers.ValidationError(
-                "Опыт работы не может быть отрицательным"
-            )
+            raise serializers.ValidationError("Опыт работы не может быть отрицательным")
         return value
 
 
@@ -520,14 +578,12 @@ class TutorProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TutorProfile
-        fields = ('specialization', 'experience_years', 'bio')
+        fields = ("specialization", "experience_years", "bio")
 
     def validate_experience_years(self, value):
         """Валидация опыта работы (не может быть отрицательным)"""
         if value is not None and value < 0:
-            raise serializers.ValidationError(
-                "Опыт работы не может быть отрицательным"
-            )
+            raise serializers.ValidationError("Опыт работы не может быть отрицательным")
         return value
 
 
@@ -579,14 +635,12 @@ class UserCreateSerializer(serializers.Serializer):
     Для parent:
     - Пока нет дополнительных полей
     """
+
     # Общие обязательные поля
     email = serializers.EmailField(required=True)
     first_name = serializers.CharField(required=True, max_length=150)
     last_name = serializers.CharField(required=True, max_length=150)
-    role = serializers.ChoiceField(
-        choices=User.Role.choices,
-        required=True
-    )
+    role = serializers.ChoiceField(choices=User.Role.choices, required=True)
 
     # Общие опциональные поля
     phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
@@ -600,8 +654,12 @@ class UserCreateSerializer(serializers.Serializer):
 
     # Поля для преподавателя и тьютора
     subject = serializers.CharField(required=False, allow_blank=True, max_length=100)
-    specialization = serializers.CharField(required=False, allow_blank=True, max_length=200)
-    experience_years = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    specialization = serializers.CharField(
+        required=False, allow_blank=True, max_length=200
+    )
+    experience_years = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0
+    )
     bio = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
@@ -647,21 +705,21 @@ class UserCreateSerializer(serializers.Serializer):
         """
         Дополнительная валидация в зависимости от роли
         """
-        role = attrs.get('role')
+        role = attrs.get("role")
 
         # Для студента проверяем обязательные поля
         if role == User.Role.STUDENT:
-            if not attrs.get('grade'):
-                raise serializers.ValidationError({
-                    'grade': 'Поле обязательно для студента'
-                })
+            if not attrs.get("grade"):
+                raise serializers.ValidationError(
+                    {"grade": "Поле обязательно для студента"}
+                )
 
         # Для тьютора проверяем обязательные поля
         elif role == User.Role.TUTOR:
-            if not attrs.get('specialization'):
-                raise serializers.ValidationError({
-                    'specialization': 'Поле обязательно для тьютора'
-                })
+            if not attrs.get("specialization"):
+                raise serializers.ValidationError(
+                    {"specialization": "Поле обязательно для тьютора"}
+                )
 
         return attrs
 
@@ -686,7 +744,7 @@ class StudentProfilePublicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProfile
-        exclude = ['tutor', 'parent', 'goal']  # Исключаем приватные поля
+        exclude = ["tutor", "parent", "goal"]  # Исключаем приватные поля
 
 
 class StudentProfileFullSerializer(serializers.ModelSerializer):
@@ -705,15 +763,15 @@ class StudentProfileFullSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProfile
-        fields = '__all__'
+        fields = "__all__"
 
     def get_tutor_info(self, obj):
         """Возвращает информацию о тьюторе студента"""
         if obj.tutor:
             return {
-                'id': obj.tutor.id,
-                'name': f"{obj.tutor.first_name} {obj.tutor.last_name}",
-                'email': obj.tutor.email
+                "id": obj.tutor.id,
+                "name": f"{obj.tutor.first_name} {obj.tutor.last_name}",
+                "email": obj.tutor.email,
             }
         return None
 
@@ -721,9 +779,9 @@ class StudentProfileFullSerializer(serializers.ModelSerializer):
         """Возвращает информацию о родителе студента"""
         if obj.parent:
             return {
-                'id': obj.parent.id,
-                'name': f"{obj.parent.first_name} {obj.parent.last_name}",
-                'email': obj.parent.email
+                "id": obj.parent.id,
+                "name": f"{obj.parent.first_name} {obj.parent.last_name}",
+                "email": obj.parent.email,
             }
         return None
 
@@ -745,18 +803,17 @@ class TeacherProfilePublicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherProfile
-        exclude = ['bio', 'experience_years']  # Исключаем приватные поля
+        exclude = ["bio", "experience_years"]  # Исключаем приватные поля
 
     def get_subjects(self, obj):
         """Возвращает список предметов преподавателя через TeacherSubject"""
         from materials.models import TeacherSubject
+
         teacher_subjects = TeacherSubject.objects.filter(
-            teacher=obj.user,
-            is_active=True
-        ).select_related('subject')
+            teacher=obj.user, is_active=True
+        ).select_related("subject")
         return [
-            {'id': ts.subject.id, 'name': ts.subject.name}
-            for ts in teacher_subjects
+            {"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects
         ]
 
 
@@ -774,18 +831,17 @@ class TeacherProfileFullSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherProfile
-        fields = '__all__'
+        fields = "__all__"
 
     def get_subjects(self, obj):
         """Возвращает список предметов преподавателя через TeacherSubject"""
         from materials.models import TeacherSubject
+
         teacher_subjects = TeacherSubject.objects.filter(
-            teacher=obj.user,
-            is_active=True
-        ).select_related('subject')
+            teacher=obj.user, is_active=True
+        ).select_related("subject")
         return [
-            {'id': ts.subject.id, 'name': ts.subject.name}
-            for ts in teacher_subjects
+            {"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects
         ]
 
 
@@ -805,7 +861,7 @@ class TutorProfilePublicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TutorProfile
-        exclude = ['bio', 'experience_years']  # Исключаем приватные поля
+        exclude = ["bio", "experience_years"]  # Исключаем приватные поля
 
 
 class TutorProfileFullSerializer(serializers.ModelSerializer):
@@ -821,7 +877,7 @@ class TutorProfileFullSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TutorProfile
-        fields = '__all__'
+        fields = "__all__"
 
 
 # ============= ФУНКЦИЯ ВЫБОРА SERIALIZER В ЗАВИСИМОСТИ ОТ ПРАВ =============
@@ -854,15 +910,29 @@ def get_profile_serializer(profile, viewer_user, profile_owner_user):
     """
     profile_type = profile_owner_user.role
 
-    can_view_private = can_view_private_fields(viewer_user, profile_owner_user, profile_type)
+    can_view_private = can_view_private_fields(
+        viewer_user, profile_owner_user, profile_type
+    )
 
-    if profile_type == 'student':
-        return StudentProfileFullSerializer if can_view_private else StudentProfilePublicSerializer
-    elif profile_type == 'teacher':
-        return TeacherProfileFullSerializer if can_view_private else TeacherProfilePublicSerializer
-    elif profile_type == 'tutor':
-        return TutorProfileFullSerializer if can_view_private else TutorProfilePublicSerializer
-    elif profile_type == 'parent':
+    if profile_type == "student":
+        return (
+            StudentProfileFullSerializer
+            if can_view_private
+            else StudentProfilePublicSerializer
+        )
+    elif profile_type == "teacher":
+        return (
+            TeacherProfileFullSerializer
+            if can_view_private
+            else TeacherProfilePublicSerializer
+        )
+    elif profile_type == "tutor":
+        return (
+            TutorProfileFullSerializer
+            if can_view_private
+            else TutorProfilePublicSerializer
+        )
+    elif profile_type == "parent":
         # Parent пока не имеет приватных полей
         return ParentProfileSerializer
 
@@ -890,6 +960,7 @@ class StudentCreateSerializer(serializers.Serializer):
     - parent_id: ID родителя
     - password: Пароль (если не указан - генерируется автоматически)
     """
+
     # Обязательные поля
     email = serializers.EmailField(required=True)
     first_name = serializers.CharField(required=True, max_length=150)
@@ -916,7 +987,7 @@ class StudentCreateSerializer(serializers.Serializer):
         """Проверка формата телефона согласно User model"""
         if value:
             # Apply User's phone validator
-            phone_field = User._meta.get_field('phone')
+            phone_field = User._meta.get_field("phone")
             for validator in phone_field.validators:
                 validator(value)
         return value
@@ -969,6 +1040,7 @@ class ParentCreateSerializer(serializers.Serializer):
     - phone: Телефон (валидируется согласно User model regex)
     - password: Пароль (если не указан - генерируется автоматически, проверяется на сложность)
     """
+
     # Обязательные поля
     email = serializers.EmailField(required=True)
     first_name = serializers.CharField(required=True, max_length=150)
@@ -995,7 +1067,7 @@ class ParentCreateSerializer(serializers.Serializer):
         """
         if value:
             # Apply User's phone validator
-            phone_field = User._meta.get_field('phone')
+            phone_field = User._meta.get_field("phone")
             for validator in phone_field.validators:
                 validator(value)
         return value
@@ -1055,12 +1127,13 @@ class CurrentUserProfileSerializer(serializers.Serializer):
             elif user.role == User.Role.PARENT:
                 profile = user.parent_profile
                 profile_data = ParentProfileSerializer(profile).data
-        except (StudentProfile.DoesNotExist, TeacherProfile.DoesNotExist,
-                TutorProfile.DoesNotExist, ParentProfile.DoesNotExist):
+        except (
+            StudentProfile.DoesNotExist,
+            TeacherProfile.DoesNotExist,
+            TutorProfile.DoesNotExist,
+            ParentProfile.DoesNotExist,
+        ):
             # Профиль не существует, но это не ошибка
             profile_data = None
 
-        return {
-            'user': user_data,
-            'profile': profile_data
-        }
+        return {"user": user_data, "profile": profile_data}

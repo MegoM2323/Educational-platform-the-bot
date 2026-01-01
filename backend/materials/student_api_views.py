@@ -74,9 +74,7 @@ def list_subject_materials(request, subject_id: int):
         return forbidden
 
     # Проверим наличие активной записи зачисления на предмет
-    if not SubjectEnrollment.objects.filter(
-        student=request.user, subject_id=subject_id, is_active=True
-    ).exists():
+    if not SubjectEnrollment.objects.filter(student=request.user, subject_id=subject_id, is_active=True).exists():
         return Response({"error": "Вы не зачислены на этот предмет"}, status=status.HTTP_403_FORBIDDEN)
 
     materials = (
@@ -106,9 +104,7 @@ def get_subject_teacher(request, subject_id: int):
         return forbidden
 
     enrollment = (
-        SubjectEnrollment.objects.filter(
-            student=request.user, subject_id=subject_id, is_active=True
-        )
+        SubjectEnrollment.objects.filter(student=request.user, subject_id=subject_id, is_active=True)
         .select_related("teacher")
         .first()
     )
@@ -157,7 +153,9 @@ def submit_material_submission(request, material_id: int):
     serializer = MaterialSubmissionSerializer(data=payload, context={"request": request})
     if serializer.is_valid():
         submission = serializer.save(material=material, student=request.user)
-        return Response(MaterialSubmissionSerializer(submission, context={"request": request}).data, status=status.HTTP_201_CREATED)
+        return Response(
+            MaterialSubmissionSerializer(submission, context={"request": request}).data, status=status.HTTP_201_CREATED
+        )
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -174,9 +172,7 @@ def list_student_submissions(request):
         return forbidden
 
     submissions = (
-        MaterialSubmission.objects.filter(student=request.user)
-        .select_related("material")
-        .order_by("-submitted_at")
+        MaterialSubmission.objects.filter(student=request.user).select_related("material").order_by("-submitted_at")
     )
     serializer = MaterialSubmissionSerializer(submissions, many=True, context={"request": request})
     return Response(serializer.data)
@@ -205,3 +201,108 @@ def get_submission_feedback(request, submission_id: int):
     return Response(MaterialFeedbackSerializer(feedback, context={"request": request}).data)
 
 
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_progress(request):
+    """
+    GET /api/student/progress/?subject=1
+    Получить прогресс студента по предмету и материалам.
+
+    Возвращает:
+    {
+        "subject": "Математика",
+        "total_elements": 20,
+        "completed": 12,
+        "accuracy": 85.5,
+        "elements": [
+            {
+                "id": 1,
+                "name": "Задача 1",
+                "completed": true,
+                "score": 8,
+                "max_score": 10,
+                "accuracy": 80.0
+            }
+        ]
+    }
+    """
+    forbidden = _ensure_student(request.user)
+    if forbidden:
+        return forbidden
+
+    subject_id = request.query_params.get("subject")
+    if not subject_id:
+        return Response({"error": "Требуется параметр subject"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        subject_id = int(subject_id)
+    except (ValueError, TypeError):
+        return Response({"error": "subject должен быть целым числом"}, status=status.HTTP_400_BAD_REQUEST)
+
+    enrollment = (
+        SubjectEnrollment.objects.filter(student=request.user, subject_id=subject_id, is_active=True)
+        .select_related("subject")
+        .first()
+    )
+
+    if not enrollment:
+        return Response({"error": "Вы не зачислены на этот предмет"}, status=status.HTTP_403_FORBIDDEN)
+
+    materials = Material.objects.filter(
+        Q(assigned_to=request.user) | Q(is_public=True),
+        status__in=[Material.Status.ACTIVE, Material.Status.ARCHIVED],
+        subject_id=subject_id,
+    ).prefetch_related("progress")
+
+    if not materials.exists():
+        return Response(
+            {
+                "subject": enrollment.get_subject_name(),
+                "total_elements": 0,
+                "completed": 0,
+                "accuracy": 0.0,
+                "elements": [],
+            }
+        )
+
+    elements = []
+    completed_count = 0
+    total_accuracy = 0.0
+
+    for material in materials:
+        try:
+            progress = material.progress.get(student=request.user)
+        except Exception:
+            progress = None
+
+        is_completed = progress.is_completed if progress else False
+        progress_percentage = progress.progress_percentage if progress else 0
+
+        if is_completed:
+            completed_count += 1
+
+        total_accuracy += progress_percentage
+
+        elements.append(
+            {
+                "id": material.id,
+                "name": material.title,
+                "completed": is_completed,
+                "score": int(progress_percentage * material.difficulty_level / 100) if progress else 0,
+                "max_score": material.difficulty_level,
+                "accuracy": float(progress_percentage) if progress else 0.0,
+            }
+        )
+
+    total_elements = len(elements)
+    accuracy = (total_accuracy / total_elements) if total_elements > 0 else 0.0
+
+    return Response(
+        {
+            "subject": enrollment.get_subject_name(),
+            "total_elements": total_elements,
+            "completed": completed_count,
+            "accuracy": accuracy,
+            "elements": elements,
+        }
+    )

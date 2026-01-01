@@ -56,12 +56,8 @@ class LessonService:
         # Combine datetime для точной проверки пересечений
         # Используем timezone-aware datetime для корректного сравнения
         current_tz = timezone.get_current_timezone()
-        dt_start = timezone.make_aware(
-            datetime.combine(date, start_time), timezone=current_tz
-        )
-        dt_end = timezone.make_aware(
-            datetime.combine(date, end_time), timezone=current_tz
-        )
+        dt_start = timezone.make_aware(datetime.combine(date, start_time), timezone=current_tz)
+        dt_end = timezone.make_aware(datetime.combine(date, end_time), timezone=current_tz)
 
         # Base queryset - уроки в тот же день, не отменённые
         base_qs = Lesson.objects.filter(date=date, status__in=["pending", "confirmed"])
@@ -129,7 +125,7 @@ class LessonService:
         Create a new lesson with validation.
 
         Args:
-            teacher: Teacher user instance
+            teacher: Teacher or Admin user instance
             student: Student user instance
             subject: Subject instance
             date: Lesson date (DateField)
@@ -144,15 +140,13 @@ class LessonService:
         Raises:
             ValidationError: If validation fails
         """
-        # Validate teacher role
-        if teacher.role != "teacher":
-            raise ValidationError("Only users with teacher role can create lessons")
+        # Validate teacher/admin role
+        if teacher.role not in ("teacher", "admin"):
+            raise ValidationError("Only teachers and admins can create lessons")
 
         # Validate student role
         if student.role != "student":
-            raise ValidationError(
-                "Only users with student role can be enrolled in lessons"
-            )
+            raise ValidationError("Only users with student role can be enrolled in lessons")
 
         # Validate time range
         if start_time >= end_time:
@@ -162,16 +156,22 @@ class LessonService:
         if date < timezone.now().date():
             raise ValidationError("Cannot create lesson in the past")
 
-        # Validate teacher teaches subject to student (via SubjectEnrollment)
-        try:
-            SubjectEnrollment.objects.get(
-                student=student, teacher=teacher, subject=subject, is_active=True
-            )
-        except SubjectEnrollment.DoesNotExist:
-            raise ValidationError(
-                f"Teacher {teacher.get_full_name()} does not teach "
-                f"{subject.name} to student {student.get_full_name()}"
-            )
+        # Validate start_time for today is not in the past
+        now = timezone.now()
+        if date == now.date() and start_time <= now.time():
+            raise ValidationError("Cannot create lesson with start time in the past for today")
+
+        # Validate enrollment: Teacher must have SubjectEnrollment (admins can bypass)
+        if teacher.role == "teacher":
+            try:
+                SubjectEnrollment.objects.get(
+                    student=student, teacher=teacher, subject=subject, is_active=True
+                )
+            except SubjectEnrollment.DoesNotExist:
+                raise ValidationError(
+                    f"Teacher {teacher.get_full_name()} does not teach "
+                    f"{subject.name} to student {student.get_full_name()}"
+                )
 
         # Check for time conflicts
         LessonService._check_time_conflicts(
@@ -368,9 +368,7 @@ class LessonService:
         """
         # Verify user is the teacher who created the lesson
         if lesson.teacher != user:
-            raise ValidationError(
-                "Only the teacher who created the lesson can update it"
-            )
+            raise ValidationError("Only the teacher who created the lesson can update it")
 
         # Can't edit past or current lessons (before start time + some buffer)
         if lesson.date < timezone.now().date():
@@ -408,9 +406,7 @@ class LessonService:
                 )
 
         # Check if date/time changed for conflict detection
-        date_time_changed = any(
-            field in updates for field in ["date", "start_time", "end_time"]
-        )
+        date_time_changed = any(field in updates for field in ["date", "start_time", "end_time"])
 
         for field, value in updates.items():
             if field not in allowed_fields:
@@ -466,15 +462,11 @@ class LessonService:
         """
         # Verify user is the teacher who created the lesson
         if lesson.teacher != user:
-            raise ValidationError(
-                "Only the teacher who created the lesson can cancel it"
-            )
+            raise ValidationError("Only the teacher who created the lesson can cancel it")
 
         # Check 2-hour rule
         if not lesson.can_cancel:
-            raise ValidationError(
-                "Lessons cannot be cancelled less than 2 hours before start time"
-            )
+            raise ValidationError("Lessons cannot be cancelled less than 2 hours before start time")
 
         # Mark as cancelled and record history
         old_status = lesson.status

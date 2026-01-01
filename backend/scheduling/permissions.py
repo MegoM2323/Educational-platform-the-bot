@@ -7,63 +7,18 @@ Defines role-based access control for lesson management.
 from rest_framework import permissions
 
 from accounts.models import User
+from accounts.permissions import (
+    IsTeacher as BaseIsTeacher,
+    IsStudent as BaseIsStudent,
+    IsTutor as BaseIsTutor,
+    IsParent as BaseIsParent,
+)
 
 
-class IsTeacher(permissions.BasePermission):
-    """
-    Permission for teachers only.
-    """
-
-    def has_permission(self, request, view):
-        """Check if user is a teacher."""
-        return (
-            request.user and
-            request.user.is_authenticated and
-            request.user.role == User.Role.TEACHER
-        )
-
-
-class IsStudent(permissions.BasePermission):
-    """
-    Permission for students only.
-    """
-
-    def has_permission(self, request, view):
-        """Check if user is a student."""
-        return (
-            request.user and
-            request.user.is_authenticated and
-            request.user.role == User.Role.STUDENT
-        )
-
-
-class IsTutor(permissions.BasePermission):
-    """
-    Permission for tutors only.
-    """
-
-    def has_permission(self, request, view):
-        """Check if user is a tutor."""
-        return (
-            request.user and
-            request.user.is_authenticated and
-            request.user.role == User.Role.TUTOR
-        )
-
-
-class IsParent(permissions.BasePermission):
-    """
-    Permission check for parent role.
-    """
-    message = "Only parents can access this resource."
-
-    def has_permission(self, request, view):
-        """Check if user is a parent."""
-        return (
-            request.user and
-            request.user.is_authenticated and
-            request.user.role == User.Role.PARENT
-        )
+IsTeacher = BaseIsTeacher
+IsStudent = BaseIsStudent
+IsTutor = BaseIsTutor
+IsParent = BaseIsParent
 
 
 class IsParentOfStudent(permissions.BasePermission):

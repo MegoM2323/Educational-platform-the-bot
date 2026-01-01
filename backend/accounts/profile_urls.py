@@ -12,6 +12,8 @@ from .profile_views import (
     CurrentUserProfileView,
     ProfileReactivationView,
     NotificationSettingsView,
+    TeacherListView,
+    TeacherDetailView,
 )
 from .telegram_link_views import (
     GenerateTelegramLinkView,
@@ -37,15 +39,16 @@ urlpatterns = [
     ),
     # Profile reactivation endpoint
     path("reactivate/", ProfileReactivationView.as_view(), name="profile_reactivate"),
+    # Teachers list endpoints (M1: Teachers list endpoint)
+    path("teachers/", TeacherListView.as_view(), name="teachers_list"),
+    path("teachers/<int:teacher_id>/", TeacherDetailView.as_view(), name="teacher_detail"),
     # Telegram linking endpoints
     path(
         "telegram/generate-link/",
         GenerateTelegramLinkView.as_view(),
         name="telegram-generate-link",
     ),
-    path(
-        "telegram/confirm/", ConfirmTelegramLinkView.as_view(), name="telegram-confirm"
-    ),
+    path("telegram/confirm/", ConfirmTelegramLinkView.as_view(), name="telegram-confirm"),
     path("telegram/unlink/", UnlinkTelegramView.as_view(), name="telegram-unlink"),
     path("telegram/status/", TelegramStatusView.as_view(), name="telegram-status"),
     # Telegram webhook (alternative to polling)

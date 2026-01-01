@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 from django.db import transaction
+from rest_framework.authtoken.models import Token
 from .models import ChatRoom, Message, MessageRead, ChatParticipant, MessageThread
 from .serializers import MessageSerializer
 from .permissions import check_parent_access_to_room
@@ -25,6 +26,58 @@ class ChatConsumer(AsyncWebsocketConsumer):
     WebSocket consumer для чат-комнат
     """
 
+    @database_sync_to_async
+    def _validate_token(self, token_key):
+        """Валидирует токен и возвращает пользователя или None"""
+        try:
+            token = Token.objects.get(key=token_key)
+            if token.user.is_active:
+                return token.user
+            return None
+        except Token.DoesNotExist:
+            return None
+
+    async def _authenticate_token_from_query_string(self):
+        """
+        Попытается аутентифицировать пользователя через токен в query string.
+        Поддерживает форматы:
+        - ws://host/ws/chat/room_id/?token=abc123
+        - ws://host/ws/chat/room_id/?authorization=Bearer%20abc123
+        """
+        try:
+            query_string = self.scope.get('query_string', b'').decode()
+            if not query_string:
+                return False
+
+            token = None
+
+            if 'token=' in query_string:
+                token = query_string.split('token=')[1].split('&')[0]
+            elif 'authorization=' in query_string:
+                auth_header = query_string.split('authorization=')[1].split('&')[0]
+                if auth_header.startswith('Bearer%20'):
+                    token = auth_header[9:]
+
+            if not token:
+                return False
+
+            user = await self._validate_token(token)
+            if user:
+                self.scope['user'] = user
+                logger.info(
+                    f"[ChatConsumer] User {user.id} authenticated via token for room {self.room_id}"
+                )
+                return True
+
+            logger.warning(
+                f"[ChatConsumer] Token validation failed for room {self.room_id}"
+            )
+            return False
+
+        except Exception as e:
+            logger.error(f"[ChatConsumer] Token authentication error: {e}")
+            return False
+
     async def connect(self):
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
         self.room_group_name = f"chat_{self.room_id}"
@@ -33,20 +86,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             f'[ChatConsumer] Connection attempt: room={self.room_id}, user={self.scope["user"]}, authenticated={self.scope["user"].is_authenticated}'
         )
 
+        is_authenticated = self.scope["user"].is_authenticated
+        if not is_authenticated:
+            is_authenticated = await self._authenticate_token_from_query_string()
+
+        logger.debug(
+            f'[ChatConsumer] After token check: authenticated={is_authenticated}'
+        )
+
         # Проверяем, что пользователь аутентифицирован
-        if not self.scope["user"].is_authenticated:
+        if not is_authenticated:
             logger.warning(
                 f"[ChatConsumer] Connection rejected: user not authenticated"
-            )
-            await self.accept()
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "type": "error",
-                        "message": "Authentication required",
-                        "code": "auth_error",
-                    }
-                )
             )
             await self.close(code=4001)
             return
@@ -56,16 +107,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         logger.warning(f"[ChatConsumer] Room access check: {has_access}")
         if not has_access:
             logger.warning(f"[ChatConsumer] Connection rejected: no room access")
-            await self.accept()
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "type": "error",
-                        "message": "Access denied to this room",
-                        "code": "access_error",
-                    }
-                )
-            )
             await self.close(code=4002)
             return
 
@@ -1292,21 +1333,67 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
     WebSocket consumer для общего чата
     """
 
+    @database_sync_to_async
+    def _validate_token(self, token_key):
+        """Валидирует токен и возвращает пользователя или None"""
+        try:
+            token = Token.objects.get(key=token_key)
+            if token.user.is_active:
+                return token.user
+            return None
+        except Token.DoesNotExist:
+            return None
+
+    async def _authenticate_token_from_query_string(self):
+        """
+        Попытается аутентифицировать пользователя через токен в query string.
+        Поддерживает форматы:
+        - ws://host/ws/general_chat/?token=abc123
+        - ws://host/ws/general_chat/?authorization=Bearer%20abc123
+        """
+        try:
+            query_string = self.scope.get('query_string', b'').decode()
+            if not query_string:
+                return False
+
+            token = None
+
+            if 'token=' in query_string:
+                token = query_string.split('token=')[1].split('&')[0]
+            elif 'authorization=' in query_string:
+                auth_header = query_string.split('authorization=')[1].split('&')[0]
+                if auth_header.startswith('Bearer%20'):
+                    token = auth_header[9:]
+
+            if not token:
+                return False
+
+            user = await self._validate_token(token)
+            if user:
+                self.scope['user'] = user
+                logger.info(
+                    f"[GeneralChatConsumer] User {user.id} authenticated via token"
+                )
+                return True
+
+            logger.warning(
+                f"[GeneralChatConsumer] Token validation failed"
+            )
+            return False
+
+        except Exception as e:
+            logger.error(f"[GeneralChatConsumer] Token authentication error: {e}")
+            return False
+
     async def connect(self):
         self.room_group_name = "general_chat"
 
+        is_authenticated = self.scope["user"].is_authenticated
+        if not is_authenticated:
+            is_authenticated = await self._authenticate_token_from_query_string()
+
         # Проверяем, что пользователь аутентифицирован
-        if not self.scope["user"].is_authenticated:
-            await self.accept()
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "type": "error",
-                        "message": "Authentication required",
-                        "code": "auth_error",
-                    }
-                )
-            )
+        if not is_authenticated:
             await self.close(code=4001)
             return
 
@@ -1721,37 +1808,73 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     WebSocket consumer для уведомлений пользователя
     """
 
+    @database_sync_to_async
+    def _validate_token(self, token_key):
+        """Валидирует токен и возвращает пользователя или None"""
+        try:
+            token = Token.objects.get(key=token_key)
+            if token.user.is_active:
+                return token.user
+            return None
+        except Token.DoesNotExist:
+            return None
+
+    async def _authenticate_token_from_query_string(self):
+        """
+        Попытается аутентифицировать пользователя через токен в query string.
+        Поддерживает форматы:
+        - ws://host/ws/notifications/user_id/?token=abc123
+        - ws://host/ws/notifications/user_id/?authorization=Bearer%20abc123
+        """
+        try:
+            query_string = self.scope.get('query_string', b'').decode()
+            if not query_string:
+                return False
+
+            token = None
+
+            if 'token=' in query_string:
+                token = query_string.split('token=')[1].split('&')[0]
+            elif 'authorization=' in query_string:
+                auth_header = query_string.split('authorization=')[1].split('&')[0]
+                if auth_header.startswith('Bearer%20'):
+                    token = auth_header[9:]
+
+            if not token:
+                return False
+
+            user = await self._validate_token(token)
+            if user:
+                self.scope['user'] = user
+                logger.info(
+                    f"[NotificationConsumer] User {user.id} authenticated via token"
+                )
+                return True
+
+            logger.warning(
+                f"[NotificationConsumer] Token validation failed"
+            )
+            return False
+
+        except Exception as e:
+            logger.error(f"[NotificationConsumer] Token authentication error: {e}")
+            return False
+
     async def connect(self):
         self.user_id = self.scope["url_route"]["kwargs"]["user_id"]
         self.notification_group_name = f"notifications_{self.user_id}"
 
+        is_authenticated = self.scope["user"].is_authenticated
+        if not is_authenticated:
+            is_authenticated = await self._authenticate_token_from_query_string()
+
         # Проверяем, что пользователь аутентифицирован
-        if not self.scope["user"].is_authenticated:
-            await self.accept()
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "type": "error",
-                        "message": "Authentication required",
-                        "code": "auth_error",
-                    }
-                )
-            )
+        if not is_authenticated:
             await self.close(code=4001)
             return
 
         # Проверяем, что пользователь запрашивает свои уведомления
         if str(self.scope["user"].id) != self.user_id:
-            await self.accept()
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "type": "error",
-                        "message": "Access denied to notifications",
-                        "code": "access_error",
-                    }
-                )
-            )
             await self.close(code=4002)
             return
 
@@ -1783,37 +1906,73 @@ class DashboardConsumer(AsyncWebsocketConsumer):
     WebSocket consumer для обновлений дашборда пользователя
     """
 
+    @database_sync_to_async
+    def _validate_token(self, token_key):
+        """Валидирует токен и возвращает пользователя или None"""
+        try:
+            token = Token.objects.get(key=token_key)
+            if token.user.is_active:
+                return token.user
+            return None
+        except Token.DoesNotExist:
+            return None
+
+    async def _authenticate_token_from_query_string(self):
+        """
+        Попытается аутентифицировать пользователя через токен в query string.
+        Поддерживает форматы:
+        - ws://host/ws/dashboard/user_id/?token=abc123
+        - ws://host/ws/dashboard/user_id/?authorization=Bearer%20abc123
+        """
+        try:
+            query_string = self.scope.get('query_string', b'').decode()
+            if not query_string:
+                return False
+
+            token = None
+
+            if 'token=' in query_string:
+                token = query_string.split('token=')[1].split('&')[0]
+            elif 'authorization=' in query_string:
+                auth_header = query_string.split('authorization=')[1].split('&')[0]
+                if auth_header.startswith('Bearer%20'):
+                    token = auth_header[9:]
+
+            if not token:
+                return False
+
+            user = await self._validate_token(token)
+            if user:
+                self.scope['user'] = user
+                logger.info(
+                    f"[DashboardConsumer] User {user.id} authenticated via token"
+                )
+                return True
+
+            logger.warning(
+                f"[DashboardConsumer] Token validation failed"
+            )
+            return False
+
+        except Exception as e:
+            logger.error(f"[DashboardConsumer] Token authentication error: {e}")
+            return False
+
     async def connect(self):
         self.user_id = self.scope["url_route"]["kwargs"]["user_id"]
         self.dashboard_group_name = f"dashboard_{self.user_id}"
 
+        is_authenticated = self.scope["user"].is_authenticated
+        if not is_authenticated:
+            is_authenticated = await self._authenticate_token_from_query_string()
+
         # Проверяем, что пользователь аутентифицирован
-        if not self.scope["user"].is_authenticated:
-            await self.accept()
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "type": "error",
-                        "message": "Authentication required",
-                        "code": "auth_error",
-                    }
-                )
-            )
+        if not is_authenticated:
             await self.close(code=4001)
             return
 
         # Проверяем, что пользователь запрашивает свои обновления
         if str(self.scope["user"].id) != self.user_id:
-            await self.accept()
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "type": "error",
-                        "message": "Access denied to dashboard",
-                        "code": "access_error",
-                    }
-                )
-            )
             await self.close(code=4002)
             return
 

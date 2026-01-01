@@ -12,7 +12,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import make_password
-from django.views.decorators.csrf import csrf_exempt
 from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
@@ -53,7 +52,6 @@ def _format_validation_error(errors):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @authentication_classes([])
-@csrf_exempt
 def login_view(request):
     """
     Вход пользователя через Django аутентификацию (поддерживает email и username)

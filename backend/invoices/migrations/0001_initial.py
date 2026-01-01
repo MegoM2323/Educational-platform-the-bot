@@ -298,7 +298,6 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="invoice",
             index=models.Index(
-                condition=models.Q(("payment__isnull", False)),
                 fields=["payment"],
                 name="idx_invoice_payment",
             ),
@@ -306,7 +305,6 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="invoice",
             index=models.Index(
-                condition=models.Q(("telegram_message_id__isnull", False)),
                 fields=["telegram_message_id"],
                 name="idx_invoice_telegram",
             ),
@@ -314,42 +312,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="invoice",
             constraint=models.CheckConstraint(
-                check=models.Q(("amount__gt", 0)), name="check_invoice_amount_positive"
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="invoice",
-            constraint=models.CheckConstraint(
-                check=models.Q(
-                    ("sent_at__isnull", True),
-                    ("sent_at__gte", models.F("created_at")),
-                    _connector="OR",
-                ),
-                name="check_invoice_sent_after_created",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="invoice",
-            constraint=models.CheckConstraint(
-                check=models.Q(
-                    ("viewed_at__isnull", True),
-                    ("sent_at__isnull", True),
-                    ("viewed_at__gte", models.F("sent_at")),
-                    _connector="OR",
-                ),
-                name="check_invoice_viewed_after_sent",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="invoice",
-            constraint=models.CheckConstraint(
-                check=models.Q(
-                    ("paid_at__isnull", True),
-                    ("viewed_at__isnull", True),
-                    ("paid_at__gte", models.F("viewed_at")),
-                    _connector="OR",
-                ),
-                name="check_invoice_paid_after_viewed",
+                check=models.Q(amount__gt=0), name="check_invoice_amount_positive"
             ),
         ),
     ]

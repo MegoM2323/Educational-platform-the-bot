@@ -627,6 +627,10 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# File Upload Configuration
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -635,8 +639,24 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom user model
 AUTH_USER_MODEL = 'accounts.User'
 
-# CORS settings - dynamically based on environment (development, production, or test)
-CORS_ALLOWED_ORIGINS = env_config.get_cors_allowed_origins()
+# CORS Configuration
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ]
+    _env_cors_origins = env_config.get_cors_allowed_origins()
+    if _env_cors_origins:
+        CORS_ALLOWED_ORIGINS.extend(_env_cors_origins)
+else:
+    frontend_url = os.getenv("FRONTEND_URL")
+    if not frontend_url:
+        raise ValueError(
+            "FRONTEND_URL environment variable is required in production"
+        )
+    CORS_ALLOWED_ORIGINS = [frontend_url]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False  # Используем CORS_ALLOWED_ORIGINS вместо allow all

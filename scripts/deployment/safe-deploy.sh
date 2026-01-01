@@ -351,6 +351,14 @@ backup_database() {
 
     print_step "Creating database backup..."
 
+    # Check if docker-compose is available
+    if ! ssh_exec_silent "command -v docker-compose >/dev/null 2>&1"; then
+        print_warning "docker-compose not available on remote, skipping database backup"
+        print_info "Database backup skipped - backup phase skipped due to missing docker-compose"
+        log "BACKUP SKIPPED: docker-compose not available"
+        return 0
+    fi
+
     # Create backup directory
     if [ "$DRY_RUN" = false ]; then
         ssh_exec "mkdir -p $REMOTE_PATH/backups" "Create backup directory"
@@ -365,7 +373,9 @@ backup_database() {
             log "BACKUP CREATED: $BACKUP_FILE"
         else
             print_error "Database backup failed!"
-            if ! confirm "Continue without backup? (DANGEROUS)"; then
+            if [ "$FORCE_DEPLOY" = true ]; then
+                print_warning "Force deploy enabled, continuing without backup"
+            elif ! confirm "Continue without backup? (DANGEROUS)"; then
                 exit 1
             fi
             BACKUP_FILE=""

@@ -1,3 +1,1 @@
-from django.shortcuts import render
-
-# Create your views here.
+# Knowledge Graph Views are split across multiple modules

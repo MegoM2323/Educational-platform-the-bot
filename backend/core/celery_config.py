@@ -108,4 +108,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'core.tasks.clear_expired_caches',
         'schedule': crontab(hour=6, minute=0),
     },
+
+    # Cleanup expired Telegram link tokens hourly
+    'cleanup-expired-telegram-tokens': {
+        'task': 'accounts.tasks.cleanup_expired_telegram_tokens',
+        'schedule': crontab(minute=0),  # Every hour
+    },
 }

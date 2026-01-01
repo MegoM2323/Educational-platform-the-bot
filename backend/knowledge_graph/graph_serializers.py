@@ -3,6 +3,7 @@ Serializers for KnowledgeGraph and GraphLesson models (T301, T302)
 """
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.db.models import Count, Prefetch
 from .models import KnowledgeGraph, GraphLesson, Lesson, LessonDependency
 from .lesson_serializers import LessonListSerializer
 
@@ -94,8 +95,6 @@ class KnowledgeGraphSerializer(serializers.ModelSerializer):
 
     def get_lessons(self, obj):
         """Получить все уроки в графе с позициями (с оптимизацией N+1)"""
-        from django.db.models import Count, Prefetch
-
         graph_lessons_qs = GraphLesson.objects.filter(graph=obj).order_by("added_at")
 
         lessons_qs = (

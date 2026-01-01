@@ -6,13 +6,13 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import Element, ElementFile
 from .validators import validate_element_content
-import re
 
 User = get_user_model()
 
 
 class ElementCreatedBySerializer(serializers.Serializer):
     """Сериализатор для информации об авторе элемента"""
+
     id = serializers.IntegerField(read_only=True)
     name = serializers.SerializerMethodField()
     email = serializers.EmailField(read_only=True)
@@ -23,17 +23,24 @@ class ElementCreatedBySerializer(serializers.Serializer):
 
 
 class ElementFileSerializer(serializers.ModelSerializer):
-    """Сериализатор для файлов элемента (T006)"""
+    """Сериализатор для файлов элемента"""
+
     file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ElementFile
-        fields = ['id', 'original_filename', 'file_size', 'uploaded_at', 'file_url']
-        read_only_fields = ['id', 'original_filename', 'file_size', 'uploaded_at', 'file_url']
+        fields = ["id", "original_filename", "file_size", "uploaded_at", "file_url"]
+        read_only_fields = [
+            "id",
+            "original_filename",
+            "file_size",
+            "uploaded_at",
+            "file_url",
+        ]
 
     def get_file_url(self, obj):
         """Возвращает полный URL файла"""
-        request = self.context.get('request')
+        request = self.context.get("request")
         if obj.file and request:
             return request.build_absolute_uri(obj.file.url)
         return None
@@ -81,32 +88,35 @@ class ElementSerializer(serializers.ModelSerializer):
 
     Валидация гарантирует корректность структуры для каждого типа.
     """
+
     created_by = ElementCreatedBySerializer(read_only=True)
-    element_type_display = serializers.CharField(source='get_element_type_display', read_only=True)
+    element_type_display = serializers.CharField(
+        source="get_element_type_display", read_only=True
+    )
     files = ElementFileSerializer(many=True, read_only=True)
     files_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Element
         fields = [
-            'id',
-            'title',
-            'description',
-            'element_type',
-            'element_type_display',
-            'content',
-            'difficulty',
-            'estimated_time_minutes',
-            'max_score',
-            'tags',
-            'is_public',
-            'created_by',
-            'created_at',
-            'updated_at',
-            'files',
-            'files_count',
+            "id",
+            "title",
+            "description",
+            "element_type",
+            "element_type_display",
+            "content",
+            "difficulty",
+            "estimated_time_minutes",
+            "max_score",
+            "tags",
+            "is_public",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "files",
+            "files_count",
         ]
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
 
     def get_files_count(self, obj):
         """Возвращает количество файлов элемента"""
@@ -126,7 +136,7 @@ class ElementSerializer(serializers.ModelSerializer):
         Валидация содержимого элемента в зависимости от типа
         Использует централизованный валидатор из validators.py (T018)
         """
-        element_type = self.initial_data.get('element_type')
+        element_type = self.initial_data.get("element_type")
 
         if not element_type:
             # Если это обновление, берем тип из instance
@@ -153,20 +163,24 @@ class ElementSerializer(serializers.ModelSerializer):
     def validate_estimated_time_minutes(self, value):
         """Валидация времени выполнения"""
         if value < 1:
-            raise serializers.ValidationError("Время выполнения должно быть положительным числом")
+            raise serializers.ValidationError(
+                "Время выполнения должно быть положительным числом"
+            )
         return value
 
     def validate_max_score(self, value):
         """Валидация максимального балла"""
         if value < 0:
-            raise serializers.ValidationError("Максимальный балл не может быть отрицательным")
+            raise serializers.ValidationError(
+                "Максимальный балл не может быть отрицательным"
+            )
         return value
 
     def create(self, validated_data):
         """Создание элемента с автоматическим заполнением created_by"""
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            validated_data['created_by'] = request.user
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            validated_data["created_by"] = request.user
         return super().create(validated_data)
 
 
@@ -174,27 +188,30 @@ class ElementListSerializer(serializers.ModelSerializer):
     """
     Упрощенный сериализатор для списка элементов (без полного content)
     """
+
     created_by = ElementCreatedBySerializer(read_only=True)
-    element_type_display = serializers.CharField(source='get_element_type_display', read_only=True)
+    element_type_display = serializers.CharField(
+        source="get_element_type_display", read_only=True
+    )
     files_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Element
         fields = [
-            'id',
-            'title',
-            'description',
-            'element_type',
-            'element_type_display',
-            'difficulty',
-            'estimated_time_minutes',
-            'max_score',
-            'tags',
-            'is_public',
-            'created_by',
-            'created_at',
-            'updated_at',
-            'files_count',
+            "id",
+            "title",
+            "description",
+            "element_type",
+            "element_type_display",
+            "difficulty",
+            "estimated_time_minutes",
+            "max_score",
+            "tags",
+            "is_public",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "files_count",
         ]
 
     def get_files_count(self, obj):

@@ -4,7 +4,6 @@ API views for lesson management.
 Endpoints for creating, retrieving, updating, and deleting lessons.
 """
 
-from typing import Optional
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -152,9 +151,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonCreateSerializer(
-            data=request.data, context={"request": request}
-        )
+        serializer = LessonCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -236,9 +233,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonUpdateSerializer(
-            data=request.data, context={"lesson": lesson}
-        )
+        serializer = LessonUpdateSerializer(data=request.data, context={"lesson": lesson})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -397,9 +392,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         student_id = request.query_params.get("student_id")
         if not student_id:
-            return Response(
-                {"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Валидация формата student_id (должен быть целым числом)
         try:
@@ -427,9 +420,9 @@ class LessonViewSet(viewsets.ModelViewSet):
                         {"error": "You can only view schedules for your children"},
                         status=status.HTTP_403_FORBIDDEN,
                     )
-                queryset = Lesson.objects.filter(
-                    student_id=student_id_int
-                ).select_related("teacher", "student", "subject")
+                queryset = Lesson.objects.filter(student_id=student_id_int).select_related(
+                    "teacher", "student", "subject"
+                )
 
             # Apply filters
             date_from = request.query_params.get("date_from")
@@ -470,9 +463,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         # Verify permission to view history
         # Teacher, student, tutor, or parent of student
-        has_permission = (
-            lesson.teacher == request.user or lesson.student == request.user
-        )
+        has_permission = lesson.teacher == request.user or lesson.student == request.user
 
         # Check if tutor has access to this lesson (manages the student)
         if not has_permission and request.user.role == "tutor":

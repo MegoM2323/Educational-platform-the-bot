@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 class ComponentStatus(str, Enum):
     """Component health status enumeration"""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -44,6 +45,7 @@ class ComponentStatus(str, Enum):
 
 class SeverityLevel(str, Enum):
     """Alert severity levels"""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -52,6 +54,7 @@ class SeverityLevel(str, Enum):
 @dataclass
 class ComponentMetrics:
     """Metrics for a single component"""
+
     name: str
     status: ComponentStatus
     response_time_ms: float
@@ -68,7 +71,9 @@ class ComponentMetrics:
             "response_time_ms": self.response_time_ms,
             "error_count": self.error_count,
             "warning_count": self.warning_count,
-            "last_check": self.last_check_timestamp.isoformat() if self.last_check_timestamp else None,
+            "last_check": self.last_check_timestamp.isoformat()
+            if self.last_check_timestamp
+            else None,
         }
         if self.details:
             data["details"] = self.details
@@ -78,6 +83,7 @@ class ComponentMetrics:
 @dataclass
 class SLAMetrics:
     """SLA metrics for a component"""
+
     component: str
     uptime_percent: float
     uptime_target: float
@@ -119,12 +125,14 @@ class HealthCheckExtended:
         readiness_response, _ = self.checker.get_readiness_response()
 
         # Extract component information
-        for component_name, component_data in readiness_response.get("components", {}).items():
+        for component_name, component_data in readiness_response.get(
+            "components", {}
+        ).items():
             metrics[component_name] = ComponentMetrics(
                 name=component_name,
                 status=ComponentStatus(component_data.get("status", "unknown")),
                 response_time_ms=float(component_data.get("response_time_ms", 0)),
-                details=component_data
+                details=component_data,
             )
 
         # Add system metrics
@@ -136,21 +144,21 @@ class HealthCheckExtended:
             name="cpu",
             status=ComponentStatus(cpu_metrics.get("status", "unknown")),
             response_time_ms=0,
-            details=cpu_metrics
+            details=cpu_metrics,
         )
 
         metrics["memory"] = ComponentMetrics(
             name="memory",
             status=ComponentStatus(memory_metrics.get("status", "unknown")),
             response_time_ms=0,
-            details=memory_metrics
+            details=memory_metrics,
         )
 
         metrics["disk"] = ComponentMetrics(
             name="disk",
             status=ComponentStatus(disk_metrics.get("status", "unknown")),
             response_time_ms=0,
-            details=disk_metrics
+            details=disk_metrics,
         )
 
         return metrics
@@ -194,7 +202,7 @@ class HealthCheckExtended:
                 checks_success=0,
                 checks_failed=0,
                 sla_status=sla_status,
-                period_hours=period_hours
+                period_hours=period_hours,
             )
 
         return sla_metrics
@@ -253,8 +261,12 @@ class HealthCheckExtended:
         sla_metrics = self.get_sla_metrics()
 
         # Determine overall status
-        has_critical = any(m.status == ComponentStatus.UNHEALTHY for m in components.values())
-        has_degraded = any(m.status == ComponentStatus.DEGRADED for m in components.values())
+        has_critical = any(
+            m.status == ComponentStatus.UNHEALTHY for m in components.values()
+        )
+        has_degraded = any(
+            m.status == ComponentStatus.DEGRADED for m in components.values()
+        )
 
         overall_status = "healthy"
         if has_critical:
@@ -278,7 +290,6 @@ class HealthCheckExtended:
         Returns:
             Dict with incident information or None
         """
-        # TODO: Implement incident tracking
         return None
 
     def _get_scheduled_maintenance(self) -> List[Dict[str, Any]]:
@@ -288,7 +299,6 @@ class HealthCheckExtended:
         Returns:
             List of maintenance windows
         """
-        # TODO: Implement maintenance scheduling
         return []
 
     def record_synthetic_check(self, check_data: Dict[str, Any]) -> bool:
@@ -321,19 +331,23 @@ class HealthCheckExtended:
 
         for component_name, metrics in components.items():
             if metrics.status == ComponentStatus.UNHEALTHY:
-                alerts.append({
-                    "severity": "critical",
-                    "component": component_name,
-                    "message": f"{component_name} is unhealthy",
-                    "timestamp": timezone.now().isoformat(),
-                })
+                alerts.append(
+                    {
+                        "severity": "critical",
+                        "component": component_name,
+                        "message": f"{component_name} is unhealthy",
+                        "timestamp": timezone.now().isoformat(),
+                    }
+                )
             elif metrics.status == ComponentStatus.DEGRADED:
-                alerts.append({
-                    "severity": "warning",
-                    "component": component_name,
-                    "message": f"{component_name} is degraded",
-                    "timestamp": timezone.now().isoformat(),
-                })
+                alerts.append(
+                    {
+                        "severity": "warning",
+                        "component": component_name,
+                        "message": f"{component_name} is degraded",
+                        "timestamp": timezone.now().isoformat(),
+                    }
+                )
 
         return {
             "active_alerts": len(alerts),
@@ -350,6 +364,7 @@ health_extended = HealthCheckExtended()
 # ============================================================================
 # Django View Endpoints
 # ============================================================================
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -396,7 +411,7 @@ def extended_health_view(request):
         logger.error(f"Error in extended health check: {e}")
         return Response(
             {"status": "unhealthy", "error": str(e)},
-            status=HTTP_503_SERVICE_UNAVAILABLE
+            status=HTTP_503_SERVICE_UNAVAILABLE,
         )
 
 
@@ -427,15 +442,15 @@ def component_metrics_view(request):
         if component_filter:
             metrics = {k: v for k, v in metrics.items() if component_filter in k}
 
-        return Response({
-            "components": {name: m.to_dict() for name, m in metrics.items()},
-        }, status=HTTP_200_OK)
+        return Response(
+            {
+                "components": {name: m.to_dict() for name, m in metrics.items()},
+            },
+            status=HTTP_200_OK,
+        )
     except Exception as e:
         logger.error(f"Error getting component metrics: {e}")
-        return Response(
-            {"error": str(e)},
-            status=HTTP_503_SERVICE_UNAVAILABLE
-        )
+        return Response({"error": str(e)}, status=HTTP_503_SERVICE_UNAVAILABLE)
 
 
 @api_view(["GET"])
@@ -472,25 +487,26 @@ def sla_metrics_view(request):
         allowed_periods = [24, 168, 720, 8760]
         if period not in allowed_periods:
             return Response(
-                {"error": f"Invalid period. Allowed: {allowed_periods}"},
-                status=400
+                {"error": f"Invalid period. Allowed: {allowed_periods}"}, status=400
             )
 
         sla_metrics = health_extended.get_sla_metrics(period_hours=period)
 
         if component_filter:
-            sla_metrics = {k: v for k, v in sla_metrics.items() if component_filter in k}
+            sla_metrics = {
+                k: v for k, v in sla_metrics.items() if component_filter in k
+            }
 
-        return Response({
-            "period_hours": period,
-            "sla_metrics": {name: m.to_dict() for name, m in sla_metrics.items()},
-        }, status=HTTP_200_OK)
+        return Response(
+            {
+                "period_hours": period,
+                "sla_metrics": {name: m.to_dict() for name, m in sla_metrics.items()},
+            },
+            status=HTTP_200_OK,
+        )
     except Exception as e:
         logger.error(f"Error getting SLA metrics: {e}")
-        return Response(
-            {"error": str(e)},
-            status=HTTP_503_SERVICE_UNAVAILABLE
-        )
+        return Response({"error": str(e)}, status=HTTP_503_SERVICE_UNAVAILABLE)
 
 
 @api_view(["GET"])
@@ -527,8 +543,7 @@ def status_page_view(request):
     except Exception as e:
         logger.error(f"Error generating status page: {e}")
         return Response(
-            {"status": "unknown", "error": str(e)},
-            status=HTTP_503_SERVICE_UNAVAILABLE
+            {"status": "unknown", "error": str(e)}, status=HTTP_503_SERVICE_UNAVAILABLE
         )
 
 
@@ -562,30 +577,24 @@ def synthetic_check_webhook_view(request):
         # Validate required fields
         required_fields = ["name", "status", "response_time_ms"]
         if not all(field in check_data for field in required_fields):
-            return Response(
-                {"error": "Missing required fields"},
-                status=400
-            )
+            return Response({"error": "Missing required fields"}, status=400)
 
         # Record the check
         success = health_extended.record_synthetic_check(check_data)
 
         if success:
-            return Response({
-                "recorded": True,
-                "message": "Check result recorded",
-            }, status=HTTP_200_OK)
-        else:
             return Response(
-                {"error": "Failed to record check"},
-                status=500
+                {
+                    "recorded": True,
+                    "message": "Check result recorded",
+                },
+                status=HTTP_200_OK,
             )
+        else:
+            return Response({"error": "Failed to record check"}, status=500)
     except Exception as e:
         logger.error(f"Error recording synthetic check: {e}")
-        return Response(
-            {"error": str(e)},
-            status=500
-        )
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(["GET"])
@@ -608,15 +617,18 @@ def websocket_health_view(request):
     try:
         websocket_metrics = health_extended.checker.check_websocket()
 
-        return Response({
-            **websocket_metrics,
-            "timestamp": timezone.now().isoformat(),
-        }, status=HTTP_200_OK)
+        return Response(
+            {
+                **websocket_metrics,
+                "timestamp": timezone.now().isoformat(),
+            },
+            status=HTTP_200_OK,
+        )
     except Exception as e:
         logger.error(f"Error checking WebSocket health: {e}")
         return Response(
             {"status": "unhealthy", "error": str(e)},
-            status=HTTP_503_SERVICE_UNAVAILABLE
+            status=HTTP_503_SERVICE_UNAVAILABLE,
         )
 
 
@@ -653,14 +665,10 @@ def alerts_summary_view(request):
 
         if severity_filter:
             alerts_data["alerts"] = [
-                a for a in alerts_data["alerts"]
-                if a["severity"] == severity_filter
+                a for a in alerts_data["alerts"] if a["severity"] == severity_filter
             ]
 
         return Response(alerts_data, status=HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error getting alerts: {e}")
-        return Response(
-            {"error": str(e)},
-            status=HTTP_503_SERVICE_UNAVAILABLE
-        )
+        return Response({"error": str(e)}, status=HTTP_503_SERVICE_UNAVAILABLE)

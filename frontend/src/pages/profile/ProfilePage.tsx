@@ -408,6 +408,8 @@ const ProfileFormWrapper = ({
                 initialData={flattenedData}
                 onSubmit={onSubmit}
                 isLoading={isLoading}
+                isTelegramLinked={!!profileData?.user?.telegram_id}
+                telegramUsername={profileData?.user?.telegram_username}
               />
             )}
           </div>

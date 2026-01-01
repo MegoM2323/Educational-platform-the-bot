@@ -2,7 +2,14 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.db import models
 from django.core.validators import RegexValidator
-from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentProfile
+from .models import (
+    User,
+    StudentProfile,
+    TeacherProfile,
+    TutorProfile,
+    ParentProfile,
+    TelegramLinkToken,
+)
 from reports.models import TeacherWeeklyReport, TutorWeeklyReport
 from .permissions import (
     can_view_private_fields,
@@ -1137,3 +1144,25 @@ class CurrentUserProfileSerializer(serializers.Serializer):
             profile_data = None
 
         return {"user": user_data, "profile": profile_data}
+
+
+class TelegramLinkTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TelegramLinkToken
+        fields = ["token", "created_at", "expires_at", "is_expired"]
+        read_only_fields = ["created_at", "expires_at"]
+
+    is_expired = serializers.SerializerMethodField()
+
+    def get_is_expired(self, obj):
+        return obj.is_expired()
+
+
+class TelegramLinkRequestSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=100)
+    telegram_id = serializers.IntegerField()
+
+
+class TelegramStatusSerializer(serializers.Serializer):
+    is_linked = serializers.BooleanField()
+    telegram_id = serializers.IntegerField(allow_null=True)

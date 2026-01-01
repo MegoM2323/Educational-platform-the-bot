@@ -1,14 +1,19 @@
+import logging
+import os
+
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import ChatRoom, Message, MessageRead, ChatParticipant, MessageThread
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class ChatRoomListSerializer(serializers.ModelSerializer):
     """
     Сериализатор для списка чат-комнат
     """
+
     participants_count = serializers.SerializerMethodField()
     participants = serializers.SerializerMethodField()
     subject = serializers.SerializerMethodField()
@@ -18,13 +23,23 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatRoom
         fields = (
-            'id', 'name', 'description', 'type', 'participants_count', 'participants',
-            'subject', 'is_active', 'created_at', 'updated_at', 'last_message', 'unread_count'
+            "id",
+            "name",
+            "description",
+            "type",
+            "participants_count",
+            "participants",
+            "subject",
+            "is_active",
+            "created_at",
+            "updated_at",
+            "last_message",
+            "unread_count",
         )
 
     def get_participants_count(self, obj):
         # Use annotated value from queryset to avoid N+1 query
-        if hasattr(obj, 'annotated_participants_count'):
+        if hasattr(obj, "annotated_participants_count"):
             return obj.annotated_participants_count
         # Fallback for non-annotated querysets
         return obj.participants.count()
@@ -38,33 +53,29 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         """
         # Проверяем prefetched данные (избегаем N+1 query)
         # obj.participants.all() использует prefetched cache если доступен
-        return [{
-            'id': user.id,
-            'full_name': user.get_full_name(),
-            'role': user.role
-        } for user in obj.participants.all()]
+        return [
+            {"id": user.id, "full_name": user.get_full_name(), "role": user.role}
+            for user in obj.participants.all()
+        ]
 
     def get_subject(self, obj):
         """Return subject if chat is forum_subject type"""
         if obj.type == ChatRoom.Type.FORUM_SUBJECT and obj.enrollment and obj.enrollment.subject:
-            return {
-                'id': obj.enrollment.subject.id,
-                'name': obj.enrollment.subject.name
-            }
+            return {"id": obj.enrollment.subject.id, "name": obj.enrollment.subject.name}
         return None
 
     def get_last_message(self, obj):
         last_msg = obj.last_message
         if last_msg:
             return {
-                'id': last_msg.id,
-                'content': last_msg.content[:100],
-                'sender': {
-                    'id': last_msg.sender.id,
-                    'full_name': last_msg.sender.get_full_name(),
-                    'role': last_msg.sender.role
+                "id": last_msg.id,
+                "content": last_msg.content[:100],
+                "sender": {
+                    "id": last_msg.sender.id,
+                    "full_name": last_msg.sender.get_full_name(),
+                    "role": last_msg.sender.role,
                 },
-                'created_at': last_msg.created_at
+                "created_at": last_msg.created_at,
             }
         return None
 
@@ -80,7 +91,7 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         Если аннотация отсутствует, возвращаем 0.
         """
         # Приоритет 1: Аннотированное значение из queryset (самый оптимальный)
-        if hasattr(obj, 'annotated_unread_count'):
+        if hasattr(obj, "annotated_unread_count"):
             return obj.annotated_unread_count or 0
 
         # Fallback: НЕ делаем запрос к БД - возвращаем 0
@@ -92,28 +103,46 @@ class ChatRoomDetailSerializer(serializers.ModelSerializer):
     """
     Сериализатор для детального просмотра чат-комнаты
     """
+
     participants = serializers.SerializerMethodField()
     messages = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = ChatRoom
         fields = (
-            'id', 'name', 'description', 'type', 'participants',
-            'created_by', 'is_active', 'created_at', 'updated_at', 'messages'
+            "id",
+            "name",
+            "description",
+            "type",
+            "participants",
+            "created_by",
+            "is_active",
+            "created_at",
+            "updated_at",
+            "messages",
         )
-    
+
     def get_participants(self, obj):
-        request = self.context.get('request')
-        return [{
-            'id': user.id,
-            'name': user.get_full_name(),
-            'role': user.role,
-            'avatar': request.build_absolute_uri(user.avatar.url) if (user.avatar and request) else (user.avatar.url if user.avatar else None)
-        } for user in obj.participants.all()]
-    
+        request = self.context.get("request")
+        return [
+            {
+                "id": user.id,
+                "name": user.get_full_name(),
+                "role": user.role,
+                "avatar": request.build_absolute_uri(user.avatar.url)
+                if (user.avatar and request)
+                else (user.avatar.url if user.avatar else None),
+            }
+            for user in obj.participants.all()
+        ]
+
     def get_messages(self, obj):
         # Prefetch related data and filter properly for optimal performance
-        messages = obj.messages.filter(is_deleted=False).select_related('sender').order_by('-created_at')[:50]
+        messages = (
+            obj.messages.filter(is_deleted=False)
+            .select_related("sender")
+            .order_by("-created_at")[:50]
+        )
         return MessageSerializer(messages, many=True, context=self.context).data
 
 
@@ -121,16 +150,14 @@ class ChatRoomCreateSerializer(serializers.ModelSerializer):
     """
     Сериализатор для создания чат-комнаты
     """
+
     class Meta:
         model = ChatRoom
-        fields = ('name', 'description', 'type', 'participants')
-    
+        fields = ("name", "description", "type", "participants")
+
     def create(self, validated_data):
-        participants = validated_data.pop('participants', [])
-        room = ChatRoom.objects.create(
-            created_by=self.context['request'].user,
-            **validated_data
-        )
+        participants = validated_data.pop("participants", [])
+        room = ChatRoom.objects.create(created_by=self.context["request"].user, **validated_data)
         room.participants.set(participants)
         return room
 
@@ -149,15 +176,16 @@ class MessageSerializer(serializers.ModelSerializer):
     - prefetch_related('replies', 'read_by')
     - annotate(annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False)))
     """
+
     sender = serializers.SerializerMethodField()
-    sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
+    sender_name = serializers.CharField(source="sender.get_full_name", read_only=True)
     sender_avatar = serializers.SerializerMethodField()
-    sender_role = serializers.CharField(source='sender.role', read_only=True)
+    sender_role = serializers.CharField(source="sender.role", read_only=True)
     is_read = serializers.SerializerMethodField()
     # Поддерживает аннотированное значение из queryset (annotated_replies_count)
     # или fallback на prefetched/direct count
     replies_count = serializers.SerializerMethodField()
-    thread_title = serializers.CharField(source='thread.title', read_only=True)
+    thread_title = serializers.CharField(source="thread.title", read_only=True)
     is_pinned = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
@@ -170,42 +198,63 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = (
-            'id', 'room', 'thread', 'thread_title', 'sender', 'sender_name', 'sender_avatar', 'sender_role',
-            'content', 'message_type', 'file', 'file_url', 'file_name', 'file_size', 'file_type',
-            'image', 'image_url', 'is_image', 'is_edited',
-            'reply_to', 'created_at', 'updated_at', 'is_read', 'is_pinned', 'replies_count'
+            "id",
+            "room",
+            "thread",
+            "thread_title",
+            "sender",
+            "sender_name",
+            "sender_avatar",
+            "sender_role",
+            "content",
+            "message_type",
+            "file",
+            "file_url",
+            "file_name",
+            "file_size",
+            "file_type",
+            "image",
+            "image_url",
+            "is_image",
+            "is_edited",
+            "reply_to",
+            "created_at",
+            "updated_at",
+            "is_read",
+            "is_pinned",
+            "replies_count",
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        read_only_fields = ("id", "created_at", "updated_at")
 
     def get_sender(self, obj):
         """Return full sender object for frontend ForumMessage interface"""
         return {
-            'id': obj.sender.id,
-            'full_name': obj.sender.get_full_name(),
-            'role': obj.sender.role
+            "id": obj.sender.id,
+            "full_name": obj.sender.get_full_name(),
+            "role": obj.sender.role,
         }
-    
+
     def get_sender_avatar(self, obj):
         if obj.sender.avatar:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.sender.avatar.url)
             return obj.sender.avatar.url
         return None
-    
+
     def get_file_url(self, obj):
         """Возвращает абсолютный URL файла"""
         if obj.file:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.file.url)
             return obj.file.url
         return None
-    
+
     def get_image_url(self, obj):
         """Возвращает абсолютный URL изображения"""
         if obj.image:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
@@ -213,7 +262,6 @@ class MessageSerializer(serializers.ModelSerializer):
 
     def get_file_name(self, obj):
         """Возвращает имя файла (file или image)"""
-        import os
         if obj.file:
             return os.path.basename(obj.file.name)
         if obj.image:
@@ -237,24 +285,21 @@ class MessageSerializer(serializers.ModelSerializer):
         Возвращает тип файла: 'image', 'document', 'archive'
         Определяется по расширению файла
         """
-        import os
-
-        # Расширения для определения типа
-        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'}
-        archive_extensions = {'.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz'}
+        image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".ico"}
+        archive_extensions = {".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"}
 
         # Проверяем image поле
         if obj.image and obj.image.name:
-            return 'image'
+            return "image"
 
         # Проверяем file поле
         if obj.file and obj.file.name:
             _, ext = os.path.splitext(obj.file.name.lower())
             if ext in image_extensions:
-                return 'image'
+                return "image"
             if ext in archive_extensions:
-                return 'archive'
-            return 'document'
+                return "archive"
+            return "document"
 
         return None
 
@@ -266,8 +311,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
         # Проверяем file поле по расширению
         if obj.file and obj.file.name:
-            import os
-            image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'}
+            image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".ico"}
             _, ext = os.path.splitext(obj.file.name.lower())
             return ext in image_extensions
 
@@ -280,7 +324,7 @@ class MessageSerializer(serializers.ModelSerializer):
         Оптимизация: использует prefetched read_by данные если доступны,
         избегая N+1 запросов при итерации по списку сообщений.
         """
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
 
@@ -288,7 +332,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
         # Проверяем prefetched данные (read_by уже загружены)
         # Если prefetch_related('read_by') был вызван, _prefetched_cache будет содержать данные
-        if hasattr(obj, '_prefetched_objects_cache') and 'read_by' in obj._prefetched_objects_cache:
+        if hasattr(obj, "_prefetched_objects_cache") and "read_by" in obj._prefetched_objects_cache:
             # Используем prefetched данные без дополнительного запроса
             return any(read.user_id == user_id for read in obj.read_by.all())
 
@@ -303,13 +347,11 @@ class MessageSerializer(serializers.ModelSerializer):
         Не делает N+1 запросы - если аннотация отсутствует, возвращает 0 и логирует warning.
         """
         # Аннотированное значение из queryset (оптимальный способ)
-        if hasattr(obj, 'annotated_replies_count'):
+        if hasattr(obj, "annotated_replies_count"):
             return obj.annotated_replies_count
 
         # Не делаем N+1 query - возвращаем 0 и логируем warning
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f'Message {obj.id} missing annotated_replies_count annotation')
+        logger.warning(f"Message {obj.id} missing annotated_replies_count annotation")
         return 0
 
     def get_is_pinned(self, obj):
@@ -324,7 +366,7 @@ class MessageSerializer(serializers.ModelSerializer):
         return False
 
     def create(self, validated_data):
-        validated_data['sender'] = self.context['request'].user
+        validated_data["sender"] = self.context["request"].user
         return super().create(validated_data)
 
 
@@ -334,14 +376,15 @@ class MessageCreateSerializer(serializers.ModelSerializer):
 
     Поле content может быть пустым если прикреплён файл.
     """
-    content = serializers.CharField(required=False, allow_blank=True, default='')
+
+    content = serializers.CharField(required=False, allow_blank=True, default="")
 
     class Meta:
         model = Message
-        fields = ('room', 'content', 'message_type', 'reply_to')
+        fields = ("room", "content", "message_type", "reply_to")
 
     def create(self, validated_data):
-        validated_data['sender'] = self.context['request'].user
+        validated_data["sender"] = self.context["request"].user
         return super().create(validated_data)
 
 
@@ -350,19 +393,19 @@ class MessageUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['content']
+        fields = ["content"]
 
     def validate_content(self, value):
         if not value or not value.strip():
-            raise serializers.ValidationError('Сообщение не может быть пустым')
+            raise serializers.ValidationError("Сообщение не может быть пустым")
         if len(value) > 5000:
-            raise serializers.ValidationError('Сообщение слишком длинное (максимум 5000 символов)')
+            raise serializers.ValidationError("Сообщение слишком длинное (максимум 5000 символов)")
         return value.strip()
 
     def update(self, instance, validated_data):
-        instance.content = validated_data.get('content', instance.content)
+        instance.content = validated_data.get("content", instance.content)
         instance.is_edited = True
-        instance.save(update_fields=['content', 'is_edited', 'updated_at'])
+        instance.save(update_fields=["content", "is_edited", "updated_at"])
         return instance
 
 
@@ -370,34 +413,45 @@ class MessageReadSerializer(serializers.ModelSerializer):
     """
     Сериализатор для отметок о прочтении
     """
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
-    
+
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = MessageRead
-        fields = ('id', 'message', 'user', 'user_name', 'read_at')
-        read_only_fields = ('id', 'read_at')
+        fields = ("id", "message", "user", "user_name", "read_at")
+        read_only_fields = ("id", "read_at")
 
 
 class ChatParticipantSerializer(serializers.ModelSerializer):
     """
     Сериализатор для участников чата
     """
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
-    user_role = serializers.CharField(source='user.role', read_only=True)
+
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+    user_role = serializers.CharField(source="user.role", read_only=True)
     user_avatar = serializers.SerializerMethodField()
     unread_count = serializers.IntegerField(read_only=True)
-    
+
     class Meta:
         model = ChatParticipant
         fields = (
-            'id', 'room', 'user', 'user_name', 'user_role', 'user_avatar',
-            'joined_at', 'last_read_at', 'is_muted', 'is_admin', 'unread_count'
+            "id",
+            "room",
+            "user",
+            "user_name",
+            "user_role",
+            "user_avatar",
+            "joined_at",
+            "last_read_at",
+            "is_muted",
+            "is_admin",
+            "unread_count",
         )
-        read_only_fields = ('id', 'joined_at')
-    
+        read_only_fields = ("id", "joined_at")
+
     def get_user_avatar(self, obj):
         if obj.user.avatar:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.user.avatar.url)
             return obj.user.avatar.url
@@ -408,27 +462,38 @@ class MessageThreadSerializer(serializers.ModelSerializer):
     """
     Сериализатор для тредов сообщений
     """
-    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
-    created_by_role = serializers.CharField(source='created_by.role', read_only=True)
+
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+    created_by_role = serializers.CharField(source="created_by.role", read_only=True)
     messages_count = serializers.IntegerField(read_only=True)
     last_message = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = MessageThread
         fields = (
-            'id', 'room', 'title', 'created_by', 'created_by_name', 'created_by_role',
-            'is_pinned', 'is_locked', 'created_at', 'updated_at', 'messages_count', 'last_message'
+            "id",
+            "room",
+            "title",
+            "created_by",
+            "created_by_name",
+            "created_by_role",
+            "is_pinned",
+            "is_locked",
+            "created_at",
+            "updated_at",
+            "messages_count",
+            "last_message",
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
-    
+        read_only_fields = ("id", "created_at", "updated_at")
+
     def get_last_message(self, obj):
         last_msg = obj.last_message
         if last_msg:
             return {
-                'id': last_msg.id,
-                'content': last_msg.content[:100],
-                'sender': last_msg.sender.get_full_name(),
-                'created_at': last_msg.created_at
+                "id": last_msg.id,
+                "content": last_msg.content[:100],
+                "sender": last_msg.sender.get_full_name(),
+                "created_at": last_msg.created_at,
             }
         return None
 
@@ -437,13 +502,14 @@ class MessageThreadCreateSerializer(serializers.ModelSerializer):
     """
     Сериализатор для создания треда
     """
+
     class Meta:
         model = MessageThread
-        fields = ('title',)
-    
+        fields = ("title",)
+
     def create(self, validated_data):
-        validated_data['created_by'] = self.context['request'].user
-        validated_data['room'] = self.context['room']
+        validated_data["created_by"] = self.context["request"].user
+        validated_data["room"] = self.context["room"]
         return super().create(validated_data)
 
 
@@ -451,6 +517,7 @@ class ChatRoomStatsSerializer(serializers.Serializer):
     """
     Сериализатор для статистики чата
     """
+
     total_rooms = serializers.IntegerField()
     active_rooms = serializers.IntegerField()
     total_messages = serializers.IntegerField()
@@ -462,6 +529,7 @@ class InitiateChatRequestSerializer(serializers.Serializer):
     """
     Сериализатор для запроса создания чата
     """
+
     contact_user_id = serializers.IntegerField(required=True)
     subject_id = serializers.IntegerField(required=False, allow_null=True)
 
@@ -475,6 +543,7 @@ class InitiateChatRequestSerializer(serializers.Serializer):
         """Проверка существования предмета"""
         if value is not None:
             from materials.models import Subject
+
             if not Subject.objects.filter(id=value).exists():
                 raise serializers.ValidationError("Subject not found")
         return value
@@ -484,6 +553,7 @@ class ChatDetailSerializer(serializers.ModelSerializer):
     """
     Сериализатор для детального ответа при создании чата
     """
+
     room_id = serializers.SerializerMethodField()
     other_user = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
@@ -492,8 +562,14 @@ class ChatDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatRoom
         fields = (
-            'id', 'room_id', 'type', 'other_user', 'created_at',
-            'last_message', 'unread_count', 'name'
+            "id",
+            "room_id",
+            "type",
+            "other_user",
+            "created_at",
+            "last_message",
+            "unread_count",
+            "name",
         )
 
     def get_room_id(self, obj):
@@ -502,7 +578,7 @@ class ChatDetailSerializer(serializers.ModelSerializer):
 
     def get_other_user(self, obj):
         """Возвращает информацию о собеседнике"""
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user:
             return None
 
@@ -513,11 +589,13 @@ class ChatDetailSerializer(serializers.ModelSerializer):
 
         other_user = other_users.first()
         return {
-            'id': other_user.id,
-            'first_name': other_user.first_name,
-            'last_name': other_user.last_name,
-            'email': other_user.email,
-            'avatar': request.build_absolute_uri(other_user.avatar.url) if other_user.avatar else None
+            "id": other_user.id,
+            "first_name": other_user.first_name,
+            "last_name": other_user.last_name,
+            "email": other_user.email,
+            "avatar": request.build_absolute_uri(other_user.avatar.url)
+            if other_user.avatar
+            else None,
         }
 
     def get_last_message(self, obj):
@@ -525,16 +603,16 @@ class ChatDetailSerializer(serializers.ModelSerializer):
         last_msg = obj.last_message
         if last_msg:
             return {
-                'id': last_msg.id,
-                'content': last_msg.content[:100],
-                'sender_id': last_msg.sender.id,
-                'created_at': last_msg.created_at
+                "id": last_msg.id,
+                "content": last_msg.content[:100],
+                "sender_id": last_msg.sender.id,
+                "created_at": last_msg.created_at,
             }
         return None
 
     def get_unread_count(self, obj):
         """Возвращает количество непрочитанных сообщений"""
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return 0
 
@@ -551,6 +629,7 @@ class AvailableContactSerializer(serializers.Serializer):
 
     Returns user info along with chat status and subject info.
     """
+
     id = serializers.SerializerMethodField()
     user_id = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
@@ -568,45 +647,45 @@ class AvailableContactSerializer(serializers.Serializer):
 
     def get_id(self, obj):
         """Extract user ID from contact dict"""
-        return obj['user'].id
+        return obj["user"].id
 
     def get_user_id(self, obj):
         """Extract user ID (alias for id)"""
-        return obj['user'].id
+        return obj["user"].id
 
     def get_email(self, obj):
         """Extract user email from contact dict"""
-        return obj['user'].email
+        return obj["user"].email
 
     def get_first_name(self, obj):
         """Extract user first_name from contact dict"""
-        return obj['user'].first_name
+        return obj["user"].first_name
 
     def get_last_name(self, obj):
         """Extract user last_name from contact dict"""
-        return obj['user'].last_name
+        return obj["user"].last_name
 
     def get_full_name(self, obj):
         """Extract user full name from contact dict"""
-        return obj['user'].get_full_name()
+        return obj["user"].get_full_name()
 
     def get_role(self, obj):
         """Extract user role from contact dict"""
-        return obj['user'].role
+        return obj["user"].role
 
     def get_is_teacher(self, obj):
         """Check if contact is a teacher"""
-        return obj['user'].role == 'teacher'
+        return obj["user"].role == "teacher"
 
     def get_is_tutor(self, obj):
         """Check if contact is a tutor"""
-        return obj['user'].role == 'tutor'
+        return obj["user"].role == "tutor"
 
     def get_avatar(self, obj):
         """Extract user avatar URL from contact dict"""
-        user = obj['user']
+        user = obj["user"]
         if user.avatar:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(user.avatar.url)
             return user.avatar.url
@@ -618,11 +697,7 @@ class AvailableContactSerializer(serializers.Serializer):
 
     def get_subject(self, obj):
         """Extract subject info if available"""
-        subject = obj.get('subject')
+        subject = obj.get("subject")
         if subject:
-            return {
-                'id': subject.id,
-                'name': subject.name
-            }
+            return {"id": subject.id, "name": subject.name}
         return None
-

@@ -1,8 +1,8 @@
 """
 Валидаторы для содержимого элементов знаниевого графа (T018)
 """
-from django.core.exceptions import ValidationError
 import re
+from django.core.exceptions import ValidationError
 
 
 def validate_element_content(element_type: str, content: dict) -> None:

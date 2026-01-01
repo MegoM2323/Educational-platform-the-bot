@@ -126,16 +126,12 @@ class LessonSerializer(serializers.ModelSerializer):
         # Validate time range
         if "start_time" in data and "end_time" in data:
             if data["start_time"] >= data["end_time"]:
-                raise serializers.ValidationError(
-                    {"end_time": "End time must be after start time"}
-                )
+                raise serializers.ValidationError({"end_time": "End time must be after start time"})
 
         # Validate date not in past
         if "date" in data:
             if data["date"] < timezone.now().date():
-                raise serializers.ValidationError(
-                    {"date": "Cannot create lesson in the past"}
-                )
+                raise serializers.ValidationError({"date": "Cannot create lesson in the past"})
 
         return data
 
@@ -177,22 +173,16 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
 
         # Validate time range
         if data["start_time"] >= data["end_time"]:
-            raise serializers.ValidationError(
-                {"end_time": "End time must be after start time"}
-            )
+            raise serializers.ValidationError({"end_time": "End time must be after start time"})
 
         # Validate date not in past
         if data["date"] < timezone.now().date():
-            raise serializers.ValidationError(
-                {"date": "Cannot create lesson in the past"}
-            )
+            raise serializers.ValidationError({"date": "Cannot create lesson in the past"})
 
         # Validate that start_time today is not in the past
         now = timezone.now()
         if data["date"] == now.date() and data["start_time"] <= now.time():
-            raise serializers.ValidationError(
-                {"start_time": "Start time cannot be in the past"}
-            )
+            raise serializers.ValidationError({"start_time": "Start time cannot be in the past"})
 
         # Check for time conflicts
         try:
@@ -233,16 +223,12 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
         # Validate time range if both provided
         if "start_time" in data and "end_time" in data:
             if data["start_time"] >= data["end_time"]:
-                raise serializers.ValidationError(
-                    {"end_time": "End time must be after start time"}
-                )
+                raise serializers.ValidationError({"end_time": "End time must be after start time"})
 
         # Validate date not in past
         if "date" in data:
             if data["date"] < timezone.now().date():
-                raise serializers.ValidationError(
-                    {"date": "Cannot set lesson to the past"}
-                )
+                raise serializers.ValidationError({"date": "Cannot set lesson to the past"})
 
         # Check for time conflicts if date/time changed
         if any(field in data for field in ["date", "start_time", "end_time"]):
@@ -253,9 +239,7 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
             lesson = self.context.get("lesson")
             if not lesson:
                 raise serializers.ValidationError(
-                    {
-                        "non_field_errors": "Lesson context is required for time conflict validation"
-                    }
+                    {"non_field_errors": "Lesson context is required for time conflict validation"}
                 )
 
             # Use updated or existing values
@@ -285,7 +269,10 @@ class LessonHistorySerializer(serializers.ModelSerializer):
     action_display = serializers.CharField(source="get_action_display", read_only=True)
 
     def get_performed_by_name(self, obj):
-        return obj.performed_by.get_full_name() if obj.performed_by else "System"
+        """Get name of user who performed the action."""
+        if obj.performed_by:
+            return obj.performed_by.get_full_name()
+        return "System"
 
     class Meta:
         model = LessonHistory
@@ -305,9 +292,7 @@ class LessonHistorySerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Ensure performed_by can be null in output."""
         ret = super().to_representation(instance)
-        ret["performed_by"] = (
-            instance.performed_by_id if instance.performed_by else None
-        )
+        ret["performed_by"] = instance.performed_by_id if instance.performed_by else None
         return ret
 
 

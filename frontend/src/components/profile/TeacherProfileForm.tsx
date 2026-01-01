@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { teacherProfileSchema, type TeacherProfile } from '@/types/profileSchemas';
+import { TelegramLinkButton } from './TelegramLinkButton';
 
 interface TeacherProfileFormProps {
   initialData?: Partial<TeacherProfile>;
@@ -22,6 +23,8 @@ interface TeacherProfileFormProps {
   isLoading?: boolean;
   autoSave?: boolean;
   onAutoSave?: (data: Partial<TeacherProfile>) => Promise<void>;
+  isTelegramLinked?: boolean;
+  telegramUsername?: string;
 }
 
 export const TeacherProfileForm = ({
@@ -30,9 +33,12 @@ export const TeacherProfileForm = ({
   isLoading = false,
   autoSave = false,
   onAutoSave,
+  isTelegramLinked = false,
+  telegramUsername,
 }: TeacherProfileFormProps) => {
   const [hasChanges, setHasChanges] = useState(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [refreshTelegram, setRefreshTelegram] = useState(0);
 
   const form = useForm<TeacherProfile>({
     resolver: zodResolver(teacherProfileSchema),
@@ -223,6 +229,16 @@ export const TeacherProfileForm = ({
                 </FormItem>
               )}
             />
+
+            <div className="pt-4 border-t">
+              <h3 className="text-sm font-semibold mb-3">Интеграции</h3>
+              <TelegramLinkButton
+                key={refreshTelegram}
+                isLinked={isTelegramLinked}
+                telegramUsername={telegramUsername}
+                onStatusChange={() => setRefreshTelegram((prev) => prev + 1)}
+              />
+            </div>
 
             <div className="flex gap-2 pt-4">
               <Button type="submit"

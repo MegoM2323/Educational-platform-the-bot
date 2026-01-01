@@ -17,7 +17,7 @@ User = get_user_model()
 
 
 def _generate_unique_username(base: str) -> str:
-    base = base.lower().replace(' ', '')[:20] or 'user'
+    base = base.lower().replace(" ", "")[:20] or "user"
     suffix = 1
     candidate = base
     while User.objects.filter(username=candidate).exists():
@@ -53,22 +53,27 @@ class StudentCreationService:
     ) -> Tuple[User, User, GeneratedCredentials, GeneratedCredentials]:
         # Разрешаем создание учеников тьюторам или администраторам
         if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
-            raise PermissionError("Только тьютор или администратор может создавать учеников")
+            raise PermissionError(
+                "Только тьютор или администратор может создавать учеников"
+            )
 
         # Генерация учетных данных
         student_username = _generate_unique_username(
             f"{student_first_name}.{student_last_name}"
         )
-        parent_username = _generate_unique_username(
-            f"parent.{student_last_name}"
-        )
+        parent_username = _generate_unique_username(f"parent.{student_last_name}")
 
         # Для простоты: генерируем пароли как безопасный случайный hash-несекьюрный видимой строкой
         # В реальном проде использовать генератор секретов
         import secrets
         import string
-        student_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
-        parent_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+
+        student_password = "".join(
+            secrets.choice(string.ascii_letters + string.digits) for _ in range(12)
+        )
+        parent_password = "".join(
+            secrets.choice(string.ascii_letters + string.digits) for _ in range(12)
+        )
 
         # Создаем пользователя ученика
         student_user = User.objects.create(
@@ -81,7 +86,9 @@ class StudentCreationService:
             created_by_tutor=tutor,
             is_active=True,
         )
-        logger.info(f"Student user created: {student_user.username}, role: {student_user.role}, id: {student_user.id}")
+        logger.info(
+            f"Student user created: {student_user.username}, role: {student_user.role}, id: {student_user.id}"
+        )
 
         # Создаем пользователя родителя
         parent_user = User.objects.create(
@@ -95,7 +102,9 @@ class StudentCreationService:
             created_by_tutor=tutor,
             is_active=True,
         )
-        logger.info(f"Parent user created: {parent_user.username}, role: {parent_user.role}, id: {parent_user.id}")
+        logger.info(
+            f"Parent user created: {parent_user.username}, role: {parent_user.role}, id: {parent_user.id}"
+        )
 
         # Профили
         # Всегда устанавливаем tutor в профиле, если ученика создает пользователь через функционал тьютора
@@ -104,12 +113,13 @@ class StudentCreationService:
             user=student_user,
             grade=grade,
             goal=goal,
-            tutor=tutor,  # Всегда устанавливаем создателя как тьютора
+            tutor=tutor,
             parent=parent_user,
             generated_username=student_username,
-            generated_password=student_password,
         )
-        logger.info(f"StudentProfile created: id={student_profile.id}, student={student_user.username}, tutor={tutor.username}")
+        logger.info(
+            f"StudentProfile created: id={student_profile.id}, student={student_user.username}, tutor={tutor.username}"
+        )
 
         # КРИТИЧНО: Проверяем, что parent установлен
         if student_profile.parent is None:
@@ -129,7 +139,9 @@ class StudentCreationService:
 
         # Создаем ParentProfile
         parent_profile, created = ParentProfile.objects.get_or_create(user=parent_user)
-        logger.info(f"ParentProfile {'created' if created else 'retrieved'}: id={parent_profile.id}, user={parent_user.username}")
+        logger.info(
+            f"ParentProfile {'created' if created else 'retrieved'}: id={parent_profile.id}, user={parent_user.username}"
+        )
 
         # КРИТИЧНО: Проверяем, что ParentProfile создан успешно
         if not parent_profile:
@@ -141,21 +153,27 @@ class StudentCreationService:
             raise ValueError(error_msg)
 
         # Проверяем связь после создания
-        children_count = User.objects.filter(student_profile__parent=parent_user, role=User.Role.STUDENT).count()
-        logger.info(f"Parent-student relationship verified: parent={parent_user.username} has {children_count} child(ren)")
+        children_count = User.objects.filter(
+            student_profile__parent=parent_user, role=User.Role.STUDENT
+        ).count()
+        logger.info(
+            f"Parent-student relationship verified: parent={parent_user.username} has {children_count} child(ren)"
+        )
 
-        # Запись о создании
+        # Запись о создании (без паролей - пароли отдаются только один раз при создании)
         TutorStudentCreation.objects.create(
             tutor=tutor,
             student=student_user,
             parent=parent_user,
-            student_credentials={"username": student_username, "password": student_password},
-            parent_credentials={"username": parent_username, "password": parent_password},
+            student_username=student_username,
+            parent_username=parent_username,
         )
 
         # Уведомление тьютора о создании ученика
         try:
-            NotificationService().notify_student_created(tutor=tutor, student=student_user)
+            NotificationService().notify_student_created(
+                tutor=tutor, student=student_user
+            )
         except Exception:
             pass
 
@@ -173,27 +191,32 @@ class SubjectAssignmentService:
     """
 
     @staticmethod
-    def get_available_teachers(subject: 'materials.Subject'):
+    def get_available_teachers(subject: "materials.Subject"):
         """Возвращает список доступных преподавателей для предмета.
         Сначала проверяем связь через TeacherSubject, если нет - возвращаем всех преподавателей.
         """
         from materials.models import TeacherSubject, Subject
-        
+
         # Ищем преподавателей, которые ведут этот предмет
-        teacher_ids_list = list(TeacherSubject.objects.filter(
-            subject=subject,
-            is_active=True
-        ).values_list('teacher_id', flat=True))
-        
+        teacher_ids_list = list(
+            TeacherSubject.objects.filter(subject=subject, is_active=True).values_list(
+                "teacher_id", flat=True
+            )
+        )
+
         if teacher_ids_list:
             # Если есть преподаватели, которые ведут предмет, возвращаем их
-            return User.objects.filter(id__in=teacher_ids_list, role=User.Role.TEACHER, is_active=True).order_by('id')
+            return User.objects.filter(
+                id__in=teacher_ids_list, role=User.Role.TEACHER, is_active=True
+            ).order_by("id")
         else:
             # Если предмет новый или нет связи, возвращаем всех активных преподавателей
-            return User.objects.filter(role=User.Role.TEACHER, is_active=True).order_by('id')
-    
+            return User.objects.filter(role=User.Role.TEACHER, is_active=True).order_by(
+                "id"
+            )
+
     @staticmethod
-    def get_or_create_subject(subject_name: str) -> 'materials.Subject':
+    def get_or_create_subject(subject_name: str) -> "materials.Subject":
         """Получает существующий предмет по названию или создает новый.
 
         Args:
@@ -211,28 +234,36 @@ class SubjectAssignmentService:
 
         # Ищем предмет по названию (без учета регистра)
         subject = Subject.objects.filter(name__iexact=subject_name).first()
-        
+
         if not subject:
             # Создаем новый предмет с дефолтным цветом
             subject = Subject.objects.create(
                 name=subject_name,
                 description=f"Предмет '{subject_name}' создан тьютором",
-                color='#3B82F6'  # Дефолтный синий цвет
+                color="#3B82F6",  # Дефолтный синий цвет
             )
-        
+
         return subject
 
     @staticmethod
-    def assign_subject(*, tutor: User, student: User, subject: 'materials.Subject', teacher: User | None = None) -> 'materials.SubjectEnrollment':
+    def assign_subject(
+        *,
+        tutor: User,
+        student: User,
+        subject: "materials.Subject",
+        teacher: User | None = None,
+    ) -> "materials.SubjectEnrollment":
         from materials.models import SubjectEnrollment
 
         # Разрешаем назначение предметов тьюторам или администраторам
         if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
-            raise PermissionError("Только тьютор или администратор может назначать предметы")
+            raise PermissionError(
+                "Только тьютор или администратор может назначать предметы"
+            )
         # Валидация ролей
         if student.role != User.Role.STUDENT:
             raise ValueError("Указанный пользователь не является студентом")
-        
+
         # Проверка, что данный студент привязан к этому тьютору
         # Проверяем через tutor в профиле студента ИЛИ через created_by_tutor в User
         # Используем OR логику: если студент назначен в профиле ИЛИ создан тьютором, разрешаем
@@ -259,37 +290,37 @@ class SubjectAssignmentService:
                 raise ValueError("Указанный пользователь не является преподавателем")
             if not teacher.is_active:
                 raise ValueError("Указанный преподаватель неактивен")
-            
+
             # Примечание: мы не проверяем связь TeacherSubject здесь, так как тьютор
             # может назначить любого активного преподавателя любому студенту.
             # Если требуется проверка, что преподаватель ведет предмет, это можно
             # добавить в будущем, но пока оставляем гибкость для тьютора.
-        
+
         # Преподаватель обязателен
         if teacher is None:
             raise ValueError("Необходимо указать преподавателя")
-        
+
         # Проверяем, не существует ли уже такое зачисление (включая неактивные)
         # unique_together гарантирует, что может быть только одно зачисление для student+subject+teacher
         # Используем get_or_create для атомарности операции с обработкой race condition
         from django.db import IntegrityError
-        
+
         try:
             enrollment, created = SubjectEnrollment.objects.get_or_create(
                 student=student,
                 subject=subject,
                 teacher=teacher,
                 defaults={
-                    'assigned_by': tutor,
-                    'is_active': True,
-                }
+                    "assigned_by": tutor,
+                    "is_active": True,
+                },
             )
 
             # Если зачисление уже существовало, обновляем его
             if not created:
                 enrollment.assigned_by = tutor
                 enrollment.is_active = True  # Активируем, если было деактивировано
-                enrollment.save(update_fields=['assigned_by', 'is_active'])
+                enrollment.save(update_fields=["assigned_by", "is_active"])
 
             logger.info(
                 f"Enrollment {'created' if created else 'updated'}: id={enrollment.id}, "
@@ -304,29 +335,33 @@ class SubjectAssignmentService:
             # В случае race condition, пытаемся получить существующее зачисление и обновить
             try:
                 enrollment = SubjectEnrollment.objects.get(
-                    student=student,
-                    subject=subject,
-                    teacher=teacher
+                    student=student, subject=subject, teacher=teacher
                 )
                 enrollment.assigned_by = tutor
                 enrollment.is_active = True
-                enrollment.save(update_fields=['assigned_by', 'is_active'])
+                enrollment.save(update_fields=["assigned_by", "is_active"])
                 enrollment.refresh_from_db()
-                logger.info(f"Enrollment updated after IntegrityError: id={enrollment.id}")
+                logger.info(
+                    f"Enrollment updated after IntegrityError: id={enrollment.id}"
+                )
             except SubjectEnrollment.DoesNotExist:
                 # Если даже после IntegrityError объект не найден, это странно, но обрабатываем
-                raise ValueError("Не удалось создать или обновить зачисление из-за конфликта данных")
+                raise ValueError(
+                    "Не удалось создать или обновить зачисление из-за конфликта данных"
+                )
 
         # Уведомления студенту и преподавателю о назначении предмета
         try:
             service = NotificationService()
-            service.notify_subject_assigned(student=student, subject_id=subject.id, teacher=teacher)
+            service.notify_subject_assigned(
+                student=student, subject_id=subject.id, teacher=teacher
+            )
             service.send(
                 recipient=teacher,
-                notif_type='subject_assigned',
-                title='Назначен студент по предмету',
+                notif_type="subject_assigned",
+                title="Назначен студент по предмету",
                 message=f"Вам назначен студент {student.get_full_name() or student.username} по предмету {subject.name}.",
-                data={'student_id': student.id, 'subject_id': subject.id},
+                data={"student_id": student.id, "subject_id": subject.id},
             )
         except Exception:
             pass
@@ -334,11 +369,16 @@ class SubjectAssignmentService:
         return enrollment
 
     @staticmethod
-    def unassign_subject(*, tutor: User, student: User, subject: 'materials.Subject') -> None:
+    def unassign_subject(
+        *, tutor: User, student: User, subject: "materials.Subject"
+    ) -> None:
         from materials.models import SubjectEnrollment
+
         # Разрешаем отмену назначений тьюторам или администраторам
         if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
-            raise PermissionError("Только тьютор или администратор может отменять назначения")
+            raise PermissionError(
+                "Только тьютор или администратор может отменять назначения"
+            )
         try:
             enrollment = SubjectEnrollment.objects.get(student=student, subject=subject)
         except SubjectEnrollment.DoesNotExist:
@@ -364,5 +404,3 @@ class SubjectAssignmentService:
             raise PermissionError("Студент не принадлежит тьютору")
         enrollment.is_active = False
         enrollment.save()
-
-

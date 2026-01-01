@@ -1,5 +1,10 @@
+import logging
 from rest_framework import status, generics, permissions
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+)
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
@@ -10,17 +15,24 @@ from django.contrib.auth.hashers import make_password
 from django.views.decorators.csrf import csrf_exempt
 from django_ratelimit.decorators import ratelimit
 
+logger = logging.getLogger(__name__)
+
 from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentProfile
 from .serializers import (
-    UserLoginSerializer, UserSerializer,
-    StudentProfileSerializer, TeacherProfileSerializer, TutorProfileSerializer,
-    ParentProfileSerializer, ChangePasswordSerializer, CurrentUserProfileSerializer
+    UserLoginSerializer,
+    UserSerializer,
+    StudentProfileSerializer,
+    TeacherProfileSerializer,
+    TutorProfileSerializer,
+    ParentProfileSerializer,
+    ChangePasswordSerializer,
+    CurrentUserProfileSerializer,
 )
 from .supabase_service import SupabaseAuthService
 
 
-@ratelimit(key='ip', rate='5/m', method='POST')  # 5 попыток входа в минуту с одного IP
-@api_view(['POST'])
+@ratelimit(key="ip", rate="5/m", method="POST")  # 5 попыток входа в минуту с одного IP
+@api_view(["POST"])
 @permission_classes([AllowAny])
 @authentication_classes([])
 @csrf_exempt
@@ -30,25 +42,27 @@ def login_view(request):
     """
     try:
         # Логируем входящие данные БЕЗ пароля для безопасности
-        safe_data = {k: v for k, v in request.data.items() if k != 'password'}
-        print(f"Login attempt - Request data: {safe_data}")
+        safe_data = {k: v for k, v in request.data.items() if k != "password"}
+        logger.info(f"[login] Request data: {safe_data}")
 
         # Валидируем данные
         serializer = UserLoginSerializer(data=request.data)
         if not serializer.is_valid():
             # Логируем ошибки БЕЗ пароля
-            safe_errors = {k: v for k, v in serializer.errors.items() if k != 'password'}
-            print(f"Validation errors: {safe_errors}")
+            safe_errors = {
+                k: v for k, v in serializer.errors.items() if k != "password"
+            }
+            logger.warning(f"[login] Validation errors: {safe_errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        email = serializer.validated_data.get('email')
-        username = serializer.validated_data.get('username')
-        password = serializer.validated_data['password']
+        email = serializer.validated_data.get("email")
+        username = serializer.validated_data.get("username")
+        password = serializer.validated_data["password"]
 
         # Логируем попытку входа с идентификатором (БЕЗ пароля)
         identifier = email or username
-        print(f"Login attempt for: {identifier}")
-        
+        logger.info(f"[login] Login attempt for: {identifier}")
+
         # Проверяем аутентификацию через Django; если не удалось, пробуем через Supabase
         from django.contrib.auth import authenticate
 
@@ -56,26 +70,17 @@ def login_view(request):
         user = None
         if email:
             user = User.objects.filter(email=email).first()
-            print(f"User found by email: {user}")
+            logger.debug(f"[login] User found by email: {user}")
         elif username:
             user = User.objects.filter(username=username).first()
-            print(f"User found by username: {user}")
-        
+            logger.debug(f"[login] User found by username: {user}")
+
         # Если пользователь найден по username, но у него есть email, используем email для Supabase
         if user and not email and user.email:
             email = user.email
 
         authenticated_user = None
         if user:
-            # Если это суперпользователь и у него нет пригодного пароля (хэш отсутствует),
-            # установим введенный пароль как новый и продолжим обычную аутентификацию.
-            try:
-                if getattr(user, 'is_superuser', False) and not user.has_usable_password():
-                    user.set_password(password)
-                    user.save(update_fields=['password'])
-            except Exception:
-                pass
-
             authenticated_user = authenticate(username=user.username, password=password)
 
         if not authenticated_user:
@@ -86,86 +91,130 @@ def login_view(request):
 
                 # Проверяем что Supabase реально настроен (не mock mode)
                 if not supabase.is_mock:
-                    sb_result = getattr(supabase, 'sign_in', None)
+                    sb_result = getattr(supabase, "sign_in", None)
                     if callable(sb_result):
                         sb_login = supabase.sign_in(email=email, password=password)
                     else:
                         sb_login = {"success": False, "error": "Supabase не настроен"}
 
-                    if sb_login.get('success'):
+                    if sb_login.get("success"):
                         # Если локального пользователя нет — сообщаем, чтобы создать/синхронизировать
                         if not user:
-                            return Response({
-                                'success': False,
-                                'error': 'Пользователь найден в Supabase, но отсутствует локально. Обратитесь к администратору.'
-                            }, status=status.HTTP_403_FORBIDDEN)
+                            return Response(
+                                {
+                                    "success": False,
+                                    "error": "Пользователь найден в Supabase, но отсутствует локально. Обратитесь к администратору.",
+                                },
+                                status=status.HTTP_403_FORBIDDEN,
+                            )
 
                         # Признаём пользователя аутентифицированным без проверки локального пароля
                         authenticated_user = user if user.is_active else None
                     else:
                         # Нет успеха ни в Django, ни в Supabase
-                        return Response({
-                            'success': False,
-                            'error': sb_login.get('error') or 'Неверные учетные данные'
-                        }, status=status.HTTP_401_UNAUTHORIZED)
+                        return Response(
+                            {
+                                "success": False,
+                                "error": sb_login.get("error")
+                                or "Неверные учетные данные",
+                            },
+                            status=status.HTTP_401_UNAUTHORIZED,
+                        )
                 else:
                     # Supabase в mock режиме (development), не фоллбэчим на него
                     # Возвращаем ошибку аутентификации Django
-                    print(f"Login failed for {identifier}: Invalid credentials (Supabase disabled in development)")
-                    return Response({
-                        'success': False,
-                        'error': 'Неверные учетные данные'
-                    }, status=status.HTTP_401_UNAUTHORIZED)
+                    logger.warning(
+                        f"[login] Login failed for {identifier}: Invalid credentials (Supabase disabled in development)"
+                    )
+                    return Response(
+                        {"success": False, "error": "Неверные учетные данные"},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
             except Exception as e:
                 # Если ошибка при работе с Supabase - считаем что он недоступен
-                print(f"Supabase error (ignoring in development): {str(e)}")
-                return Response({
-                    'success': False,
-                    'error': 'Неверные учетные данные'
-                }, status=status.HTTP_401_UNAUTHORIZED)
+                logger.warning(
+                    f"[login] Supabase error (ignoring in development): {str(e)}"
+                )
+                return Response(
+                    {"success": False, "error": "Неверные учетные данные"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
 
         # Если дошли до сюда — пользователь аутентифицирован (либо Django, либо Supabase)
         if authenticated_user and authenticated_user.is_active:
-            # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
-            deleted_count, _ = Token.objects.filter(user=authenticated_user).delete()
-            token = Token.objects.create(user=authenticated_user)
+            try:
+                # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
+                deleted_count, _ = Token.objects.filter(
+                    user=authenticated_user
+                ).delete()
+                token = Token.objects.create(user=authenticated_user)
 
-            # Логируем успешный вход
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.info(
-                f"[login] Successful login for user: {authenticated_user.email}, "
-                f"role: {authenticated_user.role}, "
-                f"deleted old tokens: {deleted_count}"
-            )
+                # Логируем успешный вход
+                logger.info(
+                    f"[login] Successful login for user: {authenticated_user.email}, "
+                    f"role: {authenticated_user.role}, "
+                    f"deleted old tokens: {deleted_count}"
+                )
 
-            # Если есть сессия, обновляем её
-            if hasattr(request, 'session'):
-                request.session.create()
-                logger.debug(f"[login] Session created for user: {authenticated_user.email}")
+                # Если есть сессия, обновляем её (безопасно)
+                if hasattr(request, "session"):
+                    try:
+                        if not request.session.session_key:
+                            request.session.create()
+                        else:
+                            request.session.modified = True
+                        logger.debug(
+                            f"[login] Session handled for user: {authenticated_user.email}"
+                        )
+                    except Exception as session_error:
+                        # Сессия не критична для API, просто логируем
+                        logger.warning(
+                            f"[login] Session error (non-critical): {str(session_error)}"
+                        )
 
-            return Response({
-                'success': True,
-                'data': {
-                    'token': token.key,
-                    'user': UserSerializer(authenticated_user).data,
-                    'message': 'Вход выполнен успешно'
-                }
-            })
+                # Сериализуем пользователя
+                user_data = UserSerializer(authenticated_user).data
 
-        return Response({
-            'success': False,
-            'error': 'Учетная запись отключена или недоступна'
-        }, status=status.HTTP_403_FORBIDDEN)
-            
+                return Response(
+                    {
+                        "success": True,
+                        "data": {
+                            "token": token.key,
+                            "user": user_data,
+                            "message": "Вход выполнен успешно",
+                        },
+                    }
+                )
+            except Exception as token_error:
+                import traceback
+
+                logger.error(f"[login] Token creation error: {str(token_error)}")
+                logger.error(f"[login] Traceback: {traceback.format_exc()}")
+                return Response(
+                    {
+                        "success": False,
+                        "error": "Ошибка при создании токена аутентификации",
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        return Response(
+            {"success": False, "error": "Учетная запись отключена или недоступна"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     except Exception as e:
-        return Response({
-            'success': False,
-            'error': f'Ошибка сервера: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        import traceback
+
+        logger.error(f"[login] Unexpected error: {str(e)}")
+        logger.error(f"[login] Traceback: {traceback.format_exc()}")
+        return Response(
+            {"success": False, "error": f"Ошибка сервера: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     """
@@ -179,9 +228,6 @@ def logout_view(request):
     Returns:
         Response: Success message
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     try:
         user = request.user
         # Удаляем токен
@@ -193,14 +239,17 @@ def logout_view(request):
     try:
         # Удаляем сессию
         logout(request)
-        logger.info(f"[logout] User logged out successfully: {request.user.email if request.user.is_authenticated else 'anonymous'}")
+        logger.info(
+            f"[logout] User logged out successfully: {request.user.email if request.user.is_authenticated else 'anonymous'}"
+        )
     except Exception as e:
         logger.warning(f"[logout] Failed to logout: {str(e)}")
 
-    return Response({'message': 'Выход выполнен успешно', 'success': True})
+    return Response({"message": "Выход выполнен успешно", "success": True})
 
 
-@api_view(['POST'])
+@ratelimit(key="ip", rate="10/m", method="POST")
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 def refresh_token_view(request):
@@ -222,15 +271,14 @@ def refresh_token_view(request):
         }
     """
     try:
-        import logging
-        logger = logging.getLogger(__name__)
-
         user = request.user
 
         # Логируем попытку обновления
         old_token = Token.objects.filter(user=user).first()
         if old_token:
-            logger.info(f"[refresh_token] Refreshing token for user: {user.email}, role: {user.role}")
+            logger.info(
+                f"[refresh_token] Refreshing token for user: {user.email}, role: {user.role}"
+            )
 
         # Удаляем старый токен
         deleted_count, _ = Token.objects.filter(user=user).delete()
@@ -239,40 +287,42 @@ def refresh_token_view(request):
         new_token = Token.objects.create(user=user)
 
         # Обновляем сессию для продления timeout
-        if hasattr(request, 'session') and request.session:
+        if hasattr(request, "session") and request.session:
             request.session.modified = True
             logger.debug(f"[refresh_token] Session updated for user: {user.email}")
 
         # Получаем время истечения токена из настроек
         from django.conf import settings
-        session_timeout = getattr(settings, 'SESSION_COOKIE_AGE', 86400)
+
+        session_timeout = getattr(settings, "SESSION_COOKIE_AGE", 86400)
 
         logger.info(
             f"[refresh_token] New token created for user: {user.email}, "
             f"role: {user.role}, deleted old tokens: {deleted_count}"
         )
 
-        return Response({
-            'success': True,
-            'data': {
-                'token': new_token.key,
-                'user': UserSerializer(user).data,
-                'message': 'Токен успешно обновлен',
-                'expires_in': session_timeout  # Token validity duration in seconds
-            }
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "success": True,
+                "data": {
+                    "token": new_token.key,
+                    "user": UserSerializer(user).data,
+                    "message": "Токен успешно обновлен",
+                    "expires_in": session_timeout,  # Token validity duration in seconds
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"[refresh_token] Error: {str(e)}", exc_info=True)
-        return Response({
-            'success': False,
-            'error': f'Ошибка обновления токена: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"success": False, "error": f"Ошибка обновления токена: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 def session_status(request):
@@ -293,27 +343,28 @@ def session_status(request):
             'message': str
         }
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     try:
         from django.conf import settings
+
         user = request.user
 
         # Get session info
         session_info = {
-            'session_key': request.session.session_key if hasattr(request, 'session') else None,
-            'session_age': None,
-            'user': user.email
+            "session_key": request.session.session_key
+            if hasattr(request, "session")
+            else None,
+            "session_age": None,
+            "user": user.email,
         }
 
         # Calculate session age
-        if hasattr(request.session, 'get_expiry_date'):
+        if hasattr(request.session, "get_expiry_date"):
             try:
                 from django.utils.timezone import now
+
                 expiry = request.session.get_expiry_date()
                 age_seconds = int((expiry - now()).total_seconds())
-                session_info['session_age'] = max(0, age_seconds)
+                session_info["session_age"] = max(0, age_seconds)
             except Exception:
                 pass
 
@@ -321,36 +372,41 @@ def session_status(request):
         token_valid = False
         token_expires_in = 0
         try:
-            if hasattr(request, 'auth') and request.auth:
-                token_key = request.auth.key if hasattr(request.auth, 'key') else str(request.auth)
+            if hasattr(request, "auth") and request.auth:
+                token_key = (
+                    request.auth.key
+                    if hasattr(request.auth, "key")
+                    else str(request.auth)
+                )
                 token = Token.objects.filter(key=token_key).first()
                 if token:
                     token_valid = True
-                    token_expires_in = getattr(settings, 'SESSION_COOKIE_AGE', 86400)
+                    token_expires_in = getattr(settings, "SESSION_COOKIE_AGE", 86400)
         except Exception:
             pass
 
-        logger.info(f"[session_status] User: {user.email}, Session age: {session_info['session_age']}s, Token valid: {token_valid}")
+        logger.info(
+            f"[session_status] User: {user.email}, Session age: {session_info['session_age']}s, Token valid: {token_valid}"
+        )
 
-        return Response({
-            'session': session_info,
-            'token': {
-                'valid': token_valid,
-                'expires_in': token_expires_in
-            },
-            'message': 'Session and token are valid',
-            'success': True
-        })
+        return Response(
+            {
+                "session": session_info,
+                "token": {"valid": token_valid, "expires_in": token_expires_in},
+                "message": "Session and token are valid",
+                "success": True,
+            }
+        )
 
     except Exception as e:
         logger.error(f"[session_status] Error: {str(e)}", exc_info=True)
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"success": False, "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def profile(request):
     """
@@ -358,7 +414,7 @@ def profile(request):
     """
     user = request.user
     user_data = UserSerializer(user).data
-    
+
     # Добавляем данные профиля в зависимости от роли
     if user.role == User.Role.STUDENT:
         try:
@@ -386,14 +442,11 @@ def profile(request):
             profile_data = None
     else:
         profile_data = None
-    
-    return Response({
-        'user': user_data,
-        'profile': profile_data
-    })
+
+    return Response({"user": user_data, "profile": profile_data})
 
 
-@api_view(['PUT', 'PATCH'])
+@api_view(["PUT", "PATCH"])
 @permission_classes([IsAuthenticated])
 def update_profile(request):
     """
@@ -401,10 +454,10 @@ def update_profile(request):
     """
     user = request.user
     user_serializer = UserSerializer(user, data=request.data, partial=True)
-    
+
     if user_serializer.is_valid():
         user_serializer.save()
-        
+
         # Обновляем профиль в зависимости от роли
         if user.role == User.Role.STUDENT:
             try:
@@ -446,31 +499,32 @@ def update_profile(request):
                     profile_serializer.save()
             except ParentProfile.DoesNotExist:
                 pass
-        
-        return Response({
-            'user': UserSerializer(user).data,
-            'message': 'Профиль обновлен'
-        })
-    
+
+        return Response(
+            {"user": UserSerializer(user).data, "message": "Профиль обновлен"}
+        )
+
     return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def change_password(request):
     """
     Смена пароля
     """
-    serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+    serializer = ChangePasswordSerializer(
+        data=request.data, context={"request": request}
+    )
     if serializer.is_valid():
         user = request.user
-        user.set_password(serializer.validated_data['new_password'])
+        user.set_password(serializer.validated_data["new_password"])
         user.save()
-        return Response({'message': 'Пароль успешно изменен'})
+        return Response({"message": "Пароль успешно изменен"})
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def list_users(request):
@@ -482,8 +536,8 @@ def list_users(request):
     - role: фильтр по роли (student, teacher, tutor, parent)
     - limit: ограничение количества результатов (по умолчанию 50, максимум 100)
     """
-    role = request.query_params.get('role')
-    limit = request.query_params.get('limit', 50)
+    role = request.query_params.get("role")
+    limit = request.query_params.get("limit", 50)
 
     try:
         limit = int(limit)
@@ -494,29 +548,37 @@ def list_users(request):
 
     # Фильтруем по роли, если указана
     # Оптимизация: используем select_related для профилей
-    queryset = User.objects.filter(is_active=True).select_related('student_profile', 'teacher_profile', 'parent_profile')
+    queryset = User.objects.filter(is_active=True).select_related(
+        "student_profile", "teacher_profile", "parent_profile"
+    )
     if role:
         queryset = queryset.filter(role=role)
-    
+
     # Подсчитываем количество до применения лимита
     total_count = queryset.count()
-    
+
     # Сортируем по дате создания и применяем лимит
-    queryset = queryset.order_by('-date_joined')
+    queryset = queryset.order_by("-date_joined")
     if limit and limit > 0:
         queryset = queryset[:limit]
-    
+
     # Сериализуем данные
     serializer = UserSerializer(queryset, many=True)
-    
+
     # Логируем для отладки
-    print(f"[list_users] Role filter: {role}, Limit: {limit}, Total users: {total_count}")
-    print(f"[list_users] Serialized data count: {len(serializer.data)}")
+    logger.debug(
+        f"[list_users] Role filter: {role}, Limit: {limit}, Total users: {total_count}"
+    )
+    logger.debug(f"[list_users] Serialized data count: {len(serializer.data)}")
     if len(serializer.data) > 0:
-        print(f"[list_users] First user sample: id={serializer.data[0].get('id')}, email={serializer.data[0].get('email')}")
+        logger.debug(
+            f"[list_users] First user sample: id={serializer.data[0].get('id')}, email={serializer.data[0].get('email')}"
+        )
     else:
-        print(f"[list_users] WARNING: No users returned! Total count was: {total_count}")
-    
+        logger.warning(
+            f"[list_users] WARNING: No users returned! Total count was: {total_count}"
+        )
+
     # Возвращаем массив напрямую
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -525,9 +587,10 @@ class StudentProfileView(generics.RetrieveUpdateAPIView):
     """
     Управление профилем студента
     """
+
     serializer_class = StudentProfileSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_object(self):
         return self.request.user.student_profile
 
@@ -536,9 +599,10 @@ class TeacherProfileView(generics.RetrieveUpdateAPIView):
     """
     Управление профилем преподавателя
     """
+
     serializer_class = TeacherProfileSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_object(self):
         return self.request.user.teacher_profile
 
@@ -547,9 +611,10 @@ class TutorProfileView(generics.RetrieveUpdateAPIView):
     """
     Управление профилем тьютора
     """
+
     serializer_class = TutorProfileSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_object(self):
         return self.request.user.tutor_profile
 
@@ -558,6 +623,7 @@ class ParentProfileView(generics.RetrieveUpdateAPIView):
     """
     Управление профилем родителя
     """
+
     serializer_class = ParentProfileSerializer
     permission_classes = [IsAuthenticated]
 
@@ -623,29 +689,39 @@ class CurrentUserProfileView(APIView):
             if not user or not user.is_authenticated:
                 return Response(
                     {
-                        'data': None,
-                        'message': 'Пользователь не авторизован',
-                        'errors': 'Authentication required'
+                        "data": None,
+                        "message": "Пользователь не авторизован",
+                        "errors": "Authentication required",
                     },
-                    status=status.HTTP_401_UNAUTHORIZED
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
 
             # Получаем профиль с one query (БЕЗ автоматического создания)
             profile_found = False
             try:
                 if user.role == User.Role.STUDENT:
-                    profile = StudentProfile.objects.select_related('user').get(user=user)
+                    profile = StudentProfile.objects.select_related("user").get(
+                        user=user
+                    )
                 elif user.role == User.Role.TEACHER:
-                    profile = TeacherProfile.objects.select_related('user').get(user=user)
+                    profile = TeacherProfile.objects.select_related("user").get(
+                        user=user
+                    )
                 elif user.role == User.Role.TUTOR:
-                    profile = TutorProfile.objects.select_related('user').get(user=user)
+                    profile = TutorProfile.objects.select_related("user").get(user=user)
                 elif user.role == User.Role.PARENT:
-                    profile = ParentProfile.objects.select_related('user').get(user=user)
+                    profile = ParentProfile.objects.select_related("user").get(
+                        user=user
+                    )
                 else:
                     profile = None
                 profile_found = True
-            except (StudentProfile.DoesNotExist, TeacherProfile.DoesNotExist,
-                    TutorProfile.DoesNotExist, ParentProfile.DoesNotExist):
+            except (
+                StudentProfile.DoesNotExist,
+                TeacherProfile.DoesNotExist,
+                TutorProfile.DoesNotExist,
+                ParentProfile.DoesNotExist,
+            ):
                 # Профиль не существует - возвращаем 404
                 profile = None
                 profile_found = False
@@ -658,14 +734,11 @@ class CurrentUserProfileView(APIView):
                 # Profile not found - return 200 OK with None profile
                 return Response(
                     {
-                        'data': {
-                            'user': user_data,
-                            'profile': None
-                        },
-                        'message': 'Профиль еще не создан',
-                        'errors': None
+                        "data": {"user": user_data, "profile": None},
+                        "message": "Профиль еще не создан",
+                        "errors": None,
                     },
-                    status=status.HTTP_200_OK
+                    status=status.HTTP_200_OK,
                 )
 
             # Profile found - serialize it based on role
@@ -682,32 +755,29 @@ class CurrentUserProfileView(APIView):
             # Успешный ответ с найденным профилем
             return Response(
                 {
-                    'data': {
-                        'user': user_data,
-                        'profile': profile_data
-                    },
-                    'message': 'Профиль успешно получен',
-                    'errors': None
+                    "data": {"user": user_data, "profile": profile_data},
+                    "message": "Профиль успешно получен",
+                    "errors": None,
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:
-            print(f"[CurrentUserProfileView] Критическая ошибка: {str(e)}")
+            logger.error(f"[CurrentUserProfileView] Критическая ошибка: {str(e)}")
             return Response(
                 {
-                    'data': None,
-                    'message': 'Ошибка при получении профиля',
-                    'errors': str(e)
+                    "data": None,
+                    "message": "Ошибка при получении профиля",
+                    "errors": str(e),
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
 # GDPR Data Export Endpoints
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 def export_user_data(request):
@@ -738,15 +808,15 @@ def export_user_data(request):
     from django.utils import timezone
     from datetime import timedelta
 
-    export_format = request.query_params.get('format', 'json').lower()
+    export_format = request.query_params.get("format", "json").lower()
 
-    if export_format not in ['json', 'csv']:
+    if export_format not in ["json", "csv"]:
         return Response(
             {
-                'error': 'Invalid format. Use "json" or "csv"',
-                'accepted_formats': ['json', 'csv']
+                "error": 'Invalid format. Use "json" or "csv"',
+                "accepted_formats": ["json", "csv"],
             },
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     # Queue async export task
@@ -756,17 +826,17 @@ def export_user_data(request):
 
     return Response(
         {
-            'job_id': task.id,
-            'status': 'queued',
-            'format': export_format,
-            'message': 'Your data export is being prepared. Check status using the job_id.',
-            'expires_at': expires_at.isoformat()
+            "job_id": task.id,
+            "status": "queued",
+            "format": export_format,
+            "message": "Your data export is being prepared. Check status using the job_id.",
+            "expires_at": expires_at.isoformat(),
         },
-        status=status.HTTP_202_ACCEPTED
+        status=status.HTTP_202_ACCEPTED,
     )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 def export_status(request, job_id: str):
@@ -801,56 +871,56 @@ def export_status(request, job_id: str):
 
     expires_at = timezone.now() + timedelta(days=7)
 
-    if task.state == 'PENDING':
+    if task.state == "PENDING":
         return Response(
             {
-                'job_id': job_id,
-                'status': 'pending',
-                'message': 'Job is pending',
-                'expires_at': expires_at.isoformat()
+                "job_id": job_id,
+                "status": "pending",
+                "message": "Job is pending",
+                "expires_at": expires_at.isoformat(),
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
-    elif task.state == 'SUCCESS':
+    elif task.state == "SUCCESS":
         result = task.result
         return Response(
             {
-                'job_id': job_id,
-                'status': 'completed',
-                'file_path': result.get('file_path'),
-                'file_size': result.get('file_size'),
-                'format': result.get('format'),
-                'message': result.get('message'),
-                'expires_at': expires_at.isoformat()
+                "job_id": job_id,
+                "status": "completed",
+                "file_path": result.get("file_path"),
+                "file_size": result.get("file_size"),
+                "format": result.get("format"),
+                "message": result.get("message"),
+                "expires_at": expires_at.isoformat(),
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
-    elif task.state == 'FAILURE':
+    elif task.state == "FAILURE":
         return Response(
             {
-                'job_id': job_id,
-                'status': 'failed',
-                'message': str(task.info),
-                'expires_at': expires_at.isoformat()
+                "job_id": job_id,
+                "status": "failed",
+                "message": str(task.info),
+                "expires_at": expires_at.isoformat(),
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
     else:  # RETRY, PROGRESS
         return Response(
             {
-                'job_id': job_id,
-                'status': 'processing',
-                'message': 'Export is being processed',
-                'expires_at': expires_at.isoformat()
+                "job_id": job_id,
+                "status": "processing",
+                "message": "Export is being processed",
+                "expires_at": expires_at.isoformat(),
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 def download_export(request, token: str):
@@ -877,45 +947,32 @@ def download_export(request, token: str):
     from django.http import FileResponse
 
     # Extract timestamp from query params
-    timestamp = request.query_params.get('ts')
+    timestamp = request.query_params.get("ts")
     if not timestamp:
         return Response(
-            {'error': 'Missing timestamp parameter'},
-            status=status.HTTP_400_BAD_REQUEST
+            {"error": "Missing timestamp parameter"}, status=status.HTTP_400_BAD_REQUEST
         )
 
     # Extract filename from query params or path
-    filename = request.query_params.get('fn')
+    filename = request.query_params.get("fn")
     if not filename:
         return Response(
-            {'error': 'Missing filename parameter'},
-            status=status.HTTP_400_BAD_REQUEST
+            {"error": "Missing filename parameter"}, status=status.HTTP_400_BAD_REQUEST
         )
 
     # Verify token
-    if not ExportTokenGenerator.verify(
-        request.user.id,
-        filename,
-        token,
-        timestamp
-    ):
+    if not ExportTokenGenerator.verify(request.user.id, filename, token, timestamp):
         return Response(
-            {'error': 'Invalid or expired token'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Invalid or expired token"}, status=status.HTTP_403_FORBIDDEN
         )
 
     # Check file exists
     file_path = f"{ExportFileManager.EXPORT_DIR}/{filename}"
     if not default_storage.exists(file_path):
-        return Response(
-            {'error': 'File not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Serve file
-    file_obj = default_storage.open(file_path, 'rb')
+    file_obj = default_storage.open(file_path, "rb")
     response = FileResponse(file_obj)
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
-
-

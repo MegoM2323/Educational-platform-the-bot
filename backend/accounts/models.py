@@ -113,9 +113,6 @@ class StudentProfile(models.Model):
     generated_username = models.CharField(
         max_length=150, blank=True, verbose_name="Сгенерированное имя пользователя"
     )
-    generated_password = models.CharField(
-        max_length=128, blank=True, verbose_name="Сгенерированный пароль"
-    )
 
     telegram = models.CharField(
         max_length=100, blank=True, verbose_name="Telegram (например: @username)"
@@ -256,8 +253,12 @@ class TutorStudentCreation(models.Model):
         related_name="parent_creation_record",
         verbose_name="Родитель",
     )
-    student_credentials = models.JSONField(verbose_name="Учетные данные ученика")
-    parent_credentials = models.JSONField(verbose_name="Учетные данные родителя")
+    student_username = models.CharField(
+        max_length=150, default="", verbose_name="Имя пользователя ученика"
+    )
+    parent_username = models.CharField(
+        max_length=150, default="", verbose_name="Имя пользователя родителя"
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
     class Meta:

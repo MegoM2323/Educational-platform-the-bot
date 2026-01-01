@@ -5,22 +5,25 @@
 админам и другим ролям согласно бизнес-логике платформы.
 """
 
+from .models import User
+
 # ============= КОНСТАНТЫ ПРИВАТНЫХ ПОЛЕЙ =============
 
 # Приватные поля StudentProfile (видят только teacher, tutor, admin)
-STUDENT_PRIVATE_FIELDS = ['goal', 'tutor', 'parent']
+STUDENT_PRIVATE_FIELDS = ["goal", "tutor", "parent"]
 
 # Приватные поля TeacherProfile (видят только admin)
-TEACHER_PRIVATE_FIELDS = ['bio', 'experience_years']
+TEACHER_PRIVATE_FIELDS = ["bio", "experience_years"]
 
 # Приватные поля TutorProfile (видят только admin)
-TUTOR_PRIVATE_FIELDS = ['bio', 'experience_years']
+TUTOR_PRIVATE_FIELDS = ["bio", "experience_years"]
 
 # Приватные поля ParentProfile (пока нет)
 PARENT_PRIVATE_FIELDS = []
 
 
 # ============= ФУНКЦИИ ПРОВЕРКИ ПРАВ =============
+
 
 def can_view_private_fields(viewer_user, profile_owner_user, profile_type):
     """
@@ -67,8 +70,8 @@ def can_view_private_fields(viewer_user, profile_owner_user, profile_type):
         return False
 
     # Для студентов: teacher и tutor могут видеть приватные поля
-    if profile_type == 'student':
-        if viewer_user.role in ['teacher', 'tutor']:
+    if profile_type == "student":
+        if viewer_user.role in [User.Role.TEACHER, User.Role.TUTOR]:
             return True
 
     # Для teacher/tutor: только admin видит приватные поля
@@ -95,10 +98,10 @@ def get_private_fields_for_role(profile_type):
         ['bio', 'experience_years']
     """
     field_map = {
-        'student': STUDENT_PRIVATE_FIELDS,
-        'teacher': TEACHER_PRIVATE_FIELDS,
-        'tutor': TUTOR_PRIVATE_FIELDS,
-        'parent': PARENT_PRIVATE_FIELDS,
+        "student": STUDENT_PRIVATE_FIELDS,
+        "teacher": TEACHER_PRIVATE_FIELDS,
+        "tutor": TUTOR_PRIVATE_FIELDS,
+        "parent": PARENT_PRIVATE_FIELDS,
     }
 
     return field_map.get(profile_type, [])
@@ -122,12 +125,16 @@ class IsOwnerOrReadOnly(BasePermission):
     def has_object_permission(self, request, view, obj):
         """Проверяет есть ли у пользователя права на объект"""
         # Все могут читать
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+        if request.method in ["GET", "HEAD", "OPTIONS"]:
             return True
 
         # Только владелец может редактировать/удалять
         # Проверяем если obj - это User, иначе это Profile (у которого есть .user)
-        owner = obj if isinstance(obj, type(obj).__bases__[0]) else getattr(obj, 'user', obj)
+        owner = (
+            obj
+            if isinstance(obj, type(obj).__bases__[0])
+            else getattr(obj, "user", obj)
+        )
         return request.user == owner
 
 
@@ -148,7 +155,7 @@ class IsOwnerProfileOrAdmin(BasePermission):
             return True
 
         # Все могут читать
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+        if request.method in ["GET", "HEAD", "OPTIONS"]:
             return True
 
         # Только владелец может редактировать/удалять
@@ -169,7 +176,12 @@ class IsTutorOrAdmin(BasePermission):
         return (
             request.user
             and request.user.is_authenticated
-            and (request.user.role == 'tutor' or request.user.is_staff or request.user.is_superuser)
+            and request.user.is_active
+            and (
+                request.user.role == User.Role.TUTOR
+                or request.user.is_staff
+                or request.user.is_superuser
+            )
         )
 
 
@@ -197,27 +209,31 @@ class TutorCanManageStudentProfiles(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         """Проверяет есть ли у пользователя права на объект профиля студента"""
+        if not request.user.is_active:
+            return False
+
         # Админы могут всё
         if request.user.is_staff or request.user.is_superuser:
             return True
 
         # Все могут читать
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+        if request.method in ["GET", "HEAD", "OPTIONS"]:
             return True
 
         # Если это студент - может редактировать только свой профиль
-        if request.user.role == 'student':
+        if request.user.role == User.Role.STUDENT:
             return request.user == obj.user
 
         # Если это тьютор - может редактировать профили своих студентов
-        if request.user.role == 'tutor':
+        if request.user.role == User.Role.TUTOR:
             # Проверяем что студент назначен тьютору
             from .models import StudentProfile
+
             if isinstance(obj, StudentProfile):
                 return obj.tutor == request.user
 
         # Если это учитель, родитель или другая роль - может редактировать только свой профиль
-        if hasattr(obj, 'user'):
+        if hasattr(obj, "user"):
             return request.user == obj.user
 
         return False
@@ -237,7 +253,7 @@ class CanViewOwnProfileOnly(BasePermission):
             return True
 
         # Остальные - только свой профиль
-        if hasattr(obj, 'user'):
+        if hasattr(obj, "user"):
             return request.user == obj.user
 
         return request.user == obj
@@ -251,12 +267,15 @@ class IsStudentOwner(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         """Проверяет имеет ли пользователь доступ к профилю студента"""
+        if not request.user.is_active:
+            return False
+
         # Админы могут всё
         if request.user.is_staff or request.user.is_superuser:
             return True
 
         # Все могут читать
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+        if request.method in ["GET", "HEAD", "OPTIONS"]:
             return True
 
         from .models import StudentProfile
@@ -266,11 +285,11 @@ class IsStudentOwner(BasePermission):
             return False
 
         # Студент может редактировать только свой профиль
-        if request.user.role == 'student':
+        if request.user.role == User.Role.STUDENT:
             return request.user == obj.user
 
         # Тьютор может редактировать профили своих студентов
-        if request.user.role == 'tutor':
+        if request.user.role == User.Role.TUTOR:
             return obj.tutor == request.user
 
         return False
@@ -296,9 +315,9 @@ class IsStaffOrAdmin(BasePermission):
             return False
 
         return (
-            request.user.is_staff or
-            request.user.is_superuser or
-            getattr(request.user, 'role', None) == 'tutor'
+            request.user.is_staff
+            or request.user.is_superuser
+            or getattr(request.user, "role", None) == User.Role.TUTOR
         )
 
 

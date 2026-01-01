@@ -131,65 +131,52 @@ def list_staff(request):
             .order_by("-date_joined", "-id")
         )
 
-        logger.debug(f"[list_staff] Found {users.count()} teachers with role={role}")
+        from materials.models import TeacherSubject
+        from materials.serializers import TeacherSubjectSerializer
 
-        # Создаем список результатов с профилями
+        users = list(users)
+        logger.debug(f"[list_staff] Found {len(users)} teachers with role={role}")
+
+        user_ids = [u.id for u in users]
+        profiles_qs = TeacherProfile.objects.filter(
+            user_id__in=user_ids
+        ).select_related("user")
+        profiles_map = {p.user_id: p for p in profiles_qs}
+
         results = []
         for user in users:
-            # Импортируем здесь, чтобы избежать циклических импортов
-            from materials.models import TeacherSubject
-            from materials.serializers import TeacherSubjectSerializer
-
-            try:
-                # Пытаемся получить профиль - используем get() для явной проверки
-                # Это гарантирует, что мы получим свежие данные из базы
-                profile = TeacherProfile.objects.select_related("user").get(user=user)
-                # Используем сериализатор профиля, если он существует
-                profile_data = TeacherProfileSerializer(profile).data
-
-                # Получаем полный список предметов преподавателя
-                teacher_subjects = (
+            prefetched_subjects = getattr(user, "teacher_subjects", None)
+            if prefetched_subjects is not None:
+                teacher_subjects = [
+                    ts for ts in prefetched_subjects.all() if ts.is_active
+                ]
+            else:
+                teacher_subjects = list(
                     TeacherSubject.objects.filter(teacher=user, is_active=True)
                     .select_related("subject")
                     .order_by("assigned_at")
                 )
 
-                subjects_data = TeacherSubjectSerializer(
-                    teacher_subjects, many=True
-                ).data
-                profile_data["subjects"] = subjects_data
+            subjects_data = TeacherSubjectSerializer(teacher_subjects, many=True).data
 
+            profile = profiles_map.get(user.id)
+            if profile:
+                profile_data = TeacherProfileSerializer(profile).data
+                profile_data["subjects"] = subjects_data
                 results.append(profile_data)
                 logger.debug(
                     f"[list_staff] Added teacher with profile: {user.username} (id={user.id}, profile_id={profile.id}, subjects={len(subjects_data)})"
                 )
-            except TeacherProfile.DoesNotExist:
-                # Если профиля нет, создаем данные вручную в формате, который ожидает фронтенд
-                # Получаем предметы преподавателя через TeacherSubject
-                teacher_subjects = (
-                    TeacherSubject.objects.filter(teacher=user, is_active=True)
-                    .select_related("subject")
-                    .order_by("assigned_at")
-                )
-
-                # Сериализуем предметы
-                subjects_data = TeacherSubjectSerializer(
-                    teacher_subjects, many=True
-                ).data
-
-                # Используем первый предмет как основной, или пустую строку (для обратной совместимости)
+            else:
                 main_subject = subjects_data[0]["name"] if subjects_data else ""
-
-                # Используем ID пользователя, так как профиля нет
-                # Фронтенд ожидает число в поле id
                 results.append(
                     {
-                        "id": user.id,  # Используем ID пользователя
+                        "id": user.id,
                         "user": UserSerializer(user).data,
                         "subject": main_subject,
                         "experience_years": 0,
                         "bio": "",
-                        "subjects": subjects_data,  # Полный список предметов
+                        "subjects": subjects_data,
                     }
                 )
                 logger.debug(

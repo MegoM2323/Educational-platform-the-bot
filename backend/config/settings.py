@@ -950,7 +950,11 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут максимум на зада
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Импортируем расписание периодических задач
-from core.celery_config import CELERY_BEAT_SCHEDULE
+try:
+    from core.celery_config import CELERY_BEAT_SCHEDULE
+except ImportError:
+    # Celery не установлен - для создания пользователей в production
+    CELERY_BEAT_SCHEDULE = {}
 
 # ============================================
 # PRODUCTION CONFIGURATION VALIDATION

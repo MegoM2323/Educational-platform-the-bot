@@ -76,7 +76,8 @@ RUN mkdir -p /var/cache/nginx /var/run/nginx /var/log/nginx && \
 # Make nginx cache and logs writable by www-data user
 RUN chmod -R 755 /usr/share/nginx/html && \
     chmod -R 755 /var/cache/nginx && \
-    chmod -R 755 /var/log/nginx
+    chmod -R 755 /var/log/nginx && \
+    chmod -R 755 /etc/nginx/conf.d
 
 # Expose port
 EXPOSE 3000

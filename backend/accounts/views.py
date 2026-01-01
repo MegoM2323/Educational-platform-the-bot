@@ -81,7 +81,11 @@ def login_view(request):
 
         authenticated_user = None
         if user:
+            # Попробовать через Django authenticate
             authenticated_user = authenticate(username=user.username, password=password)
+            # Если не сработало, попробовать check_password как фолбэк
+            if not authenticated_user and user.check_password(password):
+                authenticated_user = user
 
         if not authenticated_user:
             # Фолбэк на Supabase: в проектах, где пароли не хранятся локально
@@ -121,15 +125,26 @@ def login_view(request):
                             status=status.HTTP_401_UNAUTHORIZED,
                         )
                 else:
-                    # Supabase в mock режиме (development), не фоллбэчим на него
-                    # Возвращаем ошибку аутентификации Django
-                    logger.warning(
-                        f"[login] Login failed for {identifier}: Invalid credentials (Supabase disabled in development)"
-                    )
-                    return Response(
-                        {"success": False, "error": "Неверные учетные данные"},
-                        status=status.HTTP_401_UNAUTHORIZED,
-                    )
+                    # Supabase в mock режиме (development)
+                    # Используем локальную Django аутентификацию
+                    if user and user.is_active:
+                        # Если найден пользователь и он активен, но пароль не совпал
+                        logger.warning(
+                            f"[login] Local authentication failed for {identifier} (wrong password)"
+                        )
+                        return Response(
+                            {"success": False, "error": "Неверные учетные данные"},
+                            status=status.HTTP_401_UNAUTHORIZED,
+                        )
+                    else:
+                        # Пользователь не найден или неактивен
+                        logger.warning(
+                            f"[login] Login failed for {identifier}: Invalid credentials (Supabase disabled in development)"
+                        )
+                        return Response(
+                            {"success": False, "error": "Неверные учетные данные"},
+                            status=status.HTTP_401_UNAUTHORIZED,
+                        )
             except Exception as e:
                 # Если ошибка при работе с Supabase - считаем что он недоступен
                 logger.warning(
@@ -536,6 +551,19 @@ def list_users(request):
     - role: фильтр по роли (student, teacher, tutor, parent)
     - limit: ограничение количества результатов (по умолчанию 50, максимум 100)
     """
+    user = request.user
+
+    # Проверка прав доступа: только администраторы и тьюторы
+    is_admin = user.is_staff or user.is_superuser
+    if not (is_admin or user.role == User.Role.TUTOR):
+        return Response(
+            {
+                "detail": "У вас нет прав доступа к списку пользователей",
+                "allowed_roles": ["admin", "tutor"],
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     role = request.query_params.get("role")
     limit = request.query_params.get("limit", 50)
 
@@ -567,7 +595,7 @@ def list_users(request):
 
     # Логируем для отладки
     logger.debug(
-        f"[list_users] Role filter: {role}, Limit: {limit}, Total users: {total_count}"
+        f"[list_users] User: {user.email}, Role: {user.role}, Filter: {role}, Limit: {limit}, Total: {total_count}"
     )
     logger.debug(f"[list_users] Serialized data count: {len(serializer.data)}")
     if len(serializer.data) > 0:

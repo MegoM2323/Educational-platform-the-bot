@@ -5,9 +5,21 @@ from django.conf.urls.static import static
 from payments.views import yookassa_webhook, check_payment_status
 from core.media_views import serve_media_file, serve_media_file_download
 from assignments.webhooks.autograder import autograder_webhook
+from drf_spectacular.views import SpectacularSwaggerView, SpectacularAPIView
+from drf_spectacular.openapi import AutoSchema
+
+try:
+    from drf_spectacular.views import SpectacularRedocView
+except ImportError:
+    from drf_spectacular.views import SpectacularSwaggerView as SpectacularRedocView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+
+    # API Documentation
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     # API endpoints
     path("api/auth/", include('accounts.urls')),

@@ -22,7 +22,11 @@ from scheduling.serializers import (
 )
 from scheduling.services.lesson_service import LessonService
 from scheduling.permissions import IsTeacher, IsStudent
-from materials.models import Subject
+
+try:
+    from materials.models import Subject
+except ImportError:
+    Subject = None
 
 
 class LessonPagination(PageNumberPagination):

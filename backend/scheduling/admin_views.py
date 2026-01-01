@@ -14,7 +14,11 @@ from scheduling.admin_schedule_service import AdminScheduleService
 from scheduling.serializers import AdminLessonSerializer, LessonCreateSerializer, LessonSerializer
 from scheduling.views import LessonPagination
 from scheduling.services.lesson_service import LessonService
-from materials.models import Subject
+
+try:
+    from materials.models import Subject
+except ImportError:
+    Subject = None
 
 logger = logging.getLogger(__name__)
 User = get_user_model()

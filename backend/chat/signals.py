@@ -15,7 +15,11 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from materials.models import SubjectEnrollment
+try:
+    from materials.models import SubjectEnrollment
+except ImportError:
+    SubjectEnrollment = None
+
 from accounts.models import StudentProfile
 from .models import ChatRoom, Message, ChatParticipant
 from .services.pachca_service import PachcaService

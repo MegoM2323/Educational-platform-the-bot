@@ -160,6 +160,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_spectacular',  # API documentation via Swagger/OpenAPI
     'corsheaders',
     'django_filters',
     'channels',  # Django Channels для WebSocket
@@ -193,6 +194,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'config.middleware.session_refresh_middleware.SessionRefreshMiddleware',  # Refresh session on every request
     'config.middleware.session_refresh_middleware.CSRFTokenRefreshMiddleware',  # Manage CSRF tokens
+    'config.middleware.error_logging_middleware.ErrorLoggingMiddleware',  # Log HTTP errors with traceback
     'config.sentry.SentryMiddleware',  # Sentry middleware for error tracking (must be near end)
 ]
 
@@ -668,6 +670,7 @@ CORS_ALLOW_METHODS = [
 # DRF выполнит CSRF проверку даже если есть Token header.
 # С TokenAuthentication первым - запросы с Token header не требуют CSRF.
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
@@ -677,6 +680,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_EXCEPTION_HANDLER': 'config.exceptions.custom_exception_handler',
     'DEFAULT_THROTTLE_CLASSES': [
         'config.throttling.BurstThrottle',  # Global burst protection (10/sec)
     ],
@@ -1080,7 +1084,7 @@ LOGGING = {
         },
         'audit_file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'audit.log'),
+            'filename': '/tmp/audit.log',
             'maxBytes': 10485760,  # 10MB
             'backupCount': 10,
             'level': 'INFO',
@@ -1088,7 +1092,7 @@ LOGGING = {
         },
         'admin_file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'admin.log'),
+            'filename': '/tmp/admin.log',
             'maxBytes': 10485760,  # 10MB
             'backupCount': 10,
             'level': 'INFO',
@@ -1096,10 +1100,18 @@ LOGGING = {
         },
         'celery_file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'celery.log'),
+            'filename': '/tmp/celery.log',
             'maxBytes': 10485760,  # 10MB
             'backupCount': 10,
             'level': 'INFO',
+            'formatter': 'verbose'
+        },
+        'error_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/tmp/error.log',
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,
+            'level': 'ERROR',
             'formatter': 'verbose'
         }
     },
@@ -1157,6 +1169,11 @@ LOGGING = {
         'django.db.backends': {
             'handlers': ['console'],
             'level': 'WARNING',
+            'propagate': False
+        },
+        'django.request': {
+            'handlers': ['console', 'error_file'],
+            'level': 'ERROR',
             'propagate': False
         }
     },

@@ -13,7 +13,11 @@ from django.contrib.auth import get_user_model
 from uuid import UUID
 
 from scheduling.models import Lesson, LessonHistory
-from materials.models import SubjectEnrollment
+
+try:
+    from materials.models import SubjectEnrollment
+except ImportError:
+    SubjectEnrollment = None
 
 User = get_user_model()
 

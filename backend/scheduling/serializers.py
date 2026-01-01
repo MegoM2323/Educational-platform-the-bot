@@ -10,7 +10,11 @@ from django.utils import timezone
 from datetime import timedelta, time
 
 from scheduling.models import Lesson, LessonHistory
-from materials.models import Subject
+
+try:
+    from materials.models import Subject
+except ImportError:
+    Subject = None
 
 User = get_user_model()
 

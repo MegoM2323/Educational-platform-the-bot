@@ -24,7 +24,6 @@ class LessonElementInline(admin.TabularInline):
     extra = 1
     ordering = ['order']
     fields = ['element', 'order', 'is_optional', 'custom_instructions']
-    autocomplete_fields = ['element']
 
 
 @admin.register(Element)
@@ -60,7 +59,6 @@ class LessonAdmin(admin.ModelAdmin):
     search_fields = ['title', 'description']
     readonly_fields = ['created_at', 'updated_at', 'total_duration_minutes', 'total_max_score']
     inlines = [LessonElementInline]
-    autocomplete_fields = ['subject', 'created_by']
 
     fieldsets = (
         ('Основная информация', {

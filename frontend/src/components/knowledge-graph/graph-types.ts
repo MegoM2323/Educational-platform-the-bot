@@ -25,7 +25,7 @@ export interface GraphData {
 export interface ProgressNodeData {
   status: 'not_started' | 'in_progress' | 'completed' | 'locked';
   percentage: number;
-  completedAt?: string;
+  completedAt?: string | null;
 }
 
 export interface GraphVisualizationProps {

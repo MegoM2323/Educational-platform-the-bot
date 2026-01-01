@@ -168,6 +168,7 @@ def get_student_lesson(request, graph_lesson_id):
                     "progress": {
                         "status": lesson_progress.status,
                         "completion_percent": lesson_progress.completion_percent,
+                        "percentage": lesson_progress.completion_percent,
                         "completed_elements": lesson_progress.completed_elements,
                         "total_elements": lesson_progress.total_elements,
                         "total_score": lesson_progress.total_score,

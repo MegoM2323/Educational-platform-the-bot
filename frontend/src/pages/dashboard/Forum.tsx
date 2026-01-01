@@ -546,22 +546,22 @@ const ChatWindow = ({
                     <p className="text-sm break-words pr-6">{msg.content}</p>
 
                     {/* File attachment - унифицированная обработка для API и WebSocket */}
-                    {msg.is_image && (msg.image_url || (msg as any).image) && (
+                    {msg.is_image && (msg.image_url || msg.image) && (
                       <div className="mt-2">
-                        <a href={msg.image_url || (msg as any).image} target="_blank" rel="noopener noreferrer">
+                        <a href={msg.image_url || msg.image} target="_blank" rel="noopener noreferrer">
                           <img
-                            src={msg.image_url || (msg as any).image}
+                            src={msg.image_url || msg.image}
                             alt={msg.file_name || 'Image'}
                             className="max-w-xs rounded border cursor-pointer hover:opacity-90 transition-opacity"
                           />
                         </a>
                       </div>
                     )}
-                    {(msg.file_url || (msg as any).file) && !msg.is_image && (
+                    {(msg.file_url || msg.file) && !msg.is_image && (
                       <div className="mt-2 flex items-center gap-2 p-2 bg-background/10 rounded border">
                         <FileText className="w-4 h-4" />
                         <a
-                          href={msg.file_url || (msg as any).file}
+                          href={msg.file_url || msg.file}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm hover:underline flex-1 truncate"
@@ -743,10 +743,10 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
       // Close modal
       onClose();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       logger.error('[ContactSearchModal] Error initiating chat:', error);
 
-      const errorMessage = error?.message || 'Ошибка при создании чата';
+      const errorMessage = error.message || 'Ошибка при создании чата';
       toast({
         title: 'Ошибка',
         description: errorMessage,
@@ -1546,11 +1546,11 @@ function Forum() {
 
       // Invalidate messages query to refresh with updated pin status
       queryClient.invalidateQueries({ queryKey: ['forum-messages', selectedChat.id] });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Ошибка',
-        description: error?.message || 'Не удалось изменить статус сообщения',
+        description: getErrorMessage(error),
       });
     }
   }, [selectedChat, queryClient, toast]);
@@ -1577,11 +1577,11 @@ function Forum() {
 
       // Invalidate chats query to refresh
       queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Ошибка',
-        description: error?.message || 'Не удалось изменить статус чата',
+        description: getErrorMessage(error),
       });
     }
   }, [selectedChat, queryClient, toast]);

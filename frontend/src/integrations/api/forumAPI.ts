@@ -26,6 +26,8 @@ export interface ForumMessage {
   file_name?: string;
   file_type?: string;
   is_image?: boolean;
+  file?: string;
+  image?: string;
 }
 
 export interface ForumChat {

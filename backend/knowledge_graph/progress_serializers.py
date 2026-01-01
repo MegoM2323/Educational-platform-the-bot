@@ -117,6 +117,7 @@ class LessonProgressSerializer(serializers.ModelSerializer):
     lesson_title = serializers.CharField(source='graph_lesson.lesson.title', read_only=True)
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
     elements_progress = serializers.SerializerMethodField()
+    percentage = serializers.SerializerMethodField()
 
     class Meta:
         model = LessonProgress
@@ -130,6 +131,7 @@ class LessonProgressSerializer(serializers.ModelSerializer):
             'completed_elements',
             'total_elements',
             'completion_percent',
+            'percentage',
             'total_score',
             'max_possible_score',
             'started_at',
@@ -156,12 +158,16 @@ class LessonProgressSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
+    def get_percentage(self, obj):
+        """Получить percentage (синоним completion_percent для frontend)"""
+        return obj.completion_percent
+
     def get_elements_progress(self, obj):
         """Получить прогресс по всем элементам урока"""
         elements_progress = ElementProgress.objects.filter(
             student=obj.student,
             graph_lesson=obj.graph_lesson
-        ).select_related('element').order_by('element__lessonelement__order')
+        ).select_related('element', 'element__created_by').order_by('element__lessonelement__order')
 
         return ElementProgressSerializer(elements_progress, many=True).data
 

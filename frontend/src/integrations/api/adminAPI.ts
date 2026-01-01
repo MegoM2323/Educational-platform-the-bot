@@ -102,7 +102,7 @@ export interface Tutor {
 export interface Parent {
   id: number;
   user: User;
-  children_count?: number;
+  children_count: number;
 }
 
 /**
@@ -211,9 +211,9 @@ export const adminAPI = {
    * Get list of parents for selection
    */
   async getParents(): Promise<ApiResponse<Parent[]>> {
-    const response = await apiClient.request<PaginatedResponse<Parent>>('/auth/parents/');
+    const response = await apiClient.request<PaginatedResponse<Parent> | Parent[]>('/auth/parents/');
     // Extract results array from paginated response
-    if (response.data?.results) {
+    if (response.data && !Array.isArray(response.data) && 'results' in response.data) {
       return { ...response, data: response.data.results };
     }
     // Handle case where response is already an array

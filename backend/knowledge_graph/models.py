@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import F, Sum, Count, Q
 from django.contrib.auth import get_user_model
 from django.core.validators import (
     MinValueValidator,
@@ -650,25 +651,25 @@ class LessonProgress(models.Model):
             )
 
     def update_progress(self):
-        """Обновить прогресс на основе прогресса элементов"""
+        """Обновить прогресс на основе прогресса элементов (с защитой от race condition)"""
         from django.db import transaction
 
         with transaction.atomic():
             locked_self = LessonProgress.objects.select_for_update().get(pk=self.pk)
 
-            element_progress = ElementProgress.objects.filter(
+            element_progress_qs = ElementProgress.objects.filter(
                 student=locked_self.student, graph_lesson=locked_self.graph_lesson
             )
 
-            locked_self.completed_elements = element_progress.filter(
-                status="completed"
-            ).count()
-            locked_self.total_score = sum(
-                ep.score for ep in element_progress if ep.score is not None
+            agg_result = element_progress_qs.aggregate(
+                completed_count=Count("id", filter=Q(status="completed")),
+                total_score=Sum("score", default=0),
+                total_time=Sum("time_spent_seconds", default=0),
             )
-            locked_self.total_time_spent_seconds = sum(
-                ep.time_spent_seconds for ep in element_progress
-            )
+
+            locked_self.completed_elements = agg_result["completed_count"]
+            locked_self.total_score = agg_result["total_score"] or 0
+            locked_self.total_time_spent_seconds = agg_result["total_time"] or 0
 
             if locked_self.total_elements > 0:
                 locked_self.completion_percent = round(

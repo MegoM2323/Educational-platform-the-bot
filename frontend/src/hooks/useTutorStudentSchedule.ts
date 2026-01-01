@@ -9,8 +9,18 @@ import { logger } from '@/utils/logger';
  * @param filters - Фильтры для расписания
  */
 export const useTutorStudentSchedule = (studentId: string | null, filters?: LessonFilters) => {
+  const queryKey = [
+    'tutor',
+    'student',
+    studentId,
+    filters?.date_from ?? null,
+    filters?.date_to ?? null,
+    filters?.subject ?? null,
+    filters?.status ?? null,
+  ] as const;
+
   const query = useQuery<Lesson[]>({
-    queryKey: ['tutor', 'student', studentId, filters?.date_from, filters?.date_to, filters?.subject, filters?.status],
+    queryKey,
     queryFn: async () => {
       if (!studentId) {
         logger.warn('[useTutorStudentSchedule] studentId is null, returning empty array');

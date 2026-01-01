@@ -496,7 +496,11 @@ class LessonViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        history = LessonHistory.objects.filter(lesson=lesson).order_by("-timestamp")
+        history = (
+            LessonHistory.objects.filter(lesson=lesson)
+            .select_related("performed_by")
+            .order_by("-timestamp")
+        )
         serializer = LessonHistorySerializer(history, many=True)
         return Response(serializer.data)
 

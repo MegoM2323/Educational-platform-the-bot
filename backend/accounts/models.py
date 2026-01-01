@@ -77,7 +77,7 @@ class StudentProfile(models.Model):
         max_length=10, blank=True, default="", verbose_name="Класс"
     )
 
-    goal = models.TextField(blank=True, verbose_name="Цель обучения")
+    goal = models.TextField(blank=True, max_length=1000, verbose_name="Цель обучения")
 
     tutor = models.ForeignKey(
         User,

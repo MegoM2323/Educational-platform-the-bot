@@ -110,11 +110,11 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
         onUpdate?.();
       } else {
         toast.error(response.error || 'Ошибка при активации');
+        setReactivateDialog((prev) => ({ ...prev, isLoading: false }));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
       toast.error(message);
-    } finally {
       setReactivateDialog((prev) => ({ ...prev, isLoading: false }));
     }
   };

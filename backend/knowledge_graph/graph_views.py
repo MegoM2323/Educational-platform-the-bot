@@ -418,14 +418,14 @@ class GraphLessonsListOrAddView(APIView):
                 if progress:
                     lesson_data['progress'] = {
                         'status': progress.status,
-                        'completion_percent': progress.completion_percent,
+                        'percentage': progress.completion_percent,
                         'total_score': progress.total_score,
                         'max_possible_score': progress.max_possible_score,
                     }
                 else:
                     lesson_data['progress'] = {
                         'status': 'not_started',
-                        'completion_percent': 0,
+                        'percentage': 0,
                         'total_score': 0,
                         'max_possible_score': gl.lesson.total_max_score,
                     }

@@ -19,7 +19,7 @@ const serviceWorkerPlugin = {
 
 // Optional visualizer plugin - install with: npm install --save-dev rollup-plugin-visualizer
 // Loaded dynamically in the config function to handle optional dependency gracefully
-let visualizer: any = null;
+const visualizer: any = null;
 
 // Build analyzer plugin to track build performance
 const buildAnalyzerPlugin = () => {

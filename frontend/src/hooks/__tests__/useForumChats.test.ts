@@ -600,7 +600,7 @@ const mockAvailableContacts = [
 const mockChatDetail = {
   id: 99,
   room_id: 'chat_room_99',
-  type: 'FORUM_SUBJECT' as const,
+  type: 'forum_subject' as const,
   other_user: {
     id: 10,
     email: 'teacher@example.com',

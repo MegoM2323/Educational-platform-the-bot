@@ -226,7 +226,7 @@ export default function StudyPlans() {
       }
     };
     loadStudentsForSubject();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [formData.subject]);
 
   // Создание плана

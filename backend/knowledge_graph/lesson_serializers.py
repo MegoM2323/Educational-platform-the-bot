@@ -125,10 +125,8 @@ class LessonListSerializer(serializers.ModelSerializer):
         ]
 
     def get_elements_count(self, obj):
-        """Подсчет количества элементов в уроке (использует аннотацию если доступна)"""
-        if hasattr(obj, "elements_count_annotated"):
-            return obj.elements_count_annotated
-        return obj.elements.count()
+        """Подсчет количества элементов в уроке (использует аннотацию)"""
+        return getattr(obj, "elements_count_annotated", 0)
 
 
 class AddElementToLessonSerializer(serializers.Serializer):

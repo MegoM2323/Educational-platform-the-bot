@@ -85,7 +85,7 @@ def get_child_schedule(request, child_id):
     return Response(
         {
             "student": {
-                "id": child.id,
+                "id": str(child.id),
                 "name": child.get_full_name(),
                 "email": child.email,
             },
@@ -153,7 +153,7 @@ def get_all_children_schedules(request):
 
         children_data.append(
             {
-                "id": child.id,
+                "id": str(child.id),
                 "name": child.get_full_name(),
                 "lessons": lessons_list,
             }

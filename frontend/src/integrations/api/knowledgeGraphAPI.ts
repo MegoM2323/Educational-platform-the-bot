@@ -615,7 +615,7 @@ export const knowledgeGraphAPI = {
     }
 
     const data = response.data.data;
-    const lesson = data.graph_lesson || data.lesson;
+    const lesson = data.graph_lesson?.lesson || data.lesson;
 
     return {
       ...data,

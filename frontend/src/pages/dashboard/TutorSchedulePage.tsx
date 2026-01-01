@@ -1,17 +1,23 @@
 import React, { useState, useMemo } from 'react';
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { TutorSidebar } from "@/components/layout/TutorSidebar";
-import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
-import { useTutorStudents } from "@/hooks/useTutor";
-import { useTutorStudentSchedule } from "@/hooks/useTutorStudentSchedule";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Filter, Users } from "lucide-react";
-import { LessonCard } from "@/components/scheduling/student/LessonCard";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { TutorSidebar } from '@/components/layout/TutorSidebar';
+import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
+import { useTutorStudents } from '@/hooks/useTutor';
+import { useTutorStudentSchedule } from '@/hooks/useTutorStudentSchedule';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Calendar, Filter, Users } from 'lucide-react';
+import { LessonCard } from '@/components/scheduling/student/LessonCard';
 
 const parseDateTime = (date: string, time: string): Date => {
   try {
@@ -30,9 +36,11 @@ const TutorSchedulePage: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedTeacher, setSelectedTeacher] = useState<string>('all');
 
-  const { lessons, isLoading: lessonsLoading, error } = useTutorStudentSchedule(
-    selectedStudentId || null
-  );
+  const {
+    lessons,
+    isLoading: lessonsLoading,
+    error,
+  } = useTutorStudentSchedule(selectedStudentId || null);
 
   if (user?.role !== 'tutor') {
     return <Navigate to="/dashboard" replace />;
@@ -41,33 +49,39 @@ const TutorSchedulePage: React.FC = () => {
   const filteredLessons = useMemo(() => {
     const now = new Date(); // Перемещаем 'now' внутрь useMemo
 
-    return lessons.filter(lesson => {
-      const lessonDateTime = parseDateTime(lesson.date, lesson.start_time);
-      const isUpcoming = lessonDateTime > now;
+    return lessons
+      .filter((lesson) => {
+        const lessonDateTime = parseDateTime(lesson.date, lesson.start_time);
+        const isUpcoming = lessonDateTime > now;
 
-      if (activeTab === 'upcoming' && !isUpcoming) return false;
-      if (activeTab === 'past' && isUpcoming) return false;
+        if (activeTab === 'upcoming' && !isUpcoming) return false;
+        if (activeTab === 'past' && isUpcoming) return false;
 
-      if (selectedSubject && selectedSubject !== 'all' && lesson.subject_name !== selectedSubject) return false;
-      if (selectedTeacher && selectedTeacher !== 'all' && lesson.teacher_name !== selectedTeacher) return false;
+        if (selectedSubject && selectedSubject !== 'all' && lesson.subject_name !== selectedSubject)
+          return false;
+        if (selectedTeacher && selectedTeacher !== 'all' && lesson.teacher_name !== selectedTeacher)
+          return false;
 
-      return true;
-    }).sort((a, b) => {
-      const dateA = parseDateTime(a.date, a.start_time);
-      const dateB = parseDateTime(b.date, b.start_time);
-      return activeTab === 'upcoming' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
-    });
+        return true;
+      })
+      .sort((a, b) => {
+        const dateA = parseDateTime(a.date, a.start_time);
+        const dateB = parseDateTime(b.date, b.start_time);
+        return activeTab === 'upcoming'
+          ? dateA.getTime() - dateB.getTime()
+          : dateB.getTime() - dateA.getTime();
+      });
   }, [lessons, activeTab, selectedSubject, selectedTeacher]);
 
   const uniqueSubjects = useMemo(() => {
-    return [...new Set(lessons.map(l => l.subject_name).filter(Boolean))].sort();
+    return [...new Set(lessons.map((l) => l.subject_name).filter(Boolean))].sort();
   }, [lessons]);
 
   const uniqueTeachers = useMemo(() => {
-    return [...new Set(lessons.map(l => l.teacher_name).filter(Boolean))].sort();
+    return [...new Set(lessons.map((l) => l.teacher_name).filter(Boolean))].sort();
   }, [lessons]);
 
-  const selectedStudent = students?.find(s => String(s.id) === selectedStudentId);
+  const selectedStudent = students?.find((s) => String(s.id) === selectedStudentId);
 
   return (
     <SidebarProvider>
@@ -100,9 +114,9 @@ const TutorSchedulePage: React.FC = () => {
                         <SelectValue placeholder="Выберите ученика..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {students?.map(student => (
+                        {students?.map((student) => (
                           <SelectItem key={student.id} value={String(student.id)}>
-                            {student.full_name || student.name || `Student ${student.id}`}
+                            {student.full_name || 'Unknown'}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -115,7 +129,7 @@ const TutorSchedulePage: React.FC = () => {
                         <div className="mt-2">
                           <p className="text-xs text-muted-foreground">Предметы:</p>
                           <div className="flex flex-wrap gap-2 mt-1">
-                            {selectedStudent.subjects.map(subject => (
+                            {selectedStudent.subjects.map((subject) => (
                               <span
                                 key={subject.enrollment_id}
                                 className="text-xs px-2 py-1 bg-background rounded-md"
@@ -151,8 +165,10 @@ const TutorSchedulePage: React.FC = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">Все предметы</SelectItem>
-                              {uniqueSubjects.map(subject => (
-                                <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                              {uniqueSubjects.map((subject) => (
+                                <SelectItem key={subject} value={subject}>
+                                  {subject}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -165,8 +181,10 @@ const TutorSchedulePage: React.FC = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">Все преподаватели</SelectItem>
-                              {uniqueTeachers.map(teacher => (
-                                <SelectItem key={teacher} value={teacher}>{teacher}</SelectItem>
+                              {uniqueTeachers.map((teacher) => (
+                                <SelectItem key={teacher} value={teacher}>
+                                  {teacher}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -176,7 +194,10 @@ const TutorSchedulePage: React.FC = () => {
                   </Card>
 
                   {/* Tabs */}
-                  <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'upcoming' | 'past')}>
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(v) => setActiveTab(v as 'upcoming' | 'past')}
+                  >
                     <TabsList className="grid w-full sm:w-auto grid-cols-2">
                       <TabsTrigger value="upcoming">Предстоящие</TabsTrigger>
                       <TabsTrigger value="past">Прошедшие</TabsTrigger>
@@ -207,9 +228,12 @@ const TutorSchedulePage: React.FC = () => {
                               Ошибка загрузки расписания
                             </h3>
                             <p className="text-muted-foreground mb-6">
-                              {error instanceof Error ? error.message : 'Не удалось загрузить расписание. Попробуйте обновить страницу.'}
+                              {error instanceof Error
+                                ? error.message
+                                : 'Не удалось загрузить расписание. Попробуйте обновить страницу.'}
                             </p>
-                            <Button type="button"
+                            <Button
+                              type="button"
                               onClick={() => window.location.reload()}
                               variant="outline"
                             >
@@ -222,7 +246,9 @@ const TutorSchedulePage: React.FC = () => {
                           <CardContent className="p-12 text-center">
                             <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                             <h3 className="text-lg font-semibold mb-2">
-                              {activeTab === 'upcoming' ? 'Нет предстоящих занятий' : 'Нет прошедших занятий'}
+                              {activeTab === 'upcoming'
+                                ? 'Нет предстоящих занятий'
+                                : 'Нет прошедших занятий'}
                             </h3>
                             <p className="text-muted-foreground">
                               {activeTab === 'upcoming'
@@ -233,7 +259,7 @@ const TutorSchedulePage: React.FC = () => {
                         </Card>
                       ) : (
                         <div className="space-y-4">
-                          {filteredLessons.map(lesson => (
+                          {filteredLessons.map((lesson) => (
                             <LessonCard key={lesson.id} lesson={lesson} />
                           ))}
                         </div>

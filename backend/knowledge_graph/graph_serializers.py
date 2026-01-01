@@ -3,7 +3,7 @@ Serializers for KnowledgeGraph and GraphLesson models (T301, T302)
 """
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import KnowledgeGraph, GraphLesson, Lesson
+from .models import KnowledgeGraph, GraphLesson, Lesson, LessonDependency
 from .lesson_serializers import LessonListSerializer
 
 User = get_user_model()
@@ -40,8 +40,6 @@ class DependencyBriefSerializer(serializers.ModelSerializer):
     """
 
     class Meta:
-        from .models import LessonDependency
-
         model = LessonDependency
         fields = [
             "id",
@@ -95,21 +93,29 @@ class KnowledgeGraphSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
 
     def get_lessons(self, obj):
-        """Получить все уроки в графе с позициями"""
-        from .models import LessonDependency
+        """Получить все уроки в графе с позициями (с оптимизацией N+1)"""
+        from django.db.models import Count, Prefetch
 
-        graph_lessons = (
-            GraphLesson.objects.filter(graph=obj)
-            .select_related("lesson", "lesson__created_by", "lesson__subject")
-            .order_by("added_at")
+        graph_lessons_qs = GraphLesson.objects.filter(graph=obj).order_by("added_at")
+
+        lessons_qs = (
+            Lesson.objects.filter(
+                id__in=graph_lessons_qs.values_list("lesson_id", flat=True)
+            )
+            .select_related("created_by", "subject")
+            .prefetch_related("elements")
+            .annotate(elements_count_annotated=Count("elements"))
         )
+
+        prefetch = Prefetch("lesson", queryset=lessons_qs)
+        graph_lessons = graph_lessons_qs.select_related(
+            "lesson", "lesson__created_by", "lesson__subject"
+        ).prefetch_related(prefetch)
 
         return GraphLessonSerializer(graph_lessons, many=True).data
 
     def get_dependencies(self, obj):
         """Получить все зависимости графа"""
-        from .models import LessonDependency
-
         dependencies = (
             LessonDependency.objects.filter(graph=obj)
             .select_related("from_lesson", "to_lesson")

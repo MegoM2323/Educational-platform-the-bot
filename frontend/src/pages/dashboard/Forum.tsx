@@ -787,7 +787,7 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
       return;
     }
 
-    // Валидация: для FORUM_SUBJECT чата (с преподавателем) требуется subject_id
+    // Валидация: для forum_subject чата (с преподавателем) требуется subject_id
     if (contact.role === 'teacher' && !contact.subject?.id) {
       toast({
         title: 'Ошибка',
@@ -798,7 +798,7 @@ const ContactSearchModal = ({ isOpen, onClose, onChatInitiated }: ContactSearchM
     }
 
     // For new chats, call API
-    // Примечание: для FORUM_TUTOR чата (с тьютором) subject_id может быть null - это OK
+    // Примечание: для forum_tutor чата (с тьютором) subject_id может быть null - это OK
     initiateChatMutation.mutate({
       contactUserId: contact.id,
       subjectId: contact.subject?.id,

@@ -258,7 +258,7 @@ export const NotificationArchive: React.FC<NotificationArchiveProps> = ({ onClos
   };
 
   const sortedAndFilteredNotifications = React.useMemo(() => {
-    let result = [...notifications];
+    const result = [...notifications];
 
     // Sort
     switch (sortBy) {

@@ -304,11 +304,12 @@ class GetLessonProgressView(APIView):
                     'data': {
                         'status': 'not_started',
                         'completion_percent': 0,
+                        'percentage': 0,
                         'completed_elements': 0,
                         'total_elements': graph_lesson.lesson.elements.count(),
                         'total_score': 0,
                         'max_possible_score': graph_lesson.lesson.total_max_score,
-                        'can_start': None  # Будет проверено ниже
+                        'can_start': None
                     }
                 }, status=status.HTTP_200_OK)
 

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q, F
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
@@ -153,7 +154,22 @@ class Invoice(models.Model):
             models.Index(fields=["telegram_message_id"], name="idx_invoice_telegram"),
         ]
         constraints = [
-            # Note: Django 4.2 uses 'check' parameter for CheckConstraint
+            models.CheckConstraint(
+                check=Q(sent_at__isnull=True) | Q(sent_at__gte=F("created_at")),
+                name="check_invoice_sent_after_created",
+            ),
+            models.CheckConstraint(
+                check=Q(viewed_at__isnull=True)
+                | Q(sent_at__isnull=True)
+                | Q(viewed_at__gte=F("sent_at")),
+                name="check_invoice_viewed_after_sent",
+            ),
+            models.CheckConstraint(
+                check=Q(paid_at__isnull=True)
+                | Q(viewed_at__isnull=True)
+                | Q(paid_at__gte=F("viewed_at")),
+                name="check_invoice_paid_after_viewed",
+            ),
         ]
 
     def __str__(self):

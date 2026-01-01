@@ -93,105 +93,40 @@ def _validate_quick_question_content(content: dict) -> None:
     """
     Валидация содержимого быстрого вопроса
 
-    Поддерживает две схемы:
-    1. Новая схема (choices + correct_answer):
-       {
-           'question': str (required),
-           'choices': [str] (required, min 2),
-           'correct_answer': int (required, индекс правильного ответа)
-       }
-    2. Старая схема (options + correct_option):
-       {
-           'question': str (required),
-           'options': [{'id': str, 'text': str}] (required, min 2, max 5),
-           'correct_option': str (required, должен совпадать с option.id)
-       }
+    Ожидаемая структура:
+    {
+        'question': str (required),
+        'choices': [str] (required, min 2),
+        'correct_answer': int (required, индекс правильного ответа 0+)
+    }
     """
     question = content.get("question")
     if not question or not isinstance(question, str):
         raise ValidationError("Поле 'question' обязательно и должно быть строкой")
 
     choices = content.get("choices")
+    if choices is None:
+        raise ValidationError("Поле 'choices' обязательно для быстрого вопроса")
+
+    if not isinstance(choices, list):
+        raise ValidationError("Поле 'choices' должно быть массивом")
+
+    if len(choices) < 2:
+        raise ValidationError("Нужно минимум 2 варианта ответа в 'choices'")
+
+    for idx, choice in enumerate(choices):
+        if not isinstance(choice, str):
+            raise ValidationError(f"Вариант ответа #{idx + 1} должен быть строкой")
+
     correct_answer = content.get("correct_answer")
-    options = content.get("options")
-    correct_option = content.get("correct_option")
+    if correct_answer is None:
+        raise ValidationError("Поле 'correct_answer' обязательно для быстрого вопроса")
 
-    if choices is not None:
-        if not isinstance(choices, list) or len(choices) < 2:
-            raise ValidationError("Нужно минимум 2 варианта ответа в 'choices'")
+    if not isinstance(correct_answer, int):
+        raise ValidationError("Поле 'correct_answer' должно быть целым числом")
 
-        for idx, choice in enumerate(choices):
-            if not isinstance(choice, str):
-                raise ValidationError(f"Вариант ответа #{idx + 1} должен быть строкой")
-
-        if correct_answer is None or not isinstance(correct_answer, int):
-            raise ValidationError("Поле 'correct_answer' должно быть целым числом")
-
-        if correct_answer < 0 or correct_answer >= len(choices):
-            raise ValidationError(
-                f"correct_answer должен быть от 0 до {len(choices) - 1}"
-            )
-
-    elif options is not None:
-        if not isinstance(options, list):
-            raise ValidationError("Поле 'options' должно быть массивом")
-
-        if len(options) < 2:
-            raise ValidationError("Необходимо указать минимум 2 варианта ответа")
-
-        if len(options) > 5:
-            raise ValidationError("Максимальное количество вариантов ответа - 5")
-
-        option_ids = set()
-        for idx, option in enumerate(options):
-            if not isinstance(option, dict):
-                raise ValidationError(f"Вариант ответа #{idx + 1} должен быть объектом")
-
-            option_id = option.get("id")
-            if not option_id:
-                raise ValidationError(
-                    f"Вариант ответа #{idx + 1} должен содержать поле 'id'"
-                )
-
-            if not isinstance(option_id, str):
-                raise ValidationError(
-                    f"Поле 'id' варианта ответа #{idx + 1} должно быть строкой"
-                )
-
-            if option_id in option_ids:
-                raise ValidationError(
-                    f"Дублирующийся id варианта ответа: '{option_id}'"
-                )
-
-            option_ids.add(option_id)
-
-            option_text = option.get("text")
-            if not option_text:
-                raise ValidationError(
-                    f"Вариант ответа #{idx + 1} должен содержать поле 'text'"
-                )
-
-            if not isinstance(option_text, str):
-                raise ValidationError(
-                    f"Поле 'text' варианта ответа #{idx + 1} должно быть строкой"
-                )
-
-        if correct_option is None or correct_option == "":
-            raise ValidationError(
-                "Поле 'correct_option' обязательно для быстрого вопроса"
-            )
-
-        if not isinstance(correct_option, str):
-            raise ValidationError("Поле 'correct_option' должно быть строкой")
-
-        if correct_option not in option_ids:
-            raise ValidationError(
-                f"Значение 'correct_option' ('{correct_option}') должно совпадать с одним из id вариантов ответа"
-            )
-    else:
-        raise ValidationError(
-            "Требуется поле 'choices' или 'options' с вариантами ответа"
-        )
+    if correct_answer < 0 or correct_answer >= len(choices):
+        raise ValidationError(f"correct_answer должен быть от 0 до {len(choices) - 1}")
 
 
 def _validate_theory_content(content: dict) -> None:

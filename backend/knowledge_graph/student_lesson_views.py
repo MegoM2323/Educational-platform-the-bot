@@ -80,7 +80,9 @@ def get_student_lesson(request, graph_lesson_id):
 
         # Получить элементы урока в правильном порядке
         lesson_elements = (
-            LessonElement.objects.filter(lesson=lesson).select_related("element").order_by("order")
+            LessonElement.objects.filter(lesson=lesson)
+            .select_related("element")
+            .order_by("order")
         )
 
         # Получить или создать прогресс урока
@@ -324,6 +326,16 @@ def submit_element_answer(request, element_id):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Валидация типа graph_lesson_id
+        if not isinstance(graph_lesson_id, int):
+            try:
+                graph_lesson_id = int(graph_lesson_id)
+            except (ValueError, TypeError):
+                return Response(
+                    {"success": False, "error": "graph_lesson_id должен быть числом"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         # Проверить доступ к GraphLesson
         graph_lesson = get_object_or_404(
             GraphLesson, id=graph_lesson_id, graph__student=request.user
@@ -444,9 +456,9 @@ def complete_lesson(request, graph_lesson_id):
         )
 
         # Проверить что все обязательные элементы завершены
-        lesson_elements = LessonElement.objects.filter(lesson=graph_lesson.lesson).select_related(
-            "element"
-        )
+        lesson_elements = LessonElement.objects.filter(
+            lesson=graph_lesson.lesson
+        ).select_related("element")
 
         required_elements = [le for le in lesson_elements if not le.is_optional]
 
@@ -471,7 +483,9 @@ def complete_lesson(request, graph_lesson_id):
             )
 
         # Завершить урок и разблокировать зависимые (через ProgressSyncService)
-        unlocked_lessons = ProgressSyncService.complete_lesson(request.user, graph_lesson)
+        unlocked_lessons = ProgressSyncService.complete_lesson(
+            request.user, graph_lesson
+        )
 
         # Обновить прогресс для ответа
         lesson_progress.refresh_from_db()
@@ -554,7 +568,9 @@ def _evaluate_answer(element, answer):
 
     # Видео - проверка что досмотрел
     elif element_type == "video":
-        watched_until = answer.get("watched_until", 0) if isinstance(answer, dict) else 0
+        watched_until = (
+            answer.get("watched_until", 0) if isinstance(answer, dict) else 0
+        )
         video_duration = element.content.get("duration", 0)
 
         if video_duration > 0:

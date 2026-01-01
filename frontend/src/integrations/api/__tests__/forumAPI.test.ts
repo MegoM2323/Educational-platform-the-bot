@@ -259,7 +259,7 @@ describe('forumAPI', () => {
           chat: {
             id: 1,
             room_id: 'room-1',
-            type: 'FORUM_SUBJECT' as const,
+            type: 'forum_subject' as const,
             other_user: {
               id: 2,
               email: 'john@example.com',
@@ -292,7 +292,7 @@ describe('forumAPI', () => {
           chat: {
             id: 1,
             room_id: 'room-1',
-            type: 'FORUM_SUBJECT' as const,
+            type: 'forum_subject' as const,
             other_user: {
               id: 2,
               email: 'john@example.com',

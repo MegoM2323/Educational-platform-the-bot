@@ -76,8 +76,9 @@ def get_student_schedule(request, student_id):
         lessons = lessons.filter(status=lesson_status)
 
     # Сериализовать уроки
+    lessons_list = list(lessons)
     lessons_data = []
-    for lesson in lessons:
+    for lesson in lessons_list:
         lessons_data.append(
             {
                 "id": str(lesson.id),
@@ -97,7 +98,7 @@ def get_student_schedule(request, student_id):
     return Response(
         {
             "student": {
-                "id": student.id,
+                "id": str(student.id),
                 "name": student.get_full_name(),
                 "email": student.email,
             },
@@ -131,9 +132,10 @@ def get_all_student_schedules(request):
     )
 
     # Получить всех студентов этого тьютора с оптимизацией
+    # Удален select_related("student_profile") т.к. он не используется в response
     students = (
         User.objects.filter(role=User.Role.STUDENT, student_profile__tutor=request.user)
-        .select_related("student_profile")
+        .distinct()
         .prefetch_related(lessons_prefetch)
     )
 
@@ -158,7 +160,7 @@ def get_all_student_schedules(request):
 
         students_data.append(
             {
-                "id": student.id,
+                "id": str(student.id),
                 "name": student.get_full_name(),
                 "email": student.email,
                 "lessons_count": len(lessons_list),

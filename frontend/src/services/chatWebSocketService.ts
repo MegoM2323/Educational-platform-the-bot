@@ -395,6 +395,10 @@ export class ChatWebSocketService {
    * Отправка сообщения в общий чат
    */
   sendGeneralMessage(content: string): void {
+    if (!content || content.trim().length === 0) {
+      logger.warn('[ChatWebSocketService] Attempt to send empty message');
+      return;
+    }
     websocketService.send({
       type: 'chat_message',
       data: { content }
@@ -405,6 +409,10 @@ export class ChatWebSocketService {
    * Отправка сообщения в комнату
    */
   sendRoomMessage(roomId: number, content: string): void {
+    if (!content || content.trim().length === 0) {
+      logger.warn('[ChatWebSocketService] Attempt to send empty message');
+      return;
+    }
     websocketService.send({
       type: 'chat_message',
       data: { content }

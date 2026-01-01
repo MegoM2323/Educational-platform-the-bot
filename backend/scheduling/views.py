@@ -191,12 +191,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             "telemost_link": "https://telemost.yandex.ru/..."
         }
         """
-        try:
-            lesson = self.get_object()
-        except Lesson.DoesNotExist:
-            return Response(
-                {"error": "Lesson not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+        lesson = self.get_object()
 
         # Only teacher can update
         if lesson.teacher != request.user:
@@ -237,12 +232,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             "telemost_link": "https://telemost.yandex.ru/..."  # Optional
         }
         """
-        try:
-            lesson = self.get_object()
-        except Lesson.DoesNotExist:
-            return Response(
-                {"error": "Lesson not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+        lesson = self.get_object()
 
         # Only teacher can update
         if lesson.teacher != request.user:
@@ -278,12 +268,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         Rule: Cannot cancel less than 2 hours before lesson start.
         """
-        try:
-            lesson = self.get_object()
-        except Lesson.DoesNotExist:
-            return Response(
-                {"error": "Lesson not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+        lesson = self.get_object()
 
         # Only teacher can delete
         if lesson.teacher != request.user:
@@ -302,7 +287,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["get"], url_path="my-schedule")
     def my_schedule(self, request):
         """
         Get current user's schedule (role-aware) with pagination.
@@ -446,18 +431,21 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         GET /api/scheduling/lessons/{id}/history/
         """
-        try:
-            lesson = self.get_object()
-        except Lesson.DoesNotExist:
-            return Response(
-                {"error": "Lesson not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+        lesson = self.get_object()
 
         # Verify permission to view history
-        # Teacher, student, tutor (via get_queryset), or parent of student
+        # Teacher, student, tutor, or parent of student
         has_permission = (
             lesson.teacher == request.user or lesson.student == request.user
         )
+
+        # Check if tutor has access to this lesson (manages the student)
+        if not has_permission and request.user.role == "tutor":
+            from accounts.models import StudentProfile
+
+            has_permission = StudentProfile.objects.filter(
+                user=lesson.student, tutor=request.user
+            ).exists()
 
         # Check if parent has access to this lesson (child is the student)
         if not has_permission and request.user.role == "parent":

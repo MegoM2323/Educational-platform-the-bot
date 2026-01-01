@@ -15,7 +15,7 @@ class GeneralChatService:
     """
     Сервис для управления общим чатом-форумом
     """
-    
+
     @staticmethod
     def get_or_create_general_chat():
         """
@@ -28,52 +28,57 @@ class GeneralChatService:
             teacher = User.objects.filter(is_superuser=True).first()
             if not teacher:
                 raise ValueError("Нет пользователей с правами для создания общего чата")
-        
+
         general_chat, created = ChatRoom.objects.get_or_create(
             type=ChatRoom.Type.GENERAL,
             defaults={
-                'name': 'Общий форум',
-                'description': 'Общий чат для общения студентов и преподавателей',
-                'is_active': True,
-                'created_by': teacher,
-                'auto_delete_days': 7  # Автоудаление через 7 дней
-            }
+                "name": "Общий форум",
+                "description": "Общий чат для общения студентов и преподавателей",
+                "is_active": True,
+                "created_by": teacher,
+                "auto_delete_days": 7,  # Автоудаление через 7 дней
+            },
         )
-        
+
         if created:
             # Автоматически добавляем всех пользователей платформы в общий чат
             GeneralChatService._add_all_users(general_chat)
-        
+
         return general_chat
-    
+
     @staticmethod
     def _add_all_users(chat_room):
         """
         Добавить всех пользователей (студенты, преподаватели, тьюторы, родители) в общий чат
         """
-        all_users = User.objects.filter(
-            role__in=[
-                User.Role.TEACHER,
-                User.Role.STUDENT,
-                User.Role.TUTOR,
-                User.Role.PARENT,
-            ]
+        all_users = list(
+            User.objects.filter(
+                role__in=[
+                    User.Role.TEACHER,
+                    User.Role.STUDENT,
+                    User.Role.TUTOR,
+                    User.Role.PARENT,
+                ]
+            )
         )
 
-        # Wrap in transaction to ensure all user additions are atomic
         with transaction.atomic():
-            for user in all_users:
-                chat_room.participants.add(user)
-                # Администраторы: преподаватели (и при необходимости можно расширить)
-                ChatParticipant.objects.get_or_create(
+            chat_room.participants.add(*all_users)
+
+            now = timezone.now()
+            participant_records = [
+                ChatParticipant(
                     room=chat_room,
                     user=user,
-                    defaults={
-                        'is_admin': user.role == User.Role.TEACHER,
-                        'joined_at': timezone.now()
-                    }
+                    is_admin=(user.role == User.Role.TEACHER),
+                    joined_at=now,
                 )
-    
+                for user in all_users
+            ]
+            ChatParticipant.objects.bulk_create(
+                participant_records, ignore_conflicts=True
+            )
+
     @staticmethod
     def cleanup_old_messages():
         """
@@ -81,39 +86,34 @@ class GeneralChatService:
         """
         try:
             total_deleted = 0
-            
+
             # Получаем все активные чат-комнаты
             chat_rooms = ChatRoom.objects.filter(is_active=True)
-            
+
             for room in chat_rooms:
                 cutoff_date = timezone.now() - timedelta(days=room.auto_delete_days)
-                
-                # Удаляем сообщения старше указанного периода
-                deleted_count = Message.objects.filter(
-                    room=room,
-                    created_at__lt=cutoff_date
-                ).count()
-                
-                Message.objects.filter(
-                    room=room,
-                    created_at__lt=cutoff_date
+
+                deleted_count, _ = Message.objects.filter(
+                    room=room, created_at__lt=cutoff_date
                 ).delete()
-                
+
                 total_deleted += deleted_count
-                
+
                 if deleted_count > 0:
                     logger.info(
                         f"Удалено {deleted_count} сообщений из чата '{room.name}' "
                         f"(старее {room.auto_delete_days} дней)"
                     )
-            
-            logger.info(f"Завершена очистка старых сообщений. Всего удалено: {total_deleted}")
+
+            logger.info(
+                f"Завершена очистка старых сообщений. Всего удалено: {total_deleted}"
+            )
             return total_deleted
-            
+
         except Exception as e:
             logger.error(f"Ошибка при очистке старых сообщений: {str(e)}")
             raise
-    
+
     @staticmethod
     def cleanup_old_general_chat_messages():
         """
@@ -122,28 +122,26 @@ class GeneralChatService:
         try:
             general_chat = GeneralChatService.get_or_create_general_chat()
             cutoff_date = timezone.now() - timedelta(days=general_chat.auto_delete_days)
-            
+
             deleted_count = Message.objects.filter(
-                room=general_chat,
-                created_at__lt=cutoff_date
+                room=general_chat, created_at__lt=cutoff_date
             ).count()
-            
+
             Message.objects.filter(
-                room=general_chat,
-                created_at__lt=cutoff_date
+                room=general_chat, created_at__lt=cutoff_date
             ).delete()
-            
+
             logger.info(
                 f"Удалено {deleted_count} сообщений из общего чата "
                 f"(старее {general_chat.auto_delete_days} дней)"
             )
-            
+
             return deleted_count
-            
+
         except Exception as e:
             logger.error(f"Ошибка при очистке сообщений общего чата: {str(e)}")
             raise
-    
+
     @staticmethod
     def add_user_to_general_chat(user):
         """
@@ -159,14 +157,14 @@ class GeneralChatService:
                     room=general_chat,
                     user=user,
                     defaults={
-                        'is_admin': user.role == User.Role.TEACHER,
-                        'joined_at': timezone.now()
-                    }
+                        "is_admin": user.role == User.Role.TEACHER,
+                        "joined_at": timezone.now(),
+                    },
                 )
             return True
 
         return False
-    
+
     @staticmethod
     def create_thread(room, title, created_by):
         """
@@ -174,16 +172,16 @@ class GeneralChatService:
         """
         if not room.participants.filter(id=created_by.id).exists():
             raise PermissionError("Пользователь не является участником чата")
-        
+
         thread = MessageThread.objects.create(
-            room=room,
-            title=title,
-            created_by=created_by
+            room=room, title=title, created_by=created_by
         )
         return thread
-    
+
     @staticmethod
-    def send_message_to_thread(room, thread, sender, content, message_type=Message.Type.TEXT):
+    def send_message_to_thread(
+        room, thread, sender, content, message_type=Message.Type.TEXT
+    ):
         """
         Отправить сообщение в тред
         """
@@ -200,35 +198,32 @@ class GeneralChatService:
                 thread=thread,
                 sender=sender,
                 content=content,
-                message_type=message_type
+                message_type=message_type,
             )
 
             # Обновляем время последнего обновления треда
             thread.updated_at = timezone.now()
-            thread.save(update_fields=['updated_at'])
+            thread.save(update_fields=["updated_at"])
 
         return message
-    
+
     @staticmethod
     def send_general_message(sender, content, message_type=Message.Type.TEXT):
         """
         Отправить сообщение в общий чат без треда
         """
         general_chat = GeneralChatService.get_or_create_general_chat()
-        
+
         # Автоматически добавляем пользователя в общий чат, если он ещё не участник
         if not general_chat.participants.filter(id=sender.id).exists():
             GeneralChatService.add_user_to_general_chat(sender)
-        
+
         message = Message.objects.create(
-            room=general_chat,
-            sender=sender,
-            content=content,
-            message_type=message_type
+            room=general_chat, sender=sender, content=content, message_type=message_type
         )
-        
+
         return message
-    
+
     @staticmethod
     def get_thread_messages(thread, limit=50, offset=0):
         """
@@ -239,21 +234,25 @@ class GeneralChatService:
         - prefetch_related для replies, read_by
         - annotate для replies_count
         """
-        return thread.messages.filter(
-            is_deleted=False
-        ).select_related(
-            'sender',
-            'thread',
-            'reply_to__sender'
-        ).prefetch_related(
-            Prefetch(
-                'replies',
-                queryset=Message.objects.filter(is_deleted=False).only('id', 'is_deleted')
-            ),
-            'read_by'
-        ).annotate(
-            annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False))
-        ).order_by('created_at')[offset:offset + limit]
+        return (
+            thread.messages.filter(is_deleted=False)
+            .select_related("sender", "thread", "reply_to__sender")
+            .prefetch_related(
+                Prefetch(
+                    "replies",
+                    queryset=Message.objects.filter(is_deleted=False).only(
+                        "id", "is_deleted"
+                    ),
+                ),
+                "read_by",
+            )
+            .annotate(
+                annotated_replies_count=Count(
+                    "replies", filter=Q(replies__is_deleted=False)
+                )
+            )
+            .order_by("created_at")[offset : offset + limit]
+        )
 
     @staticmethod
     @cache_chat_data(timeout=60)  # 1 минута
@@ -267,23 +266,26 @@ class GeneralChatService:
         - annotate для replies_count
         """
         general_chat = GeneralChatService.get_or_create_general_chat()
-        return general_chat.messages.filter(
-            thread__isnull=True,
-            is_deleted=False
-        ).select_related(
-            'sender',
-            'thread',
-            'reply_to__sender'
-        ).prefetch_related(
-            Prefetch(
-                'replies',
-                queryset=Message.objects.filter(is_deleted=False).only('id', 'is_deleted')
-            ),
-            'read_by'
-        ).annotate(
-            annotated_replies_count=Count('replies', filter=Q(replies__is_deleted=False))
-        ).order_by('created_at')[offset:offset + limit]
-    
+        return (
+            general_chat.messages.filter(thread__isnull=True, is_deleted=False)
+            .select_related("sender", "thread", "reply_to__sender")
+            .prefetch_related(
+                Prefetch(
+                    "replies",
+                    queryset=Message.objects.filter(is_deleted=False).only(
+                        "id", "is_deleted"
+                    ),
+                ),
+                "read_by",
+            )
+            .annotate(
+                annotated_replies_count=Count(
+                    "replies", filter=Q(replies__is_deleted=False)
+                )
+            )
+            .order_by("created_at")[offset : offset + limit]
+        )
+
     @staticmethod
     @cache_chat_data(timeout=300)  # 5 минут
     def get_general_chat_threads(limit=20, offset=0):
@@ -291,8 +293,8 @@ class GeneralChatService:
         Получить треды общего чата с пагинацией
         """
         general_chat = GeneralChatService.get_or_create_general_chat()
-        return general_chat.threads.all()[offset:offset + limit]
-    
+        return general_chat.threads.all()[offset : offset + limit]
+
     @staticmethod
     def pin_thread(thread, user):
         """
@@ -300,11 +302,11 @@ class GeneralChatService:
         """
         if not GeneralChatService._can_moderate(user, thread.room):
             raise PermissionError("Недостаточно прав для закрепления треда")
-        
+
         thread.is_pinned = True
-        thread.save(update_fields=['is_pinned'])
+        thread.save(update_fields=["is_pinned"])
         return thread
-    
+
     @staticmethod
     def unpin_thread(thread, user):
         """
@@ -312,11 +314,11 @@ class GeneralChatService:
         """
         if not GeneralChatService._can_moderate(user, thread.room):
             raise PermissionError("Недостаточно прав для открепления треда")
-        
+
         thread.is_pinned = False
-        thread.save(update_fields=['is_pinned'])
+        thread.save(update_fields=["is_pinned"])
         return thread
-    
+
     @staticmethod
     def lock_thread(thread, user):
         """
@@ -324,11 +326,11 @@ class GeneralChatService:
         """
         if not GeneralChatService._can_moderate(user, thread.room):
             raise PermissionError("Недостаточно прав для блокировки треда")
-        
+
         thread.is_locked = True
-        thread.save(update_fields=['is_locked'])
+        thread.save(update_fields=["is_locked"])
         return thread
-    
+
     @staticmethod
     def unlock_thread(thread, user):
         """
@@ -336,11 +338,11 @@ class GeneralChatService:
         """
         if not GeneralChatService._can_moderate(user, thread.room):
             raise PermissionError("Недостаточно прав для разблокировки треда")
-        
+
         thread.is_locked = False
-        thread.save(update_fields=['is_locked'])
+        thread.save(update_fields=["is_locked"])
         return thread
-    
+
     @staticmethod
     def _can_moderate(user, room):
         """
@@ -351,7 +353,7 @@ class GeneralChatService:
             return participant.is_admin or user.role == User.Role.TEACHER
         except ChatParticipant.DoesNotExist:
             return False
-    
+
     @staticmethod
     def get_user_role_in_chat(user, room):
         """
@@ -360,7 +362,7 @@ class GeneralChatService:
         try:
             participant = room.room_participants.get(user=user)
             if participant.is_admin:
-                return 'admin'
+                return "admin"
             return user.role
         except ChatParticipant.DoesNotExist:
             return None

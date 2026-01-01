@@ -2,8 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, AlertCircle } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays, startOfDay, endOfDay } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, AlertCircle, Plus, X } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAdminSchedule } from '@/hooks/useAdminSchedule';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,6 +14,13 @@ import { cn } from '@/lib/utils';
 import { LessonDetailModal } from '@/components/admin/LessonDetailModal';
 import { useToast } from '@/hooks/use-toast';
 import { AdminLesson } from '@/types/scheduling';
+import { adminAPI } from '@/integrations/api/adminAPI';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface FilterOption {
   id: number;
@@ -18,6 +28,28 @@ interface FilterOption {
 }
 
 type ViewMode = 'month' | 'week' | 'day';
+
+interface CreateLessonForm {
+  teacher_id: string;
+  student_id: string;
+  subject_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  description: string;
+  telemost_link: string;
+}
+
+const initialFormState: CreateLessonForm = {
+  teacher_id: '',
+  student_id: '',
+  subject_id: '',
+  date: format(new Date(), 'yyyy-MM-dd'),
+  start_time: '10:00',
+  end_time: '11:00',
+  description: '',
+  telemost_link: '',
+};
 
 export default function AdminSchedulePage() {
   const { toast } = useToast();
@@ -28,6 +60,9 @@ export default function AdminSchedulePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedLesson, setSelectedLesson] = useState<AdminLesson | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formData, setFormData] = useState<CreateLessonForm>(initialFormState);
 
   // Вычисляем диапазон дат в зависимости от режима просмотра
   // Мемоизируем, чтобы избежать пересчета на каждом рендере
@@ -76,6 +111,57 @@ export default function AdminSchedulePage() {
   useEffect(() => {
     setExpandedDays(new Set());
   }, [viewMode]);
+
+  const handleCreateLesson = async () => {
+    if (!formData.teacher_id || !formData.student_id || !formData.subject_id) {
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка',
+        description: 'Выберите преподавателя, студента и предмет',
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const response = await adminAPI.createLesson({
+        teacher_id: parseInt(formData.teacher_id),
+        student_id: parseInt(formData.student_id),
+        subject_id: parseInt(formData.subject_id),
+        date: formData.date,
+        start_time: formData.start_time + ':00',
+        end_time: formData.end_time + ':00',
+        description: formData.description,
+        telemost_link: formData.telemost_link,
+      });
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      toast({
+        title: 'Занятие создано',
+        description: 'Новое занятие успешно добавлено в расписание',
+      });
+
+      setIsCreateDialogOpen(false);
+      setFormData(initialFormState);
+      refetch();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка создания',
+        description: error instanceof Error ? error.message : 'Не удалось создать занятие',
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const openCreateDialog = () => {
+    setFormData(initialFormState);
+    setIsCreateDialogOpen(true);
+  };
 
   // Получаем дни для отображения в зависимости от режима
   // Мемоизируем, чтобы избежать пересчета массива дней на каждом рендере
@@ -252,6 +338,10 @@ export default function AdminSchedulePage() {
               Расписание всех занятий
             </CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
+              <Button type="button" onClick={openCreateDialog} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Создать занятие
+              </Button>
               <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Все преподаватели" />
@@ -468,6 +558,147 @@ export default function AdminSchedulePage() {
 
       {/* Модальное окно деталей урока */}
       <LessonDetailModal lesson={selectedLesson} open={!!selectedLesson} onOpenChange={(open) => !open && setSelectedLesson(null)} />
+
+      {/* Диалог создания занятия */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Создание нового занятия</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="teacher">Преподаватель *</Label>
+                <Select
+                  value={formData.teacher_id}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, teacher_id: value }))}
+                >
+                  <SelectTrigger id="teacher">
+                    <SelectValue placeholder="Выберите преподавателя" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.map((teacher: FilterOption) => (
+                      <SelectItem key={teacher.id} value={teacher.id.toString()}>
+                        {teacher.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="student">Студент *</Label>
+                <Select
+                  value={formData.student_id}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, student_id: value }))}
+                >
+                  <SelectTrigger id="student">
+                    <SelectValue placeholder="Выберите студента" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {students.map((student: FilterOption) => (
+                      <SelectItem key={student.id} value={student.id.toString()}>
+                        {student.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subject">Предмет *</Label>
+              <Select
+                value={formData.subject_id}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, subject_id: value }))}
+              >
+                <SelectTrigger id="subject">
+                  <SelectValue placeholder="Выберите предмет" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((subject: FilterOption) => (
+                    <SelectItem key={subject.id} value={subject.id.toString()}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="date">Дата *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="start_time">Начало *</Label>
+                <Input
+                  id="start_time"
+                  type="time"
+                  value={formData.start_time}
+                  onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="end_time">Конец *</Label>
+                <Input
+                  id="end_time"
+                  type="time"
+                  value={formData.end_time}
+                  onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Описание</Label>
+              <Textarea
+                id="description"
+                placeholder="Описание занятия..."
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="telemost_link">Ссылка на видеоконференцию</Label>
+              <Input
+                id="telemost_link"
+                type="url"
+                placeholder="https://telemost.yandex.ru/..."
+                value={formData.telemost_link}
+                onChange={(e) => setFormData(prev => ({ ...prev, telemost_link: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+                disabled={isCreating}
+              >
+                Отмена
+              </Button>
+              <Button
+                type="button"
+                onClick={handleCreateLesson}
+                disabled={isCreating}
+              >
+                {isCreating ? 'Создание...' : 'Создать занятие'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

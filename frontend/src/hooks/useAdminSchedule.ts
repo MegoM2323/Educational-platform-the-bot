@@ -21,8 +21,7 @@ export const useAdminSchedule = (params: UseAdminScheduleParams = {}) => {
     // This ensures proper cache invalidation when individual params change
     queryKey: ['admin', 'schedule', params?.teacher_id, params?.subject_id, params?.student_id, params?.date_from, params?.date_to, params?.status],
     queryFn: () => adminAPI.getSchedule(params),
-    // Only enable query when required date range is provided
-    enabled: !!(params?.date_from && params?.date_to),
+    enabled: true,
     staleTime: 60000, // 1 minute
   });
 

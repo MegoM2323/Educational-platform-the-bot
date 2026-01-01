@@ -27,7 +27,6 @@ export const StudentProfilePage = () => {
     phone: '',
     grade: '',
     goal: '',
-    telegram: '',
   });
 
   const [initialData, setInitialData] = useState({
@@ -36,7 +35,6 @@ export const StudentProfilePage = () => {
     phone: '',
     grade: '',
     goal: '',
-    telegram: '',
   });
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -53,7 +51,6 @@ export const StudentProfilePage = () => {
         phone: profile.user?.phone || '',
         grade: profile.profile?.grade || '',
         goal: profile.profile?.goal || '',
-        telegram: profile.profile?.telegram || '',
       };
       setFormData(newData);
       setInitialData(newData);
@@ -149,9 +146,6 @@ export const StudentProfilePage = () => {
     }
     if (formData.goal !== initialData.goal) {
       data.append('goal', formData.goal);
-    }
-    if (formData.telegram !== initialData.telegram) {
-      data.append('telegram', formData.telegram);
     }
 
     if (avatarFile) {
@@ -368,20 +362,6 @@ export const StudentProfilePage = () => {
                     </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="telegram" className="text-sm font-medium">
-                      Telegram
-                    </Label>
-                    <Input
-                      id="telegram"
-                      value={formData.telegram}
-                      onChange={(e) => handleInputChange('telegram', e.target.value)}
-                      placeholder="@username или username"
-                      className="h-10"
-                    />
-                    <p className="text-xs text-[hsl(240,5%,55%)]">Формат: @username или username</p>
-                  </div>
-
                   <div className="space-y-2 pt-4 border-t">
                     <Label className="text-sm font-medium">
                       Привязка Telegram
@@ -390,7 +370,7 @@ export const StudentProfilePage = () => {
                       Привяжите аккаунт Telegram для получения уведомлений
                     </p>
                     <TelegramLinkButton
-                      isLinked={!!profile?.profile?.is_telegram_linked}
+                      isLinked={!!profile?.user?.telegram_id}
                       onStatusChange={refetch}
                     />
                   </div>

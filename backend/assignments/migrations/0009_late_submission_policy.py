@@ -137,7 +137,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="created_exemptions",
-                        to="auth.user",
+                        to="accounts.user",
                         verbose_name="Создано",
                     ),
                 ),

@@ -80,9 +80,7 @@ def get_student_lesson(request, graph_lesson_id):
 
         # Получить элементы урока в правильном порядке
         lesson_elements = (
-            LessonElement.objects.filter(lesson=lesson)
-            .select_related("element")
-            .order_by("order")
+            LessonElement.objects.filter(lesson=lesson).select_related("element").order_by("order")
         )
 
         # Получить или создать прогресс урока
@@ -95,20 +93,41 @@ def get_student_lesson(request, graph_lesson_id):
             },
         )
 
+        # FIX N+1: Bulk fetch существующих прогрессов + bulk_create для отсутствующих
+        element_ids = [le.element_id for le in lesson_elements]
+        existing_progress = ElementProgress.objects.filter(
+            student=request.user,
+            element_id__in=element_ids,
+            graph_lesson=graph_lesson,
+        )
+        progress_map = {ep.element_id: ep for ep in existing_progress}
+
+        elements_to_create = []
+        for lesson_elem in lesson_elements:
+            element = lesson_elem.element
+            if element.id not in progress_map:
+                elements_to_create.append(
+                    ElementProgress(
+                        student=request.user,
+                        element=element,
+                        graph_lesson=graph_lesson,
+                        max_score=element.max_score,
+                        status="not_started",
+                    )
+                )
+
+        if elements_to_create:
+            created = ElementProgress.objects.bulk_create(elements_to_create)
+            for ep in created:
+                progress_map[ep.element_id] = ep
+
         # Собрать данные по элементам с прогрессом
         elements_data = []
         next_element_id = None
 
         for lesson_elem in lesson_elements:
             element = lesson_elem.element
-
-            # Получить или создать прогресс элемента
-            elem_progress, _ = ElementProgress.objects.get_or_create(
-                student=request.user,
-                element=element,
-                graph_lesson=graph_lesson,
-                defaults={"max_score": element.max_score, "status": "not_started"},
-            )
+            elem_progress = progress_map[element.id]
 
             elements_data.append(
                 {
@@ -425,9 +444,9 @@ def complete_lesson(request, graph_lesson_id):
         )
 
         # Проверить что все обязательные элементы завершены
-        lesson_elements = LessonElement.objects.filter(
-            lesson=graph_lesson.lesson
-        ).select_related("element")
+        lesson_elements = LessonElement.objects.filter(lesson=graph_lesson.lesson).select_related(
+            "element"
+        )
 
         required_elements = [le for le in lesson_elements if not le.is_optional]
 
@@ -452,9 +471,7 @@ def complete_lesson(request, graph_lesson_id):
             )
 
         # Завершить урок и разблокировать зависимые (через ProgressSyncService)
-        unlocked_lessons = ProgressSyncService.complete_lesson(
-            request.user, graph_lesson
-        )
+        unlocked_lessons = ProgressSyncService.complete_lesson(request.user, graph_lesson)
 
         # Обновить прогресс для ответа
         lesson_progress.refresh_from_db()
@@ -537,9 +554,7 @@ def _evaluate_answer(element, answer):
 
     # Видео - проверка что досмотрел
     elif element_type == "video":
-        watched_until = (
-            answer.get("watched_until", 0) if isinstance(answer, dict) else 0
-        )
+        watched_until = answer.get("watched_until", 0) if isinstance(answer, dict) else 0
         video_duration = element.content.get("duration", 0)
 
         if video_duration > 0:

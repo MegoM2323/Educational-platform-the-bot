@@ -11,7 +11,6 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('materials', '0014_add_subscription_expires_at'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

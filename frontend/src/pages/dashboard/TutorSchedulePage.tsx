@@ -13,6 +13,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Filter, Users } from "lucide-react";
 import { LessonCard } from "@/components/scheduling/student/LessonCard";
 
+const parseDateTime = (date: string, time: string): Date => {
+  try {
+    return new Date(`${date}T${time}`);
+  } catch {
+    return new Date();
+  }
+};
+
 const TutorSchedulePage: React.FC = () => {
   const { user } = useAuth();
   const { data: students, isLoading: studentsLoading } = useTutorStudents();
@@ -29,15 +37,6 @@ const TutorSchedulePage: React.FC = () => {
   if (user?.role !== 'tutor') {
     return <Navigate to="/dashboard" replace />;
   }
-
-  // Безопасная функция парсинга даты
-  const parseDateTime = (date: string, time: string): Date => {
-    try {
-      return new Date(`${date}T${time}`);
-    } catch {
-      return new Date(); // Fallback для невалидных дат
-    }
-  };
 
   const filteredLessons = useMemo(() => {
     const now = new Date(); // Перемещаем 'now' внутрь useMemo

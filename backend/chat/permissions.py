@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-def check_parent_access_to_room(parent_user, room, add_to_participants: bool = True) -> bool:
+def check_parent_access_to_room(
+    parent_user, room, add_to_participants: bool = True
+) -> bool:
     """
     Проверяет доступ родителя к комнате чата.
     Родитель имеет доступ если один из его детей является участником.
@@ -35,13 +37,15 @@ def check_parent_access_to_room(parent_user, room, add_to_participants: bool = T
     Returns:
         bool: True если родитель имеет доступ
     """
-    if parent_user.role != 'parent':
+    if parent_user.role != "parent":
         return False
 
     # Получаем ID всех детей этого родителя
-    children_ids = list(StudentProfile.objects.filter(
-        parent=parent_user
-    ).values_list('user_id', flat=True))
+    children_ids = list(
+        StudentProfile.objects.filter(parent=parent_user).values_list(
+            "user_id", flat=True
+        )
+    )
 
     if not children_ids:
         return False
@@ -56,19 +60,21 @@ def check_parent_access_to_room(parent_user, room, add_to_participants: bool = T
             room.participants.add(parent_user)
             ChatParticipant.objects.get_or_create(room=room, user=parent_user)
         logger.info(
-            f'[check_parent_access_to_room] Parent {parent_user.id} granted access to room {room.id} '
-            f'via child relationship and added to participants'
+            f"[check_parent_access_to_room] Parent {parent_user.id} granted access to room {room.id} "
+            f"via child relationship and added to participants"
         )
     else:
         logger.info(
-            f'[check_parent_access_to_room] Parent {parent_user.id} granted access to room {room.id} '
-            f'via child relationship (not added to participants)'
+            f"[check_parent_access_to_room] Parent {parent_user.id} granted access to room {room.id} "
+            f"via child relationship (not added to participants)"
         )
 
     return True
 
 
-def check_teacher_access_to_room(teacher_user, room, add_to_participants: bool = True) -> bool:
+def check_teacher_access_to_room(
+    teacher_user, room, add_to_participants: bool = True
+) -> bool:
     """
     Проверяет доступ учителя к комнате чата через enrollment.
     Учитель имеет доступ если он назначен учителем в enrollment этого чата.
@@ -91,24 +97,41 @@ def check_teacher_access_to_room(teacher_user, room, add_to_participants: bool =
     """
     from chat.models import ChatRoom
 
-    if teacher_user.role != 'teacher':
+    if teacher_user.role != "teacher":
         return False
 
-    # Для FORUM_TUTOR чатов: пропускаем проверку enrollment
-    # (учитель не напрямую участвует, это чат о студенте с тьютором)
+    # Для FORUM_TUTOR чатов: учитель должен преподавать хотя бы одному студенту в этом чате
     if room.type == ChatRoom.Type.FORUM_TUTOR:
-        logger.info(
-            f'[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} '
-            f'(FORUM_TUTOR type - no enrollment check needed)'
+        student_participants = room.participants.filter(role="student").values_list(
+            "id", flat=True
         )
-        return True
+        has_enrollment = SubjectEnrollment.objects.filter(
+            teacher=teacher_user, student_id__in=student_participants, is_active=True
+        ).exists()
+
+        if has_enrollment:
+            if add_to_participants:
+                with transaction.atomic():
+                    room.participants.add(teacher_user)
+                    ChatParticipant.objects.get_or_create(room=room, user=teacher_user)
+            logger.info(
+                f"[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to FORUM_TUTOR room {room.id} "
+                f"(teaches student in chat)"
+            )
+            return True
+
+        logger.warning(
+            f"[check_teacher_access_to_room] Teacher {teacher_user.id} denied access to FORUM_TUTOR room {room.id} "
+            f"(does not teach any student in this chat)"
+        )
+        return False
 
     # Если есть прямой enrollment - используем его
     if room.enrollment:
         if room.enrollment.teacher_id != teacher_user.id:
             logger.warning(
-                f'[check_teacher_access_to_room] Teacher {teacher_user.id} denied access to room {room.id} '
-                f'(teacher mismatch in enrollment {room.enrollment.id})'
+                f"[check_teacher_access_to_room] Teacher {teacher_user.id} denied access to room {room.id} "
+                f"(teacher mismatch in enrollment {room.enrollment.id})"
             )
             return False
 
@@ -117,21 +140,21 @@ def check_teacher_access_to_room(teacher_user, room, add_to_participants: bool =
                 room.participants.add(teacher_user)
                 ChatParticipant.objects.get_or_create(room=room, user=teacher_user)
             logger.info(
-                f'[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} '
-                f'via direct enrollment {room.enrollment.id} and added to participants'
+                f"[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} "
+                f"via direct enrollment {room.enrollment.id} and added to participants"
             )
         else:
             logger.info(
-                f'[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} '
-                f'via direct enrollment {room.enrollment.id} (not added to participants)'
+                f"[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} "
+                f"via direct enrollment {room.enrollment.id} (not added to participants)"
             )
         return True
 
     # Fallback: если enrollment не установлен, ищем его
     # Это может быть в случае, когда чат был создан без прямой связи с enrollment
     logger.info(
-        f'[check_teacher_access_to_room] No direct enrollment found for room {room.id}, '
-        f'searching for active enrollments for teacher {teacher_user.id}...'
+        f"[check_teacher_access_to_room] No direct enrollment found for room {room.id}, "
+        f"searching for active enrollments for teacher {teacher_user.id}..."
     )
 
     # Получаем всех участников комнаты (кроме самого учителя)
@@ -139,41 +162,41 @@ def check_teacher_access_to_room(teacher_user, room, add_to_participants: bool =
 
     # Ищем активный enrollment, где учитель преподает одному из участников
     for participant in room_participants:
-        if participant.role == 'student':
+        if participant.role == "student":
             enrollment = SubjectEnrollment.objects.filter(
-                student=participant,
-                teacher=teacher_user,
-                is_active=True
+                student=participant, teacher=teacher_user, is_active=True
             ).first()
 
             if enrollment:
                 logger.info(
-                    f'[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} '
-                    f'via fallback enrollment search (enrollment {enrollment.id}, student {participant.id})'
+                    f"[check_teacher_access_to_room] Teacher {teacher_user.id} granted access to room {room.id} "
+                    f"via fallback enrollment search (enrollment {enrollment.id}, student {participant.id})"
                 )
 
                 # Обновляем room.enrollment для консистентности на будущее
                 if room.enrollment_id is None:
                     room.enrollment = enrollment
-                    room.save(update_fields=['enrollment'])
+                    room.save(update_fields=["enrollment"])
                     logger.info(
-                        f'[check_teacher_access_to_room] Updated room {room.id} with found enrollment {enrollment.id}'
+                        f"[check_teacher_access_to_room] Updated room {room.id} with found enrollment {enrollment.id}"
                     )
 
                 if add_to_participants:
                     with transaction.atomic():
                         room.participants.add(teacher_user)
-                        ChatParticipant.objects.get_or_create(room=room, user=teacher_user)
+                        ChatParticipant.objects.get_or_create(
+                            room=room, user=teacher_user
+                        )
                     logger.info(
-                        f'[check_teacher_access_to_room] Teacher {teacher_user.id} added to participants'
+                        f"[check_teacher_access_to_room] Teacher {teacher_user.id} added to participants"
                     )
 
                 return True
 
     # Нет найденного enrollment
     logger.warning(
-        f'[check_teacher_access_to_room] Teacher {teacher_user.id} denied access to room {room.id} '
-        f'(no active enrollment found via fallback search)'
+        f"[check_teacher_access_to_room] Teacher {teacher_user.id} denied access to room {room.id} "
+        f"(no active enrollment found via fallback search)"
     )
     return False
 
@@ -250,18 +273,18 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check student-teacher relationship
-        if requester.role == 'student' and contact_user.role == 'teacher':
+        if requester.role == "student" and contact_user.role == "teacher":
             if subject_id:
                 # Verify student is enrolled with this teacher for this subject
                 enrollment = SubjectEnrollment.objects.filter(
                     student=requester,
                     teacher=contact_user,
                     subject_id=subject_id,
-                    is_active=True
+                    is_active=True,
                 ).first()
 
                 if enrollment:
-                    return True, 'FORUM_SUBJECT', enrollment
+                    return True, "FORUM_SUBJECT", enrollment
 
             # No subject_id or not enrolled
             logger.warning(
@@ -271,7 +294,7 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check teacher-student relationship (reverse)
-        if requester.role == 'teacher' and contact_user.role == 'student':
+        if requester.role == "teacher" and contact_user.role == "student":
             enrollment = None
 
             # If subject_id provided, search for enrollment with specific subject
@@ -280,7 +303,7 @@ class CanInitiateChat(permissions.BasePermission):
                     student=contact_user,
                     teacher=requester,
                     subject_id=subject_id,
-                    is_active=True
+                    is_active=True,
                 ).first()
 
                 if enrollment:
@@ -288,14 +311,12 @@ class CanInitiateChat(permissions.BasePermission):
                         f"[CanInitiateChat] Teacher {requester.id} can chat with student {contact_user.id} "
                         f"via subject_id={subject_id}"
                     )
-                    return True, 'FORUM_SUBJECT', enrollment
+                    return True, "FORUM_SUBJECT", enrollment
 
             # Fallback: if subject_id not provided or no enrollment found, search ANY active enrollment
             if not enrollment:
                 enrollment = SubjectEnrollment.objects.filter(
-                    student=contact_user,
-                    teacher=requester,
-                    is_active=True
+                    student=contact_user, teacher=requester, is_active=True
                 ).first()
 
                 if enrollment:
@@ -303,7 +324,7 @@ class CanInitiateChat(permissions.BasePermission):
                         f"[CanInitiateChat] Teacher {requester.id} can chat with student {contact_user.id} "
                         f"via fallback enrollment search (subject_id={enrollment.subject_id})"
                     )
-                    return True, 'FORUM_SUBJECT', enrollment
+                    return True, "FORUM_SUBJECT", enrollment
 
             logger.warning(
                 f"[CanInitiateChat] Teacher {requester.id} not assigned to student {contact_user.id} "
@@ -312,7 +333,7 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check student-tutor relationship
-        if requester.role == 'student' and contact_user.role == 'tutor':
+        if requester.role == "student" and contact_user.role == "tutor":
             # Check TWO ways a tutor can be linked to a student:
             # 1. Via StudentProfile.tutor (direct assignment)
             # 2. Via User.created_by_tutor (tutor who created the student)
@@ -332,21 +353,18 @@ class CanInitiateChat(permissions.BasePermission):
             if is_tutor_linked:
                 # Get any enrollment for this student (for FORUM_TUTOR type)
                 # Use subject_id if provided, otherwise get first enrollment
-                enrollment = SubjectEnrollment.objects.filter(
-                    student=requester
-                ).first()
+                enrollment = SubjectEnrollment.objects.filter(student=requester).first()
 
                 if subject_id:
                     # Prefer enrollment with specified subject
                     specific_enrollment = SubjectEnrollment.objects.filter(
-                        student=requester,
-                        subject_id=subject_id
+                        student=requester, subject_id=subject_id
                     ).first()
                     if specific_enrollment:
                         enrollment = specific_enrollment
 
                 if enrollment:
-                    return True, 'FORUM_TUTOR', enrollment
+                    return True, "FORUM_TUTOR", enrollment
 
             logger.warning(
                 f"Student {requester.id} does not have tutor {contact_user.id}"
@@ -354,7 +372,7 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check tutor-student relationship (reverse)
-        if requester.role == 'tutor' and contact_user.role == 'student':
+        if requester.role == "tutor" and contact_user.role == "student":
             # Check TWO ways a tutor can be linked to a student:
             # 1. Via StudentProfile.tutor (direct assignment)
             # 2. Via User.created_by_tutor (tutor who created the student)
@@ -378,14 +396,13 @@ class CanInitiateChat(permissions.BasePermission):
 
                 if subject_id:
                     specific_enrollment = SubjectEnrollment.objects.filter(
-                        student=contact_user,
-                        subject_id=subject_id
+                        student=contact_user, subject_id=subject_id
                     ).first()
                     if specific_enrollment:
                         enrollment = specific_enrollment
 
                 if enrollment:
-                    return True, 'FORUM_TUTOR', enrollment
+                    return True, "FORUM_TUTOR", enrollment
 
             logger.warning(
                 f"Tutor {requester.id} not assigned to student {contact_user.id}"
@@ -394,18 +411,19 @@ class CanInitiateChat(permissions.BasePermission):
 
         # Check tutor-teacher relationship
         # Tutor can chat with teachers of their assigned students
-        if requester.role == 'tutor' and contact_user.role == 'teacher':
+        if requester.role == "tutor" and contact_user.role == "teacher":
             # Find if teacher teaches any of tutor's students
             # Check both StudentProfile.tutor and User.created_by_tutor
             from django.db.models import Q
+
             enrollment = None
 
             # Try primary query with Q objects
             enrollment = SubjectEnrollment.objects.filter(
-                Q(student__student_profile__tutor=requester) |
-                Q(student__created_by_tutor=requester),
+                Q(student__student_profile__tutor=requester)
+                | Q(student__created_by_tutor=requester),
                 teacher=contact_user,
-                is_active=True
+                is_active=True,
             ).first()
 
             # Fallback: if subject_id not provided, search ANY active enrollment
@@ -413,18 +431,17 @@ class CanInitiateChat(permissions.BasePermission):
             if not enrollment:
                 # Get all students assigned to this tutor
                 tutor_students = list(
-                    StudentProfile.objects.filter(
-                        tutor=requester
-                    ).values_list('user_id', flat=True)
+                    StudentProfile.objects.filter(tutor=requester).values_list(
+                        "user_id", flat=True
+                    )
                 )
 
                 # Also get students created by this tutor
                 if not tutor_students:
                     created_student_ids = list(
                         User.objects.filter(
-                            created_by_tutor=requester,
-                            role='student'
-                        ).values_list('id', flat=True)
+                            created_by_tutor=requester, role="student"
+                        ).values_list("id", flat=True)
                     )
                     tutor_students.extend(created_student_ids)
 
@@ -433,12 +450,12 @@ class CanInitiateChat(permissions.BasePermission):
                     enrollment = SubjectEnrollment.objects.filter(
                         student_id__in=tutor_students,
                         teacher=contact_user,
-                        is_active=True
+                        is_active=True,
                     ).first()
 
             if enrollment:
                 # Return FORUM_TUTOR type (tutor chatting about their student)
-                return True, 'FORUM_TUTOR', enrollment
+                return True, "FORUM_TUTOR", enrollment
 
             logger.warning(
                 f"Tutor {requester.id} - Teacher {contact_user.id} "
@@ -448,18 +465,19 @@ class CanInitiateChat(permissions.BasePermission):
 
         # Check teacher-tutor relationship (reverse)
         # Teacher can chat with tutor of their students
-        if requester.role == 'teacher' and contact_user.role == 'tutor':
+        if requester.role == "teacher" and contact_user.role == "tutor":
             # Find if tutor supervises any of teacher's students
             # Check both StudentProfile.tutor and User.created_by_tutor
             from django.db.models import Q
+
             enrollment = None
 
             # Try primary query with Q objects
             enrollment = SubjectEnrollment.objects.filter(
-                Q(student__student_profile__tutor=contact_user) |
-                Q(student__created_by_tutor=contact_user),
+                Q(student__student_profile__tutor=contact_user)
+                | Q(student__created_by_tutor=contact_user),
                 teacher=requester,
-                is_active=True
+                is_active=True,
             ).first()
 
             # Fallback: if subject_id not provided, search ANY active enrollment
@@ -467,31 +485,28 @@ class CanInitiateChat(permissions.BasePermission):
             if not enrollment:
                 # Get all students assigned to this tutor
                 tutor_students = list(
-                    StudentProfile.objects.filter(
-                        tutor=contact_user
-                    ).values_list('user_id', flat=True)
+                    StudentProfile.objects.filter(tutor=contact_user).values_list(
+                        "user_id", flat=True
+                    )
                 )
 
                 # Also get students created by this tutor
                 if not tutor_students:
                     created_student_ids = list(
                         User.objects.filter(
-                            created_by_tutor=contact_user,
-                            role='student'
-                        ).values_list('id', flat=True)
+                            created_by_tutor=contact_user, role="student"
+                        ).values_list("id", flat=True)
                     )
                     tutor_students.extend(created_student_ids)
 
                 # Find first active enrollment where teacher teaches any of these students
                 if tutor_students:
                     enrollment = SubjectEnrollment.objects.filter(
-                        student_id__in=tutor_students,
-                        teacher=requester,
-                        is_active=True
+                        student_id__in=tutor_students, teacher=requester, is_active=True
                     ).first()
 
             if enrollment:
-                return True, 'FORUM_TUTOR', enrollment
+                return True, "FORUM_TUTOR", enrollment
 
             logger.warning(
                 f"Teacher {requester.id} - Tutor {contact_user.id} "
@@ -501,17 +516,17 @@ class CanInitiateChat(permissions.BasePermission):
 
         # Check parent-teacher relationship
         # Parent can chat with teachers of their child
-        if requester.role == 'parent' and contact_user.role == 'teacher':
+        if requester.role == "parent" and contact_user.role == "teacher":
             # Find if teacher teaches parent's child
             enrollment = SubjectEnrollment.objects.filter(
                 student__student_profile__parent=requester,
                 teacher=contact_user,
-                is_active=True
+                is_active=True,
             ).first()
 
             if enrollment:
                 # Use FORUM_SUBJECT type (parent observing child-teacher chat)
-                return True, 'FORUM_SUBJECT', enrollment
+                return True, "FORUM_SUBJECT", enrollment
 
             logger.warning(
                 f"Parent {requester.id} - Teacher {contact_user.id} "
@@ -520,15 +535,15 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check teacher-parent relationship (reverse)
-        if requester.role == 'teacher' and contact_user.role == 'parent':
+        if requester.role == "teacher" and contact_user.role == "parent":
             enrollment = SubjectEnrollment.objects.filter(
                 student__student_profile__parent=contact_user,
                 teacher=requester,
-                is_active=True
+                is_active=True,
             ).first()
 
             if enrollment:
-                return True, 'FORUM_SUBJECT', enrollment
+                return True, "FORUM_SUBJECT", enrollment
 
             logger.warning(
                 f"Teacher {requester.id} - Parent {contact_user.id} "
@@ -538,15 +553,16 @@ class CanInitiateChat(permissions.BasePermission):
 
         # Check parent-tutor relationship
         # Parent can chat with tutor of their child
-        if requester.role == 'parent' and contact_user.role == 'tutor':
+        if requester.role == "parent" and contact_user.role == "tutor":
             # Find if tutor supervises parent's child
             # Check both StudentProfile.tutor and User.created_by_tutor
             from django.db.models import Q
-            student_profile = StudentProfile.objects.filter(
-                parent=requester
-            ).filter(
-                Q(tutor=contact_user) | Q(user__created_by_tutor=contact_user)
-            ).first()
+
+            student_profile = (
+                StudentProfile.objects.filter(parent=requester)
+                .filter(Q(tutor=contact_user) | Q(user__created_by_tutor=contact_user))
+                .first()
+            )
 
             if student_profile:
                 # Get an enrollment for this student
@@ -555,7 +571,7 @@ class CanInitiateChat(permissions.BasePermission):
                 ).first()
 
                 if enrollment:
-                    return True, 'FORUM_TUTOR', enrollment
+                    return True, "FORUM_TUTOR", enrollment
 
             logger.warning(
                 f"Parent {requester.id} - Tutor {contact_user.id} "
@@ -564,14 +580,15 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check tutor-parent relationship (reverse)
-        if requester.role == 'tutor' and contact_user.role == 'parent':
+        if requester.role == "tutor" and contact_user.role == "parent":
             # Check both StudentProfile.tutor and User.created_by_tutor
             from django.db.models import Q
-            student_profile = StudentProfile.objects.filter(
-                parent=contact_user
-            ).filter(
-                Q(tutor=requester) | Q(user__created_by_tutor=requester)
-            ).first()
+
+            student_profile = (
+                StudentProfile.objects.filter(parent=contact_user)
+                .filter(Q(tutor=requester) | Q(user__created_by_tutor=requester))
+                .first()
+            )
 
             if student_profile:
                 enrollment = SubjectEnrollment.objects.filter(
@@ -579,7 +596,7 @@ class CanInitiateChat(permissions.BasePermission):
                 ).first()
 
                 if enrollment:
-                    return True, 'FORUM_TUTOR', enrollment
+                    return True, "FORUM_TUTOR", enrollment
 
             logger.warning(
                 f"Tutor {requester.id} - Parent {contact_user.id} "
@@ -662,7 +679,7 @@ class CanModerateChat(permissions.BasePermission):
             return True
 
         # Get room from object (obj can be Message or ChatParticipant)
-        room = getattr(obj, 'room', None)
+        room = getattr(obj, "room", None)
         if not room:
             logger.warning(
                 f"CanModerateChat: Object {type(obj).__name__} has no room attribute"
@@ -681,12 +698,13 @@ class CanModerateChat(permissions.BasePermission):
             return False
 
         # Teachers can moderate their chats
-        if user.role == 'teacher':
+        if user.role == "teacher":
             return True
 
         # Tutors can moderate FORUM_TUTOR chats
         from chat.models import ChatRoom
-        if user.role == 'tutor' and room.type == ChatRoom.Type.FORUM_TUTOR:
+
+        if user.role == "tutor" and room.type == ChatRoom.Type.FORUM_TUTOR:
             return True
 
         logger.warning(

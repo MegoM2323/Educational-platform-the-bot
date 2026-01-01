@@ -44,10 +44,10 @@ class Lesson(models.Model):
     """
 
     STATUS_CHOICES = [
-        ('pending', 'Pending confirmation'),
-        ('confirmed', 'Confirmed'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
+        ("pending", "Pending confirmation"),
+        ("confirmed", "Confirmed"),
+        ("completed", "Completed"),
+        ("cancelled", "Cancelled"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -55,46 +55,38 @@ class Lesson(models.Model):
     teacher = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='taught_lessons',
-        limit_choices_to={'role': 'teacher'},
-        verbose_name='Teacher'
+        related_name="taught_lessons",
+        limit_choices_to={"role": "teacher"},
+        verbose_name="Teacher",
     )
 
     student = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='student_lessons',
-        limit_choices_to={'role': 'student'},
-        verbose_name='Student'
+        related_name="student_lessons",
+        limit_choices_to={"role": "student"},
+        verbose_name="Student",
     )
 
     subject = models.ForeignKey(
-        'materials.Subject',
+        "materials.Subject",
         on_delete=models.CASCADE,
-        related_name='lessons',
-        verbose_name='Subject'
+        related_name="lessons",
+        verbose_name="Subject",
     )
 
-    date = models.DateField(verbose_name='Lesson date')
-    start_time = models.TimeField(verbose_name='Start time')
-    end_time = models.TimeField(verbose_name='End time')
+    date = models.DateField(verbose_name="Lesson date")
+    start_time = models.TimeField(verbose_name="Start time")
+    end_time = models.TimeField(verbose_name="End time")
 
-    description = models.TextField(
-        blank=True,
-        verbose_name='Lesson description'
-    )
+    description = models.TextField(blank=True, verbose_name="Lesson description")
 
     telemost_link = models.URLField(
-        blank=True,
-        max_length=500,
-        verbose_name='Yandex Telemost link'
+        blank=True, max_length=500, verbose_name="Yandex Telemost link"
     )
 
     status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='pending',
-        verbose_name='Status'
+        max_length=20, choices=STATUS_CHOICES, default="pending", verbose_name="Status"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -104,15 +96,15 @@ class Lesson(models.Model):
     objects = LessonManager()
 
     class Meta:
-        verbose_name = 'Lesson'
-        verbose_name_plural = 'Lessons'
-        ordering = ['date', 'start_time']
+        verbose_name = "Lesson"
+        verbose_name_plural = "Lessons"
+        ordering = ["date", "start_time"]
         indexes = [
-            models.Index(fields=['teacher', 'date']),
-            models.Index(fields=['student', 'date']),
-            models.Index(fields=['subject', 'date']),
-            models.Index(fields=['status']),
-            models.Index(fields=['teacher', 'student', 'status']),
+            models.Index(fields=["teacher", "date"]),
+            models.Index(fields=["student", "date"]),
+            models.Index(fields=["subject", "date"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["teacher", "student", "status"]),
         ]
 
     def __str__(self):
@@ -124,7 +116,9 @@ class Lesson(models.Model):
     @property
     def datetime_start(self):
         """Full datetime of lesson start."""
-        dt = timezone.datetime.combine(self.date, self.start_time)
+        import datetime
+
+        dt = datetime.datetime.combine(self.date, self.start_time)
         if timezone.is_aware(dt):
             return dt
         try:
@@ -136,7 +130,9 @@ class Lesson(models.Model):
     @property
     def datetime_end(self):
         """Full datetime of lesson end."""
-        dt = timezone.datetime.combine(self.date, self.end_time)
+        import datetime
+
+        dt = datetime.datetime.combine(self.date, self.end_time)
         if timezone.is_aware(dt):
             return dt
         try:
@@ -153,7 +149,7 @@ class Lesson(models.Model):
     @property
     def can_cancel(self):
         """Check if lesson can be cancelled (at least 2 hours before start)."""
-        if self.status in ['cancelled', 'completed']:
+        if self.status in ["cancelled", "completed"]:
             return False
         time_until_lesson = self.datetime_start - timezone.now()
         return time_until_lesson > timedelta(hours=2)
@@ -163,11 +159,22 @@ class Lesson(models.Model):
         # Validate time range
         if self.start_time and self.end_time:
             if self.start_time >= self.end_time:
-                raise ValidationError('Start time must be before end time')
+                raise ValidationError("Start time must be before end time")
 
         # Validate date not in past
-        if self.date and self.date < timezone.now().date():
-            raise ValidationError('Cannot create lesson in the past')
+        now = timezone.now()
+        if self.date:
+            if self.date < now.date():
+                raise ValidationError("Cannot create lesson in the past")
+            # Validate start_time for today's date
+            if (
+                self.date == now.date()
+                and self.start_time
+                and self.start_time < now.time()
+            ):
+                raise ValidationError(
+                    "Cannot create lesson with start time in the past for today"
+                )
 
         # Validate teacher teaches subject to student (via SubjectEnrollment)
         if self.teacher and self.student and self.subject:
@@ -175,17 +182,17 @@ class Lesson(models.Model):
 
             try:
                 enrollment = SubjectEnrollment.objects.select_related(
-                    'teacher', 'student', 'subject'
+                    "teacher", "student", "subject"
                 ).get(
                     student=self.student,
                     teacher=self.teacher,
                     subject=self.subject,
-                    is_active=True
+                    is_active=True,
                 )
             except SubjectEnrollment.DoesNotExist:
                 raise ValidationError(
-                    f'Teacher {self.teacher.get_full_name()} does not teach '
-                    f'{self.subject.name} to student {self.student.get_full_name()}'
+                    f"Teacher {self.teacher.get_full_name()} does not teach "
+                    f"{self.subject.name} to student {self.student.get_full_name()}"
                 )
 
     def save(self, *args, **kwargs):
@@ -211,57 +218,41 @@ class LessonHistory(models.Model):
     """
 
     ACTION_CHOICES = [
-        ('created', 'Created'),
-        ('updated', 'Updated'),
-        ('cancelled', 'Cancelled'),
-        ('completed', 'Completed'),
+        ("created", "Created"),
+        ("updated", "Updated"),
+        ("cancelled", "Cancelled"),
+        ("completed", "Completed"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     lesson = models.ForeignKey(
-        Lesson,
-        on_delete=models.CASCADE,
-        related_name='history',
-        verbose_name='Lesson'
+        Lesson, on_delete=models.CASCADE, related_name="history", verbose_name="Lesson"
     )
 
     action = models.CharField(
-        max_length=20,
-        choices=ACTION_CHOICES,
-        verbose_name='Action'
+        max_length=20, choices=ACTION_CHOICES, verbose_name="Action"
     )
 
     performed_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        verbose_name='Performed by'
+        User, on_delete=models.SET_NULL, null=True, verbose_name="Performed by"
     )
 
-    timestamp = models.DateTimeField(auto_now_add=True, verbose_name='Timestamp')
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Timestamp")
 
-    old_values = models.JSONField(
-        null=True,
-        blank=True,
-        verbose_name='Old values'
-    )
+    old_values = models.JSONField(null=True, blank=True, verbose_name="Old values")
 
-    new_values = models.JSONField(
-        null=True,
-        blank=True,
-        verbose_name='New values'
-    )
+    new_values = models.JSONField(null=True, blank=True, verbose_name="New values")
 
     class Meta:
-        verbose_name = 'Lesson history'
-        verbose_name_plural = 'Lesson histories'
-        ordering = ['-timestamp']
+        verbose_name = "Lesson history"
+        verbose_name_plural = "Lesson histories"
+        ordering = ["-timestamp"]
         indexes = [
-            models.Index(fields=['lesson', '-timestamp']),
+            models.Index(fields=["lesson", "-timestamp"]),
         ]
 
     def __str__(self):
         # Обрабатываем случай когда performed_by может быть None
-        performer = self.performed_by.get_full_name() if self.performed_by else 'System'
+        performer = self.performed_by.get_full_name() if self.performed_by else "System"
         return f"{self.lesson} - {self.get_action_display()} by {performer} - {self.timestamp}"

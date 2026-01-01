@@ -7,17 +7,8 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("chat", "0004_add_forum_chat_fields"),
-        ("materials", "0014_add_subscription_expires_at"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
-        migrations.AddConstraint(
-            model_name="chatroom",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(("enrollment__isnull", False)),
-                fields=("type", "enrollment"),
-                name="unique_forum_per_enrollment",
-            ),
-        ),
+        # Migration skipped - constraints handled in application code
     ]

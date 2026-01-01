@@ -81,7 +81,7 @@ export const staffService = {
   },
 
   async updateTeacherSubjects(teacherId: number, subjectIds: number[]): Promise<void> {
-    const res = await apiClient.request(`/staff/teachers/${teacherId}/subjects/`, {
+    const res = await apiClient.request(`/auth/staff/teachers/${teacherId}/subjects/`, {
       method: 'PATCH',
       body: JSON.stringify({ subject_ids: subjectIds }),
     });

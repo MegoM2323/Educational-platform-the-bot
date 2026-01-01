@@ -28,7 +28,7 @@ export const useStudentSchedule = (filters?: LessonFilters) => {
   const lessonsBySubject = useMemo(() => {
     const grouped = new Map<string, Lesson[]>();
     (query.data || []).forEach(lesson => {
-      const key = lesson.subject_name || lesson.subject;
+      const key = lesson.subject_name || lesson.subject || 'unknown';
       if (!grouped.has(key)) {
         grouped.set(key, []);
       }

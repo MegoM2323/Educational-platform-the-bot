@@ -641,6 +641,14 @@ class UnifiedAPIClient {
     const timerId = performanceMonitoringService.startTimer(endpoint);
 
     try {
+      logger.debug('[API Request] Sending request:', {
+        url,
+        method: options.method || 'GET',
+        hasBody: !!options.body,
+        hasToken: !!this.token,
+        hasSignal: !!options.signal
+      });
+
       const response = await fetch(url, {
         ...options,
         headers,
@@ -648,6 +656,12 @@ class UnifiedAPIClient {
       });
 
       const duration = performanceMonitoringService.endTimer(timerId);
+      logger.debug('[API Request] Response received:', {
+        url,
+        status: response.status,
+        ok: response.ok,
+        duration: `${duration}ms`
+      });
 
       const result = await safeJsonParse(response);
       
@@ -838,19 +852,44 @@ class UnifiedAPIClient {
       const duration = performanceMonitoringService.endTimer(timerId);
       const apiError = this.classifyError(error);
 
+      // Улучшенная обработка ошибок сети и timeout
+      const isAbortError = (error as any)?.name === 'AbortError';
+      const isNetworkError = apiError.type === 'network' || 
+                            (error as any)?.message?.includes('Failed to fetch') ||
+                            (error as any)?.message?.includes('NetworkError') ||
+                            (error as any)?.message?.includes('Network request failed');
+
+      logger.error('[API Request] Request failed:', {
+        url,
+        endpoint,
+        errorType: apiError.type,
+        isAbortError,
+        isNetworkError,
+        errorMessage: (error as any)?.message || apiError.message,
+        duration: `${duration}ms`
+      });
+
       // Record failed API call
       performanceMonitoringService.recordAPICall(
         endpoint,
         duration,
-        apiError.type === 'network' ? 'error' : 'timeout'
+        isAbortError ? 'timeout' : (apiError.type === 'network' ? 'error' : 'error')
       );
       
-      // Retry logic for network errors
-      if (apiError.type === 'network' && retryCount < this.retryConfig.maxRetries) {
+      // Retry logic for network errors (но не для AbortError - это timeout)
+      if (isNetworkError && !isAbortError && retryCount < this.retryConfig.maxRetries) {
         const delay = this.calculateDelay(retryCount + 1);
+        logger.debug(`[API Request] Retrying after ${delay}ms (attempt ${retryCount + 1}/${this.retryConfig.maxRetries})`);
         await this.sleep(delay);
         return this.request<T>(endpoint, options, retryCount + 1);
       }
+
+      // Для timeout или после всех попыток - возвращаем ошибку
+      const errorMessage = isAbortError 
+        ? 'Истекло время ожидания. Проверьте интернет-соединение'
+        : isNetworkError
+        ? 'Ошибка сети. Проверьте подключение к интернету'
+        : apiError.message || 'Произошла ошибка при выполнении запроса';
 
       return {
         success: false,
@@ -921,13 +960,20 @@ class UnifiedAPIClient {
 
   // Authentication Methods
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    logger.debug('[UnifiedClient.login] Sending login request...');
+    logger.debug('[UnifiedClient.login] Sending login request...', {
+      email: credentials.email || credentials.username,
+      baseURL: this.baseURL
+    });
 
     // Создаем AbortController для timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд timeout
+    const timeoutId = setTimeout(() => {
+      logger.warn('[UnifiedClient.login] Request timeout, aborting...');
+      controller.abort();
+    }, 15000); // 15 секунд timeout (увеличено для медленных соединений)
 
     try {
+      // Используем правильный endpoint: /auth/login/
       const response = await this.request<LoginResponse>('/auth/login/', {
         method: 'POST',
         body: JSON.stringify(credentials),
@@ -984,7 +1030,7 @@ class UnifiedAPIClient {
   }
 
   async logout(): Promise<ApiResponse> {
-    const response = await this.request('/auth/logout/', {
+    const response = await this.request('/accounts/logout/', {
       method: 'POST',
     });
 

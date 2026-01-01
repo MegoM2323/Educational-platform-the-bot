@@ -9,7 +9,6 @@ import uuid
 class Migration(migrations.Migration):
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("materials", "0014_add_subscription_expires_at"),
         ("scheduling", "0001_initial"),
     ]
 

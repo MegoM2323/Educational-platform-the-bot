@@ -22,7 +22,7 @@ export const useTeacherSchedule = (dateFrom?: string, dateTo?: string) => {
         throw error;
       }
     },
-    enabled: !!dateFrom && !!dateTo,
+    enabled: dateFrom !== undefined && dateTo !== undefined,
     staleTime: 30000, // 30 seconds
   });
 

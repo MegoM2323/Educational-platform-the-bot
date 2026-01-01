@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# THE BOT Platform - Development Server Startup Script
-# Starts both backend (Django) and frontend (React) servers for local development
+# THE BOT Platform - Docker Development Server Startup Script
+# Starts both backend (Django) and frontend (React) servers via Docker Compose
 
 set -e
 
@@ -14,107 +14,115 @@ NC='\033[0m' # No Color
 
 # Get project root directory
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$PROJECT_ROOT/backend"
-FRONTEND_DIR="$PROJECT_ROOT/frontend"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 
-echo -e "${BLUE}THE BOT Platform - Starting Development Servers${NC}"
+echo -e "${BLUE}THE BOT Platform - Starting Development Servers (Docker)${NC}"
 echo ""
 
-# Check if virtual environment exists
-if [ ! -d "$PROJECT_ROOT/.venv" ]; then
-    echo -e "${YELLOW}Virtual environment not found. Creating...${NC}"
-    cd "$PROJECT_ROOT"
-    python -m venv .venv
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}Error: Docker is not installed${NC}"
+    echo "Please install Docker: https://docs.docker.com/get-docker/"
+    exit 1
 fi
 
-# Unset proxy variables to avoid routing localhost through external proxy
-unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
-export NO_PROXY="*"
-
-# Activate virtual environment
-echo -e "${BLUE}Activating virtual environment...${NC}"
-source "$PROJECT_ROOT/.venv/bin/activate"
-
-# Install/update dependencies
-echo -e "${BLUE}Checking backend dependencies...${NC}"
-cd "$BACKEND_DIR"
-pip install -q --upgrade pip
-pip install -q -r requirements.txt
-
-echo -e "${BLUE}Checking frontend dependencies...${NC}"
-cd "$FRONTEND_DIR"
-npm ci --legacy-peer-deps --silent > /dev/null 2>&1 || npm install --legacy-peer-deps --silent > /dev/null 2>&1
-
-# Kill any existing processes on the ports
-echo -e "${BLUE}Cleaning up old processes...${NC}"
-lsof -ti :8000 | xargs kill -9 2>/dev/null || true
-lsof -ti :8080 | xargs kill -9 2>/dev/null || true
-sleep 1
-
-# Start backend server
-echo -e "${GREEN}Starting Django backend server (port 8000)...${NC}"
-cd "$BACKEND_DIR"
-python manage.py migrate --noinput > /dev/null 2>&1 || true
-daphne -b 0.0.0.0 -p 8000 config.asgi:application > "$PROJECT_ROOT/backend.log" 2>&1 &
-BACKEND_PID=$!
-echo -e "${GREEN}Backend started (PID: $BACKEND_PID)${NC}"
-
-# Wait for backend to be ready
-echo -e "${BLUE}Waiting for backend to be ready...${NC}"
-TIMEOUT=30
-ELAPSED=0
-while [ $ELAPSED -lt $TIMEOUT ]; do
-    if NO_PROXY=* curl -s http://localhost:8000/api/ > /dev/null 2>&1; then
-        echo -e "${GREEN}Backend is ready${NC}"
-        break
-    fi
-    sleep 1
-    ELAPSED=$((ELAPSED + 1))
-done
-
-if [ $ELAPSED -eq $TIMEOUT ]; then
-    echo -e "${YELLOW}Backend startup may be slow, continuing...${NC}"
+# Check if Docker Compose is installed
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    echo -e "${RED}Error: Docker Compose is not installed${NC}"
+    echo "Please install Docker Compose: https://docs.docker.com/compose/install/"
+    exit 1
 fi
 
-# Start frontend server
-echo -e "${GREEN}Starting React frontend server (port 8080)...${NC}"
-cd "$FRONTEND_DIR"
-npm run dev > "$PROJECT_ROOT/frontend.log" 2>&1 &
-FRONTEND_PID=$!
-echo -e "${GREEN}Frontend started (PID: $FRONTEND_PID)${NC}"
+# Use 'docker compose' (v2) if available, otherwise 'docker-compose' (v1)
+if docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    DOCKER_COMPOSE="docker-compose"
+fi
 
-# Wait for frontend to be ready
-echo -e "${BLUE}Waiting for frontend to be ready...${NC}"
+# Check if docker-compose.yml exists
+if [ ! -f "$COMPOSE_FILE" ]; then
+    echo -e "${RED}Error: docker-compose.yml not found at $COMPOSE_FILE${NC}"
+    exit 1
+fi
+
+# Stop and remove existing containers
+echo -e "${BLUE}Cleaning up existing containers...${NC}"
+cd "$PROJECT_ROOT"
+$DOCKER_COMPOSE down 2>/dev/null || true
+
+# Build images (if needed)
+echo -e "${BLUE}Building Docker images...${NC}"
+$DOCKER_COMPOSE build --no-cache
+
+# Start services
+echo -e "${GREEN}Starting services...${NC}"
+$DOCKER_COMPOSE up -d
+
+# Wait for services to be ready
+echo -e "${BLUE}Waiting for services to be ready...${NC}"
+
+# Wait for backend
 TIMEOUT=60
 ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
-    if curl -s http://localhost:8080 > /dev/null 2>&1; then
+    if curl -s http://localhost:8000/api/ > /dev/null 2>&1; then
+        echo -e "${GREEN}Backend is ready${NC}"
+        break
+    fi
+    sleep 2
+    ELAPSED=$((ELAPSED + 2))
+    echo -n "."
+done
+echo ""
+
+if [ $ELAPSED -ge $TIMEOUT ]; then
+    echo -e "${YELLOW}Backend startup timeout, checking logs...${NC}"
+    $DOCKER_COMPOSE logs backend | tail -20
+fi
+
+# Wait for frontend (if port 3000 is used, adjust if needed)
+FRONTEND_PORT=${FRONTEND_PORT:-3000}
+TIMEOUT=60
+ELAPSED=0
+while [ $ELAPSED -lt $TIMEOUT ]; do
+    if curl -s http://localhost:$FRONTEND_PORT > /dev/null 2>&1; then
         echo -e "${GREEN}Frontend is ready${NC}"
         break
     fi
-    sleep 1
-    ELAPSED=$((ELAPSED + 1))
+    sleep 2
+    ELAPSED=$((ELAPSED + 2))
+    echo -n "."
 done
+echo ""
 
+if [ $ELAPSED -ge $TIMEOUT ]; then
+    echo -e "${YELLOW}Frontend startup timeout, checking logs...${NC}"
+    $DOCKER_COMPOSE logs frontend | tail -20
+fi
+
+# Show status
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}✓ All servers started successfully!${NC}"
+echo -e "${GREEN}✓ All services started successfully!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "${BLUE}Available at:${NC}"
 echo -e "  Backend API: ${YELLOW}http://localhost:8000/api${NC}"
 echo -e "  Admin Panel: ${YELLOW}http://localhost:8000/admin${NC}"
-echo -e "  Frontend:    ${YELLOW}http://localhost:8080${NC}"
+echo -e "  Frontend:    ${YELLOW}http://localhost:$FRONTEND_PORT${NC}"
 echo ""
 echo -e "${BLUE}WebSocket:${NC}"
 echo -e "  ws://localhost:8000/ws${NC}"
 echo ""
-echo -e "${BLUE}Log files:${NC}"
-echo -e "  Backend:  $PROJECT_ROOT/backend.log"
-echo -e "  Frontend: $PROJECT_ROOT/frontend.log"
+echo -e "${BLUE}Useful commands:${NC}"
+echo -e "  View logs:     ${YELLOW}$DOCKER_COMPOSE logs -f${NC}"
+echo -e "  Stop services: ${YELLOW}$DOCKER_COMPOSE down${NC}"
+echo -e "  Restart:       ${YELLOW}$DOCKER_COMPOSE restart${NC}"
 echo ""
-echo -e "${YELLOW}Press Ctrl+C to stop all servers${NC}"
+echo -e "${YELLOW}Press Ctrl+C to view logs (services will continue running)${NC}"
+echo -e "${YELLOW}To stop all services, run: $DOCKER_COMPOSE down${NC}"
 echo ""
 
-# Wait for interrupt
-wait $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+# Show logs
+$DOCKER_COMPOSE logs -f

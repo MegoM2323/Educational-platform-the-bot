@@ -133,6 +133,14 @@ services:
       redis:
         condition: service_healthy
 
+    # Health check to monitor backend readiness
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/system/health/live/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
     restart: unless-stopped
     networks:
       - thebot-network
@@ -149,11 +157,11 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
           cpus: '2'
           memory: 1G
-        reservations:
-          cpus: '1'
-          memory: 512M
 
   # Frontend React/Vite Service
   frontend:

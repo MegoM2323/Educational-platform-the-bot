@@ -1023,12 +1023,14 @@ if not DEBUG:
                 f"Production CORS must only allow production frontend URL."
             )
 
-    # 7. Проверка OpenRouter API key - критично для генерации планов обучения
+    # 7. Проверка OpenRouter API key - предупреждение (не критично для основного функционала)
     if not OPENROUTER_API_KEY:
-        raise ImproperlyConfigured(
-            "OPENROUTER_API_KEY is required in production mode.\n"
-            "Get your API key from https://openrouter.ai/keys\n"
-            "Set OPENROUTER_API_KEY in .env file"
+        import warnings
+        warnings.warn(
+            "OPENROUTER_API_KEY is not set in production mode. "
+            "Study plan generation will be unavailable. "
+            "Get your API key from https://openrouter.ai/keys",
+            UserWarning
         )
 
     # 8. Информационное сообщение о режиме

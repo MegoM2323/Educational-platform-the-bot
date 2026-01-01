@@ -3,7 +3,14 @@ import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { useTutorProfile } from '@/hooks/useTutorProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,7 +32,6 @@ export const TutorProfilePage = () => {
     last_name: '',
     phone: '',
     specialization: '',
-    telegram: '',
   });
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -41,7 +47,6 @@ export const TutorProfilePage = () => {
         last_name: profile.user?.last_name || '',
         phone: profile.user?.phone || '',
         specialization: profile.profile?.specialization || '',
-        telegram: profile.profile?.telegram || '',
       });
       setCharCount(profile.profile?.specialization?.length || 0);
     }
@@ -104,7 +109,6 @@ export const TutorProfilePage = () => {
     data.append('last_name', formData.last_name);
     data.append('phone', formData.phone);
     data.append('specialization', formData.specialization);
-    data.append('telegram', formData.telegram);
 
     if (avatarFile) {
       data.append('avatar', avatarFile);
@@ -139,7 +143,8 @@ export const TutorProfilePage = () => {
     <div className="min-h-screen bg-[hsl(240,20%,99%)] py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex items-center gap-4">
-          <Button type="button"
+          <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => navigate(-1)}
@@ -152,9 +157,7 @@ export const TutorProfilePage = () => {
 
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-[hsl(240,10%,15%)] mb-2">Мой профиль</h1>
-          <p className="text-[hsl(240,5%,45%)]">
-            Здесь вы можете редактировать информацию о себе
-          </p>
+          <p className="text-[hsl(240,5%,45%)]">Здесь вы можете редактировать информацию о себе</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -164,11 +167,15 @@ export const TutorProfilePage = () => {
                 <Card className="shadow-md">
                   <CardContent className="p-6 flex flex-col items-center gap-4">
                     <Avatar className="w-48 h-48 shadow-lg border-4 border-[hsl(0,0%,96%)]">
-                      <AvatarImage src={currentAvatar} alt={`${formData.first_name} ${formData.last_name}`} />
+                      <AvatarImage
+                        src={currentAvatar}
+                        alt={`${formData.first_name} ${formData.last_name}`}
+                      />
                       <AvatarFallback
                         className="text-6xl font-bold text-white"
                         style={{
-                          background: 'linear-gradient(135deg, hsl(220, 70%, 55%), hsl(240, 75%, 65%))',
+                          background:
+                            'linear-gradient(135deg, hsl(220, 70%, 55%), hsl(240, 75%, 65%))',
                         }}
                       >
                         {initials}
@@ -201,7 +208,8 @@ export const TutorProfilePage = () => {
                       </label>
 
                       {avatarPreview && (
-                        <Button type="button"
+                        <Button
+                          type="button"
                           variant="outline"
                           size="sm"
                           className="w-full mt-2"
@@ -221,9 +229,7 @@ export const TutorProfilePage = () => {
               <Card className="shadow-md">
                 <CardHeader>
                   <CardTitle className="text-2xl">Профиль тьютора</CardTitle>
-                  <CardDescription>
-                    Обновите вашу персональную информацию
-                  </CardDescription>
+                  <CardDescription>Обновите вашу персональную информацию</CardDescription>
                 </CardHeader>
 
                 <CardContent className="space-y-6">
@@ -304,29 +310,13 @@ export const TutorProfilePage = () => {
                     </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="telegram" className="text-sm font-medium">
-                      Telegram
-                    </Label>
-                    <Input
-                      id="telegram"
-                      value={formData.telegram}
-                      onChange={(e) => handleInputChange('telegram', e.target.value)}
-                      placeholder="@username или username"
-                      className="h-10"
-                    />
-                    <p className="text-xs text-[hsl(240,5%,55%)]">Формат: @username или username</p>
-                  </div>
-
                   <div className="space-y-2 pt-4 border-t">
-                    <Label className="text-sm font-medium">
-                      Привязка Telegram
-                    </Label>
+                    <Label className="text-sm font-medium">Привязка Telegram</Label>
                     <p className="text-xs text-[hsl(240,5%,55%)] mb-2">
                       Привяжите аккаунт Telegram для получения уведомлений
                     </p>
                     <TelegramLinkButton
-                      isLinked={!!profile?.profile?.is_telegram_linked}
+                      isLinked={!!profile?.user?.telegram_id}
                       onStatusChange={refetch}
                     />
                   </div>
@@ -337,12 +327,15 @@ export const TutorProfilePage = () => {
                     {hasUnsavedChanges && (
                       <>
                         <div className="w-2 h-2 bg-[hsl(30,95%,60%)] rounded-full animate-pulse" />
-                        <span className="text-sm text-[hsl(240,5%,45%)]">Несохраненные изменения</span>
+                        <span className="text-sm text-[hsl(240,5%,45%)]">
+                          Несохраненные изменения
+                        </span>
                       </>
                     )}
                   </div>
 
-                  <Button type="submit"
+                  <Button
+                    type="submit"
                     disabled={isUpdating}
                     className="bg-[hsl(250,70%,60%)] hover:bg-[hsl(250,70%,55%)] text-white shadow-sm hover:shadow-md transition-all"
                   >

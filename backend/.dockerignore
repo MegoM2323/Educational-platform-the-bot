@@ -1,112 +1,37 @@
-# Git files
 .git
 .gitignore
-.gitattributes
-
-# Version control
-.hg
-.svn
-
-# Python build and cache
-__pycache__
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-venv/
-ENV/
-env/
-.venv
+.dockerignore
+.pytest_cache
+.coverage
 .env
 .env.local
-.env.*.local
-
-# IDE and editor files
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+*.log
+logs/
+tmp/
 .vscode
 .idea
 *.swp
 *.swo
 *~
-.DS_Store
-.sublime-project
-.sublime-workspace
-.project
-.pydevproject
-.settings/
-*.iml
-
-# Testing
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.hypothesis/
-*.cover
-
-# Database
-db.sqlite3
-*.db
-*.sqlite
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-.tmp
-
-# OS files
-Thumbs.db
-.DS_Store
-._*
-
-# Docker
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-
-# CI/CD
-.github/
-.gitlab-ci.yml
-.circleci/
-jenkins/
-
-# Documentation build files
-docs/_build/
-site/
-
-# Node modules (if any)
+.venv
+venv/
+.mypy_cache
+.dmypy.json
+dmypy.json
+.hypothesis
 node_modules/
 npm-debug.log
-
-# Misc
-*.orig
-.env.example
-README.md
-LICENSE
-Makefile
+.editorconfig
+.pre-commit-config.yaml
+FEEDBACK*
+TASK_*
+TEST_*
+IMPLEMENTATION*
+VERIFICATION*
+README_TASK*
+REACT_ERROR*

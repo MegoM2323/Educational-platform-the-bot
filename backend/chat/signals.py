@@ -25,7 +25,9 @@ User = get_user_model()
 
 
 @receiver(post_save, sender=SubjectEnrollment)
-def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created: bool, **kwargs) -> None:
+def create_forum_chat_on_enrollment(
+    sender, instance: SubjectEnrollment, created: bool, **kwargs
+) -> None:
     """
     Automatically create forum chats when a student enrolls in a subject.
 
@@ -48,7 +50,7 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
         # Get student profile for tutor info
         student_profile: StudentProfile | None = None
         try:
-            student_profile = StudentProfile.objects.select_related('tutor').get(
+            student_profile = StudentProfile.objects.select_related("tutor").get(
                 user=instance.student
             )
         except StudentProfile.DoesNotExist:
@@ -57,9 +59,15 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                 f"{instance.id} for subject {instance.subject.id}"
             )
 
-        # Create student-teacher forum chat
         subject_name = instance.get_subject_name()
         student_name = instance.student.get_full_name()
+
+        if not instance.teacher:
+            logger.warning(
+                f"SubjectEnrollment {instance.id} has no teacher assigned, skipping forum chat creation"
+            )
+            return
+
         teacher_name = instance.teacher.get_full_name()
 
         # Format: "{Subject} - {Student} ↔ {Teacher}"
@@ -67,8 +75,7 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
 
         # Check if forum chat already exists (idempotent)
         existing_forum_chat = ChatRoom.objects.filter(
-            type=ChatRoom.Type.FORUM_SUBJECT,
-            enrollment=instance
+            type=ChatRoom.Type.FORUM_SUBJECT, enrollment=instance
         ).first()
 
         if not existing_forum_chat:
@@ -80,19 +87,17 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                     type=ChatRoom.Type.FORUM_SUBJECT,
                     enrollment=instance,
                     created_by=instance.student,
-                    description=f"Forum for {subject_name} between {student_name} and {teacher_name}"
+                    description=f"Forum for {subject_name} between {student_name} and {teacher_name}",
                 )
                 # Add student and teacher as participants (M2M)
                 forum_chat.participants.add(instance.student, instance.teacher)
 
                 # Create ChatParticipant records for unread_count tracking and WebSocket access
                 ChatParticipant.objects.get_or_create(
-                    room=forum_chat,
-                    user=instance.student
+                    room=forum_chat, user=instance.student
                 )
                 ChatParticipant.objects.get_or_create(
-                    room=forum_chat,
-                    user=instance.teacher
+                    room=forum_chat, user=instance.teacher
                 )
 
             logger.info(
@@ -121,8 +126,7 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
 
             # Check if tutor chat already exists
             existing_tutor_chat = ChatRoom.objects.filter(
-                type=ChatRoom.Type.FORUM_TUTOR,
-                enrollment=instance
+                type=ChatRoom.Type.FORUM_TUTOR, enrollment=instance
             ).first()
 
             if not existing_tutor_chat:
@@ -133,14 +137,13 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                         type=ChatRoom.Type.FORUM_TUTOR,
                         enrollment=instance,
                         created_by=instance.student,
-                        description=f"Forum for {subject_name} between {student_name} and {', '.join([t.get_full_name() for t in tutors_to_add])}"
+                        description=f"Forum for {subject_name} between {student_name} and {', '.join([t.get_full_name() for t in tutors_to_add])}",
                     )
                     # Add student as participant
                     tutor_chat.participants.add(instance.student)
                     # Add ChatParticipant record for student
                     ChatParticipant.objects.get_or_create(
-                        room=tutor_chat,
-                        user=instance.student
+                        room=tutor_chat, user=instance.student
                     )
 
                     # Add all tutors as participants (removes duplicates automatically)
@@ -149,8 +152,7 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                     # Create ChatParticipant records for each tutor (idempotent via get_or_create)
                     for tutor in tutors_to_add:
                         ChatParticipant.objects.get_or_create(
-                            room=tutor_chat,
-                            user=tutor
+                            room=tutor_chat, user=tutor
                         )
 
                 logger.info(
@@ -159,9 +161,13 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                 )
             else:
                 # Check if we need to add any missing tutors to existing chat
-                existing_participants = set(existing_tutor_chat.participants.values_list('id', flat=True))
+                existing_participants = set(
+                    existing_tutor_chat.participants.values_list("id", flat=True)
+                )
                 tutors_ids = set(t.id for t in tutors_to_add)
-                missing_tutors = [t for t in tutors_to_add if t.id not in existing_participants]
+                missing_tutors = [
+                    t for t in tutors_to_add if t.id not in existing_participants
+                ]
 
                 if missing_tutors:
                     # Add missing tutors to existing chat
@@ -169,8 +175,7 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
                         existing_tutor_chat.participants.add(*missing_tutors)
                         for tutor in missing_tutors:
                             ChatParticipant.objects.get_or_create(
-                                room=existing_tutor_chat,
-                                user=tutor
+                                room=existing_tutor_chat, user=tutor
                             )
                     logger.info(
                         f"Added {len(missing_tutors)} missing tutor(s) to existing forum_tutor chat "
@@ -184,7 +189,7 @@ def create_forum_chat_on_enrollment(sender, instance: SubjectEnrollment, created
     except Exception as e:
         logger.error(
             f"Error creating forum chats for SubjectEnrollment {instance.id}: {str(e)}",
-            exc_info=True
+            exc_info=True,
         )
         # Don't raise the exception - log it but let the enrollment creation succeed
 
@@ -216,12 +221,15 @@ def send_forum_notification(sender, instance: Message, created: bool, **kwargs) 
         if not chat_room:
             logger.warning(
                 f"Message {instance.id} has no associated ChatRoom",
-                extra={'message_id': instance.id}
+                extra={"message_id": instance.id},
             )
             return
 
         # Only send notification for forum chats
-        if chat_room.type not in (ChatRoom.Type.FORUM_SUBJECT, ChatRoom.Type.FORUM_TUTOR):
+        if chat_room.type not in (
+            ChatRoom.Type.FORUM_SUBJECT,
+            ChatRoom.Type.FORUM_TUTOR,
+        ):
             return
 
         # Dispatch Celery task for async processing with retry
@@ -235,10 +243,10 @@ def send_forum_notification(sender, instance: Message, created: bool, **kwargs) 
             logger.info(
                 f"Pachca notification task queued for message {instance.id} in chat {chat_room.id}",
                 extra={
-                    'message_id': instance.id,
-                    'chat_room_id': chat_room.id,
-                    'chat_type': chat_room.type
-                }
+                    "message_id": instance.id,
+                    "chat_room_id": chat_room.id,
+                    "chat_type": chat_room.type,
+                },
             )
         except Exception as e:
             # Celery/Redis connection failed - log warning but don't block message sending
@@ -246,11 +254,11 @@ def send_forum_notification(sender, instance: Message, created: bool, **kwargs) 
             logger.warning(
                 f"Failed to queue Pachca notification task for message {instance.id}: {e}",
                 extra={
-                    'message_id': instance.id,
-                    'chat_room_id': chat_room.id,
-                    'error_type': type(e).__name__,
-                    'error': str(e)
-                }
+                    "message_id": instance.id,
+                    "chat_room_id": chat_room.id,
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                },
             )
             # Don't re-raise - notification failure shouldn't break message sending
 
@@ -260,10 +268,10 @@ def send_forum_notification(sender, instance: Message, created: bool, **kwargs) 
             f"Error in notification signal for message {instance.id}: {str(e)}",
             exc_info=True,
             extra={
-                'message_id': instance.id,
-                'error_type': type(e).__name__,
-                'error': str(e)
-            }
+                "message_id": instance.id,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
         )
         # Don't raise - log error but let message creation succeed
 
@@ -287,14 +295,19 @@ def add_user_to_general_chat(sender, instance: User, created: bool, **kwargs) ->
     import os
 
     # Skip in test mode to prevent fixture conflicts
-    if os.getenv('ENVIRONMENT', 'production').lower() == 'test':
+    if os.getenv("ENVIRONMENT", "production").lower() == "test":
         return
 
     if not created:
         return
 
     # Only add users with eligible roles
-    eligible_roles = [User.Role.STUDENT, User.Role.TEACHER, User.Role.TUTOR, User.Role.PARENT]
+    eligible_roles = [
+        User.Role.STUDENT,
+        User.Role.TEACHER,
+        User.Role.TUTOR,
+        User.Role.PARENT,
+    ]
     if instance.role not in eligible_roles:
         return
 
@@ -319,20 +332,20 @@ def add_user_to_general_chat(sender, instance: User, created: bool, **kwargs) ->
                 room=general_chat,
                 user=instance,
                 defaults={
-                    'is_admin': instance.role == User.Role.TEACHER,
-                    'joined_at': timezone.now()
-                }
+                    "is_admin": instance.role == User.Role.TEACHER,
+                    "joined_at": timezone.now(),
+                },
             )
 
         if participant_created:
             logger.info(
                 f"[Signal] User {instance.id} ({instance.email}) auto-added to general chat",
                 extra={
-                    'user_id': instance.id,
-                    'email': instance.email,
-                    'role': instance.role,
-                    'chat_room_id': general_chat.id
-                }
+                    "user_id": instance.id,
+                    "email": instance.email,
+                    "role": instance.role,
+                    "chat_room_id": general_chat.id,
+                },
             )
         else:
             logger.debug(
@@ -345,9 +358,9 @@ def add_user_to_general_chat(sender, instance: User, created: bool, **kwargs) ->
             f"[Signal] Error adding user {instance.id} to general chat: {str(e)}",
             exc_info=True,
             extra={
-                'user_id': instance.id,
-                'error_type': type(e).__name__,
-                'error': str(e)
-            }
+                "user_id": instance.id,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
         )
         # Don't raise - allow user creation to succeed

@@ -8,7 +8,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('materials', '0011_add_custom_subject_name'),
         ('reports', '0002_studentreport'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

@@ -52,9 +52,9 @@ class DependencyCycleDetector:
         adjacency_list = {}
 
         # Получить все зависимости в текущем графе
-        dependencies = LessonDependency.objects.filter(
-            graph=self.graph
-        ).select_related('from_lesson', 'to_lesson')
+        dependencies = LessonDependency.objects.filter(graph=self.graph).select_related(
+            "from_lesson", "to_lesson"
+        )
 
         for dep in dependencies:
             from_id = dep.from_lesson.id
@@ -122,42 +122,46 @@ class PrerequisiteChecker:
         # Если граф разрешает пропуск уроков
         if graph_lesson.graph.allow_skip:
             return {
-                'can_start': True,
-                'reason': 'Граф разрешает пропуск prerequisite',
-                'missing_prerequisites': []
+                "can_start": True,
+                "reason": "Граф разрешает пропуск prerequisite",
+                "missing_prerequisites": [],
             }
 
         # Получить все обязательные зависимости для этого урока
         required_deps = LessonDependency.objects.filter(
-            to_lesson=graph_lesson,
-            dependency_type='required'
-        ).select_related('from_lesson')
+            to_lesson=graph_lesson, dependency_type="required"
+        ).select_related("from_lesson")
 
         if not required_deps.exists():
             # Нет prerequisite - можно начинать
             return {
-                'can_start': True,
-                'reason': 'Нет обязательных prerequisite',
-                'missing_prerequisites': []
+                "can_start": True,
+                "reason": "Нет обязательных prerequisite",
+                "missing_prerequisites": [],
             }
 
-        # Проверить что все prerequisite выполнены
+        # FIX N+1: Prefetch все prerequisite LessonProgress одним запросом
         from .models import LessonProgress
+
+        prerequisite_lesson_ids = [dep.from_lesson_id for dep in required_deps]
+        prerequisite_progress = LessonProgress.objects.filter(
+            student=student, graph_lesson_id__in=prerequisite_lesson_ids
+        )
+        progress_map = {lp.graph_lesson_id: lp for lp in prerequisite_progress}
+
         missing = []
 
         for dep in required_deps:
-            # Проверить прогресс prerequisite урока
-            progress = LessonProgress.objects.filter(
-                student=student,
-                graph_lesson=dep.from_lesson
-            ).first()
+            progress = progress_map.get(dep.from_lesson_id)
 
-            if not progress or progress.status != 'completed':
-                missing.append({
-                    'lesson_id': dep.from_lesson.lesson.id,
-                    'lesson_title': dep.from_lesson.lesson.title,
-                    'status': progress.status if progress else 'not_started',
-                })
+            if not progress or progress.status != "completed":
+                missing.append(
+                    {
+                        "lesson_id": dep.from_lesson.lesson.id,
+                        "lesson_title": dep.from_lesson.lesson.title,
+                        "status": progress.status if progress else "not_started",
+                    }
+                )
                 continue
 
             # Проверить минимальный процент баллов
@@ -167,27 +171,29 @@ class PrerequisiteChecker:
                     score_percent = (progress.total_score / progress.max_possible_score) * 100
 
                 if score_percent < dep.min_score_percent:
-                    missing.append({
-                        'lesson_id': dep.from_lesson.lesson.id,
-                        'lesson_title': dep.from_lesson.lesson.title,
-                        'status': 'completed',
-                        'score_percent': round(score_percent, 2),
-                        'required_percent': dep.min_score_percent,
-                        'reason': f'Требуется минимум {dep.min_score_percent}% баллов, получено {round(score_percent, 2)}%'
-                    })
+                    missing.append(
+                        {
+                            "lesson_id": dep.from_lesson.lesson.id,
+                            "lesson_title": dep.from_lesson.lesson.title,
+                            "status": "completed",
+                            "score_percent": round(score_percent, 2),
+                            "required_percent": dep.min_score_percent,
+                            "reason": f"Требуется минимум {dep.min_score_percent}% баллов, получено {round(score_percent, 2)}%",
+                        }
+                    )
 
         if missing:
             return {
-                'can_start': False,
-                'reason': 'Не выполнены обязательные prerequisite',
-                'missing_prerequisites': missing
+                "can_start": False,
+                "reason": "Не выполнены обязательные prerequisite",
+                "missing_prerequisites": missing,
             }
 
         # Все prerequisite выполнены
         return {
-            'can_start': True,
-            'reason': 'Все prerequisite выполнены',
-            'missing_prerequisites': []
+            "can_start": True,
+            "reason": "Все prerequisite выполнены",
+            "missing_prerequisites": [],
         }
 
     @staticmethod
@@ -205,11 +211,11 @@ class PrerequisiteChecker:
         unlocked_ids = []
 
         # Получить все уроки в графе
-        graph_lessons = GraphLesson.objects.filter(graph=graph).select_related('lesson')
+        graph_lessons = GraphLesson.objects.filter(graph=graph).select_related("lesson")
 
         for gl in graph_lessons:
             check_result = PrerequisiteChecker.can_start_lesson(student, gl)
-            if check_result['can_start']:
+            if check_result["can_start"]:
                 unlocked_ids.append(gl.id)
 
         return unlocked_ids

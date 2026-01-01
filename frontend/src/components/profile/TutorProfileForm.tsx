@@ -44,7 +44,6 @@ export const TutorProfileForm = ({
       bio: initialData?.bio || '',
       specialization: initialData?.specialization || '',
       experience_years: initialData?.experience_years || undefined,
-      telegram: initialData?.telegram || '',
     },
   });
 
@@ -220,30 +219,6 @@ export const TutorProfileForm = ({
                       disabled={isLoading}
                     />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="telegram"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="telegram">Telegram</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="telegram"
-                      placeholder="@username или username"
-                      {...field}
-                      aria-label="Telegram репетитора"
-                      aria-describedby="telegram-hint"
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <p id="telegram-hint" className="text-xs text-gray-500">
-                    Без пробелов, 5-32 символа (букв, цифр, подчеркивание)
-                  </p>
                   <FormMessage />
                 </FormItem>
               )}

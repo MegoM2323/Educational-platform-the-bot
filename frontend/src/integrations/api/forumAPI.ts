@@ -142,43 +142,23 @@ export interface MuteResponse {
 
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
-    console.log('[forumAPI] getForumChats called');
     const response = await unifiedAPI.request<ForumChatsResponse>(
       '/chat/forum/'
     );
 
-    console.log('[forumAPI] getForumChats response:', {
-      success: response.success,
-      error: response.error,
-      hasData: !!response.data,
-      dataType: typeof response.data,
-      isDataArray: Array.isArray(response.data),
-      hasResults: response.data?.results !== undefined,
-      resultsLength: response.data?.results?.length,
-      fullResponse: response
-    });
-
     if (response.error) {
-      console.error('[forumAPI] getForumChats error:', response.error);
       throw new Error(response.error);
     }
 
-    // Backend returns paginated response: {count, results, next, previous}
-    // unifiedClient returns the full paginated object, not just the array
-    // We need to extract the results array
     if (response.data && typeof response.data === 'object') {
       if (Array.isArray(response.data.results)) {
-        console.log('[forumAPI] Returning results array:', response.data.results);
         return response.data.results;
       }
-      // Fallback: if response.data is already an array (unlikely but safe)
       if (Array.isArray(response.data)) {
-        console.log('[forumAPI] Response.data is array, returning:', response.data);
         return response.data;
       }
     }
 
-    console.warn('[forumAPI] Unexpected response structure, returning empty array. Response:', response);
     return [];
   },
 

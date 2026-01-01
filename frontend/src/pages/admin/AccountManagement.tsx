@@ -30,14 +30,19 @@ export default function AccountManagement() {
   const loadStats = async () => {
     try {
       const response = await adminAPI.getUserStats();
-      if (response.success && response.data) {
+      if (response?.success && response?.data) {
+        // Backend returns {success: true, data: {...}} which is wrapped by adminAPI
+        // So response.data is already the stats data
+        // Handle multiple possible structures: response.data.data or response.data directly
+        const rawData = response.data as any;
+        const statsData = rawData?.data || rawData || {};
         setStats({
-          total_users: response.data.data.total_users || 0,
-          total_students: response.data.data.total_students || 0,
-          total_teachers: response.data.data.total_teachers || 0,
-          total_tutors: response.data.data.total_tutors || 0,
-          total_parents: response.data.data.total_parents || 0,
-          active_today: response.data.data.active_today || 0,
+          total_users: statsData?.total_users ?? 0,
+          total_students: statsData?.total_students ?? 0,
+          total_teachers: statsData?.total_teachers ?? 0,
+          total_tutors: statsData?.total_tutors ?? 0,
+          total_parents: statsData?.total_parents ?? 0,
+          active_today: statsData?.active_today ?? 0,
         });
       }
     } catch (error) {

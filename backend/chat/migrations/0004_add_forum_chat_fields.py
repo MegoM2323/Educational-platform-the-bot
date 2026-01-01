@@ -24,22 +24,18 @@ import django.db.models.deletion
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("materials", "0014_add_subscription_expires_at"),
         ("chat", "0003_chatroom_auto_delete_days"),
     ]
 
     operations = [
         migrations.AddField(
             model_name="chatroom",
-            name="enrollment",
-            field=models.ForeignKey(
+            name="enrollment_id",
+            field=models.BigIntegerField(
                 blank=True,
-                help_text="Связь с зачислением студента на предмет (для forum_subject типа)",
+                help_text="ID зачисления студента на предмет (для forum_subject типа)",
                 null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="forum_chats",
-                to="materials.subjectenrollment",
-                verbose_name="Зачисление на предмет",
+                verbose_name="ID Зачисления на предмет",
             ),
         ),
         migrations.AlterField(
@@ -63,7 +59,7 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="chatroom",
             index=models.Index(
-                fields=["type", "enrollment"], name="chat_type_enrollment_idx"
+                fields=["type", "enrollment_id"], name="chat_type_enrollment_idx"
             ),
         ),
         migrations.AddIndex(

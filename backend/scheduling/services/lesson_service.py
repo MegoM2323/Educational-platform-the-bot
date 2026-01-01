@@ -21,10 +21,10 @@ User = get_user_model()
 # Допустимые переходы статусов урока
 # Ключ - текущий статус, значение - множество допустимых новых статусов
 STATUS_TRANSITIONS = {
-    'pending': {'confirmed', 'cancelled'},
-    'confirmed': {'completed', 'cancelled'},
-    'completed': set(),  # Завершённый урок нельзя изменить
-    'cancelled': set(),  # Отменённый урок нельзя изменить
+    "pending": {"confirmed", "cancelled"},
+    "confirmed": {"completed", "cancelled"},
+    "completed": set(),  # Завершённый урок нельзя изменить
+    "cancelled": set(),  # Отменённый урок нельзя изменить
 }
 
 
@@ -38,7 +38,7 @@ class LessonService:
         end_time: time,
         teacher: Optional[User] = None,
         student: Optional[User] = None,
-        exclude_lesson_id: Optional[UUID] = None
+        exclude_lesson_id: Optional[UUID] = None,
     ) -> None:
         """
         Check for overlapping lessons for teacher or student.
@@ -57,20 +57,14 @@ class LessonService:
         # Используем timezone-aware datetime для корректного сравнения
         current_tz = timezone.get_current_timezone()
         dt_start = timezone.make_aware(
-            datetime.combine(date, start_time),
-            timezone=current_tz
+            datetime.combine(date, start_time), timezone=current_tz
         )
         dt_end = timezone.make_aware(
-            datetime.combine(date, end_time),
-            timezone=current_tz
+            datetime.combine(date, end_time), timezone=current_tz
         )
 
         # Base queryset - уроки в тот же день, не отменённые
-        # Используем select_for_update для предотвращения race conditions
-        base_qs = Lesson.objects.select_for_update().filter(
-            date=date,
-            status__in=['pending', 'confirmed']
-        )
+        base_qs = Lesson.objects.filter(date=date, status__in=["pending", "confirmed"])
         if exclude_lesson_id:
             base_qs = base_qs.exclude(id=exclude_lesson_id)
 
@@ -81,17 +75,17 @@ class LessonService:
                 # Timezone-aware datetime для существующих уроков
                 dt_existing_start = timezone.make_aware(
                     datetime.combine(existing.date, existing.start_time),
-                    timezone=current_tz
+                    timezone=current_tz,
                 )
                 dt_existing_end = timezone.make_aware(
                     datetime.combine(existing.date, existing.end_time),
-                    timezone=current_tz
+                    timezone=current_tz,
                 )
 
                 # Проверка пересечения: new.start < existing.end AND new.end > existing.start
                 if dt_start < dt_existing_end and dt_end > dt_existing_start:
                     raise ValidationError(
-                        f'Преподаватель {teacher.get_full_name()} уже занят с '
+                        f"Преподаватель {teacher.get_full_name()} уже занят с "
                         f'{existing.start_time.strftime("%H:%M")} до '
                         f'{existing.end_time.strftime("%H:%M")} в этот день.'
                     )
@@ -103,20 +97,20 @@ class LessonService:
                 # Timezone-aware datetime для существующих уроков
                 dt_existing_start = timezone.make_aware(
                     datetime.combine(existing.date, existing.start_time),
-                    timezone=current_tz
+                    timezone=current_tz,
                 )
                 dt_existing_end = timezone.make_aware(
                     datetime.combine(existing.date, existing.end_time),
-                    timezone=current_tz
+                    timezone=current_tz,
                 )
 
                 if dt_start < dt_existing_end and dt_end > dt_existing_start:
                     raise ValidationError(
-                        f'Ученик {student.get_full_name()} уже запланирован на '
+                        f"Ученик {student.get_full_name()} уже запланирован на "
                         f'{existing.start_time.strftime("%H:%M")}-'
                         f'{existing.end_time.strftime("%H:%M")} в этот день '
-                        f'(предмет {existing.subject.name} с '
-                        f'{existing.teacher.get_full_name()}).'
+                        f"(предмет {existing.subject.name} с "
+                        f"{existing.teacher.get_full_name()})."
                     )
 
     @staticmethod
@@ -124,12 +118,12 @@ class LessonService:
     def create_lesson(
         teacher: User,
         student: User,
-        subject: 'Subject',
+        subject: "Subject",
         date,
         start_time,
         end_time,
-        description: str = '',
-        telemost_link: str = '',
+        description: str = "",
+        telemost_link: str = "",
     ) -> Lesson:
         """
         Create a new lesson with validation.
@@ -151,33 +145,32 @@ class LessonService:
             ValidationError: If validation fails
         """
         # Validate teacher role
-        if teacher.role != 'teacher':
-            raise ValidationError('Only users with teacher role can create lessons')
+        if teacher.role != "teacher":
+            raise ValidationError("Only users with teacher role can create lessons")
 
         # Validate student role
-        if student.role != 'student':
-            raise ValidationError('Only users with student role can be enrolled in lessons')
+        if student.role != "student":
+            raise ValidationError(
+                "Only users with student role can be enrolled in lessons"
+            )
 
         # Validate time range
         if start_time >= end_time:
-            raise ValidationError('Start time must be before end time')
+            raise ValidationError("Start time must be before end time")
 
         # Validate date not in past
         if date < timezone.now().date():
-            raise ValidationError('Cannot create lesson in the past')
+            raise ValidationError("Cannot create lesson in the past")
 
         # Validate teacher teaches subject to student (via SubjectEnrollment)
         try:
             SubjectEnrollment.objects.get(
-                student=student,
-                teacher=teacher,
-                subject=subject,
-                is_active=True
+                student=student, teacher=teacher, subject=subject, is_active=True
             )
         except SubjectEnrollment.DoesNotExist:
             raise ValidationError(
-                f'Teacher {teacher.get_full_name()} does not teach '
-                f'{subject.name} to student {student.get_full_name()}'
+                f"Teacher {teacher.get_full_name()} does not teach "
+                f"{subject.name} to student {student.get_full_name()}"
             )
 
         # Check for time conflicts
@@ -186,7 +179,7 @@ class LessonService:
             start_time=start_time,
             end_time=end_time,
             teacher=teacher,
-            student=student
+            student=student,
         )
 
         # Create lesson
@@ -199,21 +192,21 @@ class LessonService:
             end_time=end_time,
             description=description,
             telemost_link=telemost_link,
-            status='pending'
+            status="pending",
         )
 
         # Record in history
         LessonHistory.objects.create(
             lesson=lesson,
-            action='created',
+            action="created",
             performed_by=teacher,
             new_values={
-                'date': str(date),
-                'start_time': str(start_time),
-                'end_time': str(end_time),
-                'student': student.get_full_name(),
-                'subject': subject.name,
-            }
+                "date": str(date),
+                "start_time": str(start_time),
+                "end_time": str(end_time),
+                "student": student.get_full_name(),
+                "subject": subject.name,
+            },
         )
 
         return lesson
@@ -222,8 +215,8 @@ class LessonService:
     def get_teacher_lessons(
         teacher: User,
         filters: Optional[Dict[str, Any]] = None,
-        include_cancelled: bool = False
-    ) -> 'QuerySet[Lesson]':
+        include_cancelled: bool = False,
+    ) -> "QuerySet[Lesson]":
         """
         Get all lessons created by a teacher.
 
@@ -239,26 +232,28 @@ class LessonService:
         Returns:
             Optimized QuerySet of lessons
         """
-        queryset = Lesson.objects.filter(teacher=teacher).select_related(
-            'teacher', 'student', 'subject'
-        ).order_by('date', 'start_time')
+        queryset = (
+            Lesson.objects.filter(teacher=teacher)
+            .select_related("teacher", "student", "subject")
+            .order_by("date", "start_time")
+        )
 
         # По умолчанию исключаем отменённые уроки для консистентности с get_upcoming_lessons
         if not include_cancelled:
-            queryset = queryset.exclude(status='cancelled')
+            queryset = queryset.exclude(status="cancelled")
 
         if filters:
-            if 'date_from' in filters and filters['date_from']:
-                queryset = queryset.filter(date__gte=filters['date_from'])
+            if "date_from" in filters and filters["date_from"]:
+                queryset = queryset.filter(date__gte=filters["date_from"])
 
-            if 'date_to' in filters and filters['date_to']:
-                queryset = queryset.filter(date__lte=filters['date_to'])
+            if "date_to" in filters and filters["date_to"]:
+                queryset = queryset.filter(date__lte=filters["date_to"])
 
-            if 'subject_id' in filters and filters['subject_id']:
-                queryset = queryset.filter(subject_id=filters['subject_id'])
+            if "subject_id" in filters and filters["subject_id"]:
+                queryset = queryset.filter(subject_id=filters["subject_id"])
 
-            if 'status' in filters and filters['status']:
-                queryset = queryset.filter(status=filters['status'])
+            if "status" in filters and filters["status"]:
+                queryset = queryset.filter(status=filters["status"])
 
         return queryset
 
@@ -266,8 +261,8 @@ class LessonService:
     def get_student_lessons(
         student: User,
         filters: Optional[Dict[str, Any]] = None,
-        include_cancelled: bool = False
-    ) -> 'QuerySet[Lesson]':
+        include_cancelled: bool = False,
+    ) -> "QuerySet[Lesson]":
         """
         Get all lessons for a student.
 
@@ -284,38 +279,38 @@ class LessonService:
         Returns:
             Optimized QuerySet of lessons
         """
-        queryset = Lesson.objects.filter(student=student).select_related(
-            'teacher', 'student', 'subject'
-        ).order_by('date', 'start_time')
+        queryset = (
+            Lesson.objects.filter(student=student)
+            .select_related("teacher", "student", "subject")
+            .order_by("date", "start_time")
+        )
 
         # По умолчанию исключаем отменённые уроки для консистентности с get_upcoming_lessons
         if not include_cancelled:
-            queryset = queryset.exclude(status='cancelled')
+            queryset = queryset.exclude(status="cancelled")
 
         if filters:
-            if 'date_from' in filters and filters['date_from']:
-                queryset = queryset.filter(date__gte=filters['date_from'])
+            if "date_from" in filters and filters["date_from"]:
+                queryset = queryset.filter(date__gte=filters["date_from"])
 
-            if 'date_to' in filters and filters['date_to']:
-                queryset = queryset.filter(date__lte=filters['date_to'])
+            if "date_to" in filters and filters["date_to"]:
+                queryset = queryset.filter(date__lte=filters["date_to"])
 
-            if 'subject_id' in filters and filters['subject_id']:
-                queryset = queryset.filter(subject_id=filters['subject_id'])
+            if "subject_id" in filters and filters["subject_id"]:
+                queryset = queryset.filter(subject_id=filters["subject_id"])
 
-            if 'teacher_id' in filters and filters['teacher_id']:
-                queryset = queryset.filter(teacher_id=filters['teacher_id'])
+            if "teacher_id" in filters and filters["teacher_id"]:
+                queryset = queryset.filter(teacher_id=filters["teacher_id"])
 
-            if 'status' in filters and filters['status']:
-                queryset = queryset.filter(status=filters['status'])
+            if "status" in filters and filters["status"]:
+                queryset = queryset.filter(status=filters["status"])
 
         return queryset
 
     @staticmethod
     def get_tutor_student_lessons(
-        tutor: User,
-        student_id: int,
-        include_cancelled: bool = False
-    ) -> 'QuerySet[Lesson]':
+        tutor: User, student_id: int, include_cancelled: bool = False
+    ) -> "QuerySet[Lesson]":
         """
         Get all lessons for a student (tutor view).
 
@@ -338,25 +333,23 @@ class LessonService:
         try:
             StudentProfile.objects.get(user_id=student_id, tutor=tutor)
         except StudentProfile.DoesNotExist:
-            raise ValidationError(f'You do not manage this student')
+            raise ValidationError(f"You do not manage this student")
 
-        queryset = Lesson.objects.filter(student_id=student_id).select_related(
-            'teacher', 'student', 'subject'
-        ).order_by('date', 'start_time')
+        queryset = (
+            Lesson.objects.filter(student_id=student_id)
+            .select_related("teacher", "student", "subject")
+            .order_by("date", "start_time")
+        )
 
         # По умолчанию исключаем отменённые уроки для консистентности с get_upcoming_lessons
         if not include_cancelled:
-            queryset = queryset.exclude(status='cancelled')
+            queryset = queryset.exclude(status="cancelled")
 
         return queryset
 
     @staticmethod
     @transaction.atomic
-    def update_lesson(
-        lesson: Lesson,
-        updates: Dict[str, Any],
-        user: User
-    ) -> Lesson:
+    def update_lesson(lesson: Lesson, updates: Dict[str, Any], user: User) -> Lesson:
         """
         Update a lesson with validation.
 
@@ -375,38 +368,49 @@ class LessonService:
         """
         # Verify user is the teacher who created the lesson
         if lesson.teacher != user:
-            raise ValidationError('Only the teacher who created the lesson can update it')
+            raise ValidationError(
+                "Only the teacher who created the lesson can update it"
+            )
 
         # Can't edit past or current lessons (before start time + some buffer)
         if lesson.date < timezone.now().date():
-            raise ValidationError('Cannot update past lessons')
+            raise ValidationError("Cannot update past lessons")
 
         if lesson.date == timezone.now().date():
             # If lesson is today, check time
             if lesson.datetime_start <= timezone.now():
-                raise ValidationError('Cannot update lesson that has already started')
+                raise ValidationError("Cannot update lesson that has already started")
 
         # Save old values for history
         old_values = {}
         new_values = {}
 
         # Define allowed fields to update
-        allowed_fields = ['date', 'start_time', 'end_time', 'description', 'telemost_link', 'status']
+        allowed_fields = [
+            "date",
+            "start_time",
+            "end_time",
+            "description",
+            "telemost_link",
+            "status",
+        ]
 
         # Валидация перехода статуса перед применением изменений
-        if 'status' in updates:
-            new_status = updates['status']
+        if "status" in updates:
+            new_status = updates["status"]
             current_status = lesson.status
             allowed_transitions = STATUS_TRANSITIONS.get(current_status, set())
 
             if new_status != current_status and new_status not in allowed_transitions:
                 raise ValidationError(
-                    f'Недопустимый переход статуса: {current_status} -> {new_status}. '
+                    f"Недопустимый переход статуса: {current_status} -> {new_status}. "
                     f'Допустимые переходы: {", ".join(allowed_transitions) if allowed_transitions else "нет"}'
                 )
 
         # Check if date/time changed for conflict detection
-        date_time_changed = any(field in updates for field in ['date', 'start_time', 'end_time'])
+        date_time_changed = any(
+            field in updates for field in ["date", "start_time", "end_time"]
+        )
 
         for field, value in updates.items():
             if field not in allowed_fields:
@@ -425,7 +429,7 @@ class LessonService:
                 end_time=lesson.end_time,
                 teacher=lesson.teacher,
                 student=lesson.student,
-                exclude_lesson_id=lesson.id
+                exclude_lesson_id=lesson.id,
             )
 
         # Validate after setting values
@@ -437,10 +441,10 @@ class LessonService:
         if old_values:
             LessonHistory.objects.create(
                 lesson=lesson,
-                action='updated',
+                action="updated",
                 performed_by=user,
                 old_values=old_values,
-                new_values=new_values
+                new_values=new_values,
             )
 
         return lesson
@@ -462,27 +466,31 @@ class LessonService:
         """
         # Verify user is the teacher who created the lesson
         if lesson.teacher != user:
-            raise ValidationError('Only the teacher who created the lesson can cancel it')
+            raise ValidationError(
+                "Only the teacher who created the lesson can cancel it"
+            )
 
         # Check 2-hour rule
         if not lesson.can_cancel:
-            raise ValidationError('Lessons cannot be cancelled less than 2 hours before start time')
+            raise ValidationError(
+                "Lessons cannot be cancelled less than 2 hours before start time"
+            )
 
         # Mark as cancelled and record history
         old_status = lesson.status
-        lesson.status = 'cancelled'
+        lesson.status = "cancelled"
         lesson.save()
 
         LessonHistory.objects.create(
             lesson=lesson,
-            action='cancelled',
+            action="cancelled",
             performed_by=user,
-            old_values={'status': old_status},
-            new_values={'status': 'cancelled'}
+            old_values={"status": old_status},
+            new_values={"status": "cancelled"},
         )
 
     @staticmethod
-    def get_upcoming_lessons(user: User, limit: int = 3) -> 'QuerySet[Lesson]':
+    def get_upcoming_lessons(user: User, limit: int = 3) -> "QuerySet[Lesson]":
         """
         Get upcoming lessons for a user (role-aware).
 
@@ -495,47 +503,43 @@ class LessonService:
         """
         now = timezone.now()
 
-        if user.role == 'teacher':
+        if user.role == "teacher":
             queryset = Lesson.objects.filter(
-                teacher=user,
-                date__gte=now.date(),
-                status__in=['pending', 'confirmed']
+                teacher=user, date__gte=now.date(), status__in=["pending", "confirmed"]
             )
-        elif user.role == 'student':
+        elif user.role == "student":
             queryset = Lesson.objects.filter(
-                student=user,
-                date__gte=now.date(),
-                status__in=['pending', 'confirmed']
+                student=user, date__gte=now.date(), status__in=["pending", "confirmed"]
             )
-        elif user.role == 'tutor':
+        elif user.role == "tutor":
             # Get lessons for managed students
             from accounts.models import StudentProfile
 
-            student_ids = StudentProfile.objects.filter(
-                tutor=user
-            ).values_list('user_id', flat=True)
+            student_ids = StudentProfile.objects.filter(tutor=user).values_list(
+                "user_id", flat=True
+            )
 
             queryset = Lesson.objects.filter(
                 student_id__in=student_ids,
                 date__gte=now.date(),
-                status__in=['pending', 'confirmed']
+                status__in=["pending", "confirmed"],
             )
-        elif user.role == 'parent':
+        elif user.role == "parent":
             # Get lessons for parent's children
             from accounts.models import StudentProfile
 
-            children_ids = StudentProfile.objects.filter(
-                parent=user
-            ).values_list('user_id', flat=True)
+            children_ids = StudentProfile.objects.filter(parent=user).values_list(
+                "user_id", flat=True
+            )
 
             queryset = Lesson.objects.filter(
                 student_id__in=children_ids,
                 date__gte=now.date(),
-                status__in=['pending', 'confirmed']
+                status__in=["pending", "confirmed"],
             )
         else:
             return Lesson.objects.none()
 
-        return queryset.select_related(
-            'teacher', 'student', 'subject'
-        ).order_by('date', 'start_time')[:limit]
+        return queryset.select_related("teacher", "student", "subject").order_by(
+            "date", "start_time"
+        )[:limit]

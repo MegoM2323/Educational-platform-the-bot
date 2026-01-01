@@ -28,7 +28,7 @@ export function useChatUnreadCount(chatId: number) {
   return useQuery({
     queryKey: ['chat', 'unread', chatId],
     queryFn: async (): Promise<number> => {
-      const response = await apiClient.request<{ unread_count: number }>(`/chat/rooms/${chatId}/unread-count/`);
+      const response = await unifiedAPI.request<{ unread_count: number }>(`/chat/rooms/${chatId}/unread-count/`);
       if (response.error) {
         throw new Error(response.error);
       }

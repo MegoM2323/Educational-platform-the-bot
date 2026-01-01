@@ -81,7 +81,6 @@ class StudentProfileDetailSerializer(serializers.ModelSerializer):
             "streak_days",
             "total_points",
             "accuracy_percentage",
-            "telegram",
             "telegram_id",
             "is_telegram_linked",
         )
@@ -120,13 +119,6 @@ class StudentProfileDetailSerializer(serializers.ModelSerializer):
 
         return value or ""
 
-    def validate_telegram(self, value):
-        """Валидация Telegram username"""
-        if value:
-            validator = TelegramValidator()
-            validator(value)
-        return value or ""
-
 
 class TeacherProfileDetailSerializer(serializers.ModelSerializer):
     """
@@ -148,7 +140,6 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
             "subject",
             "experience_years",
             "bio",
-            "telegram",
             "subjects_list",
             "telegram_id",
             "is_telegram_linked",
@@ -186,13 +177,6 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
             )
         return value or ""
 
-    def validate_telegram(self, value):
-        """Валидация Telegram username"""
-        if value:
-            validator = TelegramValidator()
-            validator(value)
-        return value or ""
-
     def get_subjects_list(self, obj):
         """Возвращает список предметов преподавателя из TeacherSubject"""
         from materials.models import TeacherSubject
@@ -223,7 +207,6 @@ class TutorProfileDetailSerializer(serializers.ModelSerializer):
             "specialization",
             "experience_years",
             "bio",
-            "telegram",
             "reportsCount",
             "telegram_id",
             "is_telegram_linked",
@@ -270,13 +253,6 @@ class TutorProfileDetailSerializer(serializers.ModelSerializer):
             )
         return value or ""
 
-    def validate_telegram(self, value):
-        """Валидация Telegram username"""
-        if value:
-            validator = TelegramValidator()
-            validator(value)
-        return value or ""
-
     def get_reportsCount(self, obj):
         """Получить количество отправленных отчётов тьютора"""
         from reports.models import TutorWeeklyReport
@@ -302,17 +278,10 @@ class ParentProfileDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProfile
-        fields = ("id", "telegram", "telegram_id", "is_telegram_linked")
+        fields = ("id", "telegram_id", "is_telegram_linked")
 
     def get_is_telegram_linked(self, obj):
         return bool(obj.user.telegram_id) if hasattr(obj, "user") else False
-
-    def validate_telegram(self, value):
-        """Валидация Telegram username"""
-        if value:
-            validator = TelegramValidator()
-            validator(value)
-        return value or ""
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):

@@ -8,7 +8,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("materials", "0014_add_subscription_expires_at"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [

@@ -5,13 +5,26 @@ import { useTeacherProfile } from '@/hooks/useTeacherProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { unifiedAPI } from '@/integrations/api/unifiedClient';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ChevronLeft, Upload, X, Plus } from 'lucide-react';
@@ -33,14 +46,18 @@ export const TeacherProfilePage = () => {
   const { data: allSubjects } = useQuery({
     queryKey: ['allSubjects'],
     queryFn: async () => {
-      const response = await unifiedAPI.request<{ success: boolean; count: number; results: Subject[] }>('/materials/subjects/all/');
+      const response = await unifiedAPI.request<{
+        success: boolean;
+        count: number;
+        results: Subject[];
+      }>('/materials/subjects/all/');
       if (!response.success || !response.data) {
         throw new Error('Failed to load subjects');
       }
       // Backend returns {success: true, count: 5, results: [...]}
       // Extract the results array
       const data = response.data as any;
-      return Array.isArray(data) ? data : (data.results || []);
+      return Array.isArray(data) ? data : data.results || [];
     },
   });
 
@@ -50,7 +67,6 @@ export const TeacherProfilePage = () => {
     phone: '',
     experience_years: 0,
     bio: '',
-    telegram: '',
   });
 
   const [selectedSubjects, setSelectedSubjects] = useState<number[]>([]);
@@ -69,7 +85,6 @@ export const TeacherProfilePage = () => {
         phone: profile.user?.phone || '',
         experience_years: profile.profile?.experience_years || 0,
         bio: profile.profile?.bio || '',
-        telegram: profile.profile?.telegram || '',
       });
       setCharCount(profile.profile?.bio?.length || 0);
 
@@ -160,7 +175,6 @@ export const TeacherProfilePage = () => {
     data.append('phone', formData.phone);
     data.append('experience_years', String(formData.experience_years));
     data.append('bio', formData.bio);
-    data.append('telegram', formData.telegram);
     data.append('subject_ids', JSON.stringify(selectedSubjects));
 
     if (avatarFile) {
@@ -201,7 +215,8 @@ export const TeacherProfilePage = () => {
     <div className="min-h-screen bg-[hsl(240,20%,99%)] py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex items-center gap-4">
-          <Button type="button"
+          <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => navigate(-1)}
@@ -214,9 +229,7 @@ export const TeacherProfilePage = () => {
 
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-[hsl(240,10%,15%)] mb-2">Мой профиль</h1>
-          <p className="text-[hsl(240,5%,45%)]">
-            Здесь вы можете редактировать информацию о себе
-          </p>
+          <p className="text-[hsl(240,5%,45%)]">Здесь вы можете редактировать информацию о себе</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -226,11 +239,15 @@ export const TeacherProfilePage = () => {
                 <Card className="shadow-md">
                   <CardContent className="p-6 flex flex-col items-center gap-4">
                     <Avatar className="w-48 h-48 shadow-lg border-4 border-[hsl(0,0%,96%)]">
-                      <AvatarImage src={currentAvatar} alt={`${formData.first_name} ${formData.last_name}`} />
+                      <AvatarImage
+                        src={currentAvatar}
+                        alt={`${formData.first_name} ${formData.last_name}`}
+                      />
                       <AvatarFallback
                         className="text-6xl font-bold text-white"
                         style={{
-                          background: 'linear-gradient(135deg, hsl(160, 60%, 50%), hsl(180, 70%, 60%))',
+                          background:
+                            'linear-gradient(135deg, hsl(160, 60%, 50%), hsl(180, 70%, 60%))',
                         }}
                       >
                         {initials}
@@ -263,7 +280,8 @@ export const TeacherProfilePage = () => {
                       </label>
 
                       {avatarPreview && (
-                        <Button type="button"
+                        <Button
+                          type="button"
                           variant="outline"
                           size="sm"
                           className="w-full mt-2"
@@ -355,7 +373,9 @@ export const TeacherProfilePage = () => {
                       min="0"
                       max="80"
                       value={formData.experience_years}
-                      onChange={(e) => handleInputChange('experience_years', parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        handleInputChange('experience_years', parseInt(e.target.value) || 0)
+                      }
                       className="h-10"
                     />
                     <p className="text-xs text-[hsl(240,5%,55%)]">Количество лет преподавания</p>
@@ -380,9 +400,7 @@ export const TeacherProfilePage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      Предметы
-                    </Label>
+                    <Label className="text-sm font-medium">Предметы</Label>
                     <p className="text-xs text-[hsl(240,5%,55%)]">
                       Выберите предметы, которые вы преподаёте
                     </p>
@@ -393,14 +411,16 @@ export const TeacherProfilePage = () => {
                           <SelectValue placeholder="Выберите предмет" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Array.isArray(allSubjects) && allSubjects.map((subject) => (
-                            <SelectItem key={subject.id} value={String(subject.id)}>
-                              {subject.name}
-                            </SelectItem>
-                          ))}
+                          {Array.isArray(allSubjects) &&
+                            allSubjects.map((subject) => (
+                              <SelectItem key={subject.id} value={String(subject.id)}>
+                                {subject.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
-                      <Button type="button"
+                      <Button
+                        type="button"
                         variant="outline"
                         onClick={handleAddSubject}
                         disabled={!subjectToAdd}
@@ -430,36 +450,18 @@ export const TeacherProfilePage = () => {
                         </Badge>
                       ))}
                       {selectedSubjects.length === 0 && (
-                        <p className="text-sm text-[hsl(240,5%,55%)]">
-                          Предметы не выбраны
-                        </p>
+                        <p className="text-sm text-[hsl(240,5%,55%)]">Предметы не выбраны</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="telegram" className="text-sm font-medium">
-                      Telegram
-                    </Label>
-                    <Input
-                      id="telegram"
-                      value={formData.telegram}
-                      onChange={(e) => handleInputChange('telegram', e.target.value)}
-                      placeholder="@username или username"
-                      className="h-10"
-                    />
-                    <p className="text-xs text-[hsl(240,5%,55%)]">Формат: @username или username</p>
-                  </div>
-
                   <div className="space-y-2 pt-4 border-t">
-                    <Label className="text-sm font-medium">
-                      Привязка Telegram
-                    </Label>
+                    <Label className="text-sm font-medium">Привязка Telegram</Label>
                     <p className="text-xs text-[hsl(240,5%,55%)] mb-2">
                       Привяжите аккаунт Telegram для получения уведомлений
                     </p>
                     <TelegramLinkButton
-                      isLinked={!!profile?.profile?.is_telegram_linked}
+                      isLinked={!!profile?.user?.telegram_id}
                       onStatusChange={refetch}
                     />
                   </div>
@@ -470,12 +472,15 @@ export const TeacherProfilePage = () => {
                     {hasUnsavedChanges && (
                       <>
                         <div className="w-2 h-2 bg-[hsl(30,95%,60%)] rounded-full animate-pulse" />
-                        <span className="text-sm text-[hsl(240,5%,45%)]">Несохраненные изменения</span>
+                        <span className="text-sm text-[hsl(240,5%,45%)]">
+                          Несохраненные изменения
+                        </span>
                       </>
                     )}
                   </div>
 
-                  <Button type="submit"
+                  <Button
+                    type="submit"
                     disabled={isUpdating}
                     className="bg-[hsl(250,70%,60%)] hover:bg-[hsl(250,70%,55%)] text-white shadow-sm hover:shadow-md transition-all"
                   >

@@ -57,7 +57,7 @@ def get_child_schedule(request, child_id):
     # Получить уроки ребёнка с оптимизацией запросов
     lessons = (
         Lesson.objects.filter(student=child)
-        .select_related("teacher", "subject")
+        .select_related("teacher", "student", "subject")
         .order_by("date", "start_time")
     )
 
@@ -76,6 +76,9 @@ def get_child_schedule(request, child_id):
     if lesson_status:
         lessons = lessons.filter(status=lesson_status)
 
+    # Вычисляем count до сериализации для эффективности
+    total_count = lessons.count()
+
     # Сериализовать уроки используя LessonSerializer
     serializer = LessonSerializer(lessons, many=True)
 
@@ -87,7 +90,7 @@ def get_child_schedule(request, child_id):
                 "email": child.email,
             },
             "lessons": serializer.data,
-            "total_lessons": len(serializer.data),
+            "total_lessons": total_count,
         }
     )
 

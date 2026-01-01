@@ -138,8 +138,7 @@ export const LessonForm: React.FC<LessonFormProps> = ({
             }
       );
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData, isEditMode]);
+  }, [initialData, isEditMode, form]);
 
   // Get subjects for selected student - fallback when no student selected
   const studentSubjects = useMemo(() => {

@@ -3,7 +3,7 @@ import { logger } from '@/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, GraduationCap, BookOpen, Activity, Calendar, MessageSquare, Radio } from 'lucide-react';
+import { Users, GraduationCap, BookOpen, Activity, Calendar, MessageSquare } from 'lucide-react';
 import StudentSection from './sections/StudentSection';
 import TeacherSection from './sections/TeacherSection';
 import TutorSection from './sections/TutorSection';
@@ -165,15 +165,6 @@ export default function AdminDashboard() {
             >
               <MessageSquare className="h-4 w-4" />
               Чаты
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/admin/broadcasts')}
-              className="flex items-center gap-2"
-            >
-              <Radio className="h-4 w-4" />
-              Рассылки
             </Button>
           </div>
         </CardContent>

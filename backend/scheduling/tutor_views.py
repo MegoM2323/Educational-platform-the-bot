@@ -102,7 +102,7 @@ def get_student_schedule(request, student_id):
                 "email": student.email,
             },
             "lessons": lessons_data,
-            "total_lessons": len(lessons),
+            "total_lessons": len(lessons_data),
         }
     )
 

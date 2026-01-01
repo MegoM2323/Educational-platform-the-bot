@@ -66,7 +66,12 @@ class StudentProfileView(APIView):
     - Обновляет данные User и/или StudentProfile
     - Поддерживает загрузку аватара (multipart/form-data)
     - Поля User: first_name, last_name, email, phone, avatar
-    - Поля Profile: grade, goal, telegram
+    - Поля Profile: grade, goal
+
+    NOTE: Telegram is managed via dedicated endpoints:
+    - POST /api/profile/telegram/generate-link/ - generates link token
+    - DELETE /api/profile/telegram/unlink/ - unlinks account
+    - GET /api/profile/telegram/status/ - check link status
     """
 
     authentication_classes = [CustomTokenAuthentication]
@@ -134,7 +139,7 @@ class StudentProfileView(APIView):
             )
 
         user_fields = ["first_name", "last_name", "email", "phone"]
-        profile_fields = ["grade", "goal", "telegram"]
+        profile_fields = ["grade", "goal"]
 
         user_data = {k: v for k, v in request.data.items() if k in user_fields}
         profile_data = {k: v for k, v in request.data.items() if k in profile_fields}
@@ -202,8 +207,13 @@ class TeacherProfileView(APIView):
     - Поддерживает загрузку аватара
     - Поддерживает обновление списка предметов (subject_ids)
     - Поля User: first_name, last_name, email, phone, avatar
-    - Поля Profile: subject, experience_years, bio, telegram
+    - Поля Profile: subject, experience_years, bio
     - Дополнительно: subject_ids (список ID предметов из materials.Subject)
+
+    NOTE: Telegram is managed via dedicated endpoints:
+    - POST /api/profile/telegram/generate-link/ - generates link token
+    - DELETE /api/profile/telegram/unlink/ - unlinks account
+    - GET /api/profile/telegram/status/ - check link status
 
     PRODUCTION DEPLOYMENT CHECKS:
     ===========================
@@ -331,7 +341,7 @@ class TeacherProfileView(APIView):
             )
 
         user_fields = ["first_name", "last_name", "email", "phone"]
-        profile_fields = ["subject", "experience_years", "bio", "telegram"]
+        profile_fields = ["subject", "experience_years", "bio"]
 
         user_data = {k: v for k, v in request.data.items() if k in user_fields}
         profile_data = {k: v for k, v in request.data.items() if k in profile_fields}
@@ -429,7 +439,12 @@ class TutorProfileView(APIView):
     - Обновляет данные User и/или TutorProfile
     - Поддерживает загрузку аватара
     - Поля User: first_name, last_name, email, phone, avatar
-    - Поля Profile: specialization, experience_years, bio, telegram
+    - Поля Profile: specialization, experience_years, bio
+
+    NOTE: Telegram is managed via dedicated endpoints:
+    - POST /api/profile/telegram/generate-link/ - generates link token
+    - DELETE /api/profile/telegram/unlink/ - unlinks account
+    - GET /api/profile/telegram/status/ - check link status
     """
 
     authentication_classes = [CustomTokenAuthentication]
@@ -493,7 +508,7 @@ class TutorProfileView(APIView):
             )
 
         user_fields = ["first_name", "last_name", "email", "phone"]
-        profile_fields = ["specialization", "experience_years", "bio", "telegram"]
+        profile_fields = ["specialization", "experience_years", "bio"]
 
         user_data = {k: v for k, v in request.data.items() if k in user_fields}
         profile_data = {k: v for k, v in request.data.items() if k in profile_fields}
@@ -560,6 +575,11 @@ class ParentProfileView(APIView):
     - Поддерживает загрузку аватара
     - Поля User: first_name, last_name, email, phone, avatar
     - Поля Profile: (parent profile has no specific fields currently)
+
+    NOTE: Telegram is managed via dedicated endpoints:
+    - POST /api/profile/telegram/generate-link/ - generates link token
+    - DELETE /api/profile/telegram/unlink/ - unlinks account
+    - GET /api/profile/telegram/status/ - check link status
     """
 
     authentication_classes = [CustomTokenAuthentication]
@@ -627,7 +647,7 @@ class ParentProfileView(APIView):
             )
 
         user_fields = ["first_name", "last_name", "email", "phone"]
-        profile_fields = ["telegram"]  # ParentProfile has telegram field
+        profile_fields = []
 
         user_data = {k: v for k, v in request.data.items() if k in user_fields}
         profile_data = {k: v for k, v in request.data.items() if k in profile_fields}

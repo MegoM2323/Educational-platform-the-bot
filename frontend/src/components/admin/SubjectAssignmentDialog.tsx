@@ -1,9 +1,21 @@
 import { useState, useEffect } from 'react';
 import { logger } from '@/utils/logger';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -62,20 +74,44 @@ export const SubjectAssignmentDialog = ({
   const loadData = async () => {
     try {
       const [subjectsRes, teachersRes] = await Promise.all([
-        unifiedAPI.request<{ success: boolean; count: number; results: Subject[] }>('/materials/subjects/all/'),
+        unifiedAPI.request<{ success: boolean; count: number; results: Subject[] }>(
+          '/materials/subjects/all/'
+        ),
         unifiedAPI.request<Teacher[]>('/auth/staff/?role=teacher'),
       ]);
 
       if (subjectsRes.success && subjectsRes.data) {
         // Backend returns {success: true, count: 5, results: [...]}
-        // Extract the results array
+        // or can return array directly, or nested structure
         const subjectsData = subjectsRes.data as any;
-        const subjectsArray = Array.isArray(subjectsData) ? subjectsData : (subjectsData.results || []);
+        let subjectsArray: Subject[] = [];
+        if (Array.isArray(subjectsData)) {
+          subjectsArray = subjectsData;
+        } else if (subjectsData?.results && Array.isArray(subjectsData.results)) {
+          subjectsArray = subjectsData.results;
+        } else if (subjectsData?.data && Array.isArray(subjectsData.data)) {
+          subjectsArray = subjectsData.data;
+        } else if (subjectsData?.data?.results && Array.isArray(subjectsData.data.results)) {
+          subjectsArray = subjectsData.data.results;
+        }
         setSubjects(subjectsArray);
       }
 
       if (teachersRes.success && teachersRes.data) {
-        setTeachers(teachersRes.data);
+        // Backend returns {results: [...]} for /auth/staff/?role=teacher
+        // or can return array directly, or nested structure
+        const teachersData = teachersRes.data as any;
+        let teachersArray: Teacher[] = [];
+        if (Array.isArray(teachersData)) {
+          teachersArray = teachersData;
+        } else if (teachersData?.results && Array.isArray(teachersData.results)) {
+          teachersArray = teachersData.results;
+        } else if (teachersData?.data && Array.isArray(teachersData.data)) {
+          teachersArray = teachersData.data;
+        } else if (teachersData?.data?.results && Array.isArray(teachersData.data.results)) {
+          teachersArray = teachersData.data.results;
+        }
+        setTeachers(teachersArray);
       }
     } catch (err) {
       logger.error('Error loading data:', err);
@@ -180,7 +216,8 @@ export const SubjectAssignmentDialog = ({
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-medium">Назначение {index + 1}</h4>
                   {assignments.length > 1 && (
-                    <Button type="button"
+                    <Button
+                      type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => removeAssignment(index)}
@@ -196,7 +233,9 @@ export const SubjectAssignmentDialog = ({
                     <Label htmlFor={`subject-${index}`}>Предмет *</Label>
                     <Select
                       value={assignment.subject_id.toString()}
-                      onValueChange={(value) => updateAssignment(index, 'subject_id', parseInt(value))}
+                      onValueChange={(value) =>
+                        updateAssignment(index, 'subject_id', parseInt(value))
+                      }
                       disabled={loading}
                     >
                       <SelectTrigger id={`subject-${index}`}>
@@ -219,7 +258,9 @@ export const SubjectAssignmentDialog = ({
                     <Label htmlFor={`teacher-${index}`}>Преподаватель *</Label>
                     <Select
                       value={assignment.teacher_id.toString()}
-                      onValueChange={(value) => updateAssignment(index, 'teacher_id', parseInt(value))}
+                      onValueChange={(value) =>
+                        updateAssignment(index, 'teacher_id', parseInt(value))
+                      }
                       disabled={loading || !assignment.subject_id}
                     >
                       <SelectTrigger id={`teacher-${index}`}>
@@ -241,7 +282,8 @@ export const SubjectAssignmentDialog = ({
               </div>
             ))}
 
-            <Button type="button"
+            <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={addAssignment}
@@ -261,7 +303,12 @@ export const SubjectAssignmentDialog = ({
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               Отмена
             </Button>
             <Button type="submit" disabled={loading}>

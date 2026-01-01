@@ -71,7 +71,11 @@ export interface ParentProfileData {
 /**
  * Union type for role-specific profile data
  */
-export type ProfileData = StudentProfileData | TeacherProfileData | TutorProfileData | ParentProfileData;
+export type ProfileData =
+  | StudentProfileData
+  | TeacherProfileData
+  | TutorProfileData
+  | ParentProfileData;
 
 /**
  * Complete user profile including user info and role-specific data
@@ -108,7 +112,6 @@ export interface ProfileUpdateData {
   // Student profile fields (grade is stored as CharField in backend)
   grade?: string;
   goal?: string;
-  telegram?: string;
 
   // Teacher/Tutor profile fields
   experience_years?: number;
@@ -230,7 +233,9 @@ export const profileAPI = {
    * @param data - Profile data to update (supports avatar file)
    * @returns Updated student profile
    */
-  async updateStudentProfile(data: ProfileUpdateData | FormData): Promise<ApiResponse<UserProfile>> {
+  async updateStudentProfile(
+    data: ProfileUpdateData | FormData
+  ): Promise<ApiResponse<UserProfile>> {
     try {
       const isFormData = data instanceof FormData;
 
@@ -329,7 +334,9 @@ export const profileAPI = {
    * @param data - Profile data to update (supports avatar file and subject_ids)
    * @returns Updated teacher profile
    */
-  async updateTeacherProfile(data: ProfileUpdateData | FormData): Promise<ApiResponse<UserProfile>> {
+  async updateTeacherProfile(
+    data: ProfileUpdateData | FormData
+  ): Promise<ApiResponse<UserProfile>> {
     try {
       const isFormData = data instanceof FormData;
 
@@ -676,7 +683,10 @@ export const profileAPI = {
    *   goal: 'Improve math skills'
    * });
    */
-  async updateUserProfile(userId: number, data: ProfileUpdateData): Promise<ApiResponse<UserProfile>> {
+  async updateUserProfile(
+    userId: number,
+    data: ProfileUpdateData
+  ): Promise<ApiResponse<UserProfile>> {
     try {
       const response = await apiClient.request<UserProfile>(`/auth/profile/${userId}/`, {
         method: 'PATCH',
@@ -843,11 +853,7 @@ export const profileAPI = {
     }
 
     // Check if user has required fields
-    const userHasRequired = Boolean(
-      profile.user.id &&
-      profile.user.email &&
-      profile.user.role
-    );
+    const userHasRequired = Boolean(profile.user.id && profile.user.email && profile.user.role);
 
     // Check if profile data exists (may be null for parent)
     const profileExists = profile.profile !== undefined;

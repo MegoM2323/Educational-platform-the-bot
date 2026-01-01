@@ -40,7 +40,6 @@ export const StudentProfileForm = ({
     phone: initialData?.phone || '',
     grade: initialData?.grade || undefined,
     goal: initialData?.goal || '',
-    telegram: initialData?.telegram || '',
   };
 
   const form = useForm<StudentProfile>({
@@ -215,30 +214,6 @@ export const StudentProfileForm = ({
                   </FormControl>
                   <p className="text-xs text-gray-500">
                     Максимум 1000 символов
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="telegram"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="telegram">Telegram</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="telegram"
-                      placeholder="@username или username"
-                      {...field}
-                      aria-label="Telegram студента"
-                      aria-describedby="telegram-hint"
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <p id="telegram-hint" className="text-xs text-gray-500">
-                    Без пробелов, 5-32 символа (букв, цифр, подчеркивание)
                   </p>
                   <FormMessage />
                 </FormItem>

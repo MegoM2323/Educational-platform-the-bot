@@ -1071,4 +1071,48 @@ export const adminAPI = {
       body: JSON.stringify({ user_ids: userIds, new_role: role }),
     });
   },
+
+  /**
+   * Create a new lesson (admin can create lessons on behalf of teachers)
+   */
+  async createLesson(data: {
+    teacher_id: number;
+    student_id: number;
+    subject_id: number;
+    date: string;
+    start_time: string;
+    end_time: string;
+    description?: string;
+    telemost_link?: string;
+  }): Promise<ApiResponse<{
+    id: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+    teacher: number;
+    teacher_name: string;
+    student: number;
+    student_name: string;
+    subject: number;
+    subject_name: string;
+    status: string;
+    description?: string;
+    telemost_link?: string;
+    created_at: string;
+    updated_at: string;
+  }>> {
+    return apiClient.request('/admin/schedule/lessons/create/', {
+      method: 'POST',
+      body: JSON.stringify({
+        student: data.student_id,
+        subject: data.subject_id,
+        teacher: data.teacher_id,
+        date: data.date,
+        start_time: data.start_time,
+        end_time: data.end_time,
+        description: data.description || '',
+        telemost_link: data.telemost_link || '',
+      }),
+    });
+  },
 };

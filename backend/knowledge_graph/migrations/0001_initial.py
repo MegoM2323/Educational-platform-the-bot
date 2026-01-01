@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("materials", "0016_add_progress_message"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

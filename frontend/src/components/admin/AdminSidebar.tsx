@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { HIDDEN_ADMIN_SECTIONS } from '@/constants/adminSections';
 
 const items = [
   {
@@ -89,7 +90,9 @@ export function AdminSidebar() {
           <SidebarGroupLabel>Администратор</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {items
+                .filter(item => !HIDDEN_ADMIN_SECTIONS.includes(item.title))
+                .map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.description}>
                     <NavLink

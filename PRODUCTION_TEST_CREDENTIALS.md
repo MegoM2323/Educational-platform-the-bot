@@ -6,12 +6,15 @@
 
 ## Учетные данные для входа
 
+**Все пароли:** `password123`
+
 Используйте эти данные для полного тестирования платформы в production.
 
-### Администратор
+### 🔐 Администратор
 ```
-Email:    admin@thebot.com
-Password: admin123
+Email:    admin@tutoring.com
+Password: password123
+Имя:      Администратор Системы
 ```
 **Возможности:**
 - Доступ к админ панели: https://the-bot.ru/admin/
@@ -19,11 +22,11 @@ Password: admin123
 - Система мониторинга
 - Настройки платформы
 
-### Учителя (Teachers)
+### 👨‍🏫 Преподаватели (Teachers)
 
-#### Учитель Математики
+#### Преподаватель 1 - Иван Петров
 ```
-Email:    anna.smirnova@school.com
+Email:    ivan.petrov@tutoring.com
 Password: password123
 ```
 - Создание и управление уроками
@@ -31,19 +34,28 @@ Password: password123
 - Проверка домашних работ
 - Загрузка материалов
 
-#### Учитель Русского языка
+#### Преподаватель 2 - Мария Сидорова
 ```
-Email:    igor.vasiliev@school.com
+Email:    maria.sidorova@tutoring.com
 Password: password123
 ```
-- Полные права учителя
+- Полные права преподавателя
 - Может обучать разные группы
+- Управление расписанием
 
-### Студенты (Students)
-
-#### Студент 1 - Иван
+#### Преподаватель 3 - Алексей Козлов
 ```
-Email:    ivan.petrov@school.com
+Email:    alexey.kozlov@tutoring.com
+Password: password123
+```
+- Полные права преподавателя
+- Опытный наставник
+
+### 👨‍🎓 Студенты (Students)
+
+#### Студент 1 - Анна Иванова (10 кредитов)
+```
+Email:    anna.ivanova@student.com
 Password: password123
 ```
 - Просмотр своих уроков
@@ -51,38 +63,37 @@ Password: password123
 - Доступ к материалам
 - Общение в чате
 
-#### Студент 2 - Мария
+#### Студент 2 - Дмитрий Смирнов (8 кредитов)
 ```
-Email:    maria.sidorova@school.com
+Email:    dmitry.smirnov@student.com
 Password: password123
 ```
 - Полные студенческие права
 - Участие в уроках
 
-#### Студент 3 - Петр
+#### Студент 3 - Елена Волкова (12 кредитов)
 ```
-Email:    petr.ivanov@school.com
+Email:    elena.volkova@student.com
 Password: password123
 ```
 - Полные студенческие права
+- Прилежная студентка
 
-### Репетитор (Tutor)
+#### Студент 4 - Павел Морозов (5 кредитов)
 ```
-Email:    dmitry.kozlov@school.com
+Email:    pavel.morozov@student.com
 Password: password123
 ```
-- Проведение индивидуальных занятий
-- Отслеживание прогресса студентов
-- Создание дополнительных материалов
+- Полные студенческие права
+- Новый ученик
 
-### Родитель (Parent)
+#### Студент 5 - Ольга Новикова (3 кредита)
 ```
-Email:    sergey.petrov@family.com
+Email:    olga.novikova@student.com
 Password: password123
 ```
-- Просмотр прогресса детей
-- Общение с учителями
-- Получение уведомлений
+- Полные студенческие права
+- Начинающий студент
 
 ---
 
@@ -92,7 +103,7 @@ Password: password123
 ```bash
 curl -X POST https://the-bot.ru/api/auth/login/ \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@thebot.com","password":"admin123"}'
+  -d '{"email":"admin@tutoring.com","password":"password123"}'
 ```
 
 ### 2. Профиль пользователя
@@ -105,11 +116,11 @@ curl -X GET https://the-bot.ru/api/profile/ \
 ### 3. Web Interface
 - Откройте https://the-bot.ru в браузере
 - Выполните вход под одним из пользователей выше
--探索 все разделы приложения
+- Изучите все разделы приложения
 
 ### 4. Admin Panel
 - Откройте https://the-bot.ru/admin/
-- Войдите как admin@thebot.com / admin123
+- Войдите как admin@tutoring.com / password123
 - Управляйте пользователями и контентом
 
 ### 5. API Tests
@@ -125,28 +136,31 @@ curl -X GET https://the-bot.ru/api/profile/ \
 
 ## ✅ What You Can Test
 
-### Student (ivan.petrov@school.com)
+### Student (anna.ivanova@student.com)
 - ✅ View dashboard
 - ✅ See scheduled lessons
 - ✅ View available materials
 - ✅ Submit assignments
 - ✅ Participate in chat
 - ✅ View progress
+- ✅ Check credit balance (10 кредитов)
 
-### Teacher (anna.smirnova@school.com)
+### Teacher (ivan.petrov@tutoring.com)
 - ✅ Create lessons
 - ✅ Assign homework
 - ✅ Grade submissions
 - ✅ Manage materials
 - ✅ Track student progress
 - ✅ Communicate with students
+- ✅ View schedule
 
-### Admin (admin@thebot.com)
+### Admin (admin@tutoring.com)
 - ✅ Access admin panel
-- ✅ Manage all users
+- ✅ Manage all users (1 admin, 3 teachers, 5 students)
 - ✅ View system statistics
 - ✅ Configure settings
 - ✅ Monitor platform health
+- ✅ View all bookings and transactions
 
 ---
 
@@ -161,13 +175,25 @@ All accounts are protected with:
 
 ---
 
+## 📊 Test Data Statistics
+
+- **1 Administrator** (admin@tutoring.com)
+- **3 Teachers** with full access to lessons and materials
+- **5 Students** with different credit balances (3-12 credits)
+- **107 lessons** (past and future, with and without homework)
+- **Booking history** and transaction records
+- **7 schedule templates** for tutoring sessions
+- **Chat system** and message broadcasting
+
 ## Notes
 
 - All users are active and verified
-- Test data is separated from production users
-- Passwords are automatically hashed on first use
+- Test data includes realistic tutoring scenarios
+- Passwords are automatically hashed
 - All security fixes (10 critical issues) have been deployed
 - Platform is fully operational and ready for testing
+- Students have different credit balances to test various scenarios
+- Teachers can manage multiple student groups
 
-**For any issues contact:** admin@thebot.com
+**For any issues contact:** admin@tutoring.com
 

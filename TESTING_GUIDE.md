@@ -10,29 +10,28 @@
 
 ### 1️⃣ Основные учетные данные для входа
 
+**Все пароли:** `password123`
+
 #### 🔐 Администратор
-- **Email:** `admin@thebot.com`
-- **Password:** `admin123`
+- **Email:** `admin@tutoring.com`
+- **Имя:** Администратор Системы
 - **URL:** https://the-bot.ru/admin/
 
-#### 👨‍🏫 Учителя
-| Имя | Email | Password |
-|-----|-------|----------|
-| Анна Смирнова (Математика) | anna.smirnova@school.com | password123 |
-| Игорь Васильев (Русский) | igor.vasiliev@school.com | password123 |
+#### 👨‍🏫 Преподаватели
+| Имя | Email |
+|-----|-------|
+| Иван Петров | ivan.petrov@tutoring.com |
+| Мария Сидорова | maria.sidorova@tutoring.com |
+| Алексей Козлов | alexey.kozlov@tutoring.com |
 
-#### 👨‍🎓 Студенты
-| Имя | Email | Password |
-|-----|-------|----------|
-| Иван Петров | ivan.petrov@school.com | password123 |
-| Мария Сидорова | maria.sidorova@school.com | password123 |
-| Петр Иванов | petr.ivanov@school.com | password123 |
-
-#### 👨‍🏫 Другие роли
-| Роль | Email | Password |
-|------|-------|----------|
-| Репетитор | dmitry.kozlov@school.com | password123 |
-| Родитель | sergey.petrov@family.com | password123 |
+#### 👨‍🎓 Студенты (с кредитами)
+| Имя | Email | Кредиты |
+|-----|-------|---------|
+| Анна Иванова | anna.ivanova@student.com | 10 |
+| Дмитрий Смирнов | dmitry.smirnov@student.com | 8 |
+| Елена Волкова | elena.volkova@student.com | 12 |
+| Павел Морозов | pavel.morozov@student.com | 5 |
+| Ольга Новикова | olga.novikova@student.com | 3 |
 
 ---
 
@@ -112,7 +111,7 @@
 # Вход администратора
 curl -X POST https://the-bot.ru/api/auth/login/ \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@thebot.com","password":"admin123"}'
+  -d '{"email":"admin@tutoring.com","password":"password123"}'
 
 # Ожидаемый ответ:
 # {"success":true,"data":{"token":"...","user":{...}}}

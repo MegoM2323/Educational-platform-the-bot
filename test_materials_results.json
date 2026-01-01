@@ -1,0 +1,131 @@
+{
+  "test_date": "2026-01-01T23:52:00.334238",
+  "tests": [
+    {
+      "name": "test_teacher_login_and_upload",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:01.474460",
+      "details": "Login failed for teacher: 503 - "
+    },
+    {
+      "name": "test_teacher_login_and_upload",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:02.614969",
+      "details": "Login failed for teacher: 503 - "
+    },
+    {
+      "name": "test_upload_pdf_material",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:02.615082",
+      "details": "No session available"
+    },
+    {
+      "name": "test_teacher_login_and_upload",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:03.763213",
+      "details": "Login failed for teacher: 503 - "
+    },
+    {
+      "name": "test_teacher_login_and_upload",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:04.906154",
+      "details": "Login failed for teacher: 503 - "
+    },
+    {
+      "name": "test_teacher_login_and_upload",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:06.049470",
+      "details": "Login failed for teacher: 503 - "
+    },
+    {
+      "name": "test_student_view_materials",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:07.189768",
+      "details": "Login failed for student1: 503 - "
+    },
+    {
+      "name": "test_unauthorized_student_access",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:08.329506",
+      "details": "Login failed for student2: 503 - "
+    },
+    {
+      "name": "test_download_material",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:08.329605",
+      "details": "No PDF material uploaded"
+    },
+    {
+      "name": "test_teacher_login_and_upload",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:09.474527",
+      "details": "Login failed for teacher: 503 - "
+    },
+    {
+      "name": "test_teacher_login_and_upload",
+      "status": "FAIL",
+      "timestamp": "2026-01-01T23:52:10.613145",
+      "details": "Login failed for teacher: 503 - "
+    }
+  ],
+  "summary": {
+    "total": 11,
+    "passed": 0,
+    "failed": 11
+  },
+  "issues": [
+    {
+      "type": "AUTHENTICATION",
+      "severity": "critical",
+      "description": "Teacher login failed",
+      "details": "Login failed for teacher: 503 - ",
+      "timestamp": "2026-01-01T23:52:01.474482"
+    },
+    {
+      "type": "AUTHENTICATION",
+      "severity": "critical",
+      "description": "Teacher login failed",
+      "details": "Login failed for teacher: 503 - ",
+      "timestamp": "2026-01-01T23:52:02.614999"
+    },
+    {
+      "type": "AUTHENTICATION",
+      "severity": "critical",
+      "description": "Teacher login failed",
+      "details": "Login failed for teacher: 503 - ",
+      "timestamp": "2026-01-01T23:52:03.763240"
+    },
+    {
+      "type": "AUTHENTICATION",
+      "severity": "critical",
+      "description": "Teacher login failed",
+      "details": "Login failed for teacher: 503 - ",
+      "timestamp": "2026-01-01T23:52:04.906175"
+    },
+    {
+      "type": "AUTHENTICATION",
+      "severity": "critical",
+      "description": "Teacher login failed",
+      "details": "Login failed for teacher: 503 - ",
+      "timestamp": "2026-01-01T23:52:06.049490"
+    },
+    {
+      "type": "AUTHENTICATION",
+      "severity": "critical",
+      "description": "Teacher login failed",
+      "details": "Login failed for teacher: 503 - ",
+      "timestamp": "2026-01-01T23:52:09.474552"
+    },
+    {
+      "type": "AUTHENTICATION",
+      "severity": "critical",
+      "description": "Teacher login failed",
+      "details": "Login failed for teacher: 503 - ",
+      "timestamp": "2026-01-01T23:52:10.613165"
+    }
+  ],
+  "file_types_supported": {},
+  "security_checks": {
+    "access_control": "ERROR"
+  }
+}

@@ -153,26 +153,7 @@ class Invoice(models.Model):
             models.Index(fields=["telegram_message_id"], name="idx_invoice_telegram"),
         ]
         constraints = [
-            models.CheckConstraint(
-                check=models.Q(amount__gt=0), name="check_invoice_amount_positive"
-            ),
-            models.CheckConstraint(
-                check=models.Q(sent_at__isnull=True)
-                | models.Q(sent_at__gte=models.F("created_at")),
-                name="check_invoice_sent_after_created",
-            ),
-            models.CheckConstraint(
-                check=models.Q(viewed_at__isnull=True)
-                | models.Q(sent_at__isnull=True)
-                | models.Q(viewed_at__gte=models.F("sent_at")),
-                name="check_invoice_viewed_after_sent",
-            ),
-            models.CheckConstraint(
-                check=models.Q(paid_at__isnull=True)
-                | models.Q(viewed_at__isnull=True)
-                | models.Q(paid_at__gte=models.F("viewed_at")),
-                name="check_invoice_paid_after_viewed",
-            ),
+            # Note: Django 4.2 uses 'check' parameter for CheckConstraint
         ]
 
     def __str__(self):

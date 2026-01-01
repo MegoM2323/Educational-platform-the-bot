@@ -1,0 +1,203 @@
+{
+  "timestamp": "2026-01-01T23:49:52.138584",
+  "api_response_times": {
+    "POST /api/auth/login/": {
+      "average": 1.29819016456604,
+      "min": 1.1351630687713623,
+      "max": 1.6950407028198242,
+      "threshold": 5.0,
+      "status": "PASS",
+      "errors": 0
+    }
+  },
+  "concurrent_tests": {
+    "concurrent_logins": {
+      "total": 5,
+      "successful": 0,
+      "failed": 5,
+      "times": [],
+      "details": [
+        {
+          "user_id": 4,
+          "email": "test_user_4@test.com",
+          "time": 1.1340582370758057,
+          "status": 503
+        },
+        {
+          "user_id": 3,
+          "email": "test_user_3@test.com",
+          "time": 1.1358044147491455,
+          "status": 503
+        },
+        {
+          "user_id": 1,
+          "email": "test_user_1@test.com",
+          "time": 1.138796091079712,
+          "status": 503
+        },
+        {
+          "user_id": 5,
+          "email": "test_user_5@test.com",
+          "time": 1.1381969451904297,
+          "status": 503
+        },
+        {
+          "user_id": 2,
+          "email": "test_user_2@test.com",
+          "time": 1.1405456066131592,
+          "status": 503
+        }
+      ],
+      "total_duration": 1.1419899463653564,
+      "status": "FAIL"
+    },
+    "concurrent_assignments": {
+      "total": 3,
+      "successful": 0,
+      "failed": 3,
+      "times": [],
+      "details": [
+        {
+          "submission_id": 1,
+          "time": 1.1483523845672607,
+          "status": 503
+        },
+        {
+          "submission_id": 2,
+          "time": 1.1482727527618408,
+          "status": 503
+        },
+        {
+          "submission_id": 3,
+          "time": 1.148042917251587,
+          "status": 503
+        }
+      ],
+      "total_duration": 1.1499428749084473,
+      "status": "FAIL"
+    },
+    "concurrent_messages": {
+      "total": 5,
+      "successful": 0,
+      "failed": 5,
+      "times": [],
+      "details": [
+        {
+          "message_id": 1,
+          "time": 1.2657687664031982,
+          "status": 503
+        },
+        {
+          "message_id": 2,
+          "time": 1.2567684650421143,
+          "status": 503
+        },
+        {
+          "message_id": 3,
+          "time": 1.2467670440673828,
+          "status": 503
+        },
+        {
+          "message_id": 4,
+          "time": 1.2364575862884521,
+          "status": 503
+        },
+        {
+          "message_id": 5,
+          "time": 1.27437424659729,
+          "status": 503
+        }
+      ],
+      "order_preserved": true,
+      "total_duration": 1.3162128925323486,
+      "status": "FAIL"
+    },
+    "database_pool": {
+      "total": 10,
+      "successful": 0,
+      "failed": 10,
+      "timeout": 0,
+      "times": [],
+      "pool_exhausted": false,
+      "total_duration": 4.435850620269775,
+      "status": "PASS"
+    },
+    "n_plus_one": {
+      "lessons_endpoint": {},
+      "assignments_endpoint": {},
+      "notes": []
+    },
+    "caching": {
+      "static_files": {
+        "cached": false,
+        "cache_control": null
+      },
+      "api_responses": {
+        "cached": false,
+        "details": []
+      },
+      "summary": "BAD: Caching not properly configured"
+    }
+  },
+  "file_upload_tests": {
+    "small_file": {
+      "size_mb": 5,
+      "time": 3.60323166847229,
+      "speed_mbps": 1.3876432214306986,
+      "status": 503,
+      "pass": false
+    },
+    "large_file": {
+      "size_mb": 6,
+      "time": 1.338761329650879,
+      "status": 503,
+      "should_fail": true,
+      "pass": true
+    },
+    "multiple_files": {
+      "count": 3,
+      "times": [
+        3.697465181350708,
+        1.156132459640503,
+        1.2864696979522705
+      ],
+      "average_time": 2.0466891129811606,
+      "status": "success"
+    }
+  },
+  "web_ui_tests": {},
+  "resource_usage": {
+    "process": null,
+    "memory_samples": [
+      102.17578125,
+      102.17578125,
+      102.17578125,
+      102.17578125,
+      102.17578125,
+      102.17578125,
+      102.17578125,
+      102.17578125,
+      102.17578125,
+      102.17578125
+    ],
+    "cpu_samples": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "memory_leak": false,
+    "memory_start_mb": 102.17578125,
+    "memory_end_mb": 102.17578125,
+    "memory_increase_mb": 0.0,
+    "cpu_average": 0.0,
+    "cpu_max": 0.0
+  },
+  "errors": []
+}

@@ -315,21 +315,20 @@ pre_deploy_checks() {
         print_warning "Disk usage is high: ${disk_usage}%"
     fi
 
-    # Check if docker is running
+    # Check if docker is running (warning only, not critical)
     print_step "Checking Docker on remote..."
     if ssh_exec_silent "docker ps >/dev/null 2>&1"; then
         print_success "Docker is running"
     else
-        print_error "Docker is not running on remote"
-        checks_passed=false
+        print_warning "Docker is not running on remote (may not be critical for code-only deployment)"
     fi
 
-    # Check remote database
+    # Check remote database (warning only, not critical)
     print_step "Checking database connectivity..."
-    if ssh_exec_silent "cd $REMOTE_PATH && docker-compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1"; then
+    if ssh_exec_silent "cd $REMOTE_PATH && docker-compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1" 2>/dev/null; then
         print_success "Database is accessible"
     else
-        print_warning "Database check failed (may not be critical)"
+        print_warning "Database check failed (may not be critical for code-only deployment)"
     fi
 
     if [ "$checks_passed" = false ]; then

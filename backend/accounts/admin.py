@@ -17,7 +17,8 @@ class UserAdmin(BaseUserAdmin):
         "username",
         "email",
         "get_full_name",
-        "role",
+        "get_user_role",
+        "get_student_profile",
         "is_verified_badge",
         "is_active",
         "is_staff",
@@ -67,6 +68,35 @@ class UserAdmin(BaseUserAdmin):
 
     is_verified_badge.short_description = "Статус верификации"
 
+    def get_student_profile(self, obj):
+        """Отобразить профиль студента в списке"""
+        try:
+            if hasattr(obj, "student_profile"):
+                profile = obj.student_profile
+                return f"Класс {profile.grade}, Прогресс {profile.progress_percentage}%"
+            return "-"
+        except Exception:
+            return "-"
+
+    get_student_profile.short_description = "Профиль студента"
+
+    def get_user_role(self, obj):
+        """Отобразить роль пользователя"""
+        return (
+            obj.get_role_display()
+            if hasattr(obj, "get_role_display")
+            else str(obj.role)
+        )
+
+    get_user_role.short_description = "Роль"
+
+    def get_queryset(self, request):
+        """Переопределяем queryset с prefetch для избежания N+1"""
+        qs = super().get_queryset(request)
+        return qs.prefetch_related(
+            "student_profile", "teacher_profile", "tutor_profile", "parent_profile"
+        )
+
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
@@ -107,6 +137,11 @@ class StudentProfileAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    def get_queryset(self, request):
+        """Переопределяем queryset с select_related для избежания N+1"""
+        qs = super().get_queryset(request)
+        return qs.select_related("user", "tutor", "parent")
 
 
 @admin.register(TeacherProfile)

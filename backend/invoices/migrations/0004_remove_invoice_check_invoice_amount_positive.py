@@ -5,7 +5,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("invoices", "0003_invoice_check_invoice_sent_after_created_and_more"),
+        ("invoices", "0003_empty"),
     ]
 
     operations = [

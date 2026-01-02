@@ -155,17 +155,17 @@ class Invoice(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=Q(sent_at__isnull=True) | Q(sent_at__gte=F("created_at")),
+                check=Q(sent_at__isnull=True) | Q(sent_at__gte=F("created_at")),
                 name="check_invoice_sent_after_created",
             ),
             models.CheckConstraint(
-                condition=Q(viewed_at__isnull=True)
+                check=Q(viewed_at__isnull=True)
                 | Q(sent_at__isnull=True)
                 | Q(viewed_at__gte=F("sent_at")),
                 name="check_invoice_viewed_after_sent",
             ),
             models.CheckConstraint(
-                condition=Q(paid_at__isnull=True)
+                check=Q(paid_at__isnull=True)
                 | Q(viewed_at__isnull=True)
                 | Q(paid_at__gte=F("viewed_at")),
                 name="check_invoice_paid_after_viewed",

@@ -10,7 +10,7 @@ from accounts.models import (
     ParentProfile,
     TutorStudentCreation,
 )
-from materials.models import SubjectEnrollment
+from materials.models import Subject, SubjectEnrollment
 from rest_framework.authtoken.models import Token
 
 from accounts.tutor_service import StudentCreationService
@@ -154,7 +154,43 @@ class Command(BaseCommand):
 
         # Для удобства отображения студентов у тьютора
         student.created_by_tutor = tutor
-        student.save(update_fields=["created_by_tutor"]) 
+        student.save(update_fields=["created_by_tutor"])
+
+        # Создаем SubjectEnrollment для активации forum chats
+        # Получаем или создаем предмет "Математика"
+        subject, _ = Subject.objects.get_or_create(
+            name="Математика",
+            defaults={
+                "description": "Основной предмет для тестирования",
+                "color": "#3B82F6",
+            },
+        )
+
+        # Создаем SubjectEnrollment для связи student → teacher
+        # Это триггирует сигнал create_forum_chat_on_enrollment
+        # который создает FORUM_SUBJECT чат (student ↔ teacher)
+        SubjectEnrollment.objects.get_or_create(
+            student=student,
+            subject=subject,
+            teacher=teacher,
+            defaults={
+                "assigned_by": tutor,
+                "is_active": True,
+            },
+        )
+
+        # Создаем SubjectEnrollment для связи student → tutor
+        # Это триггирует сигнал create_forum_chat_on_enrollment
+        # который создает FORUM_TUTOR чат (student ↔ tutor)
+        SubjectEnrollment.objects.get_or_create(
+            student=student,
+            subject=subject,
+            teacher=tutor,
+            defaults={
+                "assigned_by": tutor,
+                "is_active": True,
+            },
+        ) 
 
         # Итоговый вывод
         self.stdout.write(self.style.SUCCESS("Тестовые аккаунты и профили готовы."))

@@ -163,7 +163,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                     ChatRoom.objects.filter(
                         type=ChatRoom.Type.FORUM_TUTOR,
                         is_active=True,
-                        enrollment__student_id__in=tutored_student_ids,
+                        participants__id__in=tutored_student_ids,
                     )
                     .select_related(
                         "created_by",
@@ -208,8 +208,8 @@ class ForumChatViewSet(viewsets.ViewSet):
                         f"in bulk: {[c.id for c in chats_needing_tutor]}"
                     )
 
-                # Reassign chats to already-fetched list to avoid re-querying
-                chats = chats_list
+                # Keep chats as queryset for later operations (.exists(), prefetch, annotate)
+                # chats_list was only used for efficient iteration with prefetch_related
 
             elif user.role == "parent":
                 # Родители видят чаты своих детей

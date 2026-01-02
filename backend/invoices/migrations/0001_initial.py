@@ -12,7 +12,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("payments", "0005_alter_payment_status"),
-        ("materials", "0002_subjectenrollment_subjectpayment"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -117,18 +116,6 @@ class Migration(migrations.Migration):
                 (
                     "updated_at",
                     models.DateTimeField(auto_now=True, verbose_name="Дата обновления"),
-                ),
-                (
-                    "enrollment",
-                    models.ForeignKey(
-                        blank=True,
-                        help_text="Опционально: привязка к конкретному предмету",
-                        null=True,
-                        on_delete=django.db.models.deletion.SET_NULL,
-                        related_name="invoices",
-                        to="materials.subjectenrollment",
-                        verbose_name="Зачисление на предмет",
-                    ),
                 ),
                 (
                     "parent",
@@ -313,7 +300,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="invoice",
             constraint=models.CheckConstraint(
-                condition=models.Q(amount__gt=0), name="check_invoice_amount_positive"
+                check=models.Q(amount__gt=0), name="check_invoice_amount_positive"
             ),
         ),
     ]

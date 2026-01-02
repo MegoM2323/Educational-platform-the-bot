@@ -16,7 +16,7 @@ Tests:
 import os
 import sys
 import django
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from decimal import Decimal
 
 # Setup Django
@@ -286,8 +286,8 @@ def test_data_consistency_concurrent():
                 student=student,
                 subject=subject,
                 date=future_date,
-                start_time='10:00:00',
-                end_time='11:00:00',
+                start_time=time(10, 0),
+                end_time=time(11, 0),
                 status='confirmed'
             )
         except Exception as e:

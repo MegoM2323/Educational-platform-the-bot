@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="1.261" timestamp="2026-01-02T16:31:29.523663+00:00" hostname="cachyos"><testcase classname="" name="tests.api.test_payments_post_endpoints" time="0.000"><error message="collection failure">ImportError while importing test module '/home/mego/Python Projects/THE_BOT_platform/backend/tests/api/test_payments_post_endpoints.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../.local/lib/python3.13/site-packages/_pytest/python.py:507: in importtestmodule
+    mod = import_path(
+../../../.local/lib/python3.13/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+/usr/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen importlib._bootstrap&gt;:1387: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1360: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1331: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:935: in _load_unlocked
+    ???
+../../../.local/lib/python3.13/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+tests/api/test_payments_post_endpoints.py:6: in &lt;module&gt;
+    from materials.models import Subject, Enrollment
+E   ImportError: cannot import name 'Enrollment' from 'materials.models' (/home/mego/Python Projects/THE_BOT_platform/backend/materials/models.py)</error></testcase></testsuite></testsuites>

@@ -15,7 +15,7 @@ from scheduling.serializers import LessonSerializer
 User = get_user_model()
 
 # Допустимые статусы уроков из модели Lesson
-VALID_STATUSES = {choice[0] for choice in Lesson.STATUS_CHOICES}
+VALID_STATUSES = set(Lesson.Status.values)
 
 
 class AdminScheduleService:

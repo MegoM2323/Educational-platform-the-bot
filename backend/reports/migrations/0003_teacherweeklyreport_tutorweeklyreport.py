@@ -10,6 +10,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('reports', '0002_studentreport'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('materials', '0001_initial'),
     ]
 
     operations = [

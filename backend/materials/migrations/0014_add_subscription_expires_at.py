@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('materials', '00013_placeholder'),
+        ('materials', '0013_alter_subjectpayment_unique_together'),
     ]
 
     operations = [

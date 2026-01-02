@@ -50,7 +50,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('reports', '0006_add_parent_report_sharing'),
-        ('materials', '0001_initial'),
     ]
 
     operations = [

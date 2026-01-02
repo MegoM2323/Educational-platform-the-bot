@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('materials', '0030_create_submission_file_model'),
+        ('materials', '0030_add_progress_audit_trail'),
     ]
 
     operations = [

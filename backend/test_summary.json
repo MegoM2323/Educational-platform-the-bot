@@ -1,0 +1,235 @@
+{
+  "test_execution": {
+    "timestamp": "2026-01-02T19:45:00Z",
+    "environment": "test",
+    "database_engine": "django.db.backends.sqlite3",
+    "django_version": "4.2.7",
+    "python_version": "3.13.7",
+    "pytest_version": "9.0.2"
+  },
+  "statistics": {
+    "total_tests_collected": 4346,
+    "tests_passed": 128,
+    "tests_failed": 31,
+    "tests_skipped": 15,
+    "collection_errors": 4172,
+    "actual_executed": 159,
+    "pass_rate_executed": "80.5%",
+    "overall_pass_rate": "2.9%",
+    "execution_time_seconds": 131.94
+  },
+  "coverage": {
+    "overall_percentage": 10,
+    "target_percentage": 95,
+    "gap_percentage": 85,
+    "modules": {
+      "accounts": {
+        "coverage": 32,
+        "files": 18,
+        "status": "medium"
+      },
+      "assignments": {
+        "coverage": 28,
+        "files": 14,
+        "status": "medium"
+      },
+      "chat": {
+        "coverage": 15,
+        "files": 12,
+        "status": "low"
+      },
+      "materials": {
+        "coverage": 8,
+        "files": 45,
+        "status": "critical"
+      },
+      "scheduling": {
+        "coverage": 19,
+        "files": 11,
+        "status": "low"
+      },
+      "payments": {
+        "coverage": 3,
+        "files": 10,
+        "status": "critical"
+      },
+      "core": {
+        "coverage": 41,
+        "files": 8,
+        "status": "good"
+      },
+      "config": {
+        "coverage": 22,
+        "files": 5,
+        "status": "low"
+      }
+    }
+  },
+  "blocking_issues": [
+    {
+      "type": "ImportError",
+      "count": 4172,
+      "severity": "critical",
+      "affected_modules": [
+        "chat.models.ChatMessage -> Message",
+        "materials.models.Enrollment (not found)",
+        "applications.models.Subject (not found)",
+        "accounts.serializers.UserMinimalSerializer (not found)"
+      ],
+      "action_required": "Fix model/serializer imports in test files"
+    },
+    {
+      "type": "ConfigurationError",
+      "count": 14,
+      "severity": "high",
+      "error": "NameError: name 'cache' is not defined",
+      "affected_files": [
+        "tests/unit/config/test_throttling.py"
+      ],
+      "action_required": "Initialize cache in conftest.py"
+    },
+    {
+      "type": "MarkerWarning",
+      "count": 4,
+      "severity": "medium",
+      "error": "PytestUnknownMarkWarning",
+      "affected_files": [
+        "tests/unit/advanced/"
+      ],
+      "action_required": "Register custom pytest markers"
+    },
+    {
+      "type": "ModelError",
+      "count": 1,
+      "severity": "high",
+      "error": "CheckConstraint parameter 'condition' vs 'check'",
+      "affected_files": [
+        "backend/invoices/models.py:157"
+      ],
+      "status": "FIXED"
+    }
+  ],
+  "fixed_issues": [
+    {
+      "file": "backend/invoices/models.py",
+      "lines": "157-172",
+      "issue": "CheckConstraint.__init__() got an unexpected keyword argument 'condition'",
+      "fix": "Changed 'condition=' to 'check=' parameter",
+      "status": "COMPLETED"
+    },
+    {
+      "file": "backend/tests/api/test_chat_post_endpoints.py",
+      "lines": "6, 220, 273, 388",
+      "issue": "ImportError: cannot import name 'ChatMessage'",
+      "fix": "Changed 'ChatMessage' to 'Message' (import + usage)",
+      "status": "COMPLETED"
+    }
+  ],
+  "test_results_by_category": {
+    "accounts_auth": {
+      "passed": 45,
+      "failed": 8,
+      "skipped": 0,
+      "errors": 200
+    },
+    "assignments": {
+      "passed": 42,
+      "failed": 5,
+      "skipped": 3,
+      "errors": 150
+    },
+    "chat": {
+      "passed": 8,
+      "failed": 2,
+      "skipped": 0,
+      "errors": 50
+    },
+    "materials": {
+      "passed": 15,
+      "failed": 8,
+      "skipped": 5,
+      "errors": 800
+    },
+    "scheduling": {
+      "passed": 12,
+      "failed": 5,
+      "skipped": 4,
+      "errors": 600
+    },
+    "permissions": {
+      "passed": 6,
+      "failed": 3,
+      "skipped": 3,
+      "errors": 100
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "high",
+      "item": "Fix Model/Serializer Imports",
+      "estimated_hours": 2,
+      "description": "Audit all test files for correct import names and update to match current codebase"
+    },
+    {
+      "priority": "high",
+      "item": "Configure Cache for Tests",
+      "estimated_hours": 0.5,
+      "description": "Initialize test cache in conftest.py and mock in throttling tests"
+    },
+    {
+      "priority": "high",
+      "item": "Register Pytest Markers",
+      "estimated_hours": 0.25,
+      "description": "Add custom markers to conftest.py and document"
+    },
+    {
+      "priority": "medium",
+      "item": "Add Integration Tests",
+      "estimated_hours": 8,
+      "description": "Test API endpoints and service layer to improve coverage"
+    },
+    {
+      "priority": "medium",
+      "item": "Test Data Layer",
+      "estimated_hours": 6,
+      "description": "Add model, constraint, and signal validation tests"
+    },
+    {
+      "priority": "low",
+      "item": "Refactor Brittle Tests",
+      "estimated_hours": 10,
+      "description": "Use factories and improve assertions"
+    }
+  ],
+  "files_requiring_attention": {
+    "test_files_with_import_errors": [
+      "tests/api/test_payments_post_endpoints.py",
+      "tests/api/test_scheduling_update_endpoints.py",
+      "tests/performance/test_performance_suite.py",
+      "tests/test_comprehensive_security.py",
+      "tests/unit/core/test_auditlog_serializer.py",
+      "tests/unit/notifications/test_template_service.py",
+      "tests/unit/payments/test_serializers.py"
+    ],
+    "test_files_with_config_errors": [
+      "tests/unit/advanced/test_caching.py",
+      "tests/unit/advanced/test_error_handling.py",
+      "tests/unit/advanced/test_management_commands.py",
+      "tests/unit/advanced/test_signals.py",
+      "tests/unit/advanced/test_validation.py",
+      "tests/unit/config/test_throttling.py"
+    ],
+    "model_files_with_issues": [
+      "backend/invoices/models.py (FIXED)",
+      "backend/scheduling/models.py (NEEDS CHECK)"
+    ]
+  },
+  "next_steps": [
+    "Fix import errors in test files (blocking - 2h)",
+    "Configure test cache backend (blocking - 0.5h)",
+    "Register pytest markers (blocking - 0.25h)",
+    "Run full test suite again to measure improvement",
+    "Add integration tests for API coverage",
+    "Expand test coverage to 95%+"
+  ]
+}

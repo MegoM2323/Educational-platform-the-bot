@@ -5,6 +5,12 @@ try:
 except ImportError:
     pass
 
+# CRITICAL: Initialize test environment BEFORE any other imports
+try:
+    from config import test_init  # noqa: F401
+except ImportError:
+    pass
+
 from pathlib import Path
 import os
 import sys
@@ -23,11 +29,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # .env в корне проекта; резервно — backend/.env
 # КРИТИЧНО: Не перезаписываем ENVIRONMENT если уже установлен (например, pytest-env)
 PROJECT_ROOT = BASE_DIR.parent
-_current_environment = os.environ.get("ENVIRONMENT")
-for _env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
+saved_environment = os.environ.get("ENVIRONMENT")
+for env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
     try:
-        if _env_path.exists():
-            for k, v in dotenv_values(_env_path).items():
+        if env_path.exists():
+            for k, v in dotenv_values(env_path).items():
                 if k and v is not None and k not in os.environ:
                     os.environ[k] = str(v)
     except Exception:
@@ -36,8 +42,8 @@ for _env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
 
 # Восстановить ENVIRONMENT если он был установлен до загрузки .env
 # Это критично для pytest (pytest-env устанавливает ENVIRONMENT=test)
-if _current_environment is not None:
-    os.environ["ENVIRONMENT"] = _current_environment
+if saved_environment is not None:
+    os.environ["ENVIRONMENT"] = saved_environment
 
 # Initialize Sentry for error tracking (MUST be before any imports of other modules)
 try:
@@ -648,29 +654,37 @@ REST_FRAMEWORK = {
             "config.throttling.BurstThrottle",  # Global burst protection (10/sec)
         ]
     ),
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "50/h",  # Anonymous users: 50 req/hour
-        "user": "500/h",  # Authenticated users: 500 req/hour
-        "student": "1000/h",  # Students: 1000 req/hour
-        "admin": "10000/h",  # Admins: 10000 req/hour (practically unlimited)
-        "burst": "10/s",  # Burst protection: 10 req/sec (global)
-        "login": "5/m",  # Login attempts: 5 per minute per IP
-        "upload": "10/h",  # File uploads: 10 per hour per user
-        "search": "30/m",  # Search queries: 30 per minute per user
-        "analytics": "100/h",  # Analytics/reports: 100 per hour per user
-        "chat_message": "60/m",  # Chat messages: 60 per minute per user
-        "chat_room": "5/h",  # Chat room creation: 5 per hour per user
-        "assignment_submission": "10/h",  # Assignment submissions: 10 per hour per user
-        "report_generation": "10/h",  # Report generation: 10 per hour per user
-        "admin_endpoint": "1000/h",  # Admin endpoints: 1000 per hour per admin
-    },
+    "DEFAULT_THROTTLE_RATES": (
+        {}  # Disable throttle rates for testing
+        if current_environment == "test"
+        else {
+            "anon": "50/h",  # Anonymous users: 50 req/hour
+            "user": "500/h",  # Authenticated users: 500 req/hour
+            "student": "1000/h",  # Students: 1000 req/hour
+            "admin": "10000/h",  # Admins: 10000 req/hour (practically unlimited)
+            "burst": "10/s",  # Burst protection: 10 req/sec (global)
+            "login": "5/m",  # Login attempts: 5 per minute per IP
+            "upload": "10/h",  # File uploads: 10 per hour per user
+            "search": "30/m",  # Search queries: 30 per minute per user
+            "analytics": "100/h",  # Analytics/reports: 100 per hour per user
+            "chat_message": "60/m",  # Chat messages: 60 per minute per user
+            "chat_room": "5/h",  # Chat room creation: 5 per hour per user
+            "assignment_submission": "10/h",  # Assignment submissions: 10 per hour per user
+            "report_generation": "10/h",  # Report generation: 10 per hour per user
+            "admin_endpoint": "1000/h",  # Admin endpoints: 1000 per hour per admin
+        }
+    ),
 }
 
 # Cache settings
 # Настройки кэширования
 # По умолчанию: Development (DEBUG=True) -> False, Production (DEBUG=False) -> True
 # Можно переопределить в .env: USE_REDIS_CACHE=True/False
-USE_REDIS_CACHE = os.getenv("USE_REDIS_CACHE", str(not DEBUG)).lower() == "true"
+# КРИТИЧНО: Отключаем Redis для тестов чтобы избежать ConnectionError
+USE_REDIS_CACHE = (
+    False if current_environment == "test"
+    else os.getenv("USE_REDIS_CACHE", str(not DEBUG)).lower() == "true"
+)
 
 if USE_REDIS_CACHE:
     # Используем Redis для кэширования
@@ -841,7 +855,11 @@ SYSTEM_MONITORING = {
 # По умолчанию: Development (DEBUG=True) -> InMemory, Production (DEBUG=False) -> Redis
 # Можно переопределить в .env: USE_REDIS_CHANNELS=True/False
 # ВАЖНО: В production Redis КРИТИЧНО необходим для WebSocket на нескольких процессах
-USE_REDIS_CHANNELS = os.getenv("USE_REDIS_CHANNELS", str(not DEBUG)).lower() == "true"
+# КРИТИЧНО: Отключаем Redis для тестов чтобы избежать ConnectionError
+USE_REDIS_CHANNELS = (
+    False if current_environment == "test"
+    else os.getenv("USE_REDIS_CHANNELS", str(not DEBUG)).lower() == "true"
+)
 
 if USE_REDIS_CHANNELS:
     # Используем Redis для каналов (production)

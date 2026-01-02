@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.db import models
-from django.core.validators import RegexValidator
 from .models import (
     User,
     StudentProfile,
@@ -13,11 +12,52 @@ from .models import (
 from reports.models import TeacherWeeklyReport, TutorWeeklyReport
 from .permissions import (
     can_view_private_fields,
-    STUDENT_PRIVATE_FIELDS,
-    TEACHER_PRIVATE_FIELDS,
-    TUTOR_PRIVATE_FIELDS,
-    PARENT_PRIVATE_FIELDS,
 )
+
+__all__ = [
+    "UserMinimalSerializer",
+    "UserLoginSerializer",
+    "UserSerializer",
+    "StudentProfileSerializer",
+    "TeacherProfileSerializer",
+    "TutorProfileSerializer",
+    "ParentProfileSerializer",
+    "ParentProfileListSerializer",
+    "ChangePasswordSerializer",
+    "StudentListSerializer",
+    "EnrollmentDetailSerializer",
+    "StudentDetailSerializer",
+    "UserUpdateSerializer",
+    "StudentProfileUpdateSerializer",
+    "TeacherProfileUpdateSerializer",
+    "TutorProfileUpdateSerializer",
+    "ParentProfileUpdateSerializer",
+    "UserCreateSerializer",
+    "StudentProfilePublicSerializer",
+    "StudentProfileFullSerializer",
+    "TeacherProfilePublicSerializer",
+    "TeacherProfileFullSerializer",
+    "TutorProfilePublicSerializer",
+    "TutorProfileFullSerializer",
+    "get_profile_serializer",
+    "StudentCreateSerializer",
+    "ParentCreateSerializer",
+    "CurrentUserProfileSerializer",
+    "TelegramLinkTokenSerializer",
+    "TelegramLinkRequestSerializer",
+    "TelegramStatusSerializer",
+]
+
+
+class UserMinimalSerializer(serializers.ModelSerializer):
+    """
+    Minimal serializer for User - used in nested relationships
+    """
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "first_name", "last_name")
+        read_only_fields = fields
 
 
 class UserLoginSerializer(serializers.Serializer):

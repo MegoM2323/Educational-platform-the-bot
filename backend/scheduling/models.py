@@ -5,6 +5,7 @@ Single Lesson model replacing TeacherAvailability, TimeSlot, and Booking.
 """
 
 import uuid
+import datetime
 from datetime import timedelta
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -43,12 +44,11 @@ class Lesson(models.Model):
     with direct lesson creation by teachers.
     """
 
-    STATUS_CHOICES = [
-        ("pending", "Pending confirmation"),
-        ("confirmed", "Confirmed"),
-        ("completed", "Completed"),
-        ("cancelled", "Cancelled"),
-    ]
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending confirmation"
+        CONFIRMED = "confirmed", "Confirmed"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -86,7 +86,10 @@ class Lesson(models.Model):
     )
 
     status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default="pending", verbose_name="Status"
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Status",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -116,8 +119,6 @@ class Lesson(models.Model):
     @property
     def datetime_start(self):
         """Full datetime of lesson start."""
-        import datetime
-
         dt = datetime.datetime.combine(self.date, self.start_time)
         if timezone.is_aware(dt):
             return dt
@@ -130,8 +131,6 @@ class Lesson(models.Model):
     @property
     def datetime_end(self):
         """Full datetime of lesson end."""
-        import datetime
-
         dt = datetime.datetime.combine(self.date, self.end_time)
         if timezone.is_aware(dt):
             return dt

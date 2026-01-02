@@ -10,11 +10,7 @@ from django.utils import timezone
 from datetime import timedelta, time
 
 from scheduling.models import Lesson, LessonHistory
-
-try:
-    from materials.models import Subject
-except ImportError:
-    Subject = None
+from materials.models import Subject
 
 User = get_user_model()
 
@@ -75,9 +71,9 @@ class LessonSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.get_full_name", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     # Explicit ID fields for frontend compatibility
-    teacher_id = serializers.IntegerField(source="teacher.id", read_only=True)
-    subject_id = serializers.IntegerField(source="subject.id", read_only=True)
-    student_id = serializers.IntegerField(source="student.id", read_only=True)
+    teacher_id = serializers.ReadOnlyField(source="teacher.id")
+    subject_id = serializers.ReadOnlyField(source="subject.id")
+    student_id = serializers.ReadOnlyField(source="student.id")
     is_upcoming = serializers.BooleanField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
     datetime_start = serializers.DateTimeField(read_only=True)
@@ -143,8 +139,8 @@ class LessonSerializer(serializers.ModelSerializer):
 class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
     """Serializer for creating lessons."""
 
-    student = serializers.IntegerField()  # ID студента
-    subject = serializers.IntegerField()  # ID предмета
+    student = serializers.CharField()  # ID студента
+    subject = serializers.CharField()  # ID предмета
     date = serializers.DateField()
     start_time = serializers.TimeField()
     end_time = serializers.TimeField()

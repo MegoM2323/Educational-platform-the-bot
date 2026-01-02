@@ -1,0 +1,152 @@
+{
+  "summary": {
+    "total_coverage_percent": 9.29,
+    "total_lines": 14222,
+    "lines_covered": 1645,
+    "lines_missing": 12577,
+    "branches": 3496,
+    "branches_partial": 1,
+    "target_coverage": 95.0,
+    "status": "CRITICAL"
+  },
+  "modules": {
+    "accounts": {
+      "models": {
+        "coverage": 89.89,
+        "lines": 89,
+        "missing": 9,
+        "status": "GOOD"
+      },
+      "serializers": {
+        "coverage": 44.15,
+        "lines": 427,
+        "missing": 230,
+        "status": "POOR"
+      },
+      "permissions": {
+        "coverage": 17.74,
+        "lines": 118,
+        "missing": 97,
+        "status": "CRITICAL"
+      },
+      "signals": {
+        "coverage": 13.82,
+        "lines": 207,
+        "missing": 178,
+        "status": "CRITICAL"
+      }
+    },
+    "payments": {
+      "models": {
+        "coverage": 96.15,
+        "lines": 26,
+        "missing": 1,
+        "status": "EXCELLENT"
+      },
+      "services": {
+        "coverage": 0.0,
+        "lines": 263,
+        "missing": 263,
+        "status": "NOT_TESTED"
+      },
+      "views": {
+        "coverage": 0.0,
+        "lines": 567,
+        "missing": 567,
+        "status": "NOT_TESTED"
+      }
+    },
+    "scheduling": {
+      "models": {
+        "coverage": 45.45,
+        "lines": 101,
+        "missing": 55,
+        "status": "POOR"
+      },
+      "serializers": {
+        "coverage": 35.68,
+        "lines": 155,
+        "missing": 99,
+        "status": "POOR"
+      },
+      "permissions": {
+        "coverage": 44.83,
+        "lines": 25,
+        "missing": 13,
+        "status": "POOR"
+      },
+      "services": {
+        "coverage": 12.75,
+        "lines": 165,
+        "missing": 144,
+        "status": "CRITICAL"
+      }
+    },
+    "core": {
+      "models": {
+        "coverage": 66.49,
+        "lines": 169,
+        "missing": 56,
+        "status": "FAIR"
+      },
+      "admin": {
+        "coverage": 49.13,
+        "lines": 153,
+        "missing": 77,
+        "status": "POOR"
+      },
+      "config": {
+        "coverage": 22.47,
+        "lines": 142,
+        "missing": 110,
+        "status": "CRITICAL"
+      },
+      "audit": {
+        "coverage": 21.70,
+        "lines": 80,
+        "missing": 62,
+        "status": "CRITICAL"
+      }
+    }
+  },
+  "test_results": {
+    "passed": 58,
+    "failed": 37,
+    "skipped": 14,
+    "errors": 990,
+    "total_collected": 1099,
+    "pass_rate_percent": 80.6,
+    "target_pass_rate": 95.0
+  },
+  "critical_gaps": [
+    {
+      "area": "scheduling/services",
+      "coverage": 12.75,
+      "recommendation": "Add tests for lesson creation/update/deletion logic"
+    },
+    {
+      "area": "payments/services",
+      "coverage": 0.0,
+      "recommendation": "Create payment processing test suite"
+    },
+    {
+      "area": "core/config",
+      "coverage": 22.47,
+      "recommendation": "Add tests for configuration validation"
+    },
+    {
+      "area": "accounts/signals",
+      "coverage": 13.82,
+      "recommendation": "Add tests for user profile signal handlers"
+    }
+  ],
+  "execution_metadata": {
+    "date": "2026-01-02T19:45:00Z",
+    "environment": "test",
+    "database": "sqlite3_memory",
+    "python_version": "3.13.7",
+    "django_version": "4.2.7",
+    "pytest_version": "9.0.2",
+    "duration_seconds": 142.07
+  }
+}

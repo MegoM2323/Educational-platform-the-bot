@@ -893,7 +893,11 @@ class Command(BaseCommand):
 
             try:
                 # Создаем комнату
-                room = ChatRoom.objects.create(created_by=user1, name=f"Chat: {user1.get_full_name()} - {user2.get_full_name()}", type="direct")
+                room = ChatRoom.objects.create(
+                    created_by=user1,
+                    name=f"Chat: {user1.get_full_name()} - {user2.get_full_name()}",
+                    type=ChatRoom.Type.DIRECT
+                )
                 room.participants.add(user1, user2)
 
                 self.stats['chat_rooms'] += 1

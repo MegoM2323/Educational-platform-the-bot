@@ -21,7 +21,7 @@ from typing import Dict, List
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import transaction, models
 from django.utils import timezone
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -1107,7 +1107,10 @@ class Command(BaseCommand):
         self.print_section("Creating forum messages")
 
         # Фильтруем только forum чаты (созданные signals при enrollment)
-        forum_chats = ChatRoom.objects.filter(type='forum')
+        forum_chats = ChatRoom.objects.filter(
+            models.Q(type=ChatRoom.Type.FORUM_SUBJECT) |
+            models.Q(type=ChatRoom.Type.FORUM_TUTOR)
+        )
 
         # Если нет forum чатов - создаём их вручную для всех enrollments
         if not forum_chats.exists():
@@ -1126,7 +1129,8 @@ class Command(BaseCommand):
 
                     chat = ChatRoom.objects.create(
                         name=chat_name,
-                        type='forum',
+                        type=ChatRoom.Type.FORUM_SUBJECT,
+                        enrollment=enrollment,
                         created_by=enrollment.teacher,
                     )
 
@@ -1143,7 +1147,10 @@ class Command(BaseCommand):
                     self.print_error(f"  Error creating forum chat: {e}")
 
             # Обновляем список forum чатов
-            forum_chats = ChatRoom.objects.filter(type='forum')
+            forum_chats = ChatRoom.objects.filter(
+                models.Q(type=ChatRoom.Type.FORUM_SUBJECT) |
+                models.Q(type=ChatRoom.Type.FORUM_TUTOR)
+            )
 
         if not forum_chats.exists():
             self.print_warning("  Still no forum chats after manual creation")
@@ -1235,7 +1242,7 @@ class Command(BaseCommand):
                 room = ChatRoom.objects.create(
                     created_by=user1,
                     name=f"Chat: {user1.get_full_name()} - {user2.get_full_name()}",
-                    type="direct"
+                    type=ChatRoom.Type.DIRECT
                 )
                 room.participants.add(user1, user2)
                 chat_rooms.append(room)

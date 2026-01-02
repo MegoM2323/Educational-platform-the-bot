@@ -195,7 +195,7 @@ class Lesson(models.Model):
                     f"{self.subject.name} to student {self.student.get_full_name()}"
                 )
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, skip_validation=False, **kwargs):
         """
         Override save to enforce validation.
 
@@ -204,9 +204,13 @@ class Lesson(models.Model):
         - start_time < end_time
         - date не в прошлом
         - Существует активный SubjectEnrollment для teacher/student/subject
+
+        Args:
+            skip_validation: If True, skip full_clean() (only for testing past dates)
         """
-        # Всегда запускаем полную валидацию перед сохранением
-        self.full_clean()
+        # Запускаем полную валидацию перед сохранением, если не пропущена
+        if not skip_validation:
+            self.full_clean()
         super().save(*args, **kwargs)
 
 

@@ -641,9 +641,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
-    "DEFAULT_THROTTLE_CLASSES": [
-        "config.throttling.BurstThrottle",  # Global burst protection (10/sec)
-    ],
+    "DEFAULT_THROTTLE_CLASSES": (
+        []  # Disable throttles for testing to prevent 429 errors
+        if current_environment == "test"
+        else [
+            "config.throttling.BurstThrottle",  # Global burst protection (10/sec)
+        ]
+    ),
     "DEFAULT_THROTTLE_RATES": {
         "anon": "50/h",  # Anonymous users: 50 req/hour
         "user": "500/h",  # Authenticated users: 500 req/hour

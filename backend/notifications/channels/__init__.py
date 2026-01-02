@@ -2,32 +2,29 @@
 Notification delivery channels module.
 
 Provides abstract base class and concrete implementations for different
-notification delivery methods (email, push, SMS).
+notification delivery methods (SMS).
 """
 
 from .base import AbstractChannel, ChannelDeliveryError, ChannelValidationError
-from .firebase import FirebasePushChannel
 from .models import DeviceToken, UserPhoneNumber
 from .sms import SMSChannel, TwilioSMSProvider
 
 __all__ = [
-    'AbstractChannel',
-    'ChannelDeliveryError',
-    'ChannelValidationError',
-    'FirebasePushChannel',
-    'SMSChannel',
-    'TwilioSMSProvider',
-    'DeviceToken',
-    'UserPhoneNumber',
-    'get_channel',
-    'NOTIFICATION_CHANNELS',
+    "AbstractChannel",
+    "ChannelDeliveryError",
+    "ChannelValidationError",
+    "SMSChannel",
+    "TwilioSMSProvider",
+    "DeviceToken",
+    "UserPhoneNumber",
+    "get_channel",
+    "NOTIFICATION_CHANNELS",
 ]
 
 
 # Channel registry - maps channel types to their implementation classes
 NOTIFICATION_CHANNELS = {
-    'push': FirebasePushChannel,
-    'sms': SMSChannel,
+    "sms": SMSChannel,
 }
 
 

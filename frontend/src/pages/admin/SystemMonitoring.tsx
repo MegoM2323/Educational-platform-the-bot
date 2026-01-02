@@ -88,7 +88,6 @@ interface SystemMetrics {
   external_services?: {
     telegram?: ExternalServiceStatus;
     yookassa?: ExternalServiceStatus;
-    supabase?: ExternalServiceStatus;
   };
 }
 

@@ -34,9 +34,6 @@ from .serializers import (
     UserCreateSerializer,
     StudentCreateSerializer,
 )
-from .supabase_service import SupabaseAuthService
-from .supabase_sync import SupabaseSyncService
-from .retry_logic import SupabaseSyncRetry, RetryConfig
 from payments.models import Payment
 
 
@@ -381,99 +378,28 @@ def create_staff(request):
     # Генерируем надежный пароль
     generated_password = get_random_string(length=12)
 
-    # Регистрируем через Supabase и синхронизируем в Django
-    sb_auth = SupabaseAuthService()
-    sb_sync = SupabaseSyncService()
-
-    # Инициализируем retry manager для Supabase операций
-    retry_config = RetryConfig(max_attempts=3, initial_delay=1.0, max_delay=10.0)
-    retry_manager = SupabaseSyncRetry(retry_config)
-
     try:
         with transaction.atomic():
             django_user = None
-            # Попытка через Supabase Admin API с retry logic
-            sb_result: Dict[str, Any] | None = None
-            try:
-                if getattr(sb_auth, "service_key", None):
-                    # Преобразуем enum роль в строку для Supabase
-                    role_str = role.value if hasattr(role, "value") else str(role)
-                    logger.debug(
-                        f"[create_staff] Creating user in Supabase with role: {role_str}"
-                    )
-
-                    # Используем retry manager для надежного создания в Supabase
-                    def create_supabase_user():
-                        return sb_auth.sign_up(
-                            email=email,
-                            password=generated_password,
-                            user_data={
-                                "role": role_str,
-                                "first_name": first_name,
-                                "last_name": last_name,
-                            },
-                        )
-
-                    try:
-                        sb_result = retry_manager.execute(
-                            create_supabase_user,
-                            operation_name=f"create_staff (Supabase) for {email}",
-                        )
-                    except Exception as retry_exc:
-                        logger.warning(
-                            f"[create_staff] Supabase sync failed after retries for {email}: {retry_exc}. "
-                            f"Falling back to Django-only creation."
-                        )
-                        audit_logger.warning(
-                            f"action=supabase_sync_failed user_email={email} role={role_str} error={retry_exc}"
-                        )
-                        sb_result = None
-            except Exception as e:
-                logger.error(f"[create_staff] Unexpected error in Supabase block: {e}")
-                sb_result = None
-
-            if sb_result and sb_result.get("success") and sb_result.get("user"):
-                django_user = sb_sync.create_django_user_from_supabase(
-                    sb_result["user"]
-                )
-                if not django_user:
-                    return Response(
-                        {
-                            "detail": "Не удалось создать пользователя в Django после Supabase"
-                        },
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-                # Гарантируем, что username совпадает с email для упрощения входа
-                if django_user.username != email:
-                    django_user.username = email
-                    django_user.save(update_fields=["username"])
-                # Гарантируем, что роль правильно установлена
-                if django_user.role != role:
-                    logger.debug(
-                        f"[create_staff] Role mismatch: user has {django_user.role}, expected {role}. Updating..."
-                    )
-                    django_user.role = role
-                    django_user.save(update_fields=["role"])
-            else:
-                # Фолбэк: создаем локально в Django без Supabase
-                username = email
-                if User.objects.filter(username=username).exists():
-                    base = email.split("@")[0]
-                    i = 1
+            # Создаем локально в Django
+            username = email
+            if User.objects.filter(username=username).exists():
+                base = email.split("@")[0]
+                i = 1
+                username = f"{base}{i}@local"
+                while User.objects.filter(username=username).exists():
+                    i += 1
                     username = f"{base}{i}@local"
-                    while User.objects.filter(username=username).exists():
-                        i += 1
-                        username = f"{base}{i}@local"
-                django_user = User.objects.create(
-                    username=username,
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                    role=role,
-                    is_active=True,
-                )
-                django_user.set_password(generated_password)
-                django_user.save()
+            django_user = User.objects.create(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                role=role,
+                is_active=True,
+            )
+            django_user.set_password(generated_password)
+            django_user.save()
 
             # Обновим ФИО/роль на всякий случай
             django_user.first_name = first_name
@@ -923,30 +849,7 @@ def update_user(request, user_id):
 
                 profile_serializer_data = ParentProfileSerializer(updated_profile).data
 
-    # 3. Обновление в Supabase (если используется)
-    if hasattr(settings, "SUPABASE_URL") and settings.SUPABASE_URL:
-        try:
-            sb_auth = SupabaseAuthService()
-            if hasattr(sb_auth, "service_client") and sb_auth.service_client:
-                import requests
-
-                admin_url = (
-                    f"{settings.SUPABASE_URL}/auth/v1/admin/users/{updated_user.id}"
-                )
-                headers = {
-                    "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
-                    "Content-Type": "application/json",
-                }
-                update_data = {}
-                if "email" in user_serializer.validated_data:
-                    update_data["email"] = user_serializer.validated_data["email"]
-                if update_data:
-                    requests.patch(admin_url, json=update_data, headers=headers)
-        except Exception as e:
-            logger.warning(f"Не удалось обновить пользователя в Supabase: {e}")
-
-    # 4. Формируем ответ
+    # 3. Формируем ответ
     response_data = {
         "success": True,
         "user": UserSerializer(updated_user).data,
@@ -1234,24 +1137,6 @@ def reset_password(request, user_id):
     user.set_password(new_password)
     user.save(update_fields=["password"])
 
-    # Обновление в Supabase (если используется)
-    if hasattr(settings, "SUPABASE_URL") and settings.SUPABASE_URL:
-        try:
-            sb_auth = SupabaseAuthService()
-            if hasattr(sb_auth, "service_client") and sb_auth.service_client:
-                import requests
-
-                admin_url = f"{settings.SUPABASE_URL}/auth/v1/admin/users/{user.id}"
-                headers = {
-                    "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
-                    "Content-Type": "application/json",
-                }
-                update_data = {"password": new_password}
-                requests.patch(admin_url, json=update_data, headers=headers)
-        except Exception as e:
-            logger.warning(f"Не удалось обновить пароль в Supabase: {e}")
-
     return Response(
         {
             "success": True,
@@ -1290,7 +1175,6 @@ def delete_user(request, user_id):
         - SubjectEnrollment
         - Payment (помечаются как archived)
         - Report
-        - Удаление из Supabase (если настроен)
 
     Returns:
         {
@@ -1336,27 +1220,6 @@ def delete_user(request, user_id):
             logger.info(f"[delete_user] Soft deleted user {user.id} ({user.email})")
         else:
             # Hard delete: полное удаление из БД (по умолчанию)
-
-            # Удаление из Supabase (если используется)
-            if hasattr(settings, "SUPABASE_URL") and settings.SUPABASE_URL:
-                try:
-                    sb_auth = SupabaseAuthService()
-                    if hasattr(sb_auth, "service_client") and sb_auth.service_client:
-                        import requests
-
-                        admin_url = (
-                            f"{settings.SUPABASE_URL}/auth/v1/admin/users/{user.id}"
-                        )
-                        headers = {
-                            "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
-                            "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
-                        }
-                        requests.delete(admin_url, headers=headers)
-                        logger.info(
-                            f"[delete_user] Deleted user from Supabase: {user.id}"
-                        )
-                except Exception as e:
-                    logger.warning(f"Не удалось удалить пользователя из Supabase: {e}")
 
             # Каскадное удаление в Django происходит автоматически благодаря CASCADE
             # models: Profile, SubjectEnrollment, Payment, Report
@@ -1448,94 +1311,31 @@ def create_user_with_profile(request):
     role = validated_data["role"]
     phone = validated_data.get("phone", "")
 
-    # Создание через Supabase и синхронизация с Django
-    sb_auth = SupabaseAuthService()
-    sb_sync = SupabaseSyncService()
-
-    # Инициализируем retry manager для Supabase операций
-    retry_config = RetryConfig(max_attempts=3, initial_delay=1.0, max_delay=10.0)
-    retry_manager = SupabaseSyncRetry(retry_config)
-
+    # Создание пользователя локально в Django
     try:
         with transaction.atomic():
             django_user = None
 
-            # Попытка создать в Supabase с retry logic
-            sb_result = None
-            try:
-                if getattr(sb_auth, "service_key", None):
-                    role_str = role.value if hasattr(role, "value") else str(role)
-
-                    def create_user_supabase():
-                        return sb_auth.sign_up(
-                            email=email,
-                            password=password,
-                            user_data={
-                                "role": role_str,
-                                "first_name": first_name,
-                                "last_name": last_name,
-                            },
-                        )
-
-                    try:
-                        sb_result = retry_manager.execute(
-                            create_user_supabase,
-                            operation_name=f"create_user_with_profile (Supabase) for {email}",
-                        )
-                    except Exception as retry_exc:
-                        logger.warning(
-                            f"[create_user_with_profile] Supabase sync failed after retries for {email}: {retry_exc}. "
-                            f"Falling back to Django-only creation."
-                        )
-                        audit_logger.warning(
-                            f"action=supabase_sync_failed user_email={email} role={role_str} error={retry_exc}"
-                        )
-                        sb_result = None
-            except Exception as e:
-                logger.error(
-                    f"[create_user_with_profile] Unexpected error in Supabase block: {e}"
-                )
-                sb_result = None
-
-            # Если Supabase удался - синхронизируем
-            if sb_result and sb_result.get("success") and sb_result.get("user"):
-                django_user = sb_sync.create_django_user_from_supabase(
-                    sb_result["user"]
-                )
-                if not django_user:
-                    return Response(
-                        {"detail": "Не удалось создать пользователя в Django"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-                # Гарантируем username = email
-                if django_user.username != email:
-                    django_user.username = email
-                    django_user.save(update_fields=["username"])
-                # Гарантируем роль
-                if django_user.role != role:
-                    django_user.role = role
-                    django_user.save(update_fields=["role"])
-            else:
-                # Фолбэк: создание только в Django
-                username = email
-                if User.objects.filter(username=username).exists():
-                    base = email.split("@")[0]
-                    i = 1
+            # Создание только в Django
+            username = email
+            if User.objects.filter(username=username).exists():
+                base = email.split("@")[0]
+                i = 1
+                username = f"{base}{i}@local"
+                while User.objects.filter(username=username).exists():
+                    i += 1
                     username = f"{base}{i}@local"
-                    while User.objects.filter(username=username).exists():
-                        i += 1
-                        username = f"{base}{i}@local"
 
-                django_user = User.objects.create(
-                    username=username,
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                    role=role,
-                    is_active=True,
-                )
-                django_user.set_password(password)
-                django_user.save()
+            django_user = User.objects.create(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                role=role,
+                is_active=True,
+            )
+            django_user.set_password(password)
+            django_user.save()
 
             # Обновляем данные на всякий случай
             django_user.first_name = first_name
@@ -1687,13 +1487,7 @@ def create_student(request):
     tutor_id = validated_data.get("tutor_id")
     parent_id = validated_data.get("parent_id")
 
-    # Создание через Supabase и синхронизация с Django
-    sb_auth = SupabaseAuthService()
-    sb_sync = SupabaseSyncService()
-
-    retry_config = RetryConfig(max_attempts=3, initial_delay=1.0, max_delay=10.0)
-    retry_manager = SupabaseSyncRetry(retry_config)
-
+    # Создание пользователя локально в Django
     try:
         with transaction.atomic():
             # Проверка уникальности email ВНУТРИ транзакции для предотвращения race condition
@@ -1705,81 +1499,26 @@ def create_student(request):
 
             django_user = None
 
-            # Попытка создать в Supabase с retry logic
-            sb_result = None
-            try:
-                if getattr(sb_auth, "service_key", None):
-
-                    def create_user_supabase():
-                        return sb_auth.sign_up(
-                            email=email,
-                            password=password,
-                            user_data={
-                                "role": "student",
-                                "first_name": first_name,
-                                "last_name": last_name,
-                            },
-                        )
-
-                    try:
-                        sb_result = retry_manager.execute(
-                            create_user_supabase,
-                            operation_name=f"create_student (Supabase) for {email}",
-                        )
-                    except Exception as retry_exc:
-                        logger.warning(
-                            f"[create_student] Supabase sync failed after retries for {email}: {retry_exc}. "
-                            f"Falling back to Django-only creation."
-                        )
-                        audit_logger.warning(
-                            f"action=supabase_sync_failed user_email={email} role=student error={retry_exc}"
-                        )
-                        sb_result = None
-            except Exception as e:
-                logger.error(
-                    f"[create_student] Unexpected error in Supabase block: {e}"
-                )
-                sb_result = None
-
-            # Если Supabase удался - синхронизируем
-            if sb_result and sb_result.get("success") and sb_result.get("user"):
-                django_user = sb_sync.create_django_user_from_supabase(
-                    sb_result["user"]
-                )
-                if not django_user:
-                    return Response(
-                        {"detail": "Не удалось создать пользователя в Django"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-                # Гарантируем username = email
-                if django_user.username != email:
-                    django_user.username = email
-                    django_user.save(update_fields=["username"])
-                # Гарантируем роль студента
-                if django_user.role != User.Role.STUDENT:
-                    django_user.role = User.Role.STUDENT
-                    django_user.save(update_fields=["role"])
-            else:
-                # Фолбэк: создание только в Django
-                username = email
-                if User.objects.filter(username=username).exists():
-                    base = email.split("@")[0]
-                    i = 1
+            # Создание только в Django
+            username = email
+            if User.objects.filter(username=username).exists():
+                base = email.split("@")[0]
+                i = 1
+                username = f"{base}{i}@local"
+                while User.objects.filter(username=username).exists():
+                    i += 1
                     username = f"{base}{i}@local"
-                    while User.objects.filter(username=username).exists():
-                        i += 1
-                        username = f"{base}{i}@local"
 
-                django_user = User.objects.create(
-                    username=username,
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                    role=User.Role.STUDENT,
-                    is_active=True,
-                )
-                django_user.set_password(password)
-                django_user.save()
+            django_user = User.objects.create(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                role=User.Role.STUDENT,
+                is_active=True,
+            )
+            django_user.set_password(password)
+            django_user.save()
 
             # Обновляем данные пользователя
             django_user.first_name = first_name
@@ -1939,13 +1678,7 @@ def create_parent(request):
     if not password:
         password = get_random_string(length=12)
 
-    # Создание через Supabase и синхронизация с Django
-    sb_auth = SupabaseAuthService()
-    sb_sync = SupabaseSyncService()
-
-    retry_config = RetryConfig(max_attempts=3, initial_delay=1.0, max_delay=10.0)
-    retry_manager = SupabaseSyncRetry(retry_config)
-
+    # Создание пользователя локально в Django
     try:
         with transaction.atomic():
             # Проверка уникальности email ВНУТРИ транзакции для предотвращения race condition
@@ -1957,80 +1690,27 @@ def create_parent(request):
 
             django_user = None
 
-            # Попытка создать в Supabase с retry logic
-            sb_result = None
-            try:
-                if getattr(sb_auth, "service_key", None):
-
-                    def create_user_supabase():
-                        return sb_auth.sign_up(
-                            email=email,
-                            password=password,
-                            user_data={
-                                "role": "parent",
-                                "first_name": first_name,
-                                "last_name": last_name,
-                            },
-                        )
-
-                    try:
-                        sb_result = retry_manager.execute(
-                            create_user_supabase,
-                            operation_name=f"create_parent (Supabase) for {email}",
-                        )
-                    except Exception as retry_exc:
-                        logger.warning(
-                            f"[create_parent] Supabase sync failed after retries for {email}: {retry_exc}. "
-                            f"Falling back to Django-only creation."
-                        )
-                        audit_logger.warning(
-                            f"action=supabase_sync_failed user_email={email} role=parent error={retry_exc}"
-                        )
-                        sb_result = None
-            except Exception as e:
-                logger.error(f"[create_parent] Unexpected error in Supabase block: {e}")
-                sb_result = None
-
-            # Если Supabase удался - синхронизируем
-            if sb_result and sb_result.get("success") and sb_result.get("user"):
-                django_user = sb_sync.create_django_user_from_supabase(
-                    sb_result["user"]
-                )
-                if not django_user:
-                    return Response(
-                        {"detail": "Не удалось создать пользователя в Django"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-                # Гарантируем username = email
-                if django_user.username != email:
-                    django_user.username = email
-                    django_user.save(update_fields=["username"])
-                # Гарантируем роль
-                if django_user.role != User.Role.PARENT:
-                    django_user.role = User.Role.PARENT
-                    django_user.save(update_fields=["role"])
-            else:
-                # Фолбэк: создание только в Django
-                username = email
-                if User.objects.filter(username=username).exists():
-                    base = email.split("@")[0]
-                    i = 1
+            # Создание только в Django
+            username = email
+            if User.objects.filter(username=username).exists():
+                base = email.split("@")[0]
+                i = 1
+                username = f"{base}{i}@local"
+                while User.objects.filter(username=username).exists():
+                    i += 1
                     username = f"{base}{i}@local"
-                    while User.objects.filter(username=username).exists():
-                        i += 1
-                        username = f"{base}{i}@local"
 
-                django_user = User.objects.create(
-                    username=username,
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                    role=User.Role.PARENT,
-                    is_active=True,
-                    phone=phone,
-                )
-                django_user.set_password(password)
-                django_user.save()
+            django_user = User.objects.create(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                role=User.Role.PARENT,
+                is_active=True,
+                phone=phone,
+            )
+            django_user.set_password(password)
+            django_user.save()
 
             # Обновляем данные пользователя
             django_user.first_name = first_name

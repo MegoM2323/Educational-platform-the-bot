@@ -137,9 +137,9 @@ const Auth = memo(() => {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-muted/20 to-background">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-muted/20 to-background auth-page">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm">
+      <header className="bg-card/50 backdrop-blur-sm auth-header">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 w-fit">
             <div className="w-10 h-10 gradient-primary rounded-lg flex items-center justify-center">

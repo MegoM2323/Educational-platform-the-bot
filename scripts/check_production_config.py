@@ -126,22 +126,22 @@ class ConfigChecker:
         database_url = os.getenv('DATABASE_URL', '')
 
         if not database_url:
-            # Проверяем альтернативные переменные
-            supabase_vars = [
+            # Проверяем альтернативные переменные для PostgreSQL
+            db_vars = [
                 os.getenv('SUPABASE_DB_NAME'),
                 os.getenv('SUPABASE_DB_USER'),
                 os.getenv('SUPABASE_DB_PASSWORD'),
                 os.getenv('SUPABASE_DB_HOST')
             ]
-            if not all(supabase_vars):
+            if not all(db_vars):
                 self.error(
                     'DATABASE_URL',
-                    "DATABASE_URL is not set and SUPABASE_DB_* variables incomplete\n"
+                    "DATABASE_URL is not set and DB_* variables incomplete\n"
                     "Set DATABASE_URL=postgresql://user:pass@host:port/db in .env"
                 )
                 return
             else:
-                self.success('DATABASE (via SUPABASE_DB_*)')
+                self.success('DATABASE (via PostgreSQL variables)')
                 return
 
         # Проверяем что это PostgreSQL

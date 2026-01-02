@@ -4,6 +4,9 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.db.models import Count, Prefetch
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.admin.models import LogEntry, CHANGE, DELETION
+import uuid
 from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentProfile
 
 
@@ -19,6 +22,7 @@ class UserAdmin(BaseUserAdmin):
         "get_full_name",
         "get_user_role",
         "get_student_profile",
+        "get_teacher_profile",
         "is_verified_badge",
         "is_active",
         "is_staff",
@@ -46,7 +50,14 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
         ("Контактная информация", {"fields": ("phone", "avatar")}),
-        ("Пароль", {"fields": ("password",), "classes": ("collapse",)}),
+        (
+            "Пароль",
+            {
+                "fields": ("password",),
+                "classes": ("collapse",),
+                "description": "Используйте action для сброса пароля или измените пароль вручную",
+            },
+        ),
         (
             "Временные метки",
             {"fields": ("date_joined", "last_login"), "classes": ("collapse",)},
@@ -80,6 +91,18 @@ class UserAdmin(BaseUserAdmin):
 
     get_student_profile.short_description = "Профиль студента"
 
+    def get_teacher_profile(self, obj):
+        """Отобразить профиль учителя в списке"""
+        try:
+            if hasattr(obj, "teacher_profile"):
+                profile = obj.teacher_profile
+                return f"{profile.subject} ({profile.experience_years} лет опыта)"
+            return "-"
+        except Exception:
+            return "-"
+
+    get_teacher_profile.short_description = "Профиль учителя"
+
     def get_user_role(self, obj):
         """Отобразить роль пользователя"""
         return (
@@ -89,6 +112,214 @@ class UserAdmin(BaseUserAdmin):
         )
 
     get_user_role.short_description = "Роль"
+
+    def _log_admin_action(
+        self, request: object, obj: object, action_type: str, details: str = ""
+    ):
+        """Логирование действия в админ панели"""
+        from core.models import AuditLog
+
+        metadata = {}
+        if details:
+            metadata["details"] = details
+
+        ip_address = request.META.get("REMOTE_ADDR", "")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        AuditLog.objects.create(
+            user=request.user,
+            action=action_type,
+            target_type="User",
+            target_id=obj.id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata=metadata,
+        )
+
+    def save_model(self, request, obj, form, change):
+        """Правильно сохранить пароль используя set_password"""
+        if "password" in form.changed_data:
+            obj.set_password(form.cleaned_data["password"])
+            self._log_admin_action(
+                request,
+                obj,
+                "admin_reset_password",
+                "Пароль сброшен через админ панель",
+            )
+        else:
+            action_type = "admin_update" if change else "admin_create"
+            self._log_admin_action(request, obj, action_type)
+        super().save_model(request, obj, form, change)
+
+    def reset_password_action(self, request, queryset):
+        """Action: Сбросить пароль и отправить временный"""
+        users = list(queryset)
+        for user in users:
+            temp_password = str(uuid.uuid4())[:8].upper()
+            user.set_password(temp_password)
+
+        User.objects.bulk_update(users, ["password"], batch_size=100)
+
+        content_type = ContentType.objects.get_for_model(User)
+        for user in users:
+            LogEntry.objects.create(
+                user=request.user,
+                content_type_id=content_type.id,
+                object_id=user.id,
+                object_repr=str(user),
+                action_flag=CHANGE,
+                change_message="Пароль сброшен",
+            )
+
+            self._log_admin_action(
+                request,
+                user,
+                "admin_reset_password",
+                "Пароль сброшен через bulk action",
+            )
+
+        self.message_user(
+            request,
+            f"Пароль сброшен для {len(users)} пользователей",
+        )
+
+    reset_password_action.short_description = "Сбросить пароль"
+
+    def deactivate_users(self, request, queryset):
+        """Action: Деактивировать выбранных пользователей"""
+        from core.models import AuditLog
+
+        ip_address = request.META.get("REMOTE_ADDR", "")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        count = queryset.update(is_active=False)
+
+        users = list(queryset)
+        for user in users:
+            AuditLog.objects.create(
+                user=request.user,
+                action="admin_update",
+                target_type="User",
+                target_id=user.id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                metadata={"details": "Пользователь деактивирован"},
+            )
+
+        self.message_user(request, f"Деактивировано пользователей: {count}")
+
+    deactivate_users.short_description = "Деактивировать пользователей"
+
+    def activate_users(self, request, queryset):
+        """Action: Активировать выбранных пользователей"""
+        from core.models import AuditLog
+
+        ip_address = request.META.get("REMOTE_ADDR", "")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        count = queryset.update(is_active=True)
+
+        users = list(queryset)
+        for user in users:
+            AuditLog.objects.create(
+                user=request.user,
+                action="admin_update",
+                target_type="User",
+                target_id=user.id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                metadata={"details": "Пользователь активирован"},
+            )
+
+        self.message_user(request, f"Активировано пользователей: {count}")
+
+    activate_users.short_description = "Активировать пользователей"
+
+    def mark_as_verified(self, request, queryset):
+        """Action: Отметить как верифицированных"""
+        from core.models import AuditLog
+
+        ip_address = request.META.get("REMOTE_ADDR", "")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        count = queryset.update(is_verified=True)
+
+        users = list(queryset)
+        for user in users:
+            AuditLog.objects.create(
+                user=request.user,
+                action="admin_update",
+                target_type="User",
+                target_id=user.id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                metadata={"details": "Пользователь верифицирован"},
+            )
+
+        self.message_user(
+            request, f"Отмечено как верифицированные: {count} пользователей"
+        )
+
+    mark_as_verified.short_description = "Отметить как верифицированных"
+
+    def mark_as_unverified(self, request, queryset):
+        """Action: Отметить как неверифицированных"""
+        from core.models import AuditLog
+
+        ip_address = request.META.get("REMOTE_ADDR", "")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        count = queryset.update(is_verified=False)
+
+        users = list(queryset)
+        for user in users:
+            AuditLog.objects.create(
+                user=request.user,
+                action="admin_update",
+                target_type="User",
+                target_id=user.id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                metadata={"details": "Пользователь неверифицирован"},
+            )
+
+        self.message_user(
+            request, f"Отмечено как неверифицированные: {count} пользователей"
+        )
+
+    mark_as_unverified.short_description = "Отметить как неверифицированных"
+
+    def delete_model(self, request, obj):
+        """Логировать удаление пользователя"""
+        full_name = obj.get_full_name()
+        email = obj.email
+        username = obj.username
+
+        LogEntry.objects.create(
+            user=request.user,
+            content_type_id=ContentType.objects.get_for_model(User).id,
+            object_id=obj.id,
+            object_repr=str(obj),
+            action_flag=DELETION,
+            change_message=f"Удален пользователь {full_name} ({email}, {username})",
+        )
+
+        self._log_admin_action(
+            request,
+            obj,
+            "admin_delete",
+            f"Пользователь {full_name} ({email}, {username}) удален из системы",
+        )
+
+        super().delete_model(request, obj)
+
+    actions = [
+        "reset_password_action",
+        "deactivate_users",
+        "activate_users",
+        "mark_as_verified",
+        "mark_as_unverified",
+    ]
 
     def get_queryset(self, request):
         """Переопределяем queryset с prefetch для избежания N+1"""
@@ -112,8 +343,9 @@ class StudentProfileAdmin(admin.ModelAdmin):
         "total_points",
         "accuracy_percentage",
         "tutor",
+        "parent",
     ]
-    list_filter = ["grade", "tutor", "user__is_active"]
+    list_filter = ["grade", "tutor", "parent", "user__is_active"]
     search_fields = [
         "user__username",
         "user__email",
@@ -121,6 +353,7 @@ class StudentProfileAdmin(admin.ModelAdmin):
         "user__last_name",
     ]
     readonly_fields = ["user"]
+    raw_id_fields = ("parent", "tutor")
 
     fieldsets = (
         ("Основная информация", {"fields": ("user", "grade", "goal")}),
@@ -138,10 +371,211 @@ class StudentProfileAdmin(admin.ModelAdmin):
         ),
     )
 
+    def assign_students_to_parent(self, request, queryset):
+        from django.template.response import TemplateResponse
+        from core.models import AuditLog
+
+        if "apply" in request.POST:
+            parent_id = request.POST.get("parent_id")
+            if parent_id:
+                try:
+                    parent = User.objects.get(id=parent_id, role="parent")
+                    ip_address = request.META.get("REMOTE_ADDR", "")
+                    user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+                    count = queryset.update(parent_id=parent.id)
+
+                    profiles = list(queryset)
+                    for profile in profiles:
+                        AuditLog.objects.create(
+                            user=request.user,
+                            action="admin_update",
+                            target_type="StudentProfile",
+                            target_id=profile.id,
+                            ip_address=ip_address,
+                            user_agent=user_agent,
+                            metadata={
+                                "details": f"Родитель назначен: {parent.get_full_name()}"
+                            },
+                        )
+
+                    self.message_user(
+                        request,
+                        f"Студентов назначено родителю '{parent.get_full_name()}': {count}",
+                    )
+                except User.DoesNotExist:
+                    self.message_user(request, "Родитель не найден", level=40)
+                return
+
+        parents = User.objects.filter(role="parent")
+        return TemplateResponse(
+            request,
+            "admin/assign_action.html",
+            {
+                "action": "assign_students_to_parent",
+                "title": "Назначить студентов родителю",
+                "options": parents,
+                "option_label": "Родитель",
+                "queryset": queryset,
+                "opts": self.model._meta,
+                "app_label": self.model._meta.app_label,
+            },
+        )
+
+    assign_students_to_parent.short_description = "Назначить студентов родителю"
+
+    def assign_students_to_tutor(self, request, queryset):
+        from django.template.response import TemplateResponse
+        from core.models import AuditLog
+
+        if "apply" in request.POST:
+            tutor_id = request.POST.get("tutor_id")
+            if tutor_id:
+                try:
+                    tutor = User.objects.get(id=tutor_id, role="tutor")
+                    ip_address = request.META.get("REMOTE_ADDR", "")
+                    user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+                    count = queryset.update(tutor_id=tutor.id)
+
+                    profiles = list(queryset)
+                    for profile in profiles:
+                        AuditLog.objects.create(
+                            user=request.user,
+                            action="admin_update",
+                            target_type="StudentProfile",
+                            target_id=profile.id,
+                            ip_address=ip_address,
+                            user_agent=user_agent,
+                            metadata={
+                                "details": f"Тьютор назначен: {tutor.get_full_name()}"
+                            },
+                        )
+
+                    self.message_user(
+                        request,
+                        f"Студентов назначено тьютору '{tutor.get_full_name()}': {count}",
+                    )
+                except User.DoesNotExist:
+                    self.message_user(request, "Тьютор не найден", level=40)
+                return
+
+        tutors = User.objects.filter(role="tutor")
+        return TemplateResponse(
+            request,
+            "admin/assign_action.html",
+            {
+                "action": "assign_students_to_tutor",
+                "title": "Назначить студентов тьютору",
+                "options": tutors,
+                "option_label": "Тьютор",
+                "queryset": queryset,
+                "opts": self.model._meta,
+                "app_label": self.model._meta.app_label,
+            },
+        )
+
+    assign_students_to_tutor.short_description = "Назначить студентов тьютору"
+
+    def clear_parent_assignment(self, request, queryset):
+        from core.models import AuditLog
+
+        ip_address = request.META.get("REMOTE_ADDR", "")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        count = queryset.update(parent_id=None)
+
+        profiles = list(queryset)
+        for profile in profiles:
+            AuditLog.objects.create(
+                user=request.user,
+                action="admin_update",
+                target_type="StudentProfile",
+                target_id=profile.id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                metadata={"details": "Родитель удален"},
+            )
+
+        self.message_user(request, f"Удален родитель для {count} студентов")
+
+    clear_parent_assignment.short_description = "Удалить родителя"
+
+    def clear_tutor_assignment(self, request, queryset):
+        from core.models import AuditLog
+
+        ip_address = request.META.get("REMOTE_ADDR", "")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        count = queryset.update(tutor_id=None)
+
+        profiles = list(queryset)
+        for profile in profiles:
+            AuditLog.objects.create(
+                user=request.user,
+                action="admin_update",
+                target_type="StudentProfile",
+                target_id=profile.id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                metadata={"details": "Тьютор удален"},
+            )
+
+        self.message_user(request, f"Удален тьютор для {count} студентов")
+
+    clear_tutor_assignment.short_description = "Удалить тьютора"
+
+    actions = [
+        "assign_students_to_parent",
+        "assign_students_to_tutor",
+        "clear_parent_assignment",
+        "clear_tutor_assignment",
+    ]
+
     def get_queryset(self, request):
         """Переопределяем queryset с select_related для избежания N+1"""
         qs = super().get_queryset(request)
         return qs.select_related("user", "tutor", "parent")
+
+    def save_model(self, request, obj, form, change):
+        """Валидация перед сохранением"""
+        from django.core.exceptions import ValidationError
+        from core.models import AuditLog
+
+        if obj.parent and obj.parent.role != "parent":
+            raise ValidationError(
+                "Можно назначить только пользователя с ролью 'Родитель'"
+            )
+        if obj.tutor and obj.tutor.role != "tutor":
+            raise ValidationError(
+                "Можно назначить только пользователя с ролью 'Тьютор'"
+            )
+
+        ip_address = request.META.get("REMOTE_ADDR", "")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        if change:
+            action_type = "admin_update"
+            details = "StudentProfile обновлен"
+            if "parent" in form.changed_data:
+                details = f"Родитель назначен: {obj.parent.get_full_name() if obj.parent else 'Не назначен'}"
+            elif "tutor" in form.changed_data:
+                details = f"Тьютор назначен: {obj.tutor.get_full_name() if obj.tutor else 'Не назначен'}"
+        else:
+            action_type = "admin_create"
+            details = "StudentProfile создан"
+
+        AuditLog.objects.create(
+            user=request.user,
+            action=action_type,
+            target_type="StudentProfile",
+            target_id=obj.id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata={"details": details},
+        )
+
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(TeacherProfile)

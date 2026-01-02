@@ -184,4 +184,98 @@ All colors MUST be HSL.
       transform: translateY(0);
     }
   }
+
+  .auth-header::before,
+  .auth-page::before,
+  .auth-page header::before,
+  .auth-page > div::before,
+  .auth-page *::before,
+  body.auth-page::before,
+  html:has(.auth-page) body::before,
+  html:has(.auth-page)::before,
+  .login-card::before,
+  .login-page .login-card::before,
+  .login-container .login-card::before,
+  .login-page *::before,
+  .login-container *::before,
+  div.login-card::before,
+  div.login-page div.login-card::before,
+  div.login-container div.login-card::before {
+    display: none !important;
+    content: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .login-card {
+    border-top: none !important;
+  }
+
+  .login-card::before {
+    display: none !important;
+    content: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+  }
+}
+
+/* Вне @layer для максимальной специфичности */
+.login-card::before,
+div.login-card::before,
+.login-page .login-card::before,
+.login-container .login-card::before,
+div.login-page div.login-card::before,
+div.login-container div.login-card::before {
+  display: none !important;
+  content: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+}
+
+/* Скрытие верхней границы и всех возможных элементов, создающих полоску */
+.login-card {
+  border-top: none !important;
+  border-top-width: 0 !important;
+  border-top-style: none !important;
+  border-top-color: transparent !important;
+}
+
+.login-card > *:first-child {
+  border-top: none !important;
+  border-top-width: 0 !important;
+}
+
+.login-card > *:first-child::before {
+  display: none !important;
+  content: none !important;
+}
+
+.login-card hr,
+.login-card > hr {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
 }

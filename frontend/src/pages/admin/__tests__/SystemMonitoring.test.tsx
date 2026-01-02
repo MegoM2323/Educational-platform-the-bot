@@ -65,10 +65,6 @@ describe('SystemMonitoring', () => {
         status: 'healthy' as const,
         response_time_ms: 200,
       },
-      supabase: {
-        status: 'disabled' as const,
-        message: 'Not configured',
-      },
     },
   };
 

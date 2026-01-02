@@ -27,7 +27,6 @@ from .serializers import (
     ChangePasswordSerializer,
     CurrentUserProfileSerializer,
 )
-from .supabase_service import SupabaseAuthService
 
 
 def _format_validation_error(errors):
@@ -96,7 +95,7 @@ def login_view(request):
             f"timestamp: {timestamp}"
         )
 
-        # Проверяем аутентификацию через Django; если не удалось, пробуем через Supabase
+        # Проверяем аутентификацию через Django
         from django.contrib.auth import authenticate
 
         # Пытаемся найти локального пользователя по email или username
@@ -105,10 +104,6 @@ def login_view(request):
             user = User.objects.filter(email=email).first()
         elif username:
             user = User.objects.filter(username=username).first()
-
-        # Если пользователь найден по username, но у него есть email, используем email для Supabase
-        if user and not email and user.email:
-            email = user.email
 
         authenticated_user = None
         if user:
@@ -132,95 +127,12 @@ def login_view(request):
                     f"reason: invalid_credentials, ip: {ip_address}, "
                     f"timestamp: {timestamp}"
                 )
-            # Фолбэк на Supabase: в проектах, где пароли не хранятся локально
-            # ВАЖНО: Только если Supabase ДЕЙСТВИТЕЛЬНО настроен (не в development режиме)
-            try:
-                supabase = SupabaseAuthService()
+            return Response(
+                {"success": False, "error": "Неверные учетные данные"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
-                # Проверяем что Supabase реально настроен (не mock mode)
-                if not supabase.is_mock:
-                    sb_result = getattr(supabase, "sign_in", None)
-                    if callable(sb_result):
-                        sb_login = supabase.sign_in(email=email, password=password)
-                    else:
-                        sb_login = {"success": False, "error": "Supabase не настроен"}
-
-                    if sb_login.get("success"):
-                        # Если локального пользователя нет — сообщаем, чтобы создать/синхронизировать
-                        if not user:
-                            logger.warning(
-                                f"[login] FAILED - email: {email}, "
-                                f"reason: user_not_in_local_db, ip: {ip_address}, "
-                                f"timestamp: {timestamp}"
-                            )
-                            return Response(
-                                {
-                                    "success": False,
-                                    "error": "Пользователь найден в Supabase, но отсутствует локально. Обратитесь к администратору.",
-                                },
-                                status=status.HTTP_403_FORBIDDEN,
-                            )
-
-                        # Признаём пользователя аутентифицированным без проверки локального пароля
-                        authenticated_user = user if user.is_active else None
-                    else:
-                        # Нет успеха ни в Django, ни в Supabase
-                        logger.warning(
-                            f"[login] FAILED - email: {email}, "
-                            f"reason: invalid_credentials, ip: {ip_address}, "
-                            f"timestamp: {timestamp}"
-                        )
-                        return Response(
-                            {
-                                "success": False,
-                                "error": sb_login.get("error")
-                                or "Неверные учетные данные",
-                            },
-                            status=status.HTTP_401_UNAUTHORIZED,
-                        )
-                else:
-                    # Supabase в mock режиме (development)
-                    # Используем локальную Django аутентификацию
-                    if user and user.is_active:
-                        # Если найден пользователь и он активен, но пароль не совпал
-                        logger.warning(
-                            f"[login] FAILED - email: {user.email}, "
-                            f"reason: invalid_credentials, ip: {ip_address}, "
-                            f"timestamp: {timestamp}"
-                        )
-                        return Response(
-                            {"success": False, "error": "Неверные учетные данные"},
-                            status=status.HTTP_401_UNAUTHORIZED,
-                        )
-                    else:
-                        # Пользователь не найден или неактивен
-                        if not user:
-                            reason = "user_not_found"
-                        else:
-                            reason = "user_inactive"
-
-                        logger.warning(
-                            f"[login] FAILED - identifier: {identifier}, "
-                            f"reason: {reason}, ip: {ip_address}, "
-                            f"timestamp: {timestamp}"
-                        )
-                        return Response(
-                            {"success": False, "error": "Неверные учетные данные"},
-                            status=status.HTTP_401_UNAUTHORIZED,
-                        )
-            except Exception as e:
-                # Если ошибка при работе с Supabase - считаем что он недоступен
-                logger.warning(
-                    f"[login] FAILED - identifier: {identifier}, "
-                    f"reason: supabase_error, ip: {ip_address}, "
-                    f"error: {str(e)}, timestamp: {timestamp}"
-                )
-                return Response(
-                    {"success": False, "error": "Неверные учетные данные"},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
-
-        # Если дошли до сюда — пользователь аутентифицирован (либо Django, либо Supabase)
+        # Если дошли до сюда — пользователь аутентифицирован
         if authenticated_user and authenticated_user.is_active:
             try:
                 # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами

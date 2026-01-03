@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // Sentry plugin for source maps and error tracking
 let sentryVitePlugin: any = null;
@@ -85,6 +86,25 @@ export default defineConfig(({ mode, command }) => {
   const isDev = mode === 'development';
   const isBuild = command === 'build';
 
+  // Правильное разрешение пути для ESM (работает в Docker)
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  // Verify src directory exists and is accessible
+  const srcPath = path.resolve(__dirname, "./src");
+  const tsconfigPath = path.resolve(__dirname, "tsconfig.json");
+
+  // DEBUG логирование для разрешения путей
+  const debugResolve = (alias: string) => {
+    const resolvedPath = path.resolve(__dirname, "./src");
+    if (isDev || process.env.DEBUG_VITE_ALIAS === 'true') {
+      console.log(`[Vite Alias Debug] ${alias} → ${resolvedPath}`);
+      console.log(`[Vite Alias Debug] tsconfig.json → ${tsconfigPath}`);
+      console.log(`[Vite Alias Debug] __dirname → ${__dirname}`);
+    }
+    return resolvedPath;
+  };
+
   return {
     appType: 'spa',
 
@@ -152,7 +172,7 @@ export default defineConfig(({ mode, command }) => {
     ].filter(Boolean),
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        "@": debugResolve("@"),
       },
       // Ensure single instance of React packages to prevent context issues
       dedupe: ['react', 'react-dom', 'react-router-dom'],
@@ -203,7 +223,7 @@ export default defineConfig(({ mode, command }) => {
       rollupOptions: {
         input: {
           main: path.resolve(__dirname, 'index.html'),
-          'service-worker': path.resolve(__dirname, 'src/service-worker.ts'),
+          'service-worker': path.resolve(__dirname, 'src', 'service-worker.ts'),
         },
         output: {
           // Output directory structure

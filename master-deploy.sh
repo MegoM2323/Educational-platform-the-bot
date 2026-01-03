@@ -22,7 +22,7 @@
 # Environment Variables:
 #   SSH_USER           - SSH user (default: mg)
 #   SSH_HOST           - Server hostname/IP (default: 5.129.249.206)
-#   REMOTE_PATH        - Remote project path (default: /opt/thebot)
+#   REMOTE_PATH        - Remote project path (default: /opt/THE_BOT_platform)
 #   BACKUP_RETENTION   - Days to keep backups (default: 7)
 #
 # Exit Codes:
@@ -50,7 +50,7 @@ NC='\033[0m'
 # Configuration
 SSH_USER="${SSH_USER:-mg}"
 SSH_HOST="${SSH_HOST:-5.129.249.206}"
-REMOTE_PATH="${REMOTE_PATH:-/opt/thebot}"
+REMOTE_PATH="${REMOTE_PATH:-/opt/THE_BOT_platform}"
 BACKUP_RETENTION="${BACKUP_RETENTION:-7}"
 
 # Deployment mode
@@ -147,7 +147,7 @@ EXAMPLES:
 CONFIGURATION (via environment):
   SSH_USER            SSH username (default: mg)
   SSH_HOST            Server hostname/IP (default: 5.129.249.206)
-  REMOTE_PATH         Remote project path (default: /opt/thebot)
+  REMOTE_PATH         Remote project path (default: /opt/THE_BOT_platform)
   BACKUP_RETENTION    Days to keep backups (default: 7)
 
 EXAMPLES WITH ENV:
@@ -240,7 +240,7 @@ error_exit() {
 
     print_error "$message"
     print_info "Log file: $LOG_FILE"
-    print_info "Backup location: /backups/ (if created)"
+    print_info "Backup location: /opt/THE_BOT_platform/.backups/ (if created)"
     log "DEPLOYMENT FAILED: $message"
 
     exit "$exit_code"
@@ -289,10 +289,10 @@ phase_backup_database() {
 
     local backup_timestamp=$(date +%Y%m%d_%H%M%S)
     local backup_filename="thebot_db_${backup_timestamp}.sql.gz"
-    BACKUP_FILE="/backups/${backup_filename}"
+    BACKUP_FILE="/opt/THE_BOT_platform/.backups/${backup_filename}"
 
     print_section "Creating remote backup directory..."
-    if ! ssh_exec "mkdir -p /backups" "Create backup directory"; then
+    if ! ssh_exec "mkdir -p /opt/THE_BOT_platform/.backups" "Create backup directory"; then
         print_warning "Could not create backup directory, attempting to continue"
     fi
 
@@ -325,7 +325,7 @@ phase_backup_database() {
     fi
 
     print_section "Cleaning old backups (keeping last ${BACKUP_RETENTION} days)..."
-    local cleanup_cmd="find /backups -name 'thebot_db_*.sql.gz' -mtime +\"${BACKUP_RETENTION}\" -delete 2>/dev/null || true"
+    local cleanup_cmd="find /opt/THE_BOT_platform/.backups -name 'thebot_db_*.sql.gz' -mtime +\"${BACKUP_RETENTION}\" -delete 2>/dev/null || true"
 
     if ssh_exec "$cleanup_cmd" "Cleanup old backups"; then
         print_success "Old backups cleaned"

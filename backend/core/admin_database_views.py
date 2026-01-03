@@ -57,6 +57,7 @@ class DatabaseStatusView(APIView):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def get(self, request):
@@ -76,43 +77,46 @@ class DatabaseStatusView(APIView):
             backup_status = "no_backups"
 
             if backups:
-                last_backup = backups[0].get('created_at')
-                backup_status = backups[0].get('status', 'completed')
+                last_backup = backups[0].get("created_at")
+                backup_status = backups[0].get("status", "completed")
 
             response_data = {
-                'database_type': db_info.database_type,
-                'database_version': version,
-                'database_name': db_info.name,
-                'database_size_bytes': db_size.get('size_bytes', 0),
-                'database_size_human': db_size.get('size_human', 'unknown'),
-                'last_backup': last_backup,
-                'backup_status': backup_status,
-                'connection_pool': {
-                    'active': connections.get('active', 0),
-                    'max': getattr(connection.get_autocommit, '__self__', {}).get('max_overflow', 20),
-                    'available': max(0, 20 - connections.get('active', 0))
-                }
+                "database_type": db_info.database_type,
+                "database_version": version,
+                "database_name": db_info.name,
+                "database_size_bytes": db_size.get("size_bytes", 0),
+                "database_size_human": db_size.get("size_human", "unknown"),
+                "last_backup": last_backup,
+                "backup_status": backup_status,
+                "connection_pool": {
+                    "active": connections.get("active", 0),
+                    "max": getattr(connection.get_autocommit, "__self__", {}).get(
+                        "max_overflow", 20
+                    ),
+                    "available": max(0, 20 - connections.get("active", 0)),
+                },
             }
 
             serializer = DatabaseStatusSerializer(response_data)
 
-            logger.info(f"[DatabaseStatusView] Database status: {db_info.database_type}")
+            logger.info(
+                f"[DatabaseStatusView] Database status: {db_info.database_type}"
+            )
 
-            return Response({
-                'success': True,
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {"success": True, "data": serializer.data}, status=status.HTTP_200_OK
+            )
 
         except Exception as e:
             logger.error(f"[DatabaseStatusView] Error: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @staticmethod
     def _get_database_version() -> str:
-        """Get database version"""
+        """Get PostgreSQL database version"""
         try:
             db_info = DatabaseInfo()
 
@@ -122,16 +126,11 @@ class DatabaseStatusView(APIView):
                     result = cursor.fetchone()
                     if result:
                         version_str = result[0]
-                        # Extract version number from PostgreSQL version string
                         parts = version_str.split()
                         for part in parts:
                             if part[0].isdigit():
                                 return part
                 return "unknown"
-
-            elif db_info.is_sqlite:
-                import sqlite3
-                return sqlite3.sqlite_version
 
         except Exception as e:
             logger.error(f"Error getting database version: {e}")
@@ -173,39 +172,43 @@ class DatabaseTablesViewSet(ViewSet):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def list(self, request):
-        """List tables with stats"""
+        """List PostgreSQL tables with stats"""
         try:
             db_info = DatabaseInfo()
 
             if not db_info.is_postgresql:
-                return Response({
-                    'success': False,
-                    'error': 'Table statistics only available for PostgreSQL'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {
+                        "success": False,
+                        "error": "Table statistics only available for PostgreSQL",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Get pagination params
-            page = int(request.query_params.get('page', 1))
-            page_size = int(request.query_params.get('page_size', 20))
-            bloat_filter = request.query_params.get('bloat_indicator', '')
-            sort_by = request.query_params.get('sort_by', 'name')
+            page = int(request.query_params.get("page", 1))
+            page_size = int(request.query_params.get("page_size", 20))
+            bloat_filter = request.query_params.get("bloat_indicator", "")
+            sort_by = request.query_params.get("sort_by", "name")
 
             # Get all tables
             tables = self._get_table_stats()
 
             # Apply filters
             if bloat_filter:
-                tables = [t for t in tables if t['bloat_indicator'] == bloat_filter]
+                tables = [t for t in tables if t["bloat_indicator"] == bloat_filter]
 
             # Apply sorting
-            if sort_by == 'rows':
-                tables = sorted(tables, key=lambda x: x['rows'], reverse=True)
-            elif sort_by == 'size_mb':
-                tables = sorted(tables, key=lambda x: x['size_mb'], reverse=True)
+            if sort_by == "rows":
+                tables = sorted(tables, key=lambda x: x["rows"], reverse=True)
+            elif sort_by == "size_mb":
+                tables = sorted(tables, key=lambda x: x["size_mb"], reverse=True)
             else:  # default 'name'
-                tables = sorted(tables, key=lambda x: x['name'])
+                tables = sorted(tables, key=lambda x: x["name"])
 
             # Paginate
             total_count = len(tables)
@@ -217,29 +220,34 @@ class DatabaseTablesViewSet(ViewSet):
             # Serialize
             serializer = TableStatSerializer(paginated_tables, many=True)
 
-            logger.info(f"[DatabaseTablesViewSet] Listed {len(paginated_tables)} tables (page {page})")
+            logger.info(
+                f"[DatabaseTablesViewSet] Listed {len(paginated_tables)} tables (page {page})"
+            )
 
-            return Response({
-                'success': True,
-                'data': {
-                    'count': total_count,
-                    'page': page,
-                    'page_size': page_size,
-                    'total_pages': total_pages,
-                    'results': serializer.data
-                }
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "count": total_count,
+                        "page": page,
+                        "page_size": page_size,
+                        "total_pages": total_pages,
+                        "results": serializer.data,
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             logger.error(f"[DatabaseTablesViewSet] Error: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @staticmethod
     def _get_table_stats() -> List[Dict[str, Any]]:
-        """Get statistics for all tables"""
+        """Get statistics for all PostgreSQL tables"""
         try:
             db_info = DatabaseInfo()
 
@@ -247,7 +255,8 @@ class DatabaseTablesViewSet(ViewSet):
                 return []
 
             with connection.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT
                         schemaname,
                         tablename,
@@ -259,7 +268,8 @@ class DatabaseTablesViewSet(ViewSet):
                     FROM pg_stat_user_tables
                     WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
                     ORDER BY tablename;
-                """)
+                """
+                )
 
                 columns = [col[0] for col in cursor.description]
                 rows = cursor.fetchall()
@@ -267,29 +277,33 @@ class DatabaseTablesViewSet(ViewSet):
                 tables = []
                 for row in rows:
                     row_dict = dict(zip(columns, row))
-                    size_mb = row_dict['size_bytes'] / (1024 * 1024)
+                    size_mb = row_dict["size_bytes"] / (1024 * 1024)
 
                     # Calculate bloat indicator
                     bloat_pct = min(100, (size_mb / 100))  # Simple heuristic
                     if bloat_pct > 50:
-                        bloat_indicator = 'high'
+                        bloat_indicator = "high"
                     elif bloat_pct > 20:
-                        bloat_indicator = 'medium'
+                        bloat_indicator = "medium"
                     else:
-                        bloat_indicator = 'low'
+                        bloat_indicator = "low"
 
                     # Get last vacuum/reindex time
-                    last_vacuum = row_dict.get('last_autovacuum') or row_dict.get('last_vacuum')
+                    last_vacuum = row_dict.get("last_autovacuum") or row_dict.get(
+                        "last_vacuum"
+                    )
 
-                    tables.append({
-                        'name': row_dict['tablename'],
-                        'rows': row_dict['rows'],
-                        'size_mb': round(size_mb, 2),
-                        'last_vacuum': last_vacuum,
-                        'last_reindex': None,  # PostgreSQL doesn't track this per-table
-                        'bloat_indicator': bloat_indicator,
-                        'last_maintenance': last_vacuum
-                    })
+                    tables.append(
+                        {
+                            "name": row_dict["tablename"],
+                            "rows": row_dict["rows"],
+                            "size_mb": round(size_mb, 2),
+                            "last_vacuum": last_vacuum,
+                            "last_reindex": None,  # PostgreSQL doesn't track this per-table
+                            "bloat_indicator": bloat_indicator,
+                            "last_maintenance": last_vacuum,
+                        }
+                    )
 
                 return tables
 
@@ -322,6 +336,7 @@ class DatabaseQueriesView(APIView):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def get(self, request):
@@ -330,38 +345,41 @@ class DatabaseQueriesView(APIView):
             db_info = DatabaseInfo()
 
             if not db_info.is_postgresql:
-                return Response({
-                    'success': True,
-                    'data': {
-                        'count': 0,
-                        'queries': [],
-                        'note': 'Query statistics only available for PostgreSQL'
-                    }
-                }, status=status.HTTP_200_OK)
+                return Response(
+                    {
+                        "success": True,
+                        "data": {
+                            "count": 0,
+                            "queries": [],
+                            "note": "Query statistics only available for PostgreSQL",
+                        },
+                    },
+                    status=status.HTTP_200_OK,
+                )
 
             queries = self._get_slow_queries()
             serializer = SlowQuerySerializer(queries, many=True)
 
             logger.info(f"[DatabaseQueriesView] Retrieved {len(queries)} slow queries")
 
-            return Response({
-                'success': True,
-                'data': {
-                    'count': len(queries),
-                    'queries': serializer.data
-                }
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "success": True,
+                    "data": {"count": len(queries), "queries": serializer.data},
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             logger.error(f"[DatabaseQueriesView] Error: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @staticmethod
     def _get_slow_queries() -> List[Dict[str, Any]]:
-        """Get top 10 slow queries"""
+        """Get top 10 slow PostgreSQL queries"""
         try:
             db_info = DatabaseInfo()
 
@@ -370,16 +388,19 @@ class DatabaseQueriesView(APIView):
 
             # Check if pg_stat_statements extension exists
             with connection.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'
-                """)
+                """
+                )
 
                 if not cursor.fetchone():
                     logger.warning("pg_stat_statements extension not installed")
                     return []
 
                 # Get top slow queries
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT
                         query_id as id,
                         query,
@@ -390,7 +411,8 @@ class DatabaseQueriesView(APIView):
                     WHERE mean_time > 100
                     ORDER BY mean_time DESC
                     LIMIT 10;
-                """)
+                """
+                )
 
                 columns = [col[0] for col in cursor.description]
                 rows = cursor.fetchall()
@@ -398,16 +420,19 @@ class DatabaseQueriesView(APIView):
                 queries = []
                 for idx, row in enumerate(rows):
                     row_dict = dict(zip(columns, row))
-                    query_str = row_dict['query']
+                    query_str = row_dict["query"]
 
-                    queries.append({
-                        'id': row_dict['id'],
-                        'query': query_str,
-                        'query_truncated': query_str[:50] + ('...' if len(query_str) > 50 else ''),
-                        'count': row_dict['count'],
-                        'avg_time_ms': round(row_dict['avg_time_ms'], 2),
-                        'max_time_ms': round(row_dict['max_time_ms'], 2)
-                    })
+                    queries.append(
+                        {
+                            "id": row_dict["id"],
+                            "query": query_str,
+                            "query_truncated": query_str[:50]
+                            + ("..." if len(query_str) > 50 else ""),
+                            "count": row_dict["count"],
+                            "avg_time_ms": round(row_dict["avg_time_ms"], 2),
+                            "max_time_ms": round(row_dict["max_time_ms"], 2),
+                        }
+                    )
 
                 return queries
 
@@ -452,6 +477,7 @@ class BackupManagementViewSet(ViewSet):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def list(self, request):
@@ -463,72 +489,90 @@ class BackupManagementViewSet(ViewSet):
             # Convert backup info to serializer format
             formatted_backups = []
             for backup in backups:
-                size_bytes = backup.get('size', 0)
+                size_bytes = backup.get("size", 0)
                 size_human = MaintenanceUtils._bytes_to_human(size_bytes)
 
-                formatted_backups.append({
-                    'id': backup.get('id', ''),
-                    'filename': backup.get('filename', ''),
-                    'size_bytes': size_bytes,
-                    'size_human': size_human,
-                    'created_at': backup.get('created_at'),
-                    'status': backup.get('status', 'completed'),
-                    'is_downloadable': os.path.exists(backup.get('path', ''))
-                })
+                formatted_backups.append(
+                    {
+                        "id": backup.get("id", ""),
+                        "filename": backup.get("filename", ""),
+                        "size_bytes": size_bytes,
+                        "size_human": size_human,
+                        "created_at": backup.get("created_at"),
+                        "status": backup.get("status", "completed"),
+                        "is_downloadable": os.path.exists(backup.get("path", "")),
+                    }
+                )
 
             # Serialize
             serializer = BackupSerializer(formatted_backups, many=True)
 
-            logger.info(f"[BackupManagementViewSet] Listed {len(formatted_backups)} backups")
+            logger.info(
+                f"[BackupManagementViewSet] Listed {len(formatted_backups)} backups"
+            )
 
-            return Response({
-                'success': True,
-                'data': {
-                    'count': len(formatted_backups),
-                    'backups': serializer.data
-                }
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "count": len(formatted_backups),
+                        "backups": serializer.data,
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
-            logger.error(f"[BackupManagementViewSet] Error listing backups: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(
+                f"[BackupManagementViewSet] Error listing backups: {str(e)}",
+                exc_info=True,
+            )
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     def create(self, request):
         """Create new backup (async)"""
         try:
             backup_manager = BackupManager()
             backup_info = backup_manager.create_database_backup(
-                description=request.data.get('description', 'Admin manual backup')
+                description=request.data.get("description", "Admin manual backup")
             )
 
             # Log audit
             audit_log(
                 request.user,
-                'database_backup_created',
+                "database_backup_created",
                 f"Backup created: {backup_info['id']}",
-                request
+                request,
             )
 
-            logger.info(f"[BackupManagementViewSet] Backup created: {backup_info['id']}")
+            logger.info(
+                f"[BackupManagementViewSet] Backup created: {backup_info['id']}"
+            )
 
-            return Response({
-                'success': True,
-                'data': {
-                    'backup_id': backup_info['id'],
-                    'status': backup_info.get('status', 'in-progress'),
-                    'message': 'Backup creation started'
-                }
-            }, status=status.HTTP_201_CREATED)
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "backup_id": backup_info["id"],
+                        "status": backup_info.get("status", "in-progress"),
+                        "message": "Backup creation started",
+                    },
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
         except Exception as e:
-            logger.error(f"[BackupManagementViewSet] Error creating backup: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(
+                f"[BackupManagementViewSet] Error creating backup: {str(e)}",
+                exc_info=True,
+            )
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class BackupDetailView(APIView):
@@ -552,62 +596,69 @@ class BackupDetailView(APIView):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def post(self, request, backup_id):
         """Restore from backup"""
         try:
-            confirm = request.data.get('confirm', False)
+            confirm = request.data.get("confirm", False)
 
             if not confirm:
-                return Response({
-                    'success': False,
-                    'error': 'Restoration requires confirmation (confirm=true)'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {
+                        "success": False,
+                        "error": "Restoration requires confirmation (confirm=true)",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             backup_manager = BackupManager()
 
             # Check if backup exists
             backups = backup_manager.list_backups()
-            backup = next((b for b in backups if b['id'] == backup_id), None)
+            backup = next((b for b in backups if b["id"] == backup_id), None)
 
             if not backup:
-                return Response({
-                    'success': False,
-                    'error': f'Backup not found: {backup_id}'
-                }, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"success": False, "error": f"Backup not found: {backup_id}"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             # Start restoration (async would be better, but keeping it simple for now)
             # In production, this should dispatch to Celery task
-            estimated_duration = MaintenanceUtils.estimate_maintenance_time('restore').get(
-                'estimated_seconds', 300
-            )
+            estimated_duration = MaintenanceUtils.estimate_maintenance_time(
+                "restore"
+            ).get("estimated_seconds", 300)
 
             # Log audit
             audit_log(
                 request.user,
-                'database_restore_initiated',
+                "database_restore_initiated",
                 f"Database restoration initiated from backup: {backup_id}",
-                request
+                request,
             )
 
             logger.info(f"[BackupDetailView] Restore initiated for backup: {backup_id}")
 
-            return Response({
-                'success': True,
-                'data': {
-                    'status': 'in-progress',
-                    'estimated_duration_seconds': estimated_duration,
-                    'backup_id': backup_id
-                }
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "status": "in-progress",
+                        "estimated_duration_seconds": estimated_duration,
+                        "backup_id": backup_id,
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             logger.error(f"[BackupDetailView] Error: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class BackupDeleteView(APIView):
@@ -625,6 +676,7 @@ class BackupDeleteView(APIView):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def delete(self, request, backup_id):
@@ -632,17 +684,17 @@ class BackupDeleteView(APIView):
         try:
             backup_manager = BackupManager()
             backups = backup_manager.list_backups()
-            backup = next((b for b in backups if b['id'] == backup_id), None)
+            backup = next((b for b in backups if b["id"] == backup_id), None)
 
             if not backup:
-                return Response({
-                    'success': False,
-                    'error': f'Backup not found: {backup_id}'
-                }, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"success": False, "error": f"Backup not found: {backup_id}"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             # Delete backup file
-            if os.path.exists(backup['path']):
-                os.remove(backup['path'])
+            if os.path.exists(backup["path"]):
+                os.remove(backup["path"])
 
             # Delete metadata
             metadata_path = f"{backup['path']}.meta"
@@ -652,27 +704,27 @@ class BackupDeleteView(APIView):
             # Log audit
             audit_log(
                 request.user,
-                'database_backup_deleted',
+                "database_backup_deleted",
                 f"Backup deleted: {backup_id}",
-                request
+                request,
             )
 
             logger.info(f"[BackupDeleteView] Backup deleted: {backup_id}")
 
-            return Response({
-                'success': True,
-                'data': {
-                    'status': 'deleted',
-                    'filename': backup['filename']
-                }
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "success": True,
+                    "data": {"status": "deleted", "filename": backup["filename"]},
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             logger.error(f"[BackupDeleteView] Error: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 # Maintenance task store (in-memory for demo, should use Redis/DB in production)
@@ -703,69 +755,86 @@ class MaintenanceTaskView(APIView):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def post(self, request):
         """Start maintenance operation"""
         try:
-            operation = request.data.get('operation', '').lower()
-            dry_run = request.data.get('dry_run', False)
+            operation = request.data.get("operation", "").lower()
+            dry_run = request.data.get("dry_run", False)
 
-            valid_operations = ['vacuum', 'reindex', 'cleanup', 'logs', 'sessions', 'views', 'stats', 'bloat', 'backup']
+            valid_operations = [
+                "vacuum",
+                "reindex",
+                "cleanup",
+                "logs",
+                "sessions",
+                "views",
+                "stats",
+                "bloat",
+                "backup",
+            ]
 
             if operation not in valid_operations:
-                return Response({
-                    'success': False,
-                    'error': f'Invalid operation. Must be one of: {", ".join(valid_operations)}'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {
+                        "success": False,
+                        "error": f'Invalid operation. Must be one of: {", ".join(valid_operations)}',
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Generate task ID
             task_id = str(uuid.uuid4())
 
             # Estimate duration
             estimation = MaintenanceUtils.estimate_maintenance_time(operation)
-            estimated_duration = estimation.get('estimated_seconds', 300)
+            estimated_duration = estimation.get("estimated_seconds", 300)
 
             # Store task info
             _maintenance_tasks[task_id] = {
-                'task_id': task_id,
-                'operation': operation,
-                'status': 'in-progress',
-                'progress_percent': 0,
-                'estimated_duration_seconds': estimated_duration,
-                'dry_run': dry_run,
-                'created_at': timezone.now(),
-                'result': None,
-                'error': None
+                "task_id": task_id,
+                "operation": operation,
+                "status": "in-progress",
+                "progress_percent": 0,
+                "estimated_duration_seconds": estimated_duration,
+                "dry_run": dry_run,
+                "created_at": timezone.now(),
+                "result": None,
+                "error": None,
             }
 
             # Log audit
             audit_log(
                 request.user,
-                f'database_maintenance_{operation}',
+                f"database_maintenance_{operation}",
                 f"Maintenance operation started: {operation} (dry_run={dry_run})",
-                request
+                request,
             )
 
             logger.info(f"[MaintenanceTaskView] Task started: {task_id} ({operation})")
 
-            return Response({
-                'success': True,
-                'data': {
-                    'task_id': task_id,
-                    'operation': operation,
-                    'status': 'in-progress',
-                    'estimated_duration_seconds': estimated_duration,
-                    'progress_percent': 0
-                }
-            }, status=status.HTTP_202_ACCEPTED)
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "task_id": task_id,
+                        "operation": operation,
+                        "status": "in-progress",
+                        "estimated_duration_seconds": estimated_duration,
+                        "progress_percent": 0,
+                    },
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
 
         except Exception as e:
             logger.error(f"[MaintenanceTaskView] Error: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class MaintenanceStatusView(APIView):
@@ -791,51 +860,55 @@ class MaintenanceStatusView(APIView):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def get(self, request, task_id):
         """Get maintenance task status"""
         try:
             if task_id not in _maintenance_tasks:
-                return Response({
-                    'success': False,
-                    'error': f'Task not found: {task_id}'
-                }, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"success": False, "error": f"Task not found: {task_id}"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             task = _maintenance_tasks[task_id]
 
             # Simulate progress (in real implementation, check actual task status)
-            if task['status'] == 'in-progress':
+            if task["status"] == "in-progress":
                 # Simulate completion after some time
-                time_elapsed = (timezone.now() - task['created_at']).total_seconds()
-                estimated = task['estimated_duration_seconds']
+                time_elapsed = (timezone.now() - task["created_at"]).total_seconds()
+                estimated = task["estimated_duration_seconds"]
 
                 if time_elapsed >= estimated:
-                    task['status'] = 'completed'
-                    task['progress_percent'] = 100
-                    task['result'] = {
-                        'disk_freed_mb': 512,
-                        'rows_processed': 50000,
-                        'duration_seconds': int(time_elapsed)
+                    task["status"] = "completed"
+                    task["progress_percent"] = 100
+                    task["result"] = {
+                        "disk_freed_mb": 512,
+                        "rows_processed": 50000,
+                        "duration_seconds": int(time_elapsed),
                     }
                 else:
-                    task['progress_percent'] = min(99, int((time_elapsed / estimated) * 100))
+                    task["progress_percent"] = min(
+                        99, int((time_elapsed / estimated) * 100)
+                    )
 
             serializer = MaintenanceTaskSerializer(task)
 
-            logger.info(f"[MaintenanceStatusView] Task status: {task_id} - {task['status']}")
+            logger.info(
+                f"[MaintenanceStatusView] Task status: {task_id} - {task['status']}"
+            )
 
-            return Response({
-                'success': True,
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {"success": True, "data": serializer.data}, status=status.HTTP_200_OK
+            )
 
         except Exception as e:
             logger.error(f"[MaintenanceStatusView] Error: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class KillQueryView(APIView):
@@ -858,68 +931,78 @@ class KillQueryView(APIView):
         }
     }
     """
+
     permission_classes = [IsAdminUser]
 
     def post(self, request):
         """Kill query"""
         try:
-            query_pid = request.data.get('query_pid')
+            query_pid = request.data.get("query_pid")
 
             if not query_pid:
-                return Response({
-                    'success': False,
-                    'error': 'query_pid is required'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"success": False, "error": "query_pid is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             db_info = DatabaseInfo()
 
             if not db_info.is_postgresql:
-                return Response({
-                    'success': False,
-                    'error': 'Kill query is only available for PostgreSQL'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {
+                        "success": False,
+                        "error": "Kill query is only available for PostgreSQL",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Kill the query
             with connection.cursor() as cursor:
                 # First check if query exists
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT 1 FROM pg_stat_activity WHERE pid = %s
-                """, [query_pid])
+                """,
+                    [query_pid],
+                )
 
                 if not cursor.fetchone():
-                    return Response({
-                        'success': False,
-                        'error': f'Query PID not found: {query_pid}'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {
+                            "success": False,
+                            "error": f"Query PID not found: {query_pid}",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
                 # Kill the query
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT pg_terminate_backend(%s);
-                """, [query_pid])
+                """,
+                    [query_pid],
+                )
 
                 result = cursor.fetchone()
 
             # Log audit
             audit_log(
                 request.user,
-                'database_kill_query',
+                "database_kill_query",
                 f"Query killed: PID {query_pid}",
-                request
+                request,
             )
 
             logger.info(f"[KillQueryView] Query killed: PID {query_pid}")
 
-            return Response({
-                'success': True,
-                'data': {
-                    'status': 'killed',
-                    'query_pid': query_pid
-                }
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {"success": True, "data": {"status": "killed", "query_pid": query_pid}},
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             logger.error(f"[KillQueryView] Error: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

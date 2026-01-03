@@ -7,11 +7,9 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from django.conf import settings
-from django.core.management import call_command
 from django.db import connection
 from django.utils import timezone
 import subprocess
-import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +30,7 @@ class BackupManager:
     
     def create_database_backup(self, description: str = None) -> Dict[str, Any]:
         """
-        Создает резервную копию базы данных
+        Создает резервную копию PostgreSQL базы данных
         
         Args:
             description: Описание бэкапа
@@ -50,11 +48,8 @@ class BackupManager:
             
             if db_settings['ENGINE'] == 'django.db.backends.postgresql':
                 self._create_postgresql_backup(db_settings, backup_path)
-            elif db_settings['ENGINE'] == 'django.db.backends.sqlite3':
-                self._create_sqlite_backup(db_settings, backup_path)
             else:
-                # Для других БД используем dumpdata
-                self._create_django_backup(backup_path)
+                raise Exception(f"Unsupported database engine: {db_settings['ENGINE']}. Only PostgreSQL is supported.")
             
             # Создаем метаданные бэкапа
             backup_info = {
@@ -99,17 +94,7 @@ class BackupManager:
         result = subprocess.run(cmd, env=env, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception(f"PostgreSQL backup failed: {result.stderr}")
-    
-    def _create_sqlite_backup(self, db_settings: Dict, backup_path: str):
-        """Создает бэкап SQLite базы данных"""
-        db_path = db_settings['NAME']
-        shutil.copy2(db_path, backup_path)
-    
-    def _create_django_backup(self, backup_path: str):
-        """Создает бэкап через Django dumpdata"""
-        with open(backup_path, 'w') as f:
-            call_command('dumpdata', stdout=f, indent=2)
-    
+            
     def create_media_backup(self, description: str = None) -> Dict[str, Any]:
         """
         Создает резервную копию медиафайлов
@@ -240,7 +225,7 @@ class BackupManager:
     
     def restore_database_backup(self, backup_id: str) -> bool:
         """
-        Восстанавливает базу данных из бэкапа
+        Восстанавливает PostgreSQL базу данных из бэкапа
         
         Args:
             backup_id: ID бэкапа для восстановления
@@ -263,11 +248,8 @@ class BackupManager:
             
             if db_settings['ENGINE'] == 'django.db.backends.postgresql':
                 self._restore_postgresql_backup(db_settings, backup_path)
-            elif db_settings['ENGINE'] == 'django.db.backends.sqlite3':
-                self._restore_sqlite_backup(db_settings, backup_path)
             else:
-                # Для других БД используем loaddata
-                self._restore_django_backup(backup_path)
+                raise Exception(f"Unsupported database engine: {db_settings['ENGINE']}. Only PostgreSQL is supported.")
             
             logger.info(f"Database restored from backup: {backup_id}")
             return True
@@ -293,16 +275,7 @@ class BackupManager:
         result = subprocess.run(cmd, env=env, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception(f"PostgreSQL restore failed: {result.stderr}")
-    
-    def _restore_sqlite_backup(self, db_settings: Dict, backup_path: str):
-        """Восстанавливает SQLite базу данных"""
-        db_path = db_settings['NAME']
-        shutil.copy2(backup_path, db_path)
-    
-    def _restore_django_backup(self, backup_path: str):
-        """Восстанавливает через Django loaddata"""
-        call_command('loaddata', backup_path)
-    
+            
     def _find_backup(self, backup_id: str) -> Optional[Dict[str, Any]]:
         """Находит информацию о бэкапе по ID"""
         for filename in os.listdir(self.backup_dir):

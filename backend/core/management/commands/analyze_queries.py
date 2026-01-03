@@ -1,7 +1,8 @@
 """
-Database Query Analysis and Optimization Recommendations
+Database Query Analysis and Optimization Recommendations (PostgreSQL only)
 
 Analyzes current database queries and recommends indexes and N+1 query fixes.
+Only works with PostgreSQL databases.
 Usage: python manage.py analyze_queries --db=default
 
 Reports:
@@ -21,7 +22,7 @@ from collections import defaultdict
 
 
 class Command(BaseCommand):
-    help = "Analyze database queries and recommend indexes for optimization"
+    help = "Analyze database queries and recommend indexes for optimization (PostgreSQL only)"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -277,7 +278,7 @@ class Command(BaseCommand):
             self.stdout.write(f"   Explanation: {opp['explanation']}")
 
     def show_database_stats(self):
-        """Show current database statistics"""
+        """Show current database statistics (PostgreSQL only)"""
         with connection.cursor() as cursor:
             # Get database info
             db_backend = connection.settings_dict.get('ENGINE', 'Unknown')
@@ -286,22 +287,14 @@ class Command(BaseCommand):
             self.stdout.write(f"Backend: {db_backend}")
             self.stdout.write(f"Database: {db_name}")
 
-            # Try to get table count
+            # Get table count from PostgreSQL
             try:
-                if 'postgresql' in db_backend.lower():
-                    cursor.execute("""
-                        SELECT COUNT(*) FROM information_schema.tables
-                        WHERE table_schema = 'public'
-                    """)
-                    count = cursor.fetchone()[0]
-                    self.stdout.write(f"Total Tables: {count}")
-                elif 'sqlite' in db_backend.lower():
-                    cursor.execute("""
-                        SELECT COUNT(*) FROM sqlite_master
-                        WHERE type='table'
-                    """)
-                    count = cursor.fetchone()[0]
-                    self.stdout.write(f"Total Tables: {count}")
+                cursor.execute("""
+                    SELECT COUNT(*) FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                """)
+                count = cursor.fetchone()[0]
+                self.stdout.write(f"Total Tables: {count}")
             except Exception as e:
                 self.stdout.write(f"Could not fetch table count: {e}")
 

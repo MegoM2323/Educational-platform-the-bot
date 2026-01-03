@@ -238,37 +238,32 @@ ASGI_APPLICATION = "config.asgi.application"
 
 
 # ============================================================================
-# DATABASE CONFIGURATION WITH ENVIRONMENT SEPARATION
+# DATABASE CONFIGURATION - POSTGRESQL FOR ALL ENVIRONMENTS
 # ============================================================================
 #
-# КРИТИЧЕСКИ ВАЖНАЯ СЕКЦИЯ: Обеспечивает абсолютную изоляцию продакшн БД
-# от development и test окружений
+# Все окружения используют PostgreSQL:
+#   1. production:  PostgreSQL (основной сервер)
+#   2. development: PostgreSQL (локальный или remote)
+#   3. test:        PostgreSQL (отдельная тестовая БД)
 #
-# Три режима работы (определяются через ENVIRONMENT в .env):
-#   1. production:  PostgreSQL (ТОЛЬКО на продакшн сервере!)
-#   2. development: Локальная SQLite БД (backend/db.sqlite3)
-#   3. test:        SQLite in-memory (:memory:) - полная изоляция
-#
+# Конфигурация через DATABASE_URL или отдельные переменные окружения
 # ============================================================================
 
 
-def _build_production_db_config() -> dict:
+def _get_database_config() -> dict:
     """
-    Конфигурация продакшн БД: PostgreSQL.
+    Выбирает конфигурацию PostgreSQL для всех окружений.
 
-    ТОЛЬКО для production окружения!
-    Используется DATABASE_URL или набор SUPABASE_DB_* переменных.
+    Используется DATABASE_URL или набор переменных окружения.
 
     Returns:
-        dict: Конфигурация PostgreSQL БД для Django
+        dict: Конфигурация PostgreSQL для Django
 
     Raises:
         ImproperlyConfigured: Если параметры БД не заданы
     """
     # Настройки таймаутов для предотвращения зависания
-    connect_timeout = int(
-        os.getenv("DB_CONNECT_TIMEOUT", "60")
-    )  # 60 секунд для продакшн
+    connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "60"))
     sslmode = os.getenv("DB_SSLMODE", "require")
 
     # База данных опций с таймаутами
@@ -296,17 +291,17 @@ def _build_production_db_config() -> dict:
             "PASSWORD": parsed.password,
             "HOST": parsed.hostname,
             "PORT": str(parsed.port or "5432"),
-            "CONN_MAX_AGE": 0,  # Отключаем пул соединений для избежания stale connections
+            "CONN_MAX_AGE": 0,
             "OPTIONS": db_options.copy(),
         }
         return db_config
 
-    # Альтернатива: использовать отдельные SUPABASE_DB_* переменные
-    name = os.getenv("SUPABASE_DB_NAME")
-    user = os.getenv("SUPABASE_DB_USER")
-    password = os.getenv("SUPABASE_DB_PASSWORD")
-    host = os.getenv("SUPABASE_DB_HOST")
-    port = os.getenv("SUPABASE_DB_PORT")
+    # Альтернатива: использовать отдельные DB_* переменные
+    name = os.getenv("DB_NAME")
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    host = os.getenv("DB_HOST")
+    port = os.getenv("DB_PORT", "5432")
 
     if all([name, user, password, host]):
         return {
@@ -315,85 +310,16 @@ def _build_production_db_config() -> dict:
             "USER": user,
             "PASSWORD": password,
             "HOST": host,
-            "PORT": str(port or "6543"),
-            "CONN_MAX_AGE": 0,  # Отключаем пул соединений
+            "PORT": str(port),
+            "CONN_MAX_AGE": 0,
             "OPTIONS": db_options.copy(),
         }
 
     raise ImproperlyConfigured(
-        "Production режим требует настройки БД.\n"
-        "Установите DATABASE_URL (postgres URI) "
-        "или переменные SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD, SUPABASE_DB_HOST, SUPABASE_DB_PORT."
+        "Требуется конфигурация БД.\n"
+        "Установите DATABASE_URL (postgres://) "
+        "или переменные DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT."
     )
-
-
-def _build_development_db_config() -> dict:
-    """
-    Конфигурация development БД: Локальная SQLite.
-
-    Файл БД: backend/db.sqlite3
-
-    Returns:
-        dict: Конфигурация SQLite БД для Django
-    """
-    return {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-        "ATOMIC_REQUESTS": True,
-    }
-
-
-def _build_test_db_config() -> dict:
-    """
-    Конфигурация test БД: SQLite in-memory.
-
-    Полная изоляция от продакшн - каждый тест на чистой БД.
-    Используется :memory: для максимальной скорости.
-
-    Returns:
-        dict: Конфигурация SQLite in-memory БД для Django
-    """
-    return {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-        "TEST": {
-            "NAME": ":memory:",
-        },
-        "ATOMIC_REQUESTS": True,
-    }
-
-
-def _get_database_config() -> dict:
-    """
-    Выбирает конфигурацию БД на основе ENVIRONMENT.
-
-    КРИТИЧЕСКАЯ ФУНКЦИЯ: Обеспечивает абсолютную изоляцию продакшн БД от dev/test.
-
-    Режимы:
-    - production: PostgreSQL (DATABASE_URL или SUPABASE_DB_*)
-    - development: Локальная SQLite (backend/db.sqlite3)
-    - test: SQLite in-memory (:memory:) - полная изоляция
-
-    Returns:
-        dict: Конфигурация БД для текущего окружения
-
-    Raises:
-        ImproperlyConfigured: При невалидном значении ENVIRONMENT
-    """
-    environment = os.getenv("ENVIRONMENT", "production").lower()
-
-    if environment == "production":
-        return _build_production_db_config()
-    elif environment == "development":
-        return _build_development_db_config()
-    elif environment == "test":
-        return _build_test_db_config()
-    else:
-        raise ImproperlyConfigured(
-            f"❌ ОШИБКА: Недопустимое значение ENVIRONMENT='{environment}'\n"
-            f"Допустимые значения: production, development, test\n"
-            f"Установите правильное значение в .env файле"
-        )
 
 
 # Конфигурация БД с автоматическим выбором на основе ENVIRONMENT
@@ -460,30 +386,26 @@ if is_testing:
             f"{'='*70}\n"
         )
 
-    # Тесты НЕ ДОЛЖНЫ использовать PostgreSQL
     if "postgresql" in db_engine:
-        raise ImproperlyConfigured(
-            f"\n"
-            f"{'='*70}\n"
-            f"🚨🚨🚨 КРИТИЧЕСКАЯ ОШИБКА: ТЕСТЫ ИСПОЛЬЗУЮТ ПРОДАКШН БД! 🚨🚨🚨\n"
-            f"{'='*70}\n"
-            f"\n"
-            f"DB ENGINE: {db_engine}\n"
-            f"DB HOST: {db_host}\n"
-            f"\n"
-            f"Тесты должны использовать ТОЛЬКО SQLite in-memory!\n"
-            f"Проверьте файл .env и удалите DATABASE_URL\n"
-            f"{'='*70}\n"
-        )
-
-# Проверка 2: Production режим с SQLite (предупреждение)
-if current_environment == "production" and "sqlite" in db_engine:
-    import warnings
-
-    warnings.warn(
-        f"⚠️  Production режим, но БД не PostgreSQL. ENGINE: {db_engine}",
-        RuntimeWarning,
-    )
+        if (
+            "localhost" not in db_host
+            and "127.0.0.1" not in db_host
+            and "testdb" not in db_config.get("NAME", "").lower()
+        ):
+            raise ImproperlyConfigured(
+                f"\n"
+                f"{'='*70}\n"
+                f"🚨 ОШИБКА: ТЕСТЫ ИСПОЛЬЗУЮТ ПРОДАКШН БД! 🚨\n"
+                f"{'='*70}\n"
+                f"\n"
+                f"DB ENGINE: {db_engine}\n"
+                f"DB HOST: {db_host}\n"
+                f"DB NAME: {db_config.get('NAME', 'N/A')}\n"
+                f"\n"
+                f"Тесты должны использовать локальную тестовую базу данных!\n"
+                f"Проверьте переменные окружения DB_HOST и DB_NAME\n"
+                f"{'='*70}\n"
+            )
 
 # Логирование текущей конфигурации (только в DEBUG режиме)
 if DEBUG:
@@ -682,7 +604,8 @@ REST_FRAMEWORK = {
 # Можно переопределить в .env: USE_REDIS_CACHE=True/False
 # КРИТИЧНО: Отключаем Redis для тестов чтобы избежать ConnectionError
 USE_REDIS_CACHE = (
-    False if current_environment == "test"
+    False
+    if current_environment == "test"
     else os.getenv("USE_REDIS_CACHE", str(not DEBUG)).lower() == "true"
 )
 
@@ -857,7 +780,8 @@ SYSTEM_MONITORING = {
 # ВАЖНО: В production Redis КРИТИЧНО необходим для WebSocket на нескольких процессах
 # КРИТИЧНО: Отключаем Redis для тестов чтобы избежать ConnectionError
 USE_REDIS_CHANNELS = (
-    False if current_environment == "test"
+    False
+    if current_environment == "test"
     else os.getenv("USE_REDIS_CHANNELS", str(not DEBUG)).lower() == "true"
 )
 
@@ -947,19 +871,19 @@ if not DEBUG:
     # 2. Проверка DATABASE_URL - должен быть задан для production
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
-        # Проверяем альтернативный вариант с SUPABASE_DB_*
+        # Проверяем альтернативный вариант с DB_*
         if not all(
             [
-                os.getenv("SUPABASE_DB_NAME"),
-                os.getenv("SUPABASE_DB_USER"),
-                os.getenv("SUPABASE_DB_PASSWORD"),
-                os.getenv("SUPABASE_DB_HOST"),
+                os.getenv("DB_NAME"),
+                os.getenv("DB_USER"),
+                os.getenv("DB_PASSWORD"),
+                os.getenv("DB_HOST"),
             ]
         ):
             raise ImproperlyConfigured(
                 "Production mode requires DATABASE_URL to be set.\n"
-                "Either set DATABASE_URL (recommended) or all SUPABASE_DB_* variables.\n"
-                "Production MUST use PostgreSQL, NOT SQLite."
+                "Either set DATABASE_URL (recommended) or all DB_* variables (DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT).\n"
+                "Production MUST use PostgreSQL."
             )
     elif database_url:
         # Проверяем что это PostgreSQL, а не SQLite

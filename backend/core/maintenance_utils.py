@@ -2,7 +2,6 @@
 Utility functions for database maintenance operations.
 
 Provides helper functions for:
-- Detecting database type (PostgreSQL vs SQLite)
 - Getting database statistics
 - Checking for locks
 - Executing maintenance operations safely
@@ -35,19 +34,9 @@ class DatabaseInfo:
         return 'postgres' in self.engine.lower()
 
     @property
-    def is_sqlite(self) -> bool:
-        """Check if using SQLite"""
-        return 'sqlite' in self.engine.lower()
-
-    @property
     def database_type(self) -> str:
         """Get database type name"""
-        if self.is_postgresql:
-            return 'PostgreSQL'
-        elif self.is_sqlite:
-            return 'SQLite'
-        else:
-            return 'Unknown'
+        return 'PostgreSQL' if self.is_postgresql else 'Unknown'
 
     def __str__(self) -> str:
         """String representation"""
@@ -65,46 +54,27 @@ class MaintenanceUtils:
     @staticmethod
     def get_database_size() -> Dict[str, Any]:
         """
-        Get total database size.
-
-        PostgreSQL: Uses pg_database_size()
-        SQLite: Uses file size
+        Get total database size using pg_database_size().
         """
-        db_info = DatabaseInfo()
-
-        if db_info.is_postgresql:
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT
-                            pg_database.datname,
-                            pg_size_pretty(pg_database_size(pg_database.datname)) AS size,
-                            pg_database_size(pg_database.datname) AS bytes
-                        FROM pg_database
-                        WHERE datname = current_database();
-                    """)
-                    result = cursor.fetchone()
-                    if result:
-                        return {
-                            'database': result[0],
-                            'size_human': result[1],
-                            'size_bytes': result[2]
-                        }
-            except Exception as e:
-                logger.error(f"Error getting database size: {e}")
-
-        elif db_info.is_sqlite:
-            import os
-            try:
-                if os.path.exists(db_info.name):
-                    size = os.path.getsize(db_info.name)
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT
+                        pg_database.datname,
+                        pg_size_pretty(pg_database_size(pg_database.datname)) AS size,
+                        pg_database_size(pg_database.datname) AS bytes
+                    FROM pg_database
+                    WHERE datname = current_database();
+                """)
+                result = cursor.fetchone()
+                if result:
                     return {
-                        'database': db_info.name,
-                        'size_bytes': size,
-                        'size_human': MaintenanceUtils._bytes_to_human(size)
+                        'database': result[0],
+                        'size_human': result[1],
+                        'size_bytes': result[2]
                     }
-            except Exception as e:
-                logger.error(f"Error getting SQLite size: {e}")
+        except Exception as e:
+            logger.error(f"Error getting database size: {e}")
 
         return {'error': 'Could not determine database size'}
 
@@ -112,14 +82,7 @@ class MaintenanceUtils:
     def get_table_sizes() -> List[Dict[str, Any]]:
         """
         Get sizes of all tables in the database.
-
-        PostgreSQL only.
         """
-        db_info = DatabaseInfo()
-
-        if not db_info.is_postgresql:
-            return []
-
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
@@ -144,14 +107,7 @@ class MaintenanceUtils:
     def get_index_info() -> List[Dict[str, Any]]:
         """
         Get information about indexes.
-
-        PostgreSQL only.
         """
-        db_info = DatabaseInfo()
-
-        if not db_info.is_postgresql:
-            return []
-
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
@@ -178,14 +134,7 @@ class MaintenanceUtils:
     def get_unused_indexes() -> List[Dict[str, Any]]:
         """
         Find unused indexes that could be removed.
-
-        PostgreSQL only.
         """
-        db_info = DatabaseInfo()
-
-        if not db_info.is_postgresql:
-            return []
-
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
@@ -210,14 +159,7 @@ class MaintenanceUtils:
     def get_active_connections() -> Dict[str, Any]:
         """
         Get information about active database connections.
-
-        PostgreSQL only.
         """
-        db_info = DatabaseInfo()
-
-        if not db_info.is_postgresql:
-            return {'message': 'PostgreSQL only'}
-
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
@@ -244,14 +186,7 @@ class MaintenanceUtils:
     def get_long_running_queries(minutes: int = 5) -> List[Dict[str, Any]]:
         """
         Get long-running queries that might need attention.
-
-        PostgreSQL only.
         """
-        db_info = DatabaseInfo()
-
-        if not db_info.is_postgresql:
-            return []
-
         try:
             with connection.cursor() as cursor:
                 cursor.execute(f"""
@@ -278,14 +213,7 @@ class MaintenanceUtils:
     def check_for_locks() -> Dict[str, Any]:
         """
         Check if there are any locks that might interfere with maintenance.
-
-        PostgreSQL only.
         """
-        db_info = DatabaseInfo()
-
-        if not db_info.is_postgresql:
-            return {'message': 'PostgreSQL only'}
-
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
@@ -384,18 +312,14 @@ class MaintenanceUtils:
         """
         db_info = DatabaseInfo()
 
-        report = {
+        return {
             'timestamp': datetime.now().isoformat(),
             'database': str(db_info),
             'database_size': MaintenanceUtils.get_database_size(),
+            'table_sizes': MaintenanceUtils.get_table_sizes(),
+            'index_info': MaintenanceUtils.get_index_info(),
+            'unused_indexes': MaintenanceUtils.get_unused_indexes(),
             'active_connections': MaintenanceUtils.get_active_connections(),
             'long_running_queries': MaintenanceUtils.get_long_running_queries(),
             'locks': MaintenanceUtils.check_for_locks(),
         }
-
-        if db_info.is_postgresql:
-            report['table_sizes'] = MaintenanceUtils.get_table_sizes()
-            report['index_info'] = MaintenanceUtils.get_index_info()
-            report['unused_indexes'] = MaintenanceUtils.get_unused_indexes()
-
-        return report

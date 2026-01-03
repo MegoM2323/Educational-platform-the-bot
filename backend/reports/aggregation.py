@@ -280,8 +280,8 @@ class ReportDataAggregationService:
         # Get all material progress records
         progress_records = MaterialProgress.objects.filter(
             student_id=student_id,
-            updated_at__date__gte=date_from,
-            updated_at__date__lte=date_to
+            last_accessed__date__gte=date_from,
+            last_accessed__date__lte=date_to
         ).values(
             'material_id', 'progress_percentage', 'is_completed'
         )
@@ -419,7 +419,7 @@ class ReportDataAggregationService:
         query = AssignmentSubmission.objects.all()
 
         if teacher_id:
-            query = query.filter(assignment__teacher_id=teacher_id)
+            query = query.filter(assignment__author_id=teacher_id)
 
         if assignment_id:
             query = query.filter(assignment_id=assignment_id)
@@ -462,7 +462,7 @@ class ReportDataAggregationService:
 
         # Get all assignments for completion rate
         if teacher_id:
-            all_assignments = Assignment.objects.filter(teacher_id=teacher_id).count()
+            all_assignments = Assignment.objects.filter(author_id=teacher_id).count()
         elif assignment_id:
             all_assignments = 1
         else:
@@ -800,7 +800,7 @@ class ReportDataAggregationService:
         ).order_by('period')
 
         if teacher_id:
-            submissions = submissions.filter(assignment__teacher_id=teacher_id)
+            submissions = submissions.filter(assignment__author_id=teacher_id)
 
         if student_id:
             submissions = submissions.filter(student_id=student_id)
@@ -865,10 +865,9 @@ class ReportDataAggregationService:
         from materials.models import Subject
 
         query = AssignmentSubmission.objects.select_related(
-            'assignment__subject'
+            'assignment__author'
         ).values(
-            'assignment__subject_id',
-            'assignment__subject__name'
+            'assignment__author_id'
         ).annotate(
             avg_score=Avg('score'),
             submission_count=Count('id'),
@@ -876,7 +875,7 @@ class ReportDataAggregationService:
         )
 
         if teacher_id:
-            query = query.filter(assignment__teacher_id=teacher_id)
+            query = query.filter(assignment__author_id=teacher_id)
 
         if date_from:
             date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
@@ -886,20 +885,19 @@ class ReportDataAggregationService:
             date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
             query = query.filter(submitted_at__date__lte=date_to_obj)
 
-        subjects = []
+        authors = []
         for record in query:
-            if record['assignment__subject_id']:
-                subjects.append({
-                    'subject_id': record['assignment__subject_id'],
-                    'subject_name': record['assignment__subject__name'] or 'Unknown',
+            if record['assignment__author_id']:
+                authors.append({
+                    'author_id': record['assignment__author_id'],
                     'avg_score': round(float(record['avg_score'])) if record['avg_score'] else 0.0,
                     'student_count': record['student_count'],
                     'submission_count': record['submission_count']
                 })
 
         return {
-            'subjects': subjects,
-            'total_subjects': len(subjects)
+            'authors': authors,
+            'total_authors': len(authors)
         }
 
     # ========================================================================
@@ -981,10 +979,10 @@ class ReportDataAggregationService:
         # Get total time spent from material progress
         material_progress = MaterialProgress.objects.filter(
             student_id=student_id,
-            updated_at__date__gte=date_from,
-            updated_at__date__lte=date_to
+            last_accessed__date__gte=date_from,
+            last_accessed__date__lte=date_to
         ).aggregate(
-            total_time=Sum('time_spent_minutes')
+            total_time=Sum('time_spent')
         )
 
         total_time_minutes = material_progress.get('total_time') or 0
@@ -993,10 +991,10 @@ class ReportDataAggregationService:
         # Get activity days
         activity_days = MaterialProgress.objects.filter(
             student_id=student_id,
-            updated_at__date__gte=date_from,
-            updated_at__date__lte=date_to
+            last_accessed__date__gte=date_from,
+            last_accessed__date__lte=date_to
         ).values(
-            'updated_at__date'
+            'last_accessed__date'
         ).distinct().count()
 
         # Calculate avg session duration
@@ -1162,8 +1160,8 @@ class ReportDataAggregationService:
         # Count activities
         material_updates = MaterialProgress.objects.filter(
             student_id=student_id,
-            updated_at__date__gte=date_from,
-            updated_at__date__lte=date_to
+            last_accessed__date__gte=date_from,
+            last_accessed__date__lte=date_to
         ).count()
 
         submissions = AssignmentSubmission.objects.filter(
@@ -1197,7 +1195,7 @@ class ReportDataAggregationService:
         )
 
         if teacher_id:
-            submissions = submissions.filter(assignment__teacher_id=teacher_id)
+            submissions = submissions.filter(assignment__author_id=teacher_id)
 
         scores = list(submissions.values_list('score', flat=True).filter(score__isnull=False))
 
@@ -1212,10 +1210,10 @@ class ReportDataAggregationService:
 
         result = MaterialProgress.objects.filter(
             student_id=student_id,
-            updated_at__date__gte=date_from,
-            updated_at__date__lte=date_to
+            last_accessed__date__gte=date_from,
+            last_accessed__date__lte=date_to
         ).aggregate(
-            total=Sum('time_spent_minutes')
+            total=Sum('time_spent')
         )
 
         minutes = result['total'] or 0
@@ -1228,10 +1226,10 @@ class ReportDataAggregationService:
         # Get activity days vs period days
         activity_days = MaterialProgress.objects.filter(
             student_id=student_id,
-            updated_at__date__gte=date_from,
-            updated_at__date__lte=date_to
+            last_accessed__date__gte=date_from,
+            last_accessed__date__lte=date_to
         ).values(
-            'updated_at__date'
+            'last_accessed__date'
         ).distinct().count()
 
         period_days = (date_to - date_from).days + 1
@@ -1245,10 +1243,10 @@ class ReportDataAggregationService:
         # Check if student has regular activity
         daily_activities = MaterialProgress.objects.filter(
             student_id=student_id,
-            updated_at__date__gte=date_from,
-            updated_at__date__lte=date_to
+            last_accessed__date__gte=date_from,
+            last_accessed__date__lte=date_to
         ).values(
-            'updated_at__date'
+            'last_accessed__date'
         ).annotate(
             count=Count('id')
         )

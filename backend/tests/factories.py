@@ -10,6 +10,7 @@ from factory.django import DjangoModelFactory
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 import uuid
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ def _get_user_role(role_name):
     """Helper to get User role from Django User model"""
     UserModel = get_user_model()
     return getattr(UserModel.Role, role_name)
+
 
 User = None
 Subject = None
@@ -44,6 +46,11 @@ TeacherWeeklyReport = None
 ReportRecipient = None
 ParentReportPreference = None
 AnalyticsData = None
+ReportAccessToken = None
+ReportAccessAuditLog = None
+ReportSharing = None
+CustomReport = None
+CustomReportExecution = None
 Invoice = None
 StudentProfile = None
 TeacherProfile = None
@@ -446,11 +453,33 @@ class InvoiceFactory(DjangoModelFactory):
     class Meta:
         model = None
 
-    user = factory.SubFactory(StudentFactory)
-    amount = 1000.00
-    currency = "RUB"
-    description = "Test invoice"
-    status = "pending"
+    tutor = factory.SubFactory(TutorFactory)
+    student = factory.SubFactory(StudentFactory)
+    parent = factory.SubFactory(ParentFactory)
+    amount = factory.LazyFunction(lambda: Decimal("1000.00"))
+    description = "Test invoice for tuition"
+    status = "draft"
+    due_date = factory.LazyFunction(
+        lambda: (timezone.now() + timedelta(days=30)).date()
+    )
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        """Override to create StudentProfile if needed"""
+        student = kwargs.get("student")
+        parent = kwargs.get("parent")
+
+        if student and parent:
+            from accounts.models import StudentProfile
+
+            StudentProfile.objects.get_or_create(
+                user=student,
+                defaults={"parent": parent},
+            )
+
+        obj = model_class(*args, **kwargs)
+        obj.save()
+        return obj
 
 
 class PaymentFactory(DjangoModelFactory):
@@ -474,8 +503,14 @@ class ReportFactory(DjangoModelFactory):
 
     title = factory.Sequence(lambda n: f"Report {n}_{uuid4().hex[:8]}")
     description = "Test report"
-    report_type = "student_progress"
-    created_by = factory.SubFactory(TeacherFactory)
+    type = "custom"
+    status = "draft"
+    author = factory.SubFactory(TeacherFactory)
+    start_date = factory.LazyFunction(
+        lambda: (timezone.now() - timedelta(days=30)).date()
+    )
+    end_date = factory.LazyFunction(lambda: timezone.now().date())
+    content = {}
 
 
 class ReportTemplateFactory(DjangoModelFactory):
@@ -484,12 +519,15 @@ class ReportTemplateFactory(DjangoModelFactory):
     class Meta:
         model = None
 
-    title = factory.Sequence(lambda n: f"Report Template {n}_{uuid4().hex[:8]}")
     name = factory.Sequence(lambda n: f"Template {n}_{uuid4().hex[:8]}")
     description = "Test template"
-    type = "progress"
-    sections = []
-    layout_config = {}
+    type = "custom"
+    sections = [{"name": "summary", "fields": ["title"]}]
+    layout_config = {"orientation": "portrait", "page_size": "a4"}
+    default_format = "pdf"
+    version = 1
+    is_default = False
+    is_archived = False
     created_by = factory.SubFactory(TeacherFactory)
 
 
@@ -499,11 +537,14 @@ class ReportScheduleFactory(DjangoModelFactory):
     class Meta:
         model = None
 
-    name = "Weekly Schedule"
+    name = factory.Sequence(lambda n: f"Schedule {n}")
     report_template = factory.SubFactory(ReportTemplateFactory)
     frequency = "weekly"
     day_of_week = 1
-    time = "09:00:00"
+    time = factory.LazyFunction(lambda: timezone.now().time())
+    export_format = "csv"
+    created_by = factory.SubFactory(TeacherFactory)
+    is_active = True
 
 
 class StudentReportFactory(DjangoModelFactory):
@@ -518,8 +559,15 @@ class StudentReportFactory(DjangoModelFactory):
     status = "draft"
     teacher = factory.SubFactory(TeacherFactory)
     student = factory.SubFactory(StudentFactory)
-    period_start = factory.LazyFunction(timezone.now)
-    period_end = factory.LazyFunction(lambda: timezone.now() + timedelta(days=7))
+    period_start = factory.LazyFunction(
+        lambda: (timezone.now() - timedelta(days=7)).date()
+    )
+    period_end = factory.LazyFunction(lambda: timezone.now().date())
+    content = {}
+    overall_grade = "A"
+    progress_percentage = 85
+    attendance_percentage = 90
+    behavior_rating = 8
 
 
 class TutorWeeklyReportFactory(DjangoModelFactory):
@@ -531,13 +579,21 @@ class TutorWeeklyReportFactory(DjangoModelFactory):
     tutor = factory.SubFactory(TutorFactory)
     student = factory.SubFactory(StudentFactory)
     parent = factory.SubFactory(ParentFactory)
-    week_start = factory.LazyFunction(timezone.now)
-    week_end = factory.LazyFunction(lambda: timezone.now() + timedelta(days=7))
+    week_start = factory.LazyFunction(
+        lambda: (timezone.now() - timedelta(days=7)).date()
+    )
+    week_end = factory.LazyFunction(lambda: timezone.now().date())
     title = "Weekly Report"
-    summary = "Summary"
+    summary = "Test summary"
     academic_progress = "Good"
+    behavior_notes = "Excellent"
+    achievements = "Achieved goals"
+    concerns = "None"
+    recommendations = "Continue"
     attendance_days = 5
-    total_days = 5
+    total_days = 7
+    progress_percentage = 80
+    status = "draft"
 
 
 class TeacherWeeklyReportFactory(DjangoModelFactory):
@@ -549,13 +605,22 @@ class TeacherWeeklyReportFactory(DjangoModelFactory):
     teacher = factory.SubFactory(TeacherFactory)
     student = factory.SubFactory(StudentFactory)
     subject = factory.SubFactory(SubjectFactory)
-    week_start = factory.LazyFunction(timezone.now)
-    week_end = factory.LazyFunction(lambda: timezone.now() + timedelta(days=7))
+    week_start = factory.LazyFunction(
+        lambda: (timezone.now() - timedelta(days=7)).date()
+    )
+    week_end = factory.LazyFunction(lambda: timezone.now().date())
     title = "Weekly Report"
-    summary = "Summary"
+    summary = "Test summary"
     academic_progress = "Good"
-    assignments_completed = 3
-    assignments_total = 5
+    performance_notes = "Excellent"
+    achievements = "Goals"
+    concerns = "None"
+    recommendations = "Continue"
+    assignments_completed = 5
+    assignments_total = 10
+    average_score = 85.5
+    attendance_percentage = 90
+    status = "draft"
 
 
 class ReportRecipientFactory(DjangoModelFactory):
@@ -579,6 +644,77 @@ class ParentReportPreferenceFactory(DjangoModelFactory):
     notify_on_grade_posted = True
     show_grades = True
     show_progress = True
+
+
+class ReportAccessTokenFactory(DjangoModelFactory):
+    """Factory for ReportAccessToken"""
+
+    class Meta:
+        model = None
+
+    token = factory.Sequence(
+        lambda n: f"token_{n}_abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmno"
+    )
+    report = factory.SubFactory(ReportFactory)
+    created_by = factory.SubFactory(TeacherFactory)
+    status = "active"
+    expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(days=7))
+    access_count = 0
+
+
+class ReportAccessAuditLogFactory(DjangoModelFactory):
+    """Factory for ReportAccessAuditLog"""
+
+    class Meta:
+        model = None
+
+    access_type = "view"
+    report = factory.SubFactory(ReportFactory)
+    accessed_by = factory.SubFactory(StudentFactory)
+    access_method = "direct"
+    ip_address = "127.0.0.1"
+    access_duration_seconds = 60
+
+
+class ReportSharingFactory(DjangoModelFactory):
+    """Factory for ReportSharing"""
+
+    class Meta:
+        model = None
+
+    report = factory.SubFactory(ReportFactory)
+    shared_by = factory.SubFactory(TeacherFactory)
+    shared_with_user = factory.SubFactory(StudentFactory)
+    share_type = "user"
+    permission = "view"
+    is_active = True
+
+
+class CustomReportFactory(DjangoModelFactory):
+    """Factory for CustomReport"""
+
+    class Meta:
+        model = None
+
+    name = factory.Sequence(lambda n: f"Custom Report {n}_{uuid4().hex[:8]}")
+    description = "Test custom report"
+    created_by = factory.SubFactory(TeacherFactory)
+    is_shared = False
+    config = {"fields": ["student_name", "grade"], "filters": {}}
+    status = "draft"
+
+
+class CustomReportExecutionFactory(DjangoModelFactory):
+    """Factory for CustomReportExecution"""
+
+    class Meta:
+        model = None
+
+    report = factory.SubFactory(CustomReportFactory)
+    executed_by = factory.SubFactory(TeacherFactory)
+    rows_returned = 100
+    execution_time_ms = 1500
+    result_summary = {}
 
 
 class AnalyticsDataFactory(DjangoModelFactory):
@@ -689,7 +825,9 @@ def _initialize_factories():
     global AssignmentSubmission, ChatRoom, Message, Notification, Payment
     global Report, ReportTemplate, ReportSchedule, StudentReport
     global TutorWeeklyReport, TeacherWeeklyReport, ReportRecipient
-    global ParentReportPreference, AnalyticsData, Invoice, StudentProfile
+    global ParentReportPreference, AnalyticsData, ReportAccessToken, ReportAccessAuditLog
+    global ReportSharing, CustomReport, CustomReportExecution
+    global Invoice, StudentProfile
     global TeacherProfile, TutorProfile, ParentProfile, TutorStudentCreation
     global TelegramLinkToken, Application, Element, KGLesson, KnowledgeGraph
     global LessonProgress, ElementProgress
@@ -729,6 +867,11 @@ def _initialize_factories():
         ReR = apps.get_model("reports", "ReportRecipient")
         PRP = apps.get_model("reports", "ParentReportPreference")
         AD = apps.get_model("reports", "AnalyticsData")
+        RAT = apps.get_model("reports", "ReportAccessToken")
+        RAAL = apps.get_model("reports", "ReportAccessAuditLog")
+        RS_Shr = apps.get_model("reports", "ReportSharing")
+        CR = apps.get_model("reports", "CustomReport")
+        CRE = apps.get_model("reports", "CustomReportExecution")
         I = apps.get_model("invoices", "Invoice")
         App = apps.get_model("applications", "Application")
         E = apps.get_model("knowledge_graph", "Element")
@@ -774,6 +917,11 @@ def _initialize_factories():
     ReportRecipient = ReR
     ParentReportPreference = PRP
     AnalyticsData = AD
+    ReportAccessToken = RAT
+    ReportAccessAuditLog = RAAL
+    ReportSharing = RS_Shr
+    CustomReport = CR
+    CustomReportExecution = CRE
     Invoice = I
     Application = App
     Element = E
@@ -854,6 +1002,16 @@ def _initialize_factories():
     ParentReportPreferenceFactory._meta.abstract = False
     AnalyticsDataFactory._meta.model = AnalyticsData
     AnalyticsDataFactory._meta.abstract = False
+    ReportAccessTokenFactory._meta.model = ReportAccessToken
+    ReportAccessTokenFactory._meta.abstract = False
+    ReportAccessAuditLogFactory._meta.model = ReportAccessAuditLog
+    ReportAccessAuditLogFactory._meta.abstract = False
+    ReportSharingFactory._meta.model = ReportSharing
+    ReportSharingFactory._meta.abstract = False
+    CustomReportFactory._meta.model = CustomReport
+    CustomReportFactory._meta.abstract = False
+    CustomReportExecutionFactory._meta.model = CustomReportExecution
+    CustomReportExecutionFactory._meta.abstract = False
     KnowledgeGraphFactory._meta.model = KnowledgeGraph
     KnowledgeGraphFactory._meta.abstract = False
     ElementFactory._meta.model = Element
@@ -866,7 +1024,6 @@ def _initialize_factories():
     KGLessonFactory._meta.abstract = False
     ApplicationFactory._meta.model = Application
     ApplicationFactory._meta.abstract = False
-
 
     if hasattr(Lesson, "Status"):
         LessonFactory.status = Lesson.Status.PENDING

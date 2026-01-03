@@ -60,6 +60,16 @@
       ],
       "duration_sec": 120,
       "notes": "Fixed UserFactory abstract flag in _initialize_factories(). Added missing line: UserFactory._meta.abstract = False at line 820. Result: 372/372 tests PASSED (0 FAILED, 0 ERROR)."
+    },
+    {
+      "id": "fix_reports_aggregation_test",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/unit/reports/test_aggregation_service.py"
+      ],
+      "duration_sec": 120,
+      "notes": "Fixed critical errors in test_aggregation_service.py: Removed non-existent Subject fields (code, teacher), replaced with valid fields (name, description, color). Fixed Material creation to use author instead of teacher, added required content field. Fixed Assignment creation to use author instead of teacher, added required instructions and start_date fields. Converted all AssignmentSubmission creations to use unique student per submission to avoid unique_together constraint violations. Fixed 2 Subject.objects.create() calls and 10+ AssignmentSubmission creations across all test methods."
     }
   ]
 }

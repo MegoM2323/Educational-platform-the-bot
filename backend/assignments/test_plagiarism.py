@@ -17,6 +17,7 @@ from decimal import Decimal
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from assignments.models import Assignment, AssignmentSubmission, PlagiarismReport
@@ -47,6 +48,8 @@ class PlagiarismReportModelTest(TestCase):
             description='Description',
             instructions='Instructions',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             due_date=timezone.now()
         )
         self.submission = AssignmentSubmission.objects.create(
@@ -190,6 +193,8 @@ class PlagiarismCheckTaskTest(TestCase):
             description='Description',
             instructions='Instructions',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             due_date=timezone.now()
         )
         self.submission = AssignmentSubmission.objects.create(
@@ -270,6 +275,8 @@ class PlagiarismWebhookTest(TestCase):
             description='Description',
             instructions='Instructions',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             due_date=timezone.now()
         )
         self.submission = AssignmentSubmission.objects.create(
@@ -369,6 +376,8 @@ class PlagiarismPermissionsTest(TestCase):
             description='Description',
             instructions='Instructions',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             due_date=timezone.now()
         )
         self.submission = AssignmentSubmission.objects.create(
@@ -416,6 +425,8 @@ class PlagiarismNotificationTest(TestCase):
             description='Description',
             instructions='Instructions',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             due_date=timezone.now()
         )
 
@@ -480,6 +491,8 @@ class PlagiarismStatusTransitionTest(TestCase):
             description='Description',
             instructions='Instructions',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             due_date=timezone.now()
         )
         self.submission = AssignmentSubmission.objects.create(

@@ -44,6 +44,8 @@ class TestAttemptValidationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
         )
@@ -70,6 +72,8 @@ class TestAttemptValidationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             attempts_limit=2,
             due_date=timezone.now() + timedelta(days=1)
         )
@@ -107,6 +111,8 @@ class TestAttemptValidationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             attempts_limit=3,
             due_date=timezone.now() - timedelta(days=1),
             allow_late_submission=False
@@ -134,6 +140,8 @@ class TestAttemptValidationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             attempts_limit=3,
             due_date=timezone.now() - timedelta(days=1),
             allow_late_submission=True
@@ -160,6 +168,8 @@ class TestAttemptValidationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             attempts_limit=5,
             due_date=timezone.now() + timedelta(days=1)
         )
@@ -211,6 +221,8 @@ class TestAttemptCreationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
@@ -241,6 +253,8 @@ class TestAttemptCreationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
@@ -282,6 +296,8 @@ class TestAttemptCreationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
@@ -328,6 +344,8 @@ class TestAttemptCreationService:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
@@ -384,6 +402,8 @@ class TestAttemptStatistics:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
@@ -450,6 +470,8 @@ class TestAttemptStatistics:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
@@ -497,6 +519,8 @@ class TestAttemptStatistics:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
@@ -541,6 +565,8 @@ class TestAssignmentAttemptModel:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)
@@ -572,6 +598,8 @@ class TestAssignmentAttemptModel:
             description='Test',
             instructions='Do this',
             author=self.teacher,
+            start_date=timezone.now(),
+            start_date=timezone.now(),
             max_score=100,
             attempts_limit=3,
             due_date=timezone.now() + timedelta(days=1)

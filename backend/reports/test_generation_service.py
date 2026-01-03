@@ -15,6 +15,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.cache import cache
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from materials.models import Material, MaterialProgress, Subject
@@ -105,6 +106,7 @@ class ReportGenerationServiceTestCase(TestCase):
             title='Algebra Quiz',
             description='Test your algebra knowledge',
             created_by=self.teacher,
+            start_date=timezone.now(),
             max_score=100,
             due_date=timezone.now() + timedelta(days=7)
         )

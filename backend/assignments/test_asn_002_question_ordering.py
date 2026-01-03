@@ -11,10 +11,12 @@ Tests for:
 """
 
 import pytest
+from datetime import timedelta
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.db.utils import IntegrityError
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework import status
 
@@ -43,7 +45,10 @@ class QuestionOrderingModelTests(TestCase):
             description='Test Description',
             instructions='Test Instructions',
             author=self.teacher,
-            status='published'
+            start_date=timezone.now(),
+            status='published',
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=1)
         )
 
     def test_question_order_field_default(self):
@@ -93,7 +98,10 @@ class QuestionOrderingModelTests(TestCase):
             description='Test Description',
             instructions='Test Instructions',
             author=self.teacher,
-            status='published'
+            start_date=timezone.now(),
+            status='published',
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=1)
         )
 
         q1 = AssignmentQuestion.objects.create(
@@ -151,7 +159,10 @@ class QuestionOrderingServiceTests(TestCase):
             description='Test Description',
             instructions='Test Instructions',
             author=self.teacher,
-            status='published'
+            start_date=timezone.now(),
+            status='published',
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=1)
         )
 
         # Create 5 questions
@@ -196,7 +207,9 @@ class QuestionOrderingServiceTests(TestCase):
             description='Test',
             instructions='Test',
             author=self.teacher,
+            start_date=timezone.now(),
             status='published'
+        due_date=timezone.now() + timedelta(days=1),
         )
         next_order = QuestionOrderingService.get_next_order(new_assignment.id)
         self.assertEqual(next_order, 1)
@@ -358,7 +371,10 @@ class QuestionOrderingSerializerTests(TestCase):
             description='Test Description',
             instructions='Test Instructions',
             author=self.teacher,
-            status='published'
+            start_date=timezone.now(),
+            status='published',
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=1)
         )
 
         self.questions = []
@@ -450,7 +466,10 @@ class QuestionOrderingAPITests(TestCase):
             description='Test Description',
             instructions='Test Instructions',
             author=self.teacher,
-            status='published'
+            start_date=timezone.now(),
+            status='published',
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=1)
         )
 
         self.questions = []

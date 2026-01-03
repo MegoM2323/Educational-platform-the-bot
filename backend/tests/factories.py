@@ -13,6 +13,12 @@ from datetime import timedelta
 import uuid
 from uuid import uuid4
 
+
+def _get_user_role(role_name):
+    """Helper to get User role from Django User model"""
+    UserModel = get_user_model()
+    return getattr(UserModel.Role, role_name)
+
 User = None
 Subject = None
 Material = None
@@ -65,7 +71,7 @@ class UserFactory(DjangoModelFactory):
     first_name = factory.Faker("first_name")
     last_name = factory.Faker("last_name")
     password = "testpass123!"
-    role = None
+    role = factory.LazyFunction(lambda: _get_user_role("STUDENT"))
     is_active = True
     is_verified = False
     phone = "+79991234567"
@@ -92,17 +98,7 @@ class StudentFactory(UserFactory):
         model = None
         abstract = False
 
-    role = factory.LazyFunction(lambda: None)
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        """Override to set student role before creating"""
-        if "role" not in kwargs or kwargs["role"] is None:
-            from django.contrib.auth import get_user_model
-
-            UserModel = get_user_model()
-            kwargs["role"] = UserModel.Role.STUDENT
-        return super()._create(model_class, *args, **kwargs)
+    role = factory.LazyFunction(lambda: _get_user_role("STUDENT"))
 
 
 class TeacherFactory(UserFactory):
@@ -112,17 +108,7 @@ class TeacherFactory(UserFactory):
         model = None
         abstract = False
 
-    role = factory.LazyFunction(lambda: None)
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        """Override to set teacher role before creating"""
-        if "role" not in kwargs or kwargs["role"] is None:
-            from django.contrib.auth import get_user_model
-
-            UserModel = get_user_model()
-            kwargs["role"] = UserModel.Role.TEACHER
-        return super()._create(model_class, *args, **kwargs)
+    role = factory.LazyFunction(lambda: _get_user_role("TEACHER"))
 
 
 class TutorFactory(UserFactory):
@@ -132,17 +118,7 @@ class TutorFactory(UserFactory):
         model = None
         abstract = False
 
-    role = factory.LazyFunction(lambda: None)
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        """Override to set tutor role before creating"""
-        if "role" not in kwargs or kwargs["role"] is None:
-            from django.contrib.auth import get_user_model
-
-            UserModel = get_user_model()
-            kwargs["role"] = UserModel.Role.TUTOR
-        return super()._create(model_class, *args, **kwargs)
+    role = factory.LazyFunction(lambda: _get_user_role("TUTOR"))
 
 
 class ParentFactory(UserFactory):
@@ -152,17 +128,7 @@ class ParentFactory(UserFactory):
         model = None
         abstract = False
 
-    role = factory.LazyFunction(lambda: None)
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        """Override to set parent role before creating"""
-        if "role" not in kwargs or kwargs["role"] is None:
-            from django.contrib.auth import get_user_model
-
-            UserModel = get_user_model()
-            kwargs["role"] = UserModel.Role.PARENT
-        return super()._create(model_class, *args, **kwargs)
+    role = factory.LazyFunction(lambda: _get_user_role("PARENT"))
 
 
 class StudentProfileFactory(DjangoModelFactory):
@@ -901,11 +867,6 @@ def _initialize_factories():
     ApplicationFactory._meta.model = Application
     ApplicationFactory._meta.abstract = False
 
-    StudentFactory.role = UserModel.Role.STUDENT
-    TeacherFactory.role = UserModel.Role.TEACHER
-    TutorFactory.role = UserModel.Role.TUTOR
-    ParentFactory.role = UserModel.Role.PARENT
-    UserFactory.role = UserModel.Role.STUDENT
 
     if hasattr(Lesson, "Status"):
         LessonFactory.status = Lesson.Status.PENDING

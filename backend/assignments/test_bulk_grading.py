@@ -15,6 +15,7 @@ import csv
 import io
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from datetime import timedelta
 from rest_framework.test import APIClient
 from rest_framework import status
 
@@ -48,6 +49,7 @@ class TestBulkGradingService:
             description="Test Description",
             instructions="Test Instructions",
             author=teacher,
+            start_date=timezone.now(),
             type=Assignment.Type.HOMEWORK,
             status=Assignment.Status.PUBLISHED,
             max_score=100,
@@ -231,6 +233,7 @@ class TestBulkGradingAPI:
             description="Test Description",
             instructions="Test Instructions",
             author=teacher,
+            start_date=timezone.now(),
             type=Assignment.Type.HOMEWORK,
             status=Assignment.Status.PUBLISHED,
             max_score=100,

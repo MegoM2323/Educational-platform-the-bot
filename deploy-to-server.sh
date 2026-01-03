@@ -18,10 +18,10 @@ set -e
 # ============================================================================
 
 # Server credentials
-SSH_USER="neil"
+SSH_USER="mego"
 SSH_HOST="176.108.248.21"
 SSH_PORT="22"
-SSH_KEY="" # Leave empty for password auth, or set path to key
+SSH_KEY="$HOME/.ssh/id_ed25519" # ed25519 key
 
 # Deployment paths
 REMOTE_PROJECT_PATH="/opt/thebot"
@@ -256,7 +256,6 @@ DB_PORT=5432
 DB_NAME=thebot_db
 DB_USER=postgres
 DB_PASSWORD=$DB_PASSWORD
-DATABASE_URL=postgresql://$DB_USER:$DB_PASSWORD@postgres:5432/$DB_NAME
 
 # Redis Configuration
 REDIS_HOST=redis
@@ -388,7 +387,7 @@ echo -e "${GREEN}╚════════════════════
 echo
 
 echo -e "${BLUE}Server Information:${NC}"
-echo "  SSH: ssh neil@176.108.248.21"
+echo "  SSH: ssh mego@176.108.248.21"
 echo "  Project: $REMOTE_PROJECT_PATH"
 echo "  Compose: docker-compose -f docker-compose.prod.yml"
 echo
@@ -408,10 +407,10 @@ echo "  Parent: test_parent@example.com / test123"
 echo
 
 echo -e "${BLUE}Useful Commands:${NC}"
-echo "  View logs: ssh neil@176.108.248.21 'cd $REMOTE_PROJECT_PATH && docker-compose -f docker-compose.prod.yml logs -f'"
-echo "  Stop services: ssh neil@176.108.248.21 'cd $REMOTE_PROJECT_PATH && docker-compose -f docker-compose.prod.yml down'"
-echo "  Restart services: ssh neil@176.108.248.21 'cd $REMOTE_PROJECT_PATH && docker-compose -f docker-compose.prod.yml restart'"
-echo "  Check status: ssh neil@176.108.248.21 'cd $REMOTE_PROJECT_PATH && docker-compose -f docker-compose.prod.yml ps'"
+echo "  View logs: ssh mego@176.108.248.21 'cd $REMOTE_PROJECT_PATH && docker-compose -f docker-compose.prod.yml logs -f'"
+echo "  Stop services: ssh mego@176.108.248.21 'cd $REMOTE_PROJECT_PATH && docker-compose -f docker-compose.prod.yml down'"
+echo "  Restart services: ssh mego@176.108.248.21 'cd $REMOTE_PROJECT_PATH && docker-compose -f docker-compose.prod.yml restart'"
+echo "  Check status: ssh mego@176.108.248.21 'cd $REMOTE_PROJECT_PATH && docker-compose -f docker-compose.prod.yml ps'"
 echo
 
 echo -e "${BLUE}Generated Configuration:${NC}"

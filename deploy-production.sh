@@ -132,10 +132,10 @@ if [[ "$SKIP_BACKUP" == "false" && "$ENVIRONMENT" == "production" ]]; then
     mkdir -p "$BACKUP_DIR"
 
     # Try to backup if possible
-    if command -v pg_dump &> /dev/null && [[ -n "$DATABASE_URL" ]]; then
+    if command -v pg_dump &> /dev/null && [[ -n "$DB_HOST" ]]; then
         if [[ "$DRY_RUN" == "false" ]]; then
             echo "Creating PostgreSQL backup..."
-            pg_dump "$DATABASE_URL" > "$BACKUP_DIR/thebot_${TIMESTAMP}.sql" 2>/dev/null || echo "Backup note: Database backup skipped"
+            PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" > "$BACKUP_DIR/thebot_${TIMESTAMP}.sql" 2>/dev/null || echo "Backup note: Database backup skipped"
             echo -e "${GREEN}✓ Database backup created (if available)${NC}"
         else
             echo -e "${YELLOW}[DRY-RUN] Would backup database${NC}"

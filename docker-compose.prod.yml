@@ -199,7 +199,7 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
 
       # Database
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}?sslmode=prefer
+      DB_ENGINE: postgresql
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-thebot_db}
@@ -458,7 +458,7 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
 
       # Database
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}?sslmode=prefer
+      DB_ENGINE: postgresql
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-thebot_db}
@@ -554,7 +554,7 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
 
       # Database
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}?sslmode=prefer
+      DB_ENGINE: postgresql
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-thebot_db}

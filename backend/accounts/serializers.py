@@ -46,6 +46,7 @@ __all__ = [
     "TelegramLinkTokenSerializer",
     "TelegramLinkRequestSerializer",
     "TelegramStatusSerializer",
+    "TelegramConfirmSerializer",
 ]
 
 
@@ -167,7 +168,15 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherProfile
-        fields = ("id", "user", "subject", "experience_years", "bio", "telegram", "subjects_list")
+        fields = (
+            "id",
+            "user",
+            "subject",
+            "experience_years",
+            "bio",
+            "telegram",
+            "subjects_list",
+        )
 
     def get_subjects_list(self, obj):
         """Возвращает список предметов преподавателя из TeacherSubject"""
@@ -697,6 +706,9 @@ class UserCreateSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         """Проверка уникальности email"""
+        if not value:
+            raise serializers.ValidationError("Email обязателен")
+
         value = value.strip().lower()
 
         if User.objects.filter(email=value).exists():
@@ -1108,25 +1120,27 @@ class CurrentUserProfileSerializer(serializers.Serializer):
     Возвращает структуру:
     {
         "user": {...user data...},
-        "profile": {...role-specific profile data...}
+        "profile": {...role-specific profile data...},
+        "notification_settings": {...notification settings...}
     }
     """
 
     def to_representation(self, instance):
         """
-        Преобразует экземпляр User в unified представление с профилем.
+        Преобразует экземпляр User в unified представление с профилем и настройками уведомлений.
 
         Args:
             instance: User object
 
         Returns:
-            dict с полями 'user' и 'profile'
+            dict с полями 'user', 'profile' и 'notification_settings'
         """
         user = instance
 
         # Базовые данные пользователя
         user_data = UserSerializer(user).data
         profile_data = None
+        notification_settings_data = None
 
         # Получаем профиль в зависимости от роли
         try:
@@ -1151,7 +1165,22 @@ class CurrentUserProfileSerializer(serializers.Serializer):
             # Профиль не существует, но это не ошибка
             profile_data = None
 
-        return {"user": user_data, "profile": profile_data}
+        # Получаем настройки уведомлений
+        try:
+            from notifications.models import NotificationSettings
+            from notifications.serializers import NotificationSettingsSerializer
+
+            notification_settings, _ = NotificationSettings.objects.get_or_create(user=user)
+            notification_settings_data = NotificationSettingsSerializer(notification_settings).data
+        except Exception:
+            # Если настройки уведомлений недоступны, просто пропускаем
+            notification_settings_data = None
+
+        return {
+            "user": user_data,
+            "profile": profile_data,
+            "notification_settings": notification_settings_data,
+        }
 
 
 class TelegramLinkTokenSerializer(serializers.ModelSerializer):
@@ -1174,3 +1203,22 @@ class TelegramLinkRequestSerializer(serializers.Serializer):
 class TelegramStatusSerializer(serializers.Serializer):
     is_linked = serializers.BooleanField()
     telegram_id = serializers.IntegerField(allow_null=True)
+
+
+class TelegramConfirmSerializer(serializers.Serializer):
+    """Serializer for Telegram link confirmation endpoint"""
+
+    token = serializers.CharField(max_length=255, required=True)
+    telegram_id = serializers.IntegerField(required=True, min_value=1)
+
+    def validate_token(self, value):
+        """Validate token is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Token cannot be empty")
+        return value.strip()
+
+    def validate_telegram_id(self, value):
+        """Validate telegram_id is positive integer"""
+        if value <= 0:
+            raise serializers.ValidationError("Telegram ID must be a positive integer")
+        return value

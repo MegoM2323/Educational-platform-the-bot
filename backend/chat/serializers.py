@@ -151,6 +151,13 @@ class ChatRoomCreateSerializer(serializers.ModelSerializer):
     Сериализатор для создания чат-комнаты
     """
 
+    participants = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        many=True,
+        required=False,
+        allow_empty=True
+    )
+
     class Meta:
         model = ChatRoom
         fields = ("name", "description", "type", "participants")
@@ -325,7 +332,7 @@ class MessageSerializer(serializers.ModelSerializer):
         избегая N+1 запросов при итерации по списку сообщений.
         """
         request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
+        if not request or not request.user or not request.user.is_authenticated:
             return False
 
         user_id = request.user.id

@@ -48,25 +48,19 @@ router = DefaultRouter()
 # Tutor-specific endpoints через роутер (будет доступен как /api/tutor/my-students/)
 router.register(r"my-students", TutorStudentsViewSet, basename="tutor-students")
 # Bulk operations endpoints
-router.register(
-    r"bulk-operations", BulkUserOperationsViewSet, basename="bulk-operations"
-)
+router.register(r"bulk-operations", BulkUserOperationsViewSet, basename="bulk-operations")
 
 urlpatterns = [
     # Основные API endpoints для аутентификации (должны быть ПЕРЕД роутером)
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
     path("refresh/", views.refresh_token_view, name="refresh_token"),
-    path(
-        "session-status/", views.session_status, name="session_status"
-    ),  # Debug endpoint
+    path("session-status/", views.session_status, name="session_status"),  # Debug endpoint
     # Профиль пользователя (общий endpoint)
     path(
         "me/", views.CurrentUserProfileView.as_view(), name="current_user_me"
     ),  # Алиас для фронтенда
-    path(
-        "profile/", views.CurrentUserProfileView.as_view(), name="current_user_profile"
-    ),
+    path("profile/", views.CurrentUserProfileView.as_view(), name="current_user_profile"),
     path("profile/update/", views.update_profile, name="update_profile"),
     path("change-password/", views.change_password, name="change_password"),
     # Profile endpoints по ролям (NEW - для фронтенда)
@@ -81,9 +75,7 @@ urlpatterns = [
         name="notification_settings_api",
     ),
     # Список пользователей (для тьюторов и администраторов)
-    path(
-        "users/", views.list_users, name="list_users"
-    ),  # ?role=teacher|tutor|student|parent
+    path("users/", views.list_users, name="list_users"),  # ?role=teacher|tutor|student|parent
     # Admin-only staff management
     path("staff/", list_staff, name="staff_list"),  # ?role=teacher|tutor
     path("staff/create/", create_staff, name="staff_create"),
@@ -93,9 +85,7 @@ urlpatterns = [
         name="update_teacher_subjects",
     ),
     # Admin-only student management (доступен только через /api/admin/students/)
-    path(
-        "students/", list_students, name="admin_list_students"
-    ),  # GET - список студентов
+    path("students/", list_students, name="admin_list_students"),  # GET - список студентов
     path(
         "students/create/", create_student, name="admin_create_student"
     ),  # POST - создание студента (legacy)
@@ -118,9 +108,7 @@ urlpatterns = [
         name="admin_reset_password",
     ),
     path("users/<int:user_id>/delete/", delete_user, name="admin_delete_user"),
-    path(
-        "users/<int:user_id>/reactivate/", reactivate_user, name="admin_reactivate_user"
-    ),
+    path("users/<int:user_id>/reactivate/", reactivate_user, name="admin_reactivate_user"),
     path("users/create/", create_user_with_profile, name="admin_create_user"),
     # Admin-only profile management
     path(
@@ -154,6 +142,8 @@ urlpatterns = [
         AdminTutorProfileEditView.as_view(),
         name="admin_edit_tutor_profile",
     ),
+    # Teachers list endpoint (public endpoint)
+    path("teachers/", list_teachers, name="list_teachers"),
     # Tutor-specific endpoints
     path("tutor/teachers/", list_teachers, name="tutor_list_teachers"),
     # Admin statistics
@@ -184,12 +174,8 @@ urlpatterns = [
         ConfirmTelegramLinkView.as_view(),
         name="telegram_confirm_link",
     ),
-    path(
-        "profile/telegram/unlink/", UnlinkTelegramView.as_view(), name="telegram_unlink"
-    ),
-    path(
-        "profile/telegram/status/", TelegramStatusView.as_view(), name="telegram_status"
-    ),
+    path("profile/telegram/unlink/", UnlinkTelegramView.as_view(), name="telegram_unlink"),
+    path("profile/telegram/status/", TelegramStatusView.as_view(), name="telegram_status"),
     # Telegram webhook endpoint
     path(
         "telegram/webhook/<str:secret>/",

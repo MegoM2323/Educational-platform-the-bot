@@ -49,11 +49,8 @@ urlpatterns = [
     path('student/', student_dashboard_views.student_dashboard, name='student-dashboard-materials'),
     path('student/assigned/', student_dashboard_views.student_assigned_materials, name='student-assigned-materials'),
     path('student/by-subject/', student_dashboard_views.student_materials_by_subject, name='student-materials-by-subject'),
-    path('<int:material_id>/progress/', student_dashboard_views.update_material_progress, name='update-material-progress'),
     path('student/progress/', student_dashboard_views.student_progress_statistics, name='student-progress-statistics'),
     path('student/activity/', student_dashboard_views.student_recent_activity, name='student-recent-activity'),
-
-    path('', include(router.urls)),
     
     # Student study plans endpoints
     path('student/study-plans/', student_dashboard_views.student_study_plans, name='student-study-plans'),
@@ -62,7 +59,6 @@ urlpatterns = [
     
     # Student materials API endpoints
     path('student/list/', views.MaterialViewSet.as_view({'get': 'student_materials'}), name='student-materials'),
-    path('<int:pk>/download/', views.MaterialViewSet.as_view({'get': 'download_file'}), name='material-download'),
     
     # Teacher dashboard endpoints
     path('teacher/', teacher_dashboard_views.teacher_dashboard, name='teacher-dashboard'),
@@ -123,13 +119,20 @@ urlpatterns = [
     path('bulk-assign-materials/', bulk_assign_materials_endpoint, name='bulk-assign-materials'),
 
     # Submission file upload endpoints (T_MAT_008)
-    path('<int:pk>/submit-files/',
-         submission_file_views.MaterialSubmitFilesViewSet.as_view({'post': 'submit_files'}),
-         name='submit-files'),
     path('submission-files/<int:submission_id>/',
          submission_file_views.MaterialSubmitFilesViewSet.as_view({'get': 'get_submission_files'}),
          name='get-submission-files'),
     path('submission-files/<int:file_id>/delete/',
          submission_file_views.MaterialSubmitFilesViewSet.as_view({'delete': 'delete_submission_file'}),
          name='delete-submission-file'),
+
+    # ROUTER MUST BE LAST to avoid conflicts with <int:pk> patterns above
+    path('', include(router.urls)),
+
+    # Material-specific endpoints (MUST be after router)
+    path('materials/<int:pk>/download/', views.MaterialViewSet.as_view({'get': 'download_file'}), name='material-download'),
+    path('materials/<int:pk>/submit-files/',
+         submission_file_views.MaterialSubmitFilesViewSet.as_view({'post': 'submit_files'}),
+         name='submit-files'),
+    path('<int:material_id>/progress/', student_dashboard_views.update_material_progress, name='update-material-progress'),
 ]

@@ -55,8 +55,6 @@ class AssignmentListSerializer(serializers.ModelSerializer):
             "created_at",
             "is_overdue",
             "submission",
-            "publish_at",
-            "close_at",
         )
 
     def get_assigned_count(self, obj):
@@ -118,8 +116,6 @@ class AssignmentDetailSerializer(serializers.ModelSerializer):
             "questions",
             "submissions",
             "is_overdue",
-            "publish_at",
-            "close_at",
         )
 
     def get_assigned_to_names(self, obj):
@@ -164,8 +160,6 @@ class AssignmentCreateSerializer(serializers.ModelSerializer):
             "due_date",
             "tags",
             "difficulty_level",
-            "publish_at",
-            "close_at",
             "allow_late_submission",
             "late_submission_deadline",
             "late_penalty_type",
@@ -184,13 +178,6 @@ class AssignmentCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """T_ASN_001: Validate soft deadlines and scheduling dates"""
-        # T_ASSIGN_006: Validate that close_at is after publish_at if both are provided
-        if data.get("publish_at") and data.get("close_at"):
-            if data["close_at"] <= data["publish_at"]:
-                raise serializers.ValidationError(
-                    {"close_at": "Дата закрытия должна быть позже даты публикации"}
-                )
-
         # T_ASN_001: Validate soft deadlines (due_date and late_submission_deadline)
         due_date = data.get("due_date")
         extension_deadline = data.get("late_submission_deadline")

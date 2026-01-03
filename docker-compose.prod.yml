@@ -59,7 +59,7 @@ services:
       POSTGRES_REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replicator}
 
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "5433:5432"
 
     volumes:
       # Data persistence
@@ -72,7 +72,6 @@ services:
       - ./database/backups:/backups
 
       # Temporary files
-      - postgres_temp:/tmp
 
     # Health check
     healthcheck:
@@ -91,7 +90,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    read_only_root_filesystem: true
     tmpfs:
       - /tmp
       - /var/run/postgresql
@@ -136,7 +134,7 @@ services:
       --databases 16
 
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "6380:6379"
 
     volumes:
       # Data persistence (AOF)
@@ -146,7 +144,6 @@ services:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
 
       # Temporary files
-      - redis_temp:/tmp
 
     # Health check
     healthcheck:
@@ -165,7 +162,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    read_only_root_filesystem: true
     tmpfs:
       - /tmp
 
@@ -209,12 +205,13 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
 
       # Database
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}?sslmode=prefer
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-thebot_db}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_SSLMODE: disable
 
       # Redis Cache & Celery Broker
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis}@redis:6379/0
@@ -223,7 +220,7 @@ services:
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis}@redis:6379/2
 
       # Frontend
-      FRONTEND_URL: ${FRONTEND_URL:-https://localhost}
+      FRONTEND_URL: http://localhost
 
       # API Configuration
       API_URL: ${API_URL:-https://localhost/api}
@@ -263,7 +260,6 @@ services:
       - backend_logs:/app/logs
 
       # Temporary files
-      - backend_temp:/tmp
 
     depends_on:
       postgres:
@@ -282,7 +278,6 @@ services:
       - no-new-privileges:true
 
     # Can't use read-only for Django (migrations, static files)
-    read_only_root_filesystem: false
     tmpfs:
       - /tmp
 
@@ -332,11 +327,9 @@ services:
       - ./frontend/nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
 
       # Cache and logs (writable)
-      - frontend_cache:/var/cache/nginx
       - frontend_logs:/var/log/nginx
 
       # Temporary files
-      - frontend_temp:/tmp
 
     depends_on:
       - backend
@@ -350,7 +343,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    read_only_root_filesystem: true
     tmpfs:
       - /tmp
       - /var/run/nginx
@@ -397,11 +389,9 @@ services:
       - frontend_dist:/var/www/frontend:ro
 
       # Cache and logs
-      - nginx_cache:/var/cache/nginx
       - nginx_logs:/var/log/nginx
 
       # Temporary files
-      - nginx_temp:/tmp
 
     depends_on:
       - backend
@@ -417,7 +407,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    read_only_root_filesystem: true
     tmpfs:
       - /tmp
       - /var/run/nginx
@@ -478,12 +467,13 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
 
       # Database
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}?sslmode=prefer
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-thebot_db}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_SSLMODE: disable
 
       # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis}@redis:6379/0
@@ -510,7 +500,6 @@ services:
       - ./backend:/app/backend:ro
       - backend_media:/app/media
       - backend_logs:/app/logs
-      - celery_temp:/tmp
 
     depends_on:
       postgres:
@@ -526,7 +515,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    read_only_root_filesystem: false
     tmpfs:
       - /tmp
 
@@ -575,12 +563,13 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
 
       # Database
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-thebot_db}?sslmode=prefer
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-thebot_db}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_SSLMODE: disable
 
       # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis}@redis:6379/0
@@ -594,7 +583,6 @@ services:
       - ./backend:/app/backend:ro
       - celery_beat_schedule:/app/celery_schedule
       - backend_logs:/app/logs
-      - celery_beat_temp:/tmp
 
     depends_on:
       postgres:
@@ -610,7 +598,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    read_only_root_filesystem: false
     tmpfs:
       - /tmp
 

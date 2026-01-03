@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .telegram_link_service import TelegramLinkService
+from .serializers import TelegramConfirmSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,9 @@ class GenerateTelegramLinkView(APIView):
             )
             return Response(result)
         except ValueError as e:
-            logger.warning(f"[TelegramLink] Rate limit exceeded for user_id={request.user.id}: {e}")
+            logger.warning(
+                f"[TelegramLink] Rate limit exceeded for user_id={request.user.id}: {e}"
+            )
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -91,22 +94,16 @@ class ConfirmTelegramLinkView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        token = request.data.get("token")
-        telegram_id = request.data.get("telegram_id")
-
-        if not token or not telegram_id:
+        serializer = TelegramConfirmSerializer(data=request.data)
+        if not serializer.is_valid():
+            logger.warning(f"[TelegramLink] Validation error: {serializer.errors}")
             return Response(
-                {"success": False, "error": "token and telegram_id required"},
+                {"success": False, "error": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            telegram_id = int(telegram_id)
-        except (ValueError, TypeError):
-            return Response(
-                {"success": False, "error": "telegram_id must be a number"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        token = serializer.validated_data["token"]
+        telegram_id = serializer.validated_data["telegram_id"]
 
         result = TelegramLinkService.confirm_link(token, telegram_id)
 
@@ -136,7 +133,9 @@ class UnlinkTelegramView(APIView):
         result = TelegramLinkService.unlink_telegram(request.user)
 
         if result["success"]:
-            logger.info(f"[TelegramLink] Unlinked telegram from user_id={request.user.id}")
+            logger.info(
+                f"[TelegramLink] Unlinked telegram from user_id={request.user.id}"
+            )
             return Response(result, status=status.HTTP_200_OK)
         else:
             return Response(result, status=status.HTTP_400_BAD_REQUEST)

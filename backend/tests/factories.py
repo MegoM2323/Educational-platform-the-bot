@@ -854,7 +854,7 @@ def _initialize_factories():
         MF = apps.get_model("materials", "MaterialFeedback")
         MDL = apps.get_model("materials", "MaterialDownloadLog")
         SE = apps.get_model("materials", "SubjectEnrollment")
-        CR = apps.get_model("chat", "ChatRoom")
+        ChatRoomModel = apps.get_model("chat", "ChatRoom")
         Msg = apps.get_model("chat", "Message")
         N = apps.get_model("notifications", "Notification")
         P = apps.get_model("payments", "Payment")
@@ -870,7 +870,7 @@ def _initialize_factories():
         RAT = apps.get_model("reports", "ReportAccessToken")
         RAAL = apps.get_model("reports", "ReportAccessAuditLog")
         RS_Shr = apps.get_model("reports", "ReportSharing")
-        CR = apps.get_model("reports", "CustomReport")
+        CustomReportModel = apps.get_model("reports", "CustomReport")
         CRE = apps.get_model("reports", "CustomReportExecution")
         I = apps.get_model("invoices", "Invoice")
         App = apps.get_model("applications", "Application")
@@ -904,7 +904,7 @@ def _initialize_factories():
     MaterialFeedback = MF
     MaterialDownloadLog = MDL
     SubjectEnrollment = SE
-    ChatRoom = CR
+    ChatRoom = ChatRoomModel
     Message = Msg
     Notification = N
     Payment = P
@@ -920,7 +920,7 @@ def _initialize_factories():
     ReportAccessToken = RAT
     ReportAccessAuditLog = RAAL
     ReportSharing = RS_Shr
-    CustomReport = CR
+    CustomReport = CustomReportModel
     CustomReportExecution = CRE
     Invoice = I
     Application = App

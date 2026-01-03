@@ -15,7 +15,7 @@ class BulkUserIDsSerializer(serializers.Serializer):
         child=serializers.IntegerField(min_value=1),
         min_length=1,
         max_length=1000,
-        help_text="List of user IDs (max 1000)"
+        help_text="List of user IDs (max 1000)",
     )
 
     def validate_user_ids(self, value):
@@ -27,11 +27,13 @@ class BulkUserIDsSerializer(serializers.Serializer):
 
 class BulkActivateSerializer(BulkUserIDsSerializer):
     """Serializer for bulk activate operation"""
+
     pass
 
 
 class BulkDeactivateSerializer(BulkUserIDsSerializer):
     """Serializer for bulk deactivate operation"""
+
     pass
 
 
@@ -39,8 +41,7 @@ class BulkAssignRoleSerializer(BulkUserIDsSerializer):
     """Serializer for bulk assign role operation"""
 
     role = serializers.ChoiceField(
-        choices=User.Role.choices,
-        help_text="Role to assign to all users"
+        choices=User.Role.choices, help_text="Role to assign to all users"
     )
 
 
@@ -48,8 +49,7 @@ class BulkResetPasswordSerializer(BulkUserIDsSerializer):
     """Serializer for bulk reset password operation"""
 
     send_email = serializers.BooleanField(
-        default=True,
-        help_text="Whether to send reset email to users"
+        default=True, help_text="Whether to send reset email to users"
     )
 
 
@@ -60,12 +60,13 @@ class BulkSuspendSerializer(BulkUserIDsSerializer):
         required=False,
         allow_blank=True,
         max_length=500,
-        help_text="Optional reason for suspension"
+        help_text="Optional reason for suspension",
     )
 
 
 class BulkUnsuspendSerializer(BulkUserIDsSerializer):
     """Serializer for bulk unsuspend operation"""
+
     pass
 
 
@@ -73,34 +74,42 @@ class BulkDeleteSerializer(BulkUserIDsSerializer):
     """Serializer for bulk delete (archive) operation"""
 
     permanent = serializers.BooleanField(
-        default=False,
-        help_text="If True, permanently delete. If False, archive only"
+        default=False, help_text="If True, permanently delete. If False, archive only"
     )
 
     reason = serializers.CharField(
         required=False,
         allow_blank=True,
         max_length=500,
-        help_text="Optional reason for deletion"
+        help_text="Optional reason for deletion",
     )
+
+
+class SuccessItemSerializer(serializers.Serializer):
+    """Serializer for successful bulk operation items"""
+
+    user_id = serializers.IntegerField()
+    email = serializers.EmailField()
+    full_name = serializers.CharField()
+
+
+class FailureItemSerializer(serializers.Serializer):
+    """Serializer for failed bulk operation items"""
+
+    user_id = serializers.IntegerField()
+    reason = serializers.CharField()
+
+
+class SummarySerializer(serializers.Serializer):
+    """Serializer for bulk operation summary"""
+
+    total_requested = serializers.IntegerField()
+    success_count = serializers.IntegerField()
+    failure_count = serializers.IntegerField()
 
 
 class BulkOperationResponseSerializer(serializers.Serializer):
     """Serializer for bulk operation responses"""
-
-    class SuccessItemSerializer(serializers.Serializer):
-        user_id = serializers.IntegerField()
-        email = serializers.EmailField()
-        full_name = serializers.CharField()
-
-    class FailureItemSerializer(serializers.Serializer):
-        user_id = serializers.IntegerField()
-        reason = serializers.CharField()
-
-    class SummarySerializer(serializers.Serializer):
-        total_requested = serializers.IntegerField()
-        success_count = serializers.IntegerField()
-        failure_count = serializers.IntegerField()
 
     operation_id = serializers.UUIDField()
     success = serializers.BooleanField()

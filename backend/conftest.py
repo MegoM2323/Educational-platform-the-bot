@@ -7,6 +7,7 @@ This file only defines Django-specific fixtures
 import sys
 import django
 import pytest
+import uuid
 from pathlib import Path
 from contextlib import ExitStack
 
@@ -58,9 +59,20 @@ def event_loop():
 
 
 def is_postgresql():
-    """Check if current database is PostgreSQL"""
+    """Check if current database is PostgreSQL
+
+    Asserts that test environment is using PostgreSQL as required.
+    Tests must use PostgreSQL, not SQLite.
+    """
     engine = connection.settings_dict.get("ENGINE", "").lower()
-    return "postgresql" in engine
+    is_postgres = "postgresql" in engine
+
+    if not is_postgres:
+        raise AssertionError(
+            f"Test database must be PostgreSQL for test environment. " f"Got: {engine}"
+        )
+
+    return is_postgres
 
 
 # ========== GLOBAL FIXTURES ==========
@@ -81,10 +93,27 @@ def db_cleanup(db):
 
 @pytest.fixture(scope="session")
 def django_db_setup(django_db_blocker):
-    """Ensure test database is created and migrations are applied"""
+    """Ensure test database is created and migrations are applied
+
+    Tests use PostgreSQL database configured via DATABASE_URL or DB_* env vars.
+    Asserts that database is PostgreSQL, not SQLite.
+    """
+    db_engine = connection.settings_dict.get("ENGINE", "").lower()
+    db_name = connection.settings_dict.get("NAME", "")
+
+    if "postgresql" not in db_engine:
+        raise AssertionError(f"Test database must be PostgreSQL. Got: {db_engine}")
+
+    if ":memory:" in db_name:
+        raise AssertionError(
+            f"Test database must be a real PostgreSQL database, not :memory:. "
+            f"Got: {db_name}"
+        )
+
     with django_db_blocker.unblock():
         from django.core.management import call_command
-        call_command('migrate', verbosity=0, interactive=False)
+
+        call_command("migrate", verbosity=0, interactive=False)
     yield
 
 
@@ -165,10 +194,18 @@ def _mock_cache_delete(key):
 def setup_cache_mocks():
     """Setup cache mocks for each test"""
     with ExitStack() as stack:
-        stack.enter_context(patch("django.core.cache.cache.get", side_effect=_mock_cache_get))
-        stack.enter_context(patch("django.core.cache.cache.set", side_effect=_mock_cache_set))
-        stack.enter_context(patch("django.core.cache.cache.clear", side_effect=_mock_cache_clear))
-        stack.enter_context(patch("django.core.cache.cache.delete", side_effect=_mock_cache_delete))
+        stack.enter_context(
+            patch("django.core.cache.cache.get", side_effect=_mock_cache_get)
+        )
+        stack.enter_context(
+            patch("django.core.cache.cache.set", side_effect=_mock_cache_set)
+        )
+        stack.enter_context(
+            patch("django.core.cache.cache.clear", side_effect=_mock_cache_clear)
+        )
+        stack.enter_context(
+            patch("django.core.cache.cache.delete", side_effect=_mock_cache_delete)
+        )
         yield
 
 
@@ -195,7 +232,12 @@ def clear_cache_between_tests():
 
 def pytest_configure(config):
     """Configure pytest - markers are defined in pytest.ini"""
-    pass
+    config.addinivalue_line("markers", "cache: Cache-related tests")
+    config.addinivalue_line("markers", "slow: Slow tests")
+    config.addinivalue_line("markers", "integration: Integration tests")
+    config.addinivalue_line("markers", "performance: Performance tests")
+    config.addinivalue_line("markers", "security: Security tests")
+    config.addinivalue_line("markers", "websocket: WebSocket tests")
 
 
 # ========== USER FIXTURES ==========
@@ -204,36 +246,42 @@ def pytest_configure(config):
 @pytest.fixture
 def student_user(db):
     from tests.factories import StudentFactory
+
     return StudentFactory()
 
 
 @pytest.fixture
 def teacher_user(db):
     from tests.factories import TeacherFactory
+
     return TeacherFactory()
 
 
 @pytest.fixture
 def tutor_user(db):
     from tests.factories import TutorFactory
+
     return TutorFactory()
 
 
 @pytest.fixture
 def parent_user(db):
     from tests.factories import ParentFactory
+
     return ParentFactory()
 
 
 @pytest.fixture
 def another_student_user(db):
     from tests.factories import StudentFactory
+
     return StudentFactory()
 
 
 @pytest.fixture
 def another_teacher_user(db):
     from tests.factories import TeacherFactory
+
     return TeacherFactory()
 
 
@@ -243,48 +291,55 @@ def another_teacher_user(db):
 @pytest.fixture
 def student_client(student_user):
     from rest_framework_simplejwt.tokens import RefreshToken
+
     client = APIClient()
     refresh = RefreshToken.for_user(student_user)
-    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-    return client
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+    return client, student_user
 
 
 @pytest.fixture
 def teacher_client(teacher_user):
     from rest_framework_simplejwt.tokens import RefreshToken
+
     client = APIClient()
     refresh = RefreshToken.for_user(teacher_user)
-    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-    return client
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+    return client, teacher_user
 
 
 @pytest.fixture
 def admin_client(db):
-    from django.contrib.auth import get_user_model
     from rest_framework_simplejwt.tokens import RefreshToken
+    from django.contrib.auth import get_user_model
+
     User = get_user_model()
     admin = User.objects.create_superuser(
-        username='admin_test', email='admin@test.com', password='pass123'
+        username=f"admin_{uuid.uuid4().hex[:12]}",
+        email=f"admin_{uuid.uuid4().hex[:12]}@test.com",
+        password="pass123",
     )
     client = APIClient()
     refresh = RefreshToken.for_user(admin)
-    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-    return client
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+    return client, admin
 
 
 @pytest.fixture
 def tutor_client(tutor_user):
     from rest_framework_simplejwt.tokens import RefreshToken
+
     client = APIClient()
     refresh = RefreshToken.for_user(tutor_user)
-    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-    return client
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+    return client, tutor_user
 
 
 @pytest.fixture
 def auth_client(student_user):
     from rest_framework_simplejwt.tokens import RefreshToken
+
     client = APIClient()
     refresh = RefreshToken.for_user(student_user)
-    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-    return client
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+    return client, student_user

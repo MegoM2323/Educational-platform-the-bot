@@ -1,0 +1,65 @@
+{
+  "completed_tasks": [
+    {
+      "id": "chatroom_tests_full",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/unit/chat/test_chatroom_model_full.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/factories.py"
+      ],
+      "duration_sec": 3600,
+      "notes": "Created comprehensive test suite for ChatRoom model with 45 tests covering all model aspects. 44 passed, 1 skipped due to enrollment field migration status. Tests formatted with black and verified."
+    },
+    {
+      "id": "adapt_assignments_tests",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/factories.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/unit/assignments/test_assignment_question_model.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/unit/assignments/test_assignment_serializer.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/unit/assignments/test_assignment_submission_model.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/unit/assignments/test_attempt_model.py"
+      ],
+      "duration_sec": 300,
+      "details": {
+        "task": "Adapt ASSIGNMENTS tests to real model structure",
+        "changes": {
+          "factories.py": {
+            "AssignmentFactory": "Fixed type and status to use enum values (Assignment.Type.HOMEWORK, Assignment.Status.DRAFT)",
+            "AssignmentSubmissionFactory": "Fixed fields - removed grade/graded_by, added score/max_score/status with correct enum"
+          },
+          "test_assignment_question_model.py": {
+            "test_question_types": "Changed type= to question_type=, iterate through AssignmentQuestion.Type.choices, create separate assignments per type for unique constraint"
+          },
+          "test_assignment_serializer.py": {
+            "all_tests": "Replaced User.objects.create() with factory calls, added start_date to all Assignment creations, replaced string enum values with Assignment.Type/Status enums"
+          },
+          "test_assignment_submission_model.py": {
+            "all_tests": "Replaced AssignmentSubmission.objects.create() with AssignmentSubmissionFactory, added StudentFactory import, removed UserFactory(role=student) in favor of StudentFactory()"
+          },
+          "test_attempt_model.py": {
+            "test_attempt_status_choices": "Fixed unique constraint by incrementing attempt_number in loop"
+          }
+        },
+        "tests_passing": [
+          "test_assignment_question_model.py::test_question_types",
+          "test_assignment_submission_model.py::test_create_basic_submission",
+          "test_attempt_model.py::test_attempt_status_choices"
+        ]
+      }
+    },
+    {
+      "id": "fix_notifications_tests",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/factories.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/unit/notifications/"
+      ],
+      "duration_sec": 120,
+      "notes": "Fixed UserFactory abstract flag in _initialize_factories(). Added missing line: UserFactory._meta.abstract = False at line 820. Result: 372/372 tests PASSED (0 FAILED, 0 ERROR)."
+    }
+  ]
+}

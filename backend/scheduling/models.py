@@ -81,6 +81,8 @@ class Lesson(models.Model):
 
     description = models.TextField(blank=True, verbose_name="Lesson description")
 
+    notes = models.TextField(blank=True, default="", verbose_name="Lesson notes")
+
     telemost_link = models.URLField(
         blank=True, max_length=500, verbose_name="Yandex Telemost link"
     )
@@ -159,6 +161,16 @@ class Lesson(models.Model):
         if self.start_time and self.end_time:
             if self.start_time >= self.end_time:
                 raise ValidationError("Start time must be before end time")
+
+            duration = datetime.datetime.combine(
+                datetime.date.today(), self.end_time
+            ) - datetime.datetime.combine(datetime.date.today(), self.start_time)
+            min_duration = timedelta(minutes=30)
+            max_duration = timedelta(hours=4)
+            if duration < min_duration:
+                raise ValidationError("Lesson duration must be at least 30 minutes")
+            if duration > max_duration:
+                raise ValidationError("Lesson duration must not exceed 4 hours")
 
         # Validate date not in past
         now = timezone.now()

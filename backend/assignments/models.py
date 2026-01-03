@@ -137,6 +137,13 @@ class Assignment(models.Model):
         help_text="Опциональная рубрика для структурированного оценивания",
     )
 
+    # T_ASSIGN_001: Answer visibility - show correct answers to students after deadline
+    show_correct_answers = models.BooleanField(
+        default=False,
+        verbose_name="Показать правильные ответы",
+        help_text="Разрешить студентам видеть правильные ответы после срока выполнения",
+    )
+
     class Meta:
         verbose_name = "Задание"
         verbose_name_plural = "Задания"

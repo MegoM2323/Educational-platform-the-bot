@@ -44,9 +44,7 @@ class PhoneValidator:
         # Телефон должен содержать минимум 9 цифр
         digits = re.findall(r"\d", clean_phone)
         if len(digits) < 9:
-            raise serializers.ValidationError(
-                "Телефон должен содержать как минимум 9 цифр"
-            )
+            raise serializers.ValidationError("Телефон должен содержать как минимум 9 цифр")
 
 
 class StudentProfileDetailSerializer(serializers.ModelSerializer):
@@ -56,9 +54,7 @@ class StudentProfileDetailSerializer(serializers.ModelSerializer):
     Включает все поля профиля с полной информацией о связях.
     """
 
-    tutor_name = serializers.CharField(
-        source="tutor.get_full_name", read_only=True, required=False
-    )
+    tutor_name = serializers.CharField(source="tutor.get_full_name", read_only=True, required=False)
     parent_name = serializers.CharField(
         source="parent.get_full_name", read_only=True, required=False
     )
@@ -113,9 +109,7 @@ class StudentProfileDetailSerializer(serializers.ModelSerializer):
     def validate_goal(self, value):
         """Валидация цели обучения"""
         if value and len(value) > 1000:
-            raise serializers.ValidationError(
-                "Цель обучения не может быть длиннее 1000 символов"
-            )
+            raise serializers.ValidationError("Цель обучения не может быть длиннее 1000 символов")
 
         return value or ""
 
@@ -140,6 +134,7 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
             "subject",
             "experience_years",
             "bio",
+            "telegram",
             "subjects_list",
             "telegram_id",
             "is_telegram_linked",
@@ -151,30 +146,22 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
     def validate_subject(self, value):
         """Валидация предмета"""
         if value and len(value) > 100:
-            raise serializers.ValidationError(
-                "Предмет не может быть длиннее 100 символов"
-            )
+            raise serializers.ValidationError("Предмет не может быть длиннее 100 символов")
         return value or ""
 
     def validate_experience_years(self, value):
         """Валидация опыта работы"""
         if value is not None:
             if value < 0:
-                raise serializers.ValidationError(
-                    "Опыт работы не может быть отрицательным"
-                )
+                raise serializers.ValidationError("Опыт работы не может быть отрицательным")
             if value > 80:
-                raise serializers.ValidationError(
-                    "Опыт работы не может быть больше 80 лет"
-                )
+                raise serializers.ValidationError("Опыт работы не может быть больше 80 лет")
         return value or 0
 
     def validate_bio(self, value):
         """Валидация биографии"""
         if value and len(value) > 1000:
-            raise serializers.ValidationError(
-                "Биография не может быть длиннее 1000 символов"
-            )
+            raise serializers.ValidationError("Биография не может быть длиннее 1000 символов")
         return value or ""
 
     def get_subjects_list(self, obj):
@@ -226,9 +213,7 @@ class TutorProfileDetailSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Специализация обязательна")
 
         if len(value) > 200:
-            raise serializers.ValidationError(
-                "Специализация не может быть длиннее 200 символов"
-            )
+            raise serializers.ValidationError("Специализация не может быть длиннее 200 символов")
 
         return value.strip()
 
@@ -236,21 +221,15 @@ class TutorProfileDetailSerializer(serializers.ModelSerializer):
         """Валидация опыта работы"""
         if value is not None:
             if value < 0:
-                raise serializers.ValidationError(
-                    "Опыт работы не может быть отрицательным"
-                )
+                raise serializers.ValidationError("Опыт работы не может быть отрицательным")
             if value > 80:
-                raise serializers.ValidationError(
-                    "Опыт работы не может быть больше 80 лет"
-                )
+                raise serializers.ValidationError("Опыт работы не может быть больше 80 лет")
         return value or 0
 
     def validate_bio(self, value):
         """Валидация биографии"""
         if value and len(value) > 1000:
-            raise serializers.ValidationError(
-                "Биография не может быть длиннее 1000 символов"
-            )
+            raise serializers.ValidationError("Биография не может быть длиннее 1000 символов")
         return value or ""
 
     def get_reportsCount(self, obj):
@@ -304,9 +283,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     def validate_last_name(self, value):
         """Валидация фамилии"""
         if value and len(value) > 150:
-            raise serializers.ValidationError(
-                "Фамилия не может быть длиннее 150 символов"
-            )
+            raise serializers.ValidationError("Фамилия не может быть длиннее 150 символов")
         return value or ""
 
     def validate_email(self, value):
@@ -334,9 +311,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         if value:
             # Проверяем размер файла (максимум 5MB)
             if value.size > 5 * 1024 * 1024:
-                raise serializers.ValidationError(
-                    "Размер файла не должен превышать 5MB"
-                )
+                raise serializers.ValidationError("Размер файла не должен превышать 5MB")
 
             # Проверяем расширение файла
             allowed_extensions = ["jpg", "jpeg", "png", "gif", "webp"]

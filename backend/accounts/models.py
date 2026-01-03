@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, MaxValueValidator, MaxLengthValidator
 
 
 class User(AbstractUser):
@@ -75,7 +75,12 @@ class StudentProfile(models.Model):
         max_length=10, blank=True, default="", verbose_name="Класс"
     )
 
-    goal = models.TextField(blank=True, max_length=1000, verbose_name="Цель обучения")
+    goal = models.TextField(
+        blank=True,
+        max_length=1000,
+        validators=[MaxLengthValidator(1000)],
+        verbose_name="Цель обучения",
+    )
 
     tutor = models.ForeignKey(
         User,
@@ -98,7 +103,7 @@ class StudentProfile(models.Model):
     )
 
     progress_percentage = models.PositiveIntegerField(
-        default=0, verbose_name="Прогресс (%)"
+        default=0, validators=[MaxValueValidator(100)], verbose_name="Прогресс (%)"
     )
 
     streak_days = models.PositiveIntegerField(default=0, verbose_name="Дней подряд")
@@ -106,7 +111,7 @@ class StudentProfile(models.Model):
     total_points = models.PositiveIntegerField(default=0, verbose_name="Общие баллы")
 
     accuracy_percentage = models.PositiveIntegerField(
-        default=0, verbose_name="Точность (%)"
+        default=0, validators=[MaxValueValidator(100)], verbose_name="Точность (%)"
     )
 
     generated_username = models.CharField(

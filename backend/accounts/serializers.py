@@ -67,7 +67,7 @@ class UserLoginSerializer(serializers.Serializer):
 
     email = serializers.CharField(required=False, allow_blank=True)
     username = serializers.CharField(required=False, allow_blank=True)
-    password = serializers.CharField(required=False, allow_blank=True)
+    password = serializers.CharField(required=True)
 
     def validate_email(self, value):
         if value and isinstance(value, str):
@@ -90,9 +90,7 @@ class UserLoginSerializer(serializers.Serializer):
         password = attrs.get("password")
 
         if not email and not username:
-            raise serializers.ValidationError(
-                "Необходимо указать email или имя пользователя"
-            )
+            raise serializers.ValidationError("Необходимо указать email или имя пользователя")
 
         attrs["email"] = email if email else None
         attrs["username"] = username if username else None
@@ -169,7 +167,7 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherProfile
-        fields = ("id", "user", "subject", "experience_years", "bio", "subjects_list")
+        fields = ("id", "user", "subject", "experience_years", "bio", "telegram", "subjects_list")
 
     def get_subjects_list(self, obj):
         """Возвращает список предметов преподавателя из TeacherSubject"""
@@ -471,9 +469,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         ).count()
 
         # Статистика по заданиям
-        total_assignments = AssignmentSubmission.objects.filter(
-            student=obj.user
-        ).count()
+        total_assignments = AssignmentSubmission.objects.filter(student=obj.user).count()
         reviewed_assignments = AssignmentSubmission.objects.filter(
             student=obj.user, status="reviewed"
         ).count()
@@ -529,9 +525,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         # Проверяем уникальность email (исключая текущего пользователя)
         if User.objects.filter(email=value).exclude(id=user.id).exists():
-            raise serializers.ValidationError(
-                "Пользователь с таким email уже существует"
-            )
+            raise serializers.ValidationError("Пользователь с таким email уже существует")
 
         return value
 
@@ -574,9 +568,7 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
         Валидация что tutor является тьютором.
         """
         if value and value.role != User.Role.TUTOR:
-            raise serializers.ValidationError(
-                "Указанный пользователь не является тьютором"
-            )
+            raise serializers.ValidationError("Указанный пользователь не является тьютором")
         return value
 
     def validate_parent(self, value):
@@ -584,9 +576,7 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
         Валидация что parent является родителем.
         """
         if value and value.role != User.Role.PARENT:
-            raise serializers.ValidationError(
-                "Указанный пользователь не является родителем"
-            )
+            raise serializers.ValidationError("Указанный пользователь не является родителем")
         return value
 
 
@@ -701,12 +691,8 @@ class UserCreateSerializer(serializers.Serializer):
 
     # Поля для преподавателя и тьютора
     subject = serializers.CharField(required=False, allow_blank=True, max_length=100)
-    specialization = serializers.CharField(
-        required=False, allow_blank=True, max_length=200
-    )
-    experience_years = serializers.IntegerField(
-        required=False, allow_null=True, min_value=0
-    )
+    specialization = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    experience_years = serializers.IntegerField(required=False, allow_null=True, min_value=0)
     bio = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
@@ -714,9 +700,7 @@ class UserCreateSerializer(serializers.Serializer):
         value = value.strip().lower()
 
         if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError(
-                "Пользователь с таким email уже существует"
-            )
+            raise serializers.ValidationError("Пользователь с таким email уже существует")
 
         return value
 
@@ -726,9 +710,7 @@ class UserCreateSerializer(serializers.Serializer):
             try:
                 tutor = User.objects.get(id=value, is_active=True)
                 if tutor.role != User.Role.TUTOR:
-                    raise serializers.ValidationError(
-                        "Указанный пользователь не является тьютором"
-                    )
+                    raise serializers.ValidationError("Указанный пользователь не является тьютором")
             except User.DoesNotExist:
                 raise serializers.ValidationError("Тьютор не найден")
 
@@ -748,6 +730,14 @@ class UserCreateSerializer(serializers.Serializer):
 
         return value
 
+    def validate_phone(self, value):
+        """Проверка формата телефона согласно User model"""
+        if value:
+            phone_field = User._meta.get_field("phone")
+            for validator in phone_field.validators:
+                validator(value)
+        return value
+
     def validate(self, attrs):
         """
         Дополнительная валидация в зависимости от роли
@@ -757,9 +747,7 @@ class UserCreateSerializer(serializers.Serializer):
         # Для студента проверяем обязательные поля
         if role == User.Role.STUDENT:
             if not attrs.get("grade"):
-                raise serializers.ValidationError(
-                    {"grade": "Поле обязательно для студента"}
-                )
+                raise serializers.ValidationError({"grade": "Поле обязательно для студента"})
 
         # Для тьютора проверяем обязательные поля
         elif role == User.Role.TUTOR:
@@ -859,9 +847,7 @@ class TeacherProfilePublicSerializer(serializers.ModelSerializer):
         teacher_subjects = TeacherSubject.objects.filter(
             teacher=obj.user, is_active=True
         ).select_related("subject")
-        return [
-            {"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects
-        ]
+        return [{"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects]
 
 
 class TeacherProfileFullSerializer(serializers.ModelSerializer):
@@ -887,9 +873,7 @@ class TeacherProfileFullSerializer(serializers.ModelSerializer):
         teacher_subjects = TeacherSubject.objects.filter(
             teacher=obj.user, is_active=True
         ).select_related("subject")
-        return [
-            {"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects
-        ]
+        return [{"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects]
 
 
 class TutorProfilePublicSerializer(serializers.ModelSerializer):
@@ -957,28 +941,14 @@ def get_profile_serializer(profile, viewer_user, profile_owner_user):
     """
     profile_type = profile_owner_user.role
 
-    can_view_private = can_view_private_fields(
-        viewer_user, profile_owner_user, profile_type
-    )
+    can_view_private = can_view_private_fields(viewer_user, profile_owner_user, profile_type)
 
     if profile_type == "student":
-        return (
-            StudentProfileFullSerializer
-            if can_view_private
-            else StudentProfilePublicSerializer
-        )
+        return StudentProfileFullSerializer if can_view_private else StudentProfilePublicSerializer
     elif profile_type == "teacher":
-        return (
-            TeacherProfileFullSerializer
-            if can_view_private
-            else TeacherProfilePublicSerializer
-        )
+        return TeacherProfileFullSerializer if can_view_private else TeacherProfilePublicSerializer
     elif profile_type == "tutor":
-        return (
-            TutorProfileFullSerializer
-            if can_view_private
-            else TutorProfilePublicSerializer
-        )
+        return TutorProfileFullSerializer if can_view_private else TutorProfilePublicSerializer
     elif profile_type == "parent":
         # Parent пока не имеет приватных полей
         return ParentProfileSerializer
@@ -1051,9 +1021,7 @@ class StudentCreateSerializer(serializers.Serializer):
             try:
                 tutor = User.objects.get(id=value, is_active=True)
                 if tutor.role != User.Role.TUTOR:
-                    raise serializers.ValidationError(
-                        "Указанный пользователь не является тьютором"
-                    )
+                    raise serializers.ValidationError("Указанный пользователь не является тьютором")
             except User.DoesNotExist:
                 raise serializers.ValidationError("Тьютор не найден")
 

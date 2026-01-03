@@ -153,24 +153,6 @@ class Invoice(models.Model):
             # Для быстрого поиска по Telegram message ID
             models.Index(fields=["telegram_message_id"], name="idx_invoice_telegram"),
         ]
-        constraints = [
-            models.CheckConstraint(
-                condition=Q(sent_at__isnull=True) | Q(sent_at__gte=F("created_at")),
-                name="check_invoice_sent_after_created",
-            ),
-            models.CheckConstraint(
-                condition=Q(viewed_at__isnull=True)
-                | Q(sent_at__isnull=True)
-                | Q(viewed_at__gte=F("sent_at")),
-                name="check_invoice_viewed_after_sent",
-            ),
-            models.CheckConstraint(
-                condition=Q(paid_at__isnull=True)
-                | Q(viewed_at__isnull=True)
-                | Q(paid_at__gte=F("viewed_at")),
-                name="check_invoice_paid_after_viewed",
-            ),
-        ]
 
     def __str__(self):
         return f"Счет #{self.id} от {self.tutor.get_full_name()} для {self.parent.get_full_name()} ({self.amount} руб.)"

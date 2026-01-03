@@ -58,9 +58,6 @@ services:
       POSTGRES_REPLICATION_USER: ${REPLICATION_USER:-replicator}
       POSTGRES_REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replicator}
 
-    ports:
-      - "5433:5432"
-
     volumes:
       # Data persistence
       - postgres_data:/var/lib/postgresql/data
@@ -75,9 +72,9 @@ services:
 
     # Health check
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-thebot_db}"]
+      test: ["CMD-SHELL", "PGPASSWORD=${DB_PASSWORD:-postgres} pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-thebot_db} -h localhost"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 5
       start_period: 30s
 
@@ -98,10 +95,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4'
+          cpus: '0.3'
           memory: 2G
         reservations:
-          cpus: '2'
+          cpus: '0.3'
           memory: 1G
 
     # Logging
@@ -132,9 +129,6 @@ services:
       --timeout 0
       --tcp-keepalive 300
       --databases 16
-
-    ports:
-      - "6380:6379"
 
     volumes:
       # Data persistence (AOF)
@@ -169,10 +163,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '0.2'
           memory: 1G
         reservations:
-          cpus: '1'
+          cpus: '0.2'
           memory: 512M
 
     # Logging
@@ -220,10 +214,10 @@ services:
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis}@redis:6379/2
 
       # Frontend
-      FRONTEND_URL: http://localhost
+      FRONTEND_URL: ${FRONTEND_URL:-https://localhost}
 
       # API Configuration
-      API_URL: ${API_URL:-https://localhost/api}
+      API_URL: ${API_URL:-https://the-bot.ru/api}
       API_KEY: ${API_KEY}
 
       # External Services
@@ -246,9 +240,6 @@ services:
 
       # Sentry / Monitoring
       SENTRY_DSN: ${SENTRY_DSN}
-
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
 
     volumes:
       # Application code (copy only, not volume)
@@ -285,10 +276,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4'
+          cpus: '0.35'
           memory: 2G
         reservations:
-          cpus: '2'
+          cpus: '0.35'
           memory: 1G
 
     # Logging
@@ -351,10 +342,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '0.2'
           memory: 512M
         reservations:
-          cpus: '0.5'
+          cpus: '0.2'
           memory: 256M
 
     # Logging
@@ -416,10 +407,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '0.25'
           memory: 512M
         reservations:
-          cpus: '1'
+          cpus: '0.25'
           memory: 256M
 
     # Logging
@@ -522,10 +513,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '0.35'
           memory: 1G
         reservations:
-          cpus: '1'
+          cpus: '0.35'
           memory: 512M
 
     # Logging
@@ -605,10 +596,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '0.2'
           memory: 512M
         reservations:
-          cpus: '0.5'
+          cpus: '0.2'
           memory: 256M
 
     # Logging

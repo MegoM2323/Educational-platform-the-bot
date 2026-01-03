@@ -80,12 +80,28 @@ run_remote_sudo() {
 transfer_file() {
     local local_file="$1"
     local remote_path="$2"
-    
+
     if [ -z "$SSH_KEY" ]; then
         scp -P $SSH_PORT "$local_file" $SSH_USER@$SSH_HOST:"$remote_path"
     else
         scp -i "$SSH_KEY" -P $SSH_PORT "$local_file" $SSH_USER@$SSH_HOST:"$remote_path"
     fi
+}
+
+# Generate URL-safe password (a-z, A-Z, 0-9, _)
+# Compatible with DATABASE_URL and REDIS_URL parsing
+generate_url_safe_password() {
+    local length=${1:-16}
+    # Use openssl to generate random bytes, then filter to safe characters only
+    # Remove +, /, = characters that break URL parsing
+    openssl rand -base64 32 | tr -cd 'a-zA-Z0-9_' | head -c "$length"
+}
+
+# URL encode password for defensive use (optional fallback)
+# Use Python's urllib.parse.quote() for safe encoding
+urlencode_password() {
+    local password="$1"
+    python3 -c "import urllib.parse; print(urllib.parse.quote('$password', safe=''))" 2>/dev/null || echo "$password"
 }
 
 # ============================================================================
@@ -149,7 +165,7 @@ log_info "Step 2/8: Preparing server..."
 
 # Create project directory
 log_info "Creating project directory..."
-run_remote "mkdir -p $REMOTE_PROJECT_PATH"
+run_remote_sudo "mkdir -p $REMOTE_PROJECT_PATH && chown $SSH_USER:$SSH_USER $REMOTE_PROJECT_PATH"
 log_success "Project directory ready"
 
 # Create .env directory for backups
@@ -169,9 +185,42 @@ if run_remote "[ -d $REMOTE_PROJECT_PATH/.git ]" 2>/dev/null; then
     run_remote "cd $REMOTE_PROJECT_PATH && git pull origin main"
     log_success "Repository updated"
 else
+    log_info "Directory exists but no git repo, removing old deployment..."
+    run_remote_sudo "rm -rf $REMOTE_PROJECT_PATH && mkdir -p $REMOTE_PROJECT_PATH && chown $SSH_USER:$SSH_USER $REMOTE_PROJECT_PATH"
     log_info "Cloning repository..."
     run_remote "git clone $GIT_REPO $REMOTE_PROJECT_PATH"
     log_success "Repository cloned"
+fi
+
+# Transfer entire frontend directory with corrected files (vite.config.ts, .dockerignore)
+log_info "Transferring corrected application files..."
+if [ -d "frontend" ]; then
+    log_info "Syncing frontend directory (vite.config.ts, .dockerignore fixes)..."
+    run_remote "mkdir -p $REMOTE_PROJECT_PATH/frontend"
+    # Use rsync-like approach with tar for better performance
+    tar czf /tmp/frontend.tar.gz frontend/
+    transfer_file /tmp/frontend.tar.gz "$REMOTE_PROJECT_PATH/frontend.tar.gz"
+    run_remote "cd $REMOTE_PROJECT_PATH && tar xzf frontend.tar.gz && rm frontend.tar.gz"
+    rm /tmp/frontend.tar.gz
+    log_success "Frontend directory transferred with all fixes"
+fi
+
+# Transfer other critical files
+if [ -f "docker-compose.prod.yml" ]; then
+    transfer_file "docker-compose.prod.yml" "$REMOTE_PROJECT_PATH/docker-compose.prod.yml"
+    log_success "docker-compose.prod.yml transferred"
+fi
+if [ -f "backend/invoices/migrations/0001_initial.py" ]; then
+    transfer_file "backend/invoices/migrations/0001_initial.py" "$REMOTE_PROJECT_PATH/backend/invoices/migrations/0001_initial.py"
+    log_success "Migration file transferred"
+fi
+if [ -f "backend/invoices/models.py" ]; then
+    transfer_file "backend/invoices/models.py" "$REMOTE_PROJECT_PATH/backend/invoices/models.py"
+    log_success "Models file transferred"
+fi
+if [ -f "docker/nginx.prod.conf" ]; then
+    transfer_file "docker/nginx.prod.conf" "$REMOTE_PROJECT_PATH/docker/nginx.prod.conf"
+    log_success "Nginx config transferred"
 fi
 
 echo
@@ -182,10 +231,10 @@ echo
 
 log_info "Step 4/8: Creating production .env file..."
 
-# Generate secure random strings
-SECRET_KEY=$(openssl rand -base64 32)
-REDIS_PASSWORD=$(openssl rand -base64 16)
-DB_PASSWORD=$(openssl rand -base64 16)
+# Generate secure random strings (SECRET_KEY must be at least 50 chars for production)
+SECRET_KEY=$(openssl rand -base64 50)
+REDIS_PASSWORD=$(generate_url_safe_password 16)
+DB_PASSWORD=$(generate_url_safe_password 16)
 
 # Create .env file content
 cat > /tmp/.env.production << EOFENV
@@ -207,6 +256,7 @@ DB_PORT=5432
 DB_NAME=thebot_db
 DB_USER=postgres
 DB_PASSWORD=$DB_PASSWORD
+DATABASE_URL=postgresql://$DB_USER:$DB_PASSWORD@postgres:5432/$DB_NAME
 
 # Redis Configuration
 REDIS_HOST=redis
@@ -218,9 +268,10 @@ REDIS_DB=0
 CELERY_BROKER_URL=redis://:$REDIS_PASSWORD@redis:6379/1
 CELERY_RESULT_BACKEND=redis://:$REDIS_PASSWORD@redis:6379/2
 
-# API Configuration
-API_URL=http://176.108.248.21:8000/api
-FRONTEND_URL=http://176.108.248.21:3000
+# API Configuration (use production domain for FRONTEND_URL in production mode)
+API_URL=https://the-bot.ru/api
+FRONTEND_URL=https://the-bot.ru
+WS_URL=wss://the-bot.ru/ws
 
 # Email Configuration (optional)
 EMAIL_HOST=smtp.gmail.com
@@ -248,9 +299,11 @@ APP_NAME=THE_BOT
 APP_VERSION=1.0.0
 EOFENV
 
-# Transfer .env to server
+# Remove old .env file and transfer new one to ensure clean state
 log_info "Transferring .env file to server..."
+run_remote "rm -f $REMOTE_PROJECT_PATH/.env"
 transfer_file /tmp/.env.production $REMOTE_PROJECT_PATH/.env
+run_remote "chmod 600 $REMOTE_PROJECT_PATH/.env"
 rm -f /tmp/.env.production
 log_success ".env file created and transferred"
 

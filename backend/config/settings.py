@@ -1118,7 +1118,8 @@ LOGGING = {
 # Создаем директорию для логов если её нет
 import logging.handlers
 
-_logs_dir = os.path.join(BASE_DIR, "logs")
+# Use /app/logs for Docker, or BASE_DIR/logs for local development
+_logs_dir = "/app/logs" if os.path.exists("/app") else os.path.join(BASE_DIR, "logs")
 if not os.path.exists(_logs_dir):
     os.makedirs(_logs_dir, exist_ok=True)
 

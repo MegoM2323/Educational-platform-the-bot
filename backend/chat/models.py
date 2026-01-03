@@ -5,6 +5,14 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+__all__ = [
+    "ChatRoom",
+    "Message",
+    "MessageRead",
+    "MessageThread",
+    "ChatParticipant",
+]
+
 
 class ChatRoom(models.Model):
     """

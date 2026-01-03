@@ -99,7 +99,7 @@ class UserFactory(DjangoModelFactory):
 
 
 class StudentFactory(UserFactory):
-    """Factory for creating Student User"""
+    """Factory for creating Student User with StudentProfile"""
 
     class Meta:
         model = None
@@ -107,9 +107,15 @@ class StudentFactory(UserFactory):
 
     role = factory.LazyFunction(lambda: _get_user_role("STUDENT"))
 
+    @factory.post_generation
+    def create_profile(obj, create, extracted, **kwargs):
+        """Create StudentProfile after user creation"""
+        if create:
+            StudentProfileFactory(user=obj)
+
 
 class TeacherFactory(UserFactory):
-    """Factory for creating Teacher User"""
+    """Factory for creating Teacher User with TeacherProfile"""
 
     class Meta:
         model = None
@@ -117,9 +123,15 @@ class TeacherFactory(UserFactory):
 
     role = factory.LazyFunction(lambda: _get_user_role("TEACHER"))
 
+    @factory.post_generation
+    def create_profile(obj, create, extracted, **kwargs):
+        """Create TeacherProfile after user creation"""
+        if create:
+            TeacherProfileFactory(user=obj)
+
 
 class TutorFactory(UserFactory):
-    """Factory for creating Tutor User"""
+    """Factory for creating Tutor User with TutorProfile"""
 
     class Meta:
         model = None
@@ -127,15 +139,27 @@ class TutorFactory(UserFactory):
 
     role = factory.LazyFunction(lambda: _get_user_role("TUTOR"))
 
+    @factory.post_generation
+    def create_profile(obj, create, extracted, **kwargs):
+        """Create TutorProfile after user creation"""
+        if create:
+            TutorProfileFactory(user=obj)
+
 
 class ParentFactory(UserFactory):
-    """Factory for creating Parent User"""
+    """Factory for creating Parent User with ParentProfile"""
 
     class Meta:
         model = None
         abstract = False
 
     role = factory.LazyFunction(lambda: _get_user_role("PARENT"))
+
+    @factory.post_generation
+    def create_profile(obj, create, extracted, **kwargs):
+        """Create ParentProfile after user creation"""
+        if create:
+            ParentProfileFactory(user=obj)
 
 
 class StudentProfileFactory(DjangoModelFactory):
@@ -144,7 +168,7 @@ class StudentProfileFactory(DjangoModelFactory):
     class Meta:
         model = None
 
-    user = factory.SubFactory(StudentFactory)
+    user = None
     grade = "10"
     goal = "Улучшить знание английского языка"
     tutor = None
@@ -164,7 +188,7 @@ class TeacherProfileFactory(DjangoModelFactory):
     class Meta:
         model = None
 
-    user = factory.SubFactory(TeacherFactory)
+    user = None
     subject = "English"
     experience_years = 5
     bio = "Опытный преподаватель"
@@ -178,7 +202,7 @@ class TutorProfileFactory(DjangoModelFactory):
     class Meta:
         model = None
 
-    user = factory.SubFactory(TutorFactory)
+    user = None
     specialization = "English Language"
     experience_years = 3
     bio = "Профессиональный тьютор"
@@ -192,7 +216,7 @@ class ParentProfileFactory(DjangoModelFactory):
     class Meta:
         model = None
 
-    user = factory.SubFactory(ParentFactory)
+    user = None
     telegram = ""
     telegram_id = ""
 
@@ -362,6 +386,14 @@ class SubjectEnrollmentFactory(DjangoModelFactory):
     custom_subject_name = None
     is_active = True
     enrolled_at = factory.LazyFunction(timezone.now)
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        """Override to ensure valid object creation"""
+        obj = model_class(*args, **kwargs)
+        obj.full_clean()
+        obj.save()
+        return obj
 
 
 class LessonFactory(DjangoModelFactory):

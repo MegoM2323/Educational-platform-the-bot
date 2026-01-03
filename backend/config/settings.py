@@ -491,15 +491,28 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+if environment == "test":
+    STATIC_ROOT = Path("/tmp/thebot_test_static")
+else:
+    STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files (user uploads)
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+if environment == "test":
+    MEDIA_ROOT = Path("/tmp/thebot_test_media")
+else:
+    MEDIA_ROOT = BASE_DIR / "media"
 
 # File Upload Configuration
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+
+# Email Backend Configuration
+# For test environment use in-memory backend (does not send actual emails)
+if environment == "test":
+    EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -576,26 +589,22 @@ REST_FRAMEWORK = {
             "config.throttling.BurstThrottle",  # Global burst protection (10/sec)
         ]
     ),
-    "DEFAULT_THROTTLE_RATES": (
-        {}  # Disable throttle rates for testing
-        if current_environment == "test"
-        else {
-            "anon": "50/h",  # Anonymous users: 50 req/hour
-            "user": "500/h",  # Authenticated users: 500 req/hour
-            "student": "1000/h",  # Students: 1000 req/hour
-            "admin": "10000/h",  # Admins: 10000 req/hour (practically unlimited)
-            "burst": "10/s",  # Burst protection: 10 req/sec (global)
-            "login": "5/m",  # Login attempts: 5 per minute per IP
-            "upload": "10/h",  # File uploads: 10 per hour per user
-            "search": "30/m",  # Search queries: 30 per minute per user
-            "analytics": "100/h",  # Analytics/reports: 100 per hour per user
-            "chat_message": "60/m",  # Chat messages: 60 per minute per user
-            "chat_room": "5/h",  # Chat room creation: 5 per hour per user
-            "assignment_submission": "10/h",  # Assignment submissions: 10 per hour per user
-            "report_generation": "10/h",  # Report generation: 10 per hour per user
-            "admin_endpoint": "1000/h",  # Admin endpoints: 1000 per hour per admin
-        }
-    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "50/h",  # Anonymous users: 50 req/hour
+        "user": "500/h",  # Authenticated users: 500 req/hour
+        "student": "1000/h",  # Students: 1000 req/hour
+        "admin": "10000/h",  # Admins: 10000 req/hour (practically unlimited)
+        "burst": "10/s",  # Burst protection: 10 req/sec (global)
+        "login": "5/m",  # Login attempts: 5 per minute per IP
+        "upload": "10/h",  # File uploads: 10 per hour per user
+        "search": "30/m",  # Search queries: 30 per minute per user
+        "analytics": "100/h",  # Analytics/reports: 100 per hour per user
+        "chat_message": "60/m",  # Chat messages: 60 per minute per user
+        "chat_room": "5/h",  # Chat room creation: 5 per hour per user
+        "assignment_submission": "10/h",  # Assignment submissions: 10 per hour per user
+        "report_generation": "10/h",  # Report generation: 10 per hour per user
+        "admin_endpoint": "1000/h",  # Admin endpoints: 1000 per hour per admin
+    },
 }
 
 # Cache settings
@@ -843,6 +852,11 @@ CELERY_ENABLE_UTC = True
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут максимум на задачу
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Test environment Celery configuration
+if current_environment == "test":
+    CELERY_ALWAYS_EAGER = True
+    CELERY_EAGER_PROPAGATES_EXCEPTIONS = True
 
 # Импортируем расписание периодических задач
 try:

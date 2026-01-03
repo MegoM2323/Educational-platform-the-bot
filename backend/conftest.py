@@ -163,50 +163,15 @@ class MockMonitoringClient:
         return self.events
 
 
-# ========== REDIS MOCK ==========
-
-
-# Global cache store for testing
-_test_cache_store = {}
-
-
-def _mock_cache_get(key, default=None):
-    """Mock cache.get() using in-memory dict"""
-    return _test_cache_store.get(key, default)
-
-
-def _mock_cache_set(key, value, timeout=None):
-    """Mock cache.set() using in-memory dict"""
-    _test_cache_store[key] = value
-
-
-def _mock_cache_clear():
-    """Mock cache.clear()"""
-    _test_cache_store.clear()
-
-
-def _mock_cache_delete(key):
-    """Mock cache.delete()"""
-    _test_cache_store.pop(key, None)
-
-
 @pytest.fixture(autouse=True)
 def setup_cache_mocks():
-    """Setup cache mocks for each test"""
-    with ExitStack() as stack:
-        stack.enter_context(
-            patch("django.core.cache.cache.get", side_effect=_mock_cache_get)
-        )
-        stack.enter_context(
-            patch("django.core.cache.cache.set", side_effect=_mock_cache_set)
-        )
-        stack.enter_context(
-            patch("django.core.cache.cache.clear", side_effect=_mock_cache_clear)
-        )
-        stack.enter_context(
-            patch("django.core.cache.cache.delete", side_effect=_mock_cache_delete)
-        )
-        yield
+    """Setup cache for each test
+
+    Cache is configured via Django settings to use LocMemCache in test environment.
+    This fixture is kept for compatibility and future cache mocking needs.
+    """
+    # Cache is already properly configured, just yield
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -221,10 +186,15 @@ def disable_redis_in_tests(monkeypatch, settings):
 
 @pytest.fixture(autouse=True)
 def clear_cache_between_tests():
-    """Clear cache before and after each test"""
-    _mock_cache_clear()
+    """Clear Django cache before and after each test
+
+    Uses real LocMemCache configured in test settings.
+    """
+    from django.core.cache import cache
+
+    cache.clear()
     yield
-    _mock_cache_clear()
+    cache.clear()
 
 
 # ========== PYTEST CONFIGURATION ==========
@@ -232,12 +202,22 @@ def clear_cache_between_tests():
 
 def pytest_configure(config):
     """Configure pytest - markers are defined in pytest.ini"""
+    config.addinivalue_line("markers", "asyncio: Async tests")
     config.addinivalue_line("markers", "cache: Cache-related tests")
+    config.addinivalue_line("markers", "celery: Celery task tests")
     config.addinivalue_line("markers", "slow: Slow tests")
     config.addinivalue_line("markers", "integration: Integration tests")
     config.addinivalue_line("markers", "performance: Performance tests")
     config.addinivalue_line("markers", "security: Security tests")
     config.addinivalue_line("markers", "websocket: WebSocket tests")
+    config.addinivalue_line("markers", "unit: Unit tests")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Modify test items - add asyncio mode for async tests"""
+    for item in items:
+        if "asyncio" in item.keywords:
+            item.keywords["asyncio_mode"] = "auto"
 
 
 # ========== USER FIXTURES ==========

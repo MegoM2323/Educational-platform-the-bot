@@ -122,6 +122,23 @@ Created via Django shell for API testing.
 - **Version:** PostgreSQL 15.15
 - **Status:** Healthy, accepting connections
 
+### Database Configuration
+The system uses individual `DB_*` environment variables (not `DATABASE_URL`):
+```
+DB_HOST=localhost
+DB_PORT=5433
+DB_NAME=thebot_db
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_SSLMODE=disable
+```
+
+This configuration method is preferred because:
+- Handles special characters in passwords without URL encoding issues
+- More maintainable and follows standard Django patterns
+- Reduces parsing complexity and improves security
+- Backward compatible - `DATABASE_URL` is still supported if needed
+
 ### Redis
 - **Host:** localhost:6380
 - **Password:** redis (required)

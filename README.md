@@ -57,13 +57,43 @@ frontend/
 **Payments**: YooKassa (recurring subscriptions)
 **Notifications**: Pachca API
 
+## Database Configuration
+
+The application uses separate environment variables for PostgreSQL database configuration:
+
+- `DB_ENGINE=postgresql` - Database backend (always PostgreSQL)
+- `DB_HOST=localhost` - Database hostname
+- `DB_PORT=5432` - Database port
+- `DB_NAME=thebot_db` - Database name
+- `DB_USER=postgres` - Database user
+- `DB_PASSWORD=<generated>` - Database password
+
+For local development with Docker:
+```bash
+# Copy example configuration
+cp .env.docker .env
+
+# Start services
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+These variables are automatically used by Django settings in `backend/config/settings.py`.
+
+### Why not DATABASE_URL?
+
+While the system supports `DATABASE_URL` environment variable for backward compatibility, using separate `DB_*` variables is preferred because:
+1. Special characters in passwords can break URL parsing
+2. Separate variables are more maintainable and standard
+3. Reduced parsing complexity and better security
+
+If you have existing deployments using `DATABASE_URL`, simply remove it and use individual `DB_*` variables instead.
+
 ## Documentation
 
 See [CLAUDE.md](CLAUDE.md) for architecture, code patterns, and development workflow.
 
 Additional docs in `/docs/`:
 - Environment setup and modes
-- Database configuration
 - Scheduling system
 - Forum system
 - Test data generation

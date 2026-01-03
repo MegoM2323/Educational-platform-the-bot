@@ -305,7 +305,7 @@ docker-compose -f docker-compose.prod.yml exec celery-beat celery -A config insp
 Create `.env.production`:
 
 ```bash
-cp .env.example .env.production
+cp .env.production.example .env.production
 ```
 
 Edit key variables:
@@ -316,10 +316,13 @@ ENVIRONMENT=production
 DEBUG=False
 SECRET_KEY=your-secret-key-min-50-chars
 
-# Database
+# Database (use separate DB_* variables instead of DATABASE_URL)
+DB_HOST=db.example.com
+DB_PORT=5432
 DB_NAME=thebot_db
 DB_USER=postgres
 DB_PASSWORD=strong-password
+DB_SSLMODE=require
 
 # Redis
 REDIS_PASSWORD=strong-password
@@ -348,6 +351,48 @@ OPENROUTER_API_KEY=your-key
 PACHCA_API_TOKEN=your-token
 TELEGRAM_BOT_TOKEN=your-token
 ```
+
+### Database Configuration Details
+
+The platform uses individual `DB_*` environment variables instead of a single `DATABASE_URL`:
+
+| Variable | Required | Example | Description |
+|----------|----------|---------|-------------|
+| `DB_HOST` | Yes | `db.example.com` | PostgreSQL hostname or IP |
+| `DB_PORT` | No | `5432` | PostgreSQL port (default: 5432) |
+| `DB_NAME` | Yes | `thebot_db` | Database name |
+| `DB_USER` | Yes | `postgres` | Database user |
+| `DB_PASSWORD` | Yes | `strong-password` | Database password |
+| `DB_SSLMODE` | No | `require` | SSL mode (require/prefer/disable) |
+| `DB_CONNECT_TIMEOUT` | No | `60` | Connection timeout in seconds (default: 60) |
+
+#### Migration from DATABASE_URL
+
+If you have existing deployments using `DATABASE_URL`:
+
+1. **Remove DATABASE_URL** from your `.env` file:
+   ```bash
+   # REMOVE THIS LINE:
+   DATABASE_URL=postgresql://user:pass@host:5432/dbname
+   ```
+
+2. **Add individual DB_* variables**:
+   ```bash
+   # ADD THESE INSTEAD:
+   DB_HOST=host
+   DB_PORT=5432
+   DB_NAME=dbname
+   DB_USER=user
+   DB_PASSWORD=pass
+   DB_SSLMODE=require
+   ```
+
+3. **Restart your containers**:
+   ```bash
+   docker-compose -f docker-compose.prod.yml restart backend
+   ```
+
+The application automatically detects which configuration to use based on available environment variables.
 
 ## SSL/TLS Setup
 
@@ -493,6 +538,48 @@ docker-compose -f docker-compose.prod.yml exec celery-worker \
 ```
 
 ## Troubleshooting
+
+### Database Configuration Issues
+
+#### "ValueError: Port could not be cast to integer"
+
+This error occurs when using `DATABASE_URL` with special characters in passwords that break URL parsing.
+
+**Solution**: Use individual `DB_*` environment variables instead:
+
+```bash
+# WRONG - will fail with special characters in password
+DATABASE_URL=postgresql://user:p@ss%40word@host:5432/dbname
+
+# CORRECT - use DB_* variables instead
+DB_HOST=host
+DB_PORT=5432
+DB_NAME=dbname
+DB_USER=user
+DB_PASSWORD=p@ss%40word
+DB_SSLMODE=require
+```
+
+#### ImproperlyConfigured: "Requires database configuration"
+
+This error means Django could not find database configuration.
+
+**Solution**: Ensure you have set either:
+1. **Option A** - Individual `DB_*` variables (recommended):
+   ```bash
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=thebot_db
+   DB_USER=postgres
+   DB_PASSWORD=password
+   ```
+
+2. **Option B** - `DATABASE_URL` (legacy support):
+   ```bash
+   DATABASE_URL=postgresql://postgres:password@localhost:5432/thebot_db
+   ```
+
+See **Database Configuration Details** section above for complete setup instructions.
 
 ### PostgreSQL Connection Issues
 

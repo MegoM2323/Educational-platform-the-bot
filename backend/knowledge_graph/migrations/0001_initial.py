@@ -11,6 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("materials", "0034_remove_materialprogressaudittrail_progress_and_more"),
     ]
 
     operations = [

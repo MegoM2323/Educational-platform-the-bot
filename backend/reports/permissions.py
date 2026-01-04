@@ -27,7 +27,7 @@ class ReportAccessService:
     """
 
     @staticmethod
-    def can_user_view_report(user, report, access_method='direct', **kwargs):
+    def can_user_view_report(user, report, access_method="direct", **kwargs):
         """
         Check if user can view the given report.
 
@@ -48,8 +48,8 @@ class ReportAccessService:
             return True
 
         # Check access via shared link (token)
-        if access_method == 'token' and 'token' in kwargs:
-            token = kwargs.get('token')
+        if access_method == "token" and "token" in kwargs:
+            token = kwargs.get("token")
             return ReportAccessService._check_token_access(user, report, token)
 
         # Check explicit sharing
@@ -78,11 +78,8 @@ class ReportAccessService:
         from django.db.models import Q
 
         sharings = ReportSharing.objects.filter(
-            report_id=report.id,
-            is_active=True
-        ).filter(
-            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-        )
+            report_id=report.id, is_active=True
+        ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
 
         # User-specific sharing
         if sharings.filter(shared_with_user_id=user.id).exists():
@@ -97,15 +94,12 @@ class ReportAccessService:
     @staticmethod
     def _check_role_based_access(user, report):
         """Check role-based access without sharing."""
-        if user.role == 'admin':
-            return True
-
         # Student: can view reports about themselves
-        if user.role == 'student':
+        if user.role == User.Role.STUDENT:
             return report.target_students.filter(id=user.id).exists()
 
         # Parent: can view reports about their children
-        if user.role == 'parent':
+        if user.role == User.Role.PARENT:
             try:
                 children = user.parent_profile.children.all()
                 return report.target_students.filter(id__in=children).exists()
@@ -113,11 +107,11 @@ class ReportAccessService:
                 return False
 
         # Teacher: can view their own created reports and shared ones
-        if user.role == 'teacher':
+        if user.role == User.Role.TEACHER:
             return report.author_id == user.id
 
         # Tutor: can view their own created reports
-        if user.role == 'tutor':
+        if user.role == User.Role.TUTOR:
             return report.author_id == user.id
 
         return False
@@ -139,39 +133,41 @@ class ReportAccessService:
             return Report.objects.all()
 
         # Student: reports about them + shared with them
-        if user.role == 'student':
+        if user.role == User.Role.STUDENT:
             return Report.objects.filter(
-                Q(target_students=user) |
-                Q(sharings__shared_with_user=user, sharings__is_active=True) |
-                Q(sharings__shared_role='student', sharings__is_active=True)
+                Q(target_students=user)
+                | Q(sharings__shared_with_user=user, sharings__is_active=True)
+                | Q(sharings__shared_role=User.Role.STUDENT, sharings__is_active=True)
             ).distinct()
 
         # Parent: reports about their children + shared with them
-        if user.role == 'parent':
+        if user.role == User.Role.PARENT:
             try:
                 children = user.parent_profile.children.all()
                 return Report.objects.filter(
-                    Q(target_students__in=children) |
-                    Q(sharings__shared_with_user=user, sharings__is_active=True) |
-                    Q(sharings__shared_role='parent', sharings__is_active=True)
+                    Q(target_students__in=children)
+                    | Q(sharings__shared_with_user=user, sharings__is_active=True)
+                    | Q(
+                        sharings__shared_role=User.Role.PARENT, sharings__is_active=True
+                    )
                 ).distinct()
             except AttributeError:
                 return Report.objects.none()
 
         # Teacher: own reports + shared with them
-        if user.role == 'teacher':
+        if user.role == User.Role.TEACHER:
             return Report.objects.filter(
-                Q(author=user) |
-                Q(sharings__shared_with_user=user, sharings__is_active=True) |
-                Q(sharings__shared_role='teacher', sharings__is_active=True)
+                Q(author=user)
+                | Q(sharings__shared_with_user=user, sharings__is_active=True)
+                | Q(sharings__shared_role=User.Role.TEACHER, sharings__is_active=True)
             ).distinct()
 
         # Tutor: own reports + shared with them
-        if user.role == 'tutor':
+        if user.role == User.Role.TUTOR:
             return Report.objects.filter(
-                Q(author=user) |
-                Q(sharings__shared_with_user=user, sharings__is_active=True) |
-                Q(sharings__shared_role='tutor', sharings__is_active=True)
+                Q(author=user)
+                | Q(sharings__shared_with_user=user, sharings__is_active=True)
+                | Q(sharings__shared_role=User.Role.TUTOR, sharings__is_active=True)
             ).distinct()
 
         return Report.objects.none()
@@ -189,7 +185,9 @@ class ReportAccessService:
         return user.is_staff or user.is_superuser or report.author_id == user.id
 
     @staticmethod
-    def log_access(report, user, access_type='view', access_method='direct', request=None, **kwargs):
+    def log_access(
+        report, user, access_type="view", access_method="direct", request=None, **kwargs
+    ):
         """
         Log report access for audit trail.
 
@@ -203,14 +201,14 @@ class ReportAccessService:
         """
         from .models import ReportAccessAuditLog
 
-        ip_address = '0.0.0.0'
-        user_agent = ''
-        session_id = ''
+        ip_address = "0.0.0.0"
+        user_agent = ""
+        session_id = ""
 
         if request:
             ip_address = ReportAccessService._get_client_ip(request)
-            user_agent = request.META.get('HTTP_USER_AGENT', '')
-            session_id = request.session.session_key if request.session else ''
+            user_agent = request.META.get("HTTP_USER_AGENT", "")
+            session_id = request.session.session_key if request.session else ""
 
         ReportAccessAuditLog.objects.create(
             report=report,
@@ -220,18 +218,18 @@ class ReportAccessService:
             ip_address=ip_address,
             user_agent=user_agent,
             session_id=session_id,
-            access_duration_seconds=kwargs.get('duration', 0),
-            metadata=kwargs.get('metadata', {})
+            access_duration_seconds=kwargs.get("duration", 0),
+            metadata=kwargs.get("metadata", {}),
         )
 
     @staticmethod
     def _get_client_ip(request):
         """Extract client IP from request."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(",")[0]
         else:
-            ip = request.META.get('REMOTE_ADDR')
+            ip = request.META.get("REMOTE_ADDR")
         return ip
 
 
@@ -259,24 +257,24 @@ class ParentReportPermission(BasePermission):
             return True
 
         # Teachers can manage their own reports (write access)
-        if user.role == 'teacher':
+        if user.role == User.Role.TEACHER:
             return obj.teacher == user
 
         # Students can view reports about themselves (read-only)
-        if user.role == 'student':
+        if user.role == User.Role.STUDENT:
             if request.method in SAFE_METHODS:
                 return obj.student == user
             return False
 
         # Parents can view reports about their children (read-only)
-        if user.role == 'parent':
+        if user.role == User.Role.PARENT:
             # Check if report is visible to parent
             if not obj.show_to_parent:
                 return False
 
             # Check if user is the parent of the student
             try:
-                student_profile = StudentProfile.objects.select_related('parent').get(
+                student_profile = StudentProfile.objects.select_related("parent").get(
                     user_id=obj.student_id
                 )
                 if student_profile.parent_id == user.id:
@@ -304,7 +302,11 @@ class IsTeacherOrAdmin(BasePermission):
         return (
             request.user
             and request.user.is_authenticated
-            and (request.user.role == 'teacher' or request.user.is_staff or request.user.is_superuser)
+            and (
+                request.user.role == User.Role.TEACHER
+                or request.user.is_staff
+                or request.user.is_superuser
+            )
         )
 
 
@@ -326,12 +328,12 @@ class CanAcknowledgeReport(BasePermission):
             return True
 
         # Only parents can acknowledge
-        if user.role != 'parent':
+        if user.role != User.Role.PARENT:
             return False
 
         # Check if user is the parent
         try:
-            student_profile = StudentProfile.objects.select_related('parent').get(
+            student_profile = StudentProfile.objects.select_related("parent").get(
                 user_id=obj.student_id
             )
             return student_profile.parent_id == user.id

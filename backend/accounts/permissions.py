@@ -141,12 +141,12 @@ class IsOwnerOrReadOnly(BasePermission):
             return True
 
         # Только владелец может редактировать/удалять
-        # Проверяем если obj - это User, иначе это Profile (у которого есть .user)
-        owner = (
-            obj
-            if isinstance(obj, type(obj).__bases__[0])
-            else getattr(obj, "user", obj)
-        )
+        # Если obj это Profile модель (у которого есть поле 'user'), то владелец это obj.user
+        # Иначе это User объект сам по себе
+        if hasattr(obj, "user"):
+            owner = obj.user
+        else:
+            owner = obj
         return request.user == owner
 
 

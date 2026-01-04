@@ -111,19 +111,13 @@ class StudentEnrollmentPermission(BasePermission):
                     if hasattr(enrollment, "subscription") and enrollment.subscription:
                         subscription = enrollment.subscription
                         # Проверяем и статус подписки, и дату истечения
-                        if (
-                            hasattr(subscription, "status")
-                            and subscription.status != "active"
-                        ):
+                        if hasattr(subscription, "status") and subscription.status != "active":
                             logger.warning(
                                 f"Student subscription inactive: student_id={user.id}, "
                                 f"subject_id={obj.subject.id}, status={subscription.status}"
                             )
                             return False
-                        if (
-                            subscription.expires_at
-                            and timezone.now() > subscription.expires_at
-                        ):
+                        if subscription.expires_at and timezone.now() > subscription.expires_at:
                             logger.warning(
                                 f"Student enrollment expired: student_id={user.id}, "
                                 f"subject_id={obj.subject.id}"
@@ -157,32 +151,31 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
     def has_permission(self, request, view):
         """
         Глобальная проверка - только студенты могут отправлять ответы.
+        Teachers/tutors могут видеть (GET) ответы, но НЕ отправлять новые.
         """
         if not request.user or not request.user.is_authenticated:
             return False
 
         # Проверка что пользователь активен
         if not request.user.is_active:
-            logger.warning(
-                f"Inactive user attempted submission: user_id={request.user.id}"
-            )
+            logger.warning(f"Inactive user attempted submission: user_id={request.user.id}")
             return False
 
-        # Только студенты могут отправлять ответы
-        if request.method == "POST" and request.user.role != User.Role.STUDENT:
-            logger.warning(
-                f"Non-student attempted submission: user_id={request.user.id}, "
-                f"role={request.user.role}"
-            )
-            return False
+        # Только студенты могут отправлять ответы (POST/PUT/PATCH)
+        if request.method in ["POST", "PUT", "PATCH"]:
+            if request.user.role != User.Role.STUDENT:
+                logger.warning(
+                    f"Non-student attempted submission: user_id={request.user.id}, "
+                    f"role={request.user.role}, method={request.method}"
+                )
+                return False
 
+        # GET разрешен для authenticated пользователей (проверка has_object_permission уточнит)
         return True
 
     def has_object_permission(self, request, view, obj):
         """
         Проверка прав на объект (MaterialSubmission).
-
-        Учителя НЕ могут отправлять ответы на свои материалы.
 
         Args:
             request: HTTP request
@@ -196,36 +189,39 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
 
         # Проверка что пользователь активен
         if not user.is_active:
-            logger.warning(
-                f"Inactive user attempted submission access: user_id={user.id}"
-            )
+            logger.warning(f"Inactive user attempted submission access: user_id={user.id}")
             return False
 
         # Админы имеют полный доступ
         if user.is_staff or user.is_superuser:
             return True
 
-        # Студенты видят только свои ответы и могут их отправлять
+        # Студенты видят только свои ответы, могут их отправлять и удалять
         if user.role == User.Role.STUDENT:
-            return obj.student == user
+            is_owner = obj.student == user
+            if request.method == "DELETE":
+                # Студент может удалять только свои ответы
+                return is_owner
+            # GET, POST, PUT, PATCH - проверяем что это его ответ
+            return is_owner
 
-        # Учителя видят ответы на свои материалы, но НЕ могут их отправлять
+        # Учителя видят ответы на свои материалы, но НЕ могут их изменять/удалять
         if user.role == User.Role.TEACHER:
             material = obj.material
-            # Учитель может просматривать ответы на свои материалы (GET)
+            # Учитель может просматривать ответы на свои материалы (GET only)
             if request.method == "GET":
                 return material.author == user
-            # Но не может отправлять ответы (POST, PUT, PATCH)
+            # Но не может отправлять, изменять или удалять ответы
             logger.warning(
-                f"Teacher attempted to submit answer: teacher_id={user.id}, "
-                f"material_id={material.id}"
+                f"Teacher attempted to modify/delete answer: teacher_id={user.id}, "
+                f"material_id={material.id}, method={request.method}"
             )
             return False
 
         # Для тьютора проверяем что это его студент
         if user.role == User.Role.TUTOR:
             material = obj.material
-            # Тьютор может просматривать ответы на материалы своих студентов (GET)
+            # Тьютор может просматривать ответы на материалы своих студентов (GET only)
             if request.method == "GET":
                 return material.subject in [
                     enrollment.subject
@@ -235,10 +231,10 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
                         student__student_profile__tutor=user,
                     )
                 ]
-            # Но не может отправлять ответы (POST, PUT, PATCH)
+            # Но не может отправлять, изменять или удалять ответы
             logger.warning(
-                f"Tutor attempted to submit answer: tutor_id={user.id}, "
-                f"material_id={material.id}"
+                f"Tutor attempted to modify/delete answer: tutor_id={user.id}, "
+                f"material_id={material.id}, method={request.method}"
             )
             return False
 

@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import RegexValidator, MaxValueValidator, MaxLengthValidator
+from django.core.exceptions import ValidationError
 
 
 class User(AbstractUser):
@@ -131,6 +132,25 @@ class StudentProfile(models.Model):
 
     def __str__(self):
         return f"Профиль студента: {self.user.get_full_name()}"
+
+    def clean(self):
+        """Валидация связей с тьютором и родителем"""
+        errors = {}
+
+        if self.tutor:
+            if self.tutor.role != User.Role.TUTOR:
+                errors["tutor"] = "Тьютор должен иметь роль 'Тьютор'"
+            elif not self.tutor.is_active:
+                errors["tutor"] = "Тьютор должен быть активным"
+
+        if self.parent:
+            if self.parent.role != User.Role.PARENT:
+                errors["parent"] = "Родитель должен иметь роль 'Родитель'"
+            elif not self.parent.is_active:
+                errors["parent"] = "Родитель должен быть активным"
+
+        if errors:
+            raise ValidationError(errors)
 
 
 class TeacherProfile(models.Model):

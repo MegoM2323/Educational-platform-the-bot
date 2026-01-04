@@ -551,13 +551,17 @@ def list_students(request):
             "previous": null,
             "results": [...]
         }
+
+    Note: Only returns StudentProfile entries where user.role='STUDENT'.
     """
     from .serializers import StudentListSerializer
 
     # Базовый queryset с оптимизацией запросов
-    queryset = StudentProfile.objects.select_related(
-        "user", "tutor", "parent"
-    ).annotate(enrollments_count=Count("user__subject_enrollments"))
+    queryset = (
+        StudentProfile.objects.filter(user__role=User.Role.STUDENT)
+        .select_related("user", "tutor", "parent")
+        .annotate(enrollments_count=Count("user__subject_enrollments"))
+    )
 
     # Фильтр по активности пользователя (по умолчанию показываем всех)
     is_active = request.query_params.get("is_active")

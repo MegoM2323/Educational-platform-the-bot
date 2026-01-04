@@ -19,7 +19,7 @@ TEACHER_PRIVATE_FIELDS = ["bio", "experience_years"]
 TUTOR_PRIVATE_FIELDS = ["bio", "experience_years"]
 
 # Приватные поля ParentProfile (пока нет)
-PARENT_PRIVATE_FIELDS = []
+PARENT_PRIVATE_FIELDS: list[str] = []
 
 
 # ============= ФУНКЦИИ ПРОВЕРКИ ПРАВ =============
@@ -31,6 +31,7 @@ def can_view_private_fields(viewer_user, profile_owner_user, profile_type):
 
     Бизнес-правила:
     - Админы и staff видят всё
+    - Только активные пользователи могут видеть приватные поля
     - Владелец профиля НЕ видит свои приватные поля
     - Для студентов: teacher и tutor могут видеть приватные поля
     - Для teacher/tutor: только admin видит приватные поля
@@ -61,6 +62,10 @@ def can_view_private_fields(viewer_user, profile_owner_user, profile_type):
         >>> can_view_private_fields(admin_user, teacher_user, 'teacher')
         True
     """
+    # Только активные пользователи могут видеть приватные поля
+    if not viewer_user.is_active:
+        return False
+
     # Админы и staff видят всё
     if viewer_user.is_staff or viewer_user.is_superuser:
         return True
@@ -70,7 +75,7 @@ def can_view_private_fields(viewer_user, profile_owner_user, profile_type):
         return False
 
     # Для студентов: teacher и tutor могут видеть приватные поля
-    if profile_type == "student":
+    if profile_type == User.Role.STUDENT:
         if viewer_user.role in [User.Role.TEACHER, User.Role.TUTOR]:
             return True
 
@@ -85,23 +90,23 @@ def get_private_fields_for_role(profile_type):
     Возвращает список приватных полей для указанного типа профиля.
 
     Args:
-        profile_type (str): Тип профиля ('student', 'teacher', 'tutor', 'parent')
+        profile_type (str): Тип профиля или User.Role enum значение
 
     Returns:
         list: Список имен приватных полей
 
     Examples:
-        >>> get_private_fields_for_role('student')
+        >>> get_private_fields_for_role(User.Role.STUDENT)
         ['goal', 'tutor', 'parent']
 
-        >>> get_private_fields_for_role('teacher')
+        >>> get_private_fields_for_role(User.Role.TEACHER)
         ['bio', 'experience_years']
     """
     field_map = {
-        "student": STUDENT_PRIVATE_FIELDS,
-        "teacher": TEACHER_PRIVATE_FIELDS,
-        "tutor": TUTOR_PRIVATE_FIELDS,
-        "parent": PARENT_PRIVATE_FIELDS,
+        User.Role.STUDENT: STUDENT_PRIVATE_FIELDS,
+        User.Role.TEACHER: TEACHER_PRIVATE_FIELDS,
+        User.Role.TUTOR: TUTOR_PRIVATE_FIELDS,
+        User.Role.PARENT: PARENT_PRIVATE_FIELDS,
     }
 
     return field_map.get(profile_type, [])
@@ -117,13 +122,20 @@ class IsOwnerOrReadOnly(BasePermission):
     Позволяет редактировать объект только его владельцу.
     Остальные пользователи могут только читать (GET).
 
-    Проверяет:
-    - GET запросы: доступны всем аутентифицированным пользователям
-    - PUT/PATCH/DELETE: только владельцу объекта
+    Требует:
+    - Пользователь активен (is_active=True)
+
+    Права по ролям:
+    - Все активные: GET запросы к объекту
+    - Владелец (active): PUT/PATCH/DELETE свой объект
+    - Остальные: запрещено редактировать
     """
 
     def has_object_permission(self, request, view, obj):
         """Проверяет есть ли у пользователя права на объект"""
+        if not request.user.is_active:
+            return False
+
         # Все могут читать
         if request.method in ["GET", "HEAD", "OPTIONS"]:
             return True
@@ -142,14 +154,21 @@ class IsOwnerProfileOrAdmin(BasePermission):
     """
     Позволяет редактировать профиль только его владельцу или администратору.
 
-    Проверяет:
-    - Владелец профиля может редактировать свой профиль
-    - Админ/staff может редактировать любой профиль
-    - Остальные могут только читать
+    Требует:
+    - Пользователь активен (is_active=True)
+
+    Права по ролям:
+    - Админ (is_staff/is_superuser): PUT/PATCH/DELETE любой профиль
+    - Владелец (active): PUT/PATCH/DELETE свой профиль
+    - Все активные: GET любой профиль
+    - Остальные (неактивные): запрещено
     """
 
     def has_object_permission(self, request, view, obj):
         """Проверяет есть ли у пользователя права на объект профиля"""
+        if not request.user.is_active:
+            return False
+
         # Админы могут всё
         if request.user.is_staff or request.user.is_superuser:
             return True
@@ -166,9 +185,14 @@ class IsTutorOrAdmin(BasePermission):
     """
     Позволяет выполнять действия только тьютору или администратору.
 
-    Проверяет:
-    - Пользователь имеет роль 'tutor' или 'admin'
-    - Остальные ролям запрещено
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+
+    Права по ролям:
+    - Admin (is_staff/is_superuser): полный доступ
+    - Tutor (role=TUTOR, active): доступ для управления студентами
+    - Остальные: запрещено
     """
 
     def has_permission(self, request, view):
@@ -187,19 +211,18 @@ class IsTutorOrAdmin(BasePermission):
 
 class TutorCanManageStudentProfiles(BasePermission):
     """
-    Позволяет тьютору управлять профилями только своих студентов.
+    Позволяет управлять студентами только их владельцам, тьюторам и администраторам.
 
-    Бизнес-правила:
-    - Студент может редактировать ТОЛЬКО свой профиль
-    - Тьютор может редактировать профили своих студентов (через StudentProfile.tutor)
-    - Учитель может редактировать ТОЛЬКО свой профиль
-    - Админ может редактировать ВСЕ профили
+    Требует:
+    - Пользователь активен (is_active=True)
 
-    Проверяет:
-    - Если пользователь - админ: всегда True
-    - Если пользователь - тьютор: может редактировать студентов, назначенных ему
-    - Если пользователь редактирует свой профиль: всегда True (если не в blacklist роли)
-    - Остальные: False
+    Право по ролям:
+    - Admin (is_staff/is_superuser): PUT/PATCH/DELETE любой профиль
+    - Student (role=STUDENT, active): PUT/PATCH/DELETE только свой профиль
+    - Tutor (role=TUTOR, active): PUT/PATCH/DELETE профили своих студентов (через StudentProfile.tutor)
+    - Teacher/Parent: PUT/PATCH/DELETE только свой профиль
+    - Все активные: GET любой профиль
+    - Неактивные: запрещено
     """
 
     def has_permission(self, request, view):
@@ -243,11 +266,20 @@ class CanViewOwnProfileOnly(BasePermission):
     """
     Позволяет просматривать только свой профиль (строгое ограничение).
 
-    Используется для protect endpoints где мы хотим разрешить только доступ к собственному профилю.
+    Требует:
+    - Пользователь активен (is_active=True)
+
+    Права по ролям:
+    - Admin (is_staff/is_superuser): GET любой профиль
+    - Все активные: GET свой профиль
+    - Неактивные: запрещено
     """
 
     def has_object_permission(self, request, view, obj):
         """Проверяет имеет ли пользователь доступ к профилю"""
+        if not request.user.is_active:
+            return False
+
         # Админы могут видеть все
         if request.user.is_staff or request.user.is_superuser:
             return True
@@ -263,6 +295,17 @@ class IsStudentOwner(BasePermission):
     """
     Позволяет только студентам редактировать свой профиль,
     или тьюторам редактировать профили своих студентов.
+
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Объект является StudentProfile
+
+    Права по ролям:
+    - Admin (is_staff/is_superuser): PUT/PATCH/DELETE любой StudentProfile
+    - Student (role=STUDENT, active): PUT/PATCH/DELETE свой StudentProfile, НЕ может менять role field
+    - Tutor (role=TUTOR, active): PUT/PATCH/DELETE StudentProfile только своих студентов, НЕ может менять role field
+    - Остальные: запрещено
+    - Все активные: GET любой StudentProfile
     """
 
     def has_object_permission(self, request, view, obj):
@@ -284,26 +327,40 @@ class IsStudentOwner(BasePermission):
         if not isinstance(obj, StudentProfile):
             return False
 
-        # Студент может редактировать только свой профиль
+        # Студент может редактировать только свой профиль (но не role field)
         if request.user.role == User.Role.STUDENT:
-            return request.user == obj.user
+            if request.user != obj.user:
+                return False
+            # Студент НЕ может менять role field (это контролируется в сериализаторе)
+            return True
 
-        # Тьютор может редактировать профили своих студентов
+        # Тьютор может редактировать профили своих студентов (но не role field)
         if request.user.role == User.Role.TUTOR:
-            return obj.tutor == request.user
+            if obj.tutor != request.user:
+                return False
+            # Тьютор НЕ может менять role field (это контролируется в сериализаторе)
+            return True
 
         return False
 
 
 class IsStaffOrAdmin(BasePermission):
     """
-    Разрешение для пользователей с правами администратора или staff.
-    Также разрешает тьюторам (роль TUTOR).
+    Разрешение ТОЛЬКО для пользователей с правами администратора или staff.
+    НЕ включает тьюторов - они используют IsTutorOrAdmin для управления студентами.
 
-    Бизнес-правила:
-    - Админ (is_superuser или is_staff) имеет полный доступ
-    - Пользователь с ролью TUTOR также имеет доступ (тьютор - это тип администратора)
-    - Остальные пользователи не имеют доступа
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+
+    Права по ролям:
+    - Admin (is_staff=True или is_superuser=True): полный доступ
+    - Остальные (включая TUTOR): запрещено
+    - Неактивные: запрещено
+
+    Примечание:
+    - Используется для admin-only операций (создание/удаление users, system management)
+    - Тьютор получает доступ ТОЛЬКО к управлению своими студентами через IsTutorOrAdmin/TutorCanManageStudentProfiles
     """
 
     def has_permission(self, request, view) -> bool:
@@ -314,24 +371,27 @@ class IsStaffOrAdmin(BasePermission):
         if not request.user.is_active:
             return False
 
-        return (
-            request.user.is_staff
-            or request.user.is_superuser
-            or getattr(request.user, "role", None) == User.Role.TUTOR
-        )
+        return request.user.is_staff or request.user.is_superuser
 
 
-class IsAdminUser(BasePermission):
+class IsAdminUserOnly(BasePermission):
     """
-    Разрешение только для пользователей с правами администратора.
+    Разрешение ТОЛЬКО для пользователей с правами администратора (более строгое, чем IsStaffOrAdmin).
 
-    Бизнес-правила:
-    - Только пользователи с is_staff=True или is_superuser=True имеют доступ
-    - Возвращает 403 Forbidden для всех остальных пользователей
-    - Используется для admin-only endpoints (schedule, chat management)
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+    - is_staff=True или is_superuser=True
 
-    Примечание: Этот класс отличается от IsStaffOrAdmin тем, что НЕ включает тьюторов.
-    Только настоящие админы (staff/superuser) имеют доступ к админской панели.
+    Права по ролям:
+    - Admin (is_staff=True или is_superuser=True): полный доступ
+    - Все остальные (включая TUTOR): запрещено
+    - Неактивные: запрещено
+
+    Примечание:
+    - Это наиболее строгое разрешение для admin-only операций
+    - Используется для защиты критических операций (удаление users, system configuration)
+    - Отличается от IsStaffOrAdmin: оба требуют is_staff, но IsAdminUserOnly может быть еще строже
     """
 
     def has_permission(self, request, view) -> bool:
@@ -349,9 +409,18 @@ class IsStudent(BasePermission):
     """
     Разрешение только для студентов.
 
-    Бизнес-правила:
-    - Только пользователи с ролью STUDENT имеют доступ
-    - Используется для student-only endpoints
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+    - role=STUDENT
+
+    Права по ролям:
+    - Student (role=STUDENT, active): полный доступ
+    - Все остальные (Admin, Teacher, Tutor, Parent): запрещено
+    - Неактивные: запрещено
+
+    Используется для:
+    - Student-only endpoints
     """
 
     def has_permission(self, request, view) -> bool:
@@ -369,9 +438,18 @@ class IsTeacher(BasePermission):
     """
     Разрешение только для учителей.
 
-    Бизнес-правила:
-    - Только пользователи с ролью TEACHER имеют доступ
-    - Используется для teacher-only endpoints
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+    - role=TEACHER
+
+    Права по ролям:
+    - Teacher (role=TEACHER, active): полный доступ
+    - Все остальные (Admin, Student, Tutor, Parent): запрещено
+    - Неактивные: запрещено
+
+    Используется для:
+    - Teacher-only endpoints
     """
 
     def has_permission(self, request, view) -> bool:
@@ -389,9 +467,18 @@ class IsTutor(BasePermission):
     """
     Разрешение только для тьюторов.
 
-    Бизнес-правила:
-    - Только пользователи с ролью TUTOR имеют доступ
-    - Используется для tutor-only endpoints
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+    - role=TUTOR
+
+    Права по ролям:
+    - Tutor (role=TUTOR, active): полный доступ
+    - Все остальные (Admin, Student, Teacher, Parent): запрещено
+    - Неактивные: запрещено
+
+    Используется для:
+    - Tutor-only endpoints
     """
 
     def has_permission(self, request, view) -> bool:
@@ -409,9 +496,18 @@ class IsParent(BasePermission):
     """
     Разрешение только для родителей.
 
-    Бизнес-правила:
-    - Только пользователи с ролью PARENT имеют доступ
-    - Используется для parent-only endpoints
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+    - role=PARENT
+
+    Права по ролям:
+    - Parent (role=PARENT, active): полный доступ
+    - Все остальные (Admin, Student, Teacher, Tutor): запрещено
+    - Неактивные: запрещено
+
+    Используется для:
+    - Parent-only endpoints
     """
 
     def has_permission(self, request, view) -> bool:
@@ -423,3 +519,7 @@ class IsParent(BasePermission):
             return False
 
         return request.user.role == User.Role.PARENT
+
+
+# Backward compatibility alias
+IsAdminUser = IsAdminUserOnly

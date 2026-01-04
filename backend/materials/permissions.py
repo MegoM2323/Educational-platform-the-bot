@@ -15,6 +15,7 @@ from rest_framework.permissions import BasePermission
 from django.utils import timezone
 
 from .models import SubjectEnrollment, TeacherSubject
+from accounts.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -55,20 +56,28 @@ class StudentEnrollmentPermission(BasePermission):
         """
         user = request.user
 
+        # Проверка что пользователь активен
+        if not user.is_active:
+            logger.warning(f"Inactive user attempted access: user_id={user.id}")
+            return False
+
         # Админы имеют доступ ко всему
         if user.is_staff or user.is_superuser:
             return True
 
         # Учителя видят свои материалы
-        if user.role == "teacher":
-            return obj.author == user or TeacherSubject.objects.filter(
-                teacher=user,
-                subject=obj.subject,
-                is_active=True,
-            ).exists()
+        if user.role == User.Role.TEACHER:
+            return (
+                obj.author == user
+                or TeacherSubject.objects.filter(
+                    teacher=user,
+                    subject=obj.subject,
+                    is_active=True,
+                ).exists()
+            )
 
         # Тьюторы видят материалы предметов своих студентов
-        if user.role == "tutor":
+        if user.role == User.Role.TUTOR:
             try:
                 # Проверяем есть ли активные зачисления студентов на этот предмет
                 # которых преподает этот тьютор
@@ -83,8 +92,8 @@ class StudentEnrollmentPermission(BasePermission):
                 return False
 
         # Студенты видят материалы только предметов с активным зачислением
-        if user.role == "student":
-            # Публичные материалы доступны всем
+        if user.role == User.Role.STUDENT:
+            # Публичные материалы доступны всем активным студентам
             if obj.is_public:
                 return True
 
@@ -98,10 +107,23 @@ class StudentEnrollmentPermission(BasePermission):
                         is_active=True,
                     )
 
-                    # Проверка срока действия через подписку
-                    if hasattr(enrollment, 'subscription') and enrollment.subscription:
+                    # Проверка статуса и срока действия через подписку
+                    if hasattr(enrollment, "subscription") and enrollment.subscription:
                         subscription = enrollment.subscription
-                        if subscription.expires_at and timezone.now() > subscription.expires_at:
+                        # Проверяем и статус подписки, и дату истечения
+                        if (
+                            hasattr(subscription, "status")
+                            and subscription.status != "active"
+                        ):
+                            logger.warning(
+                                f"Student subscription inactive: student_id={user.id}, "
+                                f"subject_id={obj.subject.id}, status={subscription.status}"
+                            )
+                            return False
+                        if (
+                            subscription.expires_at
+                            and timezone.now() > subscription.expires_at
+                        ):
                             logger.warning(
                                 f"Student enrollment expired: student_id={user.id}, "
                                 f"subject_id={obj.subject.id}"
@@ -139,8 +161,15 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
 
+        # Проверка что пользователь активен
+        if not request.user.is_active:
+            logger.warning(
+                f"Inactive user attempted submission: user_id={request.user.id}"
+            )
+            return False
+
         # Только студенты могут отправлять ответы
-        if request.method == "POST" and request.user.role != "student":
+        if request.method == "POST" and request.user.role != User.Role.STUDENT:
             logger.warning(
                 f"Non-student attempted submission: user_id={request.user.id}, "
                 f"role={request.user.role}"
@@ -153,6 +182,8 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
         """
         Проверка прав на объект (MaterialSubmission).
 
+        Учителя НЕ могут отправлять ответы на свои материалы.
+
         Args:
             request: HTTP request
             view: View instance
@@ -163,22 +194,39 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
         """
         user = request.user
 
+        # Проверка что пользователь активен
+        if not user.is_active:
+            logger.warning(
+                f"Inactive user attempted submission access: user_id={user.id}"
+            )
+            return False
+
         # Админы имеют полный доступ
         if user.is_staff or user.is_superuser:
             return True
 
-        # Студенты видят только свои ответы
-        if user.role == "student":
+        # Студенты видят только свои ответы и могут их отправлять
+        if user.role == User.Role.STUDENT:
             return obj.student == user
 
-        # Учителя/тьюторы видят ответы на свои материалы
-        if user.role in ["teacher", "tutor"]:
+        # Учителя видят ответы на свои материалы, но НЕ могут их отправлять
+        if user.role == User.Role.TEACHER:
             material = obj.material
-            if user.role == "teacher":
+            # Учитель может просматривать ответы на свои материалы (GET)
+            if request.method == "GET":
                 return material.author == user
+            # Но не может отправлять ответы (POST, PUT, PATCH)
+            logger.warning(
+                f"Teacher attempted to submit answer: teacher_id={user.id}, "
+                f"material_id={material.id}"
+            )
+            return False
 
-            # Для тьютора проверяем что это его студент
-            if user.role == "tutor":
+        # Для тьютора проверяем что это его студент
+        if user.role == User.Role.TUTOR:
+            material = obj.material
+            # Тьютор может просматривать ответы на материалы своих студентов (GET)
+            if request.method == "GET":
                 return material.subject in [
                     enrollment.subject
                     for enrollment in SubjectEnrollment.objects.filter(
@@ -187,5 +235,11 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
                         student__student_profile__tutor=user,
                     )
                 ]
+            # Но не может отправлять ответы (POST, PUT, PATCH)
+            logger.warning(
+                f"Tutor attempted to submit answer: tutor_id={user.id}, "
+                f"material_id={material.id}"
+            )
+            return False
 
         return False

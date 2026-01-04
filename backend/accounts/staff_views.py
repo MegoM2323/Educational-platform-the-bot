@@ -71,7 +71,9 @@ def list_staff(request):
     role = request.query_params.get("role")
     if role not in (User.Role.TEACHER, User.Role.TUTOR):
         return Response(
-            {"detail": "Параметр 'role' обязателен и должен быть 'teacher' или 'tutor'"},
+            {
+                "detail": "Параметр 'role' обязателен и должен быть 'teacher' или 'tutor'"
+            },
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -92,14 +94,18 @@ def list_staff(request):
         logger.debug(f"[list_staff] Found {len(users)} teachers with role={role}")
 
         user_ids = [u.id for u in users]
-        profiles_qs = TeacherProfile.objects.filter(user_id__in=user_ids).select_related("user")
+        profiles_qs = TeacherProfile.objects.filter(
+            user_id__in=user_ids
+        ).select_related("user")
         profiles_map = {p.user_id: p for p in profiles_qs}
 
         results = []
         for user in users:
             prefetched_subjects = getattr(user, "teacher_subjects", None)
             if prefetched_subjects is not None:
-                teacher_subjects = [ts for ts in prefetched_subjects.all() if ts.is_active]
+                teacher_subjects = [
+                    ts for ts in prefetched_subjects.all() if ts.is_active
+                ]
             else:
                 teacher_subjects = list(
                     TeacherSubject.objects.filter(teacher=user, is_active=True)
@@ -200,9 +206,13 @@ def update_teacher_subjects(request, teacher_id):
 
     # Проверяем что пользователь с указанным ID существует и является преподавателем
     try:
-        teacher = User.objects.get(id=teacher_id, role=User.Role.TEACHER, is_active=True)
+        teacher = User.objects.get(
+            id=teacher_id, role=User.Role.TEACHER, is_active=True
+        )
     except User.DoesNotExist:
-        return Response({"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     # Валидация входных данных
     serializer = TeacherSubjectUpdateSerializer(data=request.data)
@@ -286,7 +296,9 @@ def create_staff(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
     if not email:
-        return Response({"detail": "email обязателен"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "email обязателен"}, status=status.HTTP_400_BAD_REQUEST
+        )
     if not first_name or not last_name:
         return Response(
             {"detail": "first_name и last_name обязательны"},
@@ -433,7 +445,9 @@ def create_staff(request):
     # Возвращаем профиль для мгновенного UI-обновления
     try:
         if role == User.Role.TEACHER:
-            profile = TeacherProfile.objects.select_related("user").get(user=django_user)
+            profile = TeacherProfile.objects.select_related("user").get(
+                user=django_user
+            )
             profile_data = TeacherProfileSerializer(profile).data
         else:
             profile = TutorProfile.objects.select_related("user").get(user=django_user)
@@ -603,11 +617,13 @@ def get_student_detail(request, student_id):
 
     try:
         # Получаем студента с оптимизацией запросов
-        student_profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
-            user_id=student_id, user__role=User.Role.STUDENT
-        )
+        student_profile = StudentProfile.objects.select_related(
+            "user", "tutor", "parent"
+        ).get(user_id=student_id, user__role=User.Role.STUDENT)
     except StudentProfile.DoesNotExist:
-        return Response({"detail": "Студент не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Студент не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     # Сериализуем данные
     serializer = StudentDetailSerializer(student_profile)
@@ -668,7 +684,9 @@ def update_user(request, user_id):
             "student_profile", "teacher_profile", "tutor_profile", "parent_profile"
         ).get(id=user_id)
     except User.DoesNotExist:
-        return Response({"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     # Проверка: нельзя деактивировать самого себя
     if "is_active" in request.data:
@@ -702,7 +720,9 @@ def update_user(request, user_id):
                     student_profile, data=profile_data, partial=True
                 )
                 if not profile_serializer.is_valid():
-                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
 
                 updated_profile = profile_serializer.save()
                 profile_serializer_data = StudentProfileSerializer(updated_profile).data
@@ -710,7 +730,9 @@ def update_user(request, user_id):
                 # Если профиля нет - создаем
                 profile_serializer = StudentProfileUpdateSerializer(data=profile_data)
                 if not profile_serializer.is_valid():
-                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
 
                 updated_profile = StudentProfile.objects.create(
                     user=user, **profile_serializer.validated_data
@@ -719,12 +741,16 @@ def update_user(request, user_id):
 
         elif profile_data and user.role == User.Role.TEACHER:
             try:
-                teacher_profile = TeacherProfile.objects.select_related("user").get(user=user)
+                teacher_profile = TeacherProfile.objects.select_related("user").get(
+                    user=user
+                )
                 profile_serializer = TeacherProfileUpdateSerializer(
                     teacher_profile, data=profile_data, partial=True
                 )
                 if not profile_serializer.is_valid():
-                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
 
                 updated_profile = profile_serializer.save()
                 profile_serializer_data = TeacherProfileSerializer(updated_profile).data
@@ -739,12 +765,16 @@ def update_user(request, user_id):
 
         elif profile_data and user.role == User.Role.TUTOR:
             try:
-                tutor_profile = TutorProfile.objects.select_related("user").get(user=user)
+                tutor_profile = TutorProfile.objects.select_related("user").get(
+                    user=user
+                )
                 profile_serializer = TutorProfileUpdateSerializer(
                     tutor_profile, data=profile_data, partial=True
                 )
                 if not profile_serializer.is_valid():
-                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
 
                 updated_profile = profile_serializer.save()
                 profile_serializer_data = TutorProfileSerializer(updated_profile).data
@@ -760,12 +790,16 @@ def update_user(request, user_id):
 
         elif profile_data and user.role == User.Role.PARENT:
             try:
-                parent_profile = ParentProfile.objects.select_related("user").get(user=user)
+                parent_profile = ParentProfile.objects.select_related("user").get(
+                    user=user
+                )
                 profile_serializer = ParentProfileUpdateSerializer(
                     parent_profile, data=profile_data, partial=True
                 )
                 if not profile_serializer.is_valid():
-                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
 
                 updated_profile = profile_serializer.save()
                 from .serializers import ParentProfileSerializer
@@ -817,14 +851,18 @@ def update_student_profile(request, student_id):
         - 404: Студент не найден
     """
     try:
-        student_profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
-            user_id=student_id, user__role=User.Role.STUDENT
-        )
+        student_profile = StudentProfile.objects.select_related(
+            "user", "tutor", "parent"
+        ).get(user_id=student_id, user__role=User.Role.STUDENT)
     except StudentProfile.DoesNotExist:
-        return Response({"detail": "Профиль студента не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Профиль студента не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     # Валидация и обновление
-    serializer = StudentProfileUpdateSerializer(student_profile, data=request.data, partial=True)
+    serializer = StudentProfileUpdateSerializer(
+        student_profile, data=request.data, partial=True
+    )
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -877,10 +915,14 @@ def update_teacher_profile(request, teacher_id):
                 user=teacher_user, subject="", experience_years=0, bio=""
             )
         except User.DoesNotExist:
-            return Response({"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND
+            )
 
     # Валидация и обновление
-    serializer = TeacherProfileUpdateSerializer(teacher_profile, data=request.data, partial=True)
+    serializer = TeacherProfileUpdateSerializer(
+        teacher_profile, data=request.data, partial=True
+    )
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -930,10 +972,14 @@ def update_tutor_profile(request, tutor_id):
                 user=tutor_user, specialization="", experience_years=0, bio=""
             )
         except User.DoesNotExist:
-            return Response({"detail": "Тьютор не найден"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Тьютор не найден"}, status=status.HTTP_404_NOT_FOUND
+            )
 
     # Валидация и обновление
-    serializer = TutorProfileUpdateSerializer(tutor_profile, data=request.data, partial=True)
+    serializer = TutorProfileUpdateSerializer(
+        tutor_profile, data=request.data, partial=True
+    )
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -978,10 +1024,14 @@ def update_parent_profile(request, parent_id):
             parent_user = User.objects.get(id=parent_id, role=User.Role.PARENT)
             parent_profile = ParentProfile.objects.create(user=parent_user)
         except User.DoesNotExist:
-            return Response({"detail": "Родитель не найден"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Родитель не найден"}, status=status.HTTP_404_NOT_FOUND
+            )
 
     # Валидация и обновление (пока нет полей)
-    serializer = ParentProfileUpdateSerializer(parent_profile, data=request.data, partial=True)
+    serializer = ParentProfileUpdateSerializer(
+        parent_profile, data=request.data, partial=True
+    )
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1031,7 +1081,9 @@ def reset_password(request, user_id):
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
-        return Response({"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     if not user.is_active:
         return Response(
@@ -1100,7 +1152,9 @@ def delete_user(request, user_id):
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
-        return Response({"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     # Проверка: нельзя удалить самого себя
     if user.id == request.user.id:
@@ -1136,7 +1190,9 @@ def delete_user(request, user_id):
             user_email = user.email
             user.delete()
 
-            logger.info(f"[delete_user] Hard deleted user {user_id} ({user_email}) from database")
+            logger.info(
+                f"[delete_user] Hard deleted user {user_id} ({user_email}) from database"
+            )
             message = "Пользователь полностью удален из системы"
 
     return Response({"success": True, "message": message}, status=status.HTTP_200_OK)
@@ -1250,7 +1306,9 @@ def create_user_with_profile(request):
             django_user.role = role
             django_user.email = email
             django_user.phone = phone
-            django_user.save(update_fields=["first_name", "last_name", "role", "email", "phone"])
+            django_user.save(
+                update_fields=["first_name", "last_name", "role", "email", "phone"]
+            )
 
             # Создаем профиль в зависимости от роли
             profile_data = {}
@@ -1431,20 +1489,26 @@ def create_student(request):
             django_user.role = User.Role.STUDENT
             django_user.email = email
             django_user.phone = phone
-            django_user.save(update_fields=["first_name", "last_name", "role", "email", "phone"])
+            django_user.save(
+                update_fields=["first_name", "last_name", "role", "email", "phone"]
+            )
 
             # Получаем связанные объекты (tutor, parent)
             tutor = None
             parent = None
             if tutor_id:
                 try:
-                    tutor = User.objects.get(id=tutor_id, role=User.Role.TUTOR, is_active=True)
+                    tutor = User.objects.get(
+                        id=tutor_id, role=User.Role.TUTOR, is_active=True
+                    )
                 except User.DoesNotExist:
                     pass
 
             if parent_id:
                 try:
-                    parent = User.objects.get(id=parent_id, role=User.Role.PARENT, is_active=True)
+                    parent = User.objects.get(
+                        id=parent_id, role=User.Role.PARENT, is_active=True
+                    )
                 except User.DoesNotExist:
                     pass
 
@@ -1617,10 +1681,14 @@ def create_parent(request):
             django_user.role = User.Role.PARENT
             django_user.email = email
             django_user.phone = phone
-            django_user.save(update_fields=["first_name", "last_name", "role", "email", "phone"])
+            django_user.save(
+                update_fields=["first_name", "last_name", "role", "email", "phone"]
+            )
 
             # Создаем или обновляем профиль родителя
-            parent_profile, profile_created = ParentProfile.objects.get_or_create(user=django_user)
+            parent_profile, profile_created = ParentProfile.objects.get_or_create(
+                user=django_user
+            )
 
             # Логируем успешное создание
             logger.info(
@@ -1633,7 +1701,9 @@ def create_parent(request):
 
     except IntegrityError as exc:
         # Ловим race condition: два параллельных запроса создали пользователя с одним email
-        logger.warning(f"[create_parent] IntegrityError (race condition?) for email {email}: {exc}")
+        logger.warning(
+            f"[create_parent] IntegrityError (race condition?) for email {email}: {exc}"
+        )
         if "email" in str(exc).lower() or "unique" in str(exc).lower():
             return Response(
                 {"detail": "Пользователь с таким email уже существует"},
@@ -1702,7 +1772,9 @@ def assign_parent_to_students(request):
 
     # Валидация
     if not parent_id:
-        return Response({"detail": "parent_id обязателен"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "parent_id обязателен"}, status=status.HTTP_400_BAD_REQUEST
+        )
     if not isinstance(student_ids, list) or not student_ids:
         return Response(
             {"detail": "student_ids должен быть непустым списком"},
@@ -1710,9 +1782,13 @@ def assign_parent_to_students(request):
         )
 
     try:
-        parent_user = User.objects.get(id=parent_id, role=User.Role.PARENT, is_active=True)
+        parent_user = User.objects.get(
+            id=parent_id, role=User.Role.PARENT, is_active=True
+        )
     except User.DoesNotExist:
-        return Response({"detail": "Родитель не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Родитель не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     # Получаем студентов
     students = StudentProfile.objects.filter(
@@ -1720,7 +1796,9 @@ def assign_parent_to_students(request):
     ).select_related("user")
 
     if not students.exists():
-        return Response({"detail": "Студенты не найдены"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Студенты не найдены"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     assigned_ids = []
     with transaction.atomic():
@@ -1831,7 +1909,9 @@ def reactivate_user(request, user_id):
 
     # Проверка: пользователь уже активен
     if user.is_active:
-        return Response({"detail": "User is already active"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "User is already active"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
     # Реактивация пользователя
     user.is_active = True

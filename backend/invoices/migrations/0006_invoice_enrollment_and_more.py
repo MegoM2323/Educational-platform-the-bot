@@ -7,7 +7,6 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
     dependencies = [
         ("invoices", "0005_fix_enrollment_reference"),
-        ("materials", "0002_subjectenrollment_subjectpayment"),
     ]
 
     operations = [

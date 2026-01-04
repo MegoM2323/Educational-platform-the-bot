@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 # Copy requirements first for layer caching
-COPY requirements.txt .
+COPY backend/requirements.txt .
 
 # Create a virtual environment to isolate dependencies
 RUN python -m venv /opt/venv
@@ -71,7 +71,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 RUN mkdir -p /app/backend /app/static /app/media /app/logs && \
     chown -R appuser:appuser /app
 
-WORKDIR /app/backend
+WORKDIR /app
 
 # Copy Python virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
@@ -80,7 +80,7 @@ COPY --from=builder /opt/venv /opt/venv
 COPY --chown=appuser:appuser . .
 
 # Copy entrypoint script
-COPY --chown=appuser:appuser docker-entrypoint.sh /app/
+COPY --chown=appuser:appuser backend/docker-entrypoint.sh /app/
 RUN chmod +x /app/docker-entrypoint.sh
 
 # Switch to non-root user

@@ -404,7 +404,12 @@ def create_tutor_chats_on_tutor_assignment(sender, instance: StudentProfile, cre
         # Import here to avoid circular imports
         from materials.models import SubjectEnrollment
         from chat.models import ChatRoom
+    except ModuleNotFoundError:
+        # Materials or chat modules not available (e.g., in tests)
+        logger.debug(f"[Signal] Materials or chat modules not available for student {instance.user.id}")
+        return
 
+    try:
         # Get all active enrollments for this student
         enrollments = SubjectEnrollment.objects.filter(
             student=instance.user,

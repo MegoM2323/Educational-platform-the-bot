@@ -408,7 +408,11 @@ class StudentDetailSerializer(serializers.ModelSerializer):
 
     def get_enrollments(self, obj):
         """Список зачислений с детальной информацией"""
-        from materials.models import SubjectEnrollment, MaterialProgress, Material
+        try:
+            from materials.models import SubjectEnrollment, MaterialProgress, Material
+        except ModuleNotFoundError:
+            # Materials module not available (e.g., in tests)
+            return []
 
         enrollments = (
             SubjectEnrollment.objects.filter(student=obj.user)
@@ -457,7 +461,11 @@ class StudentDetailSerializer(serializers.ModelSerializer):
 
     def get_payment_history(self, obj):
         """История платежей студента"""
-        from materials.models import SubjectPayment
+        try:
+            from materials.models import SubjectPayment
+        except ModuleNotFoundError:
+            # Materials module not available (e.g., in tests)
+            return []
 
         payments = (
             SubjectPayment.objects.filter(enrollment__student=obj.user)
@@ -490,8 +498,12 @@ class StudentDetailSerializer(serializers.ModelSerializer):
 
     def get_statistics(self, obj):
         """Статистика по студенту"""
-        from materials.models import MaterialProgress, MaterialSubmission
-        from assignments.models import Assignment, AssignmentSubmission
+        try:
+            from materials.models import MaterialProgress, MaterialSubmission
+            from assignments.models import Assignment, AssignmentSubmission
+        except ModuleNotFoundError:
+            # Materials or assignments modules not available (e.g., in tests)
+            return {}
 
         # Статистика по материалам
         total_materials = MaterialProgress.objects.filter(student=obj.user).count()
@@ -1039,29 +1051,27 @@ def get_profile_serializer(profile, viewer_user, profile_owner_user):
         viewer_user, profile_owner_user, profile_type
     )
 
-    if profile_type == "student":
+    if profile_type == User.Role.STUDENT:
         return (
             StudentProfileFullSerializer
             if can_view_private
             else StudentProfilePublicSerializer
         )
-    elif profile_type == "teacher":
+    elif profile_type == User.Role.TEACHER:
         return (
             TeacherProfileFullSerializer
             if can_view_private
             else TeacherProfilePublicSerializer
         )
-    elif profile_type == "tutor":
+    elif profile_type == User.Role.TUTOR:
         return (
             TutorProfileFullSerializer
             if can_view_private
             else TutorProfilePublicSerializer
         )
-    elif profile_type == "parent":
-        # Parent пока не имеет приватных полей
+    elif profile_type == User.Role.PARENT:
         return ParentProfileSerializer
 
-    # Default fallback
     return serializers.ModelSerializer
 
 

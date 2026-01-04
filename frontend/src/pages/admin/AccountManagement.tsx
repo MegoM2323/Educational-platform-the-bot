@@ -32,17 +32,15 @@ export default function AccountManagement() {
       const response = await adminAPI.getUserStats();
       if (response?.success && response?.data) {
         // Backend returns {success: true, data: {...}} which is wrapped by adminAPI
-        // So response.data is already the stats data
-        // Handle multiple possible structures: response.data.data or response.data directly
-        const rawData = response.data as any;
-        const statsData = rawData?.data || rawData || {};
+        // API returns stats data directly in response.data
+        const statsData = (response.data as any) || {};
         setStats({
-          total_users: statsData?.total_users ?? 0,
-          total_students: statsData?.total_students ?? 0,
-          total_teachers: statsData?.total_teachers ?? 0,
-          total_tutors: statsData?.total_tutors ?? 0,
-          total_parents: statsData?.total_parents ?? 0,
-          active_today: statsData?.active_today ?? 0,
+          total_users: statsData.total_users ?? 0,
+          total_students: statsData.total_students ?? 0,
+          total_teachers: statsData.total_teachers ?? 0,
+          total_tutors: statsData.total_tutors ?? 0,
+          total_parents: statsData.total_parents ?? 0,
+          active_today: statsData.active_today ?? 0,
         });
       }
     } catch (error) {

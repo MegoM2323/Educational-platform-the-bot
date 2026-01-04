@@ -271,7 +271,7 @@ export default function UserManagement() {
       user.full_name,
       getRoleLabel(user.role),
       user.is_active ? 'Активен' : 'Неактивен',
-      new Date(user.date_joined).toLocaleDateString('ru-RU'),
+      user.date_joined ? new Date(user.date_joined).toLocaleDateString('ru-RU') : '-',
       user.last_login ? new Date(user.last_login).toLocaleDateString('ru-RU') : '-',
     ]);
 
@@ -611,7 +611,7 @@ export default function UserManagement() {
                         </td>
                         <td className="p-3">{getStatusBadge(user)}</td>
                         <td className="p-3">
-                          {new Date(user.date_joined).toLocaleDateString('ru-RU')}
+                          {user.date_joined ? new Date(user.date_joined).toLocaleDateString('ru-RU') : '-'}
                         </td>
                         <td className="p-3">
                           {user.last_login
@@ -734,7 +734,7 @@ export default function UserManagement() {
               <div>
                 <Label className="text-xs font-semibold">Дата регистрации</Label>
                 <p className="text-sm">
-                  {new Date(selectedUser.date_joined).toLocaleDateString('ru-RU')}
+                  {selectedUser.date_joined ? new Date(selectedUser.date_joined).toLocaleDateString('ru-RU') : '-'}
                 </p>
               </div>
               <div>

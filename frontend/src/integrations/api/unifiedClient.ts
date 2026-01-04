@@ -100,6 +100,7 @@ export interface User {
   is_staff?: boolean;
   date_joined: string;
   full_name: string;
+  last_login?: string | null;
 }
 
 export interface LoginRequest {

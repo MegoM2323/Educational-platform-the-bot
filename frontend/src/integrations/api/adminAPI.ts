@@ -682,7 +682,7 @@ export const adminAPI = {
     total_teachers: number;
     total_tutors: number;
     total_parents: number;
-    active_users: number;
+    active_users?: number;
     active_today: number;
   }>> {
     return apiClient.request('/admin/stats/users/');

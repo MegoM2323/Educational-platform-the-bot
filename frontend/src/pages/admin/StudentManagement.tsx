@@ -406,7 +406,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
                         </Badge>
                       </td>
                       <td className="py-2 pr-4">
-                        {new Date(student.user.date_joined).toLocaleDateString('ru-RU')}
+                        {student.user.date_joined ? new Date(student.user.date_joined).toLocaleDateString('ru-RU') : '-'}
                       </td>
                       <td className="py-2 pr-4">
                         <div className="flex gap-1">
@@ -464,7 +464,7 @@ export default function StudentManagement({ embedded = false }: StudentManagemen
           {/* Пагинация */}
           <div className="flex items-center justify-between mt-6 pt-4 border-t">
             <div className="text-sm text-muted-foreground">
-              Показано {students?.length || 0} из {totalCount} студентов
+              Показано {students?.length || 0} из {totalCount || 0} студентов
             </div>
             <div className="flex gap-2">
               <Button type="button"

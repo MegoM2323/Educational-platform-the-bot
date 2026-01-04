@@ -63,8 +63,8 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
         if (searchTerm) {
           const filtered = parentsList.filter(
             (p: ParentItem) =>
-              p.user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              p.user.email.toLowerCase().includes(searchTerm.toLowerCase())
+              (p.user.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+              (p.user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
           );
           setParents(filtered.slice(0, 5));
         } else {

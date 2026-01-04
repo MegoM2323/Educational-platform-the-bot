@@ -154,10 +154,30 @@ export default function UserDetailModal({
       if (response.success && response.data) {
         setProfileData(response.data);
       } else {
-        toast.error(response.error || 'Ошибка загрузки профиля');
+        logger.error('[UserDetailModal] Failed to load profile:', {
+          userId: userId,
+          status: response?.status,
+          error: response?.error,
+          endpoint: '/accounts/admin/users/{userId}/profile/',
+        });
+
+        let errorMessage = 'Ошибка загрузки профиля';
+        if (response?.status === 403) {
+          errorMessage = 'Недостаточно прав для просмотра этого профиля';
+        } else if (response?.status === 404) {
+          errorMessage = 'Пользователь не найден';
+        } else if (response?.error) {
+          errorMessage = response.error;
+        }
+
+        toast.error(errorMessage);
       }
     } catch (error) {
-      logger.error('[UserDetailModal] Error loading profile:', error);
+      logger.error('[UserDetailModal] Exception loading profile:', {
+        userId: userId,
+        error: error,
+        endpoint: '/accounts/admin/users/{userId}/profile/',
+      });
       toast.error('Не удалось загрузить профиль');
     } finally {
       setIsLoading(false);

@@ -11,7 +11,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('materials', '0001_initial'),
     ]
 
     operations = [
@@ -284,7 +283,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="knowledge_graphs",
-                        to="materials.subject",
+                        to="materials.Subject",
                         verbose_name="Предмет",
                     ),
                 ),
@@ -355,7 +354,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="knowledge_lessons",
-                        to="materials.subject",
+                        to="materials.Subject",
                         verbose_name="Предмет",
                     ),
                 ),

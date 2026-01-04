@@ -6,7 +6,6 @@ import django.db.models.deletion
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("materials", "0034_remove_materialprogressaudittrail_progress_and_more"),
         ("invoices", "0005_fix_enrollment_reference"),
     ]
 
@@ -20,7 +19,7 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
                 related_name="invoices",
-                to="materials.subjectenrollment",
+                to="materials.SubjectEnrollment",
                 verbose_name="Зачисление на предмет",
             ),
         ),

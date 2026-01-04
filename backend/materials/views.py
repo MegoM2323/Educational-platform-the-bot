@@ -7,8 +7,6 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 import logging
 
-User = get_user_model()
-
 from .models import (
     Subject,
     Material,
@@ -56,6 +54,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
         ).select_related("teacher")
 
         teacher_ids = [ts.teacher.id for ts in teacher_subjects]
+        User = get_user_model()
         teachers = User.objects.filter(id__in=teacher_ids, role=User.Role.TEACHER)
 
         from accounts.serializers import UserSerializer
@@ -201,6 +200,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
             )
 
         # Проверяем, что все указанные пользователи - студенты
+        User = get_user_model()
         students = User.objects.filter(id__in=student_ids, role=User.Role.STUDENT)
 
         if len(students) != len(student_ids):

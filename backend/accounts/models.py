@@ -83,17 +83,18 @@ class StudentProfile(models.Model):
     Профиль студента
     """
 
+    GRADE_CHOICES = [(i, str(i)) for i in range(1, 13)]
+
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="student_profile"
     )
 
-    grade = models.CharField(
-        max_length=50,
+    grade = models.IntegerField(
+        choices=GRADE_CHOICES,
         blank=True,
-        null=False,
-        default="",
-        validators=[MaxLengthValidator(50)],
+        null=True,
         verbose_name="Класс",
+        help_text="Student grade (1-12)",
     )
 
     goal = models.TextField(
@@ -349,6 +350,7 @@ class TelegramLinkToken(models.Model):
             plain_token: Plaintext токен для хеширования (UUID или подобное)
         """
         from django.contrib.auth.hashers import make_password
+
         self.token = make_password(plain_token)
 
     def verify_token(self, plain_token: str) -> bool:
@@ -362,9 +364,11 @@ class TelegramLinkToken(models.Model):
             True если токен совпадает, False иначе
         """
         from django.contrib.auth.hashers import check_password
+
         return check_password(plain_token, self.token)
 
     def is_expired(self) -> bool:
         """Проверяет истек ли токен"""
         from django.utils import timezone
+
         return timezone.now() > self.expires_at

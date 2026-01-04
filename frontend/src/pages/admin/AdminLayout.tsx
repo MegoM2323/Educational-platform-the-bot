@@ -1,8 +1,29 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { useAuth } from '@/hooks/useAuth';
 
 export default function AdminLayout() {
+  const navigate = useNavigate();
+  const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && user && !user.is_staff) {
+      navigate('/403');
+    }
+  }, [user, isLoading, navigate]);
+
+  // Show loading or nothing while checking authorization
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  // Don't render admin layout if user is not staff
+  if (!user || !user.is_staff) {
+    return null;
+  }
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full">

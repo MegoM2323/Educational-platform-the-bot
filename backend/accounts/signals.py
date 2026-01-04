@@ -14,6 +14,7 @@ from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.apps import apps
+from django.utils import timezone
 from .models import StudentProfile, TeacherProfile, TutorProfile, ParentProfile
 
 User = get_user_model()
@@ -450,11 +451,13 @@ def log_student_profile_creation(sender, instance: StudentProfile, created: bool
 
                 if changed_fields:
                     audit_logger.info(
-                        f"StudentProfile {instance.id} updated for user {instance.user.id}",
+                        f"StudentProfile updated for user {instance.user.id}",
                         extra={
                             "action": "update_student_profile_signal",
                             "profile_id": instance.id,
                             "user_id": instance.user.id,
+                            "email": instance.user.email,
+                            "timestamp": timezone.now().isoformat(),
                             "changes": changed_fields,
                         },
                     )
@@ -733,11 +736,13 @@ def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool
 
                 if changed_fields:
                     audit_logger.info(
-                        f"TeacherProfile {instance.id} updated for user {instance.user.id}",
+                        f"TeacherProfile updated for user {instance.user.id}",
                         extra={
                             "action": "update_teacher_profile_signal",
                             "profile_id": instance.id,
                             "user_id": instance.user.id,
+                            "email": instance.user.email,
+                            "timestamp": timezone.now().isoformat(),
                             "changes": changed_fields,
                         },
                     )
@@ -788,11 +793,13 @@ def log_tutor_profile_creation(sender, instance: TutorProfile, created: bool, **
 
                 if changed_fields:
                     audit_logger.info(
-                        f"TutorProfile {instance.id} updated for user {instance.user.id}",
+                        f"TutorProfile updated for user {instance.user.id}",
                         extra={
                             "action": "update_tutor_profile_signal",
                             "profile_id": instance.id,
                             "user_id": instance.user.id,
+                            "email": instance.user.email,
+                            "timestamp": timezone.now().isoformat(),
                             "changes": changed_fields,
                         },
                     )
@@ -828,6 +835,106 @@ def log_parent_profile_creation(sender, instance: ParentProfile, created: bool, 
 
     except Exception as exc:
         logger.error(f"[Signal] Error logging ParentProfile creation: {exc}")
+
+
+@receiver(post_delete, sender=StudentProfile)
+def log_student_profile_deletion(sender, instance: StudentProfile, **kwargs) -> None:
+    """
+    Signal обработчик для логирования удаления профилей студентов.
+
+    Args:
+        sender: Модель StudentProfile
+        instance: Инстанс профиля студента (перед удалением)
+        **kwargs: Дополнительные аргументы от Django
+    """
+    try:
+        audit_logger.info(
+            f"StudentProfile deleted for user {instance.user.id}",
+            extra={
+                "action": "delete_student_profile_signal",
+                "profile_id": instance.id,
+                "user_id": instance.user.id,
+                "email": instance.user.email,
+            },
+        )
+        logger.info(f"[Signal] StudentProfile {instance.id} deleted for user {instance.user.id}")
+    except Exception as exc:
+        logger.error(f"[Signal] Error logging StudentProfile deletion: {exc}")
+
+
+@receiver(post_delete, sender=TeacherProfile)
+def log_teacher_profile_deletion(sender, instance: TeacherProfile, **kwargs) -> None:
+    """
+    Signal обработчик для логирования удаления профилей преподавателей.
+
+    Args:
+        sender: Модель TeacherProfile
+        instance: Инстанс профиля преподавателя (перед удалением)
+        **kwargs: Дополнительные аргументы от Django
+    """
+    try:
+        audit_logger.info(
+            f"TeacherProfile deleted for user {instance.user.id}",
+            extra={
+                "action": "delete_teacher_profile_signal",
+                "profile_id": instance.id,
+                "user_id": instance.user.id,
+                "email": instance.user.email,
+            },
+        )
+        logger.info(f"[Signal] TeacherProfile {instance.id} deleted for user {instance.user.id}")
+    except Exception as exc:
+        logger.error(f"[Signal] Error logging TeacherProfile deletion: {exc}")
+
+
+@receiver(post_delete, sender=TutorProfile)
+def log_tutor_profile_deletion(sender, instance: TutorProfile, **kwargs) -> None:
+    """
+    Signal обработчик для логирования удаления профилей тьюторов.
+
+    Args:
+        sender: Модель TutorProfile
+        instance: Инстанс профиля тьютора (перед удалением)
+        **kwargs: Дополнительные аргументы от Django
+    """
+    try:
+        audit_logger.info(
+            f"TutorProfile deleted for user {instance.user.id}",
+            extra={
+                "action": "delete_tutor_profile_signal",
+                "profile_id": instance.id,
+                "user_id": instance.user.id,
+                "email": instance.user.email,
+            },
+        )
+        logger.info(f"[Signal] TutorProfile {instance.id} deleted for user {instance.user.id}")
+    except Exception as exc:
+        logger.error(f"[Signal] Error logging TutorProfile deletion: {exc}")
+
+
+@receiver(post_delete, sender=ParentProfile)
+def log_parent_profile_deletion(sender, instance: ParentProfile, **kwargs) -> None:
+    """
+    Signal обработчик для логирования удаления профилей родителей.
+
+    Args:
+        sender: Модель ParentProfile
+        instance: Инстанс профиля родителя (перед удалением)
+        **kwargs: Дополнительные аргументы от Django
+    """
+    try:
+        audit_logger.info(
+            f"ParentProfile deleted for user {instance.user.id}",
+            extra={
+                "action": "delete_parent_profile_signal",
+                "profile_id": instance.id,
+                "user_id": instance.user.id,
+                "email": instance.user.email,
+            },
+        )
+        logger.info(f"[Signal] ParentProfile {instance.id} deleted for user {instance.user.id}")
+    except Exception as exc:
+        logger.error(f"[Signal] Error logging ParentProfile deletion: {exc}")
 
 
 @receiver(pre_delete, sender=User)

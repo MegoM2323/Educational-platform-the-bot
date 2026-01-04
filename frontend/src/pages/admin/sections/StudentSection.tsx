@@ -10,6 +10,7 @@ import { CreateStudentDialog } from '@/components/admin/CreateStudentDialog';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 import { ResetPasswordDialog } from '@/components/admin/ResetPasswordDialog';
 import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
+import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import { SubjectAssignmentDialog } from '@/components/admin/SubjectAssignmentDialog';
 import { User as UserType } from '@/integrations/api/unifiedClient';
 
@@ -37,6 +38,10 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
     item: StudentItem | null;
   }>({ open: false, item: null });
   const [resetPasswordDialog, setResetPasswordDialog] = useState<{
+    open: boolean;
+    item: StudentItem | null;
+  }>({ open: false, item: null });
+  const [confirmDeleteDialog, setConfirmDeleteDialog] = useState<{
     open: boolean;
     item: StudentItem | null;
   }>({ open: false, item: null });
@@ -76,6 +81,13 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
   const handleSuccess = () => {
     loadStudents();
     onUpdate?.();
+  };
+
+  const handleConfirmDelete = () => {
+    if (confirmDeleteDialog.item) {
+      setConfirmDeleteDialog({ open: false, item: null });
+      setDeleteUserDialog({ open: true, item: confirmDeleteDialog.item });
+    }
   };
 
   return (
@@ -167,7 +179,7 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() => setDeleteUserDialog({ open: true, item: student })}
+                      onClick={() => setConfirmDeleteDialog({ open: true, item: student })}
                       title="Удалить"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -202,6 +214,17 @@ export default function StudentSection({ onUpdate }: StudentSectionProps) {
           user={resetPasswordDialog.item.user}
           open={resetPasswordDialog.open}
           onOpenChange={(open) => setResetPasswordDialog({ open, item: null })}
+        />
+      )}
+
+      {confirmDeleteDialog.item && (
+        <ConfirmDeleteDialog
+          open={confirmDeleteDialog.open}
+          onOpenChange={(open) => setConfirmDeleteDialog({ open, item: null })}
+          onConfirm={handleConfirmDelete}
+          userName={confirmDeleteDialog.item.user.full_name}
+          title="Delete Student?"
+          description="Are you sure you want to delete this student? This action will deactivate the student account."
         />
       )}
 

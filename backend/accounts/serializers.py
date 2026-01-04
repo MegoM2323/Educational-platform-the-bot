@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.db import models
+from django.utils.html import escape
 from .models import (
     User,
     StudentProfile,
@@ -665,7 +666,7 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
                     "Указанный пользователь не является тьютором"
                 )
             if not value.is_active:
-                raise serializers.ValidationError("Тьютор не активен")
+                raise serializers.ValidationError("Тьютор должен быть активным")
         return value
 
     def validate_parent(self, value):
@@ -678,7 +679,26 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
                     "Указанный пользователь не является родителем"
                 )
             if not value.is_active:
-                raise serializers.ValidationError("Родитель не активен")
+                raise serializers.ValidationError("Родитель должен быть активным")
+        return value
+
+    def validate_goal(self, value):
+        """
+        XSS защита для goal - экранирование HTML и спецсимволов.
+        """
+        if value:
+            value = escape(value)
+        return value
+
+    def validate_grade(self, value):
+        """
+        Валидация что grade находится в диапазоне 1-12.
+        """
+        if value is not None:
+            if not isinstance(value, int) or value < 1 or value > 12:
+                raise serializers.ValidationError(
+                    "Grade must be an integer between 1 and 12"
+                )
         return value
 
 
@@ -704,6 +724,14 @@ class TeacherProfileUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Опыт работы не может быть отрицательным")
         return value
 
+    def validate_bio(self, value):
+        """
+        XSS защита для bio - экранирование HTML и спецсимволов.
+        """
+        if value:
+            value = escape(value)
+        return value
+
 
 class TutorProfileUpdateSerializer(serializers.ModelSerializer):
     """
@@ -723,6 +751,14 @@ class TutorProfileUpdateSerializer(serializers.ModelSerializer):
         """Валидация опыта работы (не может быть отрицательным)"""
         if value is not None and value < 0:
             raise serializers.ValidationError("Опыт работы не может быть отрицательным")
+        return value
+
+    def validate_bio(self, value):
+        """
+        XSS защита для bio - экранирование HTML и спецсимволов.
+        """
+        if value:
+            value = escape(value)
         return value
 
 
@@ -1213,11 +1249,13 @@ class StudentCreateSerializer(serializers.Serializer):
         """Проверка существования и роли тьютора"""
         if value:
             try:
-                tutor = User.objects.get(id=value, is_active=True)
+                tutor = User.objects.get(id=value)
                 if tutor.role != User.Role.TUTOR:
                     raise serializers.ValidationError(
                         "Указанный пользователь не является тьютором"
                     )
+                if not tutor.is_active:
+                    raise serializers.ValidationError("Тьютор должен быть активным")
             except User.DoesNotExist:
                 raise serializers.ValidationError("Тьютор не найден")
 
@@ -1227,11 +1265,13 @@ class StudentCreateSerializer(serializers.Serializer):
         """Проверка существования и роли родителя"""
         if value:
             try:
-                parent = User.objects.get(id=value, is_active=True)
+                parent = User.objects.get(id=value)
                 if parent.role != User.Role.PARENT:
                     raise serializers.ValidationError(
                         "Указанный пользователь не является родителем"
                     )
+                if not parent.is_active:
+                    raise serializers.ValidationError("Родитель должен быть активным")
             except User.DoesNotExist:
                 raise serializers.ValidationError("Родитель не найден")
 

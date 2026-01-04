@@ -931,7 +931,9 @@ class TeacherWeeklyReport(models.Model):
         'materials.Subject',
         on_delete=models.CASCADE,
         related_name='teacher_weekly_reports',
-        verbose_name='Предмет'
+        verbose_name='Предмет',
+        null=True,
+        blank=True
     )
     
     # Период отчета (неделя)

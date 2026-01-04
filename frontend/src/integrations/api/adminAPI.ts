@@ -835,12 +835,16 @@ export const adminAPI = {
 
   /**
    * Audit Logs Management - Admin API
-   * View system audit trail and admin actions
+   * NOTE: Audit log endpoints not implemented in backend yet.
+   * TODO: Implement audit logging system in future sprint
+   * Current placeholder methods below - will be enabled after backend implementation
    */
 
   /**
    * Get audit logs with optional filters, sorting, and pagination
+   * NOT IMPLEMENTED - Backend support needed
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getAuditLogs(params?: {
     user_id?: number;
     action?: string;
@@ -876,27 +880,12 @@ export const adminAPI = {
       details?: string;
     }>;
   }>> {
-    const queryParams = new URLSearchParams();
-    if (params) {
-      if (params.user_id) queryParams.append('user_id', params.user_id.toString());
-      if (params.action) queryParams.append('action', params.action);
-      if (params.resource) queryParams.append('resource', params.resource);
-      if (params.status) queryParams.append('status', params.status);
-      if (params.date_from) queryParams.append('date_from', params.date_from);
-      if (params.date_to) queryParams.append('date_to', params.date_to);
-      if (params.search) queryParams.append('search', params.search);
-      if (params.ordering) queryParams.append('ordering', params.ordering);
-      if (params.page) queryParams.append('page', params.page.toString());
-      if (params.page_size) queryParams.append('page_size', params.page_size.toString());
-      if (params.format) queryParams.append('format', params.format);
-    }
-
-    const url = `/admin/audit-logs/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return apiClient.request(url);
+    return Promise.reject(new Error('Audit logs endpoint not implemented in backend'));
   },
 
   /**
    * Get single audit log entry with full details
+   * NOT IMPLEMENTED - Backend support needed
    */
   async getAuditLogDetail(logId: number): Promise<ApiResponse<{
     id: number;
@@ -916,11 +905,12 @@ export const adminAPI = {
     new_values?: Record<string, any>;
     details?: string;
   }>> {
-    return apiClient.request(`/admin/audit-logs/${logId}/`);
+    return Promise.reject(new Error(`Audit logs endpoint not implemented in backend (logId: ${logId})`));
   },
 
   /**
    * Get audit log statistics
+   * NOT IMPLEMENTED - Backend support needed
    */
   async getAuditLogStats(): Promise<ApiResponse<{
     success: boolean;
@@ -933,11 +923,12 @@ export const adminAPI = {
       most_active_resource: string;
     };
   }>> {
-    return apiClient.request('/admin/audit-logs/stats/');
+    return Promise.reject(new Error('Audit logs endpoint not implemented in backend'));
   },
 
   /**
    * Get list of all users with filtering and pagination
+   * Maps to backend /auth/users/ (accessible via /api/admin/)
    */
   async getUsers(filters?: {
     search?: string;
@@ -977,6 +968,8 @@ export const adminAPI = {
 
   /**
    * Get single user details
+   * NOTE: Backend provides /auth/users/{id}/ for updates (PATCH) but not for read (GET)
+   * This endpoint is expected by frontend but not fully implemented in backend
    */
   async getUserDetail(userId: number): Promise<ApiResponse<User>> {
     return apiClient.request<User>(`/admin/users/${userId}/`);
@@ -991,7 +984,7 @@ export const adminAPI = {
     failed_ids: number[];
     details: string;
   }>> {
-    return apiClient.request(`/admin/users/bulk-operations/bulk_activate/`, {
+    return apiClient.request(`/admin/bulk-operations/bulk_activate/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
     });
@@ -1006,7 +999,7 @@ export const adminAPI = {
     failed_ids: number[];
     details: string;
   }>> {
-    return apiClient.request(`/admin/users/bulk-operations/bulk_deactivate/`, {
+    return apiClient.request(`/admin/bulk-operations/bulk_deactivate/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
     });
@@ -1021,7 +1014,7 @@ export const adminAPI = {
     failed_ids: number[];
     details: string;
   }>> {
-    return apiClient.request(`/admin/users/bulk-operations/bulk_suspend/`, {
+    return apiClient.request(`/admin/bulk-operations/bulk_suspend/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
     });
@@ -1036,7 +1029,7 @@ export const adminAPI = {
     failed_ids: number[];
     details: string;
   }>> {
-    return apiClient.request(`/admin/users/bulk-operations/bulk_reset_password/`, {
+    return apiClient.request(`/admin/bulk-operations/bulk_reset_password/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
     });
@@ -1051,7 +1044,7 @@ export const adminAPI = {
     failed_ids: number[];
     details: string;
   }>> {
-    return apiClient.request(`/admin/users/bulk-operations/bulk_delete/`, {
+    return apiClient.request(`/admin/bulk-operations/bulk_delete/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
     });
@@ -1066,7 +1059,7 @@ export const adminAPI = {
     failed_ids: number[];
     details: string;
   }>> {
-    return apiClient.request(`/admin/users/bulk-operations/bulk_assign_role/`, {
+    return apiClient.request(`/admin/bulk-operations/bulk_assign_role/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds, new_role: role }),
     });

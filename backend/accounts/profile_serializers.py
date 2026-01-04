@@ -18,7 +18,16 @@ from .permissions import (
 
 # Валидаторы для Telegram
 class TelegramValidator:
-    """Валидатор для проверки формата Telegram username"""
+    """Валидатор для проверки формата Telegram username с поддержкой обновления профиля"""
+
+    def __init__(self, user=None):
+        """
+        Инициализирует валидатор с пользователем для исключения из дубликат-проверки.
+
+        Args:
+            user: User instance для исключения при обновлении профиля (опционально)
+        """
+        self.user = user
 
     def __call__(self, value):
         """Проверяет что Telegram имеет формат @username или username"""
@@ -36,8 +45,12 @@ class TelegramValidator:
             )
 
         # Проверяем на дубликаты (case-insensitive) во всех профилях
+        # Исключаем текущего пользователя при обновлении профиля
         for model_class in [StudentProfile, TeacherProfile, TutorProfile, ParentProfile]:
-            if model_class.objects.filter(telegram__iexact=username).exists():
+            query = model_class.objects.filter(telegram__iexact=username)
+            if self.user:
+                query = query.exclude(user=self.user)
+            if query.exists():
                 raise serializers.ValidationError(
                     "Этот Telegram username уже используется другим пользователем"
                 )
@@ -151,8 +164,17 @@ class StudentProfileDetailSerializer(serializers.ModelSerializer):
         return value or ""
 
     def validate_telegram(self, value):
-        """Нормализация Telegram username"""
+        """Валидация и нормализация Telegram username"""
         if value:
+            # Получаем user из контекста для исключения из дубликат-проверки
+            user = None
+            if self.instance and hasattr(self.instance, "user"):
+                user = self.instance.user
+
+            # Валидируем формат и дубликаты
+            validator = TelegramValidator(user=user)
+            validator(value)
+
             # Нормализируем: удаляем @ и преобразуем в lowercase
             normalized = value.lstrip("@").lower()
             return normalized
@@ -243,8 +265,17 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
             return []
 
     def validate_telegram(self, value):
-        """Нормализация Telegram username"""
+        """Валидация и нормализация Telegram username"""
         if value:
+            # Получаем user из контекста для исключения из дубликат-проверки
+            user = None
+            if self.instance and hasattr(self.instance, "user"):
+                user = self.instance.user
+
+            # Валидируем формат и дубликаты
+            validator = TelegramValidator(user=user)
+            validator(value)
+
             # Нормализируем: удаляем @ и преобразуем в lowercase
             normalized = value.lstrip("@").lower()
             return normalized
@@ -343,8 +374,17 @@ class TutorProfileDetailSerializer(serializers.ModelSerializer):
         )
 
     def validate_telegram(self, value):
-        """Нормализация Telegram username"""
+        """Валидация и нормализация Telegram username"""
         if value:
+            # Получаем user из контекста для исключения из дубликат-проверки
+            user = None
+            if self.instance and hasattr(self.instance, "user"):
+                user = self.instance.user
+
+            # Валидируем формат и дубликаты
+            validator = TelegramValidator(user=user)
+            validator(value)
+
             # Нормализируем: удаляем @ и преобразуем в lowercase
             normalized = value.lstrip("@").lower()
             return normalized
@@ -388,8 +428,17 @@ class ParentProfileDetailSerializer(serializers.ModelSerializer):
         return data
 
     def validate_telegram(self, value):
-        """Нормализация Telegram username"""
+        """Валидация и нормализация Telegram username"""
         if value:
+            # Получаем user из контекста для исключения из дубликат-проверки
+            user = None
+            if self.instance and hasattr(self.instance, "user"):
+                user = self.instance.user
+
+            # Валидируем формат и дубликаты
+            validator = TelegramValidator(user=user)
+            validator(value)
+
             # Нормализируем: удаляем @ и преобразуем в lowercase
             normalized = value.lstrip("@").lower()
             return normalized

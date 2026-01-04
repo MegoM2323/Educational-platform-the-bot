@@ -37,6 +37,7 @@ class TutorStudentSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     first_name = serializers.CharField(source="user.first_name", read_only=True)
     last_name = serializers.CharField(source="user.last_name", read_only=True)
+    is_active = serializers.BooleanField(source="user.is_active", read_only=True)
     subjects = serializers.SerializerMethodField()
 
     class Meta:
@@ -49,6 +50,7 @@ class TutorStudentSerializer(serializers.ModelSerializer):
             "last_name",
             "grade",
             "goal",
+            "is_active",
             "tutor",
             "tutor_name",
             "parent",
@@ -72,17 +74,19 @@ class TutorStudentSerializer(serializers.ModelSerializer):
 
     def get_subjects(self, obj):
         """Возвращает список назначенных предметов студента с кастомными названиями"""
-        from materials.models import SubjectEnrollment
-
-        user_id = obj.user.id if hasattr(obj.user, "id") else obj.user.pk
-
         enrollments = []
-        if hasattr(obj.user, "_prefetched_objects_cache"):
+
+        if hasattr(obj.user, "active_enrollments"):
+            enrollments = obj.user.active_enrollments
+        elif hasattr(obj.user, "_prefetched_objects_cache"):
             cache = obj.user._prefetched_objects_cache
             if "subject_enrollments" in cache:
                 enrollments = [e for e in cache["subject_enrollments"] if e.is_active]
 
         if not enrollments:
+            from materials.models import SubjectEnrollment
+
+            user_id = obj.user.id if hasattr(obj.user, "id") else obj.user.pk
             enrollments_queryset = (
                 SubjectEnrollment.objects.filter(student_id=user_id, is_active=True)
                 .select_related("subject", "teacher")

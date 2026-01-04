@@ -41,9 +41,7 @@ class CacheManager:
 
         return key_string
 
-    def get_or_set(
-        self, key: str, callable_func: Callable, timeout: Optional[int] = None
-    ) -> Any:
+    def get_or_set(self, key: str, callable_func: Callable, timeout: Optional[int] = None) -> Any:
         """Получить значение из кэша или установить его через функцию"""
         try:
             value = self.cache.get(key)
@@ -185,8 +183,7 @@ def cache_dashboard_data(timeout: Optional[int] = None):
             return cache_manager.get_or_set(
                 cache_key,
                 lambda: func(self, *args, **kwargs),
-                timeout
-                or cache_manager.timeouts.get("dashboard_data", DASHBOARD_CACHE_TTL),
+                timeout or cache_manager.timeouts.get("dashboard_data", DASHBOARD_CACHE_TTL),
             )
 
         return wrapper
@@ -210,15 +207,12 @@ def cache_material_data(timeout: Optional[int] = None):
             else:
                 return func(self, *args, **kwargs)
 
-            cache_key = cache_manager.get_cache_key(
-                f"{user_type}_materials", user_id, func.__name__, *args, **kwargs
-            )
+            cache_key = cache_manager.get_cache_key(f"{user_type}_materials", user_id, func.__name__, *args, **kwargs)
 
             return cache_manager.get_or_set(
                 cache_key,
                 lambda: func(self, *args, **kwargs),
-                timeout
-                or cache_manager.timeouts.get("student_materials", MATERIALS_CACHE_TTL),
+                timeout or cache_manager.timeouts.get("student_materials", MATERIALS_CACHE_TTL),
             )
 
         return wrapper
@@ -233,9 +227,7 @@ def cache_chat_data(timeout: Optional[int] = None):
         def wrapper(self, *args, **kwargs):
             cache_manager = ChatCacheManager()
 
-            cache_key = cache_manager.get_cache_key(
-                "chat_data", func.__name__, *args, **kwargs
-            )
+            cache_key = cache_manager.get_cache_key("chat_data", func.__name__, *args, **kwargs)
 
             return cache_manager.get_or_set(
                 cache_key,

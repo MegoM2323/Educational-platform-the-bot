@@ -144,6 +144,9 @@ class StudentProfileView(APIView):
                 )
                 if profile_serializer.is_valid(raise_exception=True):
                     try:
+                        # full_clean() вызывается ТОЛЬКО при обновлении (PATCH/PUT)
+                        # для дополнительной валидации моделей перед сохранением.
+                        # GET методы не вызывают full_clean() (readonly операция).
                         profile.full_clean()
                     except ValidationError as e:
                         return Response(

@@ -8,7 +8,11 @@ from datetime import datetime, timedelta
 from .models import Material, MaterialProgress, Subject, SubjectEnrollment
 from chat.models import ChatRoom, Message
 from reports.models import StudentReport, Report
-from .cache_utils import cache_dashboard_data, cache_material_data, DashboardCacheManager
+from .cache_utils import (
+    cache_dashboard_data,
+    cache_material_data,
+    DashboardCacheManager,
+)
 
 User = get_user_model()
 
@@ -50,18 +54,24 @@ class TutorDashboardService:
         """
         from accounts.models import StudentProfile
 
-        active_enrollments = SubjectEnrollment.objects.filter(is_active=True).select_related(
-            "subject", "teacher"
+        active_enrollments = (
+            SubjectEnrollment.objects.filter(is_active=True)
+            .select_related("subject", "teacher")
+            .order_by("-enrolled_at", "-id")
         )
 
         students = (
             User.objects.filter(
-                role=User.Role.STUDENT, student_profile__tutor=self.tutor, is_active=True
+                Q(student_profile__tutor=self.tutor) | Q(created_by_tutor=self.tutor),
+                role=User.Role.STUDENT,
+                is_active=True,
             )
             .select_related("student_profile", "student_profile__parent")
             .prefetch_related(
                 Prefetch(
-                    "subject_enrollments", queryset=active_enrollments, to_attr="active_enrollments"
+                    "subject_enrollments",
+                    queryset=active_enrollments,
+                    to_attr="active_enrollments",
                 )
             )
             .distinct()
@@ -110,7 +120,9 @@ class TutorDashboardService:
                     "first_name": student.first_name,
                     "last_name": student.last_name,
                     "email": student.email or "",
-                    "avatar": self._build_file_url(student.avatar) if student.avatar else None,
+                    "avatar": self._build_file_url(student.avatar)
+                    if student.avatar
+                    else None,
                     "profile": profile_data,
                     "subjects": subjects,
                     "parent": {
@@ -141,7 +153,9 @@ class TutorDashboardService:
                 id=student_id, role=User.Role.STUDENT, student_profile__tutor=self.tutor
             )
         except User.DoesNotExist:
-            raise PermissionDenied("Студент не найден или не принадлежит данному тьютору")
+            raise PermissionDenied(
+                "Студент не найден или не принадлежит данному тьютору"
+            )
 
         enrollments = SubjectEnrollment.objects.filter(
             student=student, is_active=True
@@ -184,7 +198,9 @@ class TutorDashboardService:
                 id=student_id, role=User.Role.STUDENT, student_profile__tutor=self.tutor
             )
         except User.DoesNotExist:
-            raise PermissionDenied("Студент не найден или не принадлежит данному тьютору")
+            raise PermissionDenied(
+                "Студент не найден или не принадлежит данному тьютору"
+            )
 
         # Общая статистика прогресса
         progress_stats = MaterialProgress.objects.filter(student=student).aggregate(
@@ -219,7 +235,9 @@ class TutorDashboardService:
         )
 
         # Создаем словарь для быстрого поиска статистики по subject_id
-        stats_by_subject = {item["material__subject__id"]: item for item in subject_stats_data}
+        stats_by_subject = {
+            item["material__subject__id"]: item for item in subject_stats_data
+        }
 
         subject_progress = []
         for enrollment in enrollments:
@@ -234,7 +252,9 @@ class TutorDashboardService:
                     "teacher": enrollment.teacher.get_full_name(),
                     "total_materials": subject_stats["total"] or 0,
                     "completed_materials": subject_stats["completed"] or 0,
-                    "average_progress": round(subject_stats.get("avg_progress") or 0, 1),
+                    "average_progress": round(
+                        subject_stats.get("avg_progress") or 0, 1
+                    ),
                 }
             )
 
@@ -243,7 +263,10 @@ class TutorDashboardService:
             "total_materials": total_materials,
             "completed_materials": completed_materials,
             "completion_percentage": round(
-                (completed_materials / total_materials * 100) if total_materials > 0 else 0, 1
+                (completed_materials / total_materials * 100)
+                if total_materials > 0
+                else 0,
+                1,
             ),
             "average_progress": round(avg_progress, 1),
             "total_study_time": total_time,
@@ -339,7 +362,10 @@ class TutorDashboardService:
             # Проверяем, что родитель является родителем студента
             parent = User.objects.get(id=parent_id, role=User.Role.PARENT)
 
-            if not hasattr(student, "student_profile") or student.student_profile.parent != parent:
+            if (
+                not hasattr(student, "student_profile")
+                or student.student_profile.parent != parent
+            ):
                 return {
                     "success": False,
                     "message": "Указанный родитель не является родителем данного студента",
@@ -372,7 +398,9 @@ class TutorDashboardService:
 
             # Создаем отчет
             report = Report.objects.create(
-                title=report_data.get("title", f"Отчет по студенту {student.get_full_name()}"),
+                title=report_data.get(
+                    "title", f"Отчет по студенту {student.get_full_name()}"
+                ),
                 description=report_data.get("description", ""),
                 type=Report.Type.CUSTOM,
                 status=Report.Status.DRAFT,
@@ -399,7 +427,10 @@ class TutorDashboardService:
             }
 
         except Exception as e:
-            return {"success": False, "message": f"Ошибка при создании отчета: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Ошибка при создании отчета: {str(e)}",
+            }
 
     def get_tutor_reports(self) -> List[Dict[str, Any]]:
         """
@@ -433,7 +464,8 @@ class TutorDashboardService:
                 is_read = getattr(
                     recipient_rel,
                     "is_read",
-                    hasattr(recipient_rel, "read_at") and recipient_rel.read_at is not None,
+                    hasattr(recipient_rel, "read_at")
+                    and recipient_rel.read_at is not None,
                 )
                 recipients_data.append(
                     {
@@ -479,7 +511,8 @@ class TutorDashboardService:
         total_progress = 0
         if students:
             total_progress = (
-                sum(s["profile"]["progress_percentage"] for s in students) / total_students
+                sum(s["profile"]["progress_percentage"] for s in students)
+                / total_students
             )
 
         # Всего предметов назначено
@@ -493,7 +526,9 @@ class TutorDashboardService:
                 "name": self.tutor.get_full_name(),
                 "username": self.tutor.username,
                 "role": self.tutor.role,
-                "avatar": self._build_file_url(self.tutor.avatar) if self.tutor.avatar else None,
+                "avatar": self._build_file_url(self.tutor.avatar)
+                if self.tutor.avatar
+                else None,
             },
             "statistics": {
                 "total_students": total_students,

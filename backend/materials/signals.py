@@ -3,18 +3,28 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 import logging
 import os
-from .models import Material, MaterialProgress, SubjectEnrollment, SubjectPayment, MaterialSubmission, StudyPlanFile, StudyPlan, SubjectSubscription
+from .models import (
+    Material,
+    MaterialProgress,
+    SubjectEnrollment,
+    SubjectPayment,
+    MaterialSubmission,
+    StudyPlanFile,
+    StudyPlan,
+    SubjectSubscription,
+)
 from notifications.notification_service import NotificationService
 from .cache_utils import DashboardCacheManager
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
-audit_logger = logging.getLogger('audit')
+audit_logger = logging.getLogger("audit")
 
 
 # ============================================================================
 # FILE DELETION SIGNALS
 # ============================================================================
+
 
 @receiver(pre_delete, sender=Material)
 def delete_material_file(sender, instance, **kwargs):
@@ -74,12 +84,18 @@ def delete_material_submission_file(sender, instance, **kwargs):
             # Проверяем, существует ли файл
             if os.path.isfile(instance.submission_file.path):
                 os.remove(instance.submission_file.path)
-                logger.info(f"Deleted submission file: {instance.submission_file.path} for MaterialSubmission {instance.id}")
+                logger.info(
+                    f"Deleted submission file: {instance.submission_file.path} for MaterialSubmission {instance.id}"
+                )
             else:
-                logger.warning(f"Submission file not found: {instance.submission_file.path} for MaterialSubmission {instance.id}")
+                logger.warning(
+                    f"Submission file not found: {instance.submission_file.path} for MaterialSubmission {instance.id}"
+                )
         except FileNotFoundError:
             # Файл уже удален - это нормально, логируем как info
-            logger.info(f"Submission file already deleted: {instance.submission_file.name} for MaterialSubmission {instance.id}")
+            logger.info(
+                f"Submission file already deleted: {instance.submission_file.name} for MaterialSubmission {instance.id}"
+            )
         except Exception as e:
             # Логируем ошибку, но не прерываем процесс удаления
             logger.error(f"Error deleting submission file for MaterialSubmission {instance.id}: {e}", exc_info=True)
@@ -89,22 +105,40 @@ def delete_material_submission_file(sender, instance, **kwargs):
 # CACHE INVALIDATION SIGNALS
 # ============================================================================
 
-@receiver(post_save, sender='accounts.StudentProfile')
-def invalidate_student_profile_cache(sender, instance, **kwargs):
-    """Инвалидирует кэш при создании/изменении StudentProfile"""
+
+@receiver(post_save, sender="accounts.StudentProfile")
+def invalidate_student_profile_cache(sender, instance, created, **kwargs):
+    """
+    Инвалидирует кэш при создании/изменении StudentProfile.
+
+    Особенно важно для изменений поля tutor - нужно инвалидировать
+    кэш старого и нового тьютора.
+    """
     try:
         cache_manager = DashboardCacheManager()
-        
+
         # Инвалидируем кэш студента
         if instance.user:
             cache_manager.invalidate_student_cache(instance.user.id)
-        
-        # Инвалидируем кэш родителя при создании профиля
-        if kwargs.get('created', False) and instance.parent:
-            cache_manager.invalidate_parent_cache(instance.parent.id)
-        
-        # Инвалидируем кэш родителя при изменении
-        if not kwargs.get('created', False) and instance.parent:
+            cache_manager.invalidate_student_enrollments(instance.user.id)
+            cache_manager.invalidate_student_teachers(instance.user.id)
+
+        # Инвалидируем кэш тьютора при любых изменениях (для простоты и надежности)
+        if instance.tutor:
+            cache_manager.invalidate_tutor_dashboard(instance.tutor.id)
+            if created:
+                logger.info(
+                    f"[Signal] Invalidated tutor cache on StudentProfile creation: "
+                    f"tutor_id={instance.tutor.id}, student_id={instance.user.id}"
+                )
+            else:
+                logger.info(
+                    f"[Signal] Invalidated tutor cache on StudentProfile update: "
+                    f"tutor_id={instance.tutor.id}, student_id={instance.user.id}"
+                )
+
+        # Инвалидируем кэш родителя при создании/изменении
+        if instance.parent:
             cache_manager.invalidate_parent_cache(instance.parent.id)
     except Exception:
         pass  # Игнорируем ошибки Redis
@@ -116,11 +150,11 @@ def invalidate_material_cache(sender, instance, **kwargs):
     """Инвалидирует кэш при изменении материалов"""
     try:
         cache_manager = DashboardCacheManager()
-        
+
         # Инвалидируем кэш для всех студентов, которым назначен материал
         for student in instance.assigned_to.all():
             cache_manager.invalidate_student_cache(student.id)
-        
+
         # Инвалидируем кэш преподавателя
         cache_manager.invalidate_teacher_cache(instance.author.id)
     except Exception:
@@ -133,16 +167,20 @@ def invalidate_progress_cache(sender, instance, **kwargs):
     """Инвалидирует кэш при изменении прогресса"""
     try:
         cache_manager = DashboardCacheManager()
-        
+
         # Инвалидируем кэш студента
         cache_manager.invalidate_student_cache(instance.student.id)
-        
+
         # Инвалидируем кэш преподавателя материала
         cache_manager.invalidate_teacher_cache(instance.material.author.id)
-        
+
         # Инвалидируем кэш родителя студента
         try:
-            parent = getattr(instance.student.student_profile, 'parent', None) if hasattr(instance.student, 'student_profile') else None
+            parent = (
+                getattr(instance.student.student_profile, "parent", None)
+                if hasattr(instance.student, "student_profile")
+                else None
+            )
             if parent:
                 cache_manager.invalidate_parent_cache(parent.id)
         except:
@@ -157,16 +195,36 @@ def invalidate_enrollment_cache(sender, instance, **kwargs):
     """Инвалидирует кэш при изменении зачислений"""
     try:
         cache_manager = DashboardCacheManager()
-        
+
         # Инвалидируем кэш студента
         cache_manager.invalidate_student_cache(instance.student.id)
-        
+        cache_manager.invalidate_student_enrollments(instance.student.id)
+        cache_manager.invalidate_student_teachers(instance.student.id)
+
         # Инвалидируем кэш преподавателя
         cache_manager.invalidate_teacher_cache(instance.teacher.id)
-        
+
+        # Инвалидируем кэш тьютора студента
+        try:
+            student_profile = getattr(instance.student, "student_profile", None)
+            if student_profile and student_profile.tutor:
+                cache_manager.invalidate_tutor_dashboard(student_profile.tutor.id)
+                logger.info(
+                    f"[Signal] Invalidated tutor cache: "
+                    f"tutor_id={student_profile.tutor.id}, "
+                    f"student_id={instance.student.id}, "
+                    f"action={'created' if kwargs.get('created') else 'deleted'}"
+                )
+        except Exception as e:
+            logger.debug(f"Could not invalidate tutor cache in enrollment signal: {e}")
+
         # Инвалидируем кэш родителя
         try:
-            parent = getattr(instance.student.student_profile, 'parent', None) if hasattr(instance.student, 'student_profile') else None
+            parent = (
+                getattr(instance.student.student_profile, "parent", None)
+                if hasattr(instance.student, "student_profile")
+                else None
+            )
             if parent:
                 cache_manager.invalidate_parent_cache(parent.id)
         except:
@@ -181,10 +239,14 @@ def invalidate_payment_cache(sender, instance, **kwargs):
     """Инвалидирует кэш при изменении платежей"""
     try:
         cache_manager = DashboardCacheManager()
-        
+
         # Инвалидируем кэш родителя
         try:
-            parent = getattr(instance.enrollment.student.student_profile, 'parent', None) if hasattr(instance.enrollment.student, 'student_profile') else None
+            parent = (
+                getattr(instance.enrollment.student.student_profile, "parent", None)
+                if hasattr(instance.enrollment.student, "student_profile")
+                else None
+            )
             if parent:
                 cache_manager.invalidate_parent_cache(parent.id)
         except:
@@ -231,8 +293,8 @@ def invalidate_study_plan_cache(sender, instance, **kwargs):
         # Инвалидируем кэш родителя (для отображения планов в дашборде)
         try:
             student = instance.student
-            if hasattr(student, 'student_profile'):
-                parent = getattr(student.student_profile, 'parent', None)
+            if hasattr(student, "student_profile"):
+                parent = getattr(student.student_profile, "parent", None)
                 if parent:
                     cache_manager.invalidate_parent_cache(parent.id)
                     logger.debug(
@@ -257,7 +319,9 @@ def invalidate_user_cache(sender, instance, **kwargs):
 
             # Инвалидируем кэш родителя
             try:
-                parent = getattr(instance.student_profile, 'parent', None) if hasattr(instance, 'student_profile') else None
+                parent = (
+                    getattr(instance.student_profile, "parent", None) if hasattr(instance, "student_profile") else None
+                )
                 if parent:
                     cache_manager.invalidate_parent_cache(parent.id)
             except:
@@ -275,6 +339,7 @@ def invalidate_user_cache(sender, instance, **kwargs):
 # ============================================================================
 # FORUM CHAT AUTO-CREATION SIGNALS
 # ============================================================================
+
 
 @receiver(post_save, sender=SubjectEnrollment)
 def create_subject_forum_chat(sender, instance: SubjectEnrollment, created: bool, update_fields, **kwargs) -> None:
@@ -305,9 +370,7 @@ def create_subject_forum_chat(sender, instance: SubjectEnrollment, created: bool
 
     # Only create chat for active enrollments
     if not instance.is_active:
-        logger.debug(
-            f"[Signal] Skipping FORUM_SUBJECT chat creation for inactive enrollment {instance.id}"
-        )
+        logger.debug(f"[Signal] Skipping FORUM_SUBJECT chat creation for inactive enrollment {instance.id}")
         return
 
     try:
@@ -316,15 +379,10 @@ def create_subject_forum_chat(sender, instance: SubjectEnrollment, created: bool
 
         # Check if FORUM_SUBJECT chat already exists for this enrollment
         # Use get_or_create for idempotency
-        existing_chat = ChatRoom.objects.filter(
-            type=ChatRoom.Type.FORUM_SUBJECT,
-            enrollment=instance
-        ).first()
+        existing_chat = ChatRoom.objects.filter(type=ChatRoom.Type.FORUM_SUBJECT, enrollment=instance).first()
 
         if existing_chat:
-            logger.debug(
-                f"[Signal] FORUM_SUBJECT chat already exists for enrollment {instance.id}, skipping"
-            )
+            logger.debug(f"[Signal] FORUM_SUBJECT chat already exists for enrollment {instance.id}, skipping")
             return
 
         # Build chat name: "{subject_name} - {student_name} ↔ {teacher_name}"
@@ -340,7 +398,7 @@ def create_subject_forum_chat(sender, instance: SubjectEnrollment, created: bool
             type=ChatRoom.Type.FORUM_SUBJECT,
             enrollment=instance,
             created_by=instance.student,
-            description=f"Forum for {subject_name} between {student_name} and teacher {teacher_name}"
+            description=f"Forum for {subject_name} between {student_name} and teacher {teacher_name}",
         )
 
         # Add student and teacher as participants
@@ -358,8 +416,7 @@ def create_subject_forum_chat(sender, instance: SubjectEnrollment, created: bool
 
     except Exception as e:
         logger.error(
-            f"[Signal] Error creating FORUM_SUBJECT chat for enrollment {instance.id}: {str(e)}",
-            exc_info=True
+            f"[Signal] Error creating FORUM_SUBJECT chat for enrollment {instance.id}: {str(e)}", exc_info=True
         )
         # Don't raise - allow SubjectEnrollment save to succeed
 
@@ -367,6 +424,7 @@ def create_subject_forum_chat(sender, instance: SubjectEnrollment, created: bool
 # ============================================================================
 # SUBSCRIPTION SIGNALS - Инвалидация кеша при изменении подписок
 # ============================================================================
+
 
 @receiver(post_save, sender=SubjectSubscription)
 @receiver(post_delete, sender=SubjectSubscription)
@@ -385,12 +443,14 @@ def invalidate_subscription_cache(sender, instance, **kwargs):
         # Получаем родителя через enrollment -> student -> student_profile -> parent
         try:
             student = instance.enrollment.student
-            parent = getattr(student.student_profile, 'parent', None) if hasattr(student, 'student_profile') else None
+            parent = getattr(student.student_profile, "parent", None) if hasattr(student, "student_profile") else None
 
             if parent:
                 # Инвалидируем кеш родителя и его детей
                 cache_manager.invalidate_parent_cache(parent.id)
-                logger.info(f"[Signal] Invalidated parent cache for parent={parent.id} due to subscription change (sub_id={instance.id})")
+                logger.info(
+                    f"[Signal] Invalidated parent cache for parent={parent.id} due to subscription change (sub_id={instance.id})"
+                )
             else:
                 logger.warning(f"[Signal] Parent not found for subscription {instance.id}")
         except Exception as e:

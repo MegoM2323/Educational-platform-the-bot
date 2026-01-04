@@ -9,6 +9,7 @@ from rest_framework.decorators import (
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -62,50 +63,50 @@ class TutorStudentsViewSet(viewsets.ViewSet):
     def list(self, request):
         logger.info(f"TutorStudentsViewSet.list started")
 
-        # Показываем всех учеников тьютора:
-        # 1) у кого в профиле явно указан этот тьютор (tutor=request.user)
-        # 2) кого этот тьютор создавал (user__created_by_tutor=request.user)
-        # Используем общий фильтр, который работает и для тьюторов, и для администраторов
-        # Принудительно получаем свежие данные из базы, не используя кеш
-
-        # Импортируем SubjectEnrollment для Prefetch
         from materials.models import SubjectEnrollment
 
-        # Создаем Prefetch для subject_enrollments с оптимизацией
         enrollments_prefetch = Prefetch(
             "user__subject_enrollments",
             queryset=SubjectEnrollment.objects.filter(is_active=True)
             .select_related("subject", "teacher")
             .order_by("-enrolled_at", "-id"),
+            to_attr="active_enrollments",
         )
 
-        # Сначала получаем queryset с оптимизацией
         students_queryset = (
             StudentProfile.objects.filter(
                 Q(tutor=request.user) | Q(user__created_by_tutor=request.user)
             )
             .select_related("user", "tutor", "parent")
             .prefetch_related(enrollments_prefetch)
-            .distinct()  # Избегаем дубликатов, если оба условия выполнены
-            .order_by(
-                "-user__date_joined"
-            )  # Сортируем по дате создания (новые первыми)
+            .distinct()
+            .order_by("-user__date_joined")
         )
 
-        # Преобразуем в список, чтобы выполнить запрос и получить свежие данные
-        # Это гарантирует, что мы получаем актуальные данные из базы
-        students_list = list(students_queryset)
+        is_active = request.query_params.get("is_active")
+        if is_active is not None:
+            is_active_bool = is_active.lower() in ("true", "1", "yes")
+            students_queryset = students_queryset.filter(user__is_active=is_active_bool)
+            logger.info(f"Filtered by is_active={is_active_bool}")
 
-        logger.info(f"Found {len(students_list)} students")
+        subject_id = request.query_params.get("subject_id")
+        if subject_id is not None:
+            students_queryset = students_queryset.filter(
+                user__subject_enrollments__subject_id=subject_id,
+                user__subject_enrollments__is_active=True,
+            ).distinct()
+            logger.info(f"Filtered by subject_id={subject_id}")
 
-        # Сериализуем данные - get_subjects будет вызываться для каждого студента
-        # и получать свежие данные из базы каждый раз
-        serializer = TutorStudentSerializer(students_list, many=True)
+        paginator = PageNumberPagination()
+        paginated_queryset = paginator.paginate_queryset(students_queryset, request)
 
-        # Removed excessive debug logging for student subjects
+        logger.info(f"Found {paginator.page.paginator.count} students total")
 
-        # Возвращаем просто массив данных, как ожидает фронтенд
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = TutorStudentSerializer(
+            paginated_queryset, many=True, context={"request": request}
+        )
+
+        return paginator.get_paginated_response(serializer.data)
 
     def create(self, request):
         logger.info(f"TutorStudentsViewSet.create started")
@@ -180,7 +181,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             logger.warning(
                 f"Created student is not visible in tutor's student list! "
                 f"tutor_id={student_profile.tutor_id}, request.user.id={request.user.id}, "
-                f"created_by_tutor_id={created_by}"
+                f"created_by_tutor_id={student_profile.user.created_by_tutor_id}"
             )
 
         # Проверяем связь родитель-ребенок

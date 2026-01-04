@@ -12,6 +12,7 @@ import { EditTeacherDialog } from '@/components/admin/EditTeacherDialog';
 import { EditTeacherSubjectsDialog } from '@/components/admin/EditTeacherSubjectsDialog';
 import { ResetPasswordDialog } from '@/components/admin/ResetPasswordDialog';
 import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
+import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 
 interface TeacherSectionProps {
   onUpdate?: () => void;
@@ -44,6 +45,10 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
     teacher: StaffListItem | null;
   }>({ open: false, teacher: null });
   const [resetPasswordDialog, setResetPasswordDialog] = useState<{
+    open: boolean;
+    item: StaffListItem | null;
+  }>({ open: false, item: null });
+  const [confirmDeleteDialog, setConfirmDeleteDialog] = useState<{
     open: boolean;
     item: StaffListItem | null;
   }>({ open: false, item: null });
@@ -125,6 +130,13 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
   const handleSuccess = () => {
     loadTeachers();
     onUpdate?.();
+  };
+
+  const handleConfirmDelete = () => {
+    if (confirmDeleteDialog.item) {
+      setConfirmDeleteDialog({ open: false, item: null });
+      setDeleteUserDialog({ open: true, item: confirmDeleteDialog.item });
+    }
   };
 
   return (
@@ -224,7 +236,7 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() => setDeleteUserDialog({ open: true, item: teacher })}
+                      onClick={() => setConfirmDeleteDialog({ open: true, item: teacher })}
                       title="Удалить"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -342,6 +354,17 @@ export default function TeacherSection({ onUpdate }: TeacherSectionProps) {
           user={resetPasswordDialog.item.user}
           open={resetPasswordDialog.open}
           onOpenChange={(open) => setResetPasswordDialog({ open, item: null })}
+        />
+      )}
+
+      {confirmDeleteDialog.item && (
+        <ConfirmDeleteDialog
+          open={confirmDeleteDialog.open}
+          onOpenChange={(open) => setConfirmDeleteDialog({ open, item: null })}
+          onConfirm={handleConfirmDelete}
+          userName={confirmDeleteDialog.item.user.full_name}
+          title="Delete Teacher?"
+          description="Are you sure you want to delete this teacher? This action will deactivate the teacher account."
         />
       )}
 

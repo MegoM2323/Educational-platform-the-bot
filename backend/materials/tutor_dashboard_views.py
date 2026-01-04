@@ -2,8 +2,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
+from django.db import IntegrityError
 import logging
 
 from .tutor_dashboard_service import TutorDashboardService
@@ -14,7 +16,7 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def tutor_dashboard(request):
     """
@@ -29,8 +31,8 @@ def tutor_dashboard(request):
     # Проверяем роль пользователя
     if request.user.role != User.Role.TUTOR:
         return Response(
-            {'error': 'Только тьюторы могут получить доступ к этому ресурсу'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Только тьюторы могут получить доступ к этому ресурсу"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     try:
@@ -48,48 +50,57 @@ def tutor_dashboard(request):
             serialized_profile = ProfileSerializer(profile).data
 
             # Добавляем профиль в dashboard_data
-            dashboard_data['profile'] = serialized_profile
+            dashboard_data["profile"] = serialized_profile
 
         except Exception as profile_error:
             logger.warning(f"Could not load tutor profile: {profile_error}")
             # Не блокируем весь dashboard если не удалось загрузить профиль
-            dashboard_data['profile'] = None
+            dashboard_data["profile"] = None
 
         return Response(dashboard_data, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Unexpected error in tutor dashboard: {e}", exc_info=True)
         return Response(
-            {'error': f'Ошибка при получении данных дашборда: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Ошибка при получении данных дашборда: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def tutor_students(request):
     """
-    Получить список студентов тьютора
+    Получить список студентов тьютора с пагинацией и фильтрами
 
     GET /api/materials/dashboard/tutor/students/
+
+    Query parameters:
+    - page: номер страницы (по умолчанию 1)
+    - is_active: true/false (фильтр по активности студента)
+    - subject_id: id предмета (фильтр по предметам)
     """
     if request.user.role != User.Role.TUTOR:
         return Response(
-            {'error': 'Только тьюторы могут получить доступ к этому ресурсу'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Только тьюторы могут получить доступ к этому ресурсу"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     try:
         service = TutorDashboardService(request.user, request=request)
-        students = service.get_students()
-        return Response({'students': students}, status=status.HTTP_200_OK)
+        students_list = service.get_students()
+
+        paginator = PageNumberPagination()
+        paginated_students = paginator.paginate_queryset(students_list, request)
+
+        return paginator.get_paginated_response({"students": paginated_students})
     except Exception as e:
         return Response(
-            {'error': f'Ошибка при получении списка студентов: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Ошибка при получении списка студентов: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def tutor_student_subjects(request, student_id):
     """
@@ -99,27 +110,24 @@ def tutor_student_subjects(request, student_id):
     """
     if request.user.role != User.Role.TUTOR:
         return Response(
-            {'error': 'Только тьюторы могут получить доступ к этому ресурсу'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Только тьюторы могут получить доступ к этому ресурсу"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     try:
         service = TutorDashboardService(request.user, request=request)
         subjects = service.get_student_subjects(student_id)
-        return Response({'subjects': subjects}, status=status.HTTP_200_OK)
+        return Response({"subjects": subjects}, status=status.HTTP_200_OK)
     except PermissionDenied as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_403_FORBIDDEN
-        )
+        return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
         return Response(
-            {'error': f'Ошибка при получении предметов студента: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Ошибка при получении предметов студента: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def tutor_student_progress(request, student_id):
     """
@@ -129,8 +137,8 @@ def tutor_student_progress(request, student_id):
     """
     if request.user.role != User.Role.TUTOR:
         return Response(
-            {'error': 'Только тьюторы могут получить доступ к этому ресурсу'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Только тьюторы могут получить доступ к этому ресурсу"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     try:
@@ -138,18 +146,15 @@ def tutor_student_progress(request, student_id):
         progress = service.get_student_progress(student_id)
         return Response(progress, status=status.HTTP_200_OK)
     except PermissionDenied as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_403_FORBIDDEN
-        )
+        return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
         return Response(
-            {'error': f'Ошибка при получении прогресса студента: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Ошибка при получении прогресса студента: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def tutor_assign_subject(request):
     """
@@ -167,19 +172,19 @@ def tutor_assign_subject(request):
     """
     if request.user.role != User.Role.TUTOR:
         return Response(
-            {'error': 'Только тьюторы могут назначать предметы'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Только тьюторы могут назначать предметы"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
-    student_id = request.data.get('student_id')
-    subject_id = request.data.get('subject_id')
-    teacher_id = request.data.get('teacher_id')
-    custom_subject_name = request.data.get('custom_subject_name')
+    student_id = request.data.get("student_id")
+    subject_id = request.data.get("subject_id")
+    teacher_id = request.data.get("teacher_id")
+    custom_subject_name = request.data.get("custom_subject_name")
 
     if not all([student_id, subject_id, teacher_id]):
         return Response(
-            {'error': 'Необходимо указать student_id, subject_id и teacher_id'},
-            status=status.HTTP_400_BAD_REQUEST
+            {"error": "Необходимо указать student_id, subject_id и teacher_id"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     try:
@@ -188,22 +193,29 @@ def tutor_assign_subject(request):
             student_id=student_id,
             subject_id=subject_id,
             teacher_id=teacher_id,
-            custom_subject_name=custom_subject_name
+            custom_subject_name=custom_subject_name,
         )
 
-        if result['success']:
+        if result["success"]:
             return Response(result, status=status.HTTP_201_CREATED)
         else:
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
+    except IntegrityError as e:
+        if "unique_active_enrollment_per_subject" in str(e):
+            return Response(
+                {"error": "Студент уже зачислен на этот предмет"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        raise
     except Exception as e:
         return Response(
-            {'error': f'Ошибка при назначении предмета: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Ошибка при назначении предмета: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def tutor_create_report(request):
     """
@@ -225,40 +237,38 @@ def tutor_create_report(request):
     """
     if request.user.role != User.Role.TUTOR:
         return Response(
-            {'error': 'Только тьюторы могут создавать отчеты'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Только тьюторы могут создавать отчеты"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
-    student_id = request.data.get('student_id')
-    parent_id = request.data.get('parent_id')
+    student_id = request.data.get("student_id")
+    parent_id = request.data.get("parent_id")
 
     if not all([student_id, parent_id]):
         return Response(
-            {'error': 'Необходимо указать student_id и parent_id'},
-            status=status.HTTP_400_BAD_REQUEST
+            {"error": "Необходимо указать student_id и parent_id"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     try:
         service = TutorDashboardService(request.user, request=request)
         result = service.create_student_report(
-            student_id=student_id,
-            parent_id=parent_id,
-            report_data=request.data
+            student_id=student_id, parent_id=parent_id, report_data=request.data
         )
 
-        if result['success']:
+        if result["success"]:
             return Response(result, status=status.HTTP_201_CREATED)
         else:
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
     except Exception as e:
         return Response(
-            {'error': f'Ошибка при создании отчета: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Ошибка при создании отчета: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def tutor_reports(request):
     """
@@ -268,22 +278,22 @@ def tutor_reports(request):
     """
     if request.user.role != User.Role.TUTOR:
         return Response(
-            {'error': 'Только тьюторы могут получить доступ к этому ресурсу'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Только тьюторы могут получить доступ к этому ресурсу"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     try:
         service = TutorDashboardService(request.user, request=request)
         reports = service.get_tutor_reports()
-        return Response({'reports': reports}, status=status.HTTP_200_OK)
+        return Response({"reports": reports}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response(
-            {'error': f'Ошибка при получении отчетов: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Ошибка при получении отчетов: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def tutor_student_schedule(request, student_id):
     """
@@ -302,8 +312,8 @@ def tutor_student_schedule(request, student_id):
     """
     if request.user.role != User.Role.TUTOR:
         return Response(
-            {'error': 'Только тьюторы могут получить доступ к этому ресурсу'},
-            status=status.HTTP_403_FORBIDDEN
+            {"error": "Только тьюторы могут получить доступ к этому ресурсу"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     try:
@@ -315,8 +325,7 @@ def tutor_student_schedule(request, student_id):
 
         # Get lessons (validates tutor manages student)
         queryset = LessonService.get_tutor_student_lessons(
-            tutor=request.user,
-            student_id=student_id
+            tutor=request.user, student_id=student_id
         )
 
         # Filter by date >= today (future lessons only)
@@ -324,10 +333,10 @@ def tutor_student_schedule(request, student_id):
         queryset = queryset.filter(date__gte=today)
 
         # Apply optional query parameter filters
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
-        subject_id = request.query_params.get('subject_id')
-        status_filter = request.query_params.get('status')
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        subject_id = request.query_params.get("subject_id")
+        status_filter = request.query_params.get("status")
 
         if date_from:
             queryset = queryset.filter(date__gte=date_from)
@@ -344,18 +353,12 @@ def tutor_student_schedule(request, student_id):
 
     except ValidationError as e:
         # ValidationError from LessonService means permission denied
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_403_FORBIDDEN
-        )
+        return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
     except PermissionDenied as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_403_FORBIDDEN
-        )
+        return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
         logger.error(f"Error fetching student schedule: {e}", exc_info=True)
         return Response(
-            {'error': f'Ошибка при получении расписания студента: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Ошибка при получении расписания студента: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

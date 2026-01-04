@@ -332,12 +332,6 @@ def create_staff(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if User.objects.filter(email=email).exists():
-        return Response(
-            {"detail": "Email уже зарегистрирован"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
     if not first_name or not last_name:
         return Response(
             {"detail": "first_name и last_name обязательны"},
@@ -378,6 +372,15 @@ def create_staff(request):
 
     try:
         with transaction.atomic():
+            # Используем SELECT FOR UPDATE для предотвращения race condition
+            # при проверке уникальности email
+            email_exists = User.objects.select_for_update().filter(email=email).exists()
+            if email_exists:
+                return Response(
+                    {"detail": "Email уже зарегистрирован"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             django_user = None
             # Создаем локально в Django
             username = email
@@ -466,6 +469,22 @@ def create_staff(request):
                         setattr(profile, k, v)
                     profile.save()
 
+    except IntegrityError as exc:
+        logger.warning(
+            f"[create_staff] IntegrityError (race condition?) for email {email}: {exc}"
+        )
+        if "email" in str(exc).lower() or "unique" in str(exc).lower():
+            return Response(
+                {"detail": "Email уже зарегистрирован"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        logger.error(
+            f"[create_staff] Unexpected IntegrityError: {str(exc)}", exc_info=True
+        )
+        return Response(
+            {"detail": "Internal server error"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
     except Exception as exc:
         logger.error(f"[create_staff] Error creating user: {str(exc)}", exc_info=True)
         return Response(
@@ -741,6 +760,58 @@ def update_user(request, user_id):
         user_serializer = UserUpdateSerializer(user, data=request.data, partial=True)
         if not user_serializer.is_valid():
             return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Проверка целостности при изменении role
+        if "role" in user_serializer.validated_data:
+            new_role = user_serializer.validated_data["role"]
+            old_role = user.role
+
+            if new_role != old_role:
+                # Проверяем зависимые записи перед сменой роли
+                if old_role == User.Role.TUTOR:
+                    tutees = StudentProfile.objects.filter(tutor=user).exists()
+                    if tutees:
+                        return Response(
+                            {
+                                "error": "Cannot change role from TUTOR: students depend on this tutor",
+                                "detail": "Удалите связь между студентами и этим тьютором перед сменой роли"
+                            },
+                            status=status.HTTP_409_CONFLICT,
+                        )
+
+                if old_role == User.Role.TEACHER:
+                    from materials.models import SubjectEnrollment
+                    enrollments = SubjectEnrollment.objects.filter(teacher=user).exists()
+                    if enrollments:
+                        return Response(
+                            {
+                                "error": "Cannot change role from TEACHER: enrollments depend on this teacher",
+                                "detail": "Удалите связь между студентами и этим преподавателем перед сменой роли"
+                            },
+                            status=status.HTTP_409_CONFLICT,
+                        )
+
+                profile_model = {
+                    "STUDENT": StudentProfile,
+                    "TEACHER": TeacherProfile,
+                    "TUTOR": TutorProfile,
+                    "PARENT": ParentProfile,
+                }.get(new_role)
+
+                if (
+                    profile_model
+                    and not profile_model.objects.filter(user=user).exists()
+                ):
+                    return Response(
+                        {
+                            "error": f"Cannot change role to {new_role}: profile does not exist"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                audit_logger.info(
+                    f"Admin {request.user.id} changed user {user.id} role from {old_role} to {new_role}"
+                )
 
         updated_user = user_serializer.save()
 
@@ -1380,6 +1451,12 @@ def create_user_with_profile(request):
     # Создание пользователя локально в Django
     try:
         with transaction.atomic():
+            if User.objects.filter(email=email).exists():
+                return Response(
+                    {"detail": "Email уже зарегистрирован"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             django_user = None
 
             # Создание только в Django
@@ -1467,8 +1544,55 @@ def create_user_with_profile(request):
 
                 profile_data = ParentProfileSerializer(profile).data
 
+    except IntegrityError as exc:
+        logger.warning(
+            f"[create_user_with_profile] IntegrityError (race condition?) for email {email}: {exc}"
+        )
+        if "email" in str(exc).lower() or "unique" in str(exc).lower():
+            return Response(
+                {"detail": "Email уже зарегистрирован"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if "username" in str(exc).lower():
+            # Retry с новым username если произошла race condition
+            try:
+                with transaction.atomic():
+                    base = email.split("@")[0]
+                    for i in range(1, 100):
+                        new_username = f"{base}{i}@local"
+                        if not User.objects.filter(username=new_username).exists():
+                            django_user = User.objects.create(
+                                username=new_username,
+                                email=email,
+                                first_name=first_name,
+                                last_name=last_name,
+                                role=role,
+                                is_active=True,
+                            )
+                            django_user.set_password(password)
+                            django_user.save()
+                            break
+                    else:
+                        raise ValueError("Не удалось создать username после 100 попыток")
+            except Exception as retry_exc:
+                logger.error(
+                    f"[create_user_with_profile] Retry failed: {str(retry_exc)}",
+                    exc_info=True
+                )
+                return Response(
+                    {"detail": "Internal server error"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        else:
+            logger.error(
+                f"[create_user_with_profile] Unexpected IntegrityError: {str(exc)}", exc_info=True
+            )
+            return Response(
+                {"detail": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
     except Exception as exc:
-        logger.error(f"Error creating user: {str(exc)}", exc_info=True)
+        logger.error(f"[create_user_with_profile] Error creating user: {str(exc)}", exc_info=True)
         return Response(
             {"detail": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

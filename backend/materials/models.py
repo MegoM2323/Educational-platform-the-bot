@@ -74,9 +74,7 @@ class TeacherSubject(models.Model):
 
     # Дополнительная информация
     is_active = models.BooleanField(default=True, verbose_name="Активно")
-    assigned_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Дата назначения"
-    )
+    assigned_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата назначения")
 
     class Meta:
         verbose_name = "Предмет преподавателя"
@@ -133,15 +131,22 @@ class SubjectEnrollment(models.Model):
         help_text="Если указано, используется вместо стандартного названия предмета",
     )
 
-    enrolled_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Дата зачисления"
-    )
+    enrolled_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата зачисления")
     is_active = models.BooleanField(default=True, verbose_name="Активно")
 
     class Meta:
         verbose_name = "Зачисление на предмет"
         verbose_name_plural = "Зачисления на предметы"
-        unique_together = ["student", "subject", "teacher"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "subject"],
+                condition=models.Q(is_active=True),
+                name="unique_active_enrollment_per_subject",
+            ),
+            models.UniqueConstraint(
+                fields=["student", "subject", "teacher"], name="unique_student_subject_teacher"
+            ),
+        ]
         ordering = ["-enrolled_at"]
 
     def __str__(self):
@@ -191,9 +196,7 @@ class SubjectPayment(models.Model):
     def _default_due_date():
         return timezone.now() + timedelta(days=7)
 
-    due_date = models.DateTimeField(
-        verbose_name="Срок оплаты", default=_default_due_date
-    )
+    due_date = models.DateTimeField(verbose_name="Срок оплаты", default=_default_due_date)
     paid_at = models.DateTimeField(blank=True, null=True, verbose_name="Дата оплаты")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -228,9 +231,7 @@ class SubjectSubscription(models.Model):
         verbose_name="Зачисление",
     )
 
-    amount = models.DecimalField(
-        max_digits=10, decimal_places=2, verbose_name="Сумма платежа"
-    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма платежа")
 
     status = models.CharField(
         max_length=20,
@@ -253,12 +254,8 @@ class SubjectSubscription(models.Model):
     # Временные метки
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
-    cancelled_at = models.DateTimeField(
-        blank=True, null=True, verbose_name="Дата отмены"
-    )
-    expires_at = models.DateTimeField(
-        blank=True, null=True, verbose_name="Дата истечения доступа"
-    )
+    cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name="Дата отмены")
+    expires_at = models.DateTimeField(blank=True, null=True, verbose_name="Дата истечения доступа")
 
     class Meta:
         verbose_name = "Подписка на предмет"
@@ -292,9 +289,7 @@ class SubjectSubscription(models.Model):
                 next_payment_delta = timedelta(weeks=self.payment_interval_weeks)
             else:
                 # Если payment_interval_weeks = 0, используем настройку из settings
-                next_payment_delta = timedelta(
-                    weeks=settings.PRODUCTION_RECURRING_INTERVAL_WEEKS
-                )
+                next_payment_delta = timedelta(weeks=settings.PRODUCTION_RECURRING_INTERVAL_WEEKS)
 
         self.next_payment_date = timezone.now() + next_payment_delta
         self.save(update_fields=["next_payment_date", "updated_at"])
@@ -353,9 +348,7 @@ class Material(models.Model):
         blank=True,
         null=True,
         validators=[
-            FileExtensionValidator(
-                allowed_extensions=["pdf", "doc", "docx", "ppt", "pptx", "txt"]
-            )
+            FileExtensionValidator(allowed_extensions=["pdf", "doc", "docx", "ppt", "pptx", "txt"])
         ],
         verbose_name="Файл",
     )
@@ -450,12 +443,8 @@ class MaterialProgress(models.Model):
     )
 
     is_completed = models.BooleanField(default=False, verbose_name="Завершен")
-    progress_percentage = models.PositiveIntegerField(
-        default=0, verbose_name="Прогресс (%)"
-    )
-    time_spent = models.PositiveIntegerField(
-        default=0, verbose_name="Время изучения (мин)"
-    )
+    progress_percentage = models.PositiveIntegerField(default=0, verbose_name="Прогресс (%)")
+    time_spent = models.PositiveIntegerField(default=0, verbose_name="Время изучения (мин)")
 
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(blank=True, null=True)
@@ -512,9 +501,7 @@ class MaterialComment(models.Model):
     # Soft delete and moderation
     is_deleted = models.BooleanField(default=False, verbose_name="Удален")
     is_approved = models.BooleanField(default=True, verbose_name="Одобрен")
-    deleted_at = models.DateTimeField(
-        null=True, blank=True, verbose_name="Дата удаления"
-    )
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата удаления")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -524,9 +511,7 @@ class MaterialComment(models.Model):
         verbose_name_plural = "Комментарии"
         ordering = ["created_at"]
         indexes = [
-            models.Index(
-                fields=["material", "parent_comment"], name="matcom_mat_parent_idx"
-            ),
+            models.Index(fields=["material", "parent_comment"], name="matcom_mat_parent_idx"),
             models.Index(fields=["author", "material"], name="matcom_author_mat_idx"),
             models.Index(fields=["-created_at"], name="matcom_created_idx"),
         ]
@@ -595,9 +580,7 @@ def validate_submission_file(file):
 
     ext = file.name.split(".")[-1].lower()
     if ext not in allowed_types:
-        raise ValidationError(
-            f'Неподдерживаемый тип файла. Разрешены: {", ".join(allowed_types)}'
-        )
+        raise ValidationError(f'Неподдерживаемый тип файла. Разрешены: {", ".join(allowed_types)}')
 
 
 class MaterialSubmission(models.Model):
@@ -670,9 +653,7 @@ class MaterialSubmission(models.Model):
 
     def clean(self):
         if not self.submission_file and not self.submission_text:
-            raise ValidationError(
-                "Необходимо предоставить либо файл, либо текстовый ответ"
-            )
+            raise ValidationError("Необходимо предоставить либо файл, либо текстовый ответ")
 
         if self.submission_file:
             validate_submission_file(self.submission_file)
@@ -937,16 +918,12 @@ class StudyPlanGeneration(models.Model):
     )
 
     # Сообщение об ошибке (если failed)
-    error_message = models.TextField(
-        null=True, blank=True, verbose_name="Сообщение об ошибке"
-    )
+    error_message = models.TextField(null=True, blank=True, verbose_name="Сообщение об ошибке")
 
     # Временные метки
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
-    completed_at = models.DateTimeField(
-        null=True, blank=True, verbose_name="Дата завершения"
-    )
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата завершения")
 
     class Meta:
         verbose_name = "Генерация учебного плана"
@@ -959,7 +936,9 @@ class StudyPlanGeneration(models.Model):
         ]
 
     def __str__(self):
-        return f"Генерация плана {self.student.get_full_name()} - {self.subject.name} ({self.status})"
+        return (
+            f"Генерация плана {self.student.get_full_name()} - {self.subject.name} ({self.status})"
+        )
 
     def clean(self):
         """
@@ -978,10 +957,7 @@ class StudyPlanGeneration(models.Model):
 
     def save(self, *args, **kwargs):
         # Автоматически установить completed_at при переходе в COMPLETED или FAILED
-        if (
-            self.status in [self.Status.COMPLETED, self.Status.FAILED]
-            and not self.completed_at
-        ):
+        if self.status in [self.Status.COMPLETED, self.Status.FAILED] and not self.completed_at:
             from django.utils import timezone
 
             self.completed_at = timezone.now()
@@ -996,9 +972,7 @@ class StudyPlanGeneration(models.Model):
                     is_active=True,
                 )
             except SubjectEnrollment.DoesNotExist:
-                raise ValidationError(
-                    "Студент не зачислен на этот предмет к данному преподавателю"
-                )
+                raise ValidationError("Студент не зачислен на этот предмет к данному преподавателю")
 
         super().save(*args, **kwargs)
 
@@ -1029,9 +1003,7 @@ class GeneratedFile(models.Model):
     )
 
     # Тип файла
-    file_type = models.CharField(
-        max_length=20, choices=FileType.choices, verbose_name="Тип файла"
-    )
+    file_type = models.CharField(max_length=20, choices=FileType.choices, verbose_name="Тип файла")
 
     # Путь к сгенерированному файлу
     file = models.FileField(
@@ -1047,9 +1019,7 @@ class GeneratedFile(models.Model):
     )
 
     # Сообщение об ошибке (если failed)
-    error_message = models.TextField(
-        null=True, blank=True, verbose_name="Сообщение об ошибке"
-    )
+    error_message = models.TextField(null=True, blank=True, verbose_name="Сообщение об ошибке")
 
     # Временные метки
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
@@ -1085,9 +1055,7 @@ class SubmissionFile(models.Model):
 
     file = models.FileField(upload_to="submissions/files/", verbose_name="Файл")
 
-    original_filename = models.CharField(
-        max_length=255, verbose_name="Исходное имя файла"
-    )
+    original_filename = models.CharField(max_length=255, verbose_name="Исходное имя файла")
 
     file_size = models.PositiveIntegerField(verbose_name="Размер файла (байт)")
 
@@ -1097,9 +1065,7 @@ class SubmissionFile(models.Model):
         help_text="Расширение файла (pdf, doc, jpg и т.д.)",
     )
 
-    mime_type = models.CharField(
-        max_length=100, verbose_name="MIME тип файла", blank=True
-    )
+    mime_type = models.CharField(max_length=100, verbose_name="MIME тип файла", blank=True)
 
     file_checksum = models.CharField(
         max_length=64,
@@ -1262,23 +1228,17 @@ class BulkAssignmentAuditLog(models.Model):
     failed_count = models.IntegerField(default=0, verbose_name="Failed")
 
     # Failed items details (JSON format)
-    failed_items = models.JSONField(
-        default=list, blank=True, verbose_name="Failed Items"
-    )
+    failed_items = models.JSONField(default=list, blank=True, verbose_name="Failed Items")
 
     # Error message if operation failed
-    error_message = models.TextField(
-        null=True, blank=True, verbose_name="Error Message"
-    )
+    error_message = models.TextField(null=True, blank=True, verbose_name="Error Message")
 
     # Operation metadata (JSON format)
     metadata = models.JSONField(default=dict, blank=True, verbose_name="Metadata")
 
     # Timing
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
-    completed_at = models.DateTimeField(
-        null=True, blank=True, verbose_name="Completed At"
-    )
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Completed At")
     duration_seconds = models.FloatField(default=0, verbose_name="Duration (seconds)")
 
     class Meta:
@@ -1293,4 +1253,6 @@ class BulkAssignmentAuditLog(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.get_operation_type_display()} - {self.get_status_display()} ({self.created_at})"
+        return (
+            f"{self.get_operation_type_display()} - {self.get_status_display()} ({self.created_at})"
+        )

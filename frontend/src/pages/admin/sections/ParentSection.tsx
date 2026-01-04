@@ -10,6 +10,7 @@ import { CreateParentDialog } from '@/components/admin/CreateParentDialog';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 import { ResetPasswordDialog } from '@/components/admin/ResetPasswordDialog';
 import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
+import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import { ParentStudentAssignment } from '@/components/admin/ParentStudentAssignment';
 import { User as UserType } from '@/integrations/api/unifiedClient';
 
@@ -36,6 +37,10 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
     item: ParentItem | null;
   }>({ open: false, item: null });
   const [resetPasswordDialog, setResetPasswordDialog] = useState<{
+    open: boolean;
+    item: ParentItem | null;
+  }>({ open: false, item: null });
+  const [confirmDeleteDialog, setConfirmDeleteDialog] = useState<{
     open: boolean;
     item: ParentItem | null;
   }>({ open: false, item: null });
@@ -82,6 +87,13 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
   const handleSuccess = () => {
     loadParents();
     onUpdate?.();
+  };
+
+  const handleConfirmDelete = () => {
+    if (confirmDeleteDialog.item) {
+      setConfirmDeleteDialog({ open: false, item: null });
+      setDeleteUserDialog({ open: true, item: confirmDeleteDialog.item });
+    }
   };
 
   return (
@@ -170,7 +182,7 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() => setDeleteUserDialog({ open: true, item: parent })}
+                      onClick={() => setConfirmDeleteDialog({ open: true, item: parent })}
                       title="Удалить"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -211,6 +223,17 @@ export default function ParentSection({ onUpdate }: ParentSectionProps) {
           user={resetPasswordDialog.item.user}
           open={resetPasswordDialog.open}
           onOpenChange={(open) => setResetPasswordDialog({ open, item: null })}
+        />
+      )}
+
+      {confirmDeleteDialog.item && (
+        <ConfirmDeleteDialog
+          open={confirmDeleteDialog.open}
+          onOpenChange={(open) => setConfirmDeleteDialog({ open, item: null })}
+          onConfirm={handleConfirmDelete}
+          userName={confirmDeleteDialog.item.user.full_name}
+          title="Delete Parent?"
+          description="Are you sure you want to delete this parent? This action will deactivate the parent account."
         />
       )}
 

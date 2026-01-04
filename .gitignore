@@ -224,3 +224,4 @@ table-version-push
 # But include the main package.json and lock file
 !/package.json
 !/package-lock.json
+CREDENTIALS.secure

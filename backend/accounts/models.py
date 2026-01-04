@@ -326,7 +326,7 @@ class TelegramLinkToken(models.Model):
         verbose_name="Пользователь",
     )
     token = models.CharField(
-        max_length=64, unique=True, db_index=True, verbose_name="Токен"
+        max_length=256, unique=True, db_index=True, verbose_name="Токен"
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
     expires_at = models.DateTimeField(verbose_name="Истекает")

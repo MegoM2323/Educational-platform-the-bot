@@ -412,7 +412,7 @@ def log_user_creation_or_update(sender, instance: User, created: bool, **kwargs)
 @receiver(post_save, sender=StudentProfile)
 def log_student_profile_creation(sender, instance: StudentProfile, created: bool, **kwargs) -> None:
     """
-    Signal обработчик для логирования создания профилей студентов.
+    Signal обработчик для логирования создания и обновления профилей студентов.
 
     Args:
         sender: Модель StudentProfile
@@ -437,6 +437,29 @@ def log_student_profile_creation(sender, instance: StudentProfile, created: bool
             )
             audit_logger.info(audit_message)
             logger.debug(f"[Signal] StudentProfile created for user {instance.user.id}")
+        else:
+            try:
+                old_instance = StudentProfile.objects.get(pk=instance.pk)
+                changed_fields = {}
+
+                for field in ["grade", "goal", "tutor_id", "parent_id"]:
+                    old_value = getattr(old_instance, field)
+                    new_value = getattr(instance, field)
+                    if old_value != new_value:
+                        changed_fields[field] = (str(old_value), str(new_value))
+
+                if changed_fields:
+                    audit_logger.info(
+                        f"StudentProfile {instance.id} updated for user {instance.user.id}",
+                        extra={
+                            "action": "update_student_profile_signal",
+                            "profile_id": instance.id,
+                            "user_id": instance.user.id,
+                            "changes": changed_fields,
+                        },
+                    )
+            except StudentProfile.DoesNotExist:
+                pass
 
     except Exception as exc:
         logger.error(f"[Signal] Error logging StudentProfile creation: {exc}")
@@ -673,7 +696,7 @@ def sync_invoices_on_parent_change(
 @receiver(post_save, sender=TeacherProfile)
 def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool, **kwargs) -> None:
     """
-    Signal обработчик для логирования создания профилей преподавателей.
+    Signal обработчик для логирования создания и обновления профилей преподавателей.
 
     Args:
         sender: Модель TeacherProfile
@@ -686,7 +709,7 @@ def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool
             extra_data = {
                 "subject": instance.subject or "N/A",
                 "experience_years": instance.experience_years or 0,
-                "bio": instance.bio[:50] if instance.bio else "N/A",  # Первые 50 символов
+                "bio": instance.bio[:50] if instance.bio else "N/A",
             }
 
             audit_message = AuditLogMessage.create_profile(
@@ -697,6 +720,29 @@ def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool
             )
             audit_logger.info(audit_message)
             logger.debug(f"[Signal] TeacherProfile created for user {instance.user.id}")
+        else:
+            try:
+                old_instance = TeacherProfile.objects.get(pk=instance.pk)
+                changed_fields = {}
+
+                for field in ["subject", "experience_years", "bio"]:
+                    old_value = getattr(old_instance, field)
+                    new_value = getattr(instance, field)
+                    if old_value != new_value:
+                        changed_fields[field] = (str(old_value), str(new_value))
+
+                if changed_fields:
+                    audit_logger.info(
+                        f"TeacherProfile {instance.id} updated for user {instance.user.id}",
+                        extra={
+                            "action": "update_teacher_profile_signal",
+                            "profile_id": instance.id,
+                            "user_id": instance.user.id,
+                            "changes": changed_fields,
+                        },
+                    )
+            except TeacherProfile.DoesNotExist:
+                pass
 
     except Exception as exc:
         logger.error(f"[Signal] Error logging TeacherProfile creation: {exc}")
@@ -705,7 +751,7 @@ def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool
 @receiver(post_save, sender=TutorProfile)
 def log_tutor_profile_creation(sender, instance: TutorProfile, created: bool, **kwargs) -> None:
     """
-    Signal обработчик для логирования создания профилей тьюторов.
+    Signal обработчик для логирования создания и обновления профилей тьюторов.
 
     Args:
         sender: Модель TutorProfile
@@ -729,6 +775,29 @@ def log_tutor_profile_creation(sender, instance: TutorProfile, created: bool, **
             )
             audit_logger.info(audit_message)
             logger.debug(f"[Signal] TutorProfile created for user {instance.user.id}")
+        else:
+            try:
+                old_instance = TutorProfile.objects.get(pk=instance.pk)
+                changed_fields = {}
+
+                for field in ["specialization", "experience_years", "bio"]:
+                    old_value = getattr(old_instance, field)
+                    new_value = getattr(instance, field)
+                    if old_value != new_value:
+                        changed_fields[field] = (str(old_value), str(new_value))
+
+                if changed_fields:
+                    audit_logger.info(
+                        f"TutorProfile {instance.id} updated for user {instance.user.id}",
+                        extra={
+                            "action": "update_tutor_profile_signal",
+                            "profile_id": instance.id,
+                            "user_id": instance.user.id,
+                            "changes": changed_fields,
+                        },
+                    )
+            except TutorProfile.DoesNotExist:
+                pass
 
     except Exception as exc:
         logger.error(f"[Signal] Error logging TutorProfile creation: {exc}")
@@ -737,7 +806,7 @@ def log_tutor_profile_creation(sender, instance: TutorProfile, created: bool, **
 @receiver(post_save, sender=ParentProfile)
 def log_parent_profile_creation(sender, instance: ParentProfile, created: bool, **kwargs) -> None:
     """
-    Signal обработчик для логирования создания профилей родителей.
+    Signal обработчик для логирования создания и обновления профилей родителей.
 
     Args:
         sender: Модель ParentProfile
@@ -754,6 +823,8 @@ def log_parent_profile_creation(sender, instance: ParentProfile, created: bool, 
             )
             audit_logger.info(audit_message)
             logger.debug(f"[Signal] ParentProfile created for user {instance.user.id}")
+        else:
+            logger.debug(f"[Signal] ParentProfile updated for user {instance.user.id}")
 
     except Exception as exc:
         logger.error(f"[Signal] Error logging ParentProfile creation: {exc}")

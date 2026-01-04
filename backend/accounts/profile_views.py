@@ -258,7 +258,7 @@ class TeacherProfileView(APIView):
         from materials.models import TeacherSubject
 
         teacher_subjects_prefetch = Prefetch(
-            "user__teachersubject_set",
+            "user__teacher_subjects",
             queryset=TeacherSubject.objects.select_related("subject").filter(
                 is_active=True
             ),
@@ -303,7 +303,7 @@ class TeacherProfileView(APIView):
         from materials.models import TeacherSubject
 
         teacher_subjects_prefetch = Prefetch(
-            "user__teachersubject_set",
+            "user__teacher_subjects",
             queryset=TeacherSubject.objects.select_related("subject").filter(
                 is_active=True
             ),
@@ -757,7 +757,7 @@ class AdminTeacherProfileEditView(APIView):
                     from materials.models import TeacherSubject
 
                     teacher_subjects_prefetch = Prefetch(
-                        "user__teachersubject_set",
+                        "user__teacher_subjects",
                         queryset=TeacherSubject.objects.select_related(
                             "subject"
                         ).filter(is_active=True),
@@ -961,7 +961,7 @@ class AdminUserProfileView(APIView):
                 from materials.models import TeacherSubject
 
                 teacher_subjects_prefetch = Prefetch(
-                    "user__teachersubject_set",
+                    "user__teacher_subjects",
                     queryset=TeacherSubject.objects.select_related("subject").filter(
                         is_active=True
                     ),
@@ -1065,7 +1065,7 @@ class AdminUserFullInfoView(APIView):
                 from materials.models import TeacherSubject
 
                 teacher_subjects_prefetch = Prefetch(
-                    "user__teachersubject_set",
+                    "user__teacher_subjects",
                     queryset=TeacherSubject.objects.select_related("subject").filter(
                         is_active=True
                     ),
@@ -1310,7 +1310,7 @@ class CurrentUserProfileView(APIView):
             from materials.models import TeacherSubject
 
             teacher_subjects_prefetch = Prefetch(
-                "user__teachersubject_set",
+                "user__teacher_subjects",
                 queryset=TeacherSubject.objects.select_related("subject").filter(
                     is_active=True
                 ),
@@ -1412,7 +1412,7 @@ class TeacherListView(APIView):
         from materials.models import TeacherSubject
 
         teacher_subjects_prefetch = Prefetch(
-            "teacherprofile__user__teachersubject_set",
+            "teacherprofile__user__teacher_subjects",
             queryset=TeacherSubject.objects.select_related("subject").filter(
                 is_active=True
             ),
@@ -1512,7 +1512,7 @@ class TeacherDetailView(APIView):
             from materials.models import TeacherSubject
 
             teacher_subjects_prefetch = Prefetch(
-                "user__teachersubject_set",
+                "user__teacher_subjects",
                 queryset=TeacherSubject.objects.select_related("subject").filter(
                     is_active=True
                 ),

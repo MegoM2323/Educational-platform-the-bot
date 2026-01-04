@@ -97,6 +97,52 @@ class DashboardCacheManager(CacheManager):
         for pattern in patterns:
             self._invalidate_pattern(pattern)
 
+    def invalidate_tutor_dashboard(self, tutor_id: int) -> None:
+        """
+        Инвалидирует весь дашборд тьютора.
+
+        Вызывается при:
+        - Создании нового SubjectEnrollment для студента тьютора
+        - Удалении SubjectEnrollment для студента тьютора
+        - Изменении StudentProfile (если изменился tutor)
+        """
+        patterns = [
+            f"tutor_dashboard_data:{tutor_id}:*",
+            f"tutor_enrollments:{tutor_id}",
+            f"tutor_students:{tutor_id}",
+        ]
+        for pattern in patterns:
+            self._invalidate_pattern(pattern)
+        logger.info(f"Invalidated tutor dashboard cache for tutor_id={tutor_id}")
+
+    def invalidate_student_enrollments(self, student_id: int) -> None:
+        """
+        Инвалидирует кэш enrollments для студента.
+
+        Вызывается при создании/удалении SubjectEnrollment.
+        """
+        patterns = [
+            f"student_enrollments:{student_id}",
+            f"student_enrollments:{student_id}:*",
+        ]
+        for pattern in patterns:
+            self._invalidate_pattern(pattern)
+        logger.info(f"Invalidated student enrollments cache for student_id={student_id}")
+
+    def invalidate_student_teachers(self, student_id: int) -> None:
+        """
+        Инвалидирует кэш списка учителей для студента.
+
+        Вызывается при создании/удалении SubjectEnrollment.
+        """
+        patterns = [
+            f"student_teachers:{student_id}",
+            f"student_teachers:{student_id}:*",
+        ]
+        for pattern in patterns:
+            self._invalidate_pattern(pattern)
+        logger.info(f"Invalidated student teachers cache for student_id={student_id}")
+
     def _invalidate_pattern(self, pattern: str) -> None:
         """Инвалидирует кэш по паттерну"""
         try:

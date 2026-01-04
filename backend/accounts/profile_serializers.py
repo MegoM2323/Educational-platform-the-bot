@@ -237,7 +237,7 @@ class TeacherProfileDetailSerializer(serializers.ModelSerializer):
     def get_subjects_list(self, obj):
         """Возвращает список предметов преподавателя из TeacherSubject"""
         try:
-            teacher_subjects = obj.user.teachersubject_set.all()
+            teacher_subjects = obj.user.teacher_subjects.all()
             return [ts.subject.name for ts in teacher_subjects if ts.is_active]
         except AttributeError:
             return []

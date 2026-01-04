@@ -391,37 +391,6 @@ class IsStaffOrAdmin(BasePermission):
         return request.user.is_staff or request.user.is_superuser
 
 
-class IsAdminUserOnly(BasePermission):
-    """
-    Разрешение ТОЛЬКО для пользователей с правами администратора (более строгое, чем IsStaffOrAdmin).
-
-    Требует:
-    - Пользователь активен (is_active=True)
-    - Пользователь аутентифицирован
-    - is_staff=True или is_superuser=True
-
-    Права по ролям:
-    - Admin (is_staff=True или is_superuser=True): полный доступ
-    - Все остальные (включая TUTOR): запрещено
-    - Неактивные: запрещено
-
-    Примечание:
-    - Это наиболее строгое разрешение для admin-only операций
-    - Используется для защиты критических операций (удаление users, system configuration)
-    - Отличается от IsStaffOrAdmin: оба требуют is_staff, но IsAdminUserOnly может быть еще строже
-    """
-
-    def has_permission(self, request, view) -> bool:
-        """Проверяет что пользователь имеет права администратора"""
-        if not request.user or not request.user.is_authenticated:
-            return False
-
-        if not request.user.is_active:
-            return False
-
-        return request.user.is_staff or request.user.is_superuser
-
-
 class IsStudent(BasePermission):
     """
     Разрешение только для студентов.
@@ -538,5 +507,5 @@ class IsParent(BasePermission):
         return request.user.role == User.Role.PARENT
 
 
-# Backward compatibility alias
-IsAdminUser = IsAdminUserOnly
+# Backward compatibility alias (maps to IsStaffOrAdmin)
+IsAdminUser = IsStaffOrAdmin

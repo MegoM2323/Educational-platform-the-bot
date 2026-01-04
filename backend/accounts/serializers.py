@@ -160,6 +160,23 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             "accuracy_percentage",
         )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+
+        if self.instance and request:
+            viewer_user = request.user
+            profile_owner_user = self.instance.user
+
+            if not can_view_private_fields(
+                viewer_user, profile_owner_user, User.Role.STUDENT
+            ):
+                self.fields.pop("goal", None)
+                self.fields.pop("tutor", None)
+                self.fields.pop("tutor_name", None)
+                self.fields.pop("parent", None)
+                self.fields.pop("parent_name", None)
+
 
 class TeacherProfileSerializer(serializers.ModelSerializer):
     """
@@ -180,6 +197,20 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
             "telegram",
             "subjects_list",
         )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+
+        if self.instance and request:
+            viewer_user = request.user
+            profile_owner_user = self.instance.user
+
+            if not can_view_private_fields(
+                viewer_user, profile_owner_user, User.Role.TEACHER
+            ):
+                self.fields.pop("bio", None)
+                self.fields.pop("experience_years", None)
 
     def get_subjects_list(self, obj):
         """Возвращает список предметов преподавателя из TeacherSubject"""
@@ -209,6 +240,20 @@ class TutorProfileSerializer(serializers.ModelSerializer):
             "bio",
             "reportsCount",
         )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+
+        if self.instance and request:
+            viewer_user = request.user
+            profile_owner_user = self.instance.user
+
+            if not can_view_private_fields(
+                viewer_user, profile_owner_user, User.Role.TUTOR
+            ):
+                self.fields.pop("bio", None)
+                self.fields.pop("experience_years", None)
 
     def get_reportsCount(self, obj):
         """Получить количество отправленных отчётов тьютора"""

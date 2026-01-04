@@ -1,6 +1,11 @@
 import logging
 from rest_framework import status, permissions, generics, viewsets
-from rest_framework.decorators import action, api_view, authentication_classes, permission_classes
+from rest_framework.decorators import (
+    action,
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.exceptions import ValidationError
@@ -82,7 +87,9 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             .select_related("user", "tutor", "parent")
             .prefetch_related(enrollments_prefetch)
             .distinct()  # Избегаем дубликатов, если оба условия выполнены
-            .order_by("-user__date_joined")  # Сортируем по дате создания (новые первыми)
+            .order_by(
+                "-user__date_joined"
+            )  # Сортируем по дате создания (новые первыми)
         )
 
         # Преобразуем в список, чтобы выполнить запрос и получить свежие данные
@@ -137,14 +144,15 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.exception(f"Exception creating student: {e}")
             return Response(
-                {"detail": f"Ошибка создания ученика: {e}"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Ошибка создания ученика: {e}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             # Принудительно перезагружаем студента из базы для получения свежих данных
-            student_profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
-                id=student_user.student_profile.id
-            )
+            student_profile = StudentProfile.objects.select_related(
+                "user", "tutor", "parent"
+            ).get(id=student_user.student_profile.id)
         except StudentProfile.DoesNotExist:
             logger.error(f"StudentProfile not found for user {student_user.id}")
             return Response(
@@ -164,7 +172,9 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             Q(id=student_profile.id)
             & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
         ).count()
-        logger.info(f"Student visibility check: {students_count} students found (should be 1)")
+        logger.info(
+            f"Student visibility check: {students_count} students found (should be 1)"
+        )
 
         if students_count == 0:
             logger.warning(
@@ -207,8 +217,11 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         try:
             # Проверяем, что ученик принадлежит тьютору
             # Проверяем через tutor в профиле или через created_by_tutor в User
-            profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
-                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            profile = StudentProfile.objects.select_related(
+                "user", "tutor", "parent"
+            ).get(
+                Q(id=pk)
+                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             )
         except StudentProfile.DoesNotExist:
             return Response(
@@ -218,7 +231,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(f"Error retrieving student: {e}")
             return Response(
-                {"detail": f"Ошибка получения ученика: {e}"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Ошибка получения ученика: {e}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(TutorStudentSerializer(profile).data)
 
@@ -228,7 +242,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         try:
             # Проверяем, что ученик принадлежит тьютору
             student_profile = StudentProfile.objects.select_related("user").get(
-                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+                Q(id=pk)
+                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             )
         except StudentProfile.DoesNotExist:
             return Response(
@@ -238,7 +253,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(f"Error getting student for subjects operation: {e}")
             return Response(
-                {"detail": f"Ошибка получения ученика: {e}"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Ошибка получения ученика: {e}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         if request.method.lower() == "get":
@@ -316,7 +332,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(f"Error assigning subject: {e}")
             return Response(
-                {"detail": f"Ошибка назначения предмета: {e}"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Ошибка назначения предмета: {e}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
     @action(detail=True, methods=["delete"], url_path="subjects/(?P<subject_id>[^/.]+)")
@@ -324,7 +341,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         try:
             # Проверяем, что ученик принадлежит тьютору
             student_profile = StudentProfile.objects.select_related("user").get(
-                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+                Q(id=pk)
+                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             )
         except StudentProfile.DoesNotExist:
             return Response(
@@ -334,7 +352,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(f"Error getting student for unassign: {e}")
             return Response(
-                {"detail": f"Ошибка получения ученика: {e}"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Ошибка получения ученика: {e}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -342,11 +361,14 @@ class TutorStudentsViewSet(viewsets.ViewSet):
 
             subject = Subject.objects.get(id=subject_id)
         except Subject.DoesNotExist:
-            return Response({"detail": "Предмет не найден"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Предмет не найден"}, status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
             logger.error(f"Error getting subject for unassign: {e}")
             return Response(
-                {"detail": f"Ошибка получения предмета: {e}"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Ошибка получения предмета: {e}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -376,7 +398,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         try:
             # Проверяем, что ученик принадлежит тьютору
             student_profile = StudentProfile.objects.select_related("user").get(
-                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+                Q(id=pk)
+                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             )
         except StudentProfile.DoesNotExist:
             return Response(
@@ -386,7 +409,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(f"Error getting student for bulk assign: {e}")
             return Response(
-                {"detail": f"Ошибка получения ученика: {e}"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Ошибка получения ученика: {e}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         serializer = SubjectBulkAssignSerializer(data=request.data)
@@ -427,7 +451,9 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         if errors:
             return Response(
                 {
-                    "enrollments": SubjectEnrollmentSerializer(enrollments, many=True).data,
+                    "enrollments": SubjectEnrollmentSerializer(
+                        enrollments, many=True
+                    ).data,
                     "errors": errors,
                     "warning": "Некоторые предметы не были назначены",
                 },
@@ -435,7 +461,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             )
 
         return Response(
-            SubjectEnrollmentSerializer(enrollments, many=True).data, status=status.HTTP_201_CREATED
+            SubjectEnrollmentSerializer(enrollments, many=True).data,
+            status=status.HTTP_201_CREATED,
         )
 
 

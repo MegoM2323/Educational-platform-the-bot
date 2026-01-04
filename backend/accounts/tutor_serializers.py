@@ -107,14 +107,18 @@ class TutorStudentSerializer(serializers.ModelSerializer):
 
 class SubjectAssignSerializer(serializers.Serializer):
     subject_id = serializers.IntegerField(required=False, allow_null=True)
-    subject_name = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    subject_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=200
+    )
     teacher_id = serializers.IntegerField(required=True)
 
     def validate(self, attrs):
         from materials.models import Subject
 
         subject_id = attrs.get("subject_id")
-        subject_name = attrs.get("subject_name", "").strip() if attrs.get("subject_name") else ""
+        subject_name = (
+            attrs.get("subject_name", "").strip() if attrs.get("subject_name") else ""
+        )
         teacher_id = attrs.get("teacher_id")
 
         # Валидация: должен быть указан либо subject_id, либо subject_name, но не оба
@@ -141,19 +145,27 @@ class SubjectAssignSerializer(serializers.Serializer):
         elif subject_name:
             if len(subject_name) < 2:
                 raise serializers.ValidationError(
-                    {"subject_name": "Название предмета должно содержать минимум 2 символа"}
+                    {
+                        "subject_name": "Название предмета должно содержать минимум 2 символа"
+                    }
                 )
             if len(subject_name) > 200:
                 raise serializers.ValidationError(
-                    {"subject_name": "Название предмета не должно превышать 200 символов"}
+                    {
+                        "subject_name": "Название предмета не должно превышать 200 символов"
+                    }
                 )
             from .tutor_service import SubjectAssignmentService
 
-            attrs["subject"] = SubjectAssignmentService.get_or_create_subject(subject_name)
+            attrs["subject"] = SubjectAssignmentService.get_or_create_subject(
+                subject_name
+            )
 
         # Валидация преподавателя - обязателен
         if teacher_id is None:
-            raise serializers.ValidationError({"teacher_id": "Необходимо указать преподавателя"})
+            raise serializers.ValidationError(
+                {"teacher_id": "Необходимо указать преподавателя"}
+            )
 
         try:
             teacher = User.objects.get(id=teacher_id)
@@ -166,7 +178,9 @@ class SubjectAssignSerializer(serializers.Serializer):
             )
 
         if not teacher.is_active:
-            raise serializers.ValidationError({"teacher_id": "Указанный преподаватель неактивен"})
+            raise serializers.ValidationError(
+                {"teacher_id": "Указанный преподаватель неактивен"}
+            )
 
         attrs["teacher"] = teacher
 
@@ -210,14 +224,18 @@ class SubjectEnrollmentSerializer(serializers.Serializer):
 
 class SubjectBulkAssignItemSerializer(serializers.Serializer):
     subject_id = serializers.IntegerField(required=False, allow_null=True)
-    subject_name = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    subject_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=200
+    )
     teacher_id = serializers.IntegerField(required=True)
 
     def validate(self, attrs):
         from materials.models import Subject
 
         subject_id = attrs.get("subject_id")
-        subject_name = attrs.get("subject_name", "").strip() if attrs.get("subject_name") else ""
+        subject_name = (
+            attrs.get("subject_name", "").strip() if attrs.get("subject_name") else ""
+        )
         teacher_id = attrs.get("teacher_id")
 
         # Валидация: должен быть указан либо subject_id, либо subject_name, но не оба
@@ -244,19 +262,27 @@ class SubjectBulkAssignItemSerializer(serializers.Serializer):
         elif subject_name:
             if len(subject_name) < 2:
                 raise serializers.ValidationError(
-                    {"subject_name": "Название предмета должно содержать минимум 2 символа"}
+                    {
+                        "subject_name": "Название предмета должно содержать минимум 2 символа"
+                    }
                 )
             if len(subject_name) > 200:
                 raise serializers.ValidationError(
-                    {"subject_name": "Название предмета не должно превышать 200 символов"}
+                    {
+                        "subject_name": "Название предмета не должно превышать 200 символов"
+                    }
                 )
             from .tutor_service import SubjectAssignmentService
 
-            attrs["subject"] = SubjectAssignmentService.get_or_create_subject(subject_name)
+            attrs["subject"] = SubjectAssignmentService.get_or_create_subject(
+                subject_name
+            )
 
         # Валидация преподавателя - обязателен
         if teacher_id is None:
-            raise serializers.ValidationError({"teacher_id": "Необходимо указать преподавателя"})
+            raise serializers.ValidationError(
+                {"teacher_id": "Необходимо указать преподавателя"}
+            )
 
         try:
             teacher = User.objects.get(id=teacher_id)
@@ -269,7 +295,9 @@ class SubjectBulkAssignItemSerializer(serializers.Serializer):
             )
 
         if not teacher.is_active:
-            raise serializers.ValidationError({"teacher_id": "Указанный преподаватель неактивен"})
+            raise serializers.ValidationError(
+                {"teacher_id": "Указанный преподаватель неактивен"}
+            )
 
         attrs["teacher"] = teacher
 

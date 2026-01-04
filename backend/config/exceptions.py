@@ -14,7 +14,9 @@ def custom_exception_handler(exc, context):
             extra={"full_error": exc.detail},
         )
 
-        return Response({"success": False, "error": "Ошибка валидации данных"}, status=400)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"}, status=400
+        )
 
     response = exception_handler(exc, context)
     return response

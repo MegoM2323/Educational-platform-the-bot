@@ -181,6 +181,9 @@ services:
   # BACKEND: Django/DRF API - Daphne ASGI
   # ============================================================================
   backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     image: thebot-backend:latest
     container_name: thebot-backend-prod
     hostname: backend

@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="invoice",
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     ("sent_at__isnull", True),
                     ("sent_at__gte", models.F("created_at")),
                     _connector="OR",
@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="invoice",
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     ("viewed_at__isnull", True),
                     ("sent_at__isnull", True),
                     ("viewed_at__gte", models.F("sent_at")),
@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="invoice",
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     ("paid_at__isnull", True),
                     ("viewed_at__isnull", True),
                     ("paid_at__gte", models.F("viewed_at")),

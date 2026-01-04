@@ -68,7 +68,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Create application directories
-RUN mkdir -p /app/backend /app/static /app/media /app/logs && \
+RUN mkdir -p /app /app/static /app/media /app/logs && \
     chown -R appuser:appuser /app
 
 WORKDIR /app
@@ -76,15 +76,25 @@ WORKDIR /app
 # Copy Python virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy application code
-COPY --chown=appuser:appuser . .
+# Copy Django application files (excluding node_modules, .venv, etc.)
+COPY --chown=appuser:appuser manage.py /app/
+COPY --chown=appuser:appuser config/ /app/config/
+COPY --chown=appuser:appuser accounts/ /app/accounts/
+COPY --chown=appuser:appuser applications/ /app/applications/
+COPY --chown=appuser:appuser assignments/ /app/assignments/
+COPY --chown=appuser:appuser chat/ /app/chat/
+COPY --chown=appuser:appuser courses/ /app/courses/
+COPY --chown=appuser:appuser dashboard/ /app/dashboard/
+COPY --chown=appuser:appuser materials/ /app/materials/
+COPY --chown=appuser:appuser payments/ /app/payments/
+COPY --chown=appuser:appuser reports/ /app/reports/
+COPY --chown=appuser:appuser reviews/ /app/reviews/
+COPY --chown=appuser:appuser utils/ /app/utils/
+COPY --chown=appuser:appuser invoices/ /app/invoices/
+COPY --chown=appuser:appuser docker-entrypoint.sh /app/
 
-# Copy entrypoint script
-COPY --chown=appuser:appuser backend/docker-entrypoint.sh /app/
+# Ensure entrypoint script is executable (must be done as root before USER switch)
 RUN chmod +x /app/docker-entrypoint.sh
-
-# Switch to non-root user
-USER appuser
 
 # Health check to monitor application readiness
 # Increased start_period to 120s for DB migrations
@@ -100,6 +110,9 @@ LABEL org.opencontainers.image.title="THE_BOT Backend" \
       org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.vendor="THE_BOT Team" \
       org.opencontainers.image.source="https://github.com/mego/THE_BOT_platform"
+
+# Switch to non-root user AFTER all setup (including making entrypoint executable)
+USER appuser
 
 # Run with entrypoint for initialization
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

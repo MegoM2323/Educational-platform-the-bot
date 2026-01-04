@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+cd /app
+
 echo "Starting THE_BOT Backend..."
 
 # Wait for database to be ready using Python
@@ -24,7 +26,6 @@ for i in range(1, max_attempts + 1):
         print(f"Attempt {i}/{max_attempts}: Waiting for PostgreSQL...")
         time.sleep(2)
 PYEOF
-
 
 # Run migrations
 echo "Running database migrations..."

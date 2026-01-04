@@ -68,9 +68,7 @@ def login_view(request):
         serializer = UserLoginSerializer(data=request.data)
         if not serializer.is_valid():
             # Логируем ошибки БЕЗ пароля
-            safe_errors = {
-                k: v for k, v in serializer.errors.items() if k != "password"
-            }
+            safe_errors = {k: v for k, v in serializer.errors.items() if k != "password"}
             reason = list(safe_errors.keys())[0] if safe_errors else "unknown"
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             logger.warning(
@@ -136,9 +134,7 @@ def login_view(request):
         if authenticated_user and authenticated_user.is_active:
             try:
                 # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
-                deleted_count, _ = Token.objects.filter(
-                    user=authenticated_user
-                ).delete()
+                deleted_count, _ = Token.objects.filter(user=authenticated_user).delete()
                 token = Token.objects.create(user=authenticated_user)
 
                 # Логируем успешный вход с IP адресом и временем
@@ -354,9 +350,7 @@ def session_status(request):
 
         # Get session info
         session_info = {
-            "session_key": request.session.session_key
-            if hasattr(request, "session")
-            else None,
+            "session_key": request.session.session_key if hasattr(request, "session") else None,
             "session_age": None,
             "user": user.email,
         }
@@ -377,11 +371,7 @@ def session_status(request):
         token_expires_in = 0
         try:
             if hasattr(request, "auth") and request.auth:
-                token_key = (
-                    request.auth.key
-                    if hasattr(request.auth, "key")
-                    else str(request.auth)
-                )
+                token_key = request.auth.key if hasattr(request.auth, "key") else str(request.auth)
                 token = Token.objects.filter(key=token_key).first()
                 if token:
                     token_valid = True
@@ -513,9 +503,7 @@ def update_profile(request):
         )
 
     error_msg = _format_validation_error(user_serializer.errors)
-    return Response(
-        {"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST
-    )
+    return Response({"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["POST"])
@@ -525,22 +513,18 @@ def change_password(request):
     """
     Смена пароля
     """
-    serializer = ChangePasswordSerializer(
-        data=request.data, context={"request": request}
-    )
+    serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
     if serializer.is_valid():
         user = request.user
         user.set_password(serializer.validated_data["new_password"])
         user.save()
         return Response({"success": True, "message": "Пароль успешно изменен"})
     error_msg = _format_validation_error(serializer.errors)
-    return Response(
-        {"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST
-    )
+    return Response({"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, SessionAuthentication])
+@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def list_users(request):
     """
@@ -603,9 +587,7 @@ def list_users(request):
             f"[list_users] First user sample: id={serializer.data[0].get('id')}, email={serializer.data[0].get('email')}"
         )
     else:
-        logger.warning(
-            f"[list_users] WARNING: No users returned! Total count was: {total_count}"
-        )
+        logger.warning(f"[list_users] WARNING: No users returned! Total count was: {total_count}")
 
     # Возвращаем массив напрямую
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -728,19 +710,13 @@ class CurrentUserProfileView(APIView):
             profile_found = False
             try:
                 if user.role == User.Role.STUDENT:
-                    profile = StudentProfile.objects.select_related("user").get(
-                        user=user
-                    )
+                    profile = StudentProfile.objects.select_related("user").get(user=user)
                 elif user.role == User.Role.TEACHER:
-                    profile = TeacherProfile.objects.select_related("user").get(
-                        user=user
-                    )
+                    profile = TeacherProfile.objects.select_related("user").get(user=user)
                 elif user.role == User.Role.TUTOR:
                     profile = TutorProfile.objects.select_related("user").get(user=user)
                 elif user.role == User.Role.PARENT:
-                    profile = ParentProfile.objects.select_related("user").get(
-                        user=user
-                    )
+                    profile = ParentProfile.objects.select_related("user").get(user=user)
                 else:
                     profile = None
                 profile_found = True
@@ -984,15 +960,11 @@ def download_export(request, token: str):
     # Extract filename from query params or path
     filename = request.query_params.get("fn")
     if not filename:
-        return Response(
-            {"error": "Missing filename parameter"}, status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": "Missing filename parameter"}, status=status.HTTP_400_BAD_REQUEST)
 
     # Verify token
     if not ExportTokenGenerator.verify(request.user.id, filename, token, timestamp):
-        return Response(
-            {"error": "Invalid or expired token"}, status=status.HTTP_403_FORBIDDEN
-        )
+        return Response({"error": "Invalid or expired token"}, status=status.HTTP_403_FORBIDDEN)
 
     # Check file exists
     file_path = f"{ExportFileManager.EXPORT_DIR}/{filename}"

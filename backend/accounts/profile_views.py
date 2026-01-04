@@ -142,9 +142,7 @@ class StudentProfileView(APIView):
 
             if "avatar" in request.FILES:
                 # handle_avatar_upload сохраняет файл и обновляет user.avatar
-                ProfileService.handle_avatar_upload(
-                    profile=request.user, file=request.FILES["avatar"]
-                )
+                ProfileService.handle_avatar_upload(profile=profile, file=request.FILES["avatar"])
                 # Обновляем request.user из БД для получения актуального avatar
                 request.user.refresh_from_db()
 
@@ -179,7 +177,9 @@ class StudentProfileView(APIView):
             )
 
         except Exception as e:
-            logger.error(f"StudentProfileView.patch - {str(e)}", exc_info=True)
+            logger.exception(
+                f"[StudentProfileView.patch] Error updating profile for user_id={request.user.id}: {str(e)}"
+            )
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -323,9 +323,7 @@ class TeacherProfileView(APIView):
 
             if "avatar" in request.FILES:
                 # handle_avatar_upload сохраняет файл и обновляет user.avatar
-                ProfileService.handle_avatar_upload(
-                    profile=request.user, file=request.FILES["avatar"]
-                )
+                ProfileService.handle_avatar_upload(profile=profile, file=request.FILES["avatar"])
                 # Обновляем request.user из БД для получения актуального avatar
                 request.user.refresh_from_db()
 
@@ -363,6 +361,9 @@ class TeacherProfileView(APIView):
             )
 
         except Exception as e:
+            logger.exception(
+                f"[TeacherProfileView.patch] Error updating profile for user_id={request.user.id}: {str(e)}"
+            )
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def _update_teacher_subjects(self, teacher: User, subject_ids: list) -> None:
@@ -384,6 +385,10 @@ class TeacherProfileView(APIView):
 
         if to_add:
             subjects = Subject.objects.filter(id__in=to_add)
+            valid_subject_ids = set(subjects.values_list("id", flat=True))
+            invalid_subject_ids = to_add - valid_subject_ids
+            if invalid_subject_ids:
+                raise ValueError(f"Invalid subject IDs: {invalid_subject_ids}")
             for subject in subjects:
                 TeacherSubject.objects.create(teacher=teacher, subject=subject, is_active=True)
 
@@ -477,9 +482,7 @@ class TutorProfileView(APIView):
 
             if "avatar" in request.FILES:
                 # handle_avatar_upload сохраняет файл и обновляет user.avatar
-                ProfileService.handle_avatar_upload(
-                    profile=request.user, file=request.FILES["avatar"]
-                )
+                ProfileService.handle_avatar_upload(profile=profile, file=request.FILES["avatar"])
                 # Обновляем request.user из БД для получения актуального avatar
                 request.user.refresh_from_db()
 
@@ -514,6 +517,9 @@ class TutorProfileView(APIView):
             )
 
         except Exception as e:
+            logger.exception(
+                f"[TutorProfileView.patch] Error updating profile for user_id={request.user.id}: {str(e)}"
+            )
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -585,8 +591,8 @@ class ParentProfileView(APIView):
                 f"[ParentProfileView] ParentProfile auto-created for user_id={request.user.id}"
             )
 
-        user_fields = ["first_name", "last_name", "email", "phone"]
-        profile_fields = []
+        user_fields: list[str] = ["first_name", "last_name", "email", "phone"]
+        profile_fields: list[str] = []
 
         user_data = {k: v for k, v in request.data.items() if k in user_fields}
         profile_data = {k: v for k, v in request.data.items() if k in profile_fields}
@@ -601,9 +607,7 @@ class ParentProfileView(APIView):
 
             if "avatar" in request.FILES:
                 # handle_avatar_upload сохраняет файл и обновляет user.avatar
-                ProfileService.handle_avatar_upload(
-                    profile=request.user, file=request.FILES["avatar"]
-                )
+                ProfileService.handle_avatar_upload(profile=profile, file=request.FILES["avatar"])
                 # Обновляем request.user из БД для получения актуального avatar
                 request.user.refresh_from_db()
 
@@ -638,6 +642,9 @@ class ParentProfileView(APIView):
             )
 
         except Exception as e:
+            logger.exception(
+                f"[ParentProfileView.patch] Error updating profile for user_id={request.user.id}: {str(e)}"
+            )
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -783,6 +790,10 @@ class AdminTeacherProfileEditView(APIView):
 
         if to_add:
             subjects = Subject.objects.filter(id__in=to_add)
+            valid_subject_ids = set(subjects.values_list("id", flat=True))
+            invalid_subject_ids = to_add - valid_subject_ids
+            if invalid_subject_ids:
+                raise ValueError(f"Invalid subject IDs: {invalid_subject_ids}")
             for subject in subjects:
                 TeacherSubject.objects.get_or_create(
                     teacher=teacher, subject=subject, defaults={"is_active": True}

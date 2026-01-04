@@ -23,6 +23,7 @@ urlpatterns = [
 
     # API endpoints
     path("api/auth/", include('accounts.urls')),
+    path("api/accounts/", include('accounts.urls')),  # Compatibility alias for tests and legacy code
     path("api/profile/", include('accounts.profile_urls')),  # Profile endpoints (NEW - for frontend compatibility)
     path("api/admin/", include('accounts.urls')),  # Admin endpoints (profile management)
     path("api/admin/schedule/", include('scheduling.admin_urls')),  # Admin schedule management

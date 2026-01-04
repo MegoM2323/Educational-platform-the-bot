@@ -86,12 +86,12 @@ EOF
 echo "✓ Migrations applied (or deferred)"
 echo ""
 
-# Step 5: Create systemd service file
+# Step 5: Create systemd service file (manual setup required)
 echo "[5/6] Creating systemd service..."
 
-# Create service file locally
-SERVICE_FILE=$(mktemp)
-cat > "$SERVICE_FILE" << 'SERVICEEOF'
+ssh "$SERVER" bash << 'SERVICEEOF'
+# Create service file in /tmp
+cat > /tmp/thebot-backend.service << 'SVCEOF'
 [Unit]
 Description=THE_BOT Backend (Daphne ASGI)
 After=network.target
@@ -107,86 +107,89 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+KillMode=mixed
 
 [Install]
 WantedBy=multi-user.target
+SVCEOF
+
+echo "Service file created at /tmp/thebot-backend.service"
+echo "To install with sudo, run:"
+echo "  sudo cp /tmp/thebot-backend.service /etc/systemd/system/"
+echo "  sudo systemctl daemon-reload"
 SERVICEEOF
 
-# Copy service file to server and install via sudo
-ssh "$SERVER" bash << COPEOF
-# Copy service file to /tmp first
-cat > /tmp/thebot-backend.service << 'SERVICEEOF'
-[Unit]
-Description=THE_BOT Backend (Daphne ASGI)
-After=network.target
-
-[Service]
-Type=simple
-User=mg
-WorkingDirectory=/opt/THE_BOT_platform/backend
-Environment="PATH=/opt/THE_BOT_platform/venv/bin"
-EnvironmentFile=/opt/THE_BOT_platform/backend/.env
-ExecStart=/opt/THE_BOT_platform/venv/bin/daphne -b 0.0.0.0 -p 8000 -v 2 config.asgi:application
-Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-SERVICEEOF
-
-# Now use sudo to move it to the right place
-echo 'About to create systemd service. You may be prompted for password.'
-sudo mv /tmp/thebot-backend.service /etc/systemd/system/
-sudo systemctl daemon-reload
-echo 'Systemd service created successfully'
-COPEOF
-
-rm -f "$SERVICE_FILE"
-echo "✓ Systemd service created"
+echo "✓ Service file template created"
 echo ""
 
-# Step 6: Start service
+# Step 6: Start backend using supervisor or direct process
 echo "[6/6] Starting THE_BOT backend service..."
 ssh "$SERVER" bash << 'EOF'
-# Start the service if systemd is available, otherwise run daphne directly
-if command -v systemctl &> /dev/null; then
-  echo "Using systemd to start service..."
-  sudo systemctl start thebot-backend
-  sleep 2
-  sudo systemctl status thebot-backend --no-pager || true
+# Kill any existing daphne processes
+pkill -f "daphne.*config.asgi" || true
+sleep 1
+
+cd /opt/THE_BOT_platform/backend
+. /opt/THE_BOT_platform/venv/bin/activate
+
+# Start daphne in background with logging
+echo "Starting Daphne on 0.0.0.0:8000..."
+nohup daphne -b 0.0.0.0 -p 8000 -v 2 config.asgi:application > /tmp/daphne.log 2>&1 &
+DAPHNE_PID=$!
+sleep 2
+
+# Check if process is still running
+if kill -0 $DAPHNE_PID 2>/dev/null; then
+  echo "✓ Daphne started successfully (PID: $DAPHNE_PID)"
+  echo "Logs: tail -f /tmp/daphne.log"
 else
-  echo "systemd not available, starting daphne directly..."
-  cd /opt/THE_BOT_platform/backend
-  . /opt/THE_BOT_platform/venv/bin/activate
-  nohup daphne -b 0.0.0.0 -p 8000 -v 2 config.asgi:application &> /tmp/daphne.log &
-  echo "Daphne started (PID: $!)"
+  echo "✗ Daphne failed to start. Checking logs..."
+  tail -20 /tmp/daphne.log
+  exit 1
 fi
 EOF
-echo "✓ Service started"
+echo "✓ Backend started"
 echo ""
 
 # Verify
 echo "=== Verification ==="
 sleep 3
-echo "Checking if backend is responding..."
-ssh "$SERVER" bash << 'VERIFYEOF' || echo "⚠ Not responding yet (might still be starting)"
-curl -s -m 5 http://localhost:8000/api/system/health/live/ | head -20
+echo "Checking if backend is responding on port 8000..."
+ssh "$SERVER" bash << 'VERIFYEOF' || echo "⚠ Backend not responding yet (might still be starting)"
+# Try to connect to backend
+for i in {1..5}; do
+  if curl -s -m 3 http://localhost:8000/api/system/health/live/ 2>/dev/null | head -5; then
+    echo "✓ Backend is responding"
+    break
+  else
+    echo "  Attempt $i/5: backend not ready yet..."
+    sleep 2
+  fi
+done
+
+# Show process info
+echo ""
+echo "Backend process status:"
+ps aux | grep -E "daphne|config.asgi" | grep -v grep || echo "No daphne process found"
+
+# Check port
+echo ""
+echo "Port 8000 status:"
+ss -tlnp 2>/dev/null | grep 8000 || echo "Port 8000 not in LISTEN state"
 VERIFYEOF
 
 echo ""
 echo "=== DEPLOYMENT COMPLETE ==="
-echo "Backend should be running at: http://5.129.249.206:8000"
+echo "Backend running at: http://5.129.249.206:8000"
 echo ""
 echo "Useful commands:"
-echo "  View logs:       ssh $SERVER 'sudo journalctl -u thebot-backend -f'"
-echo "  Check status:    ssh $SERVER 'sudo systemctl status thebot-backend'"
-echo "  Manual start:    ssh $SERVER 'sudo systemctl start thebot-backend'"
-echo "  Manual stop:     ssh $SERVER 'sudo systemctl stop thebot-backend'"
+echo "  View logs:       ssh $SERVER 'tail -f /tmp/daphne.log'"
+echo "  Check process:   ssh $SERVER 'ps aux | grep daphne'"
+echo "  Stop backend:    ssh $SERVER 'pkill -f \"daphne.*config.asgi\"'"
+echo "  Check port:      ssh $SERVER 'ss -tlnp | grep 8000'"
 echo ""
-echo "Why native deployment is faster than Docker:"
-echo "  - No Docker image rebuild (was 20+ minutes)"
-echo "  - No multi-stage build overhead"
-echo "  - No package download delays (uses pip cache)"
-echo "  - Just rsync + pip install + migrate = ~2-3 minutes"
+echo "To make systemd service (requires sudo password setup):"
+echo "  1. SSH to server: ssh $SERVER"
+echo "  2. Install service: sudo cp /tmp/thebot-backend.service /etc/systemd/system/"
+echo "  3. Enable service: sudo systemctl daemon-reload && sudo systemctl enable thebot-backend"
+echo "  4. Start service: sudo systemctl start thebot-backend"

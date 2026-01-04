@@ -10,7 +10,6 @@ import logging
 from .student_dashboard_service import StudentDashboardService
 from .models import Material, MaterialProgress, SubjectEnrollment, StudyPlan
 from .serializers import MaterialListSerializer, MaterialProgressSerializer, StudyPlanSerializer, StudyPlanListSerializer
-from accounts.tutor_views import CSRFExemptSessionAuthentication
 from accounts.serializers import get_profile_serializer
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ User = get_user_model()
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_dashboard(request):
     """
@@ -76,7 +75,7 @@ def student_dashboard(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_assigned_materials(request):
     """
@@ -122,7 +121,7 @@ def student_assigned_materials(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_materials_by_subject(request):
     """
@@ -148,7 +147,7 @@ def student_materials_by_subject(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_progress_statistics(request):
     """
@@ -174,7 +173,7 @@ def student_progress_statistics(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_recent_activity(request):
     """
@@ -217,7 +216,7 @@ def student_recent_activity(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_subjects(request):
     """
@@ -270,7 +269,7 @@ def student_subjects(request):
 
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def update_material_progress(request, material_id):
     """
@@ -347,7 +346,7 @@ def update_material_progress(request, material_id):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_study_plans(request):
     """
@@ -394,7 +393,7 @@ def student_study_plans(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_study_plan_detail(request, plan_id):
     """
@@ -431,7 +430,7 @@ def student_study_plan_detail(request, plan_id):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def student_study_plans_by_subject(request, subject_id):
     """

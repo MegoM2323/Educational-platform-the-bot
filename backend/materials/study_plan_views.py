@@ -26,14 +26,8 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-# CSRF-exempt SessionAuthentication для API
-class CSRFExemptSessionAuthentication(SessionAuthentication):
-    def enforce_csrf(self, request):
-        return
-
-
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def generate_study_plan(request):
     """
@@ -277,7 +271,7 @@ def generate_study_plan(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def generation_status(request, generation_id):
     """

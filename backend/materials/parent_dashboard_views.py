@@ -165,7 +165,7 @@ class ParentChildrenView(generics.ListAPIView):
     API endpoint для получения списка детей родителя
     """
 
-    authentication_classes = [TokenAuthentication, CSRFExemptSessionAuthentication]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -306,7 +306,7 @@ class ParentChildrenView(generics.ListAPIView):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_child_subjects(request, child_id):
     """
@@ -360,7 +360,7 @@ def get_child_subjects(request, child_id):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_child_progress(request, child_id):
     """
@@ -393,7 +393,7 @@ def get_child_progress(request, child_id):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated, IsParent])
 def get_child_teachers(request, child_id):
     """
@@ -426,7 +426,7 @@ def get_child_teachers(request, child_id):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def parent_payments(request):
     """
@@ -487,7 +487,7 @@ def get_payment_status(request, child_id):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 @transaction.atomic
 def initiate_payment(request, child_id, enrollment_id):
@@ -624,7 +624,7 @@ def get_reports(request, child_id=None):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated, IsParent])
 @transaction.atomic
 def cancel_subscription(request, child_id, enrollment_id):

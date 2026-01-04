@@ -6,44 +6,51 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+CACHE_TTL = 300  # Default: 5 minutes in seconds
+DASHBOARD_CACHE_TTL = 300  # 5 minutes
+MATERIALS_CACHE_TTL = 600  # 10 minutes
+CHAT_CACHE_TTL = 60  # 1 minute
+
 
 class CacheManager:
     """Базовый менеджер кэширования"""
-    
-    def __init__(self, cache_name: str = 'default'):
+
+    def __init__(self, cache_name: str = "default"):
         self.cache = caches[cache_name]
-        self.timeouts = getattr(settings, 'CACHE_TIMEOUTS', {})
-    
+        self.timeouts = getattr(settings, "CACHE_TIMEOUTS", {})
+
     def get_cache_key(self, prefix: str, *args, **kwargs) -> str:
         """Генерирует ключ кэша"""
         key_parts = [prefix]
-        
+
         for arg in args:
             if isinstance(arg, (str, int, float, bool)):
                 key_parts.append(str(arg))
             else:
                 key_parts.append(str(hash(str(arg))))
-        
+
         for key, value in sorted(kwargs.items()):
             if isinstance(value, (str, int, float, bool)):
                 key_parts.append(f"{key}:{value}")
             else:
                 key_parts.append(f"{key}:{hash(str(value))}")
-        
+
         key_string = ":".join(key_parts)
         if len(key_string) > 200:
             key_string = hashlib.md5(key_string.encode()).hexdigest()
-        
+
         return key_string
-    
-    def get_or_set(self, key: str, callable_func: Callable, timeout: Optional[int] = None) -> Any:
+
+    def get_or_set(
+        self, key: str, callable_func: Callable, timeout: Optional[int] = None
+    ) -> Any:
         """Получить значение из кэша или установить его через функцию"""
         try:
             value = self.cache.get(key)
             if value is None:
                 value = callable_func()
                 if timeout is None:
-                    timeout = self.timeouts.get('default', 300)
+                    timeout = self.timeouts.get("default", CACHE_TTL)
                 try:
                     self.cache.set(key, value, timeout)
                 except Exception as e:
@@ -56,10 +63,10 @@ class CacheManager:
 
 class DashboardCacheManager(CacheManager):
     """Менеджер кэширования для дашбордов"""
-    
+
     def __init__(self):
-        super().__init__('dashboard')
-    
+        super().__init__("dashboard")
+
     def invalidate_student_cache(self, student_id: int) -> None:
         """Инвалидирует кэш студента"""
         patterns = [
@@ -69,7 +76,7 @@ class DashboardCacheManager(CacheManager):
         ]
         for pattern in patterns:
             self._invalidate_pattern(pattern)
-    
+
     def invalidate_teacher_cache(self, teacher_id: int) -> None:
         """Инвалидирует кэш преподавателя"""
         patterns = [
@@ -79,7 +86,7 @@ class DashboardCacheManager(CacheManager):
         ]
         for pattern in patterns:
             self._invalidate_pattern(pattern)
-    
+
     def invalidate_parent_cache(self, parent_id: int) -> None:
         """Инвалидирует кэш родителя"""
         patterns = [
@@ -89,11 +96,11 @@ class DashboardCacheManager(CacheManager):
         ]
         for pattern in patterns:
             self._invalidate_pattern(pattern)
-    
+
     def _invalidate_pattern(self, pattern: str) -> None:
         """Инвалидирует кэш по паттерну"""
         try:
-            if hasattr(self.cache, 'delete_pattern'):
+            if hasattr(self.cache, "delete_pattern"):
                 self.cache.delete_pattern(pattern)
         except Exception:
             pass  # Игнорируем ошибки Redis
@@ -101,95 +108,95 @@ class DashboardCacheManager(CacheManager):
 
 class ChatCacheManager(CacheManager):
     """Менеджер кэширования для чата"""
-    
+
     def __init__(self):
-        super().__init__('chat')
+        super().__init__("chat")
 
 
 def cache_dashboard_data(timeout: Optional[int] = None):
     """Декоратор для кэширования данных дашборда"""
+
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             cache_manager = DashboardCacheManager()
-            
-            if hasattr(self, 'student'):
+
+            if hasattr(self, "student"):
                 user_id = self.student.id
-                user_type = 'student'
-            elif hasattr(self, 'teacher'):
+                user_type = "student"
+            elif hasattr(self, "teacher"):
                 user_id = self.teacher.id
-                user_type = 'teacher'
-            elif hasattr(self, 'parent_user'):
+                user_type = "teacher"
+            elif hasattr(self, "parent_user"):
                 user_id = self.parent_user.id
-                user_type = 'parent'
+                user_type = "parent"
             else:
                 return func(self, *args, **kwargs)
-            
+
             cache_key = cache_manager.get_cache_key(
-                f'{user_type}_dashboard_data',
-                user_id,
-                func.__name__,
-                *args,
-                **kwargs
+                f"{user_type}_dashboard_data", user_id, func.__name__, *args, **kwargs
             )
-            
+
             return cache_manager.get_or_set(
                 cache_key,
                 lambda: func(self, *args, **kwargs),
-                timeout or cache_manager.timeouts.get('dashboard_data', 300)
+                timeout
+                or cache_manager.timeouts.get("dashboard_data", DASHBOARD_CACHE_TTL),
             )
+
         return wrapper
+
     return decorator
 
 
 def cache_material_data(timeout: Optional[int] = None):
     """Декоратор для кэширования данных материалов"""
+
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             cache_manager = DashboardCacheManager()
-            
-            if hasattr(self, 'student'):
+
+            if hasattr(self, "student"):
                 user_id = self.student.id
-                user_type = 'student'
-            elif hasattr(self, 'teacher'):
+                user_type = "student"
+            elif hasattr(self, "teacher"):
                 user_id = self.teacher.id
-                user_type = 'teacher'
+                user_type = "teacher"
             else:
                 return func(self, *args, **kwargs)
-            
+
             cache_key = cache_manager.get_cache_key(
-                f'{user_type}_materials',
-                user_id,
-                func.__name__,
-                *args,
-                **kwargs
+                f"{user_type}_materials", user_id, func.__name__, *args, **kwargs
             )
-            
+
             return cache_manager.get_or_set(
                 cache_key,
                 lambda: func(self, *args, **kwargs),
-                timeout or cache_manager.timeouts.get('student_materials', 600)
+                timeout
+                or cache_manager.timeouts.get("student_materials", MATERIALS_CACHE_TTL),
             )
+
         return wrapper
+
     return decorator
 
 
 def cache_chat_data(timeout: Optional[int] = None):
     """Декоратор для кэширования данных чата"""
+
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             cache_manager = ChatCacheManager()
-            
+
             cache_key = cache_manager.get_cache_key(
-                'chat_data',
-                func.__name__,
-                *args,
-                **kwargs
+                "chat_data", func.__name__, *args, **kwargs
             )
-            
+
             return cache_manager.get_or_set(
                 cache_key,
                 lambda: func(self, *args, **kwargs),
-                timeout or cache_manager.timeouts.get('chat_messages', 60)
+                timeout or cache_manager.timeouts.get("chat_messages", CHAT_CACHE_TTL),
             )
+
         return wrapper
+
     return decorator

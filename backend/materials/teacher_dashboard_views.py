@@ -42,14 +42,8 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-# CSRF-exempt SessionAuthentication для API
-class CSRFExemptSessionAuthentication(SessionAuthentication):
-    def enforce_csrf(self, request):
-        return
-
-
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_dashboard(request):
     """
@@ -116,7 +110,7 @@ def teacher_dashboard(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_students(request):
     """
@@ -142,7 +136,7 @@ def teacher_students(request):
 
 
 @api_view(["GET", "POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_materials(request):
     """
@@ -188,7 +182,7 @@ def teacher_materials(request):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def distribute_material(request):
     """
@@ -241,7 +235,7 @@ def distribute_material(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_all_students(request):
     """
@@ -268,7 +262,7 @@ def teacher_all_students(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def student_progress_overview(request):
     """
@@ -309,7 +303,7 @@ def student_progress_overview(request):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_student_report(request):
     """
@@ -367,7 +361,7 @@ def create_student_report(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_reports(request):
     """
@@ -393,7 +387,7 @@ def teacher_reports(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_student_subjects(request, student_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -424,7 +418,7 @@ def teacher_student_subjects(request, student_id: int):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def subject_students(request, subject_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -451,7 +445,7 @@ def subject_students(request, subject_id: int):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def pending_submissions(request):
     if request.user.role != User.Role.TEACHER:
@@ -471,7 +465,7 @@ def pending_submissions(request):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def submission_feedback(request, submission_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -503,7 +497,7 @@ def submission_feedback(request, submission_id: int):
 
 
 @api_view(["PUT"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def update_submission_status(request, submission_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -535,7 +529,7 @@ def update_submission_status(request, submission_id: int):
 
 
 @api_view(["GET", "PUT"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def material_assignments(request, material_id: int):
     if request.user.role != User.Role.TEACHER:
@@ -584,7 +578,7 @@ def material_assignments(request, material_id: int):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_subjects(request):
     """
@@ -610,7 +604,7 @@ def get_all_subjects(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_students(request):
     """
@@ -675,7 +669,7 @@ def get_all_students(request):
 
 
 @api_view(["GET", "POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_study_plans(request):
     """
@@ -768,7 +762,7 @@ def teacher_study_plans(request):
 
 
 @api_view(["GET", "PATCH", "DELETE"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teacher_study_plan_detail(request, plan_id):
     """
@@ -889,7 +883,7 @@ def teacher_study_plan_detail(request, plan_id):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def send_study_plan(request, plan_id):
     """
@@ -948,7 +942,7 @@ def send_study_plan(request, plan_id):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def upload_study_plan_file(request, plan_id):
@@ -1029,7 +1023,7 @@ def upload_study_plan_file(request, plan_id):
 
 
 @api_view(["DELETE"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_study_plan_file(request, plan_id, file_id):
     """

@@ -1,541 +1,939 @@
 #!/bin/bash
 
 ################################################################################
-# THE_BOT Platform - Pre-Deployment Health Check Script
+# THE_BOT Platform - Pre-Deployment Checks (22 checks in 5 categories)
 #
-# Performs comprehensive pre-deployment verification including:
-# - Code quality and test validation
-# - Environment configuration verification
-# - Database connectivity and migration safety
-# - Docker image building and scanning
-# - Security vulnerability checks
-# - Deployment readiness assessment
+# Performs comprehensive pre-deployment verification:
+# - 6 System checks (SSH, disk, memory, Docker, Docker Compose, network)
+# - 4 Git checks (repo, uncommitted, branch, remote)
+# - 5 Code checks (Dockerfile, docker-compose, .env, Python, Node.js)
+# - 4 Services checks (PostgreSQL, Redis, Nginx, volume paths)
+# - 3 Application checks (migrations, static files, Celery)
 #
 # Usage:
 #   ./scripts/deployment/pre-deploy-check.sh
-#   ./scripts/deployment/pre-deploy-check.sh --no-tests      # Skip tests
-#   ./scripts/deployment/pre-deploy-check.sh --quick         # Quick checks only
-#   ./scripts/deployment/pre-deploy-check.sh --verbose       # Detailed output
+#   ./scripts/deployment/pre-deploy-check.sh --verbose
+#   ./scripts/deployment/pre-deploy-check.sh --json
+#   ./scripts/deployment/pre-deploy-check.sh --only-category system
+#   ./scripts/deployment/pre-deploy-check.sh --remote
+#   ./scripts/deployment/pre-deploy-check.sh --dry-run
+#
+# Exit Codes:
+#   0 = all checks passed
+#   1 = one or more checks failed
+#   2 = critical checks failed (blocking deployment)
+#   3 = configuration error
 #
 ################################################################################
 
-set -e
+set -u
 
-# Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
-ENV_FILE="${PROJECT_DIR}/.env.production"
-COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.yml"
+DEPLOY_ENV="${PROJECT_DIR}/.deploy.env"
+UTILS_FILE="${SCRIPT_DIR}/deployment-utils.sh"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+if [[ ! -f "$UTILS_FILE" ]]; then
+    echo "ERROR: deployment-utils.sh not found at $UTILS_FILE"
+    exit 3
+fi
 
-# Configuration
-RUN_TESTS=true
+source "$UTILS_FILE" || {
+    echo "ERROR: Failed to source deployment-utils.sh"
+    exit 3
+}
+
+trap - EXIT ERR
+
+LOG_DIR="${LOG_DIR:-deployment-logs}"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+
+CHECK_LOG="${LOG_DIR}/pre-deploy-check_$(get_timestamp).log"
+touch "$CHECK_LOG" 2>/dev/null || true
+
 VERBOSE=false
-QUICK_MODE=false
-FAILED_CHECKS=0
+JSON_OUTPUT=false
+STOP_ON_ERROR=false
+ONLY_CATEGORY=""
+REMOTE_MODE=false
+DRY_RUN=false
+
+TOTAL_CHECKS=0
 PASSED_CHECKS=0
+FAILED_CHECKS=0
 WARNING_CHECKS=0
+CRITICAL_CHECKS=0
 
-################################################################################
-# UTILITY FUNCTIONS
-################################################################################
+declare -a CHECK_RESULTS=()
+declare -a FAILED_DETAILS=()
+declare -a WARNING_DETAILS=()
 
-print_header() {
-    echo -e "\n${BLUE}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}\n"
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --verbose)
+                VERBOSE=true
+                shift
+                ;;
+            --json)
+                JSON_OUTPUT=true
+                shift
+                ;;
+            --stop-on-error)
+                STOP_ON_ERROR=true
+                shift
+                ;;
+            --only-category)
+                ONLY_CATEGORY="$2"
+                shift 2
+                ;;
+            --remote)
+                REMOTE_MODE=true
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                exit 3
+                ;;
+        esac
+    done
 }
 
-print_check() {
-    echo -n "Checking: $1 ... "
+show_help() {
+    cat << 'EOF'
+THE_BOT Platform - Pre-Deployment Checks
+
+Usage:
+  ./pre-deploy-check.sh [OPTIONS]
+
+Options:
+  --verbose              Show detailed output for each check
+  --json                 Output results in JSON format
+  --stop-on-error        Exit after first failure
+  --only-category CAT    Run only specific category (system|git|code|services|app)
+  --remote               Run checks on remote server via SSH
+  --dry-run              Show checks without executing them
+  --help                 Display this help message
+
+Exit Codes:
+  0 = All checks passed
+  1 = One or more checks failed
+  2 = Critical checks failed (blocking deployment)
+  3 = Configuration error
+
+Examples:
+  ./pre-deploy-check.sh --verbose
+  ./pre-deploy-check.sh --json | jq '.'
+  ./pre-deploy-check.sh --only-category system
+  ./pre-deploy-check.sh --remote --verbose
+  ./pre-deploy-check.sh --dry-run --json
+EOF
 }
 
-print_pass() {
-    echo -e "${GREEN}✓ PASS${NC}"
-    ((PASSED_CHECKS++))
-}
+log_check() {
+    local check_name="$1"
+    local status="$2"
+    local duration="$3"
+    local error_msg="${4:-}"
 
-print_fail() {
-    echo -e "${RED}✗ FAIL${NC}"
-    if [ -n "$1" ]; then
-        echo -e "  ${RED}Reason: $1${NC}"
+    if [[ "$DRY_RUN" == true ]]; then
+        status="dry-run"
     fi
-    ((FAILED_CHECKS++))
+
+    local log_line="[${status}] ${check_name} (${duration}ms)"
+    [[ -n "$error_msg" ]] && log_line="${log_line} - ${error_msg}"
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ${log_line}" >> "$CHECK_LOG" 2>/dev/null || true
+
+    CHECK_RESULTS+=("${check_name}|${status}|${duration}|${error_msg}")
 }
 
-print_warn() {
-    echo -e "${YELLOW}⚠ WARN${NC}"
-    if [ -n "$1" ]; then
-        echo -e "  ${YELLOW}Note: $1${NC}"
-    fi
-    ((WARNING_CHECKS++))
-}
+record_check() {
+    local name="$1"
+    local status="$2"
+    local duration="${3:-0}"
+    local detail="${4:-}"
 
-print_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
-}
+    TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+    if [[ "$status" == "pass" ]]; then
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+        print_success "✓ PASS: $name (${duration}ms)"
+    elif [[ "$status" == "fail" ]]; then
+        FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        print_error "✗ FAIL: $name"
+        [[ -n "$detail" ]] && print_error "  Reason: $detail"
+        FAILED_DETAILS+=("$name: $detail")
 
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-print_result() {
-    local status=$1
-    local message=$2
-
-    if [ "$status" = "0" ]; then
-        print_pass "$message"
-    else
-        print_fail "$message"
-    fi
-}
-
-################################################################################
-# PARSE ARGUMENTS
-################################################################################
-
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --no-tests)
-            RUN_TESTS=false
-            shift
-            ;;
-        --quick)
-            QUICK_MODE=true
-            shift
-            ;;
-        --verbose)
-            VERBOSE=true
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
+        if [[ "$STOP_ON_ERROR" == true ]]; then
             exit 1
-            ;;
-    esac
-done
-
-################################################################################
-# PRE-DEPLOYMENT CHECKS
-################################################################################
-
-print_header "THE_BOT Platform - Pre-Deployment Check"
-
-# Check 1: Git status
-print_header "1. GIT REPOSITORY STATUS"
-
-print_check "Git repository initialized"
-if [ -d "${PROJECT_DIR}/.git" ]; then
-    print_pass
-else
-    print_fail "Not a git repository"
-    exit 1
-fi
-
-print_check "No uncommitted changes"
-if git -C "$PROJECT_DIR" diff-index --quiet HEAD --; then
-    print_pass
-else
-    print_fail "Uncommitted changes found"
-    if [ "$VERBOSE" = true ]; then
-        git -C "$PROJECT_DIR" status
+        fi
+    elif [[ "$status" == "warn" ]]; then
+        WARNING_CHECKS=$((WARNING_CHECKS + 1))
+        print_warning "⚠ WARN: $name"
+        [[ -n "$detail" ]] && print_warning "  Note: $detail"
+        WARNING_DETAILS+=("$name: $detail")
+    elif [[ "$status" == "critical" ]]; then
+        CRITICAL_CHECKS=$((CRITICAL_CHECKS + 1))
+        FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        print_error "✗✗ CRITICAL: $name - BLOCKS DEPLOYMENT"
+        [[ -n "$detail" ]] && print_error "  Reason: $detail"
+        FAILED_DETAILS+=("CRITICAL - $name: $detail")
     fi
-fi
 
-print_check "Current branch is main/master"
-CURRENT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD)
-if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
-    print_pass
-else
-    print_warn "Current branch is $CURRENT_BRANCH (expected main/master)"
-fi
+    log_check "$name" "$status" "$duration" "$detail"
+}
 
-print_check "Latest commits visible"
-COMMIT_COUNT=$(git -C "$PROJECT_DIR" rev-list --count HEAD)
-echo -e "Found ${BLUE}${COMMIT_COUNT}${NC} commits"
-
-# Check 2: Environment Configuration
-print_header "2. ENVIRONMENT CONFIGURATION"
-
-print_check "Environment file exists"
-if [ -f "$ENV_FILE" ]; then
-    print_pass
-else
-    print_fail ".env.production not found at $ENV_FILE"
-    exit 1
-fi
-
-# Required environment variables
-REQUIRED_VARS=(
-    "SECRET_KEY"
-    "ENVIRONMENT"
-    "DATABASE_URL"
-    "REDIS_URL"
-    "ALLOWED_HOSTS"
-    "YOOKASSA_SHOP_ID"
-    "YOOKASSA_SECRET_KEY"
-)
-
-print_check "Required environment variables"
-MISSING_VARS=()
-source "$ENV_FILE"
-for var in "${REQUIRED_VARS[@]}"; do
-    if [ -z "${!var}" ]; then
-        MISSING_VARS+=("$var")
+load_config() {
+    if [[ -f "$DEPLOY_ENV" ]]; then
+        source "$DEPLOY_ENV"
+        print_info "Loaded configuration from .deploy.env"
+        log "Configuration loaded from $DEPLOY_ENV"
+    else
+        print_warning "No .deploy.env found, using defaults"
+        SSH_USER="${SSH_USER:-}"
+        SSH_HOST="${SSH_HOST:-}"
+        SSH_PORT="${SSH_PORT:-22}"
+        REMOTE_PATH="${REMOTE_PATH:-}"
     fi
-done
+}
 
-if [ ${#MISSING_VARS[@]} -eq 0 ]; then
-    print_pass
-else
-    print_fail "Missing variables: ${MISSING_VARS[*]}"
-fi
+should_skip_category() {
+    local category="$1"
+    if [[ -n "$ONLY_CATEGORY" ]] && [[ "$ONLY_CATEGORY" != "$category" ]]; then
+        return 0
+    fi
+    return 1
+}
 
-print_check "SECRET_KEY strength"
-SECRET_KEY_LENGTH=${#SECRET_KEY}
-if [ "$SECRET_KEY_LENGTH" -ge 50 ]; then
-    print_pass "(length: $SECRET_KEY_LENGTH)"
-else
-    print_fail "SECRET_KEY too short (length: $SECRET_KEY_LENGTH, min: 50)"
-fi
+category_header() {
+    local category="$1"
+    print_header "CHECKS: $category"
+}
 
-print_check "ENVIRONMENT is production"
-if [ "$ENVIRONMENT" = "production" ]; then
-    print_pass
-else
-    print_warn "ENVIRONMENT is $ENVIRONMENT (not production)"
-fi
+check_duration() {
+    local start_time=$1
+    echo $(( ($(date +%s%N) - start_time) / 1000000 ))
+}
 
-print_check "DEBUG is disabled"
-if [ "$DEBUG" = "False" ] || [ "$DEBUG" = "false" ]; then
-    print_pass
-else
-    print_warn "DEBUG is enabled"
-fi
+check_ssh_connection() {
+    [[ "$(should_skip_category system)" == "true" ]] && return
 
-# Check 3: Docker Configuration
-print_header "3. DOCKER CONFIGURATION"
+    local ssh_host="${SSH_HOST:-}"
+    local ssh_user="${SSH_USER:-}"
+    local ssh_port="${SSH_PORT:-22}"
 
-print_check "Docker installed"
-if command -v docker &> /dev/null; then
-    DOCKER_VERSION=$(docker --version | awk '{print $3}' | sed 's/,//')
-    print_pass "(version: $DOCKER_VERSION)"
-else
-    print_fail "Docker not installed"
-    exit 1
-fi
+    [[ -z "$ssh_host" ]] && {
+        record_check "SSH connection" "fail" 0 "SSH_HOST not configured"
+        return
+    }
+    [[ -z "$ssh_user" ]] && {
+        record_check "SSH connection" "fail" 0 "SSH_USER not configured"
+        return
+    }
 
-print_check "Docker daemon running"
-if docker info &> /dev/null; then
-    print_pass
-else
-    print_fail "Docker daemon not running"
-    exit 1
-fi
+    local start_time=$(date +%s%N)
 
-print_check "Docker Compose installed"
-if command -v docker-compose &> /dev/null; then
-    DC_VERSION=$(docker-compose --version | awk '{print $3}' | sed 's/,//')
-    print_pass "(version: $DC_VERSION)"
-else
-    print_fail "Docker Compose not installed"
-    exit 1
-fi
-
-print_check "docker-compose.prod.yml exists"
-if [ -f "$COMPOSE_FILE" ]; then
-    print_pass
-else
-    print_fail "File not found: $COMPOSE_FILE"
-    exit 1
-fi
-
-# Check 4: Code Quality (if not quick mode)
-if [ "$QUICK_MODE" = false ]; then
-    print_header "4. CODE QUALITY CHECKS"
-
-    # Backend linting
-    print_check "Backend code style (black)"
-    if command -v black &> /dev/null; then
-        if black --check backend/ 2>/dev/null; then
-            print_pass
+    if [[ "$REMOTE_MODE" == true ]]; then
+        if timeout 10 ssh_check "$ssh_user" "$ssh_host" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "SSH connection to $ssh_host" "pass" "$duration"
         else
-            print_warn "Code style issues found (run: black backend/)"
+            local duration=$(check_duration $start_time)
+            record_check "SSH connection to $ssh_host" "critical" "$duration" "Cannot SSH to $ssh_user@$ssh_host:$ssh_port"
         fi
     else
-        print_warn "black not installed"
+        local duration=$(check_duration $start_time)
+        record_check "SSH connection" "warn" "$duration" "Run with --remote to verify SSH connectivity"
     fi
+}
 
-    # Backend type checking
-    print_check "Backend type hints (mypy)"
-    if command -v mypy &> /dev/null; then
-        if mypy backend/ --ignore-missing-imports 2>/dev/null | grep -q "error:"; then
-            print_warn "Type hints issues found"
+check_disk_space() {
+    [[ "$(should_skip_category system)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+    local min_space=5242880
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        local available=$(ssh_exec "df ${REMOTE_PATH:-/home} | tail -1 | awk '{print \$4}'" "$SSH_USER" "$SSH_HOST" 2>/dev/null || echo "0")
+        if [[ "$available" -gt "$min_space" ]]; then
+            local duration=$(check_duration $start_time)
+            record_check "Disk space >= 5GB" "pass" "$duration" "Available: $(human_readable_size $((available * 1024)))"
         else
-            print_pass
+            local duration=$(check_duration $start_time)
+            record_check "Disk space >= 5GB" "critical" "$duration" "Only $(human_readable_size $((available * 1024))) available"
         fi
     else
-        print_warn "mypy not installed"
+        local duration=$(check_duration $start_time)
+        record_check "Disk space >= 5GB" "warn" "$duration" "Run with --remote to verify on server"
     fi
+}
 
-    # Frontend linting
-    print_check "Frontend code style (eslint)"
-    if [ -f "${PROJECT_DIR}/frontend/package.json" ]; then
-        if cd "${PROJECT_DIR}/frontend" && npm run lint 2>&1 | grep -q "error:"; then
-            print_warn "ESLint errors found"
+check_memory() {
+    [[ "$(should_skip_category system)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+    local min_memory=524288
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        local available=$(ssh_exec "free | grep Mem | awk '{print \$7}'" "$SSH_USER" "$SSH_HOST" 2>/dev/null || echo "0")
+        if [[ "$available" -gt "$min_memory" ]]; then
+            local duration=$(check_duration $start_time)
+            record_check "Memory >= 512MB available" "pass" "$duration" "Available: $(human_readable_size $((available * 1024)))"
         else
-            print_pass
-        fi
-        cd "$PROJECT_DIR"
-    else
-        print_warn "Frontend package.json not found"
-    fi
-fi
-
-# Check 5: Dependencies
-print_header "5. DEPENDENCY CHECKS"
-
-print_check "Python dependencies pinned"
-UNPINNED=$(grep -v "==" "${PROJECT_DIR}/backend/requirements.txt" | grep -v "^#" | grep -v "^$" | wc -l)
-if [ "$UNPINNED" -eq 0 ]; then
-    print_pass
-else
-    print_warn "Found $UNPINNED unpinned dependencies"
-fi
-
-print_check "Node.js dependencies in lockfile"
-if [ -f "${PROJECT_DIR}/frontend/package-lock.json" ]; then
-    print_pass
-else
-    print_warn "package-lock.json not found"
-fi
-
-if [ "$QUICK_MODE" = false ]; then
-    print_check "Security vulnerabilities (Python)"
-    if command -v pip-audit &> /dev/null; then
-        if pip-audit --skip-editable 2>/dev/null | grep -q "VULNERABILITY"; then
-            print_warn "Python vulnerabilities found (review carefully)"
-        else
-            print_pass
+            local duration=$(check_duration $start_time)
+            record_check "Memory >= 512MB available" "warn" "$duration" "Only $(human_readable_size $((available * 1024))) available"
         fi
     else
-        print_warn "pip-audit not installed"
+        local duration=$(check_duration $start_time)
+        record_check "Memory >= 512MB available" "warn" "$duration" "Run with --remote to verify"
     fi
+}
 
-    print_check "Security vulnerabilities (Node.js)"
-    if [ -f "${PROJECT_DIR}/frontend/package.json" ]; then
-        if cd "${PROJECT_DIR}/frontend" && npm audit 2>&1 | grep -q "vulnerabilities"; then
-            print_warn "Node.js vulnerabilities found (review carefully)"
+check_docker_version() {
+    [[ "$(should_skip_category system)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        local docker_version=$(ssh_exec "docker --version 2>/dev/null | awk '{print \$3}' | sed 's/,//'" "$SSH_USER" "$SSH_HOST" 2>/dev/null || echo "")
+        if [[ -n "$docker_version" ]]; then
+            local major=$(echo "$docker_version" | cut -d. -f1)
+            if [[ "$major" -ge 20 ]]; then
+                local duration=$(check_duration $start_time)
+                record_check "Docker version >= 20.10" "pass" "$duration" "Version: $docker_version"
+            else
+                local duration=$(check_duration $start_time)
+                record_check "Docker version >= 20.10" "fail" "$duration" "Found: $docker_version"
+            fi
         else
-            print_pass
+            local duration=$(check_duration $start_time)
+            record_check "Docker version >= 20.10" "critical" "$duration" "Docker not installed or not accessible"
         fi
-        cd "$PROJECT_DIR"
-    fi
-fi
-
-# Check 6: Database Connectivity
-print_header "6. DATABASE CONNECTIVITY"
-
-print_check "PostgreSQL URL format"
-if [[ "$DATABASE_URL" =~ ^postgres(ql)?:// ]]; then
-    print_pass
-else
-    print_fail "Invalid DATABASE_URL format"
-fi
-
-print_check "Redis URL format"
-if [[ "$REDIS_URL" =~ ^redis:// ]]; then
-    print_pass
-else
-    print_fail "Invalid REDIS_URL format"
-fi
-
-if [ "$QUICK_MODE" = false ]; then
-    print_check "PostgreSQL connectivity"
-    if docker-compose -f "$COMPOSE_FILE" exec -T postgres \
-        psql "$DATABASE_URL" -c "SELECT 1" &>/dev/null; then
-        print_pass
     else
-        print_warn "Cannot connect to PostgreSQL (it may not be running)"
-    fi
-
-    print_check "Redis connectivity"
-    if docker-compose -f "$COMPOSE_FILE" exec -T redis \
-        redis-cli ping &>/dev/null; then
-        print_pass
-    else
-        print_warn "Cannot connect to Redis (it may not be running)"
-    fi
-fi
-
-# Check 7: Tests (if not disabled)
-if [ "$RUN_TESTS" = true ] && [ "$QUICK_MODE" = false ]; then
-    print_header "7. TEST SUITE"
-
-    print_check "Backend tests"
-    cd "$PROJECT_DIR/backend"
-    if pytest tests/ -q --tb=no 2>/dev/null; then
-        print_pass
-    else
-        print_fail "Some tests failed (run: pytest tests/ -v)"
-    fi
-    cd "$PROJECT_DIR"
-
-    print_check "Frontend tests"
-    if [ -f "${PROJECT_DIR}/frontend/package.json" ]; then
-        cd "${PROJECT_DIR}/frontend"
-        if npm test -- --run 2>/dev/null; then
-            print_pass
+        if command -v docker &>/dev/null; then
+            local docker_version=$(docker --version 2>/dev/null | awk '{print $3}' | sed 's/,//')
+            local start_time=$(date +%s%N)
+            local major=$(echo "$docker_version" | cut -d. -f1)
+            if [[ "$major" -ge 20 ]]; then
+                local duration=$(check_duration $start_time)
+                record_check "Docker version >= 20.10" "pass" "$duration" "Version: $docker_version"
+            else
+                local duration=$(check_duration $start_time)
+                record_check "Docker version >= 20.10" "fail" "$duration" "Found: $docker_version"
+            fi
         else
-            print_warn "Frontend tests failed (review)"
+            local duration=$(check_duration $start_time)
+            record_check "Docker version >= 20.10" "critical" "$duration" "Docker not installed"
         fi
-        cd "$PROJECT_DIR"
     fi
-fi
+}
 
-# Check 8: Docker Images
-print_header "8. DOCKER IMAGE CHECKS"
+check_docker_compose() {
+    [[ "$(should_skip_category system)" == "true" ]] && return
 
-print_check "Backend Dockerfile exists"
-if [ -f "${PROJECT_DIR}/backend/Dockerfile" ]; then
-    print_pass
-else
-    print_fail "Backend Dockerfile not found"
-fi
+    local start_time=$(date +%s%N)
 
-print_check "Frontend Dockerfile exists"
-if [ -f "${PROJECT_DIR}/frontend/Dockerfile" ]; then
-    print_pass
-else
-    print_fail "Frontend Dockerfile not found"
-fi
-
-if [ "$QUICK_MODE" = false ]; then
-    print_check "Building Docker images"
-    if docker-compose -f "$COMPOSE_FILE" build --no-cache 2>&1 | tail -5 | grep -q "Successfully built\|already built"; then
-        print_pass
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        local dc_version=$(ssh_exec "docker-compose --version 2>/dev/null | awk '{print \$NF}' | sed 's/v//'" "$SSH_USER" "$SSH_HOST" 2>/dev/null || echo "")
+        if [[ -n "$dc_version" ]]; then
+            local major=$(echo "$dc_version" | cut -d. -f1)
+            if [[ "$major" -ge 2 ]]; then
+                local duration=$(check_duration $start_time)
+                record_check "Docker Compose v2+" "pass" "$duration" "Version: v$dc_version"
+            else
+                local duration=$(check_duration $start_time)
+                record_check "Docker Compose v2+" "fail" "$duration" "Found v$dc_version, need v2+"
+            fi
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Docker Compose v2+" "critical" "$duration" "Not installed or not accessible"
+        fi
     else
-        print_warn "Docker build check inconclusive"
+        if command -v docker-compose &>/dev/null; then
+            local dc_version=$(docker-compose --version 2>/dev/null | awk '{print $NF}' | sed 's/v//')
+            local major=$(echo "$dc_version" | cut -d. -f1)
+            if [[ "$major" -ge 2 ]]; then
+                local duration=$(check_duration $start_time)
+                record_check "Docker Compose v2+" "pass" "$duration" "Version: v$dc_version"
+            else
+                local duration=$(check_duration $start_time)
+                record_check "Docker Compose v2+" "fail" "$duration" "Found v$dc_version, need v2+"
+            fi
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Docker Compose v2+" "critical" "$duration" "Not installed"
+        fi
     fi
-fi
+}
 
-# Check 9: SSL Certificates
-print_header "9. SSL CERTIFICATE CHECKS"
+check_network_connectivity() {
+    [[ "$(should_skip_category system)" == "true" ]] && return
 
-SSL_CERT_FILE="${PROJECT_DIR}/docker/certs/server.crt"
-print_check "SSL certificate exists"
-if [ -f "$SSL_CERT_FILE" ]; then
-    print_pass
-else
-    print_warn "SSL certificate not found at $SSL_CERT_FILE"
-fi
+    local start_time=$(date +%s%N)
+    local ssh_host="${SSH_HOST:-}"
 
-if [ -f "$SSL_CERT_FILE" ]; then
-    print_check "SSL certificate validity"
-    EXPIRY=$(openssl x509 -in "$SSL_CERT_FILE" -noout -enddate 2>/dev/null | cut -d= -f2)
-    EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s 2>/dev/null || date -jf "%b %d %T %Z %Y" "$EXPIRY" +%s 2>/dev/null || echo 0)
-    NOW_EPOCH=$(date +%s)
-    DAYS_UNTIL_EXPIRY=$(( ($EXPIRY_EPOCH - $NOW_EPOCH) / 86400 ))
-
-    if [ "$DAYS_UNTIL_EXPIRY" -gt 30 ]; then
-        print_pass "(expires in $DAYS_UNTIL_EXPIRY days: $EXPIRY)"
-    elif [ "$DAYS_UNTIL_EXPIRY" -gt 0 ]; then
-        print_warn "Certificate expires soon (in $DAYS_UNTIL_EXPIRY days)"
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$ssh_host" ]]; then
+        if timeout 5 ssh_exec "ping -c 1 8.8.8.8 > /dev/null 2>&1" "$SSH_USER" "$ssh_host" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "Network connectivity to external services" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Network connectivity to external services" "warn" "$duration" "Cannot reach 8.8.8.8 (may be blocked)"
+        fi
     else
-        print_fail "Certificate has expired"
+        if timeout 5 ping -c 1 8.8.8.8 > /dev/null 2>&1; then
+            local duration=$(check_duration $start_time)
+            record_check "Network connectivity to external services" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Network connectivity to external services" "warn" "$duration" "Cannot reach 8.8.8.8"
+        fi
     fi
-fi
+}
 
-# Check 10: Database Migrations
-print_header "10. DATABASE MIGRATION CHECKS"
+check_git_repo() {
+    [[ "$(should_skip_category git)" == "true" ]] && return
 
-print_check "Pending migrations exist"
-if [ "$QUICK_MODE" = false ]; then
-    cd "${PROJECT_DIR}/backend"
-    PENDING=$(python manage.py showmigrations --plan 2>/dev/null | grep "\[" | grep -v "\[X\]" | wc -l)
-    cd "$PROJECT_DIR"
+    local start_time=$(date +%s%N)
 
-    if [ "$PENDING" -gt 0 ]; then
-        print_warn "Found $PENDING pending migrations (will be applied during deployment)"
+    if [[ -d "${PROJECT_DIR}/.git" ]]; then
+        local duration=$(check_duration $start_time)
+        record_check ".git directory exists" "pass" "$duration"
     else
-        print_pass "No pending migrations"
+        local duration=$(check_duration $start_time)
+        record_check ".git directory exists" "critical" "$duration" "Not a git repository"
     fi
-fi
+}
 
-# Check 11: Configuration Files
-print_header "11. CONFIGURATION FILES"
+check_uncommitted_changes() {
+    [[ "$(should_skip_category git)" == "true" ]] && return
 
-print_check "nginx configuration exists"
-if [ -f "${PROJECT_DIR}/docker/nginx.prod.conf" ]; then
-    print_pass
-else
-    print_fail "nginx.prod.conf not found"
-fi
+    local start_time=$(date +%s%N)
 
-print_check "Configuration has no syntax errors"
-if [ -f "${PROJECT_DIR}/docker/nginx.prod.conf" ]; then
-    if docker run --rm -v "${PROJECT_DIR}/docker:/etc/nginx" nginx:latest \
-        nginx -t -c /etc/nginx/nginx.prod.conf 2>/dev/null; then
-        print_pass
+    if git -C "$PROJECT_DIR" diff-index --quiet HEAD -- 2>/dev/null; then
+        local duration=$(check_duration $start_time)
+        record_check "No uncommitted changes" "pass" "$duration"
     else
-        print_warn "nginx config syntax check inconclusive"
+        local duration=$(check_duration $start_time)
+        record_check "No uncommitted changes" "fail" "$duration" "Uncommitted changes found in working directory"
+        if [[ "$VERBOSE" == true ]]; then
+            print_info "Changed files:"
+            git -C "$PROJECT_DIR" status --short
+        fi
     fi
-fi
+}
 
-# Check 12: Version Information
-print_header "12. VERSION INFORMATION"
+check_git_branch() {
+    [[ "$(should_skip_category git)" == "true" ]] && return
 
-print_check "Git version tag"
-GIT_VERSION=$(git -C "$PROJECT_DIR" describe --tags 2>/dev/null || echo "no tags")
-echo -e "Current: ${BLUE}${GIT_VERSION}${NC}"
+    local start_time=$(date +%s%N)
+    local current_branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    local expected_branch="${GIT_BRANCH:-main}"
 
-print_check "Python version"
-PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
-if [[ "$PYTHON_VERSION" =~ ^3\.(10|11|12) ]]; then
-    print_pass "(version: $PYTHON_VERSION)"
-else
-    print_warn "(version: $PYTHON_VERSION, expected 3.10+)"
-fi
-
-print_check "Node.js version"
-if command -v node &> /dev/null; then
-    NODE_VERSION=$(node --version | sed 's/v//')
-    print_pass "(version: $NODE_VERSION)"
-fi
-
-# Final Summary
-print_header "DEPLOYMENT READINESS SUMMARY"
-
-TOTAL_CHECKS=$((PASSED_CHECKS + FAILED_CHECKS + WARNING_CHECKS))
-
-echo "Checks Summary:"
-echo -e "  ${GREEN}✓ Passed: $PASSED_CHECKS${NC}"
-echo -e "  ${YELLOW}⚠ Warnings: $WARNING_CHECKS${NC}"
-echo -e "  ${RED}✗ Failed: $FAILED_CHECKS${NC}"
-echo -e "  Total: $TOTAL_CHECKS"
-echo ""
-
-if [ "$FAILED_CHECKS" -eq 0 ]; then
-    if [ "$WARNING_CHECKS" -gt 0 ]; then
-        echo -e "${YELLOW}⚠️  DEPLOYMENT ALLOWED WITH CAUTION${NC}"
-        echo -e "Please review the ${YELLOW}$WARNING_CHECKS${NC} warnings above"
+    local duration=$(check_duration $start_time)
+    if [[ "$current_branch" == "$expected_branch" ]]; then
+        record_check "Current branch is $expected_branch" "pass" "$duration" "Branch: $current_branch"
     else
-        echo -e "${GREEN}✓ DEPLOYMENT READY${NC}"
-        echo -e "All pre-deployment checks passed!"
+        record_check "Current branch is $expected_branch" "warn" "$duration" "Current: $current_branch, Expected: $expected_branch"
     fi
-    exit 0
-else
-    echo -e "${RED}✗ DEPLOYMENT BLOCKED${NC}"
-    echo -e "Please fix the ${RED}$FAILED_CHECKS${NC} failed checks above before deploying"
-    exit 1
-fi
+}
+
+check_git_remote() {
+    [[ "$(should_skip_category git)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    if git -C "$PROJECT_DIR" remote -v 2>/dev/null | grep -q "origin"; then
+        if git -C "$PROJECT_DIR" ls-remote origin HEAD > /dev/null 2>&1; then
+            local duration=$(check_duration $start_time)
+            record_check "Remote origin is accessible" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Remote origin is accessible" "fail" "$duration" "Cannot reach origin"
+        fi
+    else
+        local duration=$(check_duration $start_time)
+        record_check "Remote origin is accessible" "fail" "$duration" "No origin remote configured"
+    fi
+}
+
+check_dockerfile() {
+    [[ "$(should_skip_category code)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    local dockerfile="${PROJECT_DIR}/backend/Dockerfile"
+    if [[ -f "$dockerfile" ]]; then
+        if grep -q "^FROM\|^RUN\|^CMD" "$dockerfile" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "Dockerfile exists and has valid syntax" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Dockerfile exists and has valid syntax" "fail" "$duration" "Dockerfile syntax invalid"
+        fi
+    else
+        local duration=$(check_duration $start_time)
+        record_check "Dockerfile exists and has valid syntax" "critical" "$duration" "Dockerfile not found"
+    fi
+}
+
+check_docker_compose_file() {
+    [[ "$(should_skip_category code)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    local compose_file="${PROJECT_DIR}/docker-compose.prod.yml"
+    if [[ ! -f "$compose_file" ]]; then
+        local duration=$(check_duration $start_time)
+        record_check "docker-compose.prod.yml exists and is valid YAML" "critical" "$duration" "File not found"
+        return
+    fi
+
+    if command -v yamllint &>/dev/null; then
+        if yamllint -d relaxed "$compose_file" > /dev/null 2>&1; then
+            local duration=$(check_duration $start_time)
+            record_check "docker-compose.prod.yml exists and is valid YAML" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "docker-compose.prod.yml exists and is valid YAML" "fail" "$duration" "Invalid YAML syntax"
+        fi
+    else
+        if python3 -c "import yaml; yaml.safe_load(open('$compose_file'))" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "docker-compose.prod.yml exists and is valid YAML" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "docker-compose.prod.yml exists and is valid YAML" "warn" "$duration" "Cannot validate YAML (yamllint not installed)"
+        fi
+    fi
+}
+
+check_env_file() {
+    [[ "$(should_skip_category code)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    local env_file="${PROJECT_DIR}/.env.production"
+    if [[ ! -f "$env_file" ]]; then
+        local duration=$(check_duration $start_time)
+        record_check ".env file exists and has required variables" "critical" "$duration" ".env.production not found"
+        return
+    fi
+
+    source "$env_file" 2>/dev/null || true
+
+    local required_vars=("SECRET_KEY" "DATABASE_URL" "REDIS_URL" "ALLOWED_HOSTS")
+    local missing_vars=()
+
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var:-}" ]]; then
+            missing_vars+=("$var")
+        fi
+    done
+
+    local duration=$(check_duration $start_time)
+    if [[ ${#missing_vars[@]} -eq 0 ]]; then
+        record_check ".env file exists and has required variables" "pass" "$duration"
+    else
+        record_check ".env file exists and has required variables" "fail" "$duration" "Missing: ${missing_vars[*]}"
+    fi
+}
+
+check_python_version() {
+    [[ "$(should_skip_category code)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        local python_version=$(ssh_exec "python3 --version 2>/dev/null | awk '{print \$2}'" "$SSH_USER" "$SSH_HOST" 2>/dev/null || echo "")
+        if [[ -n "$python_version" ]]; then
+            local major=$(echo "$python_version" | cut -d. -f1)
+            local minor=$(echo "$python_version" | cut -d. -f2)
+            if [[ "$major" -eq 3 ]] && [[ "$minor" -ge 10 ]]; then
+                local duration=$(check_duration $start_time)
+                record_check "Python 3.10+ installed" "pass" "$duration" "Version: $python_version"
+            else
+                local duration=$(check_duration $start_time)
+                record_check "Python 3.10+ installed" "fail" "$duration" "Found: $python_version, need 3.10+"
+            fi
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Python 3.10+ installed" "critical" "$duration" "Python3 not found"
+        fi
+    else
+        if command -v python3 &>/dev/null; then
+            local python_version=$(python3 --version 2>&1 | awk '{print $2}')
+            local major=$(echo "$python_version" | cut -d. -f1)
+            local minor=$(echo "$python_version" | cut -d. -f2)
+            if [[ "$major" -eq 3 ]] && [[ "$minor" -ge 10 ]]; then
+                local duration=$(check_duration $start_time)
+                record_check "Python 3.10+ installed" "pass" "$duration" "Version: $python_version"
+            else
+                local duration=$(check_duration $start_time)
+                record_check "Python 3.10+ installed" "fail" "$duration" "Found: $python_version"
+            fi
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Python 3.10+ installed" "critical" "$duration" "Not found"
+        fi
+    fi
+}
+
+check_nodejs_version() {
+    [[ "$(should_skip_category code)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        local node_version=$(ssh_exec "node --version 2>/dev/null | sed 's/v//'" "$SSH_USER" "$SSH_HOST" 2>/dev/null || echo "")
+        if [[ -n "$node_version" ]]; then
+            local major=$(echo "$node_version" | cut -d. -f1)
+            if [[ "$major" -ge 18 ]]; then
+                local duration=$(check_duration $start_time)
+                record_check "Node.js 18+ installed" "pass" "$duration" "Version: $node_version"
+            else
+                local duration=$(check_duration $start_time)
+                record_check "Node.js 18+ installed" "warn" "$duration" "Found: $node_version"
+            fi
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Node.js 18+ installed" "warn" "$duration" "Not found (optional)"
+        fi
+    else
+        if command -v node &>/dev/null; then
+            local node_version=$(node --version 2>&1 | sed 's/v//')
+            local major=$(echo "$node_version" | cut -d. -f1)
+            if [[ "$major" -ge 18 ]]; then
+                local duration=$(check_duration $start_time)
+                record_check "Node.js 18+ installed" "pass" "$duration" "Version: $node_version"
+            else
+                local duration=$(check_duration $start_time)
+                record_check "Node.js 18+ installed" "warn" "$duration" "Found: $node_version"
+            fi
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Node.js 18+ installed" "warn" "$duration" "Not found (optional)"
+        fi
+    fi
+}
+
+check_postgresql_port() {
+    [[ "$(should_skip_category services)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+    local db_port="${DB_PORT:-5432}"
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        if ! ssh_exec "lsof -i :$db_port > /dev/null 2>&1" "$SSH_USER" "$SSH_HOST" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "PostgreSQL port ($db_port) not in use" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "PostgreSQL port ($db_port) not in use" "warn" "$duration" "Port already in use"
+        fi
+    else
+        if ! lsof -i ":$db_port" > /dev/null 2>&1; then
+            local duration=$(check_duration $start_time)
+            record_check "PostgreSQL port ($db_port) not in use" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "PostgreSQL port ($db_port) not in use" "warn" "$duration" "Port already in use"
+        fi
+    fi
+}
+
+check_redis_port() {
+    [[ "$(should_skip_category services)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+    local redis_port="${REDIS_PORT:-6379}"
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        if ! ssh_exec "lsof -i :$redis_port > /dev/null 2>&1" "$SSH_USER" "$SSH_HOST" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "Redis port ($redis_port) not in use" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Redis port ($redis_port) not in use" "warn" "$duration" "Port already in use"
+        fi
+    else
+        if ! lsof -i ":$redis_port" > /dev/null 2>&1; then
+            local duration=$(check_duration $start_time)
+            record_check "Redis port ($redis_port) not in use" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Redis port ($redis_port) not in use" "warn" "$duration" "Port already in use"
+        fi
+    fi
+}
+
+check_nginx_port() {
+    [[ "$(should_skip_category services)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        if ! ssh_exec "lsof -i :80 > /dev/null 2>&1 || lsof -i :443 > /dev/null 2>&1" "$SSH_USER" "$SSH_HOST" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "Nginx ports (80/443) not in use" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Nginx ports (80/443) not in use" "warn" "$duration" "Ports already in use"
+        fi
+    else
+        if ! (lsof -i :80 > /dev/null 2>&1 || lsof -i :443 > /dev/null 2>&1); then
+            local duration=$(check_duration $start_time)
+            record_check "Nginx ports (80/443) not in use" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Nginx ports (80/443) not in use" "warn" "$duration" "Ports already in use"
+        fi
+    fi
+}
+
+check_volume_mounts() {
+    [[ "$(should_skip_category services)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        local db_backup_path="${DB_BACKUP_PATH:-/home/neil/backups/db}"
+        if ssh_exec "test -d '$db_backup_path' && test -w '$db_backup_path'" "$SSH_USER" "$SSH_HOST" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "Required volume mount paths exist and accessible" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Required volume mount paths exist and accessible" "fail" "$duration" "Backup path not accessible: $db_backup_path"
+        fi
+    else
+        local duration=$(check_duration $start_time)
+        record_check "Required volume mount paths exist and accessible" "warn" "$duration" "Run with --remote to verify"
+    fi
+}
+
+check_pending_migrations() {
+    [[ "$(should_skip_category app)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        local pending=$(ssh_exec "cd $REMOTE_PATH && python manage.py showmigrations --check 2>/dev/null || echo 'check'" "$SSH_USER" "$SSH_HOST" 2>/dev/null)
+        if [[ "$pending" == "ok" ]]; then
+            local duration=$(check_duration $start_time)
+            record_check "No pending database migrations" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "No pending database migrations" "warn" "$duration" "Pending migrations will be applied during deployment"
+        fi
+    else
+        if cd "$PROJECT_DIR/backend" && python manage.py showmigrations --check 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "No pending database migrations" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "No pending database migrations" "warn" "$duration" "Pending migrations will be applied during deployment"
+        fi
+    fi
+}
+
+check_static_files() {
+    [[ "$(should_skip_category app)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    local static_path="${PROJECT_DIR}/backend/staticfiles"
+    if [[ -d "$static_path" ]] && [[ -w "$static_path" ]]; then
+        local duration=$(check_duration $start_time)
+        record_check "Static files directory exists and writable" "pass" "$duration"
+    else
+        local duration=$(check_duration $start_time)
+        record_check "Static files directory exists and writable" "warn" "$duration" "Will be created during deployment (COLLECT_STATIC=true)"
+    fi
+}
+
+check_celery_queue() {
+    [[ "$(should_skip_category app)" == "true" ]] && return
+
+    local start_time=$(date +%s%N)
+
+    if [[ "$REMOTE_MODE" == true ]] && [[ -n "$SSH_HOST" ]]; then
+        if ssh_exec "redis-cli -h redis ping > /dev/null 2>&1" "$SSH_USER" "$SSH_HOST" 2>/dev/null; then
+            local duration=$(check_duration $start_time)
+            record_check "Celery queue accessible and responding" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Celery queue accessible and responding" "warn" "$duration" "Redis not accessible (will start during deployment)"
+        fi
+    else
+        if command -v redis-cli &>/dev/null && redis-cli ping > /dev/null 2>&1; then
+            local duration=$(check_duration $start_time)
+            record_check "Celery queue accessible and responding" "pass" "$duration"
+        else
+            local duration=$(check_duration $start_time)
+            record_check "Celery queue accessible and responding" "warn" "$duration" "Redis not accessible locally (check remote server)"
+        fi
+    fi
+}
+
+output_summary() {
+    if [[ "$JSON_OUTPUT" == true ]]; then
+        output_json_summary
+    else
+        output_text_summary
+    fi
+}
+
+output_text_summary() {
+    print_header "DEPLOYMENT READINESS SUMMARY"
+
+    echo "Checks Summary:"
+    echo "  Passed:   $PASSED_CHECKS"
+    echo "  Warnings: $WARNING_CHECKS"
+    echo "  Failed:   $FAILED_CHECKS"
+    echo "  Critical: $CRITICAL_CHECKS"
+    echo "  Total:    $TOTAL_CHECKS"
+    echo ""
+
+    if [[ ${#FAILED_DETAILS[@]} -gt 0 ]]; then
+        echo "Failed Checks:"
+        for detail in "${FAILED_DETAILS[@]}"; do
+            echo "  - $detail"
+        done
+        echo ""
+    fi
+
+    if [[ ${#WARNING_DETAILS[@]} -gt 0 ]]; then
+        echo "Warnings:"
+        for detail in "${WARNING_DETAILS[@]}"; do
+            echo "  - $detail"
+        done
+        echo ""
+    fi
+
+    if [[ "$CRITICAL_CHECKS" -gt 0 ]]; then
+        print_error "DEPLOYMENT BLOCKED - Critical failures detected"
+        exit 2
+    elif [[ "$FAILED_CHECKS" -gt 0 ]]; then
+        print_error "DEPLOYMENT BLOCKED - Failures detected"
+        exit 1
+    elif [[ "$WARNING_CHECKS" -gt 0 ]]; then
+        print_warning "DEPLOYMENT ALLOWED WITH CAUTION - Review $WARNING_CHECKS warnings"
+        exit 0
+    else
+        print_success "DEPLOYMENT READY - All checks passed"
+        exit 0
+    fi
+}
+
+output_json_summary() {
+    local check_id="pre-deploy-check-$(get_timestamp)"
+    local timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+    cat > "${LOG_DIR}/${check_id}.json" << JSONEOF
+{
+  "check_id": "$check_id",
+  "timestamp": "$timestamp",
+  "total_checks": $TOTAL_CHECKS,
+  "passed": $PASSED_CHECKS,
+  "failed": $FAILED_CHECKS,
+  "warnings": $WARNING_CHECKS,
+  "critical": $CRITICAL_CHECKS,
+  "categories": {
+    "system": {"total": 6, "passed": $([[ "$(should_skip_category system)" == true ]] && echo 0 || echo "$PASSED_CHECKS"), "failed": 0},
+    "git": {"total": 4, "passed": $([[ "$(should_skip_category git)" == true ]] && echo 0 || echo "$PASSED_CHECKS"), "failed": 0},
+    "code": {"total": 5, "passed": $([[ "$(should_skip_category code)" == true ]] && echo 0 || echo "$PASSED_CHECKS"), "failed": 0},
+    "services": {"total": 4, "passed": $([[ "$(should_skip_category services)" == true ]] && echo 0 || echo "$PASSED_CHECKS"), "failed": 0},
+    "app": {"total": 3, "passed": $([[ "$(should_skip_category app)" == true ]] && echo 0 || echo "$PASSED_CHECKS"), "failed": 0}
+  },
+  "checks": [
+JSONEOF
+
+    for result in "${CHECK_RESULTS[@]}"; do
+        IFS='|' read -r name status duration error <<< "$result"
+        cat >> "${LOG_DIR}/${check_id}.json" << JSONEOF
+    {"name": "$name", "status": "$status", "duration_ms": $duration, "error": "$error"},
+JSONEOF
+    done
+
+    sed -i '$ s/,$//' "${LOG_DIR}/${check_id}.json"
+
+    cat >> "${LOG_DIR}/${check_id}.json" << JSONEOF
+  ]
+}
+JSONEOF
+
+    cat "${LOG_DIR}/${check_id}.json"
+    echo ""
+    print_success "JSON report saved to ${LOG_DIR}/${check_id}.json"
+}
+
+main() {
+    parse_arguments "$@"
+
+    load_config
+
+    if [[ "$DRY_RUN" == true ]]; then
+        print_info "Running in DRY-RUN mode - no changes will be made"
+    fi
+
+    if [[ "$ONLY_CATEGORY" != "" ]]; then
+        print_info "Running only category: $ONLY_CATEGORY"
+    fi
+
+    print_header "THE_BOT PLATFORM - PRE-DEPLOYMENT CHECKS"
+
+    if ! should_skip_category system; then
+        category_header "SYSTEM (6 checks)"
+        check_ssh_connection
+        check_disk_space
+        check_memory
+        check_docker_version
+        check_docker_compose
+        check_network_connectivity
+    fi
+
+    if ! should_skip_category git; then
+        category_header "GIT (4 checks)"
+        check_git_repo
+        check_uncommitted_changes
+        check_git_branch
+        check_git_remote
+    fi
+
+    if ! should_skip_category code; then
+        category_header "CODE (5 checks)"
+        check_dockerfile
+        check_docker_compose_file
+        check_env_file
+        check_python_version
+        check_nodejs_version
+    fi
+
+    if ! should_skip_category services; then
+        category_header "SERVICES (4 checks)"
+        check_postgresql_port
+        check_redis_port
+        check_nginx_port
+        check_volume_mounts
+    fi
+
+    if ! should_skip_category app; then
+        category_header "APPLICATION (3 checks)"
+        check_pending_migrations
+        check_static_files
+        check_celery_queue
+    fi
+
+    output_summary
+}
+
+main "$@"

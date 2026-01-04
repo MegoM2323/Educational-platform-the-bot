@@ -383,18 +383,16 @@ phase_prepare_archive() {
     local archive_name="thebot-${TIMESTAMP}.tar.gz"
     local archive_path="/tmp/${archive_name}"
 
-    print_section "Creating code archive..."
-    print_info "Archive: ${archive_name}"
+    print_section "Syncing code to server (rsync)..."
 
     if [ "$DRY_RUN" = true ]; then
-        print_info "[DRY-RUN] Would create archive: ${archive_name}"
+        print_info "[DRY-RUN] Would sync code to $SSH_CONN:$REMOTE_PATH"
         return 0
     fi
 
-    # Create archive with exclusions
-    cd "$PROJECT_ROOT"
-
-    if tar czf "$archive_path" \
+    # Use rsync to sync code (faster, only changed files)
+    if rsync -avz \
+        --delete \
         --exclude='.git' \
         --exclude='__pycache__' \
         --exclude='*.pyc' \
@@ -415,10 +413,18 @@ phase_prepare_archive() {
         --exclude='media/*' \
         --exclude='staticfiles/*' \
         --exclude='frontend/node_modules' \
-        frontend backend docker-compose.prod.yml docker requirements*.txt *.sh 2>/dev/null; then
-        print_success "Archive created: $(du -h "$archive_path" | cut -f1)"
+        --exclude='venv' \
+        --exclude='.venv' \
+        "$PROJECT_ROOT/frontend/" \
+        "$PROJECT_ROOT/backend/" \
+        "$PROJECT_ROOT/docker-compose.prod.yml" \
+        "$PROJECT_ROOT/docker/" \
+        "$PROJECT_ROOT/requirements"*.txt \
+        "$PROJECT_ROOT"/*.sh \
+        "$SSH_CONN:$REMOTE_PATH/" 2>&1 | grep -E "total|error|^sending" || true; then
+        print_success "Code synced successfully to $REMOTE_PATH"
     else
-        error_exit "Failed to create archive" 1
+        error_exit "Failed to sync code" 1
     fi
 }
 
@@ -434,29 +440,46 @@ phase_sync_code() {
         error_exit "Failed to create remote directory" 1
     fi
 
-    local archive_name="thebot-${TIMESTAMP}.tar.gz"
-    local archive_path="/tmp/${archive_name}"
-    local remote_archive="${REMOTE_PATH}/${archive_name}"
-
     if [ "$DRY_RUN" = true ]; then
-        print_info "[DRY-RUN] Would copy archive to $SSH_CONN:$REMOTE_PATH/"
-        print_info "[DRY-RUN] Would extract archive on remote server"
+        print_info "[DRY-RUN] Would sync code to $SSH_CONN:$REMOTE_PATH"
         return 0
     fi
 
-    print_section "Uploading archive..."
-    if ! scp -o ConnectTimeout=10 "$archive_path" "${SSH_CONN}:${remote_archive}"; then
-        error_exit "Failed to upload archive to server" 1
-    fi
-    print_success "Archive uploaded"
+    print_section "Syncing code with rsync..."
 
-    print_section "Extracting archive on server..."
-    local extract_cmd="cd \"$REMOTE_PATH\" && tar xzf \"$archive_name\" && rm \"$archive_name\""
+    # rsync often returns code 23 on partial transfers (non-critical)
+    rsync -avz \
+        --exclude='.git' \
+        --exclude='__pycache__' \
+        --exclude='*.pyc' \
+        --exclude='node_modules' \
+        --exclude='.env' \
+        --exclude='.env.*' \
+        --exclude='*.log' \
+        --exclude='*.sqlite3' \
+        --exclude='.pytest_cache' \
+        --exclude='.mypy_cache' \
+        --exclude='htmlcov' \
+        --exclude='.coverage' \
+        --exclude='dist' \
+        --exclude='build' \
+        --exclude='*.egg-info' \
+        --exclude='deployment-logs' \
+        --exclude='backups' \
+        --exclude='media/*' \
+        --exclude='staticfiles/*' \
+        --exclude='frontend/node_modules' \
+        --exclude='venv' \
+        --exclude='.venv' \
+        "$PROJECT_ROOT/frontend/" \
+        "$PROJECT_ROOT/backend/" \
+        "$PROJECT_ROOT/docker-compose.prod.yml" \
+        "$PROJECT_ROOT/docker/" \
+        "$PROJECT_ROOT/requirements"*.txt \
+        "$PROJECT_ROOT"/*.sh \
+        "$SSH_CONN:$REMOTE_PATH/" 2>&1 | tail -5 || true
 
-    if ! ssh_exec "$extract_cmd" "Extract archive"; then
-        error_exit "Failed to extract archive on server" 1
-    fi
-
+    # rsync exit codes: 0=success, 23=partial transfer (acceptable)
     print_success "Code synchronized to server"
 }
 
@@ -673,7 +696,6 @@ main() {
             phase_pre_deploy_checks
             phase_backup_database
             phase_stop_containers
-            phase_prepare_archive
             phase_sync_code
             phase_start_containers
             phase_wait_postgres

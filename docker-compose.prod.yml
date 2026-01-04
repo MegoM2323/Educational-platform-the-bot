@@ -36,9 +36,6 @@ services:
     container_name: thebot-postgres-prod
     hostname: postgres
 
-    ports:
-      - "5432:5432"
-
     environment:
       # Database configuration
       POSTGRES_DB: ${DB_NAME:-thebot_db}
@@ -119,9 +116,6 @@ services:
     image: redis:7-alpine
     container_name: thebot-redis-prod
     hostname: redis
-
-    ports:
-      - "6379:6379"
 
     # Use Redis cluster config or single instance with replication
     command: >
@@ -302,10 +296,6 @@ services:
     container_name: thebot-frontend-prod
     hostname: frontend
 
-    ports:
-      - "3000:3000"
-      - "80:80"
-
     environment:
       NODE_ENV: production
       VITE_API_URL: ${API_URL:-https://localhost/api}
@@ -366,10 +356,6 @@ services:
     image: nginx:1.27-alpine
     container_name: thebot-nginx-prod
     hostname: nginx
-
-    ports:
-      - "80:80"
-      - "443:443"
 
     volumes:
       # Nginx configuration

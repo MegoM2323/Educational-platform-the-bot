@@ -23,6 +23,14 @@ import { errorLoggingService } from '@/services/errorLoggingService';
 import { cacheService } from '@/services/cacheService';
 import { tokenStorage } from '@/services/tokenStorage';
 
+let authServiceInstance: any = null;
+let navigationInstance: any = null;
+
+export function setAuthServiceAndNavigation(authService: any, navigate: any) {
+  authServiceInstance = authService;
+  navigationInstance = navigate;
+}
+
 // Types
 export interface ApiClientConfig {
   baseURL: string;
@@ -86,20 +94,16 @@ class RequestDeduplicator {
   /**
    * Get or create a request promise
    */
-  getOrCreate<T>(
-    key: string,
-    requestFn: () => Promise<T>
-  ): Promise<T> {
+  getOrCreate<T>(key: string, requestFn: () => Promise<T>): Promise<T> {
     const existing = this.pendingRequests.get(key);
     if (existing) {
       logger.debug('[RequestDeduplicator] Reusing pending request:', { key });
       return existing;
     }
 
-    const promise = requestFn()
-      .finally(() => {
-        this.pendingRequests.delete(key);
-      });
+    const promise = requestFn().finally(() => {
+      this.pendingRequests.delete(key);
+    });
 
     this.pendingRequests.set(key, promise);
     return promise;
@@ -260,44 +264,69 @@ export class ApiClient {
    */
   private registerBuiltInInterceptors(): void {
     // Add token and CSRF interceptor
-    this.requestInterceptors.unshift(
-      async (config: ApiRequest): Promise<ApiRequest> => {
-        // Add authorization token
-        const token = tokenStorage.getToken();
-        if (token) {
+    this.requestInterceptors.unshift(async (config: ApiRequest): Promise<ApiRequest> => {
+      // Add authorization token
+      const token = tokenStorage.getToken();
+      if (token) {
+        config.headers = {
+          ...config.headers,
+          Authorization: `Token ${token}`,
+        };
+        if (this.config.debugMode) {
+          logger.debug('[ApiClient] Added authorization token to request');
+        }
+      }
+
+      // Add CSRF token for mutation requests
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(config.method)) {
+        const csrfToken = this.csrfTokenManager.getToken();
+        if (csrfToken) {
           config.headers = {
             ...config.headers,
-            'Authorization': `Token ${token}`,
+            'X-CSRFToken': csrfToken,
           };
           if (this.config.debugMode) {
-            logger.debug('[ApiClient] Added authorization token to request');
+            logger.debug('[ApiClient] Added CSRF token to request');
           }
         }
+      }
 
-        // Add CSRF token for mutation requests
-        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(config.method)) {
-          const csrfToken = this.csrfTokenManager.getToken();
-          if (csrfToken) {
-            config.headers = {
-              ...config.headers,
-              'X-CSRFToken': csrfToken,
-            };
-            if (this.config.debugMode) {
-              logger.debug('[ApiClient] Added CSRF token to request');
+      // Add default headers
+      config.headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...config.headers,
+      };
+
+      return config;
+    });
+
+    // Add response interceptor for 401 handling
+    this.responseInterceptors.unshift(async (response: ApiResponse): Promise<ApiResponse> => {
+      if (response.status === 401) {
+        logger.warn('[ApiClient] Received 401 Unauthorized, attempting token refresh...');
+
+        try {
+          if (authServiceInstance && authServiceInstance.refreshTokenIfNeeded) {
+            const newToken = await authServiceInstance.refreshTokenIfNeeded();
+
+            if (newToken) {
+              logger.debug('[ApiClient] Token refreshed successfully after 401');
+              return response;
             }
           }
+        } catch (error) {
+          logger.error('[ApiClient] Token refresh failed after 401:', error);
         }
 
-        // Add default headers
-        config.headers = {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...config.headers,
-        };
-
-        return config;
+        logger.warn('[ApiClient] Redirecting to login due to 401 with failed refresh');
+        if (navigationInstance) {
+          navigationInstance('/login');
+        }
       }
-    );
+
+      return response;
+    });
   }
 
   /**
@@ -317,9 +346,7 @@ export class ApiClient {
   /**
    * Execute all request interceptors
    */
-  private async executeRequestInterceptors(
-    config: ApiRequest
-  ): Promise<ApiRequest> {
+  private async executeRequestInterceptors(config: ApiRequest): Promise<ApiRequest> {
     let modifiedConfig = { ...config };
 
     for (const interceptor of this.requestInterceptors) {
@@ -332,9 +359,7 @@ export class ApiClient {
   /**
    * Execute all response interceptors
    */
-  private async executeResponseInterceptors(
-    response: ApiResponse
-  ): Promise<ApiResponse> {
+  private async executeResponseInterceptors(response: ApiResponse): Promise<ApiResponse> {
     let modifiedResponse = { ...response };
 
     for (const interceptor of this.responseInterceptors) {
@@ -373,9 +398,7 @@ export class ApiClient {
 
       // Check cache for GET requests
       if (config.method === 'GET' && config.cache?.enabled) {
-        const cachedResponse = cacheService.get<T>(
-          config.cache.key || dedupeKey
-        );
+        const cachedResponse = cacheService.get<T>(config.cache.key || dedupeKey);
         if (cachedResponse) {
           if (this.config.debugMode) {
             logger.debug('[ApiClient] Cache hit for request:', { requestId, dedupeKey });
@@ -392,24 +415,13 @@ export class ApiClient {
       }
 
       // Deduplicate requests
-      const response = await this.deduplicator.getOrCreate(
-        dedupeKey,
-        async () => {
-          return this.performRequest<T>(config, requestId);
-        }
-      );
+      const response = await this.deduplicator.getOrCreate(dedupeKey, async () => {
+        return this.performRequest<T>(config, requestId);
+      });
 
       // Cache successful GET responses
-      if (
-        config.method === 'GET' &&
-        config.cache?.enabled &&
-        response.status < 400
-      ) {
-        cacheService.set(
-          config.cache.key || dedupeKey,
-          response.data,
-          config.cache.ttl
-        );
+      if (config.method === 'GET' && config.cache?.enabled && response.status < 400) {
+        cacheService.set(config.cache.key || dedupeKey, response.data, config.cache.ttl);
         if (this.config.debugMode) {
           logger.debug('[ApiClient] Cached response:', {
             requestId,
@@ -508,9 +520,7 @@ export class ApiClient {
 
       // Handle error responses
       if (!response.ok) {
-        const error = new Error(
-          data?.message || data?.error || response.statusText
-        ) as ApiError;
+        const error = new Error(data?.message || data?.error || response.statusText) as ApiError;
         error.status = response.status;
         error.statusText = response.statusText;
         error.data = data;
@@ -548,9 +558,7 @@ export class ApiClient {
 
       // Handle timeout
       if (error instanceof DOMException && error.name === 'AbortError') {
-        const timeoutError = new Error(
-          `Request timeout after ${timeout}ms`
-        ) as ApiError;
+        const timeoutError = new Error(`Request timeout after ${timeout}ms`) as ApiError;
         timeoutError.name = 'TimeoutError';
         throw timeoutError;
       }
@@ -573,7 +581,7 @@ export class ApiClient {
     }
 
     try {
-      return await response.json() as T;
+      return (await response.json()) as T;
     } catch (error) {
       logger.error('[ApiClient] Failed to parse JSON response:', error);
       throw new Error('Invalid JSON response from server');
@@ -601,7 +609,7 @@ export class ApiClient {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
           if (Array.isArray(value)) {
-            value.forEach(v => url.searchParams.append(key, String(v)));
+            value.forEach((v) => url.searchParams.append(key, String(v)));
           } else {
             url.searchParams.append(key, String(value));
           }
@@ -633,9 +641,7 @@ export class ApiClient {
     error: any,
     context?: { requestId?: string; duration?: number }
   ): ApiError {
-    const apiError = new Error(
-      error?.message || 'An unknown error occurred'
-    ) as ApiError;
+    const apiError = new Error(error?.message || 'An unknown error occurred') as ApiError;
 
     apiError.status = error?.status;
     apiError.statusText = error?.statusText;
@@ -680,7 +686,7 @@ export class ApiClient {
    * Cancel all active requests
    */
   cancelAllRequests(): void {
-    this.activeRequests.forEach(controller => controller.abort());
+    this.activeRequests.forEach((controller) => controller.abort());
     this.activeRequests.clear();
     logger.debug('[ApiClient] All requests cancelled');
   }
@@ -739,11 +745,7 @@ export class ApiClient {
     });
   }
 
-  post<T = any>(
-    url: string,
-    data?: any,
-    config?: Partial<ApiRequest>
-  ): Promise<ApiResponse<T>> {
+  post<T = any>(url: string, data?: any, config?: Partial<ApiRequest>): Promise<ApiResponse<T>> {
     return this.request<T>({
       method: 'POST',
       url,
@@ -752,11 +754,7 @@ export class ApiClient {
     });
   }
 
-  put<T = any>(
-    url: string,
-    data?: any,
-    config?: Partial<ApiRequest>
-  ): Promise<ApiResponse<T>> {
+  put<T = any>(url: string, data?: any, config?: Partial<ApiRequest>): Promise<ApiResponse<T>> {
     return this.request<T>({
       method: 'PUT',
       url,
@@ -765,11 +763,7 @@ export class ApiClient {
     });
   }
 
-  patch<T = any>(
-    url: string,
-    data?: any,
-    config?: Partial<ApiRequest>
-  ): Promise<ApiResponse<T>> {
+  patch<T = any>(url: string, data?: any, config?: Partial<ApiRequest>): Promise<ApiResponse<T>> {
     return this.request<T>({
       method: 'PATCH',
       url,

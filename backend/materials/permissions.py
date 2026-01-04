@@ -14,7 +14,7 @@ import logging
 from rest_framework.permissions import BasePermission
 from django.utils import timezone
 
-from .models import SubjectEnrollment, TeacherSubject
+from .models import SubjectEnrollment, SubjectSubscription, TeacherSubject
 from accounts.models import User
 
 logger = logging.getLogger(__name__)
@@ -111,13 +111,19 @@ class StudentEnrollmentPermission(BasePermission):
                     if hasattr(enrollment, "subscription") and enrollment.subscription:
                         subscription = enrollment.subscription
                         # Проверяем и статус подписки, и дату истечения
-                        if hasattr(subscription, "status") and subscription.status != "active":
+                        if (
+                            hasattr(subscription, "status")
+                            and subscription.status != SubjectSubscription.Status.ACTIVE
+                        ):
                             logger.warning(
                                 f"Student subscription inactive: student_id={user.id}, "
                                 f"subject_id={obj.subject.id}, status={subscription.status}"
                             )
                             return False
-                        if subscription.expires_at and timezone.now() > subscription.expires_at:
+                        if (
+                            subscription.expires_at
+                            and timezone.now() > subscription.expires_at
+                        ):
                             logger.warning(
                                 f"Student enrollment expired: student_id={user.id}, "
                                 f"subject_id={obj.subject.id}"
@@ -158,7 +164,9 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
 
         # Проверка что пользователь активен
         if not request.user.is_active:
-            logger.warning(f"Inactive user attempted submission: user_id={request.user.id}")
+            logger.warning(
+                f"Inactive user attempted submission: user_id={request.user.id}"
+            )
             return False
 
         # Только студенты могут отправлять ответы (POST/PUT/PATCH)
@@ -189,7 +197,9 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
 
         # Проверка что пользователь активен
         if not user.is_active:
-            logger.warning(f"Inactive user attempted submission access: user_id={user.id}")
+            logger.warning(
+                f"Inactive user attempted submission access: user_id={user.id}"
+            )
             return False
 
         # Админы имеют полный доступ

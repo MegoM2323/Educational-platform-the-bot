@@ -10,7 +10,7 @@ import logging
 from .student_dashboard_service import StudentDashboardService
 from .models import Material, MaterialProgress, SubjectEnrollment, StudyPlan
 from .serializers import MaterialListSerializer, MaterialProgressSerializer, StudyPlanSerializer, StudyPlanListSerializer
-from accounts.staff_views import CSRFExemptSessionAuthentication
+from accounts.tutor_views import CSRFExemptSessionAuthentication
 from accounts.serializers import get_profile_serializer
 
 logger = logging.getLogger(__name__)

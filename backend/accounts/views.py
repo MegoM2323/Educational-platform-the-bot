@@ -61,8 +61,7 @@ def login_view(request):
 
     try:
         # Логируем входящие данные БЕЗ пароля для безопасности
-        safe_data = {k: v for k, v in request.data.items() if k != "password"}
-        logger.debug(f"[login] Request data: {safe_data}, ip: {ip_address}")
+        logger.debug(f"[login] Request received, ip: {ip_address}")
 
         # Валидируем данные
         serializer = UserLoginSerializer(data=request.data)
@@ -151,9 +150,7 @@ def login_view(request):
                             request.session.create()
                         else:
                             request.session.modified = True
-                        logger.debug(
-                            f"[login] Session handled for user: {authenticated_user.email}"
-                        )
+                        # Session handled for authenticated user
                     except Exception as session_error:
                         # Сессия не критична для API, просто логируем
                         logger.warning(
@@ -289,7 +286,6 @@ def refresh_token_view(request):
         # Обновляем сессию для продления timeout
         if hasattr(request, "session") and request.session:
             request.session.modified = True
-            logger.debug(f"[refresh_token] Session updated for user: {user.email}")
 
         # Получаем время истечения токена из настроек
         from django.conf import settings
@@ -578,15 +574,8 @@ def list_users(request):
     serializer = UserSerializer(queryset, many=True)
 
     # Логируем для отладки
-    logger.debug(
-        f"[list_users] User: {user.email}, Role: {user.role}, Filter: {role}, Limit: {limit}, Total: {total_count}"
-    )
-    logger.debug(f"[list_users] Serialized data count: {len(serializer.data)}")
-    if len(serializer.data) > 0:
-        logger.debug(
-            f"[list_users] First user sample: id={serializer.data[0].get('id')}, email={serializer.data[0].get('email')}"
-        )
-    else:
+    logger.info(f"[list_users] Retrieved {len(serializer.data)} users (role filter: {role})")
+    if len(serializer.data) == 0:
         logger.warning(f"[list_users] WARNING: No users returned! Total count was: {total_count}")
 
     # Возвращаем массив напрямую

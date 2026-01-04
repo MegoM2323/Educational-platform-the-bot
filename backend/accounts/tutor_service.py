@@ -53,14 +53,14 @@ class StudentCreationService:
     ) -> Tuple[User, User, GeneratedCredentials, GeneratedCredentials]:
         # Разрешаем создание учеников тьюторам или администраторам
         if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
-            raise PermissionError(
-                "Только тьютор или администратор может создавать учеников"
-            )
+            raise PermissionError("Только тьютор или администратор может создавать учеников")
+
+        # Проверяем, активен ли тьютор
+        if not tutor.is_active:
+            raise PermissionError("Неактивный тьютор не может создавать учеников")
 
         # Генерация учетных данных
-        student_username = _generate_unique_username(
-            f"{student_first_name}.{student_last_name}"
-        )
+        student_username = _generate_unique_username(f"{student_first_name}.{student_last_name}")
         parent_username = _generate_unique_username(f"parent.{student_last_name}")
 
         # Для простоты: генерируем пароли как безопасный случайный hash-несекьюрный видимой строкой
@@ -171,9 +171,7 @@ class StudentCreationService:
 
         # Уведомление тьютора о создании ученика
         try:
-            NotificationService().notify_student_created(
-                tutor=tutor, student=student_user
-            )
+            NotificationService().notify_student_created(tutor=tutor, student=student_user)
         except Exception:
             pass
 
@@ -211,9 +209,7 @@ class SubjectAssignmentService:
             ).order_by("id")
         else:
             # Если предмет новый или нет связи, возвращаем всех активных преподавателей
-            return User.objects.filter(role=User.Role.TEACHER, is_active=True).order_by(
-                "id"
-            )
+            return User.objects.filter(role=User.Role.TEACHER, is_active=True).order_by("id")
 
     @staticmethod
     def get_or_create_subject(subject_name: str) -> "materials.Subject":
@@ -255,32 +251,20 @@ class SubjectAssignmentService:
     ) -> "materials.SubjectEnrollment":
         from materials.models import SubjectEnrollment
 
-        # Разрешаем назначение предметов тьюторам или администраторам
         if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
-            raise PermissionError(
-                "Только тьютор или администратор может назначать предметы"
-            )
-        # Валидация ролей
+            raise PermissionError("Только тьютор или администратор может назначать предметы")
         if student.role != User.Role.STUDENT:
             raise ValueError("Указанный пользователь не является студентом")
 
-        # Проверка, что данный студент привязан к этому тьютору
-        # Проверяем через tutor в профиле студента ИЛИ через created_by_tutor в User
-        # Используем OR логику: если студент назначен в профиле ИЛИ создан тьютором, разрешаем
-
-        # Проверка через StudentProfile.tutor
         is_assigned_via_profile = False
         try:
             profile = student.student_profile
             is_assigned_via_profile = profile.tutor_id == tutor.id
         except StudentProfile.DoesNotExist:
-            # Профиль может не существовать, это нормально, проверим created_by_tutor
             is_assigned_via_profile = False
 
-        # Проверка через User.created_by_tutor
         is_created_by_tutor = student.created_by_tutor_id == tutor.id
 
-        # Студент принадлежит тьютору, если выполнено ИЛИ условие
         if not (is_assigned_via_profile or is_created_by_tutor):
             raise PermissionError("Студент не принадлежит тьютору")
 
@@ -341,9 +325,7 @@ class SubjectAssignmentService:
                 enrollment.is_active = True
                 enrollment.save(update_fields=["assigned_by", "is_active"])
                 enrollment.refresh_from_db()
-                logger.info(
-                    f"Enrollment updated after IntegrityError: id={enrollment.id}"
-                )
+                logger.info(f"Enrollment updated after IntegrityError: id={enrollment.id}")
             except SubjectEnrollment.DoesNotExist:
                 # Если даже после IntegrityError объект не найден, это странно, но обрабатываем
                 raise ValueError(
@@ -353,9 +335,7 @@ class SubjectAssignmentService:
         # Уведомления студенту и преподавателю о назначении предмета
         try:
             service = NotificationService()
-            service.notify_subject_assigned(
-                student=student, subject_id=subject.id, teacher=teacher
-            )
+            service.notify_subject_assigned(student=student, subject_id=subject.id, teacher=teacher)
             service.send(
                 recipient=teacher,
                 notif_type="subject_assigned",
@@ -369,38 +349,27 @@ class SubjectAssignmentService:
         return enrollment
 
     @staticmethod
-    def unassign_subject(
-        *, tutor: User, student: User, subject: "materials.Subject"
-    ) -> None:
+    def unassign_subject(*, tutor: User, student: User, subject: "materials.Subject") -> None:
         from materials.models import SubjectEnrollment
 
-        # Разрешаем отмену назначений тьюторам или администраторам
         if tutor.role != User.Role.TUTOR and not (tutor.is_staff or tutor.is_superuser):
-            raise PermissionError(
-                "Только тьютор или администратор может отменять назначения"
-            )
+            raise PermissionError("Только тьютор или администратор может отменять назначения")
         try:
             enrollment = SubjectEnrollment.objects.get(student=student, subject=subject)
         except SubjectEnrollment.DoesNotExist:
             return
-        # Разрешаем только для своих студентов
-        # Проверяем через tutor в профиле студента ИЛИ через created_by_tutor в User
-        # Используем OR логику: если студент назначен в профиле ИЛИ создан тьютором, разрешаем
 
-        # Проверка через StudentProfile.tutor
         is_assigned_via_profile = False
         try:
             profile = enrollment.student.student_profile
             is_assigned_via_profile = profile.tutor_id == tutor.id
         except StudentProfile.DoesNotExist:
-            # Профиль может не существовать, это нормально, проверим created_by_tutor
             is_assigned_via_profile = False
 
-        # Проверка через User.created_by_tutor
         is_created_by_tutor = enrollment.student.created_by_tutor_id == tutor.id
 
-        # Студент принадлежит тьютору, если выполнено ИЛИ условие
         if not (is_assigned_via_profile or is_created_by_tutor):
             raise PermissionError("Студент не принадлежит тьютору")
+
         enrollment.is_active = False
         enrollment.save()

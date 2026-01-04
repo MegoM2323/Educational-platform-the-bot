@@ -19,25 +19,46 @@ class TutorStudentCreateSerializer(serializers.Serializer):
     parent_email = serializers.EmailField(required=False, allow_blank=True)
     parent_phone = serializers.CharField(required=False, allow_blank=True)
 
+    def validate_parent_email(self, value):
+        if value and not value.strip():
+            raise serializers.ValidationError("Ошибка валидации данных")
+        return value
+
+    def validate_parent_phone(self, value):
+        if value and not value.strip():
+            raise serializers.ValidationError("Ошибка валидации данных")
+        return value
+
 
 class TutorStudentSerializer(serializers.ModelSerializer):
     tutor_name = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
-    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
     full_name = serializers.SerializerMethodField()
-    first_name = serializers.CharField(source='user.first_name', read_only=True)
-    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    first_name = serializers.CharField(source="user.first_name", read_only=True)
+    last_name = serializers.CharField(source="user.last_name", read_only=True)
     subjects = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
         fields = (
-            'id', 'user_id', 'full_name', 'first_name', 'last_name', 'grade', 'goal', 'tutor', 'tutor_name',
-            'parent', 'parent_name', 'progress_percentage', 'subjects'
+            "id",
+            "user_id",
+            "full_name",
+            "first_name",
+            "last_name",
+            "grade",
+            "goal",
+            "tutor",
+            "tutor_name",
+            "parent",
+            "parent_name",
+            "progress_percentage",
+            "subjects",
         )
 
     def get_full_name(self, obj):
-        return obj.user.get_full_name() if obj.user else ''
+        return obj.user.get_full_name() if obj.user else ""
 
     def get_tutor_name(self, obj):
         if obj.tutor:
@@ -48,51 +69,38 @@ class TutorStudentSerializer(serializers.ModelSerializer):
         if obj.parent:
             return obj.parent.get_full_name() or obj.parent.username
         return None
-    
+
     def get_subjects(self, obj):
         """Возвращает список назначенных предметов студента с кастомными названиями"""
         from materials.models import SubjectEnrollment
 
-        # Получаем ID пользователя для гарантии свежих данных
-        user_id = obj.user.id if hasattr(obj.user, 'id') else obj.user.pk
+        user_id = obj.user.id if hasattr(obj.user, "id") else obj.user.pk
 
-        # Пробуем использовать prefetched data если доступно
-        # Это избегает N+1 queries при использовании prefetch_related в view
-        if hasattr(obj.user, '_prefetched_objects_cache') and 'subject_enrollments' in obj.user._prefetched_objects_cache:
-            # Используем prefetched data - NO дополнительных запросов
-            enrollments = [e for e in obj.user.subject_enrollments.all() if e.is_active]
-            logger.debug(f"Using prefetched subject_enrollments for student {user_id}")
-        else:
-            # Fallback: делаем запрос если prefetch не был использован
-            # Это происходит при прямых вызовах сериализатора без prefetch
-            enrollments_queryset = SubjectEnrollment.objects.filter(
-                student_id=user_id,
-                is_active=True
-            ).select_related('subject', 'teacher').order_by('-enrolled_at', '-id')
+        enrollments = []
+        if hasattr(obj.user, "_prefetched_objects_cache"):
+            cache = obj.user._prefetched_objects_cache
+            if "subject_enrollments" in cache:
+                enrollments = [e for e in cache["subject_enrollments"] if e.is_active]
+
+        if not enrollments:
+            enrollments_queryset = (
+                SubjectEnrollment.objects.filter(student_id=user_id, is_active=True)
+                .select_related("subject", "teacher")
+                .order_by("-enrolled_at", "-id")
+            )
             enrollments = list(enrollments_queryset)
-            logger.debug(f"Querying subject_enrollments for student {user_id} (prefetch not available)")
 
         result = [
             {
-                'id': enrollment.subject.id,
-                'name': enrollment.get_subject_name(),
-                'teacher_name': enrollment.teacher.get_full_name() if enrollment.teacher else 'Не указан',
-                'enrollment_id': enrollment.id,
+                "id": enrollment.subject.id,
+                "name": enrollment.get_subject_name(),
+                "teacher_name": enrollment.teacher.get_full_name()
+                if enrollment.teacher
+                else "Не указан",
+                "enrollment_id": enrollment.id,
             }
             for enrollment in enrollments
         ]
-
-        # Логируем для отладки
-        logger.debug(f"Student {user_id} ({obj.user.username}) has {len(result)} active enrollments")
-        if len(result) > 0:
-            for item in result:
-                logger.debug(f"  - {item['name']} (teacher: {item['teacher_name']}, enrollment_id: {item['enrollment_id']})")
-        else:
-            logger.debug(f"No active enrollments found for student {user_id}")
-            # Проверяем, есть ли вообще enrollments для этого студента (включая неактивные)
-            all_enrollments_count = SubjectEnrollment.objects.filter(student_id=user_id).count()
-            active_count = SubjectEnrollment.objects.filter(student_id=user_id, is_active=True).count()
-            logger.debug(f"Total enrollments: {all_enrollments_count}, Active: {active_count}")
 
         return result
 
@@ -104,59 +112,70 @@ class SubjectAssignSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         from materials.models import Subject
-        subject_id = attrs.get('subject_id')
-        subject_name = attrs.get('subject_name', '').strip() if attrs.get('subject_name') else ''
-        teacher_id = attrs.get('teacher_id')
+
+        subject_id = attrs.get("subject_id")
+        subject_name = attrs.get("subject_name", "").strip() if attrs.get("subject_name") else ""
+        teacher_id = attrs.get("teacher_id")
 
         # Валидация: должен быть указан либо subject_id, либо subject_name, но не оба
         if subject_id and subject_name:
-            raise serializers.ValidationError({
-                'subject_id': 'Укажите либо subject_id, либо subject_name, но не оба одновременно',
-                'subject_name': 'Укажите либо subject_id, либо subject_name, но не оба одновременно'
-            })
-        
+            raise serializers.ValidationError(
+                {
+                    "subject_id": "Укажите либо subject_id, либо subject_name, но не оба одновременно",
+                    "subject_name": "Укажите либо subject_id, либо subject_name, но не оба одновременно",
+                }
+            )
+
         if not subject_id and not subject_name:
-            raise serializers.ValidationError({
-                'subject_id': 'Необходимо указать либо subject_id, либо subject_name'
-            })
+            raise serializers.ValidationError(
+                {"subject_id": "Необходимо указать либо subject_id, либо subject_name"}
+            )
 
         # Если указан subject_id, используем существующий предмет
         if subject_id:
             try:
-                attrs['subject'] = Subject.objects.get(id=subject_id)
+                attrs["subject"] = Subject.objects.get(id=subject_id)
             except Subject.DoesNotExist:
-                raise serializers.ValidationError({'subject_id': 'Предмет не найден'})
+                raise serializers.ValidationError({"subject_id": "Предмет не найден"})
         # Если указано subject_name, создаем или получаем предмет
         elif subject_name:
             if len(subject_name) < 2:
-                raise serializers.ValidationError({'subject_name': 'Название предмета должно содержать минимум 2 символа'})
+                raise serializers.ValidationError(
+                    {"subject_name": "Название предмета должно содержать минимум 2 символа"}
+                )
             if len(subject_name) > 200:
-                raise serializers.ValidationError({'subject_name': 'Название предмета не должно превышать 200 символов'})
+                raise serializers.ValidationError(
+                    {"subject_name": "Название предмета не должно превышать 200 символов"}
+                )
             from .tutor_service import SubjectAssignmentService
-            attrs['subject'] = SubjectAssignmentService.get_or_create_subject(subject_name)
+
+            attrs["subject"] = SubjectAssignmentService.get_or_create_subject(subject_name)
 
         # Валидация преподавателя - обязателен
         if teacher_id is None:
-            raise serializers.ValidationError({'teacher_id': 'Необходимо указать преподавателя'})
-        
+            raise serializers.ValidationError({"teacher_id": "Необходимо указать преподавателя"})
+
         try:
             teacher = User.objects.get(id=teacher_id)
         except User.DoesNotExist:
-            raise serializers.ValidationError({'teacher_id': 'Пользователь не найден'})
+            raise serializers.ValidationError({"teacher_id": "Пользователь не найден"})
 
         if teacher.role != User.Role.TEACHER:
-            raise serializers.ValidationError({'teacher_id': 'Пользователь не является преподавателем'})
-        
-        if not teacher.is_active:
-            raise serializers.ValidationError({'teacher_id': 'Указанный преподаватель неактивен'})
+            raise serializers.ValidationError(
+                {"teacher_id": "Пользователь не является преподавателем"}
+            )
 
-        attrs['teacher'] = teacher
+        if not teacher.is_active:
+            raise serializers.ValidationError({"teacher_id": "Указанный преподаватель неактивен"})
+
+        attrs["teacher"] = teacher
 
         return attrs
 
 
 class SubjectEnrollmentSerializer(serializers.Serializer):
     """Serializer for SubjectEnrollment - uses manual field declaration to avoid circular imports"""
+
     id = serializers.IntegerField(read_only=True)
     student = serializers.SerializerMethodField()
     subject = serializers.SerializerMethodField()
@@ -196,57 +215,66 @@ class SubjectBulkAssignItemSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         from materials.models import Subject
-        subject_id = attrs.get('subject_id')
-        subject_name = attrs.get('subject_name', '').strip() if attrs.get('subject_name') else ''
-        teacher_id = attrs.get('teacher_id')
+
+        subject_id = attrs.get("subject_id")
+        subject_name = attrs.get("subject_name", "").strip() if attrs.get("subject_name") else ""
+        teacher_id = attrs.get("teacher_id")
 
         # Валидация: должен быть указан либо subject_id, либо subject_name, но не оба
         if subject_id and subject_name:
-            raise serializers.ValidationError({
-                'subject_id': 'Укажите либо subject_id, либо subject_name, но не оба одновременно',
-                'subject_name': 'Укажите либо subject_id, либо subject_name, но не оба одновременно'
-            })
-        
+            raise serializers.ValidationError(
+                {
+                    "subject_id": "Укажите либо subject_id, либо subject_name, но не оба одновременно",
+                    "subject_name": "Укажите либо subject_id, либо subject_name, но не оба одновременно",
+                }
+            )
+
         if not subject_id and not subject_name:
-            raise serializers.ValidationError({
-                'subject_id': 'Необходимо указать либо subject_id, либо subject_name'
-            })
+            raise serializers.ValidationError(
+                {"subject_id": "Необходимо указать либо subject_id, либо subject_name"}
+            )
 
         # Если указан subject_id, используем существующий предмет
         if subject_id:
             try:
-                attrs['subject'] = Subject.objects.get(id=subject_id)
+                attrs["subject"] = Subject.objects.get(id=subject_id)
             except Subject.DoesNotExist:
-                raise serializers.ValidationError({'subject_id': 'Предмет не найден'})
+                raise serializers.ValidationError({"subject_id": "Предмет не найден"})
         # Если указано subject_name, создаем или получаем предмет
         elif subject_name:
             if len(subject_name) < 2:
-                raise serializers.ValidationError({'subject_name': 'Название предмета должно содержать минимум 2 символа'})
+                raise serializers.ValidationError(
+                    {"subject_name": "Название предмета должно содержать минимум 2 символа"}
+                )
             if len(subject_name) > 200:
-                raise serializers.ValidationError({'subject_name': 'Название предмета не должно превышать 200 символов'})
+                raise serializers.ValidationError(
+                    {"subject_name": "Название предмета не должно превышать 200 символов"}
+                )
             from .tutor_service import SubjectAssignmentService
-            attrs['subject'] = SubjectAssignmentService.get_or_create_subject(subject_name)
+
+            attrs["subject"] = SubjectAssignmentService.get_or_create_subject(subject_name)
 
         # Валидация преподавателя - обязателен
         if teacher_id is None:
-            raise serializers.ValidationError({'teacher_id': 'Необходимо указать преподавателя'})
-        
+            raise serializers.ValidationError({"teacher_id": "Необходимо указать преподавателя"})
+
         try:
             teacher = User.objects.get(id=teacher_id)
         except User.DoesNotExist:
-            raise serializers.ValidationError({'teacher_id': 'Пользователь не найден'})
+            raise serializers.ValidationError({"teacher_id": "Пользователь не найден"})
 
         if teacher.role != User.Role.TEACHER:
-            raise serializers.ValidationError({'teacher_id': 'Пользователь не является преподавателем'})
-        
-        if not teacher.is_active:
-            raise serializers.ValidationError({'teacher_id': 'Указанный преподаватель неактивен'})
+            raise serializers.ValidationError(
+                {"teacher_id": "Пользователь не является преподавателем"}
+            )
 
-        attrs['teacher'] = teacher
+        if not teacher.is_active:
+            raise serializers.ValidationError({"teacher_id": "Указанный преподаватель неактивен"})
+
+        attrs["teacher"] = teacher
 
         return attrs
 
 
 class SubjectBulkAssignSerializer(serializers.Serializer):
     items = SubjectBulkAssignItemSerializer(many=True)
-

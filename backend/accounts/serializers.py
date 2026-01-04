@@ -128,7 +128,7 @@ class UserSerializer(serializers.ModelSerializer):
             "date_joined",
             "full_name",
         )
-        read_only_fields = ("id", "date_joined", "is_verified", "is_staff")
+        read_only_fields = ("id", "role", "date_joined", "is_verified", "is_staff")
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
@@ -757,11 +757,20 @@ class UserCreateSerializer(serializers.Serializer):
     bio = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
-        """Проверка уникальности email"""
+        """Проверка формата и уникальности email"""
         if not value:
             raise serializers.ValidationError("Email обязателен")
 
         value = value.strip().lower()
+
+        from django.core.validators import EmailValidator
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        validator = EmailValidator()
+        try:
+            validator(value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Невалидный формат email")
 
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError(
@@ -935,7 +944,7 @@ class TeacherProfilePublicSerializer(serializers.ModelSerializer):
     - subject, subjects (через TeacherSubject)
     """
 
-    user = UserSerializer(read_only=True)
+    user = UserPublicSerializer(read_only=True)
     subjects = serializers.SerializerMethodField()
 
     class Meta:
@@ -1027,6 +1036,7 @@ def get_profile_serializer(profile, viewer_user, profile_owner_user):
     Логика выбора:
     - Если viewer имеет право видеть приватные поля → Full serializer
     - Иначе → Public serializer (без приватных полей)
+    - Для PARENT: всегда ParentProfileSerializer (нет приватных полей)
 
     Args:
         profile: Экземпляр профиля (StudentProfile, TeacherProfile, etc.)
@@ -1044,6 +1054,14 @@ def get_profile_serializer(profile, viewer_user, profile_owner_user):
         >>> # Преподаватель смотрит профиль студента - получит StudentProfileFullSerializer
         >>> get_profile_serializer(student_profile, teacher_user, student_user)
         <class 'StudentProfileFullSerializer'>
+
+        >>> # Админ смотрит профиль учителя - получит TeacherProfileFullSerializer
+        >>> get_profile_serializer(teacher_profile, admin_user, teacher_user)
+        <class 'TeacherProfileFullSerializer'>
+
+        >>> # Учитель смотрит свой профиль - получит TeacherProfilePublicSerializer (не видит свои приватные)
+        >>> get_profile_serializer(teacher_profile, teacher_user, teacher_user)
+        <class 'TeacherProfilePublicSerializer'>
     """
     profile_type = profile_owner_user.role
 
@@ -1072,7 +1090,7 @@ def get_profile_serializer(profile, viewer_user, profile_owner_user):
     elif profile_type == User.Role.PARENT:
         return ParentProfileSerializer
 
-    return serializers.ModelSerializer
+    return None
 
 
 # ============= STUDENT CREATION SERIALIZER (ADMIN) =============
@@ -1115,7 +1133,20 @@ class StudentCreateSerializer(serializers.Serializer):
 
         NOTE: Uniqueness check moved to view inside transaction to prevent race conditions.
         """
+        if not value:
+            raise serializers.ValidationError("Email обязателен")
+
         value = value.strip().lower()
+
+        from django.core.validators import EmailValidator
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        validator = EmailValidator()
+        try:
+            validator(value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Невалидный формат email")
+
         return value
 
     def validate_phone(self, value):
@@ -1192,7 +1223,20 @@ class ParentCreateSerializer(serializers.Serializer):
 
         NOTE: Uniqueness check moved to view inside transaction to prevent race conditions.
         """
+        if not value:
+            raise serializers.ValidationError("Email обязателен")
+
         value = value.strip().lower()
+
+        from django.core.validators import EmailValidator
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        validator = EmailValidator()
+        try:
+            validator(value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Невалидный формат email")
+
         return value
 
     def validate_phone(self, value):

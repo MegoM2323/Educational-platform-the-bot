@@ -476,6 +476,7 @@ CSRF_COOKIE_SAMESITE = "Lax"  # Allow CSRF cookies on redirect from YooKassa
 # CSRF_COOKIE_SECURE управляется через условие DEBUG выше
 CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript access
 CSRF_COOKIE_DOMAIN = env_config.get_csrf_cookie_domain()
+CSRF_TRUSTED_ORIGINS = env_config.get_csrf_trusted_origins()
 
 
 # Internationalization

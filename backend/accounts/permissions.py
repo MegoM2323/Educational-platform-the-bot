@@ -5,7 +5,11 @@
 админам и другим ролям согласно бизнес-логике платформы.
 """
 
+import logging
+
 from .models import User
+
+audit_logger = logging.getLogger("audit")
 
 # ============= КОНСТАНТЫ ПРИВАТНЫХ ПОЛЕЙ =============
 
@@ -225,6 +229,8 @@ class TutorCanManageStudentProfiles(BasePermission):
     - Неактивные: запрещено
     """
 
+    PROTECTED_FIELDS = ["role", "email", "is_active", "is_superuser", "is_staff"]
+
     def has_permission(self, request, view):
         """Проверяет глобальные права (для list operations)"""
         # Все остальные операции проверяются в has_object_permission
@@ -253,6 +259,17 @@ class TutorCanManageStudentProfiles(BasePermission):
             from .models import StudentProfile
 
             if isinstance(obj, StudentProfile):
+                # Для PATCH/PUT запросов проверяем что tutor не пытается менять protected fields
+                if request.method in ["PATCH", "PUT"]:
+                    request_data = request.data or {}
+                    for field in self.PROTECTED_FIELDS:
+                        if field in request_data:
+                            audit_logger.warning(
+                                f"action=unauthorized_field_change user_id={request.user.id} "
+                                f"user_role=TUTOR student_id={obj.user_id} field={field}"
+                            )
+                            return False
+
                 return obj.tutor == request.user
 
         # Если это учитель, родитель или другая роль - может редактировать только свой профиль

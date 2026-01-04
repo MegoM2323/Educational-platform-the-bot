@@ -36,12 +36,12 @@ class ChatRoom(models.Model):
 
     enrollment = models.ForeignKey(
         "materials.SubjectEnrollment",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
         related_name="forum_chats",
         verbose_name="Зачисление на предмет",
-        help_text="Зачисление студента на предмет (для forum_subject типа)",
+        help_text="Зачисление студента на предмет (для forum_tutor/forum_subject типов)",
+        null=True,
+        blank=True,
     )
 
     participants = models.ManyToManyField(
@@ -81,7 +81,6 @@ class ChatRoom(models.Model):
             models.UniqueConstraint(
                 fields=["type", "enrollment"],
                 name="unique_forum_per_enrollment",
-                condition=models.Q(enrollment__isnull=False),
             )
         ]
 

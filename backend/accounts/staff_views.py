@@ -5,6 +5,8 @@ from django.db import transaction, IntegrityError
 from django.utils.crypto import get_random_string
 from django.db.models import Count, Q, Prefetch
 from django.conf import settings
+from django.core.validators import EmailValidator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status
 
 logger = logging.getLogger(__name__)
@@ -38,17 +40,6 @@ from .permissions import IsStaffOrAdmin
 from payments.models import Payment
 
 
-class CSRFExemptSessionAuthentication(SessionAuthentication):
-    """
-    Кастомный класс аутентификации, который отключает CSRF проверку для API views.
-    Используется для POST запросов, где фронтенд использует токены.
-    """
-
-    def enforce_csrf(self, request):
-        # Отключаем CSRF проверку для API запросов
-        return
-
-
 class StudentPagination(PageNumberPagination):
     """
     Пагинация для списка студентов
@@ -60,7 +51,7 @@ class StudentPagination(PageNumberPagination):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def list_staff(request):
     """Список преподавателей или тьюторов (admin-only).
@@ -71,9 +62,7 @@ def list_staff(request):
     role = request.query_params.get("role")
     if role not in (User.Role.TEACHER, User.Role.TUTOR):
         return Response(
-            {
-                "detail": "Параметр 'role' обязателен и должен быть 'teacher' или 'tutor'"
-            },
+            {"detail": "Параметр 'role' обязателен и должен быть 'teacher' или 'tutor'"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -94,18 +83,14 @@ def list_staff(request):
         logger.debug(f"[list_staff] Found {len(users)} teachers with role={role}")
 
         user_ids = [u.id for u in users]
-        profiles_qs = TeacherProfile.objects.filter(
-            user_id__in=user_ids
-        ).select_related("user")
+        profiles_qs = TeacherProfile.objects.filter(user_id__in=user_ids).select_related("user")
         profiles_map = {p.user_id: p for p in profiles_qs}
 
         results = []
         for user in users:
             prefetched_subjects = getattr(user, "teacher_subjects", None)
             if prefetched_subjects is not None:
-                teacher_subjects = [
-                    ts for ts in prefetched_subjects.all() if ts.is_active
-                ]
+                teacher_subjects = [ts for ts in prefetched_subjects.all() if ts.is_active]
             else:
                 teacher_subjects = list(
                     TeacherSubject.objects.filter(teacher=user, is_active=True)
@@ -178,7 +163,7 @@ def list_staff(request):
 
 
 @api_view(["PATCH"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def update_teacher_subjects(request, teacher_id):
     """
@@ -206,13 +191,9 @@ def update_teacher_subjects(request, teacher_id):
 
     # Проверяем что пользователь с указанным ID существует и является преподавателем
     try:
-        teacher = User.objects.get(
-            id=teacher_id, role=User.Role.TEACHER, is_active=True
-        )
+        teacher = User.objects.get(id=teacher_id, role=User.Role.TEACHER, is_active=True)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Валидация входных данных
     serializer = TeacherSubjectUpdateSerializer(data=request.data)
@@ -256,7 +237,7 @@ def update_teacher_subjects(request, teacher_id):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def create_staff(request):
     """Создание преподавателя или тьютора с одноразовой выдачей логина/пароля (admin-only).
@@ -271,18 +252,7 @@ def create_staff(request):
       - bio?: string
     Возвращает: { user, credentials: { login, password } }
     """
-    # Логируем начало запроса
-    logger.debug(f"[create_staff] POST request received")
-    logger.debug(f"[create_staff] User: {request.user}")
-    logger.debug(
-        f"[create_staff] User authenticated: {request.user.is_authenticated if request.user else False}"
-    )
-    logger.debug(
-        f"[create_staff] User is_staff: {request.user.is_staff if request.user else False}"
-    )
-    logger.debug(
-        f"[create_staff] User is_superuser: {request.user.is_superuser if request.user else False}"
-    )
+    # Loggging request start
 
     payload: Dict[str, Any] = request.data or {}
     role = payload.get("role")
@@ -296,9 +266,23 @@ def create_staff(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
     if not email:
+        return Response({"detail": "email обязателен"}, status=status.HTTP_400_BAD_REQUEST)
+
+    validator = EmailValidator()
+    try:
+        validator(email)
+    except DjangoValidationError:
         return Response(
-            {"detail": "email обязателен"}, status=status.HTTP_400_BAD_REQUEST
+            {"detail": "Невалидный формат email"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
+
+    if User.objects.filter(email=email).exists():
+        return Response(
+            {"detail": "Email уже зарегистрирован"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     if not first_name or not last_name:
         return Response(
             {"detail": "first_name и last_name обязательны"},
@@ -428,12 +412,9 @@ def create_staff(request):
                     profile.save()
 
     except Exception as exc:
-        import traceback
-
-        logger.error(f"[create_staff] Error creating user: {exc}")
-        logger.error(f"[create_staff] Traceback: {traceback.format_exc()}")
+        logger.error(f"[create_staff] Error creating user: {str(exc)}", exc_info=True)
         return Response(
-            {"detail": f"Ошибка создания пользователя: {exc}"},
+            {"detail": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -445,9 +426,7 @@ def create_staff(request):
     # Возвращаем профиль для мгновенного UI-обновления
     try:
         if role == User.Role.TEACHER:
-            profile = TeacherProfile.objects.select_related("user").get(
-                user=django_user
-            )
+            profile = TeacherProfile.objects.select_related("user").get(user=django_user)
             profile_data = TeacherProfileSerializer(profile).data
         else:
             profile = TutorProfile.objects.select_related("user").get(user=django_user)
@@ -489,7 +468,7 @@ def create_staff(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def list_students(request):
     """
@@ -592,7 +571,7 @@ def list_students(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def get_student_detail(request, student_id):
     """
@@ -617,13 +596,11 @@ def get_student_detail(request, student_id):
 
     try:
         # Получаем студента с оптимизацией запросов
-        student_profile = StudentProfile.objects.select_related(
-            "user", "tutor", "parent"
-        ).get(user_id=student_id, user__role=User.Role.STUDENT)
-    except StudentProfile.DoesNotExist:
-        return Response(
-            {"detail": "Студент не найден"}, status=status.HTTP_404_NOT_FOUND
+        student_profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
+            user_id=student_id, user__role=User.Role.STUDENT
         )
+    except StudentProfile.DoesNotExist:
+        return Response({"detail": "Студент не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Сериализуем данные
     serializer = StudentDetailSerializer(student_profile)
@@ -632,7 +609,7 @@ def get_student_detail(request, student_id):
 
 # ============= ENDPOINTS ДЛЯ РЕДАКТИРОВАНИЯ ПОЛЬЗОВАТЕЛЕЙ (ADMIN) =============
 @api_view(["PATCH"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def update_user(request, user_id):
     """
@@ -684,9 +661,7 @@ def update_user(request, user_id):
             "student_profile", "teacher_profile", "tutor_profile", "parent_profile"
         ).get(id=user_id)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Проверка: нельзя деактивировать самого себя
     if "is_active" in request.data:
@@ -720,9 +695,7 @@ def update_user(request, user_id):
                     student_profile, data=profile_data, partial=True
                 )
                 if not profile_serializer.is_valid():
-                    return Response(
-                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                    )
+                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 updated_profile = profile_serializer.save()
                 profile_serializer_data = StudentProfileSerializer(updated_profile).data
@@ -730,9 +703,7 @@ def update_user(request, user_id):
                 # Если профиля нет - создаем
                 profile_serializer = StudentProfileUpdateSerializer(data=profile_data)
                 if not profile_serializer.is_valid():
-                    return Response(
-                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                    )
+                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 updated_profile = StudentProfile.objects.create(
                     user=user, **profile_serializer.validated_data
@@ -741,16 +712,12 @@ def update_user(request, user_id):
 
         elif profile_data and user.role == User.Role.TEACHER:
             try:
-                teacher_profile = TeacherProfile.objects.select_related("user").get(
-                    user=user
-                )
+                teacher_profile = TeacherProfile.objects.select_related("user").get(user=user)
                 profile_serializer = TeacherProfileUpdateSerializer(
                     teacher_profile, data=profile_data, partial=True
                 )
                 if not profile_serializer.is_valid():
-                    return Response(
-                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                    )
+                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 updated_profile = profile_serializer.save()
                 profile_serializer_data = TeacherProfileSerializer(updated_profile).data
@@ -765,16 +732,12 @@ def update_user(request, user_id):
 
         elif profile_data and user.role == User.Role.TUTOR:
             try:
-                tutor_profile = TutorProfile.objects.select_related("user").get(
-                    user=user
-                )
+                tutor_profile = TutorProfile.objects.select_related("user").get(user=user)
                 profile_serializer = TutorProfileUpdateSerializer(
                     tutor_profile, data=profile_data, partial=True
                 )
                 if not profile_serializer.is_valid():
-                    return Response(
-                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                    )
+                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 updated_profile = profile_serializer.save()
                 profile_serializer_data = TutorProfileSerializer(updated_profile).data
@@ -790,16 +753,12 @@ def update_user(request, user_id):
 
         elif profile_data and user.role == User.Role.PARENT:
             try:
-                parent_profile = ParentProfile.objects.select_related("user").get(
-                    user=user
-                )
+                parent_profile = ParentProfile.objects.select_related("user").get(user=user)
                 profile_serializer = ParentProfileUpdateSerializer(
                     parent_profile, data=profile_data, partial=True
                 )
                 if not profile_serializer.is_valid():
-                    return Response(
-                        profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                    )
+                    return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 updated_profile = profile_serializer.save()
                 from .serializers import ParentProfileSerializer
@@ -828,7 +787,7 @@ def update_user(request, user_id):
 
 
 @api_view(["PATCH"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def update_student_profile(request, student_id):
     """
@@ -851,18 +810,14 @@ def update_student_profile(request, student_id):
         - 404: Студент не найден
     """
     try:
-        student_profile = StudentProfile.objects.select_related(
-            "user", "tutor", "parent"
-        ).get(user_id=student_id, user__role=User.Role.STUDENT)
-    except StudentProfile.DoesNotExist:
-        return Response(
-            {"detail": "Профиль студента не найден"}, status=status.HTTP_404_NOT_FOUND
+        student_profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
+            user_id=student_id, user__role=User.Role.STUDENT
         )
+    except StudentProfile.DoesNotExist:
+        return Response({"detail": "Профиль студента не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Валидация и обновление
-    serializer = StudentProfileUpdateSerializer(
-        student_profile, data=request.data, partial=True
-    )
+    serializer = StudentProfileUpdateSerializer(student_profile, data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -879,7 +834,7 @@ def update_student_profile(request, student_id):
 
 
 @api_view(["PATCH"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def update_teacher_profile(request, teacher_id):
     """
@@ -915,14 +870,10 @@ def update_teacher_profile(request, teacher_id):
                 user=teacher_user, subject="", experience_years=0, bio=""
             )
         except User.DoesNotExist:
-            return Response(
-                {"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Валидация и обновление
-    serializer = TeacherProfileUpdateSerializer(
-        teacher_profile, data=request.data, partial=True
-    )
+    serializer = TeacherProfileUpdateSerializer(teacher_profile, data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -939,7 +890,7 @@ def update_teacher_profile(request, teacher_id):
 
 
 @api_view(["PATCH"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def update_tutor_profile(request, tutor_id):
     """
@@ -972,14 +923,10 @@ def update_tutor_profile(request, tutor_id):
                 user=tutor_user, specialization="", experience_years=0, bio=""
             )
         except User.DoesNotExist:
-            return Response(
-                {"detail": "Тьютор не найден"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Тьютор не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Валидация и обновление
-    serializer = TutorProfileUpdateSerializer(
-        tutor_profile, data=request.data, partial=True
-    )
+    serializer = TutorProfileUpdateSerializer(tutor_profile, data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -996,7 +943,7 @@ def update_tutor_profile(request, tutor_id):
 
 
 @api_view(["PATCH"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def update_parent_profile(request, parent_id):
     """
@@ -1024,14 +971,10 @@ def update_parent_profile(request, parent_id):
             parent_user = User.objects.get(id=parent_id, role=User.Role.PARENT)
             parent_profile = ParentProfile.objects.create(user=parent_user)
         except User.DoesNotExist:
-            return Response(
-                {"detail": "Родитель не найден"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Родитель не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Валидация и обновление (пока нет полей)
-    serializer = ParentProfileUpdateSerializer(
-        parent_profile, data=request.data, partial=True
-    )
+    serializer = ParentProfileUpdateSerializer(parent_profile, data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1050,7 +993,7 @@ def update_parent_profile(request, parent_id):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def reset_password(request, user_id):
     """
@@ -1081,9 +1024,7 @@ def reset_password(request, user_id):
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     if not user.is_active:
         return Response(
@@ -1113,7 +1054,7 @@ def reset_password(request, user_id):
 
 
 @api_view(["DELETE"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def delete_user(request, user_id):
     """
@@ -1152,9 +1093,7 @@ def delete_user(request, user_id):
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Проверка: нельзя удалить самого себя
     if user.id == request.user.id:
@@ -1190,16 +1129,14 @@ def delete_user(request, user_id):
             user_email = user.email
             user.delete()
 
-            logger.info(
-                f"[delete_user] Hard deleted user {user_id} ({user_email}) from database"
-            )
+            logger.info(f"[delete_user] Hard deleted user {user_id} ({user_email}) from database")
             message = "Пользователь полностью удален из системы"
 
     return Response({"success": True, "message": message}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def create_user_with_profile(request):
     """
@@ -1306,9 +1243,7 @@ def create_user_with_profile(request):
             django_user.role = role
             django_user.email = email
             django_user.phone = phone
-            django_user.save(
-                update_fields=["first_name", "last_name", "role", "email", "phone"]
-            )
+            django_user.save(update_fields=["first_name", "last_name", "role", "email", "phone"])
 
             # Создаем профиль в зависимости от роли
             profile_data = {}
@@ -1365,12 +1300,9 @@ def create_user_with_profile(request):
                 profile_data = ParentProfileSerializer(profile).data
 
     except Exception as exc:
-        import traceback
-
-        logger.error(f"Ошибка создания пользователя: {exc}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Error creating user: {str(exc)}", exc_info=True)
         return Response(
-            {"detail": f"Ошибка создания пользователя: {exc}"},
+            {"detail": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -1387,7 +1319,7 @@ def create_user_with_profile(request):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def create_student(request):
     """
@@ -1489,26 +1421,20 @@ def create_student(request):
             django_user.role = User.Role.STUDENT
             django_user.email = email
             django_user.phone = phone
-            django_user.save(
-                update_fields=["first_name", "last_name", "role", "email", "phone"]
-            )
+            django_user.save(update_fields=["first_name", "last_name", "role", "email", "phone"])
 
             # Получаем связанные объекты (tutor, parent)
             tutor = None
             parent = None
             if tutor_id:
                 try:
-                    tutor = User.objects.get(
-                        id=tutor_id, role=User.Role.TUTOR, is_active=True
-                    )
+                    tutor = User.objects.get(id=tutor_id, role=User.Role.TUTOR, is_active=True)
                 except User.DoesNotExist:
                     pass
 
             if parent_id:
                 try:
-                    parent = User.objects.get(
-                        id=parent_id, role=User.Role.PARENT, is_active=True
-                    )
+                    parent = User.objects.get(id=parent_id, role=User.Role.PARENT, is_active=True)
                 except User.DoesNotExist:
                     pass
 
@@ -1551,18 +1477,15 @@ def create_student(request):
                 status=status.HTTP_409_CONFLICT,
             )
         # Если IntegrityError не связан с email, пробрасываем дальше
-        logger.error(f"[create_student] Unexpected IntegrityError: {exc}")
+        logger.error(f"[create_student] Unexpected IntegrityError: {str(exc)}", exc_info=True)
         return Response(
-            {"detail": f"Ошибка целостности данных: {exc}"},
+            {"detail": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
     except Exception as exc:
-        import traceback
-
-        logger.error(f"[create_student] Error creating student: {exc}")
-        logger.error(f"[create_student] Traceback: {traceback.format_exc()}")
+        logger.error(f"[create_student] Error creating student: {str(exc)}", exc_info=True)
         return Response(
-            {"detail": f"Ошибка создания студента: {exc}"},
+            {"detail": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -1584,7 +1507,7 @@ def create_student(request):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def create_parent(request):
     """
@@ -1681,14 +1604,10 @@ def create_parent(request):
             django_user.role = User.Role.PARENT
             django_user.email = email
             django_user.phone = phone
-            django_user.save(
-                update_fields=["first_name", "last_name", "role", "email", "phone"]
-            )
+            django_user.save(update_fields=["first_name", "last_name", "role", "email", "phone"])
 
             # Создаем или обновляем профиль родителя
-            parent_profile, profile_created = ParentProfile.objects.get_or_create(
-                user=django_user
-            )
+            parent_profile, profile_created = ParentProfile.objects.get_or_create(user=django_user)
 
             # Логируем успешное создание
             logger.info(
@@ -1701,27 +1620,22 @@ def create_parent(request):
 
     except IntegrityError as exc:
         # Ловим race condition: два параллельных запроса создали пользователя с одним email
-        logger.warning(
-            f"[create_parent] IntegrityError (race condition?) for email {email}: {exc}"
-        )
+        logger.warning(f"[create_parent] IntegrityError (race condition?) for email {email}: {exc}")
         if "email" in str(exc).lower() or "unique" in str(exc).lower():
             return Response(
                 {"detail": "Пользователь с таким email уже существует"},
                 status=status.HTTP_409_CONFLICT,
             )
         # Если IntegrityError не связан с email, пробрасываем дальше
-        logger.error(f"[create_parent] Unexpected IntegrityError: {exc}")
+        logger.error(f"[create_parent] Unexpected IntegrityError: {str(exc)}", exc_info=True)
         return Response(
-            {"detail": f"Ошибка целостности данных: {exc}"},
+            {"detail": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
     except Exception as exc:
-        import traceback
-
-        logger.error(f"[create_parent] Error creating parent: {exc}")
-        logger.error(f"[create_parent] Traceback: {traceback.format_exc()}")
+        logger.error(f"[create_parent] Error creating parent: {str(exc)}", exc_info=True)
         return Response(
-            {"detail": f"Ошибка создания родителя: {exc}"},
+            {"detail": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -1744,7 +1658,7 @@ def create_parent(request):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def assign_parent_to_students(request):
     """
@@ -1772,9 +1686,7 @@ def assign_parent_to_students(request):
 
     # Валидация
     if not parent_id:
-        return Response(
-            {"detail": "parent_id обязателен"}, status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"detail": "parent_id обязателен"}, status=status.HTTP_400_BAD_REQUEST)
     if not isinstance(student_ids, list) or not student_ids:
         return Response(
             {"detail": "student_ids должен быть непустым списком"},
@@ -1782,13 +1694,9 @@ def assign_parent_to_students(request):
         )
 
     try:
-        parent_user = User.objects.get(
-            id=parent_id, role=User.Role.PARENT, is_active=True
-        )
+        parent_user = User.objects.get(id=parent_id, role=User.Role.PARENT, is_active=True)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Родитель не найден"}, status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Родитель не найден"}, status=status.HTTP_404_NOT_FOUND)
 
     # Получаем студентов
     students = StudentProfile.objects.filter(
@@ -1796,9 +1704,7 @@ def assign_parent_to_students(request):
     ).select_related("user")
 
     if not students.exists():
-        return Response(
-            {"detail": "Студенты не найдены"}, status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Студенты не найдены"}, status=status.HTTP_404_NOT_FOUND)
 
     assigned_ids = []
     with transaction.atomic():
@@ -1828,7 +1734,7 @@ def assign_parent_to_students(request):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def list_parents(request):
     """
@@ -1879,7 +1785,7 @@ def list_parents(request):
 
 
 @api_view(["POST"])
-@authentication_classes([TokenAuthentication, CSRFExemptSessionAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsStaffOrAdmin])
 def reactivate_user(request, user_id):
     """
@@ -1909,9 +1815,7 @@ def reactivate_user(request, user_id):
 
     # Проверка: пользователь уже активен
     if user.is_active:
-        return Response(
-            {"detail": "User is already active"}, status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"detail": "User is already active"}, status=status.HTTP_400_BAD_REQUEST)
 
     # Реактивация пользователя
     user.is_active = True

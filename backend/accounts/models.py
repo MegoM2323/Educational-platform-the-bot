@@ -62,6 +62,21 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.get_full_name()} ({self.get_role_display()})"
 
+    def clean(self):
+        """Validate created_by_tutor relationship"""
+        errors = {}
+
+        if self.created_by_tutor:
+            if self.created_by_tutor.role != User.Role.TUTOR:
+                errors["created_by_tutor"] = "created_by_tutor must have TUTOR role"
+            elif not self.created_by_tutor.is_active:
+                errors["created_by_tutor"] = "created_by_tutor must be active"
+            elif self.created_by_tutor.id == self.id:
+                errors["created_by_tutor"] = "Cannot set created_by_tutor to self"
+
+        if errors:
+            raise ValidationError(errors)
+
 
 class StudentProfile(models.Model):
     """
@@ -73,7 +88,12 @@ class StudentProfile(models.Model):
     )
 
     grade = models.CharField(
-        max_length=10, blank=True, default="", verbose_name="Класс"
+        max_length=50,
+        blank=True,
+        null=False,
+        default="",
+        validators=[MaxLengthValidator(50)],
+        verbose_name="Класс",
     )
 
     goal = models.TextField(
@@ -95,7 +115,7 @@ class StudentProfile(models.Model):
 
     parent = models.ForeignKey(
         User,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="children_students",
@@ -249,9 +269,12 @@ class ParentProfile(models.Model):
         """
         Получить детей родителя через обратную связь StudentProfile.parent
         """
-        return User.objects.filter(
-            student_profile__parent=self.user, role=User.Role.STUDENT
-        )
+        try:
+            return User.objects.filter(
+                student_profile__parent=self.user, role=User.Role.STUDENT
+            )
+        except Exception:
+            return User.objects.none()
 
 
 class TutorStudentCreation(models.Model):
@@ -318,7 +341,30 @@ class TelegramLinkToken(models.Model):
     def __str__(self):
         return f"TelegramLinkToken({self.user.email}, used={self.is_used})"
 
-    def is_expired(self):
-        from django.utils import timezone
+    def set_token(self, plain_token: str) -> None:
+        """
+        Хешируем и сохраняем токен.
 
+        Args:
+            plain_token: Plaintext токен для хеширования (UUID или подобное)
+        """
+        from django.contrib.auth.hashers import make_password
+        self.token = make_password(plain_token)
+
+    def verify_token(self, plain_token: str) -> bool:
+        """
+        Проверяем что plain_token совпадает с хешированным токеном.
+
+        Args:
+            plain_token: Plaintext токен для проверки
+
+        Returns:
+            True если токен совпадает, False иначе
+        """
+        from django.contrib.auth.hashers import check_password
+        return check_password(plain_token, self.token)
+
+    def is_expired(self) -> bool:
+        """Проверяет истек ли токен"""
+        from django.utils import timezone
         return timezone.now() > self.expires_at

@@ -7,5 +7,9 @@ try:
     sys.modules[f"{__name__}.models"] = importlib.import_module('backend.chat.models')
 except Exception:
     pass
+try:
+    sys.modules[f"{__name__}.urls"] = importlib.import_module('backend.chat.urls')
+except Exception:
+    pass
 
 

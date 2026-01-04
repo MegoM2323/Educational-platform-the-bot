@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
     dependencies = [
         ('reports', '0002_studentreport'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('materials', '0001_initial'),
     ]
 
     operations = [
@@ -38,7 +37,7 @@ class Migration(migrations.Migration):
                 ('sent_at', models.DateTimeField(blank=True, null=True)),
                 ('read_at', models.DateTimeField(blank=True, null=True)),
                 ('student', models.ForeignKey(limit_choices_to={'role': 'student'}, on_delete=django.db.models.deletion.CASCADE, related_name='teacher_weekly_reports', to=settings.AUTH_USER_MODEL, verbose_name='Ученик')),
-                ('subject', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='teacher_weekly_reports', to='materials.subject', verbose_name='Предмет')),
+                ('subject_id', models.IntegerField(verbose_name='Предмет ID')),
                 ('teacher', models.ForeignKey(limit_choices_to={'role': 'teacher'}, on_delete=django.db.models.deletion.CASCADE, related_name='sent_teacher_reports', to=settings.AUTH_USER_MODEL, verbose_name='Преподаватель')),
                 ('tutor', models.ForeignKey(limit_choices_to={'role': 'tutor'}, on_delete=django.db.models.deletion.CASCADE, related_name='received_teacher_reports', to=settings.AUTH_USER_MODEL, verbose_name='Тьютор')),
             ],
@@ -47,7 +46,7 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'Еженедельные отчеты преподавателя',
                 'ordering': ['-week_start', '-created_at'],
                 'indexes': [models.Index(fields=['teacher', 'student', '-week_start'], name='reports_tea_teacher_4310d3_idx'), models.Index(fields=['tutor', 'student', '-week_start'], name='reports_tea_tutor_i_a49cc1_idx')],
-                'unique_together': {('teacher', 'student', 'subject', 'week_start')},
+                'unique_together': {('teacher', 'student', 'subject_id', 'week_start')},
             },
         ),
         migrations.CreateModel(

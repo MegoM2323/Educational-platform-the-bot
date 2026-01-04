@@ -50,6 +50,11 @@ def create_forum_chat_on_enrollment(
     if not created:
         return
 
+    # Verify that instance is actually a SubjectEnrollment
+    # (sometimes post_save signals can be triggered incorrectly)
+    if SubjectEnrollment is None or not isinstance(instance, SubjectEnrollment):
+        return
+
     try:
         # Get student profile for tutor info
         student_profile: StudentProfile | None = None

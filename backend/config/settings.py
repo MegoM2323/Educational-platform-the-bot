@@ -163,7 +163,7 @@ if not DEBUG:
 
 # Application definition
 
-INSTALLED_APPS = [
+_BASE_INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -189,6 +189,9 @@ INSTALLED_APPS = [
     "applications",
     "knowledge_graph",  # Система графов знаний для обучения
 ]
+
+# Use all apps in all environments
+INSTALLED_APPS = _BASE_INSTALLED_APPS
 
 # Add daphne only if not in test mode (to avoid Twisted SSL issues during testing)
 # ВРЕМЕННО ОТКЛЮЧЕНО: проблема совместимости pyOpenSSL 25.3.0 с Python 3.13

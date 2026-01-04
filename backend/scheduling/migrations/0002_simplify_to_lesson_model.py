@@ -69,7 +69,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="lessons",
-                        to="materials.subject",
+                        to="materials.Subject",
                         verbose_name="Subject",
                     ),
                 ),

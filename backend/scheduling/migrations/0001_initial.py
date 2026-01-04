@@ -12,10 +12,16 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('materials', '0001_initial'),
     ]
 
     operations = [
+        migrations.CreateModel(
+            name='Subject',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('name', models.CharField(max_length=100, verbose_name='Предмет')),
+            ],
+        ),
         migrations.CreateModel(
             name='Booking',
             fields=[
@@ -30,7 +36,7 @@ class Migration(migrations.Migration):
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('cancelled_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='cancelled_bookings', to=settings.AUTH_USER_MODEL)),
                 ('student', models.ForeignKey(limit_choices_to={'role': 'student'}, on_delete=django.db.models.deletion.CASCADE, related_name='student_bookings', to=settings.AUTH_USER_MODEL)),
-                ('subject', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='bookings', to='materials.subject')),
+                ('subject', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='bookings', to='scheduling.subject')),
                 ('teacher', models.ForeignKey(limit_choices_to={'role': 'teacher'}, on_delete=django.db.models.deletion.CASCADE, related_name='teacher_bookings', to=settings.AUTH_USER_MODEL)),
             ],
             options={
@@ -72,7 +78,7 @@ class Migration(migrations.Migration):
                 ('google_calendar_id', models.CharField(blank=True, max_length=255, verbose_name='ID календаря Google')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('subjects', models.ManyToManyField(related_name='teacher_availabilities', to='materials.subject', verbose_name='Предметы')),
+                ('subjects', models.ManyToManyField(related_name='teacher_availabilities', to='scheduling.subject', verbose_name='Предметы')),
                 ('teacher', models.ForeignKey(limit_choices_to={'role': 'teacher'}, on_delete=django.db.models.deletion.CASCADE, related_name='availability_templates', to=settings.AUTH_USER_MODEL)),
             ],
             options={

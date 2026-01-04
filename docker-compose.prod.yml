@@ -36,6 +36,9 @@ services:
     container_name: thebot-postgres-prod
     hostname: postgres
 
+    ports:
+      - "5432:5432"
+
     environment:
       # Database configuration
       POSTGRES_DB: ${DB_NAME:-thebot_db}
@@ -117,6 +120,9 @@ services:
     container_name: thebot-redis-prod
     hostname: redis
 
+    ports:
+      - "6379:6379"
+
     # Use Redis cluster config or single instance with replication
     command: >
       redis-server
@@ -181,14 +187,12 @@ services:
   # BACKEND: Django/DRF API - Daphne ASGI
   # ============================================================================
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        ENVIRONMENT: production
-
+    image: thebot-backend:latest
     container_name: thebot-backend-prod
     hostname: backend
+
+    ports:
+      - "8000:8000"
 
     environment:
       # Django Settings
@@ -294,14 +298,13 @@ services:
   # FRONTEND: React/Vite + Nginx
   # ============================================================================
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NODE_ENV: production
-
+    image: thebot-frontend:latest
     container_name: thebot-frontend-prod
     hostname: frontend
+
+    ports:
+      - "3000:3000"
+      - "80:80"
 
     environment:
       NODE_ENV: production
@@ -310,8 +313,8 @@ services:
       VITE_APP_NAME: ${APP_NAME:-THE_BOT}
 
     volumes:
-      # Static content
-      - ./frontend/dist:/usr/share/nginx/html:ro
+      # Static content - built dist directory from Dockerfile
+      - frontend_dist:/usr/share/nginx/html:ro
 
       # Nginx configuration
       - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -377,7 +380,7 @@ services:
 
       # Static content from backend and frontend
       - backend_static:/var/www/backend/static:ro
-      - frontend_dist:/var/www/frontend:ro
+      - frontend_dist:/usr/share/nginx/html:ro
 
       # Cache and logs
       - nginx_logs:/var/log/nginx
@@ -433,12 +436,7 @@ services:
   # TASK QUEUE: Celery Worker - Main
   # ============================================================================
   celery-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        ENVIRONMENT: production
-
+    image: thebot-backend:latest
     container_name: thebot-celery-worker-prod
     hostname: celery-worker
 
@@ -531,12 +529,7 @@ services:
   # TASK SCHEDULER: Celery Beat - Scheduled Tasks
   # ============================================================================
   celery-beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        ENVIRONMENT: production
-
+    image: thebot-backend:latest
     container_name: thebot-celery-beat-prod
     hostname: celery-beat
 

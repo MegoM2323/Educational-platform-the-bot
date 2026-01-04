@@ -6,13 +6,17 @@ Includes serializers for lesson models with validation.
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.apps import apps
 from django.utils import timezone
 from datetime import timedelta, time
 
 from scheduling.models import Lesson, LessonHistory
-from materials.models import Subject
 
 User = get_user_model()
+
+def get_subject_model():
+    """Lazy load Subject model to avoid import issues during migrations."""
+    return apps.get_model('materials', 'Subject')
 
 
 def normalize_time_format(value):
@@ -56,12 +60,13 @@ class TimeFormatValidationMixin:
         return normalize_time_format(value)
 
 
-class SubjectSerializer(serializers.ModelSerializer):
+class SubjectSerializer(serializers.Serializer):
     """Serializer for subjects."""
 
-    class Meta:
-        model = Subject
-        fields = ["id", "name", "description", "color"]
+    id = serializers.IntegerField()
+    name = serializers.CharField(max_length=100)
+    description = serializers.CharField(required=False, allow_blank=True)
+    color = serializers.CharField(max_length=7, default='#3B82F6')
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -158,8 +163,8 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
     def validate_subject(self, value):
         """Validate subject exists."""
         try:
-            Subject.objects.get(id=value)
-        except Subject.DoesNotExist:
+            get_subject_model().objects.get(id=value)
+        except get_subject_model().DoesNotExist:
             raise serializers.ValidationError("Subject not found")
         return value
 

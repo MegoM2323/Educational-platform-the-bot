@@ -3,16 +3,28 @@ set -e
 
 echo "Starting THE_BOT Backend..."
 
-# Wait for database to be ready
+# Wait for database to be ready using Python
 echo "Waiting for PostgreSQL at $DB_HOST:$DB_PORT..."
-for i in {1..30}; do
-    if pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER 2>/dev/null; then
-        echo "PostgreSQL is ready!"
+python << 'PYEOF'
+import socket
+import time
+import os
+
+db_host = os.environ.get('DB_HOST', 'postgres')
+db_port = int(os.environ.get('DB_PORT', '5432'))
+max_attempts = 30
+
+for i in range(1, max_attempts + 1):
+    try:
+        sock = socket.create_connection((db_host, db_port), timeout=2)
+        sock.close()
+        print("PostgreSQL is ready!")
         break
-    fi
-    echo "Attempt $i/30: Waiting for PostgreSQL..."
-    sleep 2
-done
+    except (socket.error, socket.timeout):
+        print(f"Attempt {i}/{max_attempts}: Waiting for PostgreSQL...")
+        time.sleep(2)
+PYEOF
+
 
 # Run migrations
 echo "Running database migrations..."

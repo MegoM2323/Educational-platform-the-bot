@@ -519,6 +519,7 @@ def update_profile(request):
 
 
 @api_view(["POST"])
+@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def change_password(request):
     """

@@ -59,9 +59,7 @@ class AuditLogMessage:
         if admin_id or admin_email:
             admin_info = f" by admin_id={admin_id} admin_email={admin_email}"
 
-        return (
-            f"action=create_user user_id={user_id} email={email} role={role}{admin_info}{extra_str}"
-        )
+        return f"action=create_user user_id={user_id} email={email} role={role}{admin_info}{extra_str}"
 
     @staticmethod
     def update_user(
@@ -87,7 +85,10 @@ class AuditLogMessage:
             Отформатированное сообщение для логирования
         """
         changes = " ".join(
-            [f"{field}='{old}'->>'{new}'" for field, (old, new) in changed_fields.items()]
+            [
+                f"{field}='{old}'->>'{new}'"
+                for field, (old, new) in changed_fields.items()
+            ]
         )
 
         admin_info = ""
@@ -181,9 +182,7 @@ class AuditLogMessage:
             extra_items = [f"{k}={v}" for k, v in extra_data.items()]
             extra_str = f" {' '.join(extra_items)}"
 
-        return (
-            f"action=create_profile type={profile_type} user_id={user_id} email={email}{extra_str}"
-        )
+        return f"action=create_profile type={profile_type} user_id={user_id} email={email}{extra_str}"
 
 
 @receiver(post_save, sender=User)
@@ -245,14 +244,18 @@ def _create_profile_safe(profile_model, user_instance: User, profile_type: str) 
         profile_type: String name of profile type for logging
     """
     try:
-        profile, profile_created = profile_model.objects.get_or_create(user=user_instance)
+        profile, profile_created = profile_model.objects.get_or_create(
+            user=user_instance
+        )
         if profile_created:
             logger.info(
                 f"[Signal] {profile_type} auto-created for user_id={user_instance.id} "
                 f"email={user_instance.email}"
             )
         else:
-            logger.debug(f"[Signal] {profile_type} already exists for user_id={user_instance.id}")
+            logger.debug(
+                f"[Signal] {profile_type} already exists for user_id={user_instance.id}"
+            )
     except IntegrityError:
         logger.debug(
             f"[Signal] Race condition detected: {profile_type} was created by concurrent "
@@ -272,7 +275,9 @@ def _create_profile_safe(profile_model, user_instance: User, profile_type: str) 
 
 
 @receiver(post_save, sender=User)
-def auto_create_notification_settings(sender, instance: User, created: bool, **kwargs) -> None:
+def auto_create_notification_settings(
+    sender, instance: User, created: bool, **kwargs
+) -> None:
     """
     Signal обработчик для автоматического создания настроек уведомлений при создании пользователя.
 
@@ -339,7 +344,9 @@ def auto_create_notification_settings(sender, instance: User, created: bool, **k
 
 
 @receiver(post_save, sender=User)
-def log_user_creation_or_update(sender, instance: User, created: bool, **kwargs) -> None:
+def log_user_creation_or_update(
+    sender, instance: User, created: bool, **kwargs
+) -> None:
     """
     Signal обработчик для логирования создания и обновления пользователей.
 
@@ -404,14 +411,18 @@ def log_user_creation_or_update(sender, instance: User, created: bool, **kwargs)
 
             except User.DoesNotExist:
                 # Если не найдена "до" версия, просто логируем что было обновление
-                logger.warning(f"[Signal] Could not find old instance for user {instance.id}")
+                logger.warning(
+                    f"[Signal] Could not find old instance for user {instance.id}"
+                )
 
     except Exception as exc:
         logger.error(f"[Signal] Error logging user change for {instance.email}: {exc}")
 
 
 @receiver(post_save, sender=StudentProfile)
-def log_student_profile_creation(sender, instance: StudentProfile, created: bool, **kwargs) -> None:
+def log_student_profile_creation(
+    sender, instance: StudentProfile, created: bool, **kwargs
+) -> None:
     """
     Signal обработчик для логирования создания и обновления профилей студентов.
 
@@ -578,7 +589,9 @@ def create_tutor_chats_on_tutor_assignment(
                 if existing_chat:
                     # When tutor is changed, add new tutor to existing chat
                     # Check if new tutor is already a participant
-                    if not existing_chat.participants.filter(id=instance.tutor.id).exists():
+                    if not existing_chat.participants.filter(
+                        id=instance.tutor.id
+                    ).exists():
                         # Add new tutor as participant (M2M)
                         existing_chat.participants.add(instance.tutor)
 
@@ -590,7 +603,9 @@ def create_tutor_chats_on_tutor_assignment(
                         subject_name = enrollment.get_subject_name()
                         student_name = instance.user.get_full_name()
                         tutor_name = instance.tutor.get_full_name()
-                        existing_chat.name = f"{subject_name} - {student_name} <-> {tutor_name}"
+                        existing_chat.name = (
+                            f"{subject_name} - {student_name} <-> {tutor_name}"
+                        )
                         existing_chat.save(update_fields=["name"])
 
                         logger.info(
@@ -676,12 +691,14 @@ def sync_invoices_on_parent_change(
     try:
         from invoices.models import Invoice
 
-        invoices = Invoice.objects.filter(student=instance.user, parent__isnull=False).exclude(
-            parent=instance.parent
-        )
+        invoices = Invoice.objects.filter(
+            student=instance.user, parent__isnull=False
+        ).exclude(parent=instance.parent)
 
         if invoices.exists():
-            old_parent_ids = list(invoices.values_list("parent_id", flat=True).distinct())
+            old_parent_ids = list(
+                invoices.values_list("parent_id", flat=True).distinct()
+            )
 
             updated_count = invoices.update(parent=instance.parent)
 
@@ -697,7 +714,9 @@ def sync_invoices_on_parent_change(
 
 
 @receiver(post_save, sender=TeacherProfile)
-def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool, **kwargs) -> None:
+def log_teacher_profile_creation(
+    sender, instance: TeacherProfile, created: bool, **kwargs
+) -> None:
     """
     Signal обработчик для логирования создания и обновления профилей преподавателей.
 
@@ -754,7 +773,9 @@ def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool
 
 
 @receiver(post_save, sender=TutorProfile)
-def log_tutor_profile_creation(sender, instance: TutorProfile, created: bool, **kwargs) -> None:
+def log_tutor_profile_creation(
+    sender, instance: TutorProfile, created: bool, **kwargs
+) -> None:
     """
     Signal обработчик для логирования создания и обновления профилей тьюторов.
 
@@ -811,7 +832,9 @@ def log_tutor_profile_creation(sender, instance: TutorProfile, created: bool, **
 
 
 @receiver(post_save, sender=ParentProfile)
-def log_parent_profile_creation(sender, instance: ParentProfile, created: bool, **kwargs) -> None:
+def log_parent_profile_creation(
+    sender, instance: ParentProfile, created: bool, **kwargs
+) -> None:
     """
     Signal обработчик для логирования создания и обновления профилей родителей.
 
@@ -857,9 +880,46 @@ def log_student_profile_deletion(sender, instance: StudentProfile, **kwargs) -> 
                 "email": instance.user.email,
             },
         )
-        logger.info(f"[Signal] StudentProfile {instance.id} deleted for user {instance.user.id}")
+        logger.info(
+            f"[Signal] StudentProfile {instance.id} deleted for user {instance.user.id}"
+        )
     except Exception as exc:
         logger.error(f"[Signal] Error logging StudentProfile deletion: {exc}")
+
+
+@receiver(post_delete, sender=StudentProfile)
+def cascade_delete_student_user(sender, instance: StudentProfile, **kwargs) -> None:
+    """
+    Signal обработчик для CASCADE удаления User при удалении StudentProfile.
+
+    Когда StudentProfile удаляется (например, из-за удаления parent с ON DELETE CASCADE),
+    нужно также удалить связанный User объект студента.
+
+    Args:
+        sender: Модель StudentProfile
+        instance: Инстанс профиля студента (уже удален из БД)
+        **kwargs: Дополнительные аргументы от Django
+    """
+    try:
+        # Проверяем, что user объект еще существует (может быть удален вручную)
+        if instance.user:
+            user_id = instance.user.id
+            user_email = instance.user.email
+
+            # Удаляем User объект
+            instance.user.delete()
+
+            logger.info(
+                f"[Signal] Cascade deleted user {user_id} ({user_email}) "
+                f"after StudentProfile {instance.id} deletion"
+            )
+    except User.DoesNotExist:
+        logger.debug(f"[Signal] User for StudentProfile {instance.id} already deleted")
+    except Exception as exc:
+        logger.error(
+            f"[Signal] Error cascade deleting user for StudentProfile {instance.id}: {exc}",
+            exc_info=True,
+        )
 
 
 @receiver(post_delete, sender=TeacherProfile)
@@ -882,7 +942,9 @@ def log_teacher_profile_deletion(sender, instance: TeacherProfile, **kwargs) -> 
                 "email": instance.user.email,
             },
         )
-        logger.info(f"[Signal] TeacherProfile {instance.id} deleted for user {instance.user.id}")
+        logger.info(
+            f"[Signal] TeacherProfile {instance.id} deleted for user {instance.user.id}"
+        )
     except Exception as exc:
         logger.error(f"[Signal] Error logging TeacherProfile deletion: {exc}")
 
@@ -907,7 +969,9 @@ def log_tutor_profile_deletion(sender, instance: TutorProfile, **kwargs) -> None
                 "email": instance.user.email,
             },
         )
-        logger.info(f"[Signal] TutorProfile {instance.id} deleted for user {instance.user.id}")
+        logger.info(
+            f"[Signal] TutorProfile {instance.id} deleted for user {instance.user.id}"
+        )
     except Exception as exc:
         logger.error(f"[Signal] Error logging TutorProfile deletion: {exc}")
 
@@ -932,7 +996,9 @@ def log_parent_profile_deletion(sender, instance: ParentProfile, **kwargs) -> No
                 "email": instance.user.email,
             },
         )
-        logger.info(f"[Signal] ParentProfile {instance.id} deleted for user {instance.user.id}")
+        logger.info(
+            f"[Signal] ParentProfile {instance.id} deleted for user {instance.user.id}"
+        )
     except Exception as exc:
         logger.error(f"[Signal] Error logging ParentProfile deletion: {exc}")
 

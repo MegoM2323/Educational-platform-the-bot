@@ -240,8 +240,8 @@ services:
       SENTRY_DSN: ${SENTRY_DSN}
 
     volumes:
-      # Application code (copy only, not volume)
-      - ./backend:/app/backend:ro
+      # Application code (root project mounted as /app)
+      - .:/app
 
       # Writable directories
       - backend_static:/app/static
@@ -472,7 +472,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
     volumes:
-      - ./backend:/app/backend:ro
+      - .:/app
       - backend_media:/app/media
       - backend_logs:/app/logs
 
@@ -550,7 +550,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
     volumes:
-      - ./backend:/app/backend:ro
+      - .:/app
       - celery_beat_schedule:/app/celery_schedule
       - backend_logs:/app/logs
 

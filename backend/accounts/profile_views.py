@@ -335,6 +335,7 @@ class TeacherProfileView(APIView):
                 )
                 if user_serializer.is_valid(raise_exception=True):
                     try:
+                        # full_clean() вызывается ТОЛЬКО при обновлении (PATCH/PUT)
                         request.user.full_clean()
                     except ValidationError as e:
                         return Response(
@@ -495,6 +496,7 @@ class TutorProfileView(APIView):
                 )
                 if user_serializer.is_valid(raise_exception=True):
                     try:
+                        # full_clean() вызывается ТОЛЬКО при обновлении (PATCH/PUT)
                         request.user.full_clean()
                     except ValidationError as e:
                         return Response(
@@ -619,6 +621,7 @@ class ParentProfileView(APIView):
                 )
                 if user_serializer.is_valid(raise_exception=True):
                     try:
+                        # full_clean() вызывается ТОЛЬКО при обновлении (PATCH/PUT)
                         request.user.full_clean()
                     except ValidationError as e:
                         return Response(

@@ -15,6 +15,30 @@ from .permissions import (
     can_view_private_fields,
 )
 
+
+def _validate_role_for_assignment(user_obj, expected_role, role_name):
+    """
+    Общая валидация для проверки роли и активности пользователя.
+
+    Args:
+        user_obj: User object
+        expected_role: User.Role.TUTOR or User.Role.PARENT
+        role_name: Название роли для сообщения об ошибке ('тьютор', 'родитель')
+
+    Raises:
+        serializers.ValidationError: если роль не совпадает или пользователь неактивен
+    """
+    if user_obj:
+        if user_obj.role != expected_role:
+            raise serializers.ValidationError(
+                f"Указанный пользователь не является {role_name}ом"
+            )
+        if not user_obj.is_active:
+            raise serializers.ValidationError(
+                f"{role_name.capitalize()} должен быть активным"
+            )
+
+
 __all__ = [
     "UserMinimalSerializer",
     "UserLoginSerializer",
@@ -657,29 +681,13 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
         fields = ("grade", "goal", "tutor", "parent")
 
     def validate_tutor(self, value):
-        """
-        Валидация что tutor является активным тьютором.
-        """
-        if value:
-            if value.role != User.Role.TUTOR:
-                raise serializers.ValidationError(
-                    "Указанный пользователь не является тьютором"
-                )
-            if not value.is_active:
-                raise serializers.ValidationError("Тьютор должен быть активным")
+        """Валидация что tutor является активным тьютором."""
+        _validate_role_for_assignment(value, User.Role.TUTOR, "тьютор")
         return value
 
     def validate_parent(self, value):
-        """
-        Валидация что parent является активным родителем.
-        """
-        if value:
-            if value.role != User.Role.PARENT:
-                raise serializers.ValidationError(
-                    "Указанный пользователь не является родителем"
-                )
-            if not value.is_active:
-                raise serializers.ValidationError("Родитель должен быть активным")
+        """Валидация что parent является активным родителем."""
+        _validate_role_for_assignment(value, User.Role.PARENT, "родитель")
         return value
 
     def validate_goal(self, value):
@@ -1250,12 +1258,7 @@ class StudentCreateSerializer(serializers.Serializer):
         if value:
             try:
                 tutor = User.objects.get(id=value)
-                if tutor.role != User.Role.TUTOR:
-                    raise serializers.ValidationError(
-                        "Указанный пользователь не является тьютором"
-                    )
-                if not tutor.is_active:
-                    raise serializers.ValidationError("Тьютор должен быть активным")
+                _validate_role_for_assignment(tutor, User.Role.TUTOR, "тьютор")
             except User.DoesNotExist:
                 raise serializers.ValidationError("Тьютор не найден")
 
@@ -1266,12 +1269,7 @@ class StudentCreateSerializer(serializers.Serializer):
         if value:
             try:
                 parent = User.objects.get(id=value)
-                if parent.role != User.Role.PARENT:
-                    raise serializers.ValidationError(
-                        "Указанный пользователь не является родителем"
-                    )
-                if not parent.is_active:
-                    raise serializers.ValidationError("Родитель должен быть активным")
+                _validate_role_for_assignment(parent, User.Role.PARENT, "родитель")
             except User.DoesNotExist:
                 raise serializers.ValidationError("Родитель не найден")
 

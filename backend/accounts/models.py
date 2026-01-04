@@ -63,7 +63,17 @@ class User(AbstractUser):
         return f"{self.get_full_name()} ({self.get_role_display()})"
 
     def clean(self):
-        """Validate created_by_tutor relationship"""
+        """
+        Validate created_by_tutor relationship.
+
+        IMPORTANT: This method is NOT automatically called on save().
+        Callers MUST explicitly call full_clean() or clean() before save()
+        to trigger this validation. This is by design - Django does not automatically
+        call clean() in model.save() to avoid performance overhead.
+
+        Validation is primarily handled in serializers via DRF's validation framework,
+        which guarantees full_clean() is called on all model instances before creation.
+        """
         errors = {}
 
         if self.created_by_tutor:

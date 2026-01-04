@@ -58,6 +58,21 @@ class CacheManager:
             logger.warning(f"Cache get error for key {key}: {e}")
             return callable_func()
 
+    def clear(self, user_id: Optional[int] = None) -> None:
+        """Очистить кэш (всё или для конкретного пользователя)"""
+        try:
+            if user_id is None:
+                self.cache.clear()
+            else:
+                # Очистить все ключи пользователя по паттерну
+                pattern = f"*:{user_id}:*"
+                if hasattr(self.cache, 'delete_pattern'):
+                    self.cache.delete_pattern(pattern)
+                else:
+                    logger.debug(f"Cache backend не поддерживает delete_pattern для {pattern}")
+        except Exception as e:
+            logger.warning(f"Cache clear error: {e}")
+
 
 class DashboardCacheManager(CacheManager):
     """Менеджер кэширования для дашбордов"""

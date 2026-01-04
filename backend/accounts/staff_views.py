@@ -774,19 +774,22 @@ def update_user(request, user_id):
                         return Response(
                             {
                                 "error": "Cannot change role from TUTOR: students depend on this tutor",
-                                "detail": "Удалите связь между студентами и этим тьютором перед сменой роли"
+                                "detail": "Удалите связь между студентами и этим тьютором перед сменой роли",
                             },
                             status=status.HTTP_409_CONFLICT,
                         )
 
                 if old_role == User.Role.TEACHER:
                     from materials.models import SubjectEnrollment
-                    enrollments = SubjectEnrollment.objects.filter(teacher=user).exists()
+
+                    enrollments = SubjectEnrollment.objects.filter(
+                        teacher=user
+                    ).exists()
                     if enrollments:
                         return Response(
                             {
                                 "error": "Cannot change role from TEACHER: enrollments depend on this teacher",
-                                "detail": "Удалите связь между студентами и этим преподавателем перед сменой роли"
+                                "detail": "Удалите связь между студентами и этим преподавателем перед сменой роли",
                             },
                             status=status.HTTP_409_CONFLICT,
                         )
@@ -1573,11 +1576,13 @@ def create_user_with_profile(request):
                             django_user.save()
                             break
                     else:
-                        raise ValueError("Не удалось создать username после 100 попыток")
+                        raise ValueError(
+                            "Не удалось создать username после 100 попыток"
+                        )
             except Exception as retry_exc:
                 logger.error(
                     f"[create_user_with_profile] Retry failed: {str(retry_exc)}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 return Response(
                     {"detail": "Internal server error"},
@@ -1585,14 +1590,17 @@ def create_user_with_profile(request):
                 )
         else:
             logger.error(
-                f"[create_user_with_profile] Unexpected IntegrityError: {str(exc)}", exc_info=True
+                f"[create_user_with_profile] Unexpected IntegrityError: {str(exc)}",
+                exc_info=True,
             )
             return Response(
                 {"detail": "Internal server error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
     except Exception as exc:
-        logger.error(f"[create_user_with_profile] Error creating user: {str(exc)}", exc_info=True)
+        logger.error(
+            f"[create_user_with_profile] Error creating user: {str(exc)}", exc_info=True
+        )
         return Response(
             {"detail": "Internal server error"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

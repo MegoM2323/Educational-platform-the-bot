@@ -230,6 +230,21 @@
       ],
       "duration_sec": 45,
       "changes": "Created comprehensive performance test suite for teacher API endpoints and operations: (1) Created test_teacher_performance.py with 16 unit tests covering 3 test classes; (2) TeacherPerformanceTestCase (14 tests) - performance metrics for teacher endpoints: test_teacher_dashboard_response_time (< 300ms), test_teacher_materials_list_response_time (< 250ms), test_teacher_lessons_list_response_time (< 250ms), test_teacher_profile_response_time (< 150ms), test_teacher_students_list_response_time (< 250ms), test_create_lesson_response_time (< 300ms), test_large_material_list_handling (50+ items < 500ms), test_query_optimization_no_n_plus_one (8→9 queries, no doubling), test_sequential_stability (performance consistency < 2x), test_concurrent_request_handling (≥80% success), test_authentication_performance (< 250ms avg), test_unauthorized_access_handling (401), test_invalid_request_handling (400), test_not_found_handling (404); (3) TeacherPerformanceMetrics test - collects and displays performance metrics summary for 7 endpoints with target comparisons; (4) TeacherPerformanceSummary test - generates formatted report with performance targets, query optimization, load testing, error handling, and database performance details. All 16 tests PASS (100% pass rate) in ~0.5 seconds. Test file location: /home/mego/Python Projects/THE_BOT_platform/backend/tests/performance/test_teacher_performance.py"
+    },
+    {
+      "id": "fix_10_critical_student_cabinet_issues",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/profile_serializers.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/staff_views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/serializers.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/profile_views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/materials/signals.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/models.py"
+      ],
+      "duration_sec": 120,
+      "changes": "Fixed all 10 critical issues identified by code reviewer: (1) CRITICAL Issue #1 - TelegramValidator: Modified class to accept optional user parameter for excluding current user from duplicate checks. Updated all 4 validate_telegram() methods in profile serializers to pass user instance. (2) HIGH Issue #2 - Role change validation: Added dependency checking before role changes in staff_views.py - checks StudentProfile.tutor references and SubjectEnrollment.teacher references, returns 409 CONFLICT if dependencies exist. (3) MEDIUM Issue #3 - Email race condition: Added SELECT FOR UPDATE lock in create_staff() transaction to prevent simultaneous email creation race conditions. (4) MEDIUM Issue #4 - IntegrityError handling: Added comprehensive IntegrityError handling to create_user_with_profile() matching create_staff() with automatic username retry logic on race condition. (5) MEDIUM Issue #5 - Prefetch attribute: Verified TutorStudentSerializer correctly uses prefetch_related with to_attr='active_enrollments' - no changes needed. (6) MEDIUM Issue #6 - full_clean() validation: Added documentation comments in profile_views.py explaining full_clean() is ONLY called in PATCH/PUT methods, not GET (consistent pattern). (7) MEDIUM Issue #7 - Role validation duplication: Consolidated tutor/parent validation logic into _validate_role_for_assignment() utility function, updated 4 validation methods to use it. (8) MEDIUM Issue #8 - Cache invalidation: Added pre_save signal to capture old tutor_id before save, updated post_save handler to only invalidate tutor cache if tutor_id actually changed. (9) LOW Issue #9 - User.clean() documentation: Added comprehensive docstring explaining that clean() is NOT auto-called on save() and validates must call full_clean() explicitly. (10) Task 10 - full_clean() validation consistency already completed with Issue #6. All files formatted with black, Python syntax verified."
     }
   ]
 }

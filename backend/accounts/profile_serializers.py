@@ -46,7 +46,12 @@ class TelegramValidator:
 
         # Проверяем на дубликаты (case-insensitive) во всех профилях
         # Исключаем текущего пользователя при обновлении профиля
-        for model_class in [StudentProfile, TeacherProfile, TutorProfile, ParentProfile]:
+        for model_class in [
+            StudentProfile,
+            TeacherProfile,
+            TutorProfile,
+            ParentProfile,
+        ]:
             query = model_class.objects.filter(telegram__iexact=username)
             if self.user:
                 query = query.exclude(user=self.user)

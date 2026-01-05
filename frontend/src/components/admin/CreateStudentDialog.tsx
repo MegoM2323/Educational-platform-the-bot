@@ -209,6 +209,7 @@ export const CreateStudentDialog = ({ open, onOpenChange, onSuccess }: CreateStu
                     required
                     disabled={loading}
                     placeholder="student@example.com"
+                    autoComplete="username"
                   />
                 </div>
 
@@ -325,6 +326,7 @@ export const CreateStudentDialog = ({ open, onOpenChange, onSuccess }: CreateStu
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     disabled={loading}
                     placeholder="Автоматический пароль"
+                    autoComplete="new-password"
                   />
                   <p className="text-xs text-muted-foreground">
                     Если не указан, будет сгенерирован случайный пароль

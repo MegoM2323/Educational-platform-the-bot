@@ -248,6 +248,7 @@ export const CreateUserDialog = ({ open, onOpenChange, onSuccess }: CreateUserDi
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
                     disabled={loading}
+                    autoComplete="username"
                   />
                 </div>
 
@@ -296,6 +297,7 @@ export const CreateUserDialog = ({ open, onOpenChange, onSuccess }: CreateUserDi
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     disabled={loading}
                     placeholder="Автоматический пароль"
+                    autoComplete="new-password"
                   />
                   <p className="text-xs text-muted-foreground">
                     Если не указан, будет сгенерирован случайный пароль

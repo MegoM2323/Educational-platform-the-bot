@@ -872,6 +872,7 @@ export default function SystemSettings() {
                           <Input
                             type="password"
                             placeholder="••••••••"
+                            autoComplete="new-password"
                             {...field}
                           />
                         </FormControl>

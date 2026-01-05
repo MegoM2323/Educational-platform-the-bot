@@ -199,6 +199,7 @@ const Auth = memo(() => {
                     placeholder={loginType === "email" ? "Email" : "Username"}
                     required
                     data-testid="login-email-input"
+                    autoComplete={loginType === "email" ? "email" : "username"}
                   />
                 </div>
 
@@ -212,6 +213,7 @@ const Auth = memo(() => {
                     placeholder="Password"
                     required
                     data-testid="login-password-input"
+                    autoComplete="current-password"
                   />
                 </div>
 

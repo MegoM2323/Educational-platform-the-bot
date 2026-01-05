@@ -554,8 +554,8 @@ function renderAuthAndCheckInputSpacing() {
   const FormLayout = () => (
     <form className="space-y-4">
       <h1 className="text-3xl font-bold">Добро пожаловать!</h1>
-      <input type="text" className="w-full px-4 py-3" placeholder="Email" />
-      <input type="password" className="w-full px-4 py-3" placeholder="Password" />
+      <input type="text" className="w-full px-4 py-3" placeholder="Email" autoComplete="username" />
+      <input type="password" className="w-full px-4 py-3" placeholder="Password" autoComplete="current-password" />
     </form>
   );
 

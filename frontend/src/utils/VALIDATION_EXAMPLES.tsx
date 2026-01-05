@@ -51,6 +51,7 @@ export function SimpleRegistrationForm() {
           })}
           type="email"
           placeholder="user@example.com"
+          autoComplete="username"
         />
         {errors.email && <span className="error">{errors.email.message}</span>}
       </div>
@@ -66,6 +67,7 @@ export function SimpleRegistrationForm() {
           })}
           type="password"
           placeholder="SecurePass123!"
+          autoComplete="new-password"
         />
         {errors.password && <span className="error">{errors.password.message}</span>}
       </div>
@@ -81,6 +83,7 @@ export function SimpleRegistrationForm() {
           })}
           type="password"
           placeholder="SecurePass123!"
+          autoComplete="new-password"
         />
         {errors.passwordConfirm && <span className="error">{errors.passwordConfirm.message}</span>}
       </div>
@@ -156,6 +159,7 @@ export function AdvancedRegistrationForm() {
           {...register('email')}
           type="email"
           placeholder="john@example.com"
+          autoComplete="username"
         />
         {errors.email && <span className="error">{errors.email.message}</span>}
       </div>
@@ -165,6 +169,7 @@ export function AdvancedRegistrationForm() {
         <input
           {...register('phone')}
           placeholder="+79991234567"
+          autoComplete="tel"
         />
         {errors.phone && <span className="error">{errors.phone.message}</span>}
       </div>
@@ -175,6 +180,7 @@ export function AdvancedRegistrationForm() {
           {...register('password')}
           type="password"
           placeholder="SecurePass123!"
+          autoComplete="new-password"
         />
         {errors.password && <span className="error">{errors.password.message}</span>}
       </div>
@@ -185,6 +191,7 @@ export function AdvancedRegistrationForm() {
           {...register('passwordConfirm')}
           type="password"
           placeholder="SecurePass123!"
+          autoComplete="new-password"
         />
         {errors.passwordConfirm && <span className="error">{errors.passwordConfirm.message}</span>}
       </div>
@@ -227,6 +234,7 @@ export function PasswordInput() {
           onChange={handlePasswordChange}
           type="password"
           placeholder="Enter strong password"
+          autoComplete="new-password"
         />
         {errors.password && <span className="error">{errors.password.message}</span>}
 
@@ -427,6 +435,7 @@ export function EmailUnicenessForm() {
           })}
           type="email"
           placeholder="user@example.com"
+          autoComplete="username"
         />
         {errors.email && (
           <span className="error">
@@ -601,6 +610,7 @@ export function FormWithValidationHook() {
           onChange={(e) => updateField('email', e.target.value, validateEmail)}
           placeholder="email@example.com"
           className={fields.email.error ? 'error' : 'valid'}
+          autoComplete="username"
         />
         {fields.email.error && <span className="error">{fields.email.error}</span>}
       </div>
@@ -613,6 +623,7 @@ export function FormWithValidationHook() {
           onChange={(e) => updateField('password', e.target.value, validatePassword)}
           placeholder="SecurePass123!"
           className={fields.password.error ? 'error' : 'valid'}
+          autoComplete="new-password"
         />
         {fields.password.error && <span className="error">{fields.password.error}</span>}
       </div>

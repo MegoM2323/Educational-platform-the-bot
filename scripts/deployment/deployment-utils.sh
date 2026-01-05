@@ -38,6 +38,42 @@ check_command() {
     fi
 }
 
+# Print header
+print_header() {
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║ $1"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+}
+
+# Print section
+print_section() {
+    echo ""
+    echo "▶ $1"
+    echo "─────────────────────────────────────────────────────────────────"
+}
+
+# Print info
+print_info() {
+    echo -e "${BLUE}ℹ $1${NC}"
+}
+
+# Print success
+print_success() {
+    echo -e "${GREEN}✓ $1${NC}"
+}
+
+# Print error
+print_error() {
+    echo -e "${RED}✗ $1${NC}"
+}
+
+# Print warning
+print_warning() {
+    echo -e "${YELLOW}⚠ $1${NC}"
+}
+
 # Check Docker installation
 check_docker() {
     log_info "Checking Docker installation..."

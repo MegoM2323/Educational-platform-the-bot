@@ -289,7 +289,7 @@ export default function TutorSection({ onUpdate }: TutorSectionProps) {
           <div className="grid gap-3 py-2">
             <div>
               <Label>Email</Label>
-              <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <Input type="email" autoComplete="username" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

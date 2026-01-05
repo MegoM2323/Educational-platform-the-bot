@@ -18,7 +18,8 @@ FROM node:22-slim AS builder
 WORKDIR /build
 
 # Copy package files for dependency caching
-COPY package.json package-lock.json* ./
+# Note: build context is project root, so we need frontend/ prefix
+COPY frontend/package.json frontend/package-lock.json* ./
 
 # Install dependencies with optimized flags
 # Use --legacy-peer-deps for compatibility with all dependencies
@@ -26,7 +27,7 @@ RUN npm install --no-fund --legacy-peer-deps && \
     npm cache clean --force
 
 # Copy application source
-COPY . .
+COPY frontend/ .
 
 # Build application with production optimizations
 # Vite automatically applies tree-shaking, minification, etc.
@@ -60,8 +61,9 @@ RUN apk add --no-cache \
     && update-ca-certificates
 
 # Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY nginx-default.conf /etc/nginx/conf.d/default.conf
+# Note: build context is project root, so we need frontend/ prefix
+COPY frontend/nginx.conf /etc/nginx/nginx.conf
+COPY frontend/nginx-default.conf /etc/nginx/conf.d/default.conf
 
 # Copy built application from builder stage
 COPY --from=builder --chown=www-data:www /build/dist /usr/share/nginx/html

@@ -77,21 +77,23 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 
 # Copy Django application files (excluding node_modules, .venv, etc.)
-COPY --chown=appuser:appuser manage.py /app/
-COPY --chown=appuser:appuser config/ /app/config/
-COPY --chown=appuser:appuser accounts/ /app/accounts/
-COPY --chown=appuser:appuser applications/ /app/applications/
-COPY --chown=appuser:appuser assignments/ /app/assignments/
-COPY --chown=appuser:appuser chat/ /app/chat/
-COPY --chown=appuser:appuser courses/ /app/courses/
-COPY --chown=appuser:appuser dashboard/ /app/dashboard/
-COPY --chown=appuser:appuser materials/ /app/materials/
-COPY --chown=appuser:appuser payments/ /app/payments/
-COPY --chown=appuser:appuser reports/ /app/reports/
-COPY --chown=appuser:appuser reviews/ /app/reviews/
-COPY --chown=appuser:appuser utils/ /app/utils/
-COPY --chown=appuser:appuser invoices/ /app/invoices/
-COPY --chown=appuser:appuser docker-entrypoint.sh /app/
+# Note: build context is project root, so we need backend/ prefix
+COPY --chown=appuser:appuser backend/manage.py /app/
+COPY --chown=appuser:appuser backend/config/ /app/config/
+COPY --chown=appuser:appuser backend/accounts/ /app/accounts/
+COPY --chown=appuser:appuser backend/applications/ /app/applications/
+COPY --chown=appuser:appuser backend/assignments/ /app/assignments/
+COPY --chown=appuser:appuser backend/chat/ /app/chat/
+COPY --chown=appuser:appuser backend/core/ /app/core/
+COPY --chown=appuser:appuser backend/invoices/ /app/invoices/
+COPY --chown=appuser:appuser backend/knowledge_graph/ /app/knowledge_graph/
+COPY --chown=appuser:appuser backend/materials/ /app/materials/
+COPY --chown=appuser:appuser backend/notifications/ /app/notifications/
+COPY --chown=appuser:appuser backend/payments/ /app/payments/
+COPY --chown=appuser:appuser backend/reports/ /app/reports/
+COPY --chown=appuser:appuser backend/scheduling/ /app/scheduling/
+COPY --chown=appuser:appuser backend/templates/ /app/templates/
+COPY --chown=appuser:appuser backend/docker-entrypoint.sh /app/
 
 # Ensure entrypoint script is executable (must be done as root before USER switch)
 RUN chmod +x /app/docker-entrypoint.sh

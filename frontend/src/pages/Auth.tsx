@@ -208,12 +208,12 @@ const Auth = memo(() => {
                   <Input
                     id="login-password"
                     type="password"
+                    autoComplete="current-password"
                     value={loginData.password}
                     onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                     placeholder="Password"
                     required
                     data-testid="login-password-input"
-                    autoComplete="current-password"
                   />
                 </div>
 

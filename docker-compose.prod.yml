@@ -295,6 +295,9 @@ services:
   # FRONTEND: React/Vite + Nginx
   # ============================================================================
   frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     image: thebot-frontend:latest
     container_name: thebot-frontend-prod
     hostname: frontend

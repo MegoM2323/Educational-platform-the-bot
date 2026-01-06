@@ -574,6 +574,12 @@ def list_students(request):
     queryset = (
         StudentProfile.objects.filter(user__role=User.Role.STUDENT)
         .select_related("user", "tutor", "parent")
+        .prefetch_related(
+            "user__subject_enrollments__subject",
+            "user__subject_enrollments__teacher",
+            "user__payments",
+            "user__reports",
+        )
         .annotate(enrollments_count=Count("user__subject_enrollments"))
     )
 
@@ -2164,6 +2170,131 @@ def reactivate_user(request, user_id):
         {
             "success": True,
             "message": f"{user.role.title()} {user.email} has been reactivated",
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsStaffOrAdmin])
+@transaction.atomic
+def assign_students_to_teacher(request, teacher_id):
+    """
+    Назначение студентов учителю на предмет (admin/staff-only)
+
+    Args:
+        teacher_id: ID учителя
+
+    Body JSON:
+        - student_ids: [1, 2, 3] - список ID студентов (обязательно)
+        - subject_id: ID предмета (обязательно)
+
+    Returns:
+        {
+            "success": true,
+            "assigned_students": [1, 2, 3],
+            "message": "3 студентов успешно назначено учителю"
+        }
+
+    Raises:
+        - 400: Невалидные данные
+        - 404: Учитель или предмет не найден
+
+    Примечание:
+        Создает SubjectEnrollment для каждого студента.
+        При создании SubjectEnrollment автоматически триггерятся сигналы
+        для создания FORUM_SUBJECT и FORUM_TUTOR чатов.
+    """
+    from materials.models import Subject, SubjectEnrollment
+    from rest_framework import serializers
+
+    payload: Dict[str, Any] = request.data or {}
+    student_ids = payload.get("student_ids", [])
+    subject_id = payload.get("subject_id")
+
+    # Валидация входных данных
+    if not isinstance(student_ids, list) or not student_ids:
+        return Response(
+            {"detail": "student_ids должен быть непустым списком"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not subject_id:
+        return Response(
+            {"detail": "subject_id обязателен"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Проверка существования учителя
+    try:
+        teacher = User.objects.get(
+            id=teacher_id, role=User.Role.TEACHER, is_active=True
+        )
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "Учитель не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Проверка существования предмета
+    try:
+        subject = Subject.objects.get(id=subject_id)
+    except Subject.DoesNotExist:
+        return Response(
+            {"detail": "Предмет не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Проверка существования всех студентов
+    students = User.objects.filter(
+        id__in=student_ids, role=User.Role.STUDENT, is_active=True
+    )
+
+    found_student_ids = set(students.values_list("id", flat=True))
+    missing_ids = set(student_ids) - found_student_ids
+
+    if missing_ids:
+        return Response(
+            {"detail": f"Студенты не найдены или неактивны: {sorted(missing_ids)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Создание/обновление SubjectEnrollment для каждого студента
+    assigned_ids = []
+    created_count = 0
+    updated_count = 0
+
+    with transaction.atomic():
+        for student in students:
+            enrollment, created = SubjectEnrollment.objects.update_or_create(
+                student=student,
+                subject=subject,
+                teacher=teacher,
+                defaults={
+                    "assigned_by": request.user,
+                    "is_active": True,
+                },
+            )
+            assigned_ids.append(student.id)
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+    # Логируем назначение
+    logger.info(
+        f"[assign_students_to_teacher] Teacher {teacher_id} assigned to {len(assigned_ids)} students "
+        f"for subject {subject_id} (created={created_count}, updated={updated_count}): {assigned_ids}"
+    )
+    audit_logger.info(
+        f"action=students_assigned_to_teacher teacher_id={teacher_id} subject_id={subject_id} "
+        f"student_ids={assigned_ids} created={created_count} updated={updated_count} "
+        f"assigned_by={request.user.id}"
+    )
+
+    return Response(
+        {
+            "success": True,
+            "assigned_students": assigned_ids,
+            "message": f"{len(assigned_ids)} студентов успешно назначено учителю",
         },
         status=status.HTTP_200_OK,
     )

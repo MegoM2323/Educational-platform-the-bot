@@ -353,6 +353,17 @@ export class WebSocketService {
   /**
    * Вычисление задержки переподключения с экспоненциальной отсрочкой
    * Начинается с 1s, удваивается каждую попытку: 1s, 2s, 4s, 8s, 16s, 30s (max)
+   *
+   * Эта стратегия (exponential backoff) предотвращает перегрузку сервера при сетевых сбоях,
+   * пока одновременно обеспечивает быстрое переподключение при краткосрочных прерываниях.
+   *
+   * Примеры задержек:
+   * - Попытка 1: 1s
+   * - Попытка 2: 2s
+   * - Попытка 3: 4s
+   * - Попытка 4: 8s
+   * - Попытка 5: 16s
+   * - Попытка 6+: 30s (максимум)
    */
   private getReconnectDelay(): number {
     const baseDelay = 1000; // 1 секунда
@@ -499,7 +510,7 @@ const WEBSOCKET_BASE_URL = getWebSocketBaseUrl();
 
 export const websocketService = new WebSocketService({
   url: `${WEBSOCKET_BASE_URL}/chat/general/`, // Default fallback URL
-  reconnectInterval: 5000,
+  reconnectInterval: 1000,
   maxReconnectAttempts: 10,
   heartbeatInterval: 30000,
   messageQueueSize: 100

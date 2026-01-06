@@ -1,3 +1,20 @@
+# ============================================================
+# WARNING: This Docker setup is NOT used on production server
+# ============================================================
+# Production deployment uses NATIVE systemd services on:
+#   Server: mg@5.129.249.206
+#   Nginx: /etc/nginx/sites-available/the-bot
+#   Backend: Daphne ASGI + Celery
+#   Database: PostgreSQL native
+#
+# This file is ONLY for:
+#   - Local testing of production configuration
+#   - Development environments
+#   - CI/CD pipeline testing
+#
+# For actual deployment: ./scripts/deploy/universal-deploy.sh
+# ============================================================
+
 version: '3.9'
 
 # THE_BOT Platform - Production Docker Compose Configuration

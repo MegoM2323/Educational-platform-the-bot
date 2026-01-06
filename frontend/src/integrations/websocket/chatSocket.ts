@@ -39,7 +39,7 @@ class ChatSocketService extends WebSocketService {
   constructor(url: string) {
     super({
       url,
-      reconnectInterval: 5000,
+      reconnectInterval: 1000,
       maxReconnectAttempts: 10,
       heartbeatInterval: 30000,
       messageQueueSize: 100,
@@ -211,7 +211,9 @@ class ChatSocketService extends WebSocketService {
   onConnectionChange(callback: (connected: boolean) => void): () => void {
     this.connectionCallbacks.push(callback);
     return () => {
-      this.connectionCallbacks = this.connectionCallbacks.filter((cb: (arg0: boolean) => void) => cb !== callback);
+      this.connectionCallbacks = this.connectionCallbacks.filter(
+        (cb: (arg0: boolean) => void) => cb !== callback
+      );
     };
   }
 
@@ -242,6 +244,10 @@ class ChatSocketService extends WebSocketService {
     this.sendMessage(JSON.stringify(payload));
   }
 
+  isConnected(): boolean {
+    return super.isConnected();
+  }
+
   getConnectionStatus(): 'connected' | 'connecting' | 'disconnected' {
     return this.isConnected() ? 'connected' : 'disconnected';
   }
@@ -252,10 +258,6 @@ class ChatSocketService extends WebSocketService {
       return `${protocol}//${window.location.host}/ws/chat`;
     }
     return 'ws://localhost:8003/ws/chat';
-  }
-
-  isConnected(): boolean {
-    return this.getConnectionStatus() === 'connected';
   }
 
   override disconnect(): void {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User } from '@/integrations/api/unifiedClient';
 import { adminAPI } from '@/integrations/api/adminAPI';
+import { logger } from '@/utils/logger';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { SubjectMultiSelect } from './SubjectMultiSelect';
+import { StudentMultiSelect } from './StudentMultiSelect';
 import { StaffListItem } from '@/services/staffService';
 
 interface EditTeacherDialogProps {
@@ -33,6 +35,7 @@ export const EditTeacherDialog = ({ teacher, open, onOpenChange, onSuccess }: Ed
     bio: teacher.bio || '',
   });
   const [selectedSubjects, setSelectedSubjects] = useState<number[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
 
   useEffect(() => {
     if (open && teacher) {
@@ -46,6 +49,7 @@ export const EditTeacherDialog = ({ teacher, open, onOpenChange, onSuccess }: Ed
         bio: teacher.bio || '',
       });
       setSelectedSubjects(teacher.subjects?.map(s => s.id) || []);
+      setSelectedStudents([]);
       setError(null);
     }
   }, [open, teacher]);
@@ -104,14 +108,30 @@ export const EditTeacherDialog = ({ teacher, open, onOpenChange, onSuccess }: Ed
       const response = await adminAPI.editTeacher(teacher.id, dataToSend);
 
       if (response.success) {
-        toast.success('Преподаватель успешно обновлен');
+        if (selectedStudents.length > 0 && selectedSubjects.length > 0) {
+          try {
+            for (const subjectId of selectedSubjects) {
+              await adminAPI.assignStudentsToTeacher(teacher.id, {
+                student_ids: selectedStudents,
+                subject_id: subjectId,
+              });
+            }
+            toast.success('Преподаватель обновлен и студенты успешно назначены');
+          } catch (assignError) {
+            logger.error('Error assigning students to teacher:', assignError);
+            toast.warning('Преподаватель обновлен, но произошла ошибка при назначении студентов');
+          }
+        } else {
+          toast.success('Преподаватель успешно обновлен');
+        }
+        setSelectedStudents([]);
         onSuccess();
         onOpenChange(false);
       } else {
         setError(response.error || 'Ошибка обновления преподавателя');
       }
-    } catch (err: any) {
-      setError(err?.message || 'Произошла ошибка при обновлении преподавателя');
+    } catch (err) {
+      setError((err as Error)?.message || 'Произошла ошибка при обновлении преподавателя');
     } finally {
       setLoading(false);
     }
@@ -226,6 +246,20 @@ export const EditTeacherDialog = ({ teacher, open, onOpenChange, onSuccess }: Ed
                     onChange={setSelectedSubjects}
                     disabled={loading}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="assigned_students">Назначенные студенты</Label>
+                  <StudentMultiSelect
+                    value={selectedStudents}
+                    onChange={setSelectedStudents}
+                    placeholder="Выберите студентов для назначения..."
+                    maxHeight={300}
+                    disabled={loading}
+                  />
+                  <p className="text-sm text-gray-500">
+                    Выбранные студенты будут назначены на выбранные предметы учителя
+                  </p>
                 </div>
               </div>
             </div>

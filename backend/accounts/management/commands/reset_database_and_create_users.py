@@ -1,3 +1,5 @@
+from collections import Counter
+
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -202,7 +204,9 @@ class Command(BaseCommand):
             is_staff=True,
             is_superuser=True,
         )
-        self.stdout.write(self.style.SUCCESS(f"✓ Админ 1 создан: admin1@example.com / Admin12345!"))
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Админ 1 создан: admin1@example.com / Admin12345!")
+        )
 
         admin2 = UserModel.objects.create_superuser(
             username="admin2",
@@ -214,7 +218,9 @@ class Command(BaseCommand):
             is_staff=True,
             is_superuser=True,
         )
-        self.stdout.write(self.style.SUCCESS(f"✓ Админ 2 создан: admin2@example.com / Admin12345!"))
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Админ 2 создан: admin2@example.com / Admin12345!")
+        )
 
         # Создаем тестовых пользователей
         test_users = [
@@ -314,6 +320,121 @@ class Command(BaseCommand):
         student.save(update_fields=["created_by_tutor"])
         self.stdout.write(self.style.SUCCESS("✓ Профиль студента создан"))
 
+        # Создание предметов и связей
+        self.stdout.write("\nСоздание предметов и связей...")
+
+        # 1. Создание предметов
+        math, _ = Subject.objects.get_or_create(
+            name="Математика",
+            defaults={
+                "description": "Алгебра, геометрия, математический анализ",
+                "grade_level": "9-11",
+            },
+        )
+        physics, _ = Subject.objects.get_or_create(
+            name="Физика",
+            defaults={
+                "description": "Механика, термодинамика, электричество",
+                "grade_level": "9-11",
+            },
+        )
+        chemistry, _ = Subject.objects.get_or_create(
+            name="Химия",
+            defaults={
+                "description": "Органическая и неорганическая химия",
+                "grade_level": "9-11",
+            },
+        )
+        self.stdout.write(
+            self.style.SUCCESS("✓ Создано 3 предмета: Математика, Физика, Химия")
+        )
+
+        # 2. TeacherSubject связи
+        ts1, created1 = TeacherSubject.objects.get_or_create(
+            teacher=teacher, subject=math
+        )
+        ts2, created2 = TeacherSubject.objects.get_or_create(
+            teacher=teacher, subject=physics
+        )
+        count_ts = sum([created1, created2])
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Создано {count_ts} связей Teacher → Subject")
+        )
+
+        # 3. SubjectEnrollment (КРИТИЧНО - автоматически создаст чаты через сигналы)
+        enrollment1, created_e1 = SubjectEnrollment.objects.get_or_create(
+            student=student,
+            teacher=teacher,
+            subject=math,
+            defaults={"assigned_by": teacher},
+        )
+        enrollment2, created_e2 = SubjectEnrollment.objects.get_or_create(
+            student=student,
+            teacher=teacher,
+            subject=physics,
+            defaults={"assigned_by": teacher},
+        )
+        count_enrollments = sum([created_e1, created_e2])
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"✓ Создано {count_enrollments} SubjectEnrollment (Student → Teacher → Subject)"
+            )
+        )
+
+        # 4. Явное создание DIRECT чата (если сигналы не сработали)
+        direct_chat, created_direct = ChatRoom.objects.get_or_create(
+            type="DIRECT",
+            defaults={
+                "name": f"Chat: {student.first_name} ↔ {teacher.first_name}",
+                "description": "Direct message between student and teacher",
+            },
+        )
+        if created_direct:
+            ChatParticipant.objects.get_or_create(chat_room=direct_chat, user=student)
+            ChatParticipant.objects.get_or_create(chat_room=direct_chat, user=teacher)
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"✓ Создан DIRECT чат: {direct_chat.name} (2 участника)"
+                )
+            )
+        else:
+            self.stdout.write(self.style.WARNING("⚠ DIRECT чат уже существовал"))
+
+        # 5. Явное создание GENERAL чата
+        general_chat, created_general = ChatRoom.objects.get_or_create(
+            type="GENERAL",
+            defaults={
+                "name": "Общий чат",
+                "description": "Общий чат для всех пользователей платформы",
+            },
+        )
+        if created_general:
+            all_users = [admin1, admin2, student, parent, teacher, tutor]
+            for u in all_users:
+                ChatParticipant.objects.get_or_create(chat_room=general_chat, user=u)
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"✓ Создан GENERAL чат: {general_chat.name} ({len(all_users)} участников)"
+                )
+            )
+        else:
+            self.stdout.write(self.style.WARNING("⚠ GENERAL чат уже существовал"))
+
+        # Подсчет всех чатов
+        total_chats = ChatRoom.objects.count()
+        total_participants = ChatParticipant.objects.count()
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\n✓ ИТОГО чатов: {total_chats} (участников: {total_participants})"
+            )
+        )
+
+        # Вывод типов созданных чатов
+        chat_types = ChatRoom.objects.values_list("type", flat=True)
+        chat_type_counts = Counter(chat_types)
+        for chat_type, count in chat_type_counts.items():
+            self.stdout.write(f"  - {chat_type}: {count}")
+
         # Итоговый вывод
         self.stdout.write(self.style.SUCCESS("\n" + "=" * 60))
         self.stdout.write(self.style.SUCCESS("ГОТОВО! Созданные учетные записи:"))
@@ -327,4 +448,3 @@ class Command(BaseCommand):
         self.stdout.write("  - test_teacher@example.com / Test12345! (teacher)")
         self.stdout.write("  - test_tutor@example.com / Test12345! (tutor)")
         self.stdout.write(self.style.SUCCESS("\n" + "=" * 60))
-

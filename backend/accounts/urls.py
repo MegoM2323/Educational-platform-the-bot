@@ -19,6 +19,7 @@ from .staff_views import (
     create_student,
     create_parent,
     assign_parent_to_students,
+    assign_students_to_teacher,
     list_parents,
     reactivate_user,
 )
@@ -98,6 +99,11 @@ urlpatterns = [
     path(
         "assign-parent/", assign_parent_to_students, name="admin_assign_parent"
     ),  # POST - назначение родителя
+    path(
+        "teachers/<int:teacher_id>/assign-students/",
+        assign_students_to_teacher,
+        name="admin_assign_students_to_teacher",
+    ),  # POST - назначение студентов учителю
     # Router URLs (ViewSet endpoints) - ПОСЛЕ admin endpoints
     path("", include(router.urls)),
     # Admin-only user management (CRUD)

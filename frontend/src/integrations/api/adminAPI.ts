@@ -123,7 +123,10 @@ export const adminAPI = {
   /**
    * Update Student Profile
    */
-  async updateStudentProfile(studentId: number, data: StudentProfileData): Promise<ApiResponse<User>> {
+  async updateStudentProfile(
+    studentId: number,
+    data: StudentProfileData
+  ): Promise<ApiResponse<User>> {
     return apiClient.request<User>(`/auth/students/${studentId}/profile/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -133,7 +136,10 @@ export const adminAPI = {
   /**
    * Update Teacher Profile
    */
-  async updateTeacherProfile(teacherId: number, data: TeacherProfileData): Promise<ApiResponse<User>> {
+  async updateTeacherProfile(
+    teacherId: number,
+    data: TeacherProfileData
+  ): Promise<ApiResponse<User>> {
     return apiClient.request<User>(`/auth/teachers/${teacherId}/profile/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -211,7 +217,9 @@ export const adminAPI = {
    * Get list of parents for selection
    */
   async getParents(): Promise<ApiResponse<Parent[]>> {
-    const response = await apiClient.request<PaginatedResponse<Parent> | Parent[]>('/auth/parents/');
+    const response = await apiClient.request<PaginatedResponse<Parent> | Parent[]>(
+      '/auth/parents/'
+    );
     // Extract results array from paginated response
     if (response.data && !Array.isArray(response.data) && 'results' in response.data) {
       return { ...response, data: response.data.results };
@@ -234,18 +242,20 @@ export const adminAPI = {
     ordering?: string;
     page?: number;
     page_size?: number;
-  }): Promise<ApiResponse<{
-    count: number;
-    next: string | null;
-    previous: string | null;
-    results: Array<{
-      id: number;
-      user: User;
-      grade?: string;
-      tutor_id?: number | null;
-      parent_id?: number | null;
-    }>;
-  }>> {
+  }): Promise<
+    ApiResponse<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: Array<{
+        id: number;
+        user: User;
+        grade?: string;
+        tutor_id?: number | null;
+        parent_id?: number | null;
+      }>;
+    }>
+  > {
     const params = new URLSearchParams();
     if (filters) {
       if (filters.grade) params.append('grade', filters.grade);
@@ -319,6 +329,25 @@ export const adminAPI = {
   },
 
   /**
+   * Assign students to teacher for a specific subject
+   */
+  async assignStudentsToTeacher(
+    teacherId: number,
+    data: {
+      student_ids: number[];
+      subject_id: number;
+    }
+  ): Promise<ApiResponse<{ success: boolean; assigned_students: number[] }>> {
+    return apiClient.request<{ success: boolean; assigned_students: number[] }>(
+      `/auth/teachers/${teacherId}/assign-students/`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  /**
    * Edit tutor via admin endpoint
    * Updates both user and profile data
    */
@@ -371,13 +400,15 @@ export const adminAPI = {
   /**
    * Get list of parents for selection
    */
-  async listParents(): Promise<ApiResponse<{
-    results: Array<{
-      id: number;
-      user: User;
-      children_count?: number;
-    }>;
-  }>> {
+  async listParents(): Promise<
+    ApiResponse<{
+      results: Array<{
+        id: number;
+        user: User;
+        children_count?: number;
+      }>;
+    }>
+  > {
     return apiClient.request<{
       results: Array<{
         id: number;
@@ -390,12 +421,17 @@ export const adminAPI = {
   /**
    * Assign parent to multiple students
    */
-  async assignParentToStudents(parentId: number, studentIds: number[]): Promise<ApiResponse<{
-    success: boolean;
-    parent_id: number;
-    assigned_students: number[];
-    message: string;
-  }>> {
+  async assignParentToStudents(
+    parentId: number,
+    studentIds: number[]
+  ): Promise<
+    ApiResponse<{
+      success: boolean;
+      parent_id: number;
+      assigned_students: number[];
+      message: string;
+    }>
+  > {
     return apiClient.request<{
       success: boolean;
       parent_id: number;
@@ -420,27 +456,29 @@ export const adminAPI = {
     date_from?: string;
     date_to?: string;
     status?: string;
-  }): Promise<ApiResponse<{
-    success: boolean;
-    count: number;
-    lessons: Array<{
-      id: string;
-      date: string;
-      start_time: string;
-      end_time: string;
-      teacher: number;
-      teacher_name: string;
-      student: number;
-      student_name: string;
-      subject: number;
-      subject_name: string;
-      status: string;
-      description?: string;
-      telemost_link?: string;
-      created_at: string;
-      updated_at: string;
-    }>;
-  }>> {
+  }): Promise<
+    ApiResponse<{
+      success: boolean;
+      count: number;
+      lessons: Array<{
+        id: string;
+        date: string;
+        start_time: string;
+        end_time: string;
+        teacher: number;
+        teacher_name: string;
+        student: number;
+        student_name: string;
+        subject: number;
+        subject_name: string;
+        status: string;
+        description?: string;
+        telemost_link?: string;
+        created_at: string;
+        updated_at: string;
+      }>;
+    }>
+  > {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -482,8 +520,8 @@ export const adminAPI = {
         data: {
           success: false,
           count: 0,
-          lessons: []
-        }
+          lessons: [],
+        },
       };
     }
 
@@ -492,37 +530,41 @@ export const adminAPI = {
       data: {
         success: response.data.success ?? false,
         count: response.data.count ?? 0,
-        lessons: response.data.results ?? []
-      }
+        lessons: response.data.results ?? [],
+      },
     };
   },
 
   /**
    * Get schedule statistics
    */
-  async getScheduleStats(): Promise<ApiResponse<{
-    success: boolean;
-    stats: {
-      total_lessons: number;
-      today_lessons: number;
-      week_ahead_lessons: number;
-      pending_lessons: number;
-      completed_lessons: number;
-      cancelled_lessons: number;
-    };
-  }>> {
+  async getScheduleStats(): Promise<
+    ApiResponse<{
+      success: boolean;
+      stats: {
+        total_lessons: number;
+        today_lessons: number;
+        week_ahead_lessons: number;
+        pending_lessons: number;
+        completed_lessons: number;
+        cancelled_lessons: number;
+      };
+    }>
+  > {
     return apiClient.request('/admin/schedule/stats/');
   },
 
   /**
    * Get schedule filter options
    */
-  async getScheduleFilters(): Promise<ApiResponse<{
-    success: boolean;
-    teachers: Array<{ id: number; name: string }>;
-    subjects: Array<{ id: number; name: string }>;
-    students: Array<{ id: number; name: string }>;
-  }>> {
+  async getScheduleFilters(): Promise<
+    ApiResponse<{
+      success: boolean;
+      teachers: Array<{ id: number; name: string }>;
+      subjects: Array<{ id: number; name: string }>;
+      students: Array<{ id: number; name: string }>;
+    }>
+  > {
     return apiClient.request('/admin/schedule/filters/');
   },
 
@@ -534,74 +576,78 @@ export const adminAPI = {
   /**
    * Get all chat rooms with participants and last message
    */
-  async getChatRooms(): Promise<ApiResponse<{
-    success: boolean;
-    data: {
-      rooms: Array<{
-        id: number;
-        name: string;
-        description?: string;
-        type: 'forum_subject' | 'forum_tutor' | 'direct' | 'group' | 'general';
-        participants_count: number;
-        participants: Array<{
-          id: number;
-          full_name: string;
-          role: string;
-        }>;
-        subject?: {
+  async getChatRooms(): Promise<
+    ApiResponse<{
+      success: boolean;
+      data: {
+        rooms: Array<{
           id: number;
           name: string;
-        };
-        last_message?: {
-          id: number;
-          content: string;
-          sender: {
+          description?: string;
+          type: 'forum_subject' | 'forum_tutor' | 'direct' | 'group' | 'general';
+          participants_count: number;
+          participants: Array<{
             id: number;
             full_name: string;
             role: string;
+          }>;
+          subject?: {
+            id: number;
+            name: string;
           };
+          last_message?: {
+            id: number;
+            content: string;
+            sender: {
+              id: number;
+              full_name: string;
+              role: string;
+            };
+            created_at: string;
+          };
+          unread_count: number;
+          is_active: boolean;
           created_at: string;
-        };
-        unread_count: number;
-        is_active: boolean;
-        created_at: string;
-        updated_at: string;
-      }>;
-      count: number;
-    };
-  }>> {
+          updated_at: string;
+        }>;
+        count: number;
+      };
+    }>
+  > {
     return apiClient.request('/chat/admin/rooms/');
   },
 
   /**
    * Get detailed information about a specific chat room
    */
-  async getChatRoomDetail(roomId: number): Promise<ApiResponse<{
-    success: boolean;
-    data: {
-      room: {
-        id: number;
-        name: string;
-        description?: string;
-        type: string;
-        participants_count: number;
-        participants: Array<{
-          id: number;
-          full_name: string;
-          role: string;
-        }>;
-        subject?: {
+  async getChatRoomDetail(roomId: number): Promise<
+    ApiResponse<{
+      success: boolean;
+      data: {
+        room: {
           id: number;
           name: string;
+          description?: string;
+          type: string;
+          participants_count: number;
+          participants: Array<{
+            id: number;
+            full_name: string;
+            role: string;
+          }>;
+          subject?: {
+            id: number;
+            name: string;
+          };
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
         };
-        is_active: boolean;
-        created_at: string;
-        updated_at: string;
+        participants_count: number;
+        messages_count: number;
       };
-      participants_count: number;
-      messages_count: number;
-    };
-  }>> {
+    }>
+  > {
     return apiClient.request(`/chat/admin/rooms/${roomId}/`);
   },
 
@@ -614,36 +660,38 @@ export const adminAPI = {
       limit?: number;
       offset?: number;
     }
-  ): Promise<ApiResponse<{
-    success: boolean;
-    data: {
-      room_id: number;
-      messages: Array<{
-        id: number;
-        content: string;
-        sender: {
+  ): Promise<
+    ApiResponse<{
+      success: boolean;
+      data: {
+        room_id: number;
+        messages: Array<{
           id: number;
-          full_name: string;
-          role: string;
-        };
-        sender_name: string;
-        sender_role: string;
-        sender_avatar?: string;
-        message_type?: string;
-        file_url?: string;
-        image_url?: string;
-        is_edited: boolean;
-        is_read: boolean;
-        created_at: string;
-        updated_at: string;
-        reply_to?: number;
-        replies_count: number;
-      }>;
-      count: number;
-      limit: number;
-      offset: number;
-    };
-  }>> {
+          content: string;
+          sender: {
+            id: number;
+            full_name: string;
+            role: string;
+          };
+          sender_name: string;
+          sender_role: string;
+          sender_avatar?: string;
+          message_type?: string;
+          file_url?: string;
+          image_url?: string;
+          is_edited: boolean;
+          is_read: boolean;
+          created_at: string;
+          updated_at: string;
+          reply_to?: number;
+          replies_count: number;
+        }>;
+        count: number;
+        limit: number;
+        offset: number;
+      };
+    }>
+  > {
     const queryParams = new URLSearchParams();
     if (params?.limit !== undefined) {
       queryParams.append('limit', params.limit.toString());
@@ -659,32 +707,36 @@ export const adminAPI = {
   /**
    * Get chat statistics
    */
-  async getChatStats(): Promise<ApiResponse<{
-    success: boolean;
-    data: {
-      total_rooms: number;
-      active_rooms: number;
-      total_messages: number;
-      forum_subject_rooms: number;
-      direct_rooms: number;
-      group_rooms: number;
-    };
-  }>> {
+  async getChatStats(): Promise<
+    ApiResponse<{
+      success: boolean;
+      data: {
+        total_rooms: number;
+        active_rooms: number;
+        total_messages: number;
+        forum_subject_rooms: number;
+        direct_rooms: number;
+        group_rooms: number;
+      };
+    }>
+  > {
     return apiClient.request('/chat/admin/stats/');
   },
 
   /**
    * Get user statistics for admin dashboard
    */
-  async getUserStats(): Promise<ApiResponse<{
-    total_users: number;
-    total_students: number;
-    total_teachers: number;
-    total_tutors: number;
-    total_parents: number;
-    active_users?: number;
-    active_today: number;
-  }>> {
+  async getUserStats(): Promise<
+    ApiResponse<{
+      total_users: number;
+      total_students: number;
+      total_teachers: number;
+      total_tutors: number;
+      total_parents: number;
+      active_users?: number;
+      active_today: number;
+    }>
+  > {
     return apiClient.request('/admin/stats/users/');
   },
 
@@ -701,33 +753,35 @@ export const adminAPI = {
     date_to?: string;
     page?: number;
     page_size?: number;
-  }): Promise<ApiResponse<{
-    success: boolean;
-    count: number;
-    next: string | null;
-    previous: string | null;
-    results: Array<{
-      id: number;
-      target_group: string;
-      message: string;
-      status: 'draft' | 'sent' | 'failed';
-      created_by: {
+  }): Promise<
+    ApiResponse<{
+      success: boolean;
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: Array<{
         id: number;
-        full_name: string;
-      };
-      created_at: string;
-      sent_at?: string;
-      total_recipients: number;
-      successful_sends: number;
-      failed_sends: number;
-      metadata?: {
-        subject_id?: number;
-        subject_name?: string;
-        tutor_id?: number;
-        tutor_name?: string;
-      };
-    }>;
-  }>> {
+        target_group: string;
+        message: string;
+        status: 'draft' | 'sent' | 'failed';
+        created_by: {
+          id: number;
+          full_name: string;
+        };
+        created_at: string;
+        sent_at?: string;
+        total_recipients: number;
+        successful_sends: number;
+        failed_sends: number;
+        metadata?: {
+          subject_id?: number;
+          subject_name?: string;
+          tutor_id?: number;
+          tutor_name?: string;
+        };
+      }>;
+    }>
+  > {
     const queryParams = new URLSearchParams();
     if (params) {
       if (params.status) queryParams.append('status', params.status);
@@ -744,47 +798,51 @@ export const adminAPI = {
   /**
    * Get broadcast details
    */
-  async getBroadcast(broadcastId: number): Promise<ApiResponse<{
-    success: boolean;
-    data: {
-      id: number;
-      target_group: string;
-      message: string;
-      status: 'draft' | 'sent' | 'failed';
-      created_by: {
+  async getBroadcast(broadcastId: number): Promise<
+    ApiResponse<{
+      success: boolean;
+      data: {
         id: number;
-        full_name: string;
+        target_group: string;
+        message: string;
+        status: 'draft' | 'sent' | 'failed';
+        created_by: {
+          id: number;
+          full_name: string;
+        };
+        created_at: string;
+        sent_at?: string;
+        total_recipients: number;
+        successful_sends: number;
+        failed_sends: number;
+        metadata?: {
+          subject_id?: number;
+          subject_name?: string;
+          tutor_id?: number;
+          tutor_name?: string;
+        };
       };
-      created_at: string;
-      sent_at?: string;
-      total_recipients: number;
-      successful_sends: number;
-      failed_sends: number;
-      metadata?: {
-        subject_id?: number;
-        subject_name?: string;
-        tutor_id?: number;
-        tutor_name?: string;
-      };
-    };
-  }>> {
+    }>
+  > {
     return apiClient.request(`/admin/broadcasts/${broadcastId}/`);
   },
 
   /**
    * Get broadcast recipients with delivery status
    */
-  async getBroadcastRecipients(broadcastId: number): Promise<ApiResponse<{
-    success: boolean;
-    recipients: Array<{
-      user_id: number;
-      user_email: string;
-      user_name: string;
-      status: 'pending' | 'sent' | 'failed';
-      error_message?: string;
-      sent_at?: string;
-    }>;
-  }>> {
+  async getBroadcastRecipients(broadcastId: number): Promise<
+    ApiResponse<{
+      success: boolean;
+      recipients: Array<{
+        user_id: number;
+        user_email: string;
+        user_name: string;
+        status: 'pending' | 'sent' | 'failed';
+        error_message?: string;
+        sent_at?: string;
+      }>;
+    }>
+  > {
     return apiClient.request(`/admin/broadcasts/${broadcastId}/recipients/`);
   },
 
@@ -797,12 +855,14 @@ export const adminAPI = {
     subject_id?: number;
     tutor_id?: number;
     user_ids?: number[];
-  }): Promise<ApiResponse<{
-    success: boolean;
-    broadcast_id: number;
-    message: string;
-    recipients_count: number;
-  }>> {
+  }): Promise<
+    ApiResponse<{
+      success: boolean;
+      broadcast_id: number;
+      message: string;
+      recipients_count: number;
+    }>
+  > {
     return apiClient.request('/admin/broadcasts/create/', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -817,16 +877,18 @@ export const adminAPI = {
     subject_id?: number;
     tutor_id?: number;
     user_ids?: number[];
-  }): Promise<ApiResponse<{
-    success: boolean;
-    recipients_count: number;
-    recipients_preview: Array<{
-      id: number;
-      full_name: string;
-      email: string;
-      role: string;
-    }>;
-  }>> {
+  }): Promise<
+    ApiResponse<{
+      success: boolean;
+      recipients_count: number;
+      recipients_preview: Array<{
+        id: number;
+        full_name: string;
+        email: string;
+        role: string;
+      }>;
+    }>
+  > {
     return apiClient.request('/admin/broadcasts/preview/', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -857,29 +919,31 @@ export const adminAPI = {
     page?: number;
     page_size?: number;
     format?: string; // 'csv' for CSV export
-  }): Promise<ApiResponse<{
-    count: number;
-    next: string | null;
-    previous: string | null;
-    results: Array<{
-      id: number;
-      timestamp: string;
-      user: {
+  }): Promise<
+    ApiResponse<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: Array<{
         id: number;
-        email: string;
-        full_name: string;
-      };
-      action: 'create' | 'read' | 'update' | 'delete' | 'export' | 'login' | 'logout';
-      resource: string;
-      status: 'success' | 'failed';
-      ip_address: string;
-      user_agent?: string;
-      duration_ms?: number;
-      old_values?: Record<string, any>;
-      new_values?: Record<string, any>;
-      details?: string;
-    }>;
-  }>> {
+        timestamp: string;
+        user: {
+          id: number;
+          email: string;
+          full_name: string;
+        };
+        action: 'create' | 'read' | 'update' | 'delete' | 'export' | 'login' | 'logout';
+        resource: string;
+        status: 'success' | 'failed';
+        ip_address: string;
+        user_agent?: string;
+        duration_ms?: number;
+        old_values?: Record<string, any>;
+        new_values?: Record<string, any>;
+        details?: string;
+      }>;
+    }>
+  > {
     return Promise.reject(new Error('Audit logs endpoint not implemented in backend'));
   },
 
@@ -887,42 +951,48 @@ export const adminAPI = {
    * Get single audit log entry with full details
    * NOT IMPLEMENTED - Backend support needed
    */
-  async getAuditLogDetail(logId: number): Promise<ApiResponse<{
-    id: number;
-    timestamp: string;
-    user: {
+  async getAuditLogDetail(logId: number): Promise<
+    ApiResponse<{
       id: number;
-      email: string;
-      full_name: string;
-    };
-    action: string;
-    resource: string;
-    status: string;
-    ip_address: string;
-    user_agent?: string;
-    duration_ms?: number;
-    old_values?: Record<string, any>;
-    new_values?: Record<string, any>;
-    details?: string;
-  }>> {
-    return Promise.reject(new Error(`Audit logs endpoint not implemented in backend (logId: ${logId})`));
+      timestamp: string;
+      user: {
+        id: number;
+        email: string;
+        full_name: string;
+      };
+      action: string;
+      resource: string;
+      status: string;
+      ip_address: string;
+      user_agent?: string;
+      duration_ms?: number;
+      old_values?: Record<string, any>;
+      new_values?: Record<string, any>;
+      details?: string;
+    }>
+  > {
+    return Promise.reject(
+      new Error(`Audit logs endpoint not implemented in backend (logId: ${logId})`)
+    );
   },
 
   /**
    * Get audit log statistics
    * NOT IMPLEMENTED - Backend support needed
    */
-  async getAuditLogStats(): Promise<ApiResponse<{
-    success: boolean;
-    data: {
-      total_logs: number;
-      today_logs: number;
-      failed_actions: number;
-      unique_users: number;
-      most_active_action: string;
-      most_active_resource: string;
-    };
-  }>> {
+  async getAuditLogStats(): Promise<
+    ApiResponse<{
+      success: boolean;
+      data: {
+        total_logs: number;
+        today_logs: number;
+        failed_actions: number;
+        unique_users: number;
+        most_active_action: string;
+        most_active_resource: string;
+      };
+    }>
+  > {
     return Promise.reject(new Error('Audit logs endpoint not implemented in backend'));
   },
 
@@ -939,12 +1009,14 @@ export const adminAPI = {
     ordering?: string;
     page?: number;
     page_size?: number;
-  }): Promise<ApiResponse<{
-    count: number;
-    next: string | null;
-    previous: string | null;
-    results: User[];
-  }>> {
+  }): Promise<
+    ApiResponse<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: User[];
+    }>
+  > {
     const params = new URLSearchParams();
     if (filters) {
       if (filters.search) params.append('search', filters.search);
@@ -978,12 +1050,14 @@ export const adminAPI = {
   /**
    * Bulk activate users
    */
-  async bulkActivateUsers(userIds: number[]): Promise<ApiResponse<{
-    success_count: number;
-    failed_count: number;
-    failed_ids: number[];
-    details: string;
-  }>> {
+  async bulkActivateUsers(userIds: number[]): Promise<
+    ApiResponse<{
+      success_count: number;
+      failed_count: number;
+      failed_ids: number[];
+      details: string;
+    }>
+  > {
     return apiClient.request(`/admin/bulk-operations/bulk_activate/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
@@ -993,12 +1067,14 @@ export const adminAPI = {
   /**
    * Bulk deactivate users
    */
-  async bulkDeactivateUsers(userIds: number[]): Promise<ApiResponse<{
-    success_count: number;
-    failed_count: number;
-    failed_ids: number[];
-    details: string;
-  }>> {
+  async bulkDeactivateUsers(userIds: number[]): Promise<
+    ApiResponse<{
+      success_count: number;
+      failed_count: number;
+      failed_ids: number[];
+      details: string;
+    }>
+  > {
     return apiClient.request(`/admin/bulk-operations/bulk_deactivate/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
@@ -1008,12 +1084,14 @@ export const adminAPI = {
   /**
    * Bulk suspend users
    */
-  async bulkSuspendUsers(userIds: number[]): Promise<ApiResponse<{
-    success_count: number;
-    failed_count: number;
-    failed_ids: number[];
-    details: string;
-  }>> {
+  async bulkSuspendUsers(userIds: number[]): Promise<
+    ApiResponse<{
+      success_count: number;
+      failed_count: number;
+      failed_ids: number[];
+      details: string;
+    }>
+  > {
     return apiClient.request(`/admin/bulk-operations/bulk_suspend/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
@@ -1023,12 +1101,14 @@ export const adminAPI = {
   /**
    * Bulk reset password for users
    */
-  async bulkResetPasswordUsers(userIds: number[]): Promise<ApiResponse<{
-    success_count: number;
-    failed_count: number;
-    failed_ids: number[];
-    details: string;
-  }>> {
+  async bulkResetPasswordUsers(userIds: number[]): Promise<
+    ApiResponse<{
+      success_count: number;
+      failed_count: number;
+      failed_ids: number[];
+      details: string;
+    }>
+  > {
     return apiClient.request(`/admin/bulk-operations/bulk_reset_password/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
@@ -1038,12 +1118,14 @@ export const adminAPI = {
   /**
    * Bulk delete users
    */
-  async bulkDeleteUsers(userIds: number[]): Promise<ApiResponse<{
-    success_count: number;
-    failed_count: number;
-    failed_ids: number[];
-    details: string;
-  }>> {
+  async bulkDeleteUsers(userIds: number[]): Promise<
+    ApiResponse<{
+      success_count: number;
+      failed_count: number;
+      failed_ids: number[];
+      details: string;
+    }>
+  > {
     return apiClient.request(`/admin/bulk-operations/bulk_delete/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds }),
@@ -1053,12 +1135,17 @@ export const adminAPI = {
   /**
    * Bulk assign role to users
    */
-  async bulkAssignRoleUsers(userIds: number[], role: string): Promise<ApiResponse<{
-    success_count: number;
-    failed_count: number;
-    failed_ids: number[];
-    details: string;
-  }>> {
+  async bulkAssignRoleUsers(
+    userIds: number[],
+    role: string
+  ): Promise<
+    ApiResponse<{
+      success_count: number;
+      failed_count: number;
+      failed_ids: number[];
+      details: string;
+    }>
+  > {
     return apiClient.request(`/admin/bulk-operations/bulk_assign_role/`, {
       method: 'POST',
       body: JSON.stringify({ user_ids: userIds, new_role: role }),
@@ -1077,23 +1164,25 @@ export const adminAPI = {
     end_time: string;
     description?: string;
     telemost_link?: string;
-  }): Promise<ApiResponse<{
-    id: string;
-    date: string;
-    start_time: string;
-    end_time: string;
-    teacher: number;
-    teacher_name: string;
-    student: number;
-    student_name: string;
-    subject: number;
-    subject_name: string;
-    status: string;
-    description?: string;
-    telemost_link?: string;
-    created_at: string;
-    updated_at: string;
-  }>> {
+  }): Promise<
+    ApiResponse<{
+      id: string;
+      date: string;
+      start_time: string;
+      end_time: string;
+      teacher: number;
+      teacher_name: string;
+      student: number;
+      student_name: string;
+      subject: number;
+      subject_name: string;
+      status: string;
+      description?: string;
+      telemost_link?: string;
+      created_at: string;
+      updated_at: string;
+    }>
+  > {
     return apiClient.request('/admin/schedule/lessons/create/', {
       method: 'POST',
       body: JSON.stringify({

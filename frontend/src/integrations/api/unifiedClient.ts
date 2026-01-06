@@ -594,10 +594,10 @@ class UnifiedAPIClient {
     retryCount: number = 0
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
-    
+
     // Load tokens from storage before each request
     this.loadTokensFromStorage();
-    
+
     // Check cache for GET requests (но не для списка пользователей, staff и студентов тьютора, чтобы всегда получать актуальные данные)
     const isGET = !options.method || options.method === 'GET';
     const shouldUseCache = isGET && !retryCount &&
@@ -641,6 +641,13 @@ class UnifiedAPIClient {
     // Start performance timer
     const timerId = performanceMonitoringService.startTimer(endpoint);
 
+    // Setup AbortController with 30 second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      logger.warn('[API Request] Request timeout, aborting:', { endpoint, url });
+      controller.abort();
+    }, 30000);
+
     try {
       logger.debug('[API Request] Sending request:', {
         url,
@@ -654,7 +661,10 @@ class UnifiedAPIClient {
         ...options,
         headers,
         credentials: 'include',
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const duration = performanceMonitoringService.endTimer(timerId);
       logger.debug('[API Request] Response received:', {
@@ -850,12 +860,14 @@ class UnifiedAPIClient {
 
       return apiResponse;
     } catch (error) {
+      clearTimeout(timeoutId);
+
       const duration = performanceMonitoringService.endTimer(timerId);
       const apiError = this.classifyError(error);
 
       // Улучшенная обработка ошибок сети и timeout
       const isAbortError = (error as any)?.name === 'AbortError';
-      const isNetworkError = apiError.type === 'network' || 
+      const isNetworkError = apiError.type === 'network' ||
                             (error as any)?.message?.includes('Failed to fetch') ||
                             (error as any)?.message?.includes('NetworkError') ||
                             (error as any)?.message?.includes('Network request failed');
@@ -876,7 +888,7 @@ class UnifiedAPIClient {
         duration,
         isAbortError ? 'timeout' : (apiError.type === 'network' ? 'error' : 'error')
       );
-      
+
       // Retry logic for network errors (но не для AbortError - это timeout)
       if (isNetworkError && !isAbortError && retryCount < this.retryConfig.maxRetries) {
         const delay = this.calculateDelay(retryCount + 1);
@@ -886,7 +898,7 @@ class UnifiedAPIClient {
       }
 
       // Для timeout или после всех попыток - возвращаем ошибку
-      const errorMessage = isAbortError 
+      const errorMessage = isAbortError
         ? 'Истекло время ожидания. Проверьте интернет-соединение'
         : isNetworkError
         ? 'Ошибка сети. Проверьте подключение к интернету'
@@ -897,6 +909,8 @@ class UnifiedAPIClient {
         error: apiError.message,
         timestamp: new Date().toISOString(),
       };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

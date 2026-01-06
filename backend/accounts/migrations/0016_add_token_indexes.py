@@ -9,11 +9,11 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            'CREATE INDEX CONCURRENTLY IF NOT EXISTS authtoken_token_user_id_idx ON authtoken_token(user_id);',
+            'CREATE INDEX IF NOT EXISTS authtoken_token_user_id_idx ON authtoken_token(user_id);',
             'DROP INDEX IF EXISTS authtoken_token_user_id_idx;',
         ),
         migrations.RunSQL(
-            'CREATE INDEX CONCURRENTLY IF NOT EXISTS authtoken_token_key_idx ON authtoken_token(key);',
+            'CREATE INDEX IF NOT EXISTS authtoken_token_key_idx ON authtoken_token(key);',
             'DROP INDEX IF EXISTS authtoken_token_key_idx;',
         ),
     ]

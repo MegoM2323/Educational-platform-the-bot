@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            'CREATE INDEX CONCURRENTLY IF NOT EXISTS submission_student_idx ON assignments_assignmentsubmission(student_id);',
+            'CREATE INDEX IF NOT EXISTS submission_student_idx ON assignments_assignmentsubmission(student_id);',
             'DROP INDEX IF EXISTS submission_student_idx;',
         ),
     ]

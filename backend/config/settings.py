@@ -25,6 +25,11 @@ from core.environment import EnvConfig
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Define logs directory early (used in logging configuration later)
+_logs_dir = "/app/logs" if os.path.exists("/app") else os.path.join(BASE_DIR, "logs")
+if not os.path.exists(_logs_dir):
+    os.makedirs(_logs_dir, exist_ok=True)
+
 # Загружаем переменные окружения из .env (без ошибок на посторонние строки)
 # .env в корне проекта; резервно — backend/.env
 # КРИТИЧНО: Не перезаписываем ENVIRONMENT если уже установлен (например, pytest-env)
@@ -272,10 +277,9 @@ def _get_database_config() -> dict:
     connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "30"))
     sslmode = os.getenv("DB_SSLMODE", "require")
 
-    # База данных опций с таймаутами и проверками здоровья
+    # База данных опций с таймаутами
     db_options = {
         "connect_timeout": str(connect_timeout),
-        "CONN_HEALTH_CHECKS": True,
     }
 
     # Добавляем SSL режим если указан
@@ -299,6 +303,7 @@ def _get_database_config() -> dict:
             "HOST": parsed.hostname,
             "PORT": str(parsed.port or "5432"),
             "CONN_MAX_AGE": 600,
+            "CONN_HEALTH_CHECKS": True,
             "OPTIONS": db_options.copy(),
         }
         return db_config
@@ -319,6 +324,7 @@ def _get_database_config() -> dict:
             "HOST": host,
             "PORT": str(port),
             "CONN_MAX_AGE": 600,
+            "CONN_HEALTH_CHECKS": True,
             "OPTIONS": db_options.copy(),
         }
 
@@ -1154,10 +1160,6 @@ LOGGING = {
 # Создаем директорию для логов если её нет
 import logging.handlers
 
-# Use /app/logs for Docker, or BASE_DIR/logs for local development
-_logs_dir = "/app/logs" if os.path.exists("/app") else os.path.join(BASE_DIR, "logs")
-if not os.path.exists(_logs_dir):
-    os.makedirs(_logs_dir, exist_ok=True)
 
 # =============================================================================
 # Pachca Forum Integration

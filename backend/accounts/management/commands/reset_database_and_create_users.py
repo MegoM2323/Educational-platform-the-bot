@@ -286,39 +286,45 @@ class Command(BaseCommand):
 
         # TeacherProfile
         teacher = created_users[User.Role.TEACHER]
-        TeacherProfile.objects.create(
+        TeacherProfile.objects.get_or_create(
             user=teacher,
-            subject="Математика",
-            experience_years=5,
-            bio="Тестовый преподаватель математики.",
+            defaults={
+                "subject": "Математика",
+                "experience_years": 5,
+                "bio": "Тестовый преподаватель математики.",
+            }
         )
         self.stdout.write(self.style.SUCCESS("✓ Профиль преподавателя создан"))
 
         # TutorProfile
         tutor = created_users[User.Role.TUTOR]
-        TutorProfile.objects.create(
+        TutorProfile.objects.get_or_create(
             user=tutor,
-            specialization="Индивидуальные образовательные траектории",
-            experience_years=3,
-            bio="Тестовый тьютор.",
+            defaults={
+                "specialization": "Индивидуальные образовательные траектории",
+                "experience_years": 3,
+                "bio": "Тестовый тьютор.",
+            }
         )
         self.stdout.write(self.style.SUCCESS("✓ Профиль тьютора создан"))
 
         # ParentProfile
         parent = created_users[User.Role.PARENT]
-        ParentProfile.objects.create(user=parent)
+        ParentProfile.objects.get_or_create(user=parent)
         self.stdout.write(self.style.SUCCESS("✓ Профиль родителя создан"))
 
         # StudentProfile
         student = created_users[User.Role.STUDENT]
-        StudentProfile.objects.create(
+        StudentProfile.objects.get_or_create(
             user=student,
-            grade="9",
-            goal="Подготовка к экзаменам",
-            tutor=tutor,
-            parent=parent,
-            generated_username=student.email,
-            generated_password="Test12345!",
+            defaults={
+                "grade": "9",
+                "goal": "Подготовка к экзаменам",
+                "tutor": tutor,
+                "parent": parent,
+                "generated_username": student.email,
+                "generated_password": "Test12345!",
+            }
         )
         student.created_by_tutor = tutor
         student.save(update_fields=["created_by_tutor"])
@@ -332,21 +338,18 @@ class Command(BaseCommand):
             name="Математика",
             defaults={
                 "description": "Алгебра, геометрия, математический анализ",
-                "grade_level": "9-11",
             },
         )
         physics, _ = Subject.objects.get_or_create(
             name="Физика",
             defaults={
                 "description": "Механика, термодинамика, электричество",
-                "grade_level": "9-11",
             },
         )
         chemistry, _ = Subject.objects.get_or_create(
             name="Химия",
             defaults={
                 "description": "Органическая и неорганическая химия",
-                "grade_level": "9-11",
             },
         )
         self.stdout.write(
@@ -391,11 +394,12 @@ class Command(BaseCommand):
             defaults={
                 "name": f"Chat: {student.first_name} ↔ {teacher.first_name}",
                 "description": "Direct message between student and teacher",
+                "created_by": teacher,
             },
         )
         if created_direct:
-            ChatParticipant.objects.get_or_create(chat_room=direct_chat, user=student)
-            ChatParticipant.objects.get_or_create(chat_room=direct_chat, user=teacher)
+            ChatParticipant.objects.get_or_create(room=direct_chat, user=student)
+            ChatParticipant.objects.get_or_create(room=direct_chat, user=teacher)
             self.stdout.write(
                 self.style.SUCCESS(
                     f"✓ Создан DIRECT чат: {direct_chat.name} (2 участника)"
@@ -410,12 +414,13 @@ class Command(BaseCommand):
             defaults={
                 "name": "Общий чат",
                 "description": "Общий чат для всех пользователей платформы",
+                "created_by": admin1,
             },
         )
         if created_general:
             all_users = [admin1, admin2, student, parent, teacher, tutor]
             for u in all_users:
-                ChatParticipant.objects.get_or_create(chat_room=general_chat, user=u)
+                ChatParticipant.objects.get_or_create(room=general_chat, user=u)
             self.stdout.write(
                 self.style.SUCCESS(
                     f"✓ Создан GENERAL чат: {general_chat.name} ({len(all_users)} участников)"
@@ -721,23 +726,9 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("✓ Создано 3 учебных материала"))
 
         # ========== РАЗДЕЛ F: SUBJECT PAYMENTS (ПЛАТЕЖИ) ==========
-        self.stdout.write("\nСоздание платежей (SubjectPayment)...")
-
-        payment1 = SubjectPayment.objects.create(
-            enrollment=enrollment1,
-            amount=Decimal("1000.00"),
-            payment_date=now - timedelta(days=30),
-            status="paid",
-        )
-
-        payment2 = SubjectPayment.objects.create(
-            enrollment=enrollment2,
-            amount=Decimal("1200.00"),
-            payment_date=None,
-            status="pending",
-        )
-
-        self.stdout.write(self.style.SUCCESS("✓ Создано 2 платежа"))
+        # Note: SubjectPayment requires FK to Payment, which requires more setup
+        # Skipping for now - can be added later when Payment setup is in place
+        self.stdout.write(self.style.WARNING("⚠ SubjectPayment creation skipped (requires Payment FK setup)"))
 
         # ========== ФИНАЛЬНАЯ СТАТИСТИКА ==========
         self.stdout.write(self.style.SUCCESS("\n" + "=" * 60))

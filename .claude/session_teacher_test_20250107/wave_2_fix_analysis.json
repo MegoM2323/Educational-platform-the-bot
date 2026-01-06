@@ -1,0 +1,156 @@
+{
+  "analysis_date": "2026-01-07",
+  "summary": "Wave 2 test failures root cause analysis",
+  "total_failing_tests": 40,
+  "categories": {
+    "progress_tracking_model_mismatch": {
+      "count": 23,
+      "files": ["test_progress_tracking.py"],
+      "root_cause": "MaterialProgress model field mismatches between tests and implementation",
+      "issues": [
+        {
+          "issue": "Tests use 'user=student_user', model has 'student' field",
+          "affected_tests": [
+            "TestProgressStartTracking (all 3)",
+            "TestCompletionTracking (all 2)",
+            "TestSubmissionStatus (all 4)",
+            "TestProgressPercentage (all 2)",
+            "TestTimeTracking (all 4)",
+            "TestFeedbackStatus (all 3)",
+            "TestIncompleteTracking (all 3)",
+            "TestProgressComparison (all 3)",
+            "TestProgressSummary (all 3)",
+            "TestAttemptTracking (all 4)"
+          ],
+          "solution": "Replace 'user=student_user' with 'student=student_user' in all fixture creates"
+        },
+        {
+          "issue": "Tests use 'status' string field, model has 'is_completed' boolean",
+          "example": "MaterialProgress.objects.create(status='assigned') - invalid",
+          "solution": "Remove 'status' parameter, use 'is_completed=False/True' instead"
+        },
+        {
+          "issue": "Tests use 'time_spent_seconds', model has 'time_spent' (minutes)",
+          "example": "progress.objects.create(time_spent_seconds=1200) - wrong field name and unit",
+          "solution": "Convert seconds to minutes or use correct field 'time_spent'"
+        },
+        {
+          "issue": "Tests try to override 'started_at' with auto_now_add=True field",
+          "example": "MaterialProgress.objects.create(started_at=None) - fails",
+          "solution": "Remove 'started_at' parameter from create(), use Django ORM which auto-sets it"
+        },
+        {
+          "issue": "Tests use non-existent fields: attempt_count, best_score, last_attempted_at, due_date",
+          "solution": "Skip or mock these tests as they test unimplemented features"
+        }
+      ]
+    },
+    "api_endpoint_mismatch": {
+      "count": 17,
+      "files": ["test_student_distribution.py", "test_materials_management.py"],
+      "root_cause": "Tests expect endpoints/features that don't exist or have different paths",
+      "issues": [
+        {
+          "issue": "Tests expect /api/materials/student/materials/ endpoint",
+          "affected_tests": [
+            "test_verify_student_received_assignment",
+            "test_list_assigned_materials_for_student",
+            "test_filter_student_assignments_by_status"
+          ],
+          "solution": "Update endpoint path or skip if not implemented"
+        },
+        {
+          "issue": "Tests expect /api/materials/progress/ PATCH endpoint for tracking",
+          "affected_tests": [
+            "TestProgressStartTracking (all)",
+            "TestCompletionTracking (all)",
+            "TestTimeTracking (all)"
+          ],
+          "solution": "Verify endpoint exists and update field names in payloads"
+        },
+        {
+          "issue": "Material model has 'is_template' field but tests don't use it properly",
+          "affected_tests": ["test_create_material_as_template"],
+          "solution": "Add 'is_template' field to Material or remove test"
+        },
+        {
+          "issue": "Material model has 'tags' as CharField, tests expect list",
+          "affected_tests": ["test_create_material_with_tags"],
+          "solution": "Convert tags parameter or change how tags are stored"
+        }
+      ]
+    }
+  },
+  "model_schema": {
+    "MaterialProgress": {
+      "fields": {
+        "student": "ForeignKey(User) - REQUIRED, not 'user'",
+        "material": "ForeignKey(Material) - REQUIRED",
+        "is_completed": "BooleanField - default=False, not 'status' string",
+        "progress_percentage": "PositiveIntegerField - default=0",
+        "time_spent": "PositiveIntegerField (MINUTES) - default=0, not 'time_spent_seconds'",
+        "started_at": "DateTimeField - auto_now_add=True, cannot be overridden",
+        "completed_at": "DateTimeField - nullable, default=None",
+        "last_accessed": "DateTimeField - auto_now=True"
+      },
+      "missing_fields": ["status (string)", "attempt_count", "best_score", "last_attempted_at", "due_date", "time_spent_seconds"]
+    },
+    "Material": {
+      "fields": {
+        "title": "CharField(max_length=200)",
+        "description": "TextField - optional",
+        "content": "TextField - REQUIRED",
+        "author": "ForeignKey(User)",
+        "subject": "ForeignKey(Subject)",
+        "type": "CharField with choices (lesson, presentation, video, document, test, homework)",
+        "status": "CharField with choices (draft, active, archived)",
+        "file": "FileField - optional",
+        "video_url": "URLField - optional",
+        "is_public": "BooleanField - default=False",
+        "tags": "CharField(max_length=500) - string, not list",
+        "difficulty_level": "PositiveIntegerField - choices 1-5, default=1"
+      },
+      "missing_fields": ["is_template", "max_attempts", "estimated_duration_minutes", "target_grades"]
+    },
+    "MaterialSubmission": {
+      "fields": {
+        "material": "ForeignKey(Material)",
+        "student": "ForeignKey(User) - REQUIRED, not 'user'",
+        "submission_file": "FileField - optional",
+        "submission_text": "TextField - optional",
+        "status": "CharField with choices (submitted, reviewed, returned)"
+      }
+    }
+  },
+  "fixes_by_file": {
+    "test_progress_tracking.py": {
+      "fix_category": "Model field mismatch",
+      "priority": "HIGH",
+      "changes": [
+        "Replace all 'user=' with 'student=' (23 occurrences)",
+        "Remove all 'status=' string parameters, add 'is_completed=bool' instead",
+        "Convert 'time_spent_seconds' to 'time_spent' (seconds -> minutes)",
+        "Remove 'started_at=' override attempts (auto_now_add fields)",
+        "Skip or mock tests using non-existent fields (attempt_count, best_score, etc.)"
+      ]
+    },
+    "test_student_distribution.py": {
+      "fix_category": "API endpoint & model mismatch",
+      "priority": "MEDIUM",
+      "changes": [
+        "Update all MaterialProgress.objects.create() calls with correct fields",
+        "Verify endpoint paths and update test assertions",
+        "Check if /api/materials/student/materials/ endpoint exists"
+      ]
+    },
+    "test_materials_management.py": {
+      "fix_category": "Feature & field mismatch",
+      "priority": "MEDIUM",
+      "changes": [
+        "Handle 'is_template' field properly or skip tests",
+        "Handle 'tags' as string instead of list",
+        "Skip tests for endpoints that don't exist (clone/, versions/, rollback/)"
+      ]
+    }
+  }
+}

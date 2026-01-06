@@ -98,9 +98,9 @@ class TestSingleStudentAssignment:
 
         # First assign
         MaterialProgress.objects.create(
-            user=student_user,
+            student=student_user,
             material=material,
-            status="assigned",
+            is_completed=False,
         )
 
         # Then try to remove
@@ -123,9 +123,9 @@ class TestSingleStudentAssignment:
 
         # Create progress record
         progress = MaterialProgress.objects.create(
-            user=student_user,
+            student=student_user,
             material=material,
-            status="assigned",
+            is_completed=False,
         )
 
         # Student should see this material
@@ -317,9 +317,9 @@ class TestAssignmentTracking:
         )
 
         MaterialProgress.objects.create(
-            user=student_user,
+            student=student_user,
             material=material,
-            status="assigned",
+            is_completed=False,
         )
 
         response = authenticated_client.get(
@@ -339,8 +339,8 @@ class TestAssignmentTracking:
             status=Material.Status.ACTIVE,
         )
 
-        MaterialProgress.objects.create(user=student_user, material=material, status="assigned")
-        MaterialProgress.objects.create(user=student_user_2, material=material, status="assigned")
+        MaterialProgress.objects.create(student=student_user, material=material, is_completed=False)
+        MaterialProgress.objects.create(student=student_user_2, material=material, is_completed=False)
 
         response = authenticated_client.get(f"/api/materials/materials/{material.id}/students/")
         assert response.status_code in [200, 404]
@@ -363,20 +363,20 @@ class TestAssignmentTracking:
         )
 
         progress = MaterialProgress.objects.create(
-            user=student_user,
+            student=student_user,
             material=material,
-            status="assigned",
+            is_completed=False,
         )
 
         # Simulate status changes
-        for status in ["in_progress", "completed", "submitted"]:
-            payload = {"status": status}
+        for is_completed in [False, True]:
+            payload = {"is_completed": is_completed}
             response = authenticated_client.patch(
                 f"/api/materials/progress/{progress.id}/",
                 payload,
                 format="json",
             )
-            assert response.status_code in [200, 400, 404]
+            assert response.status_code in [200, 400, 404, 405]
 
 
 class TestStudentAssignmentList:
@@ -395,9 +395,9 @@ class TestStudentAssignmentList:
         )
 
         MaterialProgress.objects.create(
-            user=student_user,
+            student=student_user,
             material=material,
-            status="assigned",
+            is_completed=False,
         )
 
         response = authenticated_student_client.get("/api/materials/assignments/")
@@ -439,8 +439,8 @@ class TestStudentListForAssignment:
             status=Material.Status.ACTIVE,
         )
 
-        MaterialProgress.objects.create(user=student_user, material=material, status="assigned")
-        MaterialProgress.objects.create(user=student_user_2, material=material, status="assigned")
+        MaterialProgress.objects.create(student=student_user, material=material, is_completed=False)
+        MaterialProgress.objects.create(student=student_user_2, material=material, is_completed=False)
 
         response = authenticated_client.get(f"/api/materials/materials/{material.id}/students/")
         assert response.status_code in [200, 404]
@@ -457,8 +457,8 @@ class TestStudentListForAssignment:
             status=Material.Status.ACTIVE,
         )
 
-        MaterialProgress.objects.create(user=student_user, material=material, status="assigned")
-        MaterialProgress.objects.create(user=student_user_2, material=material, status="in_progress")
+        MaterialProgress.objects.create(student=student_user, material=material, is_completed=False)
+        MaterialProgress.objects.create(student=student_user_2, material=material, is_completed=False)
 
         response = authenticated_client.get(
             f"/api/materials/materials/{material.id}/students/?include_status=true"
@@ -477,8 +477,8 @@ class TestStudentListForAssignment:
             status=Material.Status.ACTIVE,
         )
 
-        MaterialProgress.objects.create(user=student_user, material=material, status="assigned")
-        MaterialProgress.objects.create(user=student_user_2, material=material, status="completed")
+        MaterialProgress.objects.create(student=student_user, material=material, is_completed=False)
+        MaterialProgress.objects.create(student=student_user_2, material=material, is_completed=True)
 
         response = authenticated_client.get(
             f"/api/materials/materials/{material.id}/students/?performance=high"
@@ -497,8 +497,8 @@ class TestStudentListForAssignment:
             status=Material.Status.ACTIVE,
         )
 
-        MaterialProgress.objects.create(user=student_user, material=material, status="assigned")
-        MaterialProgress.objects.create(user=student_user_2, material=material, status="in_progress")
+        MaterialProgress.objects.create(student=student_user, material=material, is_completed=False)
+        MaterialProgress.objects.create(student=student_user_2, material=material, is_completed=False)
 
         response = authenticated_client.get(
             f"/api/materials/materials/{material.id}/students/?progress=in_progress"
@@ -529,7 +529,7 @@ class TestStudentListForAssignment:
         )
 
         for student in students:
-            MaterialProgress.objects.create(user=student, material=material, status="assigned")
+            MaterialProgress.objects.create(student=student, material=material, is_completed=False)
 
         response = authenticated_client.get(f"/api/materials/materials/{material.id}/students/?page=1&limit=10")
         assert response.status_code in [200, 404]

@@ -1,0 +1,45 @@
+[Unit]
+Description=THE_BOT Platform - Celery Worker
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+Type=forking
+User=mg
+Group=mg
+WorkingDirectory=/home/mg/THE_BOT_platform/backend
+Environment="PATH=/home/mg/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=config.settings"
+Environment="PYTHONUNBUFFERED=1"
+
+# Start command
+ExecStart=/home/mg/venv/bin/celery -A config.celery \
+    worker \
+    --loglevel=info \
+    --logfile=/home/mg/THE_BOT_platform/backend/logs/celery_worker.log \
+    --pidfile=/home/mg/THE_BOT_platform/backend/logs/celery_worker.pid \
+    --concurrency=2 \
+    --time-limit=300
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=600
+StartLimitBurst=3
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Security
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=thebot-celery-worker
+
+[Install]
+WantedBy=multi-user.target

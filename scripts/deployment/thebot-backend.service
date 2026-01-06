@@ -1,0 +1,44 @@
+[Unit]
+Description=THE_BOT Platform - Django Backend
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=notify
+User=mg
+Group=mg
+WorkingDirectory=/home/mg/THE_BOT_platform/backend
+Environment="PATH=/home/mg/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=config.settings"
+Environment="ENVIRONMENT=production"
+Environment="PYTHONUNBUFFERED=1"
+
+# Start command - using Daphne for ASGI
+ExecStart=/home/mg/venv/bin/daphne \
+    -b 0.0.0.0 \
+    -p 8000 \
+    -t 3600 \
+    config.asgi:application
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=300
+StartLimitBurst=3
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# Security
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=thebot-backend
+
+[Install]
+WantedBy=multi-user.target

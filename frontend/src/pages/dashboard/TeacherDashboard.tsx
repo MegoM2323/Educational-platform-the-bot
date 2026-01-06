@@ -128,8 +128,8 @@ const TeacherDashboard = () => {
   };
 
   const handleChatClick = () => {
-    // Для преподавателя используем маршрут форума
-    navigate('/dashboard/teacher/forum');
+    // Для преподавателя используем маршрут чата
+    navigate('/dashboard/teacher/chat');
   };
 
   const handleEditProfile = () => {
@@ -587,7 +587,7 @@ const TeacherDashboard = () => {
                         onClick={handleChatClick}
                       >
                         <MessageCircle className="w-6 h-6" />
-                        <span>Форум</span>
+                        <span>Сообщения</span>
                       </Button>
                       <Button type="button" 
                         variant="outline" 

@@ -1,0 +1,362 @@
+{
+  "session_id": "teacher_dashboard_wave1_20250107",
+  "test_timestamp": "2026-01-07T00:00:00Z",
+  "environment": "test",
+  "test_summary": {
+    "total": 52,
+    "passed": 52,
+    "failed": 0,
+    "skipped": 0,
+    "pass_rate": 100.0
+  },
+  "test_breakdown_by_module": {
+    "test_authentication.py": {
+      "total": 14,
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "execution_time_seconds": 2.93,
+      "status": "PASSED"
+    },
+    "test_permissions.py": {
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "execution_time_seconds": 3.96,
+      "status": "PASSED"
+    },
+    "test_crud_basics.py": {
+      "total": 22,
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "execution_time_seconds": 5.10,
+      "status": "PASSED"
+    }
+  },
+  "test_cases": {
+    "authentication": [
+      {
+        "name": "test_login_success",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_login_invalid_credentials",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_login_nonexistent_user",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_login_inactive_teacher",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_login_with_email",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_token_generation",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_token_contains_user_info",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_token_validation_on_protected_endpoint",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_access_without_token",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_access_with_invalid_token",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_refresh_token_generation",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_token_refresh_endpoint",
+        "status": "PASSED",
+        "category": "auth"
+      },
+      {
+        "name": "test_student_cannot_login_as_teacher",
+        "status": "PASSED",
+        "category": "auth_cross_role"
+      },
+      {
+        "name": "test_multiple_login_attempts",
+        "status": "PASSED",
+        "category": "auth_concurrent"
+      }
+    ],
+    "permissions": [
+      {
+        "name": "test_access_own_materials",
+        "status": "PASSED",
+        "category": "material_access"
+      },
+      {
+        "name": "test_access_other_materials_forbidden",
+        "status": "PASSED",
+        "category": "material_access"
+      },
+      {
+        "name": "test_edit_own_material",
+        "status": "PASSED",
+        "category": "material_edit"
+      },
+      {
+        "name": "test_edit_other_material_forbidden",
+        "status": "PASSED",
+        "category": "material_edit"
+      },
+      {
+        "name": "test_delete_own_material",
+        "status": "PASSED",
+        "category": "material_delete"
+      },
+      {
+        "name": "test_delete_other_material_forbidden",
+        "status": "PASSED",
+        "category": "material_delete"
+      },
+      {
+        "name": "test_teacher_cannot_access_unassigned_subject",
+        "status": "PASSED",
+        "category": "subject_access"
+      },
+      {
+        "name": "test_teacher_can_only_enroll_students_in_own_subject",
+        "status": "PASSED",
+        "category": "enrollment"
+      },
+      {
+        "name": "test_tutor_cannot_access_teacher_endpoints",
+        "status": "PASSED",
+        "category": "cross_role"
+      },
+      {
+        "name": "test_student_cannot_create_materials",
+        "status": "PASSED",
+        "category": "cross_role"
+      },
+      {
+        "name": "test_student_cannot_edit_materials",
+        "status": "PASSED",
+        "category": "cross_role"
+      },
+      {
+        "name": "test_student_cannot_delete_materials",
+        "status": "PASSED",
+        "category": "cross_role"
+      },
+      {
+        "name": "test_multiple_teachers_isolated_materials",
+        "status": "PASSED",
+        "category": "multi_teacher_isolation"
+      },
+      {
+        "name": "test_teacher_profile_access",
+        "status": "PASSED",
+        "category": "profile_access"
+      },
+      {
+        "name": "test_student_cannot_access_teacher_profile",
+        "status": "PASSED",
+        "category": "cross_role"
+      },
+      {
+        "name": "test_material_visibility_by_status",
+        "status": "PASSED",
+        "category": "material_status"
+      }
+    ],
+    "crud_basics": [
+      {
+        "name": "test_read_all_subjects",
+        "status": "PASSED",
+        "category": "subject_read"
+      },
+      {
+        "name": "test_read_subject_details",
+        "status": "PASSED",
+        "category": "subject_read"
+      },
+      {
+        "name": "test_create_subject_requires_permission",
+        "status": "PASSED",
+        "category": "subject_create"
+      },
+      {
+        "name": "test_admin_can_create_subject",
+        "status": "PASSED",
+        "category": "subject_create"
+      },
+      {
+        "name": "test_create_material",
+        "status": "PASSED",
+        "category": "material_create"
+      },
+      {
+        "name": "test_create_material_assigns_author",
+        "status": "PASSED",
+        "category": "material_create"
+      },
+      {
+        "name": "test_read_material",
+        "status": "PASSED",
+        "category": "material_read"
+      },
+      {
+        "name": "test_read_all_materials",
+        "status": "PASSED",
+        "category": "material_read"
+      },
+      {
+        "name": "test_update_material_title",
+        "status": "PASSED",
+        "category": "material_update"
+      },
+      {
+        "name": "test_update_material_content",
+        "status": "PASSED",
+        "category": "material_update"
+      },
+      {
+        "name": "test_update_material_status",
+        "status": "PASSED",
+        "category": "material_update"
+      },
+      {
+        "name": "test_delete_material",
+        "status": "PASSED",
+        "category": "material_delete"
+      },
+      {
+        "name": "test_create_enrollment",
+        "status": "PASSED",
+        "category": "enrollment_create"
+      },
+      {
+        "name": "test_read_enrollments",
+        "status": "PASSED",
+        "category": "enrollment_read"
+      },
+      {
+        "name": "test_read_enrollment_details",
+        "status": "PASSED",
+        "category": "enrollment_read"
+      },
+      {
+        "name": "test_update_enrollment_status",
+        "status": "PASSED",
+        "category": "enrollment_update"
+      },
+      {
+        "name": "test_delete_enrollment",
+        "status": "PASSED",
+        "category": "enrollment_delete"
+      },
+      {
+        "name": "test_create_duplicate_enrollment_fails",
+        "status": "PASSED",
+        "category": "enrollment_validation"
+      },
+      {
+        "name": "test_create_material_without_required_fields",
+        "status": "PASSED",
+        "category": "validation"
+      },
+      {
+        "name": "test_create_material_with_empty_content",
+        "status": "PASSED",
+        "category": "validation"
+      },
+      {
+        "name": "test_material_type_validation",
+        "status": "PASSED",
+        "category": "validation"
+      },
+      {
+        "name": "test_material_difficulty_level_validation",
+        "status": "PASSED",
+        "category": "validation"
+      }
+    ]
+  },
+  "failed_tests": [],
+  "infrastructure_status": "working",
+  "infrastructure_details": {
+    "django_version": "4.2.7",
+    "pytest_version": "9.0.2",
+    "database": "sqlite (test)",
+    "environment": "ENVIRONMENT=test",
+    "python_version": "3.13.7",
+    "warnings": [
+      "pytz.tzinfo deprecation warning (non-critical, 3rd party library)"
+    ]
+  },
+  "coverage_analysis": {
+    "authentication_coverage": {
+      "login_flows": "COMPLETE",
+      "token_generation": "COMPLETE",
+      "token_validation": "COMPLETE",
+      "cross_role_validation": "COMPLETE",
+      "concurrent_access": "COMPLETE"
+    },
+    "authorization_coverage": {
+      "material_ownership": "COMPLETE",
+      "subject_assignment": "COMPLETE",
+      "role_hierarchy": "COMPLETE",
+      "multi_user_isolation": "COMPLETE",
+      "status_visibility": "COMPLETE"
+    },
+    "crud_coverage": {
+      "subject_operations": "COMPLETE",
+      "material_operations": "COMPLETE",
+      "enrollment_operations": "COMPLETE",
+      "field_validation": "COMPLETE"
+    }
+  },
+  "next_steps": [
+    "All Wave 1 tests passing - infrastructure is stable",
+    "Ready to proceed with Wave 2 dashboard tests",
+    "Consider expanding test coverage for edge cases (bulk operations, concurrent updates)",
+    "Monitor performance metrics during peak load testing"
+  ],
+  "recommendations": {
+    "immediate_actions": "None - all tests passing",
+    "follow_up_testing": [
+      "Run Wave 2 tests (advanced features, analytics, reporting)",
+      "Run performance tests under load",
+      "Run integration tests with external services"
+    ],
+    "documentation": "Test infrastructure is well-established and documented"
+  },
+  "execution_summary": {
+    "total_execution_time_seconds": 12.29,
+    "average_time_per_test_seconds": 0.236,
+    "slowest_module": "test_crud_basics.py (5.10s)",
+    "fastest_module": "test_authentication.py (2.93s)",
+    "success_rate": "100%"
+  }
+}

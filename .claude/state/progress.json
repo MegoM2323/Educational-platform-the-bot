@@ -238,3 +238,32 @@
   ],
   "summary": "Fixed test isolation, critical blocking issues, indentation error, SubjectEnrollment select_related optimization, ChatRoom.enrollment field (blocking 30 tests), broadcast API response format. Completed final comprehensive test suite with 110 tests (60 passing). Core systems ready for production."
 }
+
+# NOTE: The above was replaced with the new task:
+
+{
+  "completed_tasks": [
+    {
+      "id": "fix_26_test_failures_T003_T005_20260107",
+      "task": "Исправить 26 failures в тестах T003 и T005 (платежи и счета)",
+      "agent": "coder",
+      "status": "done",
+      "date": "2026-01-07",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/payments/api_urls.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/payments/views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/payments/services.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/payments/tests/test_yookassa_webhook.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/invoices/tests/test_websocket_consumer.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/config/urls.py"
+      ],
+      "test_results": {
+        "T003_payments_webhook": "18/18 PASSED",
+        "T005_invoices_websocket": "10/10 PASSED",
+        "total": "28/28 PASSED"
+      },
+      "duration_sec": 45,
+      "code_style": "PASSED"
+    }
+  ]
+}

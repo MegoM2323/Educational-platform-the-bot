@@ -177,7 +177,7 @@ class TestInvoiceConsumerBroadcast(TransactionTestCase):
 
         # Для parent2
         student2 = self._create_user("student2@test.com", "student", "Student", "Two")
-        student2_profile = StudentProfile.objects.get(user=student2)
+        student2_profile, _ = StudentProfile.objects.get_or_create(user=student2)
         student2_profile.parent = self.parent2
         student2_profile.save()
 

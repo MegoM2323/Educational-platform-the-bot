@@ -375,6 +375,83 @@ class BroadcastViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=True, methods=['post'], url_path='send')
+    def send(self, request, pk=None):
+        """
+        Отправить рассылку всем получателям.
+
+        POST /api/admin/broadcasts/{id}/send/
+
+        Returns:
+        {
+            "status": "sent",
+            "broadcast_id": 1,
+            "recipients_count": 10,
+            "sent_at": "2024-01-01T00:00:00Z"
+        }
+        """
+        try:
+            broadcast = Broadcast.objects.select_for_update().get(id=pk)
+        except Broadcast.DoesNotExist:
+            logger.warning(f"[send_broadcast] Broadcast {pk} not found")
+            return Response(
+                {
+                    'success': False,
+                    'error': 'Рассылка не найдена',
+                    'code': 'NOT_FOUND'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if broadcast.status != Broadcast.Status.DRAFT:
+            logger.warning(
+                f"[send_broadcast] Broadcast {pk} already {broadcast.status}, cannot send"
+            )
+            return Response(
+                {
+                    'success': False,
+                    'error': f'Рассылка уже {broadcast.get_status_display()}, отправка невозможна',
+                    'code': 'INVALID_STATUS'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            broadcast.status = Broadcast.Status.SENDING
+            broadcast.save()
+
+            from .telegram_broadcast_service import TelegramBroadcastService
+            service = TelegramBroadcastService()
+            result = service.send_broadcast(broadcast, broadcast.message)
+
+            broadcast.refresh_from_db()
+            broadcast.completed_at = timezone.now()
+            broadcast.save()
+
+            logger.info(
+                f"[send_broadcast] Broadcast {pk} sent: sent={result.get('sent')}, failed={result.get('failed')}"
+            )
+
+            return Response({
+                'status': 'sent',
+                'broadcast_id': broadcast.id,
+                'recipients_count': broadcast.recipient_count,
+                'sent_at': broadcast.sent_at
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            broadcast.status = Broadcast.Status.FAILED
+            broadcast.save()
+            logger.error(f"[send_broadcast] Failed to send broadcast {pk}: {str(e)}")
+            return Response(
+                {
+                    'success': False,
+                    'error': f'Ошибка при отправке: {str(e)}',
+                    'code': 'TELEGRAM_ERROR'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=True, methods=['post'], url_path='resend')
     def resend(self, request, pk=None):
         """

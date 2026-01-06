@@ -1,0 +1,280 @@
+{
+  "analysis_date": "2026-01-07",
+  "total_issues": 10,
+  "critical": [
+    {
+      "id": "CRIT_001",
+      "title": "POST /api/accounts/users/ Returns 405 Method Not Allowed",
+      "component": "backend/accounts/views.py",
+      "description": "User creation endpoint is disabled or not implemented. Returns 405 instead of 201/400. This prevents testing input validation for email, phone, password, and date fields.",
+      "severity": "CRITICAL",
+      "impact": "7 tests failing, cannot validate user creation input",
+      "tests_affected": [
+        "test_invalid_email_format_rejected",
+        "test_invalid_phone_format_rejected",
+        "test_weak_password_rejected",
+        "test_invalid_date_format_rejected",
+        "test_valid_email_format_accepted",
+        "test_validators_are_applied",
+        "test_400_bad_request_for_invalid_data"
+      ],
+      "tests_count": 7,
+      "fix_priority": 1,
+      "estimated_effort": "2-4 hours",
+      "fix_steps": [
+        "1. Check if endpoint is intentionally disabled or not implemented",
+        "2. If disabled: Re-enable in accounts/views.py and accounts/urls.py",
+        "3. If not implemented: Implement POST method in UserCreateView or UserListView",
+        "4. Verify all required fields: email, first_name, last_name, password, phone, role",
+        "5. Run input validation tests to verify fix"
+      ],
+      "related_files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/urls.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/serializers.py"
+      ]
+    },
+    {
+      "id": "CRIT_002",
+      "title": "Tutor API Endpoints Return 403 Forbidden",
+      "component": "backend/tutor/views.py, backend/tutor/urls.py",
+      "description": "Multiple tutor cabinet endpoints return 403 Forbidden when they should return 200/400/404. This indicates either endpoints don't exist, permission classes are misconfigured, or API paths have changed.",
+      "severity": "CRITICAL",
+      "impact": "17 tests failing, tutor cabinet completely broken",
+      "tests_affected": [
+        "test_network_timeout_on_list_students",
+        "test_invalid_json_request",
+        "test_concurrent_profile_edits",
+        "test_delete_nonexistent_student",
+        "test_cascade_deletion_with_lessons",
+        "test_student_limit_enforcement",
+        "test_empty_vs_null",
+        "test_null_vs_undefined",
+        "test_pagination_first_page",
+        "test_pagination_second_page",
+        "test_pagination_out_of_bounds_page",
+        "test_pagination_invalid_page_size",
+        "test_pagination_consistency"
+      ],
+      "tests_count": 17,
+      "fix_priority": 2,
+      "estimated_effort": "4-6 hours",
+      "affected_endpoints": [
+        "GET /api/tutor/students/",
+        "POST /api/tutor/students/",
+        "DELETE /api/tutor/students/",
+        "PATCH /api/tutor/students/",
+        "GET /api/tutor/students/{id}/",
+        "DELETE /api/tutor/students/{id}/",
+        "PATCH /api/tutor/students/{id}/",
+        "PATCH /api/tutor/profile/",
+        "GET /api/tutor/dashboard/",
+        "GET /api/tutor/lessons/",
+        "POST /api/tutor/lessons/",
+        "DELETE /api/tutor/lessons/"
+      ],
+      "fix_steps": [
+        "1. Verify all tutor endpoints are registered in backend/tutor/urls.py",
+        "2. Check permission classes on all tutor views",
+        "3. Verify authentication is properly applied to tutor endpoints",
+        "4. Test endpoints return 200 for valid requests",
+        "5. Test endpoints return 404 for non-existent resources",
+        "6. Test endpoints return 400 for invalid data",
+        "7. Run full tutor cabinet test suite"
+      ],
+      "related_files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tutor/views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tutor/urls.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tutor/serializers.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tutor/permissions.py"
+      ]
+    },
+    {
+      "id": "CRIT_003",
+      "title": "Broadcast Send Endpoint Issues",
+      "component": "backend/messaging/views.py",
+      "description": "POST /api/admin/broadcasts/{id}/send/ endpoint has implementation bugs. Response structure is missing broadcast data, status updates don't work, and recipients aren't being created properly.",
+      "severity": "CRITICAL",
+      "impact": "4 tests failing, broadcast sending completely broken",
+      "tests_affected": [
+        "test_send_broadcast_creates_recipients",
+        "test_send_broadcast_updates_status",
+        "test_send_broadcast_twice_fails",
+        "test_non_admin_cannot_send_broadcast",
+        "test_complete_broadcast_workflow",
+        "test_get_broadcast_detail"
+      ],
+      "tests_count": 6,
+      "fix_priority": 3,
+      "estimated_effort": "3-5 hours",
+      "fix_steps": [
+        "1. Check broadcast send endpoint implementation in messaging/views.py",
+        "2. Verify response includes broadcast data (not just success flag)",
+        "3. Ensure status is updated from draft to sent",
+        "4. Verify recipients are created for all target users",
+        "5. Add validation to prevent sending same broadcast twice",
+        "6. Ensure proper error messages on failure",
+        "7. Run broadcast tests to verify fix"
+      ],
+      "related_files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/messaging/views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/messaging/serializers.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/messaging/models.py"
+      ]
+    },
+    {
+      "id": "CRIT_004",
+      "title": "PostgreSQL Deadlock in Concurrent Tests",
+      "component": "backend/tests/tutor_cabinet/test_edge_cases_T119_T130_20260107.py",
+      "description": "PostgreSQL deadlock detected in concurrent test when creating 60 test users in parallel with other database operations. This is a test infrastructure issue caused by improper transaction isolation.",
+      "severity": "CRITICAL",
+      "impact": "1-2 tests can fail sporadically, test suite unreliable",
+      "tests_affected": [
+        "test_concurrent_subject_creation",
+        "test_pagination_response_contains_current_page"
+      ],
+      "tests_count": 2,
+      "fix_priority": 4,
+      "estimated_effort": "1-2 hours",
+      "fix_steps": [
+        "1. Review test fixtures that create multiple concurrent users",
+        "2. Add transaction isolation to test database setup",
+        "3. Use setUpTestData instead of setUp for bulk test data",
+        "4. Add serialization to concurrent database operations",
+        "5. Reduce number of concurrent test users if needed",
+        "6. Add explicit connection.queries_log = []  between test iterations",
+        "7. Run tests multiple times to verify deadlock is fixed"
+      ],
+      "related_files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/tutor_cabinet/test_edge_cases_T119_T130_20260107.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_user_pagination.py"
+      ]
+    }
+  ],
+  "medium": [
+    {
+      "id": "MED_001",
+      "title": "Input Validation Endpoints Disabled",
+      "component": "backend/accounts/views.py",
+      "description": "POST /api/accounts/users/ endpoint returns 405, preventing comprehensive input validation testing for email, phone, password, and date formats.",
+      "severity": "MEDIUM",
+      "impact": "Cannot fully validate API input constraints",
+      "tests_affected": [
+        "test_invalid_email_format_rejected",
+        "test_invalid_phone_format_rejected",
+        "test_weak_password_rejected",
+        "test_invalid_date_format_rejected",
+        "test_valid_email_format_accepted",
+        "test_validators_are_applied",
+        "test_400_bad_request_for_invalid_data"
+      ],
+      "tests_count": 7,
+      "fix_priority": 5,
+      "estimated_effort": "Same as CRIT_001",
+      "notes": "This is the same root cause as CRIT_001. Fixing CRIT_001 will resolve this issue."
+    },
+    {
+      "id": "MED_002",
+      "title": "Pagination Response Missing Metadata",
+      "component": "backend/accounts/views.py",
+      "description": "GET /api/accounts/users/ endpoint returns limit-based pagination but doesn't include metadata fields (total_count, total_pages, current_page, has_next, has_previous) that frontend needs.",
+      "severity": "MEDIUM",
+      "impact": "Frontend cannot properly display pagination controls",
+      "tests_affected": [
+        "test_pagination_response_contains_total_count",
+        "test_pagination_response_contains_total_pages",
+        "test_pagination_response_contains_current_page"
+      ],
+      "tests_count": 3,
+      "fix_priority": 6,
+      "estimated_effort": "1-2 hours",
+      "fix_steps": [
+        "1. Add DRF PageNumberPagination class to user list endpoint",
+        "2. Update response to include total_count, total_pages, current_page, has_next, has_previous",
+        "3. Update serializers to include pagination metadata in response",
+        "4. Test pagination with various page sizes",
+        "5. Verify frontend can consume new pagination format"
+      ],
+      "related_files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/serializers.py"
+      ]
+    },
+    {
+      "id": "MED_003",
+      "title": "Database Deadlock in Concurrent Pagination Test",
+      "component": "backend/tests/test_admin_user_pagination.py",
+      "description": "Race condition when creating 60 concurrent test users causes occasional PostgreSQL deadlock.",
+      "severity": "MEDIUM",
+      "impact": "1 test fails sporadically",
+      "tests_affected": [
+        "test_pagination_response_contains_current_page"
+      ],
+      "tests_count": 1,
+      "fix_priority": 7,
+      "estimated_effort": "Same as CRIT_004",
+      "notes": "This is related to CRIT_004. Same fix approach applies."
+    },
+    {
+      "id": "MED_004",
+      "title": "Broadcast Detail Endpoint Response Structure Issue",
+      "component": "backend/messaging/views.py",
+      "description": "GET /api/admin/broadcasts/{id}/ endpoint returns response with incorrect structure. Test fails with KeyError when accessing broadcast data.",
+      "severity": "MEDIUM",
+      "impact": "Frontend may not handle broadcast detail response correctly",
+      "tests_affected": [
+        "test_get_broadcast_detail"
+      ],
+      "tests_count": 1,
+      "fix_priority": 8,
+      "estimated_effort": "1 hour",
+      "fix_steps": [
+        "1. Check broadcast detail view response structure",
+        "2. Ensure response includes all broadcast fields",
+        "3. Verify response format matches BroadcastSerializer",
+        "4. Test response can be properly deserialized",
+        "5. Run broadcast tests to verify fix"
+      ],
+      "related_files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/messaging/views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/messaging/serializers.py"
+      ]
+    }
+  ],
+  "low": [
+    {
+      "id": "LOW_001",
+      "title": "Tutor Permission Test Expectation Incorrect",
+      "component": "backend/tests/test_admin_security_validation.py",
+      "description": "Test test_tutor_user_rejected_from_admin_endpoints expects 403 but receives 200. This may indicate tutor has intentional access to admin endpoints via IsTutorOrAdmin permission.",
+      "severity": "LOW",
+      "impact": "1 test fails with potentially incorrect expectation",
+      "tests_affected": [
+        "test_tutor_user_rejected_from_admin_endpoints"
+      ],
+      "tests_count": 1,
+      "fix_priority": 9,
+      "estimated_effort": "30 minutes",
+      "fix_steps": [
+        "1. Review permission classes on admin endpoints",
+        "2. Check if IsTutorOrAdmin is intentionally used",
+        "3. If tutor should have access: update test expectation to 200",
+        "4. If tutor should NOT have access: fix permission class to exclude tutor",
+        "5. Document permission design decision"
+      ],
+      "related_files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_security_validation.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/permissions.py"
+      ]
+    }
+  ],
+  "summary": {
+    "critical_count": 4,
+    "medium_count": 4,
+    "low_count": 1,
+    "total_failing_tests": 60,
+    "total_affected_endpoints": 25,
+    "estimated_total_fix_time_hours": "12-20",
+    "recommendation": "Fix CRIT_002 first (tutor endpoints) as it affects 17 tests. Then CRIT_003 (broadcasts) affects 6 tests. Then CRIT_001 (user creation) affects 7 tests. Finally CRIT_004 (deadlock) for test reliability."
+  }
+}

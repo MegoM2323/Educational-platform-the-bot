@@ -14,9 +14,10 @@ from scheduling.models import Lesson, LessonHistory
 
 User = get_user_model()
 
+
 def get_subject_model():
     """Lazy load Subject model to avoid import issues during migrations."""
-    return apps.get_model('materials', 'Subject')
+    return apps.get_model("materials", "Subject")
 
 
 def normalize_time_format(value):
@@ -66,7 +67,7 @@ class SubjectSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     name = serializers.CharField(max_length=100)
     description = serializers.CharField(required=False, allow_blank=True)
-    color = serializers.CharField(max_length=7, default='#3B82F6')
+    color = serializers.CharField(max_length=7, default="#3B82F6")
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -228,6 +229,43 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
     status = serializers.ChoiceField(
         choices=["pending", "confirmed", "completed", "cancelled"], required=False
     )
+    teacher_id = serializers.IntegerField(required=False, allow_null=True)
+    student_id = serializers.IntegerField(required=False, allow_null=True)
+    subject_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_teacher_id(self, value):
+        """Validate teacher exists and has role=teacher."""
+        if value is None:
+            return value
+        try:
+            user = User.objects.get(id=value, role="teacher")
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                "Teacher not found or does not have teacher role"
+            )
+        return value
+
+    def validate_student_id(self, value):
+        """Validate student exists and has role=student."""
+        if value is None:
+            return value
+        try:
+            user = User.objects.get(id=value, role="student")
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                "Student not found or does not have student role"
+            )
+        return value
+
+    def validate_subject_id(self, value):
+        """Validate subject exists."""
+        if value is None:
+            return value
+        try:
+            get_subject_model().objects.get(id=value)
+        except get_subject_model().DoesNotExist:
+            raise serializers.ValidationError("Subject not found")
+        return value
 
     def validate(self, data):
         """Validate update data."""

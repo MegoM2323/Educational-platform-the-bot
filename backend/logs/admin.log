@@ -8,3 +8,12 @@
 [INFO] 2026-01-06 22:38:04 accounts.staff_views - [assign_students_to_teacher] Teacher 13100 assigned to 1 students for subject 1722 (created=0, updated=1): [13104]
 [INFO] 2026-01-06 22:38:07 accounts.staff_views - [assign_students_to_teacher] Teacher 13172 assigned to 1 students for subject 1733 (created=1, updated=0): [13176]
 [INFO] 2026-01-06 22:38:08 accounts.staff_views - [assign_students_to_teacher] Teacher 13199 assigned to 1 students for subject 1739 (created=1, updated=0): [13203]
+[INFO] 2026-01-06 22:51:27 accounts.staff_views - [delete_user] Hard deleted user 17482 (student@test.com) from database
+[INFO] 2026-01-06 22:51:28 accounts.staff_views - [delete_user] Hard deleted user 17486 (student@test.com) from database
+[INFO] 2026-01-06 22:51:29 accounts.staff_views - [reactivate_user] User student@test.com (id=17494) reactivated by admin@test.com
+[INFO] 2026-01-06 22:52:04 accounts.staff_views - [delete_user] Hard deleted user 17737 (student@test.com) from database
+[INFO] 2026-01-06 22:52:05 accounts.staff_views - [delete_user] Hard deleted user 17742 (student@test.com) from database
+[INFO] 2026-01-06 22:52:06 accounts.staff_views - [reactivate_user] User student@test.com (id=17751) reactivated by admin@test.com
+[INFO] 2026-01-06 22:53:08 accounts.staff_views - [delete_user] Hard deleted user 18181 (student@test.com) from database
+[INFO] 2026-01-06 22:53:09 accounts.staff_views - [delete_user] Hard deleted user 18183 (student@test.com) from database
+[INFO] 2026-01-06 22:53:09 accounts.staff_views - [reactivate_user] User student@test.com (id=18187) reactivated by admin@test.com

@@ -28,7 +28,10 @@ from .serializers import (
     MaterialSubmissionSerializer,
     MaterialFeedbackSerializer,
 )
-from .permissions import StudentEnrollmentPermission, MaterialSubmissionEnrollmentPermission
+from .permissions import (
+    StudentEnrollmentPermission,
+    MaterialSubmissionEnrollmentPermission,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -559,7 +562,10 @@ class MaterialSubmissionViewSet(viewsets.ModelViewSet):
         .prefetch_related("feedback")
     )
     serializer_class = MaterialSubmissionSerializer
-    permission_classes = [permissions.IsAuthenticated, MaterialSubmissionEnrollmentPermission]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MaterialSubmissionEnrollmentPermission,
+    ]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,

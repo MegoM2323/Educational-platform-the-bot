@@ -225,6 +225,8 @@ class BroadcastDetailSerializer(serializers.ModelSerializer):
     """
     Сериализатор для детальной информации о рассылке (включает получателей)
     """
+    from accounts.serializers import UserMinimalSerializer
+    created_by = UserMinimalSerializer(read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     target_group_display = serializers.CharField(source='get_target_group_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)

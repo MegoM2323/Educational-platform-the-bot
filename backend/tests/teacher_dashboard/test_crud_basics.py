@@ -1,6 +1,6 @@
 import pytest
 from rest_framework import status
-from backend.materials.models import Material, Subject, SubjectEnrollment, TeacherSubject
+from materials.models import Material, Subject, SubjectEnrollment, TeacherSubject
 from django.contrib.auth import get_user_model
 
 User = get_user_model()

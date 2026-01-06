@@ -1,6 +1,6 @@
 import pytest
 from rest_framework import status
-from backend.materials.models import Material
+from materials.models import Material
 
 User_model = None  # To be set in tests
 

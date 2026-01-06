@@ -1,58 +1,61 @@
-# Исправление JWT validation для material endpoints
+# CRIT_001: Исправить создание пользователя через POST /api/accounts/users/
 
-## Статус: implementation
+## Статус: T001 done, T002 pending
 
-## Задача
-Исправить JWT authentication broken на material endpoints. Все authenticated requests к `/api/materials/materials/{id}/` возвращают 401 даже с валидным Bearer token.
+## Проблема
+POST /api/accounts/users/ возвращает 405 Method Not Allowed. Блокирует валидацию входных данных и создание пользователей через API.
 
-## Корневая проблема
-JWT authentication class отсутствует в DEFAULT_AUTHENTICATION_CLASSES в settings.py. Текущий конфиг поддерживает только TokenAuthentication и SessionAuthentication, но не поддерживает JWT Bearer tokens.
+## Корневая причина
+- Путь `/api/accounts/users/` в urls.py определён только для GET (функция `list_users`)
+- Создание пользователей доступно только через `/api/accounts/users/create/` (функция `create_user_with_profile`)
+- Нарушает REST соглашение: POST на `/users/` должен создавать пользователя
 
-## Параллельная группа 1: Реализация (4 независимые задачи)
+## Решение
+Добавить POST обработчик к `/api/accounts/users/` с логикой создания пользователя.
 
-### T001: Добавить JWT authentication в settings.py - DONE
-- Line 672-675: Добавить "rest_framework_simplejwt.authentication.JWTAuthentication" в DEFAULT_AUTHENTICATION_CLASSES
-- Позиция: ПЕРВЫМ в списке (до TokenAuthentication)
-- Необходимо поддерживать обе схемы (JWT и Token для обратной совместимости)
-- STATUS: COMPLETED ✓
+Стратегия: Переоформить `create_user_with_profile` как обработчик ОБОИХ методов:
+- GET /api/accounts/users/ - список пользователей (существующая функция `list_users`)
+- POST /api/accounts/users/ - создание пользователя (существующая функция `create_user_with_profile`)
 
-### T002: Обновить material viewsets - DONE
-- MaterialViewSet, SubjectViewSet: убедиться что используют authentication_classes
-- Если не используют - явно указать в классе с приоритетом JWT
-- Проверить что все endpoints с @action имеют корректные permission_classes
-- STATUS: COMPLETED ✓
+## Параллельная группа 1: Реализация (2 независимые задачи)
 
-### T003: Добавить IsAuthenticated для read-only endpoints - IN PROGRESS
-- MaterialDetailView, MaterialListView: требуют IsAuthenticated
-- Добавить StudentEnrollmentPermission для endpoints требующих проверки зачисления
-- Обновить permission_classes в views.py согласно требованиям ролей
-- STATUS: 50% (добавлена StudentEnrollmentPermission в MaterialViewSet)
+### T001: Создать класс-view для /api/accounts/users/ - coder
+- Создать новый class-based view UserManagementView(APIView) в staff_views.py
+- Метод GET: вызвать list_users логику
+- Метод POST: вызвать create_user_with_profile логику
+- Требуемые permissions: IsStaffOrAdmin
+- Authentication: TokenAuthentication, SessionAuthentication
+- Обновить urls.py: заменить `path("users/", views.list_users)` на `path("users/", UserManagementView.as_view())`
+- Удалить путь `/users/create/` (deprecated - использовать POST /users/ вместо)
 
-### T004: Проверить и исправить permissions.py - PENDING
-- StudentEnrollmentPermission: проверить что has_permission корректно работает
-- Убедиться что все permission checks поддерживают JWT токены (не проверяют только Token)
-- Исправить логику проверки authenticated в has_permission
+### T002: Проверить и обновить тесты - coder
+- Найти все тесты которые делают POST на `/api/accounts/users/create/`
+- Обновить их на POST `/api/accounts/users/`
+- Убедиться что GET /api/accounts/users/ всё ещё работает
+- STATUS: PENDING
 
 ## Параллельная группа 2: Review & Testing
 
 ### T101: Code review - reviewer
-- Проверить что JWT добавлен ПЕРВЫМ в список authentication
-- Убедиться что all endpoints имеют явные permission_classes
-- Проверить что TokenAuthentication остался для обратной совместимости
-- Проверить что permission classes не ломают другие endpoints
+- Проверить что оба метода работают в одном классе
+- Убедиться что permissions корректны для обоих методов
+- Проверить что authentication остался на обе методы
+- Проверить что логика валидации не нарушена
 
-### T102: Запустить failing tests - tester
-- T008_AUTH_ROLE_HIERARCHY
-- T115_TUTOR_TEACHER_INTERACTION
-- T139_SECURITY_AUTH_HEADER
-- Проверить что все тесты с 401 теперь проходят
-- Убедиться что новые permission classes не ломают существующие тесты
+### T102: Запустить тесты - tester
+- Проверить что GET /api/accounts/users/ возвращает список
+- Проверить что POST /api/accounts/users/ создаёт пользователя (201)
+- Проверить валидацию: email duplicate (400)
+- Проверить валидацию: пароль < 8 символов (400)
+- Проверить валидацию: роль не в (student, teacher, tutor, parent) (400)
+- Проверить что возвращается credentials при создании
 
 ## Ожидаемый результат
-✓ JWT authentication добавлена в settings.py
-✓ Material endpoints принимают Bearer tokens
-✓ Permission classes соответствуют ролям (student/tutor/teacher/admin)
-✓ Все failing tests (T008, T115, T139) проходят
-✓ Обратная совместимость с TokenAuthentication сохранена
-✓ Тесты pass
+✓ POST /api/accounts/users/ создаёт пользователя с 201 Created
+✓ GET /api/accounts/users/ возвращает список пользователей
+✓ Валидация email (duplicate, формат)
+✓ Валидация пароля (минимум 8 символов)
+✓ Валидация роли (student, teacher, tutor, parent)
+✓ Профиль создаётся через signals
+✓ Тесты проходят
 ✓ LGTM от reviewer

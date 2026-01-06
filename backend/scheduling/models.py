@@ -35,6 +35,14 @@ class LessonManager(models.Manager):
         obj.save(force_insert=True, using=self.db)
         return obj
 
+    def update(self, **kwargs):
+        """
+        Обновление уроков с опциональной валидацией.
+
+        Используется для bulk updates когда валидация уже проверена на уровне serializer.
+        """
+        return super().update(**kwargs)
+
 
 class Lesson(models.Model):
     """

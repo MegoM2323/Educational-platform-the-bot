@@ -1,4 +1,5 @@
 import logging
+import csv
 from rest_framework import status, permissions, generics, viewsets
 from rest_framework.decorators import (
     action,
@@ -12,6 +13,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.http import HttpResponse
 
 from django.db.models import Q, Prefetch
 from .models import StudentProfile
@@ -89,6 +91,19 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             students_queryset = students_queryset.filter(user__is_active=is_active_bool)
             logger.info(f"Filtered by is_active={is_active_bool}")
 
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            if status_filter.lower() == "active":
+                students_queryset = students_queryset.filter(user__is_active=True)
+            elif status_filter.lower() == "inactive":
+                students_queryset = students_queryset.filter(user__is_active=False)
+            logger.info(f"Filtered by status={status_filter}")
+
+        grade = request.query_params.get("grade")
+        if grade:
+            students_queryset = students_queryset.filter(grade=grade)
+            logger.info(f"Filtered by grade={grade}")
+
         subject_id = request.query_params.get("subject_id")
         if subject_id is not None:
             students_queryset = students_queryset.filter(
@@ -96,6 +111,15 @@ class TutorStudentsViewSet(viewsets.ViewSet):
                 user__subject_enrollments__is_active=True,
             ).distinct()
             logger.info(f"Filtered by subject_id={subject_id}")
+
+        search = request.query_params.get("search")
+        if search:
+            students_queryset = students_queryset.filter(
+                Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+                | Q(user__email__icontains=search)
+            )
+            logger.info(f"Searched by query={search}")
 
         paginator = PageNumberPagination()
         paginated_queryset = paginator.paginate_queryset(students_queryset, request)
@@ -151,9 +175,9 @@ class TutorStudentsViewSet(viewsets.ViewSet):
 
         try:
             # Принудительно перезагружаем студента из базы для получения свежих данных
-            student_profile = StudentProfile.objects.select_related(
-                "user", "tutor", "parent"
-            ).get(id=student_user.student_profile.id)
+            student_profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
+                id=student_user.student_profile.id
+            )
         except StudentProfile.DoesNotExist:
             logger.error(f"StudentProfile not found for user {student_user.id}")
             return Response(
@@ -173,9 +197,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             Q(id=student_profile.id)
             & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
         ).count()
-        logger.info(
-            f"Student visibility check: {students_count} students found (should be 1)"
-        )
+        logger.info(f"Student visibility check: {students_count} students found (should be 1)")
 
         if students_count == 0:
             logger.warning(
@@ -218,11 +240,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         try:
             # Проверяем, что ученик принадлежит тьютору
             # Проверяем через tutor в профиле или через created_by_tutor в User
-            profile = StudentProfile.objects.select_related(
-                "user", "tutor", "parent"
-            ).get(
-                Q(id=pk)
-                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             )
         except StudentProfile.DoesNotExist:
             return Response(
@@ -243,8 +262,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         try:
             # Проверяем, что ученик принадлежит тьютору
             student_profile = StudentProfile.objects.select_related("user").get(
-                Q(id=pk)
-                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             )
         except StudentProfile.DoesNotExist:
             return Response(
@@ -342,8 +360,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         try:
             # Проверяем, что ученик принадлежит тьютору
             student_profile = StudentProfile.objects.select_related("user").get(
-                Q(id=pk)
-                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             )
         except StudentProfile.DoesNotExist:
             return Response(
@@ -362,9 +379,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
 
             subject = Subject.objects.get(id=subject_id)
         except Subject.DoesNotExist:
-            return Response(
-                {"detail": "Предмет не найден"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Предмет не найден"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f"Error getting subject for unassign: {e}")
             return Response(
@@ -390,6 +405,150 @@ class TutorStudentsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    def update(self, request, pk=None):
+        try:
+            profile = StudentProfile.objects.select_related("user").get(
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            )
+        except StudentProfile.DoesNotExist:
+            return Response(
+                {"detail": "Ученик не найден или не принадлежит вам"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user = profile.user
+        first_name = request.data.get("first_name")
+        last_name = request.data.get("last_name")
+
+        if first_name:
+            user.first_name = first_name
+        if last_name:
+            user.last_name = last_name
+
+        user.save()
+        profile.refresh_from_db()
+
+        return Response(TutorStudentSerializer(profile).data, status=status.HTTP_200_OK)
+
+    def partial_update(self, request, pk=None):
+        return self.update(request, pk)
+
+    def destroy(self, request, pk=None):
+        try:
+            profile = StudentProfile.objects.select_related("user").get(
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            )
+        except StudentProfile.DoesNotExist:
+            return Response(
+                {"detail": "Ученик не найден или не принадлежит вам"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user = profile.user
+        user.is_active = False
+        user.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"], url_path="search")
+    def search(self, request):
+        query = request.query_params.get("q", "").strip()
+
+        if not query:
+            return Response([], status=status.HTTP_200_OK)
+
+        from materials.models import SubjectEnrollment
+
+        enrollments_prefetch = Prefetch(
+            "user__subject_enrollments",
+            queryset=SubjectEnrollment.objects.filter(is_active=True)
+            .select_related("subject", "teacher")
+            .order_by("-enrolled_at", "-id"),
+            to_attr="active_enrollments",
+        )
+
+        students_queryset = (
+            StudentProfile.objects.filter(
+                Q(tutor=request.user) | Q(user__created_by_tutor=request.user)
+            )
+            .filter(
+                Q(user__first_name__icontains=query)
+                | Q(user__last_name__icontains=query)
+                | Q(user__email__icontains=query)
+            )
+            .select_related("user", "tutor", "parent")
+            .prefetch_related(enrollments_prefetch)
+            .distinct()
+        )
+
+        paginator = PageNumberPagination()
+        paginated_queryset = paginator.paginate_queryset(students_queryset, request)
+
+        serializer = TutorStudentSerializer(
+            paginated_queryset, many=True, context={"request": request}
+        )
+
+        return paginator.get_paginated_response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        from materials.models import SubjectEnrollment
+
+        format_type = request.query_params.get("format", "csv").lower()
+
+        if format_type not in ["csv"]:
+            return Response(
+                {"detail": "Поддерживаемые форматы: csv"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        enrollments_prefetch = Prefetch(
+            "user__subject_enrollments",
+            queryset=SubjectEnrollment.objects.filter(is_active=True)
+            .select_related("subject", "teacher")
+            .order_by("-enrolled_at", "-id"),
+            to_attr="active_enrollments",
+        )
+
+        students_queryset = (
+            StudentProfile.objects.filter(
+                Q(tutor=request.user) | Q(user__created_by_tutor=request.user)
+            )
+            .select_related("user", "tutor", "parent")
+            .prefetch_related(enrollments_prefetch)
+            .order_by("-user__date_joined")
+        )
+
+        if format_type == "csv":
+            response = HttpResponse(content_type="text/csv")
+            response["Content-Disposition"] = "attachment; filename=students.csv"
+            writer = csv.writer(response)
+            writer.writerow(
+                ["ID", "Имя", "Фамилия", "Email", "Класс", "Статус", "Предметы", "Дата создания"]
+            )
+
+            for profile in students_queryset:
+                subjects = (
+                    ", ".join([e.get_subject_name() for e in profile.user.active_enrollments])
+                    if hasattr(profile.user, "active_enrollments")
+                    else ""
+                )
+                writer.writerow(
+                    [
+                        profile.id,
+                        profile.user.first_name,
+                        profile.user.last_name,
+                        profile.user.email,
+                        profile.grade,
+                        "Активен" if profile.user.is_active else "Неактивен",
+                        subjects,
+                        profile.user.date_joined.strftime("%Y-%m-%d"),
+                    ]
+                )
+
+            return response
+
+        return Response({"detail": "Неподдерживаемый формат"}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=["post"], url_path="subjects/bulk")
     def assign_subjects_bulk(self, request, pk=None):
         """Массовое назначение нескольких предметов одному ученику.
@@ -399,8 +558,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         try:
             # Проверяем, что ученик принадлежит тьютору
             student_profile = StudentProfile.objects.select_related("user").get(
-                Q(id=pk)
-                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+                Q(id=pk) & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
             )
         except StudentProfile.DoesNotExist:
             return Response(
@@ -452,9 +610,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         if errors:
             return Response(
                 {
-                    "enrollments": SubjectEnrollmentSerializer(
-                        enrollments, many=True
-                    ).data,
+                    "enrollments": SubjectEnrollmentSerializer(enrollments, many=True).data,
                     "errors": errors,
                     "warning": "Некоторые предметы не были назначены",
                 },
@@ -464,6 +620,152 @@ class TutorStudentsViewSet(viewsets.ViewSet):
         return Response(
             SubjectEnrollmentSerializer(enrollments, many=True).data,
             status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], url_path="bulk_assign_subjects")
+    def bulk_assign_subjects(self, request):
+        """Bulk assignment of subjects to multiple students.
+
+        Request body:
+        {
+            "assignments": [
+                {"student_id": <int>, "subject_id": <int>, "teacher_id": <int|null>},
+                ...
+            ]
+        }
+
+        Response:
+        {
+            "successful": <int>,
+            "failed": [
+                {"student_id": <int>, "subject_id": <int>, "error": "<error_message>"},
+                ...
+            ]
+        }
+        """
+        from materials.models import SubjectEnrollment, Subject
+
+        assignments = request.data.get("assignments", [])
+        if not assignments:
+            return Response(
+                {"detail": "Поле assignments не может быть пустым"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        successful = 0
+        failed = []
+
+        for assignment in assignments:
+            student_id = assignment.get("student_id")
+            subject_id = assignment.get("subject_id")
+            teacher_id = assignment.get("teacher_id")
+
+            if not student_id or not subject_id:
+                failed.append(
+                    {
+                        "student_id": student_id,
+                        "subject_id": subject_id,
+                        "error": "student_id и subject_id обязательны",
+                    }
+                )
+                continue
+
+            try:
+                student_profile = StudentProfile.objects.select_related("user").get(
+                    Q(id=student_id)
+                    & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+                )
+            except StudentProfile.DoesNotExist:
+                failed.append(
+                    {
+                        "student_id": student_id,
+                        "subject_id": subject_id,
+                        "error": "Ученик не найден или не принадлежит вам",
+                    }
+                )
+                continue
+            except Exception as e:
+                logger.error(f"Error getting student {student_id}: {e}")
+                failed.append(
+                    {
+                        "student_id": student_id,
+                        "subject_id": subject_id,
+                        "error": f"Ошибка получения ученика: {e}",
+                    }
+                )
+                continue
+
+            try:
+                subject = Subject.objects.get(id=subject_id)
+            except Subject.DoesNotExist:
+                failed.append(
+                    {
+                        "student_id": student_id,
+                        "subject_id": subject_id,
+                        "error": "Предмет не найден",
+                    }
+                )
+                continue
+            except Exception as e:
+                logger.error(f"Error getting subject {subject_id}: {e}")
+                failed.append(
+                    {
+                        "student_id": student_id,
+                        "subject_id": subject_id,
+                        "error": f"Ошибка получения предмета: {e}",
+                    }
+                )
+                continue
+
+            teacher = None
+            if teacher_id:
+                try:
+                    teacher = User.objects.get(
+                        id=teacher_id, role=User.Role.TEACHER, is_active=True
+                    )
+                except User.DoesNotExist:
+                    failed.append(
+                        {
+                            "student_id": student_id,
+                            "subject_id": subject_id,
+                            "error": "Преподаватель не найден или неактивен",
+                        }
+                    )
+                    continue
+                except Exception as e:
+                    logger.error(f"Error getting teacher {teacher_id}: {e}")
+                    failed.append(
+                        {
+                            "student_id": student_id,
+                            "subject_id": subject_id,
+                            "error": f"Ошибка получения преподавателя: {e}",
+                        }
+                    )
+                    continue
+
+            try:
+                SubjectAssignmentService.assign_subject(
+                    tutor=request.user,
+                    student=student_profile.user,
+                    subject=subject,
+                    teacher=teacher,
+                )
+                successful += 1
+            except (PermissionError, ValueError) as e:
+                failed.append({"student_id": student_id, "subject_id": subject_id, "error": str(e)})
+            except Exception as e:
+                logger.error(f"Error assigning subject {subject_id} to student {student_id}: {e}")
+                failed.append(
+                    {
+                        "student_id": student_id,
+                        "subject_id": subject_id,
+                        "error": f"Ошибка назначения предмета: {e}",
+                    }
+                )
+
+        return Response(
+            {"successful": successful, "failed": failed},
+            status=status.HTTP_200_OK if not failed else status.HTTP_207_MULTI_STATUS,
         )
 
 

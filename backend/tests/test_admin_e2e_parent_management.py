@@ -79,7 +79,7 @@ class AdminParentManagementE2ETests(TestCase):
 
         # POST request to create user
         response = self.client.post(
-            '/api/auth/users/create/',
+            '/api/auth/users/',
             data=json.dumps(parent_data),
             content_type='application/json'
         )
@@ -295,7 +295,7 @@ class AdminParentManagementPermissionsTests(TestCase):
         self.client.force_authenticate(user=self.admin)
 
         response = self.client.post(
-            '/api/auth/users/create/',
+            '/api/auth/users/',
             data=json.dumps({
                 'role': 'parent',
                 'email': 'test_perm@test.com',
@@ -348,7 +348,7 @@ class AdminParentManagementDataValidationTests(TestCase):
         self.client.force_authenticate(user=self.admin)
 
         response = self.client.post(
-            '/api/auth/users/create/',
+            '/api/auth/users/',
             data=json.dumps({
                 'role': 'parent',
                 'email': 'invalid-email',
@@ -370,7 +370,7 @@ class AdminParentManagementDataValidationTests(TestCase):
 
         # Create first parent
         self.client.post(
-            '/api/auth/users/create/',
+            '/api/auth/users/',
             data=json.dumps({
                 'role': 'parent',
                 'email': 'duplicate@test.com',
@@ -382,7 +382,7 @@ class AdminParentManagementDataValidationTests(TestCase):
 
         # Try to create duplicate
         response = self.client.post(
-            '/api/auth/users/create/',
+            '/api/auth/users/',
             data=json.dumps({
                 'role': 'parent',
                 'email': 'duplicate@test.com',
@@ -404,7 +404,7 @@ class AdminParentManagementDataValidationTests(TestCase):
 
         # Missing email
         response = self.client.post(
-            '/api/auth/users/create/',
+            '/api/auth/users/',
             data=json.dumps({
                 'role': 'parent',
                 'first_name': 'Test',

@@ -151,7 +151,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonCreateSerializer(data=request.data, context={"request": request})
+        serializer = LessonCreateSerializer(
+            data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -233,7 +235,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonUpdateSerializer(data=request.data, context={"lesson": lesson})
+        serializer = LessonUpdateSerializer(
+            data=request.data, context={"lesson": lesson}
+        )
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -289,6 +293,50 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         except DjangoValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def perform_update(self, serializer):
+        """
+        Perform update with proper ForeignKey handling.
+
+        Overrides default perform_update to handle:
+        - Optional ForeignKey updates (teacher_id, student_id, subject_id)
+        - Proper validation before save
+        - Skip model-level validation in save()
+        """
+        lesson = self.get_object()
+
+        # Prepare update data
+        update_data = serializer.validated_data.copy()
+
+        # Handle ForeignKey updates
+        if "teacher_id" in update_data:
+            from django.contrib.auth import get_user_model
+
+            User = get_user_model()
+            teacher_id = update_data.pop("teacher_id")
+            if teacher_id:
+                lesson.teacher = User.objects.get(id=teacher_id, role="teacher")
+
+        if "student_id" in update_data:
+            from django.contrib.auth import get_user_model
+
+            User = get_user_model()
+            student_id = update_data.pop("student_id")
+            if student_id:
+                lesson.student = User.objects.get(id=student_id, role="student")
+
+        if "subject_id" in update_data:
+            subject_id = update_data.pop("subject_id")
+            if subject_id:
+                lesson.subject = Subject.objects.get(id=subject_id)
+
+        # Update remaining fields
+        for attr, value in update_data.items():
+            setattr(lesson, attr, value)
+
+        # Save with skipped validation to avoid ForeignKey re-validation
+        lesson.save(skip_validation=True)
+        return lesson
 
     def destroy(self, request, pk=None):
         """
@@ -392,7 +440,9 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         student_id = request.query_params.get("student_id")
         if not student_id:
-            return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Валидация формата student_id (должен быть целым числом)
         try:
@@ -420,9 +470,9 @@ class LessonViewSet(viewsets.ModelViewSet):
                         {"error": "You can only view schedules for your children"},
                         status=status.HTTP_403_FORBIDDEN,
                     )
-                queryset = Lesson.objects.filter(student_id=student_id_int).select_related(
-                    "teacher", "student", "subject"
-                )
+                queryset = Lesson.objects.filter(
+                    student_id=student_id_int
+                ).select_related("teacher", "student", "subject")
 
             # Apply filters
             date_from = request.query_params.get("date_from")
@@ -463,7 +513,9 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         # Verify permission to view history
         # Teacher, student, tutor, or parent of student
-        has_permission = lesson.teacher == request.user or lesson.student == request.user
+        has_permission = (
+            lesson.teacher == request.user or lesson.student == request.user
+        )
 
         # Check if tutor has access to this lesson (manages the student)
         if not has_permission and request.user.role == "tutor":
@@ -507,3 +559,226 @@ class LessonViewSet(viewsets.ModelViewSet):
         queryset = LessonService.get_upcoming_lessons(request.user, limit=10)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["post"])
+    def check_conflicts(self, request):
+        """
+        Check for schedule conflicts for a teacher on a specific date/time.
+
+        POST /api/scheduling/lessons/check-conflicts/
+        {
+            "teacher_id": 123,
+            "date": "2026-01-07",
+            "start_time": "10:00",
+            "end_time": "11:00"
+        }
+
+        Returns:
+        {
+            "has_conflict": false,
+            "conflicts": []
+        }
+
+        Or if conflicts exist:
+        {
+            "has_conflict": true,
+            "conflicts": [
+                {
+                    "id": "uuid",
+                    "student": "John Doe",
+                    "subject": "Math",
+                    "start_time": "10:15",
+                    "end_time": "11:15"
+                }
+            ]
+        }
+        """
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        # Validate input
+        data = request.data
+        teacher_id = data.get("teacher_id")
+        date_str = data.get("date")
+        start_time_str = data.get("start_time")
+        end_time_str = data.get("end_time")
+
+        # Check required fields
+        if not all([teacher_id, date_str, start_time_str, end_time_str]):
+            return Response(
+                {"error": "teacher_id, date, start_time, and end_time are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate teacher exists
+        try:
+            teacher = User.objects.get(id=teacher_id, role="teacher")
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Teacher not found"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Parse date and times
+        try:
+            from datetime import datetime, time
+
+            date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            start_time = datetime.strptime(start_time_str, "%H:%M").time()
+            end_time = datetime.strptime(end_time_str, "%H:%M").time()
+        except ValueError:
+            return Response(
+                {
+                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get all lessons for teacher on that date (not cancelled/completed)
+        lessons_on_date = Lesson.objects.filter(
+            teacher=teacher, date=date, status__in=["pending", "confirmed"]
+        ).select_related("student", "subject")
+
+        # Check for time conflicts
+        conflicts = []
+        for lesson in lessons_on_date:
+            # Check if time ranges overlap
+            # Conflict if: new.start < existing.end AND new.end > existing.start
+            if start_time < lesson.end_time and end_time > lesson.start_time:
+                conflicts.append(
+                    {
+                        "id": str(lesson.id),
+                        "student": lesson.student.get_full_name(),
+                        "subject": lesson.subject.name,
+                        "start_time": lesson.start_time.strftime("%H:%M"),
+                        "end_time": lesson.end_time.strftime("%H:%M"),
+                    }
+                )
+
+        return Response(
+            {
+                "has_conflict": len(conflicts) > 0,
+                "conflicts": conflicts,
+                "conflict_count": len(conflicts),
+            }
+        )
+
+    @action(detail=True, methods=["post"])
+    def reschedule(self, request, pk=None):
+        """
+        Reschedule an existing lesson to a new date/time.
+
+        POST /api/scheduling/lessons/{lesson_id}/reschedule/
+        {
+            "date": "2026-01-08",
+            "start_time": "14:00",
+            "end_time": "15:00"
+        }
+
+        Returns the updated lesson.
+
+        Rules:
+        - Only teacher who created the lesson can reschedule it
+        - Must check for time conflicts first
+        - Cannot reschedule lesson that already completed/cancelled
+        """
+        lesson = self.get_object()
+
+        # Only teacher can reschedule
+        if lesson.teacher != request.user:
+            return Response(
+                {"error": "Only the teacher who created this lesson can reschedule it"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Cannot reschedule completed or cancelled lessons
+        if lesson.status in ["completed", "cancelled"]:
+            return Response(
+                {"error": f"Cannot reschedule a {lesson.status} lesson"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate input
+        data = request.data
+        date_str = data.get("date")
+        start_time_str = data.get("start_time")
+        end_time_str = data.get("end_time")
+
+        if not all([date_str, start_time_str, end_time_str]):
+            return Response(
+                {"error": "date, start_time, and end_time are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Parse date and times
+        try:
+            from datetime import datetime
+
+            new_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            new_start_time = datetime.strptime(start_time_str, "%H:%M").time()
+            new_end_time = datetime.strptime(end_time_str, "%H:%M").time()
+        except ValueError:
+            return Response(
+                {
+                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate time range
+        if new_start_time >= new_end_time:
+            return Response(
+                {"error": "start_time must be before end_time"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate date not in past
+        if new_date < timezone.now().date():
+            return Response(
+                {"error": "Cannot reschedule lesson to the past"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check for time conflicts with other lessons
+        try:
+            LessonService._check_time_conflicts(
+                date=new_date,
+                start_time=new_start_time,
+                end_time=new_end_time,
+                teacher=lesson.teacher,
+                student=lesson.student,
+                exclude_lesson_id=lesson.id,
+            )
+        except DjangoValidationError as e:
+            return Response(
+                {"error": f"Time conflict: {str(e)}"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Update lesson
+        lesson.date = new_date
+        lesson.start_time = new_start_time
+        lesson.end_time = new_end_time
+        lesson.save(skip_validation=True)
+
+        # Record in history
+        LessonHistory.objects.create(
+            lesson=lesson,
+            action="updated",
+            performed_by=request.user,
+            old_values={
+                "date": str(lesson.date),
+                "start_time": str(lesson.start_time),
+                "end_time": str(lesson.end_time),
+            },
+            new_values={
+                "date": str(new_date),
+                "start_time": str(new_start_time),
+                "end_time": str(new_end_time),
+            },
+        )
+
+        # Return updated lesson
+        output_serializer = LessonSerializer(lesson)
+        return Response(output_serializer.data)

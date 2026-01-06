@@ -218,6 +218,17 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         serializer = ChatRoomStatsSerializer(stats_data)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"])
+    def archive(self, request, pk=None):
+        """
+        Архивировать чат-комнату
+        """
+        room = self.get_object()
+        room.is_active = False
+        room.save()
+        serializer = self.get_serializer(room)
+        return Response(serializer.data)
+
 
 class MessageViewSet(viewsets.ModelViewSet):
     """

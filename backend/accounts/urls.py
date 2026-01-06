@@ -22,6 +22,7 @@ from .staff_views import (
     assign_students_to_teacher,
     list_parents,
     reactivate_user,
+    UserManagementView,
 )
 from .profile_views import (
     StudentProfileView,
@@ -46,8 +47,9 @@ from .telegram_webhook_views import TelegramWebhookView
 
 # Router for ViewSets
 router = DefaultRouter()
-# Tutor-specific endpoints через роутер (будет доступен как /api/tutor/my-students/)
-router.register(r"my-students", TutorStudentsViewSet, basename="tutor-students")
+# Tutor-specific endpoints через роутер (будет доступен как /api/accounts/my-students/ и /api/accounts/students/)
+router.register(r"students", TutorStudentsViewSet, basename="tutor-students")
+router.register(r"my-students", TutorStudentsViewSet, basename="tutor-my-students")
 # Bulk operations endpoints
 router.register(r"bulk-operations", BulkUserOperationsViewSet, basename="bulk-operations")
 
@@ -58,9 +60,7 @@ urlpatterns = [
     path("refresh/", views.refresh_token_view, name="refresh_token"),
     path("session-status/", views.session_status, name="session_status"),  # Debug endpoint
     # Профиль пользователя (общий endpoint)
-    path(
-        "me/", views.CurrentUserProfileView.as_view(), name="current_user_me"
-    ),  # Алиас для фронтенда
+    path("me/", views.CurrentUserProfileView.as_view(), name="current_user_me"),  # Алиас для фронтенда
     path("profile/", views.CurrentUserProfileView.as_view(), name="current_user_profile"),
     path("profile/update/", views.update_profile, name="update_profile"),
     path("change-password/", views.change_password, name="change_password"),
@@ -75,8 +75,10 @@ urlpatterns = [
         NotificationSettingsView.as_view(),
         name="notification_settings_api",
     ),
-    # Список пользователей (для тьюторов и администраторов)
-    path("users/", views.list_users, name="list_users"),  # ?role=teacher|tutor|student|parent
+    # Список пользователей + создание (для тьюторов и администраторов)
+    path("users/", UserManagementView.as_view(), name="user_management"),  # GET: список, POST: создание
+    # Deprecated: POST /api/accounts/users/create/ использует старый endpoint, используйте POST /api/accounts/users/ вместо
+    path("users/create/", create_user_with_profile, name="admin_create_user_deprecated"),
     # Admin-only staff management
     path("staff/", list_staff, name="staff_list"),  # ?role=teacher|tutor
     path("staff/create/", create_staff, name="staff_create"),
@@ -87,18 +89,12 @@ urlpatterns = [
     ),
     # Admin-only student management (доступен только через /api/admin/students/)
     path("students/", list_students, name="admin_list_students"),  # GET - список студентов
-    path(
-        "students/create/", create_student, name="admin_create_student"
-    ),  # POST - создание студента (legacy)
+    path("students/create/", create_student, name="admin_create_student"),  # POST - создание студента (legacy)
     path("students/<int:student_id>/", get_student_detail, name="admin_student_detail"),
     # Admin-only parent management
     path("parents/", list_parents, name="admin_list_parents"),  # GET - список родителей
-    path(
-        "parents/create/", create_parent, name="admin_create_parent"
-    ),  # POST - создание родителя (legacy)
-    path(
-        "assign-parent/", assign_parent_to_students, name="admin_assign_parent"
-    ),  # POST - назначение родителя
+    path("parents/create/", create_parent, name="admin_create_parent"),  # POST - создание родителя (legacy)
+    path("assign-parent/", assign_parent_to_students, name="admin_assign_parent"),  # POST - назначение родителя
     path(
         "teachers/<int:teacher_id>/assign-students/",
         assign_students_to_teacher,

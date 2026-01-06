@@ -1,0 +1,10 @@
+[INFO] 2026-01-06 22:20:26 accounts.staff_views - [delete_user] Hard deleted user 1674 (deleteteacher_e2e@test.com) from database
+[INFO] 2026-01-06 22:21:02 accounts.staff_views - [delete_user] Hard deleted user 1758 (deleteteacher_e2e@test.com) from database
+[INFO] 2026-01-06 22:21:02 accounts.staff_views - [delete_user] Hard deleted user 1761 (crud_complete_e2e@test.com) from database
+[INFO] 2026-01-06 22:22:08 accounts.staff_views - [delete_user] Hard deleted user 2109 (deleteteacher_e2e@test.com) from database
+[INFO] 2026-01-06 22:22:08 accounts.staff_views - [delete_user] Hard deleted user 2112 (crud_complete_e2e@test.com) from database
+[INFO] 2026-01-06 22:38:02 accounts.staff_views - [assign_students_to_teacher] Teacher 13063 assigned to 1 students for subject 1716 (created=1, updated=0): [13067]
+[INFO] 2026-01-06 22:38:03 accounts.staff_views - [assign_students_to_teacher] Teacher 13080 assigned to 3 students for subject 1718 (created=3, updated=0): [13085, 13088, 13091]
+[INFO] 2026-01-06 22:38:04 accounts.staff_views - [assign_students_to_teacher] Teacher 13100 assigned to 1 students for subject 1722 (created=0, updated=1): [13104]
+[INFO] 2026-01-06 22:38:07 accounts.staff_views - [assign_students_to_teacher] Teacher 13172 assigned to 1 students for subject 1733 (created=1, updated=0): [13176]
+[INFO] 2026-01-06 22:38:08 accounts.staff_views - [assign_students_to_teacher] Teacher 13199 assigned to 1 students for subject 1739 (created=1, updated=0): [13203]

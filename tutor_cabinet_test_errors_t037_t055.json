@@ -1,0 +1,204 @@
+{
+  "test_session": {
+    "name": "tutor_cabinet_test_20260107",
+    "date": "2026-01-07",
+    "test_file": "backend/tests/tutor_cabinet/test_lessons_schedule_t037_t055.py",
+    "environment": "test",
+    "database": "PostgreSQL"
+  },
+  "summary": {
+    "total_tests": 33,
+    "passed": 31,
+    "failed": 2,
+    "errors": 0,
+    "success_rate": "93.9%",
+    "execution_time_seconds": 12.12
+  },
+  "test_coverage": {
+    "T037_T040_CRUD": {
+      "total": 6,
+      "passed": 5,
+      "failed": 1,
+      "status": "MOSTLY_OK"
+    },
+    "T041_T045_View_Filter_Export": {
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "status": "PASS"
+    },
+    "T046_T048_Reminders_Completion": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "PASS"
+    },
+    "T049_T051_Schedule_Views": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "status": "PASS"
+    },
+    "T052_T055_Conflicts_Availability": {
+      "total": 8,
+      "passed": 7,
+      "failed": 1,
+      "status": "MOSTLY_OK"
+    }
+  },
+  "errors": [
+    {
+      "test_number": "T038",
+      "test_name": "Edit lesson",
+      "test_function": "test_t038_edit_lesson",
+      "status": "FAILED",
+      "severity": "MEDIUM",
+      "error_type": "ValidationError",
+      "error_message": "{'teacher': ['user instance with id 4076 does not exist.']}",
+      "description": "Django model validation fails during Lesson.save() when ForeignKey reference cannot be resolved in test transaction scope",
+      "root_cause": "LessonManager.create() enforces full_clean() validation which validates ForeignKey references. In test context with fixture cleanup, user references may become invalid.",
+      "affected_component": {
+        "file": "backend/scheduling/models.py",
+        "lines": "18-36",
+        "class": "LessonManager",
+        "method": "create()"
+      },
+      "affected_endpoint": {
+        "method": "PATCH",
+        "path": "/api/scheduling/lessons/{lesson_id}/",
+        "operation": "Edit lesson"
+      },
+      "recommendation": {
+        "priority": "HIGH",
+        "action": "Fix ForeignKey validation in test context",
+        "options": [
+          "Use custom manager's create() method with proper validation handling",
+          "Ensure test transaction maintains ForeignKey references",
+          "Add skip_validation parameter support to Lesson.save()",
+          "Use database fixtures instead of in-test object creation"
+        ]
+      }
+    },
+    {
+      "test_number": "T052",
+      "test_name": "Check conflicts endpoint",
+      "test_function": "test_t052_check_conflicts",
+      "status": "FAILED",
+      "severity": "LOW",
+      "error_type": "EndpointNotFound",
+      "error_message": "404 returned (endpoint not found)",
+      "description": "The endpoint /api/scheduling/lessons/check-conflicts/ returns 404, indicating missing implementation or incorrect routing",
+      "root_cause": "Endpoint may not be implemented in ViewSet or not properly registered in URL routing",
+      "affected_component": {
+        "file": "backend/scheduling/urls.py OR backend/scheduling/views.py",
+        "class": "LessonViewSet (if applicable)",
+        "method": "check_conflicts (action)"
+      },
+      "affected_endpoint": {
+        "method": "POST",
+        "path": "/api/scheduling/lessons/check-conflicts/",
+        "operation": "Check for time conflicts"
+      },
+      "recommendation": {
+        "priority": "MEDIUM",
+        "action": "Implement or fix check-conflicts endpoint",
+        "options": [
+          "Add @action(detail=False, methods=['post']) method to LessonViewSet",
+          "Verify endpoint routing in urls.py",
+          "Check if endpoint should have different path",
+          "Consider if this is optional feature and mark as not-implemented"
+        ]
+      }
+    }
+  ],
+  "infrastructure_status": {
+    "models": {
+      "Lesson": "WORKING",
+      "LessonHistory": "AVAILABLE",
+      "Subject": "WORKING",
+      "SubjectEnrollment": "WORKING",
+      "StudentProfile": "WORKING"
+    },
+    "api_endpoints": {
+      "POST /api/scheduling/lessons/": "WORKING",
+      "PATCH /api/scheduling/lessons/{id}/": "WORKING_WITH_ISSUES",
+      "GET /api/scheduling/lessons/": "WORKING",
+      "GET /api/scheduling/lessons/{id}/": "WORKING",
+      "GET /api/scheduling/schedule/": "WORKING",
+      "GET /api/scheduling/availability/": "WORKING",
+      "POST /api/scheduling/sync-calendar/": "WORKING",
+      "GET /api/scheduling/free-slots/": "WORKING",
+      "POST /api/scheduling/lessons/check-conflicts/": "NOT_FOUND",
+      "POST /api/scheduling/lessons/{id}/set-reminder/": "WORKING",
+      "POST /api/scheduling/lessons/{id}/send-reminder/": "WORKING"
+    },
+    "database": {
+      "engine": "PostgreSQL",
+      "status": "CONNECTED",
+      "test_db": "thebot_db"
+    },
+    "authentication": "WORKING",
+    "fixtures": "WORKING"
+  },
+  "passed_tests": {
+    "T037_Create_lesson": "PASS",
+    "T037_Create_without_fields": "PASS",
+    "T038_Edit_lesson_time": "PASS",
+    "T039_Cancel_lesson": "PASS",
+    "T040_Move_lesson": "PASS",
+    "T041_View_all_lessons": "PASS",
+    "T041_View_lesson_detail": "PASS",
+    "T042_Filter_by_student": "PASS",
+    "T042_Filter_by_subject": "PASS",
+    "T042_Filter_by_status": "PASS",
+    "T042_Filter_by_date_range": "PASS",
+    "T043_Export_ICS": "PASS",
+    "T044_Export_CSV": "PASS",
+    "T045_Pagination": "PASS",
+    "T046_Set_reminder": "PASS",
+    "T046_Send_reminder": "PASS",
+    "T047_Mark_completed": "PASS",
+    "T048_Complete_with_notes": "PASS",
+    "T049_View_week_schedule": "PASS",
+    "T049_View_week_with_timezone": "PASS",
+    "T050_View_month_schedule": "PASS",
+    "T050_View_month_with_filter": "PASS",
+    "T051_View_day_schedule": "PASS",
+    "T051_View_day_detailed": "PASS",
+    "T052_Detect_time_conflict": "PASS",
+    "T053_Check_tutor_availability": "PASS",
+    "T053_Availability_range": "PASS",
+    "T054_Sync_calendar": "PASS",
+    "T054_Sync_status": "PASS",
+    "T055_Free_slots": "PASS",
+    "T055_Free_slots_range": "PASS"
+  },
+  "files_affected": {
+    "test_files": [
+      "backend/tests/tutor_cabinet/test_lessons_schedule_t037_t055.py"
+    ],
+    "source_files_requiring_fixes": [
+      "backend/scheduling/models.py",
+      "backend/scheduling/views.py",
+      "backend/scheduling/urls.py"
+    ]
+  },
+  "critical_issues": [
+    {
+      "issue_id": 1,
+      "title": "LessonManager Validation During Test Creation",
+      "severity": "MEDIUM",
+      "impact": "1 test failure (T038)",
+      "component": "backend/scheduling/models.py",
+      "description": "LessonManager.create() method forces validation which fails during tests when ForeignKey references become invalid in test transaction scope"
+    },
+    {
+      "issue_id": 2,
+      "title": "Missing Check-Conflicts Endpoint",
+      "severity": "LOW",
+      "impact": "1 test failure (T052)",
+      "component": "API routing/ViewSet",
+      "description": "Endpoint /api/scheduling/lessons/check-conflicts/ returns 404, indicating missing implementation or incorrect routing"
+    }
+  ]
+}

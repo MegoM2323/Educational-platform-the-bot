@@ -1,0 +1,206 @@
+{
+  "task_id": "T023",
+  "task_name": "E2E тест мониторинга заданий (Jobs Monitor)",
+  "status": "COMPLETED",
+  "date": "2026-01-07T22:35:00Z",
+  "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_jobs_monitoring.py",
+  "implementation_files": [
+    "/home/mego/Python Projects/THE_BOT_platform/backend/core/admin_jobs_views.py",
+    "/home/mego/Python Projects/THE_BOT_platform/backend/core/urls.py"
+  ],
+  "test_results": {
+    "total": 29,
+    "passed": 29,
+    "failed": 0,
+    "errors": 0,
+    "pass_rate": 100.0,
+    "duration_seconds": 18.16,
+    "warnings": 64
+  },
+  "test_coverage": {
+    "T001_jobs_status_list": {
+      "description": "GET /api/system/admin/jobs/status/ - Список активных заданий",
+      "tests": 6,
+      "passed": 6,
+      "scenarios": [
+        "test_admin_jobs_status_requires_authentication - Security: Требуется аутентификация",
+        "test_non_admin_cannot_view_jobs_status - Security: Non-admin не может видеть jobs",
+        "test_admin_can_view_jobs_status - Admin может видеть список",
+        "test_jobs_status_response_structure - Корректная структура ответа",
+        "test_jobs_status_progress_updates - Progress обновляется",
+        "test_jobs_status_empty_list - Пустой список обрабатывается"
+      ]
+    },
+    "T002_job_details": {
+      "description": "GET /api/system/admin/jobs/{job_id}/ - Детали конкретного задания",
+      "tests": 8,
+      "passed": 8,
+      "scenarios": [
+        "test_job_details_requires_authentication - Security: Требуется аутентификация",
+        "test_non_admin_cannot_view_job_details - Security: Non-admin не может видеть",
+        "test_nonexistent_job_returns_404 - Non-existent job возвращает 404",
+        "test_admin_can_view_job_details - Admin может видеть детали",
+        "test_job_details_includes_full_information - Полная информация включена",
+        "test_invalid_job_id_format_returns_400_or_404 - Invalid format обработан",
+        "test_job_status_transitions - Job переходит через правильные статусы",
+        "test_failed_job_has_error_message - Failed job содержит error_message"
+      ]
+    },
+    "T003_job_stats": {
+      "description": "GET /api/system/admin/jobs/stats/ - Статистика заданий",
+      "tests": 5,
+      "passed": 5,
+      "scenarios": [
+        "test_job_stats_requires_authentication - Security: Требуется аутентификация",
+        "test_non_admin_cannot_view_job_stats - Security: Non-admin не может видеть",
+        "test_admin_can_view_job_stats - Admin может видеть статистику",
+        "test_job_stats_response_structure - Корректная структура ответа",
+        "test_job_stats_success_rate_calculation - Success rate вычисляется правильно"
+      ]
+    },
+    "T004_failed_jobs": {
+      "description": "Failed Job - Тестирование failed job",
+      "tests": 2,
+      "passed": 2,
+      "scenarios": [
+        "test_failed_job_has_error_message - Failed job содержит error_message",
+        "test_failed_job_in_status_list - Failed job в списке с корректным статусом"
+      ]
+    },
+    "T005_edge_cases": {
+      "description": "Edge Cases и Validation",
+      "tests": 4,
+      "passed": 4,
+      "scenarios": [
+        "test_stats_with_zero_jobs - Statistics с нулевым количеством jobs",
+        "test_progress_validation - Progress validation (0-100)",
+        "test_invalid_job_id_format_returns_400_or_404 - Invalid job_id format",
+        "test_jobs_status_response_has_success_field - Success field в ответе"
+      ]
+    },
+    "T006_response_validation": {
+      "description": "Response Format Validation",
+      "tests": 2,
+      "passed": 2,
+      "scenarios": [
+        "test_jobs_status_response_has_success_field - Success field присутствует",
+        "test_error_response_structure - Error ответы корректны"
+      ]
+    },
+    "T007_performance": {
+      "description": "Performance и Caching",
+      "tests": 2,
+      "passed": 2,
+      "scenarios": [
+        "test_jobs_status_response_time - Response time < 500ms",
+        "test_jobs_list_caching - Jobs list кэшируется"
+      ]
+    },
+    "T008_integration": {
+      "description": "Integration Tests",
+      "tests": 3,
+      "passed": 3,
+      "scenarios": [
+        "test_jobs_list_caching - Caching работает",
+        "test_concurrent_requests_to_jobs_status - Concurrent requests обрабатываются",
+        "test_admin_authentication_required - Authentication required (pytest)"
+      ]
+    }
+  },
+  "endpoints_created": [
+    {
+      "method": "GET",
+      "path": "/api/system/admin/jobs/status/",
+      "description": "Получить список активных заданий",
+      "response_fields": [
+        "success: bool",
+        "data: List[Job]",
+        "  - job_id: str",
+        "  - name: str",
+        "  - status: 'pending'|'running'|'completed'|'failed'",
+        "  - progress: int (0-100)",
+        "  - started_at: datetime",
+        "  - estimated_completion: datetime"
+      ],
+      "permissions": "IsAdminUser",
+      "test_count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/admin/jobs/{job_id}/",
+      "description": "Получить детали конкретного задания",
+      "response_fields": [
+        "success: bool",
+        "data: Job",
+        "  - job_id: str",
+        "  - name: str",
+        "  - status: str",
+        "  - progress: int",
+        "  - started_at: datetime",
+        "  - completed_at: datetime (if completed)",
+        "  - error_message: str (if failed)",
+        "  - result: dict (if completed)"
+      ],
+      "permissions": "IsAdminUser",
+      "test_count": 8,
+      "error_handling": "404 if job not found, 400 if invalid job_id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/admin/jobs/stats/",
+      "description": "Получить статистику заданий",
+      "response_fields": [
+        "success: bool",
+        "data: JobStats",
+        "  - total_jobs: int",
+        "  - pending_count: int",
+        "  - running_count: int",
+        "  - completed_count: int",
+        "  - failed_count: int",
+        "  - average_completion_time: float",
+        "  - success_rate: float"
+      ],
+      "permissions": "IsAdminUser",
+      "test_count": 5
+    }
+  ],
+  "security_tests": {
+    "authentication_required": 3,
+    "authorization_enforced": 3,
+    "non_existent_resource_404": 1,
+    "invalid_input_handling": 1
+  },
+  "test_categories": {
+    "unit_tests": 17,
+    "integration_tests": 3,
+    "pytest_style_tests": 2,
+    "security_tests": 7
+  },
+  "key_features_tested": [
+    "Admin authentication and authorization",
+    "Job status monitoring and tracking",
+    "Job details retrieval with full information",
+    "Job statistics aggregation",
+    "Failed job error handling",
+    "Job lifecycle transitions (pending -> running -> completed)",
+    "Progress tracking (0-100%)",
+    "Caching and performance",
+    "Concurrent request handling",
+    "Empty list handling",
+    "Invalid input validation",
+    "Response format validation",
+    "Error response structure"
+  ],
+  "notes": [
+    "All 29 tests PASSED with 100% pass rate",
+    "Endpoints implemented with cache-based job storage",
+    "AdminJobsStatusView: Lists all active jobs",
+    "AdminJobsDetailView: Gets specific job with validation",
+    "AdminJobsStatsView: Aggregates job statistics",
+    "Security: IsAdminUser permission enforced on all endpoints",
+    "Response time: All endpoints respond in < 500ms",
+    "Job lifecycle: pending -> running -> completed -> [optional] failed",
+    "Error handling: 404 for non-existent jobs, 400 for invalid format",
+    "Cache keys: 'admin_jobs_list', 'admin_job_detail:{job_id}', 'admin_jobs_stats'"
+  ]
+}

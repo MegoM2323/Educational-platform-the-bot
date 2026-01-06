@@ -1,0 +1,880 @@
+{
+  "analysis_date": "2026-01-07",
+  "project": "THE_BOT Platform",
+  "permissions": [
+    {
+      "class": "IsOwnerOrReadOnly",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_active=True для редактирования",
+        "GET/HEAD/OPTIONS доступны всем активным пользователям",
+        "PUT/PATCH/DELETE только владельцу профиля",
+        "Работает с Profile моделями через проверку obj.user"
+      ],
+      "appliedTo": [
+        "Profile update endpoints",
+        "User profile modification"
+      ],
+      "severity": "medium"
+    },
+    {
+      "class": "IsOwnerProfileOrAdmin",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_active=True",
+        "Admin (is_staff/is_superuser) может редактировать любой профиль",
+        "Владелец может редактировать свой профиль",
+        "Все активные могут читать любой профиль",
+        "Неактивные пользователи полностью заблокированы"
+      ],
+      "appliedTo": [
+        "Profile view/edit endpoints",
+        "User profile management"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsTutorOrAdmin",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Требует is_active=True",
+        "Разрешает доступ только для role=TUTOR или is_staff/is_superuser"
+      ],
+      "appliedTo": [
+        "Tutor-only endpoints",
+        "Tutor student management"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "TutorCanManageStudentProfiles",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_active=True",
+        "Admin полный доступ",
+        "Student может редактировать только свой профиль",
+        "Tutor может редактировать профили своих студентов",
+        "Tutor НЕ может менять protected fields: role, email, is_active, is_superuser, is_staff",
+        "Все могут читать (GET)",
+        "Логирует попытки несанкционированного изменения полей"
+      ],
+      "appliedTo": [
+        "StudentProfile endpoints",
+        "Student profile management by tutors"
+      ],
+      "severity": "critical"
+    },
+    {
+      "class": "CanViewOwnProfileOnly",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_active=True",
+        "Admin может видеть любой профиль",
+        "Остальные - только свой профиль (строгое ограничение)"
+      ],
+      "appliedTo": [
+        "Strict profile viewing endpoints",
+        "Personal profile access"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsStudentOwner",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_active=True",
+        "Admin полный доступ",
+        "Student может редактировать свой StudentProfile, НЕ может менять role field",
+        "Tutor может редактировать StudentProfile своих студентов, НЕ может менять role field",
+        "Все могут читать (GET)"
+      ],
+      "appliedTo": [
+        "StudentProfile endpoints",
+        "Student own profile management"
+      ],
+      "severity": "critical"
+    },
+    {
+      "class": "IsStaffOrAdmin",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Требует is_active=True",
+        "Разрешает доступ только для is_staff=True или is_superuser=True",
+        "Тьюторы НЕ входят в этот класс (используйте IsTutorOrAdmin)"
+      ],
+      "appliedTo": [
+        "Admin-only operations",
+        "User creation/deletion",
+        "System management endpoints",
+        "AdminTeacherProfileEditView",
+        "AdminTutorProfileEditView",
+        "AdminUserProfileView",
+        "AdminUserFullInfoView"
+      ],
+      "severity": "critical"
+    },
+    {
+      "class": "IsStudent",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Требует is_active=True",
+        "Разрешает доступ только для role=STUDENT"
+      ],
+      "appliedTo": [
+        "Student-only endpoints",
+        "StudentProfileView"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsTeacher",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Требует is_active=True",
+        "Разрешает доступ только для role=TEACHER"
+      ],
+      "appliedTo": [
+        "Teacher-only endpoints",
+        "TeacherProfileView"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsTutor",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Требует is_active=True",
+        "Разрешает доступ только для role=TUTOR"
+      ],
+      "appliedTo": [
+        "Tutor-only endpoints",
+        "TutorProfileView"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsParent",
+      "file": "/backend/accounts/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Требует is_active=True",
+        "Разрешает доступ только для role=PARENT"
+      ],
+      "appliedTo": [
+        "Parent-only endpoints",
+        "ParentProfileView"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "StudentEnrollmentPermission",
+      "file": "/backend/materials/permissions.py",
+      "checks": [
+        "Требует is_active=True",
+        "Admin полный доступ",
+        "Teacher видит материалы своих предметов",
+        "Tutor видит материалы предметов своих студентов",
+        "Student видит материалы только с активным зачислением (is_active=True)",
+        "Проверяет SubjectEnrollment и свежесть зачисления"
+      ],
+      "appliedTo": [
+        "Material viewing",
+        "Material submission",
+        "Lesson material access"
+      ],
+      "severity": "critical"
+    },
+    {
+      "class": "ReportAccessService",
+      "file": "/backend/reports/permissions.py",
+      "checks": [
+        "Admin полный доступ",
+        "Student видит свои отчеты",
+        "Parent видит отчеты своих детей (через StudentProfile.parent)",
+        "Teacher видит свои отчеты",
+        "Tutor видит свои отчеты",
+        "Поддерживает доступ через tokens и sharing",
+        "Логирует все обращения (ReportAccessAuditLog)"
+      ],
+      "appliedTo": [
+        "Report viewing",
+        "Report sharing",
+        "Report access via tokens",
+        "Report audit logging"
+      ],
+      "severity": "critical"
+    },
+    {
+      "class": "ParentReportPermission",
+      "file": "/backend/reports/permissions.py",
+      "checks": [
+        "Admin полный доступ",
+        "Teacher управляет своими отчетами",
+        "Student видит отчеты о себе (read-only)",
+        "Parent видит отчеты о своих детях (read-only, проверяет show_to_parent флаг)"
+      ],
+      "appliedTo": [
+        "Report access endpoints",
+        "Parent report viewing"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "CanAcknowledgeReport",
+      "file": "/backend/reports/permissions.py",
+      "checks": [
+        "Admin может подтвердить любой отчет",
+        "Только Parent может подтвердить отчет (проверяется StudentProfile.parent)"
+      ],
+      "appliedTo": [
+        "Report acknowledgement endpoints"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "CanAccessReport",
+      "file": "/backend/reports/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Использует ReportAccessService для комплексной проверки доступа",
+        "Поддерживает direct, token, и sharing методы доступа"
+      ],
+      "appliedTo": [
+        "Report endpoints",
+        "Report sharing endpoints"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "CanShareReport",
+      "file": "/backend/reports/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Только owner (report.author_id) или admin могут делиться отчетом"
+      ],
+      "appliedTo": [
+        "Report sharing endpoints"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "CanEditReport",
+      "file": "/backend/reports/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Только owner (report.author_id) или admin могут редактировать отчет"
+      ],
+      "appliedTo": [
+        "Report editing endpoints"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsParentOfStudent",
+      "file": "/backend/scheduling/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Требует role=PARENT",
+        "Проверяет что StudentProfile.parent == request.user"
+      ],
+      "appliedTo": [
+        "Scheduling endpoints for parents",
+        "Parent lesson access"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "check_parent_access_to_room",
+      "file": "/backend/chat/permissions.py",
+      "checks": [
+        "Требует is_active=True",
+        "Требует role=PARENT",
+        "Проверяет что хотя бы один ребенок родителя является участником комнаты",
+        "Автоматически добавляет родителя в participants (если add_to_participants=True)",
+        "Транзакционна (atomic)"
+      ],
+      "appliedTo": [
+        "Chat room access for parents",
+        "Parent chat permissions"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "check_teacher_access_to_room",
+      "file": "/backend/chat/permissions.py",
+      "checks": [
+        "Требует is_active=True",
+        "Требует role=TEACHER",
+        "Проверяет наличие валидного enrollment для chat",
+        "Поддерживает FORUM_SUBJECT и другие типы чатов"
+      ],
+      "appliedTo": [
+        "Chat room access for teachers",
+        "Teacher chat permissions"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsTeacherOrAdmin",
+      "file": "/backend/knowledge_graph/permissions.py",
+      "checks": [
+        "Требует is_authenticated",
+        "Разрешает доступ для role=teacher или is_staff/is_superuser"
+      ],
+      "appliedTo": [
+        "Knowledge graph management",
+        "Graph creation"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsGraphOwner",
+      "file": "/backend/knowledge_graph/permissions.py",
+      "checks": [
+        "Admin полный доступ",
+        "Только создатель графа (created_by) может редактировать"
+      ],
+      "appliedTo": [
+        "Knowledge graph edit endpoints"
+      ],
+      "severity": "high"
+    },
+    {
+      "class": "IsStudentOfGraph",
+      "file": "/backend/knowledge_graph/permissions.py",
+      "checks": [
+        "Admin полный доступ",
+        "Student может видеть только свой граф (obj.student == request.user)"
+      ],
+      "appliedTo": [
+        "Student knowledge graph viewing"
+      ],
+      "severity": "high"
+    }
+  ],
+  "privateFields": {
+    "User": {
+      "description": "Базовая модель пользователя",
+      "sensitive_fields": [
+        "password",
+        "is_staff",
+        "is_superuser",
+        "created_by_tutor_id"
+      ],
+      "visible_to_admin_only": [
+        "is_staff",
+        "is_superuser"
+      ]
+    },
+    "StudentProfile": {
+      "hiddenFromStudent": [
+        "goal (видит только teacher/tutor/admin)",
+        "tutor (видит только teacher/tutor/admin)",
+        "parent (видит только teacher/tutor/admin)"
+      ],
+      "hiddenFromOtherRoles": [],
+      "visibleToTeacher": true,
+      "visibleToTutor": true,
+      "visibleToParent": false,
+      "visibleToAdmin": true,
+      "private_fields_list": ["goal", "tutor", "parent"],
+      "implementation": "can_view_private_fields() в permissions.py проверяет доступ к этим полям на основе роли viewer_user и profile_owner_user"
+    },
+    "TeacherProfile": {
+      "hiddenFromTeacher": [
+        "bio (видит только admin)",
+        "experience_years (видит только admin)"
+      ],
+      "hiddenFromOtherRoles": ["bio", "experience_years"],
+      "visibleToStudent": false,
+      "visibleToTutor": false,
+      "visibleToParent": false,
+      "visibleToAdmin": true,
+      "private_fields_list": ["bio", "experience_years"],
+      "implementation": "can_view_private_fields() разрешает видеть только админу"
+    },
+    "TutorProfile": {
+      "hiddenFromTutor": [
+        "bio (видит только admin)",
+        "experience_years (видит только admin)"
+      ],
+      "hiddenFromOtherRoles": ["bio", "experience_years"],
+      "visibleToStudent": false,
+      "visibleToTeacher": false,
+      "visibleToParent": false,
+      "visibleToAdmin": true,
+      "private_fields_list": ["bio", "experience_years"],
+      "implementation": "can_view_private_fields() разрешает видеть только админу"
+    },
+    "ParentProfile": {
+      "hiddenFields": [],
+      "notes": "PARENT_PRIVATE_FIELDS = [] (пока нет приватных полей)"
+    }
+  },
+  "roleTables": {
+    "admin": {
+      "access_level": "FULL",
+      "can_view": "Все профили, все материалы, все отчеты, все чаты",
+      "can_edit": "Все профили, все настройки системы",
+      "can_delete": "Все объекты",
+      "can_create": "Все объекты",
+      "can_view_private_fields": "Все приватные поля всех ролей",
+      "notes": "is_staff=True или is_superuser=True"
+    },
+    "teacher": {
+      "access_level": "ROLE_SPECIFIC",
+      "can_view": [
+        "Свой профиль и профили студентов",
+        "Студентов своих предметов",
+        "Материалы своих предметов",
+        "Отчеты о своих студентах (если автор)",
+        "Чаты с студентами через enrollment"
+      ],
+      "can_edit": [
+        "Свой профиль (TeacherProfile)",
+        "Материалы своих предметов",
+        "Отчеты которые создал"
+      ],
+      "can_view_private_fields": "Студентов (goal, tutor, parent)",
+      "cannot_view_private_fields": "Своих bio, experience_years",
+      "notes": "role=TEACHER, is_active=True"
+    },
+    "student": {
+      "access_level": "ROLE_SPECIFIC",
+      "can_view": [
+        "Свой профиль",
+        "Свои отчеты",
+        "Учителей и их профили",
+        "Материалы зачисленных предметов"
+      ],
+      "can_edit": [
+        "Свой профиль StudentProfile (кроме role field)",
+        "Не может изменять: role, email, is_active"
+      ],
+      "can_view_private_fields": "НЕ может видеть (goal, tutor, parent скрыты от себя)",
+      "restrictions": [
+        "Только материалы с активным зачислением",
+        "Только отчеты о себе",
+        "Может видеть профили teacher/parent/tutor"
+      ],
+      "notes": "role=STUDENT, is_active=True"
+    },
+    "tutor": {
+      "access_level": "STUDENT_MANAGEMENT",
+      "can_view": [
+        "Профили своих студентов",
+        "Материалы предметов своих студентов",
+        "Отчеты о своих студентах (если автор)"
+      ],
+      "can_edit": [
+        "Свой профиль TutorProfile",
+        "Профили своих студентов (StudentProfile), НЕ может менять protected fields"
+      ],
+      "protected_fields": [
+        "role",
+        "email",
+        "is_active",
+        "is_superuser",
+        "is_staff"
+      ],
+      "can_create": [
+        "Студентов (через TutorStudentCreation)"
+      ],
+      "can_view_private_fields": "Студентов (goal, tutor, parent)",
+      "cannot_view_private_fields": "Своих bio, experience_years",
+      "notes": "role=TUTOR, is_active=True, проверяется StudentProfile.tutor == request.user"
+    },
+    "parent": {
+      "access_level": "CHILDREN_ONLY",
+      "can_view": [
+        "Профили своих детей (StudentProfile.parent == request.user)",
+        "Отчеты о своих детях (StudentProfile.parent == request.user)",
+        "Уроки своих детей",
+        "Чаты где участники - его дети"
+      ],
+      "can_edit": [
+        "Свой профиль ParentProfile"
+      ],
+      "can_acknowledge": "Отчеты о своих детях (если show_to_parent=True)",
+      "restrictions": [
+        "Не может видеть других студентов",
+        "Не может видеть отчеты других родителей"
+      ],
+      "notes": "role=PARENT, is_active=True, проверяется StudentProfile.parent == request.user"
+    }
+  },
+  "serializers": [
+    {
+      "name": "UserSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "fieldsExcluded": [
+        "password (никогда не выводится)",
+        "is_staff (read_only для non-admin)"
+      ],
+      "conditionalFields": [],
+      "read_only_fields": ["id", "role", "date_joined", "is_verified", "is_staff"],
+      "purpose": "Generic user serialization with role display"
+    },
+    {
+      "name": "StudentProfileSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "fieldsExcluded": [
+        "goal (исключается если viewer не может видеть приватные поля)",
+        "tutor (исключается если viewer не может видеть приватные поля)",
+        "parent (исключается если viewer не может видеть приватные поля)"
+      ],
+      "conditionalFields": [
+        "goal (зависит от can_view_private_fields(viewer, owner, STUDENT))",
+        "tutor (зависит от can_view_private_fields())",
+        "parent (зависит от can_view_private_fields())"
+      ],
+      "implementation": "__init__() вызывает can_view_private_fields() и удаляет поля из self.fields",
+      "purpose": "Display student profile with conditional private field filtering"
+    },
+    {
+      "name": "TeacherProfileSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "fieldsExcluded": [
+        "bio (исключается если viewer не может видеть приватные поля)",
+        "experience_years (исключается если viewer не может видеть приватные поля)"
+      ],
+      "conditionalFields": [
+        "bio (зависит от can_view_private_fields(viewer, owner, TEACHER))",
+        "experience_years (зависит от can_view_private_fields())"
+      ],
+      "implementation": "__init__() вызывает can_view_private_fields() и удаляет поля из self.fields",
+      "purpose": "Display teacher profile with conditional private field filtering"
+    },
+    {
+      "name": "TutorProfileSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "fieldsExcluded": [
+        "bio (исключается если viewer не может видеть приватные поля)",
+        "experience_years (исключается если viewer не может видеть приватные поля)"
+      ],
+      "conditionalFields": [
+        "bio (зависит от can_view_private_fields(viewer, owner, TUTOR))",
+        "experience_years (зависит от can_view_private_fields())"
+      ],
+      "implementation": "__init__() вызывает can_view_private_fields() и удаляет поля из self.fields",
+      "purpose": "Display tutor profile with conditional private field filtering"
+    },
+    {
+      "name": "StudentProfileDetailSerializer",
+      "file": "/backend/accounts/profile_serializers.py",
+      "fieldsExcluded": [
+        "goal, tutor, parent (через to_representation())"
+      ],
+      "conditionalFields": [
+        "goal, tutor, parent (удаляются в to_representation если viewer не может видеть)"
+      ],
+      "read_only_fields": ["id", "progress_percentage", "streak_days", "total_points", "accuracy_percentage"],
+      "purpose": "Detailed student profile display with full private field filtering"
+    },
+    {
+      "name": "ParentProfileListSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "purpose": "Optimized for parent list views (без children details для избежания N+1)",
+      "fieldsExcluded": [],
+      "conditionalFields": ["children_count (calculated field)"]
+    },
+    {
+      "name": "ChangePasswordSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "purpose": "Password change validation",
+      "fieldsExcluded": ["password (только write-only field)"],
+      "conditionalFields": []
+    },
+    {
+      "name": "StudentListSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "purpose": "Optimized for student list views",
+      "fieldsExcluded": [],
+      "conditionalFields": []
+    },
+    {
+      "name": "UserCreateSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "purpose": "User creation with validation",
+      "fieldsExcluded": [],
+      "conditionalFields": []
+    },
+    {
+      "name": "StudentCreateSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "purpose": "Student creation by tutor with profile setup",
+      "fieldsExcluded": [],
+      "conditionalFields": []
+    },
+    {
+      "name": "ParentCreateSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "purpose": "Parent creation with profile setup",
+      "fieldsExcluded": [],
+      "conditionalFields": []
+    },
+    {
+      "name": "TelegramLinkTokenSerializer",
+      "file": "/backend/accounts/serializers.py",
+      "purpose": "Telegram token serialization",
+      "fieldsExcluded": ["token (sensitive)"],
+      "read_only_fields": ["token", "created_at", "expires_at"]
+    }
+  ],
+  "views_with_permissions": [
+    {
+      "view": "StudentProfileView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated", "IsStudent"],
+      "methods": ["GET", "PUT", "PATCH"],
+      "description": "Student can manage their own profile"
+    },
+    {
+      "view": "TeacherProfileView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated", "IsTeacher"],
+      "methods": ["GET", "PUT", "PATCH"],
+      "description": "Teacher can manage their own profile"
+    },
+    {
+      "view": "TutorProfileView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated", "IsTutor"],
+      "methods": ["GET", "PUT", "PATCH"],
+      "description": "Tutor can manage their own profile"
+    },
+    {
+      "view": "ParentProfileView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated", "IsParent"],
+      "methods": ["GET", "PUT", "PATCH"],
+      "description": "Parent can manage their own profile"
+    },
+    {
+      "view": "AdminTeacherProfileEditView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated", "IsStaffOrAdmin"],
+      "methods": ["GET", "PUT", "PATCH"],
+      "description": "Admin can edit any teacher profile"
+    },
+    {
+      "view": "AdminTutorProfileEditView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated", "IsStaffOrAdmin"],
+      "methods": ["GET", "PUT", "PATCH"],
+      "description": "Admin can edit any tutor profile"
+    },
+    {
+      "view": "AdminUserProfileView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated", "IsStaffOrAdmin"],
+      "methods": ["GET"],
+      "description": "Admin can view any user profile with full details"
+    },
+    {
+      "view": "AdminUserFullInfoView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated", "IsStaffOrAdmin"],
+      "methods": ["GET"],
+      "description": "Admin can view full user info including sensitive data"
+    },
+    {
+      "view": "CurrentUserProfileView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated"],
+      "methods": ["GET"],
+      "description": "Any authenticated user can see their own profile"
+    },
+    {
+      "view": "TeacherListView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated"],
+      "methods": ["GET"],
+      "description": "Any authenticated user can list teachers"
+    },
+    {
+      "view": "TeacherDetailView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated"],
+      "methods": ["GET"],
+      "description": "Any authenticated user can view teacher details"
+    },
+    {
+      "view": "NotificationSettingsView",
+      "file": "/backend/accounts/profile_views.py",
+      "permissions": ["IsAuthenticated"],
+      "methods": ["GET", "PUT", "PATCH"],
+      "description": "Any authenticated user can manage their notification settings"
+    }
+  ],
+  "authentication_config": {
+    "file": "/backend/config/settings.py",
+    "authentication_classes": [
+      "rest_framework.authentication.TokenAuthentication",
+      "rest_framework.authentication.SessionAuthentication"
+    ],
+    "default_permission_classes": [
+      "rest_framework.permissions.IsAuthenticated"
+    ],
+    "notes": "TokenAuth имеет приоритет над SessionAuth. SessionAuth используется для CSRF защиты."
+  },
+  "sensitive_operations": {
+    "password_change": {
+      "endpoint": "Change password endpoint",
+      "permissions": ["IsAuthenticated"],
+      "validation": "Old password verification required",
+      "audit_logging": "Logged in audit.log"
+    },
+    "user_creation": {
+      "endpoint": "User creation endpoints",
+      "permissions": ["IsAuthenticated", "IsStaffOrAdmin (для create_staff)", "IsTutorOrAdmin (для create_student)"],
+      "validation": [
+        "Email uniqueness check (race condition protected with transaction.atomic())",
+        "IntegrityError handler для параллельных запросов"
+      ],
+      "audit_logging": "Logged in audit.log with details"
+    },
+    "profile_updates": {
+      "endpoint": "Profile update endpoints",
+      "permissions": [
+        "IsAuthenticated + role-specific permissions",
+        "Protected fields check for tutors"
+      ],
+      "audit_logging": "log_object_changes() function logs all field changes"
+    },
+    "student_profile_management_by_tutor": {
+      "endpoint": "StudentProfile PATCH/PUT by tutor",
+      "permissions": ["TutorCanManageStudentProfiles"],
+      "protected_fields": ["role", "email", "is_active", "is_superuser", "is_staff"],
+      "validation": "Tutor cannot modify these fields",
+      "audit_logging": "Attempted unauthorized changes are logged"
+    }
+  },
+  "critical_security_notes": [
+    {
+      "issue": "Private field filtering",
+      "implementation": "can_view_private_fields() function в permissions.py",
+      "behavior": [
+        "Студент НЕ видит свои приватные поля (goal, tutor, parent)",
+        "Учитель/тьютор видят приватные поля студентов",
+        "Admin видит все приватные поля всех ролей",
+        "Проверка выполняется в __init__() сериализаторов"
+      ]
+    },
+    {
+      "issue": "Tutor protection",
+      "implementation": "TutorCanManageStudentProfiles.PROTECTED_FIELDS",
+      "behavior": [
+        "Тьютор может редактировать StudentProfile, но НЕ может менять protected fields",
+        "Protected fields: role, email, is_active, is_superuser, is_staff",
+        "Попытки изменения логируются (audit_logger.warning)"
+      ]
+    },
+    {
+      "issue": "Parent access control",
+      "implementation": "check_parent_access_to_room() в chat/permissions.py",
+      "behavior": [
+        "Родитель видит чаты только если его ребенок является участником",
+        "Автоматически добавляется в participants для будущих проверок",
+        "Транзакционная операция (atomic)"
+      ]
+    },
+    {
+      "issue": "Active user requirement",
+      "implementation": "Все Permission классы проверяют request.user.is_active",
+      "behavior": [
+        "Неактивные пользователи полностью заблокированы (даже от чтения)",
+        "Исключение: IsAuthenticated default permission не проверяет is_active"
+      ]
+    },
+    {
+      "issue": "Report access audit trail",
+      "implementation": "ReportAccessService.log_access() и ReportAccessAuditLog",
+      "behavior": [
+        "Все обращения к отчетам логируются",
+        "Сохраняется: IP address, user agent, session id, access type, method",
+        "Поддерживает токен-доступ и sharing-доступ"
+      ]
+    },
+    {
+      "issue": "Material enrollment validation",
+      "implementation": "StudentEnrollmentPermission в materials/permissions.py",
+      "behavior": [
+        "Студент может видеть материал только если зачислен на предмет (SubjectEnrollment.is_active=True)",
+        "Проверяется свежесть зачисления (дата не истекла)",
+        "Публичные материалы (is_public=True) доступны всем студентам"
+      ]
+    },
+    {
+      "issue": "Race condition in user creation",
+      "implementation": "transaction.atomic() + IntegrityError handler",
+      "behavior": [
+        "Email uniqueness check внутри atomic transaction",
+        "IntegrityError ловится и преобразуется в 400 Bad Request",
+        "Защищает от параллельного создания пользователей с одинаковым email"
+      ]
+    }
+  ],
+  "role_hierarchy": {
+    "description": "Иерархия ролей в системе (от максимального доступа)",
+    "levels": [
+      {
+        "level": 1,
+        "role": "ADMIN",
+        "marker": "is_staff=True или is_superuser=True",
+        "access": "FULL_SYSTEM_ACCESS",
+        "notes": "Может видеть/редактировать все, использует отдельные admin-only views"
+      },
+      {
+        "level": 2,
+        "role": "TEACHER",
+        "marker": "role=TEACHER, is_active=True",
+        "access": "ROLE_SPECIFIC",
+        "restrictions": [
+          "Видит только студентов своих предметов",
+          "Видит только материалы своих предметов",
+          "Не может видеть bio/experience_years других teachers"
+        ]
+      },
+      {
+        "level": 3,
+        "role": "TUTOR",
+        "marker": "role=TUTOR, is_active=True",
+        "access": "STUDENT_MANAGEMENT",
+        "restrictions": [
+          "Может управлять только студентами которых он тьютор",
+          "Не может менять protected fields студентов (role, email, is_active, is_staff, is_superuser)",
+          "Видит studentProfile.goal, tutor, parent"
+        ]
+      },
+      {
+        "level": 4,
+        "role": "PARENT",
+        "marker": "role=PARENT, is_active=True",
+        "access": "CHILDREN_ONLY",
+        "restrictions": [
+          "Видит только своих детей (StudentProfile.parent == request.user)",
+          "Видит только отчеты о своих детях",
+          "Может видеть только свой профиль"
+        ]
+      },
+      {
+        "level": 5,
+        "role": "STUDENT",
+        "marker": "role=STUDENT, is_active=True",
+        "access": "SELF_AND_ENROLLED",
+        "restrictions": [
+          "Видит только свой профиль (скрыты goal, tutor, parent)",
+          "Видит только материалы зачисленных предметов",
+          "Видит только свои отчеты",
+          "Не может менять protected fields в своем профиле"
+        ]
+      }
+    ]
+  }
+}

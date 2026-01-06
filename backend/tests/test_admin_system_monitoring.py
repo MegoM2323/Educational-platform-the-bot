@@ -14,7 +14,7 @@ if not django.apps.apps.ready:
     django.setup()
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -62,59 +62,59 @@ class TestAdminSystemMonitoringAuth(TestCase):
         self.client = APIClient()
 
     def test_unauthenticated_cannot_access_stats_users(self):
-        """Unauthenticated users cannot access /api/admin/stats/users/"""
+        """Unauthenticated users cannot access /api/core/admin/stats/users/"""
         response = self.client.get('/api/admin/stats/users/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
     def test_unauthenticated_cannot_access_system_health(self):
-        """Unauthenticated users cannot access /api/admin/system/health/"""
-        response = self.client.get('/api/admin/system/health/')
+        """Unauthenticated users cannot access /api/core/admin/system/health/"""
+        response = self.client.get('/api/system/admin/system/health/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
     def test_unauthenticated_cannot_access_system_metrics(self):
-        """Unauthenticated users cannot access /api/admin/system/metrics/"""
-        response = self.client.get('/api/admin/system/metrics/')
+        """Unauthenticated users cannot access /api/core/admin/system/metrics/"""
+        response = self.client.get('/api/system/admin/system/metrics/')
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
     def test_non_admin_cannot_access_stats_users(self):
-        """Non-admin users get 403 when accessing /api/admin/stats/users/"""
+        """Non-admin users get 403 when accessing /api/core/admin/stats/users/"""
         self.client.force_authenticate(user=self.student_user)
         response = self.client.get('/api/admin/stats/users/')
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_non_admin_cannot_access_system_health(self):
-        """Non-admin users get 403 when accessing /api/admin/system/health/"""
+        """Non-admin users get 403 when accessing /api/core/admin/system/health/"""
         self.client.force_authenticate(user=self.student_user)
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_non_admin_cannot_access_system_metrics(self):
-        """Non-admin users get 403 when accessing /api/admin/system/metrics/"""
+        """Non-admin users get 403 when accessing /api/core/admin/system/metrics/"""
         self.client.force_authenticate(user=self.student_user)
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_admin_can_access_stats_users(self):
-        """Admin users can access /api/admin/stats/users/"""
+        """Admin users can access /api/core/admin/stats/users/"""
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get('/api/admin/stats/users/')
         assert response.status_code == status.HTTP_200_OK
 
     def test_admin_can_access_system_health(self):
-        """Admin users can access /api/admin/system/health/"""
+        """Admin users can access /api/core/admin/system/health/"""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         assert response.status_code == status.HTTP_200_OK
 
     def test_admin_can_access_system_metrics(self):
-        """Admin users can access /api/admin/system/metrics/"""
+        """Admin users can access /api/core/admin/system/metrics/"""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         assert response.status_code == status.HTTP_200_OK
 
 
 class TestAdminUserStatsEndpoint(TestCase):
-    """Test /api/admin/stats/users/ endpoint"""
+    """Test /api/core/admin/stats/users/ endpoint"""
 
     @classmethod
     def setUpClass(cls):
@@ -310,12 +310,12 @@ class TestAdminSystemHealthEndpoint(TestCase):
 
     def test_system_health_returns_200(self):
         """GET /api/admin/system/health/ returns 200 OK"""
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         assert response.status_code == status.HTTP_200_OK
 
     def test_system_health_response_structure(self):
         """Response contains expected data structure"""
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         data = response.json()
 
         assert 'success' in data
@@ -324,7 +324,7 @@ class TestAdminSystemHealthEndpoint(TestCase):
 
     def test_system_health_has_status(self):
         """Response contains status field (healthy/warning/critical)"""
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         data = response.json()
 
         assert 'status' in data['data']
@@ -332,7 +332,7 @@ class TestAdminSystemHealthEndpoint(TestCase):
 
     def test_system_health_has_uptime(self):
         """Response contains uptime field"""
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         data = response.json()
 
         # Either in top-level or in nested components
@@ -340,7 +340,7 @@ class TestAdminSystemHealthEndpoint(TestCase):
 
     def test_system_health_has_health_score(self):
         """Response contains health_score (0-100)"""
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         data = response.json()
 
         assert 'health_score' in data['data']
@@ -349,7 +349,7 @@ class TestAdminSystemHealthEndpoint(TestCase):
 
     def test_system_health_has_components(self):
         """Response contains components health status"""
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         data = response.json()
 
         assert 'components' in data['data']
@@ -363,7 +363,7 @@ class TestAdminSystemHealthEndpoint(TestCase):
 
     def test_system_health_has_active_alerts(self):
         """Response contains active_alerts count"""
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         data = response.json()
 
         assert 'active_alerts' in data['data']
@@ -372,7 +372,7 @@ class TestAdminSystemHealthEndpoint(TestCase):
 
     def test_system_health_with_detailed_flag(self):
         """Response includes detailed metrics when detailed=true"""
-        response = self.client.get('/api/admin/system/health/?detailed=true')
+        response = self.client.get('/api/system/admin/system/health/?detailed=true')
         data = response.json()
 
         assert response.status_code == status.HTTP_200_OK
@@ -382,7 +382,7 @@ class TestAdminSystemHealthEndpoint(TestCase):
     def test_system_health_response_time_under_5s(self):
         """System health endpoint responds in under 5 seconds"""
         start_time = time.time()
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         elapsed_time = time.time() - start_time
 
         assert elapsed_time < 5.0
@@ -417,12 +417,12 @@ class TestAdminSystemMetricsEndpoint(TestCase):
 
     def test_system_metrics_returns_200(self):
         """GET /api/admin/system/metrics/ returns 200 OK"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         assert response.status_code == status.HTTP_200_OK
 
     def test_system_metrics_response_structure(self):
         """Response contains expected data structure"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         data = response.json()
 
         assert 'success' in data
@@ -431,14 +431,14 @@ class TestAdminSystemMetricsEndpoint(TestCase):
 
     def test_system_metrics_has_timestamp(self):
         """Response contains timestamp field"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         data = response.json()
 
         assert 'timestamp' in data['data']
 
     def test_system_metrics_has_cpu_metrics(self):
         """Response contains CPU metrics"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         data = response.json()
 
         assert 'cpu' in data['data']
@@ -449,7 +449,7 @@ class TestAdminSystemMetricsEndpoint(TestCase):
 
     def test_system_metrics_has_memory_metrics(self):
         """Response contains Memory metrics"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         data = response.json()
 
         assert 'memory' in data['data']
@@ -460,7 +460,7 @@ class TestAdminSystemMetricsEndpoint(TestCase):
 
     def test_system_metrics_has_disk_metrics(self):
         """Response contains Disk metrics"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         data = response.json()
 
         assert 'disk' in data['data']
@@ -468,7 +468,7 @@ class TestAdminSystemMetricsEndpoint(TestCase):
 
     def test_system_metrics_has_database_metrics(self):
         """Response contains Database metrics"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         data = response.json()
 
         assert 'database' in data['data']
@@ -478,7 +478,7 @@ class TestAdminSystemMetricsEndpoint(TestCase):
 
     def test_system_metrics_has_redis_metrics(self):
         """Response contains Redis metrics"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         data = response.json()
 
         assert 'redis' in data['data']
@@ -488,7 +488,7 @@ class TestAdminSystemMetricsEndpoint(TestCase):
 
     def test_system_metrics_all_numeric_values_valid(self):
         """All numeric values in metrics are valid"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         data = response.json()
 
         # Sample some key metrics
@@ -505,7 +505,7 @@ class TestAdminSystemMetricsEndpoint(TestCase):
     def test_system_metrics_response_time_under_5s(self):
         """System metrics endpoint responds in under 5 seconds"""
         start_time = time.time()
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         elapsed_time = time.time() - start_time
 
         assert elapsed_time < 5.0
@@ -513,13 +513,13 @@ class TestAdminSystemMetricsEndpoint(TestCase):
 
     def test_system_metrics_fresh_data_not_cached(self):
         """Metrics endpoint returns fresh data (not heavily cached)"""
-        response1 = self.client.get('/api/admin/system/metrics/')
+        response1 = self.client.get('/api/system/admin/system/metrics/')
         data1 = response1.json()
 
         # Small delay
         time.sleep(0.1)
 
-        response2 = self.client.get('/api/admin/system/metrics/')
+        response2 = self.client.get('/api/system/admin/system/metrics/')
         data2 = response2.json()
 
         # Timestamps should be different (or very close)
@@ -531,7 +531,7 @@ class TestAdminSystemMetricsEndpoint(TestCase):
         assert response2.status_code == 200
 
 
-class TestAdminMonitoringWithLoadData(TransactionTestCase):
+class TestAdminMonitoringWithLoadData(TestCase):
     """Test monitoring endpoints with significant data load"""
 
     def setUp(self):
@@ -603,7 +603,7 @@ class TestAdminMonitoringWithLoadData(TransactionTestCase):
     def test_health_check_with_large_dataset(self):
         """Health check endpoint performs well with 100+ users"""
         start_time = time.time()
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
         elapsed_time = time.time() - start_time
 
         assert response.status_code == status.HTTP_200_OK
@@ -612,7 +612,7 @@ class TestAdminMonitoringWithLoadData(TransactionTestCase):
     def test_metrics_with_large_dataset(self):
         """Metrics endpoint performs well with 100+ users"""
         start_time = time.time()
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
         elapsed_time = time.time() - start_time
 
         assert response.status_code == status.HTTP_200_OK
@@ -647,7 +647,7 @@ class TestMonitoringPartialDataAvailability(TestCase):
 
     def test_health_endpoint_returns_response_on_redis_unavailable(self):
         """Health endpoint returns response even if Redis is unavailable"""
-        response = self.client.get('/api/admin/system/health/')
+        response = self.client.get('/api/system/admin/system/health/')
 
         # Should still return 200, even if Redis is down
         assert response.status_code == status.HTTP_200_OK
@@ -656,7 +656,7 @@ class TestMonitoringPartialDataAvailability(TestCase):
 
     def test_metrics_endpoint_returns_response_on_partial_service_unavailable(self):
         """Metrics endpoint returns response even if some services are unavailable"""
-        response = self.client.get('/api/admin/system/metrics/')
+        response = self.client.get('/api/system/admin/system/metrics/')
 
         # Should still return 200, possibly with partial data
         assert response.status_code == status.HTTP_200_OK

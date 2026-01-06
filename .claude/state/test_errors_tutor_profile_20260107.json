@@ -1,0 +1,249 @@
+{
+  "test_run": {
+    "date": "2026-01-07",
+    "test_file": "backend/tests/tutor_cabinet/test_profile_settings_20260107.py",
+    "unique_name": "tutor_cabinet_test_20260107",
+    "total_tests": 31,
+    "passed": 25,
+    "failed": 6,
+    "success_rate": "80.6%"
+  },
+  "errors": [
+    {
+      "id": "T105_AVATAR_CRITICAL",
+      "priority": "CRITICAL",
+      "test_ids": ["T105.1", "T105.2", "T105.4"],
+      "tests_affected_count": 3,
+      "description": "Avatar upload fails with AttributeError: 'TutorProfile' object has no attribute 'avatar'",
+      "issue": "TutorProfile model does not have 'avatar' field. Avatar is stored on User model, but code tries to save to profile object.",
+      "error_location": {
+        "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/profile_service.py",
+        "line": 121,
+        "function": "handle_avatar_upload",
+        "code": "profile.avatar.save(filename, avatar_file, save=True)"
+      },
+      "fix": {
+        "description": "Change profile.avatar to profile.user.avatar",
+        "old_code": "profile.avatar.save(filename, avatar_file, save=True)",
+        "new_code": "profile.user.avatar.save(filename, avatar_file, save=True)"
+      },
+      "endpoint": "PATCH /api/profile/tutor/",
+      "http_method": "PATCH",
+      "response_code": 400,
+      "error_message": "Ошибка при обработке аватара: 'TutorProfile' object has no attribute 'avatar'"
+    },
+    {
+      "id": "T103_MISSING_TELEGRAM_FIELD",
+      "priority": "HIGH",
+      "test_ids": ["T103.3"],
+      "tests_affected_count": 1,
+      "description": "TutorProfileDetailSerializer missing 'telegram' field in response",
+      "issue": "The serializer defines fields tuple without 'telegram' - only includes telegram_id and is_telegram_linked",
+      "error_location": {
+        "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/profile_serializers.py",
+        "line": 305,
+        "class": "TutorProfileDetailSerializer",
+        "location": "Meta.fields tuple"
+      },
+      "fields_returned": [
+        "id",
+        "specialization",
+        "experience_years",
+        "bio",
+        "reportsCount",
+        "telegram_id",
+        "is_telegram_linked"
+      ],
+      "fields_missing": ["telegram"],
+      "fix": {
+        "description": "Add 'telegram' to fields tuple",
+        "old_code": "fields = (\n    'id',\n    'specialization',\n    'experience_years',\n    'bio',\n    'reportsCount',\n    'telegram_id',\n    'is_telegram_linked',\n)",
+        "new_code": "fields = (\n    'id',\n    'specialization',\n    'experience_years',\n    'bio',\n    'telegram',\n    'reportsCount',\n    'telegram_id',\n    'is_telegram_linked',\n)"
+      },
+      "endpoint": "GET /api/profile/tutor/",
+      "http_method": "GET",
+      "response_code": 200,
+      "assertion": "assert 'telegram' in profile_data"
+    },
+    {
+      "id": "T109_EMAIL_DUPLICATE_NOT_VALIDATED",
+      "priority": "HIGH",
+      "test_ids": ["T109.2"],
+      "tests_affected_count": 1,
+      "description": "Email field update doesn't validate uniqueness - allows duplicate emails",
+      "issue": "When patching profile with email that already exists in database, API returns 200 instead of 400/422",
+      "error_location": {
+        "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/profile_views.py",
+        "function": "TutorProfileView.patch",
+        "line_range": "475-544"
+      },
+      "root_cause": "UserProfileUpdateSerializer or the patch method doesn't validate email uniqueness before saving",
+      "expected_behavior": "Should return 400 or 422 with validation error when email is duplicate",
+      "actual_behavior": "Returns 200 with updated profile (duplicate email allowed)",
+      "fix": {
+        "description": "Add email uniqueness validation in UserProfileUpdateSerializer or in view",
+        "option_1": "Add validate_email method to UserProfileUpdateSerializer with uniqueness check",
+        "option_2": "Add validation in TutorProfileView.patch() before calling user_serializer.save()"
+      },
+      "endpoint": "PATCH /api/profile/tutor/",
+      "http_method": "PATCH",
+      "request_body": {
+        "email": "other_tutor_email@example.com"
+      },
+      "response_code": 200,
+      "expected_response_code": 400
+    },
+    {
+      "id": "T103_DUPLICATE_USERNAME_TEST_ISOLATION",
+      "priority": "MEDIUM",
+      "test_ids": ["T103.6"],
+      "tests_affected_count": 1,
+      "description": "Test fails due to database not being cleaned between test runs",
+      "issue": "Test tries to create user with username 'student_test_20260107' but user already exists from previous run",
+      "error_type": "django.db.utils.IntegrityError",
+      "error_message": "duplicate key value violates unique constraint 'accounts_user_username_key'",
+      "error_location": {
+        "file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/tutor_cabinet/test_profile_settings_20260107.py",
+        "line": 157,
+        "function": "test_view_profile_non_tutor_returns_403"
+      },
+      "root_cause": "Hard-coded usernames in test fixtures - not unique across multiple test runs",
+      "fix": {
+        "description": "Use unique usernames with timestamp or UUID",
+        "option_1": "Use pytest faker fixture to generate unique usernames",
+        "option_2": "Add timestamp to username: f'student_test_{int(time.time())}_{random.randint(0,999)}'",
+        "option_3": "Check if user exists and delete before creating in setUp"
+      },
+      "test_code_line": 157,
+      "test_method": "test_view_profile_non_tutor_returns_403"
+    }
+  ],
+  "test_results_by_category": {
+    "T103_VIEW_PROFILE": {
+      "total": 6,
+      "passed": 4,
+      "failed": 2,
+      "passed_tests": [
+        "test_view_own_profile_success",
+        "test_view_profile_includes_all_user_fields",
+        "test_view_profile_unauthenticated_returns_401",
+        "test_view_profile_invalid_token_returns_401"
+      ],
+      "failed_tests": [
+        "test_view_profile_includes_all_profile_fields (missing telegram field)",
+        "test_view_profile_non_tutor_returns_403 (duplicate username in DB)"
+      ]
+    },
+    "T104_EDIT_PROFILE": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "status": "FULLY WORKING"
+    },
+    "T105_UPLOAD_AVATAR": {
+      "total": 4,
+      "passed": 1,
+      "failed": 3,
+      "passed_tests": ["test_upload_non_image_file_returns_400"],
+      "failed_tests": [
+        "test_upload_avatar_success (TutorProfile.avatar missing)",
+        "test_upload_avatar_with_other_fields (TutorProfile.avatar missing)",
+        "test_upload_avatar_overwrites_previous (TutorProfile.avatar missing)"
+      ]
+    },
+    "T106_PRIVATE_FIELDS_ACCESS": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "FULLY WORKING"
+    },
+    "T109_CHANGE_EMAIL": {
+      "total": 3,
+      "passed": 2,
+      "failed": 1,
+      "passed_tests": [
+        "test_change_email_via_patch",
+        "test_change_to_invalid_email_returns_error"
+      ],
+      "failed_tests": [
+        "test_change_to_duplicate_email_returns_error (no validation)"
+      ]
+    },
+    "T110_CHANGE_PASSWORD": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "status": "FULLY WORKING"
+    },
+    "NOT_YET_IMPLEMENTED": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "PLACEHOLDERS - EXPECTED",
+      "features": [
+        "T107 - Notification settings",
+        "T108 - Privacy settings",
+        "T111 - 2FA settings",
+        "T112 - Lesson time settings"
+      ]
+    }
+  },
+  "modules_with_errors": [
+    {
+      "file": "backend/accounts/profile_service.py",
+      "errors": 1,
+      "lines_affected": [121],
+      "issue": "Avatar upload logic error (profile vs profile.user)"
+    },
+    {
+      "file": "backend/accounts/profile_serializers.py",
+      "errors": 1,
+      "lines_affected": [305],
+      "issue": "Missing 'telegram' field in TutorProfileDetailSerializer.Meta.fields"
+    },
+    {
+      "file": "backend/accounts/profile_views.py",
+      "errors": 1,
+      "lines_affected": [475],
+      "issue": "Missing email uniqueness validation in TutorProfileView.patch()"
+    },
+    {
+      "file": "backend/tests/tutor_cabinet/test_profile_settings_20260107.py",
+      "errors": 1,
+      "lines_affected": [157],
+      "issue": "Hard-coded non-unique username in test fixture"
+    }
+  ],
+  "endpoints_tested": [
+    {
+      "endpoint": "GET /api/profile/tutor/",
+      "method": "GET",
+      "status": "MOSTLY WORKING",
+      "issues": ["Missing 'telegram' field in response"]
+    },
+    {
+      "endpoint": "PATCH /api/profile/tutor/",
+      "method": "PATCH",
+      "status": "PARTIALLY BROKEN",
+      "issues": [
+        "Avatar upload fails (TutorProfile.avatar missing)",
+        "Email field not validated for uniqueness"
+      ]
+    },
+    {
+      "endpoint": "POST /api/auth/change-password/",
+      "method": "POST",
+      "status": "WORKING",
+      "issues": []
+    }
+  ],
+  "summary": {
+    "critical_issues": 1,
+    "high_priority_issues": 2,
+    "medium_priority_issues": 1,
+    "total_distinct_bugs": 4,
+    "files_with_bugs": 4,
+    "endpoints_with_bugs": 2,
+    "recommendation": "Fix CRITICAL avatar issue immediately, then HIGH priority serializer and validation issues"
+  }
+}

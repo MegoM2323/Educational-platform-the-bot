@@ -249,3 +249,78 @@ class MaterialSubmissionEnrollmentPermission(BasePermission):
             return False
 
         return False
+
+
+class ChildBelongsToParent(BasePermission):
+    """
+    Разрешение для проверки что ребенок (student) принадлежит родителю.
+
+    Проверяет что:
+    - Пользователь аутентифицирован
+    - Пользователь имеет роль PARENT
+    - Ребенок с child_id принадлежит этому родителю (через StudentProfile.parent)
+
+    Используется в parent dashboard endpoints:
+    - GET /api/materials/parent/children/{child_id}/subjects/
+    - GET /api/materials/parent/children/{child_id}/progress/
+    - POST /api/materials/parent/children/{child_id}/payment/{enrollment_id}/
+    """
+
+    def has_permission(self, request, view):
+        """Проверка что пользователь аутентифицирован"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if not request.user.is_active:
+            logger.warning(
+                f"Inactive parent attempted access: user_id={request.user.id}"
+            )
+            return False
+
+        return True
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Проверка что ребенок принадлежит родителю.
+
+        Args:
+            request: HTTP request
+            view: View instance
+            obj: User instance (student)
+
+        Returns:
+            bool: True if child belongs to parent
+        """
+        user = request.user
+
+        if not user.is_active:
+            return False
+
+        # Админы имеют доступ ко всему
+        if user.is_staff or user.is_superuser:
+            return True
+
+        # Проверяем что это студент
+        if obj.role != User.Role.STUDENT:
+            logger.warning(
+                f"Parent attempted to access non-student: user_id={user.id}, "
+                f"target_id={obj.id}, target_role={obj.role}"
+            )
+            return False
+
+        # Проверяем что студент принадлежит этому родителю
+        try:
+            from accounts.models import StudentProfile
+
+            student_profile = StudentProfile.objects.get(user=obj)
+            if student_profile.parent == user:
+                return True
+
+            logger.warning(
+                f"Parent attempted unauthorized child access: parent_id={user.id}, "
+                f"student_id={obj.id}, actual_parent_id={student_profile.parent_id}"
+            )
+            return False
+        except StudentProfile.DoesNotExist:
+            logger.warning(f"Student profile not found: student_id={obj.id}")
+            return False

@@ -27,6 +27,11 @@ from .admin_database_views import (
     MaintenanceStatusView,
     KillQueryView,
 )
+from .admin_jobs_views import (
+    AdminJobsStatusView,
+    AdminJobsDetailView,
+    AdminJobsStatsView,
+)
 from .stats_views import (
     dashboard_stats,
     user_stats,
@@ -130,6 +135,12 @@ urlpatterns = [
     path('admin/database/maintenance/', MaintenanceTaskView.as_view(), name='maintenance_task'),
     path('admin/database/maintenance/<str:task_id>/', MaintenanceStatusView.as_view(), name='maintenance_status'),
     path('admin/database/kill-query/', KillQueryView.as_view(), name='kill_query'),
+
+    # Admin Jobs Monitoring endpoints (для админ-панели)
+    # NOTE: More specific paths must come before generic paths
+    path('admin/jobs/status/', AdminJobsStatusView.as_view(), name='admin_jobs_status'),
+    path('admin/jobs/stats/', AdminJobsStatsView.as_view(), name='admin_jobs_stats'),
+    path('admin/jobs/<str:job_id>/', AdminJobsDetailView.as_view(), name='admin_jobs_detail'),
 
     # Uptime SLA Monitoring (публичные endpoints)
     path('uptime/', uptime_status_view, name='uptime_status'),

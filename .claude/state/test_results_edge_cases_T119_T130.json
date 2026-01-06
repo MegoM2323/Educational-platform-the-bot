@@ -1,0 +1,218 @@
+{
+  "test_session": "tutor_cabinet_test_20260107",
+  "test_file": "backend/tests/tutor_cabinet/test_edge_cases_T119_T130_20260107.py",
+  "test_date": "2026-01-07T06:33:18Z",
+  "summary": {
+    "total_tests": 28,
+    "passed": 5,
+    "failed": 22,
+    "errors": 1,
+    "success_rate": "17.9%"
+  },
+  "passed_tests": [
+    {
+      "name": "TestNetworkLossHandling::test_network_connection_error",
+      "status": "PASSED",
+      "category": "T119"
+    },
+    {
+      "name": "TestServerErrorHandling::test_500_error_response",
+      "status": "PASSED",
+      "category": "T120"
+    },
+    {
+      "name": "TestRateLimiting::test_rapid_requests_handled",
+      "status": "PASSED",
+      "category": "T128"
+    },
+    {
+      "name": "TestRateLimiting::test_rate_limit_responses",
+      "status": "PASSED",
+      "category": "T128"
+    },
+    {
+      "name": "TestPaginationOutOfBounds::test_pagination_consistency",
+      "status": "PASSED",
+      "category": "T130"
+    }
+  ],
+  "critical_failures": [
+    {
+      "test": "TestNetworkLossHandling::test_network_timeout_on_list_students",
+      "error_type": "API endpoint returns 403 instead of expected codes",
+      "issue": "API endpoint /api/tutor/students/ returns 403 Forbidden",
+      "category": "T119",
+      "severity": "HIGH"
+    },
+    {
+      "test": "TestInvalidDataHandling::test_invalid_json_request",
+      "error_type": "API endpoint returns 403 instead of 400",
+      "issue": "POST /api/tutor/students/ returns 403 Forbidden for invalid JSON",
+      "category": "T122",
+      "severity": "HIGH"
+    },
+    {
+      "test": "TestPaginationOutOfBounds::*",
+      "error_type": "All pagination tests return 403 Forbidden",
+      "issue": "GET /api/tutor/students/?page=* returns 403 instead of 200/404",
+      "category": "T130",
+      "severity": "HIGH"
+    },
+    {
+      "test": "TestNullUndefinedData::test_empty_vs_null",
+      "error_type": "TypeError in client.post()",
+      "issue": "Django test client cannot encode None values in POST data",
+      "category": "T129",
+      "severity": "MEDIUM"
+    },
+    {
+      "test": "TestDatabaseRaceConditions::test_concurrent_subject_creation",
+      "error_type": "Database deadlock detected",
+      "issue": "Concurrent transactions cause deadlock in PostgreSQL",
+      "category": "T126",
+      "severity": "HIGH"
+    },
+    {
+      "test": "TestConcurrentEditing::test_concurrent_profile_edits",
+      "error_type": "All concurrent requests return 403 Forbidden",
+      "issue": "PATCH /api/tutor/profile/ returns 403 instead of 200/400/409",
+      "category": "T123",
+      "severity": "HIGH"
+    }
+  ],
+  "api_issues_found": {
+    "main_issue": "Multiple API endpoints return 403 Forbidden unexpectedly",
+    "affected_endpoints": [
+      "/api/tutor/students/ (GET, POST, DELETE, PATCH)",
+      "/api/tutor/students/{id}/ (DELETE, PATCH)",
+      "/api/tutor/profile/ (PATCH)",
+      "/api/tutor/dashboard/ (GET)",
+      "/api/tutor/lessons/ (GET, POST, DELETE)"
+    ],
+    "possible_causes": [
+      "API endpoints don't exist (404 converted to 403)",
+      "Permission classes incorrectly configured",
+      "API paths have changed or are not mounted",
+      "Authentication not properly applied",
+      "DRF permission denied response"
+    ]
+  },
+  "data_handling_issues": {
+    "null_in_post_data": {
+      "issue": "Django test client.post() raises TypeError when None is passed",
+      "tests_affected": ["test_empty_vs_null"],
+      "solution": "Test should not pass None to POST, use empty string or omit field"
+    }
+  },
+  "database_issues": {
+    "deadlock_in_concurrent_tests": {
+      "error": "psycopg.errors.DeadlockDetected",
+      "cause": "Concurrent writes to same tables without proper transaction isolation",
+      "affected_test": "TestDatabaseRaceConditions::test_concurrent_subject_creation",
+      "solution": "Use proper database transaction isolation or separate test data"
+    }
+  },
+  "recommendations": [
+    {
+      "priority": 1,
+      "action": "Verify API endpoint paths in tutor cabinet router/urls.py",
+      "reason": "Main cause of 403 failures is likely endpoints not found or misconfigured",
+      "affected_tests": 17
+    },
+    {
+      "priority": 2,
+      "action": "Review permission classes on API views",
+      "reason": "403 errors suggest permission denied, not 404 not found",
+      "affected_tests": 17
+    },
+    {
+      "priority": 3,
+      "action": "Fix test data for concurrent tests",
+      "reason": "Database deadlocks indicate test isolation issues",
+      "affected_tests": 2
+    },
+    {
+      "priority": 4,
+      "action": "Update test assertions for None data handling",
+      "reason": "Client library doesn't support None in POST data",
+      "affected_tests": 1
+    }
+  ],
+  "error_categories": {
+    "T119_network_loss": {
+      "tests": 2,
+      "passed": 1,
+      "failed": 1,
+      "critical_error": "API endpoint 403 when fetching student list"
+    },
+    "T120_server_errors": {
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "status": "OK"
+    },
+    "T121_timeouts": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "critical_error": "API endpoint 403"
+    },
+    "T122_invalid_data": {
+      "tests": 6,
+      "passed": 0,
+      "failed": 6,
+      "critical_error": "API endpoint 403 for all POST requests"
+    },
+    "T123_concurrent_editing": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "error_deadlock": "Database deadlock + 403 API error"
+    },
+    "T124_delete_nonexistent": {
+      "tests": 2,
+      "passed": 0,
+      "failed": 2,
+      "critical_error": "API endpoint 403 for DELETE requests"
+    },
+    "T125_cascade_deletion": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "critical_error": "API endpoint 403 for DELETE requests"
+    },
+    "T126_race_conditions": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "error_deadlock": "PostgreSQL deadlock detected"
+    },
+    "T127_student_limit": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "critical_error": "API endpoint 403 for GET requests"
+    },
+    "T128_rate_limiting": {
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "status": "OK"
+    },
+    "T129_null_undefined": {
+      "tests": 3,
+      "passed": 0,
+      "failed": 3,
+      "errors": [
+        "API endpoint 403",
+        "TypeError in test client"
+      ]
+    },
+    "T130_pagination": {
+      "tests": 6,
+      "passed": 1,
+      "failed": 5,
+      "critical_error": "API endpoint 403 for all pagination requests"
+    }
+  }
+}

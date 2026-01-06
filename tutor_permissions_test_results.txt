@@ -1,0 +1,248 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.7, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python
+cachedir: .pytest_cache
+django: version: 4.2.7
+rootdir: /home/mego/Python Projects/THE_BOT_platform
+plugins: django-4.7.0, xdist-3.8.0, Faker-20.1.0, mock-3.12.0, anyio-3.7.1, cov-4.1.0, asyncio-0.21.1, env-1.2.0
+asyncio: mode=Mode.STRICT
+collecting ... collected 16 items
+
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_access_own_materials FAILED [  6%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_access_other_materials_forbidden FAILED [ 12%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_edit_own_material FAILED [ 18%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_edit_other_material_forbidden FAILED [ 25%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_delete_own_material FAILED [ 31%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_delete_other_material_forbidden FAILED [ 37%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_teacher_cannot_access_unassigned_subject FAILED [ 43%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_teacher_can_only_enroll_students_in_own_subject FAILED [ 50%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_tutor_cannot_access_teacher_endpoints FAILED [ 56%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_student_cannot_create_materials FAILED [ 62%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_student_cannot_edit_materials FAILED [ 68%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_student_cannot_delete_materials FAILED [ 75%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_multiple_teachers_isolated_materials FAILED [ 81%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_teacher_profile_access FAILED [ 87%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_student_cannot_access_teacher_profile FAILED [ 93%]
+backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_material_visibility_by_status FAILED [100%]
+
+=================================== FAILURES ===================================
+______________ TestTeacherAuthorization.test_access_own_materials ______________
+backend/tests/teacher_dashboard/test_permissions.py:16: in test_access_own_materials
+    assert response.status_code == status.HTTP_200_OK
+E   assert 401 == 200
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:51 audit log_user_creation_or_update:379 - action=create_user user_id=490 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:51 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=490 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:51 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 490
+________ TestTeacherAuthorization.test_access_other_materials_forbidden ________
+backend/tests/teacher_dashboard/test_permissions.py:26: in test_access_other_materials_forbidden
+    assert response.status_code in [
+E   assert 401 in [403, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=491 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=491 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 491
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=492 email=teacher2@test.com role=teacher first_name=Jane last_name=Educator is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=492 email=teacher2@test.com subject=English experience_years=3 bio=English language specialist
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 492
+_______________ TestTeacherAuthorization.test_edit_own_material ________________
+backend/tests/teacher_dashboard/test_permissions.py:42: in test_edit_own_material
+    assert response.status_code == status.HTTP_200_OK
+E   assert 401 == 200
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=493 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=493 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 493
+_________ TestTeacherAuthorization.test_edit_other_material_forbidden __________
+backend/tests/teacher_dashboard/test_permissions.py:55: in test_edit_other_material_forbidden
+    assert response.status_code in [
+E   assert 401 in [403, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=494 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=494 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 494
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=495 email=teacher2@test.com role=teacher first_name=Jane last_name=Educator is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=495 email=teacher2@test.com subject=English experience_years=3 bio=English language specialist
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 495
+______________ TestTeacherAuthorization.test_delete_own_material _______________
+backend/tests/teacher_dashboard/test_permissions.py:72: in test_delete_own_material
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+E   assert 401 == 204
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+E    +  and   204 = status.HTTP_204_NO_CONTENT
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=496 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=496 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 496
+________ TestTeacherAuthorization.test_delete_other_material_forbidden _________
+backend/tests/teacher_dashboard/test_permissions.py:80: in test_delete_other_material_forbidden
+    assert response.status_code in [
+E   assert 401 in [403, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=497 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=497 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 497
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=498 email=teacher2@test.com role=teacher first_name=Jane last_name=Educator is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=498 email=teacher2@test.com subject=English experience_years=3 bio=English language specialist
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 498
+____ TestTeacherAuthorization.test_teacher_cannot_access_unassigned_subject ____
+backend/tests/teacher_dashboard/test_permissions.py:93: in test_teacher_cannot_access_unassigned_subject
+    assert response.status_code in [
+E   assert 401 in [403, 404, 200]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=499 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=499 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 499
+_ TestTeacherAuthorization.test_teacher_can_only_enroll_students_in_own_subject _
+backend/tests/teacher_dashboard/test_permissions.py:115: in test_teacher_can_only_enroll_students_in_own_subject
+    assert response.status_code in [
+E   assert 401 in [403, 400, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:52 audit log_user_creation_or_update:379 - action=create_user user_id=500 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:52 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=500 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:52 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 500
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=501 email=student1@test.com role=student first_name=Alice last_name=Student is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 materials.cache_utils invalidate_student_enrollments:143 - Invalidated student enrollments cache for student_id=501
+[INFO] 2026-01-06 22:15:53 materials.cache_utils invalidate_student_teachers:157 - Invalidated student teachers cache for student_id=501
+[INFO] 2026-01-06 22:15:53 audit log_student_profile_creation:450 - action=create_profile type=StudentProfile user_id=501 email=student1@test.com grade=10 goal=Pass the exam tutor_id=None parent_id=None
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_student_profile_creation:451 - [Signal] StudentProfile created for user 501
+------------------------------ Captured log setup ------------------------------
+INFO     materials.cache_utils:cache_utils.py:143 Invalidated student enrollments cache for student_id=501
+INFO     materials.cache_utils:cache_utils.py:157 Invalidated student teachers cache for student_id=501
+_____ TestTeacherAuthorization.test_tutor_cannot_access_teacher_endpoints ______
+backend/tests/teacher_dashboard/test_permissions.py:127: in test_tutor_cannot_access_teacher_endpoints
+    assert response.status_code in [
+E   assert 401 in [403, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=502 email=tutor1@test.com role=tutor first_name=Tom last_name=Tutor is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=503 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=503 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 503
+________ TestTeacherAuthorization.test_student_cannot_create_materials _________
+backend/tests/teacher_dashboard/test_permissions.py:146: in test_student_cannot_create_materials
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+E   assert 401 == 403
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+E    +  and   403 = status.HTTP_403_FORBIDDEN
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=504 email=student1@test.com role=student first_name=Alice last_name=Student is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 materials.cache_utils invalidate_student_enrollments:143 - Invalidated student enrollments cache for student_id=504
+[INFO] 2026-01-06 22:15:53 materials.cache_utils invalidate_student_teachers:157 - Invalidated student teachers cache for student_id=504
+[INFO] 2026-01-06 22:15:53 audit log_student_profile_creation:450 - action=create_profile type=StudentProfile user_id=504 email=student1@test.com grade=10 goal=Pass the exam tutor_id=None parent_id=None
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_student_profile_creation:451 - [Signal] StudentProfile created for user 504
+------------------------------ Captured log setup ------------------------------
+INFO     materials.cache_utils:cache_utils.py:143 Invalidated student enrollments cache for student_id=504
+INFO     materials.cache_utils:cache_utils.py:157 Invalidated student teachers cache for student_id=504
+_________ TestTeacherAuthorization.test_student_cannot_edit_materials __________
+backend/tests/teacher_dashboard/test_permissions.py:158: in test_student_cannot_edit_materials
+    assert response.status_code in [
+E   assert 401 in [403, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=505 email=student1@test.com role=student first_name=Alice last_name=Student is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 materials.cache_utils invalidate_student_enrollments:143 - Invalidated student enrollments cache for student_id=505
+[INFO] 2026-01-06 22:15:53 materials.cache_utils invalidate_student_teachers:157 - Invalidated student teachers cache for student_id=505
+[INFO] 2026-01-06 22:15:53 audit log_student_profile_creation:450 - action=create_profile type=StudentProfile user_id=505 email=student1@test.com grade=10 goal=Pass the exam tutor_id=None parent_id=None
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_student_profile_creation:451 - [Signal] StudentProfile created for user 505
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=506 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=506 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 506
+------------------------------ Captured log setup ------------------------------
+INFO     materials.cache_utils:cache_utils.py:143 Invalidated student enrollments cache for student_id=505
+INFO     materials.cache_utils:cache_utils.py:157 Invalidated student teachers cache for student_id=505
+________ TestTeacherAuthorization.test_student_cannot_delete_materials _________
+backend/tests/teacher_dashboard/test_permissions.py:169: in test_student_cannot_delete_materials
+    assert response.status_code in [
+E   assert 401 in [403, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=507 email=student1@test.com role=student first_name=Alice last_name=Student is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 materials.cache_utils invalidate_student_enrollments:143 - Invalidated student enrollments cache for student_id=507
+[INFO] 2026-01-06 22:15:53 materials.cache_utils invalidate_student_teachers:157 - Invalidated student teachers cache for student_id=507
+[INFO] 2026-01-06 22:15:53 audit log_student_profile_creation:450 - action=create_profile type=StudentProfile user_id=507 email=student1@test.com grade=10 goal=Pass the exam tutor_id=None parent_id=None
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_student_profile_creation:451 - [Signal] StudentProfile created for user 507
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=508 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=508 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 508
+------------------------------ Captured log setup ------------------------------
+INFO     materials.cache_utils:cache_utils.py:143 Invalidated student enrollments cache for student_id=507
+INFO     materials.cache_utils:cache_utils.py:157 Invalidated student teachers cache for student_id=507
+______ TestTeacherAuthorization.test_multiple_teachers_isolated_materials ______
+backend/tests/teacher_dashboard/test_permissions.py:180: in test_multiple_teachers_isolated_materials
+    assert response1.status_code == status.HTTP_200_OK
+E   assert 401 == 200
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=509 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=509 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 509
+[INFO] 2026-01-06 22:15:53 audit log_user_creation_or_update:379 - action=create_user user_id=510 email=teacher2@test.com role=teacher first_name=Jane last_name=Educator is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:53 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=510 email=teacher2@test.com subject=English experience_years=3 bio=English language specialist
+[DEBUG] 2026-01-06 22:15:53 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 510
+_____________ TestTeacherAuthorization.test_teacher_profile_access _____________
+backend/tests/teacher_dashboard/test_permissions.py:190: in test_teacher_profile_access
+    assert response.status_code == status.HTTP_200_OK
+E   assert 401 == 200
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+E    +  and   200 = status.HTTP_200_OK
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:54 audit log_user_creation_or_update:379 - action=create_user user_id=511 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:54 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=511 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:54 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 511
+_____ TestTeacherAuthorization.test_student_cannot_access_teacher_profile ______
+backend/tests/teacher_dashboard/test_permissions.py:196: in test_student_cannot_access_teacher_profile
+    assert response.status_code in [
+E   assert 401 in [403, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:54 audit log_user_creation_or_update:379 - action=create_user user_id=512 email=student1@test.com role=student first_name=Alice last_name=Student is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:54 materials.cache_utils invalidate_student_enrollments:143 - Invalidated student enrollments cache for student_id=512
+[INFO] 2026-01-06 22:15:54 materials.cache_utils invalidate_student_teachers:157 - Invalidated student teachers cache for student_id=512
+[INFO] 2026-01-06 22:15:54 audit log_student_profile_creation:450 - action=create_profile type=StudentProfile user_id=512 email=student1@test.com grade=10 goal=Pass the exam tutor_id=None parent_id=None
+[DEBUG] 2026-01-06 22:15:54 accounts.signals log_student_profile_creation:451 - [Signal] StudentProfile created for user 512
+------------------------------ Captured log setup ------------------------------
+INFO     materials.cache_utils:cache_utils.py:143 Invalidated student enrollments cache for student_id=512
+INFO     materials.cache_utils:cache_utils.py:157 Invalidated student teachers cache for student_id=512
+_________ TestTeacherAuthorization.test_material_visibility_by_status __________
+backend/tests/teacher_dashboard/test_permissions.py:217: in test_material_visibility_by_status
+    assert response.status_code in [
+E   assert 401 in [200, 403, 404]
+E    +  where 401 = <Response status_code=401, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+[INFO] 2026-01-06 22:15:54 audit log_user_creation_or_update:379 - action=create_user user_id=513 email=teacher1@test.com role=teacher first_name=John last_name=Teacher is_active=True is_staff=False
+[INFO] 2026-01-06 22:15:54 audit log_teacher_profile_creation:743 - action=create_profile type=TeacherProfile user_id=513 email=teacher1@test.com subject=Mathematics experience_years=5 bio=Experienced math teacher
+[DEBUG] 2026-01-06 22:15:54 accounts.signals log_teacher_profile_creation:744 - [Signal] TeacherProfile created for user 513
+=============================== warnings summary ===============================
+../../.local/lib/python3.13/site-packages/pytz/tzinfo.py:27
+  /home/mego/.local/lib/python3.13/site-packages/pytz/tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_access_own_materials
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_access_other_materials_forbidden
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_edit_own_material
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_edit_other_material_forbidden
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_delete_own_material
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_delete_other_material_forbidden
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_teacher_cannot_access_unassigned_subject
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_teacher_can_only_enroll_students_in_own_subject
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_tutor_cannot_access_teacher_endpoints
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_student_cannot_create_materials
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_student_cannot_edit_materials
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_student_cannot_delete_materials
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_multiple_teachers_isolated_materials
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_teacher_profile_access
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_student_cannot_access_teacher_profile
+FAILED backend/tests/teacher_dashboard/test_permissions.py::TestTeacherAuthorization::test_material_visibility_by_status
+======================== 16 failed, 1 warning in 2.83s =========================

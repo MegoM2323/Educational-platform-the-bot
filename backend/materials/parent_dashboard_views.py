@@ -21,6 +21,7 @@ from .serializers import (
     PaymentInitiationSerializer,
 )
 from .models import SubjectSubscription
+from .permissions import ChildBelongsToParent
 from accounts.serializers import get_profile_serializer
 from accounts.permissions import IsParent
 
@@ -307,7 +308,7 @@ class ParentChildrenView(generics.ListAPIView):
 
 @api_view(["GET"])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, ChildBelongsToParent])
 def get_child_subjects(request, child_id):
     """
     Получить предметы конкретного ребенка
@@ -322,7 +323,8 @@ def get_child_subjects(request, child_id):
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
 
-        if child not in service.get_children():
+        permission = ChildBelongsToParent()
+        if not permission.has_object_permission(request, None, child):
             return Response(
                 {"error": "Ребенок не принадлежит данному родителю"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -361,7 +363,7 @@ def get_child_subjects(request, child_id):
 
 @api_view(["GET"])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, ChildBelongsToParent])
 def get_child_progress(request, child_id):
     """
     Получить прогресс конкретного ребенка
@@ -376,7 +378,8 @@ def get_child_progress(request, child_id):
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
 
-        if child not in service.get_children():
+        permission = ChildBelongsToParent()
+        if not permission.has_object_permission(request, None, child):
             return Response(
                 {"error": "Ребенок не принадлежит данному родителю"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -394,7 +397,7 @@ def get_child_progress(request, child_id):
 
 @api_view(["GET"])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
-@permission_classes([IsAuthenticated, IsParent])
+@permission_classes([IsAuthenticated, IsParent, ChildBelongsToParent])
 def get_child_teachers(request, child_id):
     """
     Получить преподавателей ребенка
@@ -409,7 +412,8 @@ def get_child_teachers(request, child_id):
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
 
-        if child not in service.get_children():
+        permission = ChildBelongsToParent()
+        if not permission.has_object_permission(request, None, child):
             return Response(
                 {"error": "Ребенок не принадлежит данному родителю"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -461,7 +465,7 @@ def parent_pending_payments(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, ChildBelongsToParent])
 def get_payment_status(request, child_id):
     """
     Получить статус платежей для ребенка
@@ -470,7 +474,8 @@ def get_payment_status(request, child_id):
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
 
-        if child not in service.get_children():
+        permission = ChildBelongsToParent()
+        if not permission.has_object_permission(request, None, child):
             return Response(
                 {"error": "Ребенок не принадлежит данному родителю"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -488,7 +493,7 @@ def get_payment_status(request, child_id):
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, ChildBelongsToParent])
 @transaction.atomic
 def initiate_payment(request, child_id, enrollment_id):
     """
@@ -513,7 +518,8 @@ def initiate_payment(request, child_id, enrollment_id):
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
 
-        if child not in service.get_children():
+        permission = ChildBelongsToParent()
+        if not permission.has_object_permission(request, None, child):
             return Response(
                 {"error": "Ребенок не принадлежит данному родителю"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -591,7 +597,7 @@ def initiate_payment(request, child_id, enrollment_id):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, ChildBelongsToParent])
 def get_reports(request, child_id=None):
     """
     Получить отчеты о прогрессе от тьютора
@@ -603,7 +609,8 @@ def get_reports(request, child_id=None):
 
         if child_id:
             child = User.objects.get(id=child_id, role=User.Role.STUDENT)
-            if child not in service.get_children():
+            permission = ChildBelongsToParent()
+            if not permission.has_object_permission(request, None, child):
                 return Response(
                     {"error": "Ребенок не принадлежит данному родителю"},
                     status=status.HTTP_403_FORBIDDEN,
@@ -625,7 +632,7 @@ def get_reports(request, child_id=None):
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication, SessionAuthentication])
-@permission_classes([IsAuthenticated, IsParent])
+@permission_classes([IsAuthenticated, IsParent, ChildBelongsToParent])
 @transaction.atomic
 def cancel_subscription(request, child_id, enrollment_id):
     """
@@ -644,7 +651,8 @@ def cancel_subscription(request, child_id, enrollment_id):
         service = ParentDashboardService(request.user)
         child = User.objects.get(id=child_id, role=User.Role.STUDENT)
 
-        if child not in service.get_children():
+        permission = ChildBelongsToParent()
+        if not permission.has_object_permission(request, None, child):
             return Response(
                 {"error": "Ребенок не принадлежит данному родителю"},
                 status=status.HTTP_403_FORBIDDEN,

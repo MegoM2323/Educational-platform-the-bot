@@ -1,0 +1,285 @@
+{
+  "test_session": "tutor_cabinet_test_20260107",
+  "description": "T073-T087: Comprehensive messaging and forum tests for Tutor Cabinet",
+  "total_tests": 30,
+  "passed": 5,
+  "failed": 16,
+  "errors": 9,
+  "success_rate": "16.7%",
+  "test_results_summary": {
+    "T073_ChatInitiation": {
+      "total": 4,
+      "passed": 1,
+      "failed": 3,
+      "status": "PARTIAL"
+    },
+    "T074_WebSocketMessages": {
+      "total": 2,
+      "passed": 0,
+      "failed": 2,
+      "status": "FAILED"
+    },
+    "T076_MessageEditing": {
+      "total": 2,
+      "passed": 0,
+      "failed": 2,
+      "status": "FAILED"
+    },
+    "T077_MessageDeletion": {
+      "total": 3,
+      "passed": 0,
+      "failed": 3,
+      "status": "FAILED"
+    },
+    "T078_FileUpload": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "status": "PASSED"
+    },
+    "T079_ChatHistory": {
+      "total": 2,
+      "passed": 0,
+      "failed": 2,
+      "status": "FAILED"
+    },
+    "T080_Notifications": {
+      "total": 2,
+      "passed": 0,
+      "failed": 2,
+      "status": "FAILED"
+    },
+    "T081_MessageMute": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "status": "FAILED"
+    },
+    "T082_Archive": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "status": "PASSED"
+    },
+    "T084_ForumPostCreation": {
+      "total": 2,
+      "passed": 0,
+      "failed": 0,
+      "errors": 2,
+      "status": "ERROR"
+    },
+    "T085_ForumReplies": {
+      "total": 2,
+      "passed": 0,
+      "failed": 0,
+      "errors": 2,
+      "status": "ERROR"
+    },
+    "T086_ForumModeration": {
+      "total": 3,
+      "passed": 0,
+      "failed": 0,
+      "errors": 3,
+      "status": "ERROR"
+    },
+    "T087_ForumAnnouncements": {
+      "total": 2,
+      "passed": 0,
+      "failed": 0,
+      "errors": 2,
+      "status": "ERROR"
+    },
+    "Security": {
+      "total": 2,
+      "passed": 1,
+      "failed": 1,
+      "status": "PARTIAL"
+    }
+  },
+  "critical_errors": [
+    {
+      "test_id": "T073",
+      "test_name": "test_create_direct_chat_room",
+      "error_type": "Serializer Bug",
+      "error_message": "TypeError: django.db.models.query.QuerySet.create() got multiple values for keyword argument 'created_by'",
+      "location": "/backend/chat/serializers.py:171",
+      "description": "ChatRoomCreateSerializer passes 'created_by' twice - once from context.user and once from validated_data",
+      "severity": "HIGH",
+      "impact": "Cannot create chat rooms via API"
+    },
+    {
+      "test_id": "T073",
+      "test_name": "test_cannot_send_message_if_not_participant",
+      "error_type": "Test Data Duplication",
+      "error_message": "accounts.models.User.MultipleObjectsReturned: get() returned more than one User -- it returned 2!",
+      "location": "/backend/chat/tests/test_tutor_cabinet_messaging.py",
+      "description": "Tests are creating users with same email addresses, causing duplicate records in DB when running multiple tests",
+      "severity": "MEDIUM",
+      "impact": "Tests fail due to User lookup issues, need unique emails per test run",
+      "solution": "Use UUID or timestamp-based unique emails, or better use fixtures that clean up properly"
+    },
+    {
+      "test_id": "T073",
+      "test_name": "test_join_chat_room",
+      "error_type": "Missing API Endpoint",
+      "error_message": "404 Not Found when calling POST /api/chat/rooms/{room_id}/join/",
+      "location": "/backend/chat/views.py",
+      "description": "The join endpoint may not be properly registered in URL routing or ViewSet action decorator may be missing",
+      "severity": "HIGH",
+      "impact": "Users cannot join existing chat rooms via API"
+    },
+    {
+      "test_id": "T074-T075",
+      "test_name": "test_list_messages_in_room, test_mark_messages_as_read",
+      "error_type": "MultipleObjectsReturned (duplicate users)",
+      "error_message": "accounts.models.User.MultipleObjectsReturned when using User.objects.get(email=...)",
+      "location": "Test fixtures",
+      "description": "Same issue as T073 - user duplication from previous test runs",
+      "severity": "MEDIUM",
+      "impact": "Cascading failures in message tests"
+    },
+    {
+      "test_id": "T076",
+      "test_name": "test_edit_own_message, test_cannot_edit_others_message",
+      "error_type": "MultipleObjectsReturned",
+      "error_message": "User.MultipleObjectsReturned when looking up user by email",
+      "location": "Test fixtures",
+      "description": "User duplication from previous test runs",
+      "severity": "MEDIUM",
+      "impact": "Cannot run message editing tests reliably"
+    },
+    {
+      "test_id": "T077",
+      "test_name": "test_soft_delete_own_message, test_cannot_delete_others_message, test_deleted_message_not_in_list",
+      "error_type": "MultipleObjectsReturned",
+      "error_message": "User.MultipleObjectsReturned when looking up user by email",
+      "location": "Test fixtures",
+      "description": "User duplication issue persists across all message deletion tests",
+      "severity": "MEDIUM",
+      "impact": "Message deletion tests cannot run successfully"
+    },
+    {
+      "test_id": "T078",
+      "test_name": "test_upload_image, test_upload_file",
+      "error_type": "NONE",
+      "status": "PASSED",
+      "description": "File upload tests working correctly",
+      "severity": "NONE"
+    },
+    {
+      "test_id": "T079",
+      "test_name": "test_get_chat_history, test_history_excludes_deleted",
+      "error_type": "MultipleObjectsReturned",
+      "error_message": "User.MultipleObjectsReturned",
+      "location": "Test fixtures",
+      "description": "User duplication issue continues",
+      "severity": "MEDIUM"
+    },
+    {
+      "test_id": "T080",
+      "test_name": "test_unread_message_badge, test_clear_unread_on_read",
+      "error_type": "MultipleObjectsReturned",
+      "error_message": "User.MultipleObjectsReturned",
+      "location": "Test fixtures",
+      "description": "User duplication issue in notification tests",
+      "severity": "MEDIUM"
+    },
+    {
+      "test_id": "T081",
+      "test_name": "test_mute_room",
+      "error_type": "MultipleObjectsReturned",
+      "error_message": "User.MultipleObjectsReturned",
+      "location": "Test fixtures",
+      "description": "User duplication in mute test",
+      "severity": "MEDIUM"
+    },
+    {
+      "test_id": "T082",
+      "test_name": "test_archive_chat_room",
+      "error_type": "NONE",
+      "status": "PASSED",
+      "description": "Archive test working correctly",
+      "severity": "NONE"
+    },
+    {
+      "test_id": "T084-T087",
+      "test_name": "Forum tests (all)",
+      "error_type": "MultipleObjectsReturned",
+      "error_message": "User.MultipleObjectsReturned when looking up users",
+      "location": "Test fixtures",
+      "description": "User duplication issue affects all forum tests",
+      "severity": "HIGH",
+      "impact": "Cannot test forum functionality"
+    }
+  ],
+  "error_categories": {
+    "serializer_bugs": [
+      {
+        "issue": "ChatRoomCreateSerializer duplicate 'created_by' parameter",
+        "file": "/backend/chat/serializers.py",
+        "line": 171,
+        "type": "BUG",
+        "fix_required": true
+      }
+    ],
+    "test_fixture_issues": [
+      {
+        "issue": "User fixtures create duplicate entries with same email",
+        "reason": "Tests don't clean up users between runs, or emails aren't unique per test",
+        "impact": "MultipleObjectsReturned errors cascade across test suite",
+        "solution": "Use unique emails with UUID or timestamp, or implement proper fixture cleanup"
+      }
+    ],
+    "missing_endpoints": [
+      {
+        "endpoint": "POST /api/chat/rooms/{id}/join/",
+        "issue": "404 Not Found",
+        "status": "MISSING OR NOT REGISTERED",
+        "impact": "Users cannot join existing chat rooms via API"
+      },
+      {
+        "endpoint": "POST /api/chat/rooms/{id}/mute/",
+        "issue": "404 or returns invalid status",
+        "status": "MAY BE MISSING",
+        "impact": "Cannot mute/unmute chat notifications"
+      }
+    ]
+  },
+  "root_causes": {
+    "primary": "User model test data duplication - tests reuse same email addresses across test runs, causing MultipleObjectsReturned errors when using User.objects.get(email=...)",
+    "secondary": "Serializer bug in ChatRoomCreateSerializer passing 'created_by' twice",
+    "tertiary": "Missing or incorrectly registered API endpoints for join/mute operations"
+  },
+  "recommendations": [
+    {
+      "priority": "CRITICAL",
+      "action": "Fix ChatRoomCreateSerializer",
+      "details": "Remove duplicate 'created_by' parameter passing in ChatRoomCreateSerializer.create()",
+      "file": "/backend/chat/serializers.py",
+      "impact": "Will fix T073 test_create_direct_chat_room"
+    },
+    {
+      "priority": "HIGH",
+      "action": "Fix test fixtures to use unique user emails",
+      "details": "Modify fixtures to generate unique emails using UUID or timestamp to avoid MultipleObjectsReturned",
+      "file": "/backend/chat/tests/test_tutor_cabinet_messaging.py",
+      "impact": "Will fix 16 failed tests across T073-T087"
+    },
+    {
+      "priority": "HIGH",
+      "action": "Verify API endpoints are registered",
+      "details": "Check if /api/chat/rooms/{id}/join/ and /api/chat/rooms/{id}/mute/ endpoints exist",
+      "file": "/backend/chat/views.py",
+      "impact": "Will fix T073 test_join_chat_room and T081 test_mute_room"
+    },
+    {
+      "priority": "MEDIUM",
+      "action": "Implement proper test database cleanup",
+      "details": "Ensure each test run starts with clean database or uses unique identifiers",
+      "solution": "Add fixture with autouse=True that cleans up test users, or use factory pattern with unique identifiers"
+    }
+  ],
+  "test_execution_time": "9.97 seconds",
+  "database": "PostgreSQL (test mode)",
+  "environment": "ENVIRONMENT=test"
+}

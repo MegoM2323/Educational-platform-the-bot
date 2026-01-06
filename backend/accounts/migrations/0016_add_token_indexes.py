@@ -5,6 +5,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('accounts', '0015_fix_parent_fk_cascade_action'),
+        ('authtoken', '0002_auto_20160226_1747'),
     ]
 
     operations = [

@@ -2,13 +2,14 @@ import { Card } from "@/components/ui/card";
 import { logger } from '@/utils/logger';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
-import { Users, CreditCard, Repeat } from "lucide-react";
+import { Users } from "lucide-react";
 import { useParentChildren, useInitiatePayment } from "@/hooks/useParent";
 import { parentDashboardAPI } from "@/integrations/api/dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { PaymentStatusBadge, PaymentStatus } from "@/components/PaymentStatusBadge";
+import { PayButton } from "@/components/ui/PayButton";
 
 const Children = () => {
   const navigate = useNavigate();
@@ -60,7 +61,7 @@ const Children = () => {
                               </div>
                               <div className="flex items-center gap-2">
                                 <PaymentStatusBadge status={s.payment_status as PaymentStatus} size="sm" />
-                                <PayButton
+                                <PayButtonWrapper
                                   childId={child.id}
                                   enrollmentId={s.enrollment_id}
                                   subjectName={s.name}
@@ -95,7 +96,7 @@ const Children = () => {
   );
 };
 
-function PayButton({
+function PayButtonWrapper({
   childId,
   enrollmentId,
   subjectName,
@@ -116,99 +117,36 @@ function PayButton({
   expiresAt?: string;
   nextPaymentDate?: string;
 }) {
-  // Сумма будет определена на бэкенде в зависимости от режима
   const payment = useInitiatePayment(childId, enrollmentId, {
     description: `Оплата за предмет "${subjectName}" (преподаватель: ${teacherName})`,
     create_subscription: true,
   });
 
-  // Проверяем, находится ли следующий платеж в будущем
-  const isNextPaymentInFuture = nextPaymentDate ? new Date(nextPaymentDate) > new Date() : false;
-
-  // СЛУЧАЙ 1: Если подписка отменена - показываем дату истечения доступа
-  if (subscriptionStatus === 'cancelled' && expiresAt) {
-    return (
-      <div className="flex flex-col items-end gap-1">
-        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
-          Доступ ограничен
-        </Badge>
-        <div className="text-xs text-orange-600 dark:text-orange-400 text-right">
-          До: {new Date(expiresAt).toLocaleString('ru-RU', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </div>
-      </div>
+  const handleCancel = async () => {
+    const confirmed = window.confirm(
+      `Отключить автосписание для предмета "${subjectName}"?`
     );
-  }
+    if (!confirmed) return;
 
-  // СЛУЧАЙ 2: Если предмет оплачен И (следующий платеж впереди ИЛИ есть активная подписка без даты) - предмет активен
-  // Это выполняется для:
-  // - Активных подписок с future payment date
-  // - Активных подписок без даты (fallback когда данные еще загружаются)
-  // - Разовых платежей, которые еще актуальны
-  const hasActivePayment = paymentStatus === 'paid' && (isNextPaymentInFuture || hasSubscription);
+    try {
+      await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
+      window.location.reload();
+    } catch (err) {
+      logger.error('Cancel subscription error:', err);
+    }
+  };
 
-  if (hasActivePayment) {
-    return (
-      <div className="flex flex-col items-end gap-1">
-        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-          Активен
-        </Badge>
-        {hasSubscription && (
-          <Button type="button"
-            size="sm"
-            variant="outline"
-            onClick={async () => {
-              const confirmed = window.confirm(
-                `Отключить автосписание для предмета "${subjectName}"?`
-              );
-              if (!confirmed) return;
-
-              try {
-                await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
-                window.location.reload();
-              } catch (err) {
-                logger.error('Cancel subscription error:', err);
-              }
-            }}
-          >
-            Отключить автосписание
-          </Button>
-        )}
-      </div>
-    );
-  }
-
-  // СЛУЧАЙ 3: Платеж просрочен или доступ закончился - нужна новая оплата
-  if (paymentStatus === 'overdue' || (paymentStatus === 'paid' && !isNextPaymentInFuture)) {
-    return (
-      <Button type="button"
-        size="sm"
-        onClick={() => payment.mutate()}
-        disabled={payment.isPending}
-        variant="destructive"
-      >
-        <CreditCard className="w-4 h-4 mr-1" />
-        Оплатить предмет
-      </Button>
-    );
-  }
-
-  // СЛУЧАЙ 4: Нет платежа или ожидание платежа - подключить предмет
   return (
-    <Button type="button"
-      size="sm"
-      onClick={() => payment.mutate()}
-      disabled={payment.isPending}
-      variant="default"
-    >
-      <CreditCard className="w-4 h-4 mr-1" />
-      Подключить предмет
-    </Button>
+    <PayButton
+      paymentStatus={paymentStatus}
+      subscriptionStatus={subscriptionStatus}
+      expiresAt={expiresAt}
+      nextPaymentDate={nextPaymentDate}
+      hasSubscription={hasSubscription}
+      onPayClick={() => payment.mutate()}
+      onCancelClick={handleCancel}
+      isLoading={payment.isPending}
+    />
   );
 }
 

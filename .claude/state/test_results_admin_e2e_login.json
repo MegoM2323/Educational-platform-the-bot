@@ -1,0 +1,66 @@
+{
+  "test_name": "T004 E2E Admin Login",
+  "status": "PASSED",
+  "duration": 4.38,
+  "errors": [],
+  "checks_passed": 15,
+  "checks_failed": 0,
+  "details": "All 15 E2E tests for admin login passed successfully. Tests verify: admin user creation, password validation, token-based authentication, API endpoint access, dashboard metrics endpoint availability, and admin-specific endpoint access.",
+  "test_results": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0,
+    "skipped": 0
+  },
+  "test_breakdown": {
+    "user_creation": {
+      "test_01_admin_user_creation": "PASSED",
+      "test_02_admin_user_password": "PASSED",
+      "test_03_admin_user_is_not_staff_role": "PASSED",
+      "description": "Verify admin user is created with correct properties"
+    },
+    "authentication": {
+      "test_04_token_login_successful": "PASSED",
+      "test_05_token_contains_required_fields": "PASSED",
+      "test_06_invalid_credentials_rejected": "PASSED",
+      "test_07_nonexistent_user_rejected": "PASSED",
+      "test_15_multiple_authentication_methods": "PASSED",
+      "description": "Verify login endpoint and token generation"
+    },
+    "api_access": {
+      "test_08_authenticated_request_with_token": "PASSED",
+      "test_09_admin_stats_endpoint_exists": "PASSED",
+      "test_10_admin_can_access_admin_endpoints": "PASSED",
+      "description": "Verify authenticated requests work and admin can access protected endpoints"
+    },
+    "infrastructure": {
+      "test_11_browser_playwright_import": "PASSED",
+      "test_12_frontend_url_configured": "PASSED",
+      "test_13_admin_user_queryable": "PASSED",
+      "test_14_admin_role_verification": "PASSED",
+      "description": "Verify infrastructure setup for E2E testing"
+    }
+  },
+  "endpoints_tested": [
+    "/api/accounts/login/ - Token generation with email/password",
+    "/api/accounts/me/ - User profile endpoint with token auth",
+    "/api/accounts/stats/users/ - Admin statistics endpoint"
+  ],
+  "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_login.py",
+  "environment": "test",
+  "database": "PostgreSQL (thebot_db)",
+  "authentication_method": "Token-based authentication (DRF Token)",
+  "notes": [
+    "Admin user created with is_staff=True, is_superuser=True",
+    "Login endpoint at /api/accounts/login/ returns response with format {success: bool, data: {token, user}}",
+    "Token authentication uses 'Token <token>' format in Authorization header",
+    "All 5 login attempts within rate limit (5/minute per IP)",
+    "Tests verify both user creation and API access in single test suite"
+  ],
+  "metrics": {
+    "success_rate": "100%",
+    "execution_time_seconds": 4.38,
+    "average_test_duration_ms": 292
+  },
+  "timestamp": "2026-01-06T22:21:52Z"
+}

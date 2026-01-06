@@ -25,6 +25,7 @@ if not settings.configured:
     django.setup()
 
 import pytest
+import uuid
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework.test import APIClient
@@ -38,8 +39,10 @@ User = get_user_model()
 @pytest.fixture
 def admin_user():
     """Create admin user"""
+    uid = str(uuid.uuid4())[:8]
     return User.objects.create_user(
-        email='admin@test.com',
+        username=f'admin_{uid}@test.com',
+        email=f'admin_{uid}@test.com',
         password='test1234',
         first_name='Admin',
         last_name='User',
@@ -51,8 +54,10 @@ def admin_user():
 @pytest.fixture
 def non_admin_user():
     """Create non-admin user"""
+    uid = str(uuid.uuid4())[:8]
     return User.objects.create_user(
-        email='teacher@test.com',
+        username=f'teacher_{uid}@test.com',
+        email=f'teacher_{uid}@test.com',
         password='test1234',
         first_name='Teacher',
         last_name='User',
@@ -65,11 +70,13 @@ def test_users():
     """Create 10 test users for bulk operations"""
     users = []
     roles = ['student', 'teacher', 'tutor', 'parent']
+    test_id = str(uuid.uuid4())[:8]
 
     for i in range(10):
         role = roles[i % len(roles)]
         user = User.objects.create_user(
-            email=f'user{i}@test.com',
+            username=f'testuser_{test_id}_{i}@test.com',
+            email=f'testuser_{test_id}_{i}@test.com',
             password='test1234',
             first_name=f'User{i}',
             last_name='Test',
@@ -438,9 +445,11 @@ class TestAdminBulkOperations:
         """Test bulk operations with maximum allowed users (1000)"""
         # Create many users
         user_ids = []
+        batch_id = str(uuid.uuid4())[:8]
         for i in range(100):  # Create 100 instead of 1000 to save time
             user = User.objects.create_user(
-                email=f'bulk_user_{i}@test.com',
+                username=f'bulk_user_{batch_id}_{i}@test.com',
+                email=f'bulk_user_{batch_id}_{i}@test.com',
                 password='test1234',
                 role='student'
             )

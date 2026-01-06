@@ -228,8 +228,9 @@ test.describe('Phase 2: Message Sending & Receiving E2E Tests', () => {
 
   test.beforeEach(async ({ page }) => {
     // Create output directory for screenshots
-    const fs = require('fs').promises;
-    await fs.mkdir('./e2e-results', { recursive: true }).catch(() => {});
+    // Note: Using dynamic import for better ES6 compatibility
+    const { mkdir } = await import('fs/promises');
+    await mkdir('./e2e-results', { recursive: true }).catch(() => {});
   });
 
   for (const pair of PHASE2_PAIRS) {

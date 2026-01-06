@@ -5,11 +5,9 @@ import { ParentSidebar } from '@/components/layout/ParentSidebar';
 import { useParams } from 'react-router-dom';
 import { useChildSubjects, useChildProgress, useInitiatePayment } from '@/hooks/useParent';
 import { parentDashboardAPI } from '@/integrations/api/dashboard';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CreditCard, Repeat } from 'lucide-react';
 import { PaymentStatusBadge, PaymentStatus } from '@/components/PaymentStatusBadge';
-import { Badge } from '@/components/ui/badge';
+import { PayButton } from '@/components/ui/PayButton';
 
 export default function ChildDetail() {
   const params = useParams();
@@ -59,13 +57,16 @@ export default function ChildDetail() {
                         <div className="flex items-center gap-2">
                           <PaymentStatusBadge status={s.payment_status as PaymentStatus} size="sm" />
                           {s.enrollment_id && (
-                            <PayButton 
-                              childId={childId} 
+                            <PayButtonWrapper
+                              childId={childId}
                               enrollmentId={s.enrollment_id}
                               subjectName={s.subject?.name || s.name}
                               teacherName={s.teacher?.name || s.teacher_name}
                               hasSubscription={s.has_subscription || false}
                               paymentStatus={s.payment_status}
+                              subscriptionStatus={s.subscription_status}
+                              expiresAt={s.expires_at}
+                              nextPaymentDate={s.next_payment_date}
                             />
                           )}
                         </div>
@@ -82,68 +83,56 @@ export default function ChildDetail() {
   );
 }
 
-function PayButton({ 
-  childId, 
-  enrollmentId, 
-  subjectName, 
-  teacherName, 
+function PayButtonWrapper({
+  childId,
+  enrollmentId,
+  subjectName,
+  teacherName,
   hasSubscription,
-  paymentStatus 
-}: { 
-  childId: number; 
+  paymentStatus,
+  subscriptionStatus,
+  expiresAt,
+  nextPaymentDate
+}: {
+  childId: number;
   enrollmentId: number;
   subjectName: string;
   teacherName: string;
   hasSubscription: boolean;
   paymentStatus: string;
+  subscriptionStatus?: string;
+  expiresAt?: string;
+  nextPaymentDate?: string;
 }) {
-  // Сумма будет определена на бэкенде в зависимости от режима
   const payment = useInitiatePayment(childId, enrollmentId, {
     description: `Оплата за предмет "${subjectName}" (преподаватель: ${teacherName})`,
     create_subscription: true,
   });
-  
-  // Если есть активная подписка и оплачено - показываем информацию о подписке и кнопку "Отключить автосписание"
-  if (hasSubscription && paymentStatus === 'paid') {
-    return (
-      <div className="flex flex-col items-end gap-2">
-        <div className="flex items-center gap-2">
-          <Repeat className="h-4 w-4 text-green-600" />
-          <Badge variant="secondary" className="text-xs">Автосписание активно</Badge>
-        </div>
-        <Button type="button" 
-          size="sm" 
-          variant="outline"
-          onClick={async () => {
-            const confirmed = window.confirm(
-              `Отключить автосписание для предмета "${subjectName}"?`
-            );
-            if (!confirmed) return;
-            
-            try {
-              await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
-              window.location.reload();
-            } catch (err) {
-              logger.error('Cancel subscription error:', err);
-            }
-          }}
-        >
-          Отключить автосписание
-        </Button>
-      </div>
+
+  const handleCancel = async () => {
+    const confirmed = window.confirm(
+      `Отключить автосписание для предмета "${subjectName}"?`
     );
-  }
-  
-  // Иначе показываем кнопку "Подключить предмет"
+    if (!confirmed) return;
+
+    try {
+      await parentDashboardAPI.cancelSubscription(childId, enrollmentId);
+      window.location.reload();
+    } catch (err) {
+      logger.error('Cancel subscription error:', err);
+    }
+  };
+
   return (
-    <Button type="button" 
-      size="sm" 
-      onClick={() => payment.mutate()} 
-      disabled={payment.isPending}
-      variant={paymentStatus === 'overdue' ? 'destructive' : 'default'}
-    >
-      <CreditCard className="w-4 h-4 mr-1" /> 
-      Подключить предмет
-    </Button>
+    <PayButton
+      paymentStatus={paymentStatus}
+      subscriptionStatus={subscriptionStatus}
+      expiresAt={expiresAt}
+      nextPaymentDate={nextPaymentDate}
+      hasSubscription={hasSubscription}
+      onPayClick={() => payment.mutate()}
+      onCancelClick={handleCancel}
+      isLoading={payment.isPending}
+    />
   );
 }

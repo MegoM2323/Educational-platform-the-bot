@@ -38,13 +38,25 @@ export const useInvoiceWebSocket = () => {
 
     logger.info('[useInvoiceWebSocket] Connecting to invoice WebSocket for user:', user.id);
 
-    // Подключаемся к WebSocket без обработчиков (они будут добавлены через on())
-    invoiceWebSocketService.connect({});
+    try {
+      // Подключаемся к WebSocket без обработчиков (они будут добавлены через on())
+      if (invoiceWebSocketService && invoiceWebSocketService.connect) {
+        invoiceWebSocketService.connect({});
+      }
+    } catch (error) {
+      logger.error('[useInvoiceWebSocket] Failed to connect to WebSocket:', error);
+    }
 
     // Cleanup при размонтировании компонента
     return () => {
       logger.info('[useInvoiceWebSocket] Disconnecting from invoice WebSocket');
-      invoiceWebSocketService.disconnect();
+      try {
+        if (invoiceWebSocketService && invoiceWebSocketService.disconnect) {
+          invoiceWebSocketService.disconnect();
+        }
+      } catch (error) {
+        logger.error('[useInvoiceWebSocket] Failed to disconnect from WebSocket:', error);
+      }
     };
   }, [user?.id]);
 

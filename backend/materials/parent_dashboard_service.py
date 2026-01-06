@@ -808,7 +808,7 @@ class ParentDashboardService:
             "student_profile__parent",
             "student_profile__tutor",
             Prefetch(
-                "subjectenrollment_set",
+                "subject_enrollments",
                 queryset=SubjectEnrollment.objects.filter(is_active=True)
                 .select_related("subject", "teacher", "assigned_by")
                 .prefetch_related("subscription"),

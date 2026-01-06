@@ -1,0 +1,317 @@
+{
+  "test_session": {
+    "id": "tutor_cabinet_test_20260107",
+    "date": "2026-01-07",
+    "total_tests": 30,
+    "passed": 7,
+    "failed": 23,
+    "errors": 0,
+    "pass_rate": 23.33
+  },
+  "summary": {
+    "backend_auth_tests": {
+      "total": 14,
+      "passed": 7,
+      "failed": 7,
+      "errors": 0,
+      "pass_rate": 50
+    },
+    "backend_permission_tests": {
+      "total": 16,
+      "passed": 0,
+      "failed": 16,
+      "errors": 0,
+      "pass_rate": 0
+    },
+    "frontend_tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "pass_rate": 0
+    }
+  },
+  "errors": [
+    {
+      "id": "ERR001",
+      "title": "T001_AUTH_LOGIN - Response Structure Mismatch",
+      "type": "backend",
+      "severity": "HIGH",
+      "status": "FAILED",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py",
+      "function": "login_view",
+      "line_range": "140-150",
+      "description": "API returns {'data': {...}, 'success': true} but tests expect 'token' or 'access' at top level",
+      "current_behavior": "Response: {'data': {'token': '623606...', 'user': {...}}, 'success': True}",
+      "expected_behavior": "Response should be: {'token': '...', 'user': {...}} or {'access': '...', 'refresh': '...'}",
+      "affected_tests": [
+        "test_login_success",
+        "test_multiple_login_attempts"
+      ],
+      "error_code": "assert ('token' in response.data or 'access' in response.data)",
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/teacher_dashboard/test_authentication.py"
+    },
+    {
+      "id": "ERR002",
+      "title": "T001_AUTH_LOGIN - Email Login Not Supported",
+      "type": "backend",
+      "severity": "HIGH",
+      "status": "FAILED",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py",
+      "function": "login_view",
+      "line_range": "94-120",
+      "description": "Login function only searches by username, does not support email-based login",
+      "current_behavior": "401 Unauthorized with 'user_not_found' reason when using email",
+      "expected_behavior": "Should accept both username and email for login",
+      "affected_tests": [
+        "test_login_with_email"
+      ],
+      "error_code": "assert 401 == 200",
+      "logs": "[WARNING] login_view:120 - [login] FAILED - identifier: teacher1@test.com, reason: user_not_found",
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/teacher_dashboard/test_authentication.py",
+      "fix_hint": "Use Q objects: User.objects.filter(Q(username=identifier) | Q(email=identifier)).first()"
+    },
+    {
+      "id": "ERR003",
+      "title": "T003_AUTH_TOKEN_REFRESH - Refresh Endpoint Returns 401",
+      "type": "backend",
+      "severity": "HIGH",
+      "status": "FAILED",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/urls.py",
+      "endpoint": "POST /api/auth/refresh/",
+      "description": "Token refresh endpoint returns 401 instead of 200",
+      "current_behavior": "Status 401 Unauthorized",
+      "expected_behavior": "Status 200 OK with new access token",
+      "affected_tests": [
+        "test_token_refresh_endpoint"
+      ],
+      "error_code": "assert 401 == 200",
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/teacher_dashboard/test_authentication.py",
+      "possible_causes": [
+        "Token is not JWT (might be token-based auth)",
+        "Endpoint not properly configured",
+        "Refresh token format incorrect"
+      ]
+    },
+    {
+      "id": "ERR004",
+      "title": "T004_AUTH_PERMISSION_CHECK - Protected Endpoint Returns 401",
+      "type": "backend",
+      "severity": "HIGH",
+      "status": "FAILED",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py",
+      "endpoint": "GET /api/auth/me/",
+      "description": "Protected endpoint returns 401 even with valid Bearer token",
+      "current_behavior": "Status 401 Unauthorized despite valid JWT token",
+      "expected_behavior": "Status 200 OK with user data",
+      "affected_tests": [
+        "test_token_validation_on_protected_endpoint"
+      ],
+      "error_code": "assert 401 != 401",
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/teacher_dashboard/test_authentication.py",
+      "possible_causes": [
+        "DRF authentication class mismatch",
+        "Token validation logic broken",
+        "Permission class too restrictive"
+      ]
+    },
+    {
+      "id": "ERR005",
+      "title": "T002_AUTH_LOGOUT / T006_SESSION_TIMEOUT - Wrong Status Code for Inactive User",
+      "type": "backend",
+      "severity": "MEDIUM",
+      "status": "FAILED",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py",
+      "function": "login_view",
+      "description": "Inactive user login returns 403 instead of 401",
+      "current_behavior": "Status 403 Forbidden",
+      "expected_behavior": "Status 401 Unauthorized or 400 Bad Request",
+      "affected_tests": [
+        "test_login_inactive_teacher"
+      ],
+      "error_code": "assert 403 in [401, 400]",
+      "logs": "[WARNING] login_view:196 - [login] FAILED - identifier: inactive@test.com, reason: user_inactive",
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/teacher_dashboard/test_authentication.py"
+    },
+    {
+      "id": "ERR006",
+      "title": "T007_AUTH_CONCURRENT_LOGIN - Multiple Login Attempts Return 403",
+      "type": "backend",
+      "severity": "MEDIUM",
+      "status": "FAILED",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py",
+      "description": "Repeated login attempts return 403 instead of 200 (concurrent login check)",
+      "current_behavior": "Status 403 Forbidden on second+ login attempts",
+      "expected_behavior": "Status 200 OK with new token each time",
+      "affected_tests": [
+        "test_multiple_login_attempts",
+        "test_student_cannot_login_as_teacher"
+      ],
+      "error_code": "assert 403 == 200",
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/teacher_dashboard/test_authentication.py"
+    },
+    {
+      "id": "ERR007",
+      "title": "Missing Fixtures in test_teacher_role_permissions.py",
+      "type": "backend_test",
+      "severity": "CRITICAL",
+      "status": "ERROR",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/tests/conftest.py",
+      "description": "Tests reference fixtures that are not defined in conftest.py",
+      "missing_fixtures": [
+        "tutor_user",
+        "student_user",
+        "teacher_user",
+        "admin_user",
+        "api_client",
+        "authenticated_client"
+      ],
+      "affected_tests": [
+        "test_tutor_cannot_create_teacher",
+        "test_student_cannot_create_teacher",
+        "test_teacher_cannot_edit_other_teacher_via_admin_endpoint",
+        "test_teacher_cannot_edit_other_teacher_profile",
+        "test_teacher_can_edit_own_profile",
+        "test_tutor_cannot_create_teacher_user",
+        "test_tutor_can_create_student_via_tutor_endpoint",
+        "test_tutor_sees_only_active_teachers",
+        "test_unauthenticated_cannot_see_teachers_list",
+        "test_admin_has_full_access",
+        "test_tutor_cannot_access_admin_endpoints",
+        "test_student_has_limited_write_access",
+        "test_parent_can_access_profile_endpoint",
+        "test_staff_create_endpoint_uses_is_staff_or_admin",
+        "test_profile_endpoints_use_is_authenticated",
+        "test_teachers_endpoint_uses_is_authenticated",
+        "test_unauthenticated_cannot_access_profile_endpoint",
+        "test_unauthenticated_cannot_access_teachers_endpoint"
+      ],
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/tests/test_teacher_role_permissions.py",
+      "error_message": "fixture 'tutor_user' not found",
+      "solution": "Either add fixtures to /home/mego/Python Projects/THE_BOT_platform/backend/accounts/tests/conftest.py or move tests to /home/mego/Python Projects/THE_BOT_platform/backend/tests/teacher_dashboard/"
+    },
+    {
+      "id": "ERR008",
+      "title": "T004/T005/T008_AUTH_PERMISSION_CHECK - All Material Endpoint Tests Return 401",
+      "type": "backend",
+      "severity": "CRITICAL",
+      "status": "FAILED",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/materials/views.py",
+      "endpoint": "/api/materials/materials/{id}/",
+      "description": "All authenticated API calls to materials endpoints return 401 Unauthorized",
+      "current_behavior": "Status 401 even with authenticated_client and valid JWT token",
+      "expected_behavior": "Should validate token and allow access based on permissions",
+      "affected_tests": [
+        "test_access_own_materials",
+        "test_access_other_materials_forbidden",
+        "test_edit_own_material",
+        "test_edit_other_material_forbidden",
+        "test_delete_own_material",
+        "test_delete_other_material_forbidden",
+        "test_teacher_cannot_access_unassigned_subject",
+        "test_teacher_can_only_enroll_students_in_own_subject",
+        "test_tutor_cannot_access_teacher_endpoints",
+        "test_student_cannot_create_materials",
+        "test_student_cannot_edit_materials",
+        "test_student_cannot_delete_materials",
+        "test_multiple_teachers_isolated_materials",
+        "test_teacher_profile_access",
+        "test_student_cannot_access_teacher_profile",
+        "test_material_visibility_by_status"
+      ],
+      "error_code": "assert 401 == 200 or assert 401 in [403, 404]",
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/teacher_dashboard/test_permissions.py",
+      "root_cause": "JWT token not properly validated in APIView authentication classes",
+      "possible_causes": [
+        "DRF authentication classes not configured",
+        "Token validation middleware broken",
+        "authenticated_client fixture not properly passing JWT token",
+        "APIView not using proper permission classes"
+      ]
+    },
+    {
+      "id": "ERR009",
+      "title": "Frontend Tests Not Configured",
+      "type": "frontend",
+      "severity": "MEDIUM",
+      "status": "NOT_CONFIGURED",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/package.json",
+      "description": "Frontend test suite not configured - no test runner or tests written",
+      "current_behavior": "npm test returns 'Error: no test specified'",
+      "expected_behavior": "Should have Jest/Vitest configured with E2E tests for auth and permissions",
+      "tests_needed": [
+        "T001: Login page (Tutor)",
+        "T002: Logout functionality",
+        "T003: Token refresh UI handling",
+        "T004: Role-based UI rendering (Tutor vs Admin)",
+        "T005-T008: Access control UI"
+      ],
+      "setup_required": [
+        "Install @testing-library/react",
+        "Install jest or vitest",
+        "Configure jest.config.js",
+        "Write tests for tutor dashboard"
+      ]
+    }
+  ],
+  "test_results_by_test_case": {
+    "T001_AUTH_LOGIN": {
+      "test_login_success": {
+        "status": "FAILED",
+        "issue": "ERR001",
+        "error": "assert ('token' in response.data or 'access' in response.data)"
+      },
+      "test_login_with_email": {
+        "status": "FAILED",
+        "issue": "ERR002",
+        "error": "assert 401 == 200"
+      }
+    },
+    "T002_AUTH_LOGOUT": {
+      "test_login_inactive_teacher": {
+        "status": "FAILED",
+        "issue": "ERR005",
+        "error": "assert 403 in [401, 400]"
+      }
+    },
+    "T003_AUTH_TOKEN_REFRESH": {
+      "test_token_refresh_endpoint": {
+        "status": "FAILED",
+        "issue": "ERR003",
+        "error": "assert 401 == 200"
+      }
+    },
+    "T004_AUTH_PERMISSION_CHECK": {
+      "test_token_validation_on_protected_endpoint": {
+        "status": "FAILED",
+        "issue": "ERR004",
+        "error": "assert 401 != 401"
+      },
+      "all_material_tests": {
+        "status": "FAILED",
+        "issue": "ERR008",
+        "count": 16,
+        "error": "assert 401 == 200"
+      }
+    },
+    "T005_AUTH_INVALID_CREDENTIALS": {
+      "test_login_invalid_credentials": {
+        "status": "PASSED"
+      }
+    },
+    "T007_AUTH_CONCURRENT_LOGIN": {
+      "test_multiple_login_attempts": {
+        "status": "FAILED",
+        "issue": "ERR006",
+        "error": "assert 403 == 200"
+      }
+    },
+    "T008_AUTH_ROLE_HIERARCHY": {
+      "all_permission_tests": {
+        "status": "FAILED",
+        "issue": "ERR007, ERR008",
+        "count": 16
+      }
+    }
+  }
+}

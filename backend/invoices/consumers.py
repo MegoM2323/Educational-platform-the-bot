@@ -38,11 +38,25 @@ class InvoiceConsumer(AsyncWebsocketConsumer):
         Подключение пользователя к WebSocket
 
         Процесс:
-        1. Проверка аутентификации
-        2. Определение роли (tutor/parent)
-        3. Подписка на соответствующую комнату
-        4. Подтверждение подключения
+        1. Проверка JWT токена в query string
+        2. Проверка аутентификации пользователя
+        3. Определение роли (tutor/parent)
+        4. Подписка на соответствующую комнату
+        5. Подтверждение подключения
         """
+        # CRITICAL FIX 1: Валидация JWT токена при WebSocket handshake
+        query_string = self.scope.get('query_string', b'').decode()
+        token_param = None
+        for param in query_string.split('&'):
+            if param.startswith('token='):
+                token_param = param.split('=', 1)[1]
+                break
+
+        if not token_param:
+            logger.warning('[InvoiceConsumer] Connection rejected: no JWT token provided')
+            await self.close()
+            return
+
         # Проверяем аутентификацию
         if not self.scope['user'].is_authenticated:
             logger.warning('[InvoiceConsumer] Connection rejected: user not authenticated')
@@ -121,10 +135,27 @@ class InvoiceConsumer(AsyncWebsocketConsumer):
         Поддерживаемые типы:
         - ping - проверка соединения
         - subscribe - подписка на дополнительные события (future)
+
+        HIGH PRIORITY FIX 6: Валидация входящих JSON с белым списком message_type
         """
+        # Белый список разрешенных типов сообщений для безопасности
+        ALLOWED_MESSAGE_TYPES = {'ping', 'subscribe', 'unsubscribe'}
+
         try:
             data = json.loads(text_data)
             message_type = data.get('type')
+
+            # FIX 6: Проверяем что message_type в белом списке
+            if message_type not in ALLOWED_MESSAGE_TYPES:
+                logger.warning(
+                    f'[InvoiceConsumer] Invalid message type: {message_type} '
+                    f'from user {self.user_id}'
+                )
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': f'Invalid message type: {message_type}'
+                }))
+                return
 
             if message_type == 'ping':
                 # Ответ на ping для поддержания соединения
@@ -136,12 +167,12 @@ class InvoiceConsumer(AsyncWebsocketConsumer):
 
             else:
                 logger.warning(
-                    f'[InvoiceConsumer] Unknown message type: {message_type} '
+                    f'[InvoiceConsumer] Unsupported message type: {message_type} '
                     f'from user {self.user_id}'
                 )
                 await self.send(text_data=json.dumps({
                     'type': 'error',
-                    'message': f'Unknown message type: {message_type}'
+                    'message': f'Unsupported message type: {message_type}'
                 }))
 
         except json.JSONDecodeError as e:

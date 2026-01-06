@@ -10,7 +10,6 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
-from accounts.models import StudentProfile, ParentProfile, TutorProfile, TeacherProfile
 
 User = get_user_model()
 
@@ -18,6 +17,7 @@ User = get_user_model()
 @pytest.fixture
 def setup_users_with_roles(db):
     """Create users with all roles for interaction testing"""
+    from accounts.models import StudentProfile, ParentProfile, TutorProfile, TeacherProfile
 
     # Tutor 1 with students
     tutor1 = User.objects.create_user(
@@ -110,9 +110,13 @@ def setup_users_with_roles(db):
         is_verified=True
     )
     ParentProfile.objects.create(
-        user=parent,
-        student=student1
+        user=parent
     )
+
+    # Link parent to student via StudentProfile
+    student1_profile = StudentProfile.objects.get(user=student1)
+    student1_profile.parent = parent
+    student1_profile.save()
 
     # Teacher (can assign to students)
     teacher = User.objects.create_user(
@@ -155,6 +159,7 @@ class TestTutorStudentIsolation:
 
     def test_tutor_can_see_own_students(self, setup_users_with_roles):
         """Tutor can see their own students"""
+        from accounts.models import StudentProfile
         users = setup_users_with_roles
         client = APIClient()
         client.force_authenticate(user=users['tutor1'])
@@ -168,6 +173,7 @@ class TestTutorStudentIsolation:
 
     def test_tutor_cannot_see_other_tutors_students(self, setup_users_with_roles):
         """Tutor cannot access another tutor's students"""
+        from accounts.models import StudentProfile
         users = setup_users_with_roles
         client = APIClient()
         client.force_authenticate(user=users['tutor1'])
@@ -242,9 +248,6 @@ class TestAdminViewsTutorDashboard:
         client.force_authenticate(user=users['admin'])
 
         # Admin should have unrestricted access to students
-        student3_profile = StudentProfile.objects.get(user=users['student3'])
-
-        # Admin can query any student's profile
         response = client.get(f'/api/accounts/users/{users["student3"].id}/')
 
         # Should have access
@@ -321,6 +324,7 @@ class TestTutorAssignsTeachers:
 
     def test_teacher_can_see_assigned_students(self, setup_users_with_roles):
         """Teacher can see students assigned to them"""
+        from accounts.models import StudentProfile
         users = setup_users_with_roles
 
         # First assign teacher to student
@@ -348,6 +352,7 @@ class TestStudentViewsTutorProfile:
 
     def test_student_can_view_own_tutor_profile(self, setup_users_with_roles):
         """Student can view their tutor's profile"""
+        from accounts.models import StudentProfile
         users = setup_users_with_roles
         client = APIClient()
         client.force_authenticate(user=users['student1'])
@@ -368,6 +373,7 @@ class TestStudentViewsTutorProfile:
 
     def test_student_profile_shows_tutor_info(self, setup_users_with_roles):
         """Student's profile shows assigned tutor"""
+        from accounts.models import StudentProfile
         users = setup_users_with_roles
 
         student1_profile = StudentProfile.objects.get(user=users['student1'])
@@ -417,10 +423,11 @@ class TestParentViewsTutorAssignments:
 
     def test_parent_linked_to_student(self, setup_users_with_roles):
         """Parent is linked to correct student"""
+        from accounts.models import StudentProfile
         users = setup_users_with_roles
 
-        parent_profile = ParentProfile.objects.get(user=users['parent'])
-        assert parent_profile.student == users['student1']
+        student1_profile = StudentProfile.objects.get(user=users['student1'])
+        assert student1_profile.parent == users['parent']
 
     def test_parent_cannot_see_other_students(self, setup_users_with_roles):
         """Parent cannot see other students' data"""

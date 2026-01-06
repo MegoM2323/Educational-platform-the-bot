@@ -1,0 +1,26 @@
+ImportError while loading conftest '/home/mego/Python Projects/THE_BOT_platform/backend/conftest.py'.
+backend/conftest.py:8: in <module>
+    django.setup()
+../../.local/lib/python3.13/site-packages/django/__init__.py:19: in setup
+    configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
+                      ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/lib/python3.13/site-packages/django/conf/__init__.py:102: in __getattr__
+    self._setup(name)
+../../.local/lib/python3.13/site-packages/django/conf/__init__.py:89: in _setup
+    self._wrapped = Settings(settings_module)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/lib/python3.13/site-packages/django/conf/__init__.py:217: in __init__
+    mod = importlib.import_module(self.SETTINGS_MODULE)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/config/settings.py:469: in <module>
+    raise ImproperlyConfigured(
+E   django.core.exceptions.ImproperlyConfigured:
+E   ======================================================================
+E   🚨 ОШИБКА: Тесты запущены без ENVIRONMENT=test
+E   ======================================================================
+E
+E   Текущее значение: ENVIRONMENT=development
+E
+E   РЕШЕНИЕ: Установите ENVIRONMENT=test перед запуском тестов
+E   Или используйте скрипт: ./scripts/run_tests.sh
+E   ======================================================================

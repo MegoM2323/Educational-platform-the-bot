@@ -1,0 +1,2191 @@
+{
+  "pages": [
+    {
+      "name": "AccountManagement.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/AccountManagement.tsx",
+      "type": "page",
+      "exports": [
+        "AccountManagement"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI",
+        "@/components/admin/TeacherSection",
+        "@/components/admin/TutorSection",
+        "@/components/admin/ParentSection",
+        "@/components/admin/StudentSection"
+      ],
+      "features": [
+        "API: getUserStats",
+        "Hook: useState",
+        "Hook: useEffect",
+        "State management"
+      ],
+      "size_bytes": 3394,
+      "lines": 106,
+      "description": "User account management interface with role-specific sections (students, teachers, tutors, parents)",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "AdminBroadcastsPage.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/AdminBroadcastsPage.tsx",
+      "type": "page",
+      "exports": [
+        "AdminBroadcastsPage"
+      ],
+      "imports": [
+        "@/components/admin/BroadcastDetailsModal",
+        "@/components/admin/BroadcastModal",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: getBroadcasts",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Broadcast management"
+      ],
+      "size_bytes": 12653,
+      "lines": 346,
+      "description": "Management interface for system-wide broadcasts and notifications",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "AdminChatsPage.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/AdminChatsPage.tsx",
+      "type": "page",
+      "exports": [
+        "AdminChatsPage"
+      ],
+      "imports": [
+        "@/hooks/useAdminChats"
+      ],
+      "features": [
+        "Hook: useState",
+        "Form inputs"
+      ],
+      "size_bytes": 12843,
+      "lines": 379,
+      "description": "View and manage all chat rooms across the platform",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "AdminDashboard.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/AdminDashboard.tsx",
+      "type": "page",
+      "exports": [
+        "AdminDashboard"
+      ],
+      "imports": [
+        "@/hooks/use-toast",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: getUserStats",
+        "Hook: useNavigate",
+        "Hook: useToast",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 5489,
+      "lines": 175,
+      "description": "Main admin dashboard with user statistics and navigation to other admin sections",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "AdminLayout.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/AdminLayout.tsx",
+      "type": "page",
+      "exports": [
+        "AdminLayout"
+      ],
+      "imports": [
+        "@/hooks/useAuth",
+        "@/components/admin/AdminSidebar"
+      ],
+      "features": [
+        "Hook: useNavigate",
+        "Hook: useAuth",
+        "Hook: useEffect"
+      ],
+      "size_bytes": 1436,
+      "lines": 45,
+      "description": "Main layout wrapper for admin pages with sidebar navigation",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": true,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "simple"
+    },
+    {
+      "name": "AdminSchedulePage.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/AdminSchedulePage.tsx",
+      "type": "page",
+      "exports": [
+        "AdminSchedulePage"
+      ],
+      "imports": [
+        "@/hooks/use-toast",
+        "@/hooks/useAdminSchedule",
+        "@/components/admin/LessonDetailModal",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: createLesson",
+        "Hook: useToast",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Schedule management"
+      ],
+      "size_bytes": 27395,
+      "lines": 705,
+      "description": "Schedule/timetable management for lessons and assignments",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "AuditLog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/AuditLog.tsx",
+      "type": "page",
+      "exports": [
+        "params",
+        "AuditLog"
+      ],
+      "imports": [],
+      "features": [
+        "Hook: useNavigate",
+        "Hook: useState",
+        "Hook: useCallback",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Table display",
+        "Form inputs",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 29617,
+      "lines": 883,
+      "description": "Audit Log Viewer Page",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": true,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "Dashboard.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/Dashboard.tsx",
+      "type": "page",
+      "exports": [
+        "AdminDashboard"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: getUserStats",
+        "API: getAuditLogs",
+        "Hook: useNavigate",
+        "Hook: useState",
+        "Hook: useEffect",
+        "State management"
+      ],
+      "size_bytes": 24693,
+      "lines": 802,
+      "description": "Admin Dashboard - Main system overview and monitoring page",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "DatabaseStatus.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/DatabaseStatus.tsx",
+      "type": "page",
+      "exports": [
+        "DatabaseStatus"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Hook: useCallback",
+        "Dialog/Modal handling",
+        "Table display",
+        "Form inputs",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 46043,
+      "lines": 1210,
+      "description": "Database Status and Maintenance Page",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": true,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "JobsMonitor.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/JobsMonitor.tsx",
+      "type": "page",
+      "exports": [
+        "JobsMonitor"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Hook: useCallback",
+        "Table display",
+        "State management"
+      ],
+      "size_bytes": 26644,
+      "lines": 763,
+      "description": "JobsMonitor Component",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": true,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "NotificationAnalytics.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/NotificationAnalytics.tsx",
+      "type": "page",
+      "exports": [
+        "NotificationAnalytics"
+      ],
+      "imports": [
+        "@/integrations/api/notificationsAPI"
+      ],
+      "features": [
+        "Hook: useEffect",
+        "Table display",
+        "State management"
+      ],
+      "size_bytes": 22294,
+      "lines": 631,
+      "description": "Notification Analytics Dashboard",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "NotificationTemplatesPage.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/NotificationTemplatesPage.tsx",
+      "type": "page",
+      "exports": [
+        "NotificationTemplatesPage"
+      ],
+      "imports": [
+        "@/components/admin/NotificationTemplatesAdmin"
+      ],
+      "features": [],
+      "size_bytes": 562,
+      "lines": 21,
+      "description": "Notification Templates Admin Page",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "simple"
+    },
+    {
+      "name": "ParentManagement.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/ParentManagement.tsx",
+      "type": "page",
+      "exports": [
+        "ParentManagement"
+      ],
+      "imports": [
+        "@/components/admin/EditUserDialog",
+        "@/integrations/api/adminAPI",
+        "@/integrations/api/unifiedClient",
+        "@/contexts/AuthContext",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/ParentStudentAssignment",
+        "@/components/admin/DeleteUserDialog",
+        "@/components/admin/CreateParentDialog"
+      ],
+      "features": [
+        "API: listParents",
+        "API: reactivateUser",
+        "Hook: useNavigate",
+        "Hook: useAuth",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 15174,
+      "lines": 418,
+      "description": "Dedicated parent account management interface",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "StaffManagement.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/StaffManagement.tsx",
+      "type": "page",
+      "exports": [
+        "StaffManagement"
+      ],
+      "imports": [
+        "@/components/admin/EditTeacherSubjectsDialog",
+        "@/components/admin/EditUserDialog",
+        "@/integrations/api/adminAPI",
+        "@/contexts/AuthContext",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/DeleteUserDialog",
+        "@/components/admin/EditTeacherDialog",
+        "@/components/admin/EditProfileDialog",
+        "@/components/admin/EditTutorDialog"
+      ],
+      "features": [
+        "API: reactivateUser",
+        "Hook: useNavigate",
+        "Hook: useAuth",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Table display",
+        "Form inputs",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 21962,
+      "lines": 577,
+      "description": "Staff (teachers, tutors) account management and assignment",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "StudentManagement.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/StudentManagement.tsx",
+      "type": "page",
+      "exports": [
+        "StudentManagement"
+      ],
+      "imports": [
+        "@/components/admin/EditUserDialog",
+        "@/integrations/api/adminAPI",
+        "@/components/admin/CreateStudentDialog",
+        "@/integrations/api/unifiedClient",
+        "@/contexts/AuthContext",
+        "@/components/admin/SubjectAssignmentDialog",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/DeleteUserDialog"
+      ],
+      "features": [
+        "API: reactivateUser",
+        "API: getParents",
+        "API: getTutors",
+        "API: getStudents",
+        "Hook: useNavigate",
+        "Hook: useAuth",
+        "Hook: useState",
+        "Hook: useCallback",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 24400,
+      "lines": 691,
+      "description": "Student account management with enrollment tracking",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "SystemMonitoring.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/SystemMonitoring.tsx",
+      "type": "page",
+      "exports": [
+        "SystemMonitoring"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "State management"
+      ],
+      "size_bytes": 23422,
+      "lines": 694,
+      "description": "Types for system monitoring metrics",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "SystemSettings.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/SystemSettings.tsx",
+      "type": "page",
+      "exports": [
+        "SystemSettings"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Form inputs",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 57787,
+      "lines": 1550,
+      "description": "System-wide configuration and settings",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "UserManagement.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/UserManagement.tsx",
+      "type": "page",
+      "exports": [
+        "UserManagement"
+      ],
+      "imports": [
+        "@/components/admin/EditUserDialog",
+        "@/integrations/api/adminAPI",
+        "@/integrations/api/unifiedClient",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/DeleteUserDialog"
+      ],
+      "features": [
+        "API: bulkDeactivateUsers",
+        "API: bulkAssignRoleUsers",
+        "API: bulkResetPasswordUsers",
+        "API: bulkSuspendUsers",
+        "API: getUsers",
+        "API: bulkActivateUsers",
+        "API: bulkDeleteUsers",
+        "Hook: useState",
+        "Hook: useCallback",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Table display",
+        "Form inputs",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 31136,
+      "lines": 856,
+      "description": "User Management Page",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": true
+      },
+      "complexity": "complex"
+    }
+  ],
+  "components": [
+    {
+      "name": "AdminSidebar.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/AdminSidebar.tsx",
+      "type": "component",
+      "exports": [],
+      "imports": [
+        "@/contexts/AuthContext"
+      ],
+      "features": [
+        "Hook: useAuth",
+        "Toast notifications",
+        "Navigation sidebar"
+      ],
+      "size_bytes": 3718,
+      "lines": 133,
+      "description": "Navigation sidebar for admin pages",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "BroadcastDetailsModal.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/BroadcastDetailsModal.tsx",
+      "type": "component",
+      "exports": [
+        "BroadcastDetailsModal"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: getBroadcast",
+        "API: getBroadcastRecipients",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "State management",
+        "Broadcast management"
+      ],
+      "size_bytes": 9907,
+      "lines": 273,
+      "description": "Modal showing detailed broadcast information and delivery status",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "BroadcastModal.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/BroadcastModal.tsx",
+      "type": "component",
+      "exports": [
+        "BroadcastModal"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: createBroadcast",
+        "API: previewBroadcast",
+        "API: getScheduleFilters",
+        "API: getTutors",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Broadcast management"
+      ],
+      "size_bytes": 12348,
+      "lines": 356,
+      "description": "Dialog for creating/editing broadcasts",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "ConfirmDeleteDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/ConfirmDeleteDialog.tsx",
+      "type": "component",
+      "exports": [
+        "ConfirmDeleteDialog"
+      ],
+      "imports": [],
+      "features": [
+        "Dialog/Modal handling",
+        "Dialog component"
+      ],
+      "size_bytes": 1809,
+      "lines": 65,
+      "description": "Generic confirmation dialog for delete operations",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "simple"
+    },
+    {
+      "name": "CreateParentDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/CreateParentDialog.tsx",
+      "type": "component",
+      "exports": [
+        "CreateParentDialog"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: createParent",
+        "Hook: useState",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "Dialog component"
+      ],
+      "size_bytes": 9254,
+      "lines": 278,
+      "description": "Dialog form for creating new parent accounts",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": true,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "CreateStudentDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/CreateStudentDialog.tsx",
+      "type": "component",
+      "exports": [
+        "CreateStudentDialog"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: createStudent",
+        "API: getParents",
+        "API: getTutors",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Dialog component"
+      ],
+      "size_bytes": 13972,
+      "lines": 403,
+      "description": "Dialog form for creating new student accounts",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": true,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "CreateUserDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/CreateUserDialog.tsx",
+      "type": "component",
+      "exports": [
+        "CreateUserDialog"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: createUser",
+        "API: getParents",
+        "API: getTutors",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Dialog component"
+      ],
+      "size_bytes": 18875,
+      "lines": 519,
+      "description": "Generic dialog for creating users with role selection",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": true,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "DeleteUserDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/DeleteUserDialog.tsx",
+      "type": "component",
+      "exports": [
+        "DeleteUserDialog"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: deleteUser",
+        "Hook: useState",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "Dialog component"
+      ],
+      "size_bytes": 5052,
+      "lines": 145,
+      "description": "Confirmation dialog for user deletion",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "EditProfileDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/EditProfileDialog.tsx",
+      "type": "component",
+      "exports": [
+        "EditProfileDialog"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: updateTutorProfile",
+        "API: updateStudentProfile",
+        "API: getParents",
+        "API: updateParentProfile",
+        "API: updateTeacherProfile",
+        "API: getTutors",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Dialog component"
+      ],
+      "size_bytes": 13496,
+      "lines": 409,
+      "description": "Dialog for editing user profile information",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "EditTeacherDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/EditTeacherDialog.tsx",
+      "type": "component",
+      "exports": [
+        "EditTeacherDialog"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: editTeacher",
+        "API: assignStudentsToTeacher",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Dialog component"
+      ],
+      "size_bytes": 10174,
+      "lines": 288,
+      "description": "Dialog for editing teacher account and subject assignments",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": true,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "EditTeacherSubjectsDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/EditTeacherSubjectsDialog.tsx",
+      "type": "component",
+      "exports": [
+        "EditTeacherSubjectsDialog"
+      ],
+      "imports": [],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "State management",
+        "Dialog component"
+      ],
+      "size_bytes": 3347,
+      "lines": 115,
+      "description": "Dialog for managing teacher-subject relationships",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": true,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "EditTutorDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/EditTutorDialog.tsx",
+      "type": "component",
+      "exports": [
+        "EditTutorDialog"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: editTutor",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Dialog component"
+      ],
+      "size_bytes": 8753,
+      "lines": 261,
+      "description": "Dialog for editing tutor profile and specialization",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "EditUserDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/EditUserDialog.tsx",
+      "type": "component",
+      "exports": [
+        "EditUserDialog"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: updateUser",
+        "API: getParents",
+        "API: getTutors",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Dialog component"
+      ],
+      "size_bytes": 14316,
+      "lines": 452,
+      "description": "Generic dialog for editing user information",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": true,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "LessonDetailModal.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/LessonDetailModal.tsx",
+      "type": "component",
+      "exports": [],
+      "imports": [],
+      "features": [
+        "Dialog/Modal handling"
+      ],
+      "size_bytes": 5808,
+      "lines": 154,
+      "description": "Modal showing detailed lesson information",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "NotificationTemplatesAdmin.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/NotificationTemplatesAdmin.tsx",
+      "type": "component",
+      "exports": [
+        "NotificationTemplatesAdmin"
+      ],
+      "imports": [
+        "@/integrations/api/notificationTemplatesAPI"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Table display",
+        "Form inputs",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 31820,
+      "lines": 970,
+      "description": "NotificationTemplatesAdmin Component",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": true,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "ParentSection.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/ParentSection.tsx",
+      "type": "component",
+      "exports": [
+        "ParentSection"
+      ],
+      "imports": [
+        "@/components/admin/EditUserDialog",
+        "@/integrations/api/adminAPI",
+        "@/integrations/api/unifiedClient",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/UserDetailModal",
+        "@/components/admin/ParentStudentAssignment",
+        "@/components/admin/DeleteUserDialog",
+        "@/components/admin/CreateParentDialog"
+      ],
+      "features": [
+        "API: listParents",
+        "API: reactivateUser",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Section management"
+      ],
+      "size_bytes": 13858,
+      "lines": 379,
+      "description": "Section component for parent management in dashboard",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": true,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "ParentStudentAssignment.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/ParentStudentAssignment.tsx",
+      "type": "component",
+      "exports": [
+        "ParentStudentAssignment"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: listParents",
+        "API: assignParentToStudents",
+        "API: getStudents",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 9208,
+      "lines": 263,
+      "description": "Component for assigning parents to students",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "PrivateFieldTooltip.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/PrivateFieldTooltip.tsx",
+      "type": "component",
+      "exports": [
+        "PrivateFieldTooltip"
+      ],
+      "imports": [],
+      "features": [],
+      "size_bytes": 1613,
+      "lines": 48,
+      "description": "Компонент для визуального обозначения приватных полей в формах",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "simple"
+    },
+    {
+      "name": "ResetPasswordDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/ResetPasswordDialog.tsx",
+      "type": "component",
+      "exports": [
+        "ResetPasswordDialog"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: resetPassword",
+        "Hook: useState",
+        "Dialog/Modal handling",
+        "Toast notifications",
+        "Dialog component"
+      ],
+      "size_bytes": 4709,
+      "lines": 131,
+      "description": "Dialog for resetting user passwords",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "StudentMultiSelect.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/StudentMultiSelect.tsx",
+      "type": "component",
+      "exports": [
+        "StudentMultiSelect",
+        "Student"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "API: getStudents",
+        "Hook: useState",
+        "Hook: useEffect",
+        "State management",
+        "Multi-select UI"
+      ],
+      "size_bytes": 4284,
+      "lines": 151,
+      "description": "Multi-select dropdown for selecting students",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "StudentSection.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/StudentSection.tsx",
+      "type": "component",
+      "exports": [
+        "StudentSection"
+      ],
+      "imports": [
+        "@/components/admin/EditUserDialog",
+        "@/integrations/api/adminAPI",
+        "@/components/admin/CreateStudentDialog",
+        "@/integrations/api/unifiedClient",
+        "@/components/admin/SubjectAssignmentDialog",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/UserDetailModal",
+        "@/components/admin/DeleteUserDialog"
+      ],
+      "features": [
+        "API: reactivateUser",
+        "API: getTutors",
+        "API: getStudents",
+        "Hook: useState",
+        "Hook: useCallback",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Section management"
+      ],
+      "size_bytes": 21853,
+      "lines": 604,
+      "description": "Section component for student management in dashboard",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": true,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "SubjectAssignmentDialog.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/SubjectAssignmentDialog.tsx",
+      "type": "component",
+      "exports": [
+        "SubjectAssignmentDialog"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Dialog component"
+      ],
+      "size_bytes": 10993,
+      "lines": 323,
+      "description": "Dialog for assigning subjects to teachers",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "SubjectMultiSelect.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/SubjectMultiSelect.tsx",
+      "type": "component",
+      "exports": [
+        "SubjectMultiSelect",
+        "Subject"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "State management",
+        "Multi-select UI"
+      ],
+      "size_bytes": 4321,
+      "lines": 143,
+      "description": "Multi-select dropdown for selecting subjects",
+      "relationships": {
+        "uses_dialogs": false,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "TeacherSection.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/TeacherSection.tsx",
+      "type": "component",
+      "exports": [
+        "TeacherSection"
+      ],
+      "imports": [
+        "@/components/admin/EditTeacherSubjectsDialog",
+        "@/integrations/api/adminAPI",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/UserDetailModal",
+        "@/components/admin/DeleteUserDialog",
+        "@/components/admin/EditTeacherDialog"
+      ],
+      "features": [
+        "API: reactivateUser",
+        "Hook: useState",
+        "Hook: useCallback",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Section management"
+      ],
+      "size_bytes": 19665,
+      "lines": 518,
+      "description": "Section component for teacher management in dashboard",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": true,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "TutorSection.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/TutorSection.tsx",
+      "type": "component",
+      "exports": [
+        "TutorSection"
+      ],
+      "imports": [
+        "@/integrations/api/adminAPI",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/UserDetailModal",
+        "@/components/admin/DeleteUserDialog",
+        "@/components/admin/EditTutorDialog"
+      ],
+      "features": [
+        "API: reactivateUser",
+        "Hook: useState",
+        "Hook: useCallback",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Section management"
+      ],
+      "size_bytes": 17253,
+      "lines": 464,
+      "description": "Section component for tutor management in dashboard",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": true,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "UserDetailModal.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/admin/UserDetailModal.tsx",
+      "type": "component",
+      "exports": [
+        "UserDetailModal"
+      ],
+      "imports": [
+        "@/integrations/api/unifiedClient",
+        "@/components/admin/DeleteUserDialog",
+        "@/components/admin/EditUserDialog",
+        "@/integrations/api/adminAPI"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Toast notifications",
+        "State management"
+      ],
+      "size_bytes": 24524,
+      "lines": 644,
+      "description": "Типы для профилей (из API contracts)",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": true,
+        "is_section": false,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    }
+  ],
+  "apiMethods": [
+    {
+      "method": "updateUser",
+      "endpoint": "Unknown",
+      "purpose": "/** Update User basic information /"
+    },
+    {
+      "method": "updateStudentProfile",
+      "endpoint": "Unknown",
+      "purpose": "/** Update Student Profile /"
+    },
+    {
+      "method": "updateTeacherProfile",
+      "endpoint": "Unknown",
+      "purpose": "/** Update Teacher Profile /"
+    },
+    {
+      "method": "updateTutorProfile",
+      "endpoint": "Unknown",
+      "purpose": "/** Update Tutor Profile /"
+    },
+    {
+      "method": "updateParentProfile",
+      "endpoint": "Unknown",
+      "purpose": "/** Update Parent Profile /"
+    },
+    {
+      "method": "resetPassword",
+      "endpoint": "Unknown",
+      "purpose": "/** Reset user password Returns new auto-generated password /"
+    },
+    {
+      "method": "deleteUser",
+      "endpoint": "Unknown",
+      "purpose": "/** Delete or deactivate user @param permanent - true for hard delete, false for soft delete (deacti"
+    },
+    {
+      "method": "createUser",
+      "endpoint": "/auth/users/create/",
+      "purpose": "/** Create new user with role-specific profile /"
+    },
+    {
+      "method": "getTutors",
+      "endpoint": "/auth/staff/?role=tutor",
+      "purpose": "/** Get list of tutors for selection /"
+    },
+    {
+      "method": "getParents",
+      "endpoint": "Unknown",
+      "purpose": "/** Get list of parents for selection /"
+    },
+    {
+      "method": "getStudents",
+      "endpoint": "Unknown",
+      "purpose": "/** Get students list with filtering and pagination /"
+    },
+    {
+      "method": "createStudent",
+      "endpoint": "Unknown",
+      "purpose": "/** Create new student Specialized endpoint for student creation /"
+    },
+    {
+      "method": "editTeacher",
+      "endpoint": "Unknown",
+      "purpose": "/** Edit teacher via admin endpoint Updates both user and profile data /"
+    },
+    {
+      "method": "assignStudentsToTeacher",
+      "endpoint": "Unknown",
+      "purpose": "/** Assign students to teacher for a specific subject /"
+    },
+    {
+      "method": "editTutor",
+      "endpoint": "Unknown",
+      "purpose": "/** Edit tutor via admin endpoint Updates both user and profile data /"
+    },
+    {
+      "method": "reactivateUser",
+      "endpoint": "Unknown",
+      "purpose": "/** Reactivate a user profile Sets is_active=True for the user /"
+    },
+    {
+      "method": "createParent",
+      "endpoint": "Unknown",
+      "purpose": "/** Create new parent Specialized endpoint for parent creation /"
+    },
+    {
+      "method": "listParents",
+      "endpoint": "Unknown",
+      "purpose": "/** Get list of parents for selection /"
+    },
+    {
+      "method": "assignParentToStudents",
+      "endpoint": "Unknown",
+      "purpose": "/** Assign parent to multiple students /"
+    },
+    {
+      "method": "getSchedule",
+      "endpoint": "Unknown",
+      "purpose": "/** Get admin schedule with filters /"
+    },
+    {
+      "method": "getScheduleStats",
+      "endpoint": "Unknown",
+      "purpose": "/** Get schedule statistics /"
+    },
+    {
+      "method": "getScheduleFilters",
+      "endpoint": "Unknown",
+      "purpose": "/** Get schedule filter options /"
+    },
+    {
+      "method": "getChatRooms",
+      "endpoint": "Unknown",
+      "purpose": "/** Get all chat rooms with participants and last message /"
+    },
+    {
+      "method": "getChatRoomDetail",
+      "endpoint": "Unknown",
+      "purpose": "/** Get detailed information about a specific chat room /"
+    },
+    {
+      "method": "getChatMessages",
+      "endpoint": "Unknown",
+      "purpose": "/** Get messages for a specific chat room /"
+    },
+    {
+      "method": "getChatStats",
+      "endpoint": "Unknown",
+      "purpose": "/** Get chat statistics /"
+    },
+    {
+      "method": "getUserStats",
+      "endpoint": "Unknown",
+      "purpose": "/** Get user statistics for admin dashboard /"
+    },
+    {
+      "method": "getBroadcasts",
+      "endpoint": "Unknown",
+      "purpose": "/** Get list of broadcasts with pagination and filters /"
+    },
+    {
+      "method": "getBroadcast",
+      "endpoint": "Unknown",
+      "purpose": "/** Get broadcast details /"
+    },
+    {
+      "method": "getBroadcastRecipients",
+      "endpoint": "Unknown",
+      "purpose": "/** Get broadcast recipients with delivery status /"
+    },
+    {
+      "method": "createBroadcast",
+      "endpoint": "Unknown",
+      "purpose": "/** Create and send broadcast /"
+    },
+    {
+      "method": "previewBroadcast",
+      "endpoint": "Unknown",
+      "purpose": "/** Preview broadcast recipients count /"
+    },
+    {
+      "method": "getAuditLogs",
+      "endpoint": "Unknown",
+      "purpose": "Get audit logs with optional filters, sorting, and pagination NOT IMPLEMENTED - Backend support need"
+    },
+    {
+      "method": "getAuditLogDetail",
+      "endpoint": "Unknown",
+      "purpose": "/** Get single audit log entry with full details NOT IMPLEMENTED - Backend support needed /"
+    },
+    {
+      "method": "getAuditLogStats",
+      "endpoint": "Unknown",
+      "purpose": "/** Get audit log statistics NOT IMPLEMENTED - Backend support needed /"
+    },
+    {
+      "method": "getUsers",
+      "endpoint": "Unknown",
+      "purpose": "/** Get list of all users with filtering and pagination Maps to backend /auth/users/ (accessible via"
+    },
+    {
+      "method": "getUserDetail",
+      "endpoint": "Unknown",
+      "purpose": "Get single user details NOTE: Backend provides /auth/users/{id}/ for updates (PATCH) but not for rea"
+    },
+    {
+      "method": "bulkActivateUsers",
+      "endpoint": "Unknown",
+      "purpose": "/** Bulk activate users /"
+    },
+    {
+      "method": "bulkDeactivateUsers",
+      "endpoint": "Unknown",
+      "purpose": "/** Bulk deactivate users /"
+    },
+    {
+      "method": "bulkSuspendUsers",
+      "endpoint": "Unknown",
+      "purpose": "/** Bulk suspend users /"
+    },
+    {
+      "method": "bulkResetPasswordUsers",
+      "endpoint": "Unknown",
+      "purpose": "/** Bulk reset password for users /"
+    },
+    {
+      "method": "bulkDeleteUsers",
+      "endpoint": "Unknown",
+      "purpose": "/** Bulk delete users /"
+    },
+    {
+      "method": "bulkAssignRoleUsers",
+      "endpoint": "Unknown",
+      "purpose": "/** Bulk assign role to users /"
+    },
+    {
+      "method": "createLesson",
+      "endpoint": "Unknown",
+      "purpose": "/** Create a new lesson (admin can create lessons on behalf of teachers) /"
+    }
+  ],
+  "sections": [
+    {
+      "name": "ParentSection.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/sections/ParentSection.tsx",
+      "type": "section",
+      "exports": [
+        "ParentSection"
+      ],
+      "imports": [
+        "@/components/admin/EditUserDialog",
+        "@/integrations/api/adminAPI",
+        "@/integrations/api/unifiedClient",
+        "@/components/admin/ConfirmDeleteDialog",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/ParentStudentAssignment",
+        "@/components/admin/CreateParentDialog",
+        "@/components/admin/DeleteUserDialog"
+      ],
+      "features": [
+        "API: listParents",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Section management"
+      ],
+      "size_bytes": 9045,
+      "lines": 251,
+      "description": "Section component for parent management in dashboard",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": true,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "StudentSection.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/sections/StudentSection.tsx",
+      "type": "section",
+      "exports": [
+        "StudentSection"
+      ],
+      "imports": [
+        "@/components/admin/EditUserDialog",
+        "@/components/admin/CreateStudentDialog",
+        "@/integrations/api/adminAPI",
+        "@/integrations/api/unifiedClient",
+        "@/components/admin/ConfirmDeleteDialog",
+        "@/components/admin/SubjectAssignmentDialog",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/DeleteUserDialog"
+      ],
+      "features": [
+        "API: getStudents",
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Section management"
+      ],
+      "size_bytes": 9042,
+      "lines": 252,
+      "description": "Section component for student management in dashboard",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": false,
+        "uses_modals": false,
+        "is_dialog": false,
+        "is_modal": false,
+        "is_section": true,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "medium"
+    },
+    {
+      "name": "TeacherSection.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/sections/TeacherSection.tsx",
+      "type": "section",
+      "exports": [
+        "TeacherSection"
+      ],
+      "imports": [
+        "@/components/admin/EditTeacherSubjectsDialog",
+        "@/components/admin/ConfirmDeleteDialog",
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/DeleteUserDialog",
+        "@/components/admin/EditTeacherDialog"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Section management"
+      ],
+      "size_bytes": 13962,
+      "lines": 382,
+      "description": "Section component for teacher management in dashboard",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": true,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    },
+    {
+      "name": "TutorSection.tsx",
+      "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/admin/sections/TutorSection.tsx",
+      "type": "section",
+      "exports": [
+        "TutorSection"
+      ],
+      "imports": [
+        "@/components/admin/ResetPasswordDialog",
+        "@/components/admin/DeleteUserDialog",
+        "@/components/admin/EditTutorDialog",
+        "@/components/admin/ConfirmDeleteDialog"
+      ],
+      "features": [
+        "Hook: useState",
+        "Hook: useEffect",
+        "Dialog/Modal handling",
+        "Form inputs",
+        "Toast notifications",
+        "State management",
+        "Section management"
+      ],
+      "size_bytes": 12711,
+      "lines": 356,
+      "description": "Section component for tutor management in dashboard",
+      "relationships": {
+        "uses_dialogs": true,
+        "uses_tables": false,
+        "uses_forms": true,
+        "uses_modals": false,
+        "is_dialog": true,
+        "is_modal": false,
+        "is_section": true,
+        "is_layout": false,
+        "handles_user_creation": false,
+        "handles_user_editing": false,
+        "handles_bulk_operations": false
+      },
+      "complexity": "complex"
+    }
+  ],
+  "totalPages": 18,
+  "totalComponents": 26,
+  "totalSections": 4,
+  "totalApiMethods": 44,
+  "mappedAt": "2026-01-07",
+  "apiEndpointSummary": {
+    "Unknown": [
+      "updateUser",
+      "updateStudentProfile",
+      "updateTeacherProfile",
+      "updateTutorProfile",
+      "updateParentProfile",
+      "resetPassword",
+      "deleteUser",
+      "getParents",
+      "getStudents",
+      "createStudent",
+      "editTeacher",
+      "assignStudentsToTeacher",
+      "editTutor",
+      "reactivateUser",
+      "createParent",
+      "listParents",
+      "assignParentToStudents",
+      "getSchedule",
+      "getScheduleStats",
+      "getScheduleFilters",
+      "getChatRooms",
+      "getChatRoomDetail",
+      "getChatMessages",
+      "getChatStats",
+      "getUserStats",
+      "getBroadcasts",
+      "getBroadcast",
+      "getBroadcastRecipients",
+      "createBroadcast",
+      "previewBroadcast",
+      "getAuditLogs",
+      "getAuditLogDetail",
+      "getAuditLogStats",
+      "getUsers",
+      "getUserDetail",
+      "bulkActivateUsers",
+      "bulkDeactivateUsers",
+      "bulkSuspendUsers",
+      "bulkResetPasswordUsers",
+      "bulkDeleteUsers",
+      "bulkAssignRoleUsers",
+      "createLesson"
+    ],
+    "/auth/users/create/": [
+      "createUser"
+    ],
+    "/auth/staff/?role=tutor": [
+      "getTutors"
+    ]
+  },
+  "componentIndex": {
+    "all_pages": [
+      "AccountManagement",
+      "AdminBroadcastsPage",
+      "AdminChatsPage",
+      "AdminDashboard",
+      "AdminLayout",
+      "AdminSchedulePage",
+      "AuditLog",
+      "Dashboard",
+      "DatabaseStatus",
+      "JobsMonitor",
+      "NotificationAnalytics",
+      "NotificationTemplatesPage",
+      "ParentManagement",
+      "StaffManagement",
+      "StudentManagement",
+      "SystemMonitoring",
+      "SystemSettings",
+      "UserManagement"
+    ],
+    "all_components": [
+      "AdminSidebar",
+      "BroadcastDetailsModal",
+      "BroadcastModal",
+      "ConfirmDeleteDialog",
+      "CreateParentDialog",
+      "CreateStudentDialog",
+      "CreateUserDialog",
+      "DeleteUserDialog",
+      "EditProfileDialog",
+      "EditTeacherDialog",
+      "EditTeacherSubjectsDialog",
+      "EditTutorDialog",
+      "EditUserDialog",
+      "LessonDetailModal",
+      "NotificationTemplatesAdmin",
+      "ParentSection",
+      "ParentStudentAssignment",
+      "PrivateFieldTooltip",
+      "ResetPasswordDialog",
+      "StudentMultiSelect",
+      "StudentSection",
+      "SubjectAssignmentDialog",
+      "SubjectMultiSelect",
+      "TeacherSection",
+      "TutorSection",
+      "UserDetailModal"
+    ],
+    "all_sections": [
+      "ParentSection",
+      "StudentSection",
+      "TeacherSection",
+      "TutorSection"
+    ]
+  }
+}

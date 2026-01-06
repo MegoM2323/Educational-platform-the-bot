@@ -126,7 +126,7 @@ class InvoiceService:
 
         Отправляет уведомления:
         - В комнату тьютора (создатель счета)
-        - В комнату родителя (получатель счета)
+        - В комнату родителя (получатель счета - только если это ребенок родителя)
 
         Args:
             invoice: Счет с обновленным статусом
@@ -157,16 +157,23 @@ class InvoiceService:
 
             # Отправляем в комнату тьютора
             tutor_room = f'tutor_{invoice.tutor.id}'
-            async_to_sync(channel_layer.group_send)(tutor_room, message)
+            result_tutor = async_to_sync(channel_layer.group_send)(tutor_room, message)
+            logger.debug(f'[WebSocket] Status change broadcast to tutor room {tutor_room}: result={result_tutor is not None}')
 
-            # Отправляем в комнату родителя
-            parent_room = f'parent_{invoice.parent.id}'
-            async_to_sync(channel_layer.group_send)(parent_room, message)
+            # CRITICAL FIX 2 & 7: Проверяем что родитель видит только счета своих детей
+            if InvoiceService._check_parent_student_relationship(invoice.parent, invoice.student):
+                parent_room = f'parent_{invoice.parent.id}'
+                result_parent = async_to_sync(channel_layer.group_send)(parent_room, message)
+                logger.debug(f'[WebSocket] Status change broadcast to parent room {parent_room}: result={result_parent is not None}')
+            else:
+                logger.warning(
+                    f'[WebSocket] Parent {invoice.parent.id} not authorized for student {invoice.student.id}, '
+                    f'skipping broadcast to parent room'
+                )
 
             logger.info(
                 f'[WebSocket] Invoice #{invoice.id} status change '
-                f'({old_status} → {new_status}) broadcasted to rooms: '
-                f'{tutor_room}, {parent_room}'
+                f'({old_status} → {new_status}) broadcasted'
             )
 
         except Exception as e:
@@ -182,7 +189,7 @@ class InvoiceService:
 
         Отправляет уведомления:
         - В комнату тьютора (уведомление о получении оплаты)
-        - В комнату родителя (подтверждение оплаты)
+        - В комнату родителя (подтверждение оплаты - только если это ребенок родителя)
 
         Args:
             invoice: Оплаченный счет
@@ -219,15 +226,22 @@ class InvoiceService:
 
             # Отправляем в комнату тьютора
             tutor_room = f'tutor_{invoice.tutor.id}'
-            async_to_sync(channel_layer.group_send)(tutor_room, message)
+            result_tutor = async_to_sync(channel_layer.group_send)(tutor_room, message)
+            logger.debug(f'[WebSocket] Payment broadcast to tutor room {tutor_room}: result={result_tutor is not None}')
 
-            # Отправляем в комнату родителя
-            parent_room = f'parent_{invoice.parent.id}'
-            async_to_sync(channel_layer.group_send)(parent_room, message)
+            # CRITICAL FIX 2 & 7: Проверяем что родитель видит только счета своих детей
+            if InvoiceService._check_parent_student_relationship(invoice.parent, invoice.student):
+                parent_room = f'parent_{invoice.parent.id}'
+                result_parent = async_to_sync(channel_layer.group_send)(parent_room, message)
+                logger.debug(f'[WebSocket] Payment broadcast to parent room {parent_room}: result={result_parent is not None}')
+            else:
+                logger.warning(
+                    f'[WebSocket] Parent {invoice.parent.id} not authorized for student {invoice.student.id}, '
+                    f'skipping broadcast to parent room'
+                )
 
             logger.info(
-                f'[WebSocket] Invoice #{invoice.id} payment event broadcasted '
-                f'to rooms: {tutor_room}, {parent_room}'
+                f'[WebSocket] Invoice #{invoice.id} payment event broadcasted'
             )
 
         except Exception as e:

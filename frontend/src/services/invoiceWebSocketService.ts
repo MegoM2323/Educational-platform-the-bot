@@ -28,11 +28,14 @@ export class InvoiceWebSocketService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
+  private reconnectTimeoutId: NodeJS.Timeout | null = null;
+  private connectionChangeUnsubscribe: (() => void) | null = null;
 
   constructor() {
-    // Подписываемся на системные события WebSocket
-    websocketService.onConnectionChange((connected) => {
+    // Подписываемся на системные события WebSocket с управлением памятью
+    this.connectionChangeUnsubscribe = websocketService.onConnectionChange((connected) => {
       if (connected) {
+        this.clearReconnectTimeout();
         this.resubscribeAll();
       } else {
         this.scheduleReconnect();
@@ -83,10 +86,7 @@ export class InvoiceWebSocketService {
       const fullUrl = `${baseUrl}/invoices/${tokenParam}`;
 
       logger.info('[InvoiceWebSocket] Connecting to invoice updates:', {
-        hasToken: !!token,
-        tokenLength: token.length,
-        tokenStart: token.substring(0, 10),
-        fullUrl
+        hasToken: !!token
       });
 
       websocketService.connect(fullUrl);
@@ -95,17 +95,38 @@ export class InvoiceWebSocketService {
   }
 
   /**
-   * Отключение от WebSocket счетов
+   * Отключение от WebSocket счетов с полной очисткой памяти
    */
   disconnect(): void {
-    const subscriptionId = this.subscriptions.get('invoices');
-
-    if (subscriptionId) {
+    // Очищаем все подписки
+    this.subscriptions.forEach((subscriptionId) => {
       websocketService.unsubscribe(subscriptionId);
-      this.subscriptions.delete('invoices');
+    });
+    this.subscriptions.clear();
+
+    // Очищаем таймут переподключения
+    this.clearReconnectTimeout();
+
+    // Очищаем обработчики событий
+    this.eventHandlers = {};
+
+    // Отписываемся от изменений соединения
+    if (this.connectionChangeUnsubscribe) {
+      this.connectionChangeUnsubscribe();
+      this.connectionChangeUnsubscribe = null;
     }
 
-    logger.info('[InvoiceWebSocket] Disconnected from invoice updates');
+    logger.info('[InvoiceWebSocket] Disconnected from invoice updates and cleaned up all resources');
+  }
+
+  /**
+   * Очистка таймаута переподключения
+   */
+  private clearReconnectTimeout(): void {
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId);
+      this.reconnectTimeoutId = null;
+    }
   }
 
   /**
@@ -194,6 +215,9 @@ export class InvoiceWebSocketService {
    * Планирование переподключения с экспоненциальной задержкой
    */
   private scheduleReconnect(): void {
+    // Очищаем старый таймаут перед созданием нового (FIX 5: утечка памяти при reconnect)
+    this.clearReconnectTimeout();
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       logger.error('[InvoiceWebSocket] Max reconnection attempts reached');
       if (this.eventHandlers.onError) {
@@ -209,7 +233,8 @@ export class InvoiceWebSocketService {
       `[InvoiceWebSocket] Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`
     );
 
-    setTimeout(() => {
+    // Используем управляемый таймаут для контроля памяти (FIX 4 & 5)
+    this.reconnectTimeoutId = setTimeout(() => {
       if (this.subscriptions.size > 0) {
         // Повторное подключение если есть активные подписки
         this.connect(this.eventHandlers);

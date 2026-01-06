@@ -14,6 +14,7 @@ class User(AbstractUser):
         TEACHER = "teacher", "Преподаватель"
         TUTOR = "tutor", "Тьютор"
         PARENT = "parent", "Родитель"
+        ADMIN = "admin", "Администратор"
 
     password = models.CharField(max_length=128, blank=True, null=True)
 

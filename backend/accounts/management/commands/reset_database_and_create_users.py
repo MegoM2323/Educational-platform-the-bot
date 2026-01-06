@@ -1,8 +1,11 @@
 from collections import Counter
+from datetime import time, timedelta
+from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils import timezone
 
 from accounts.models import (
     User,
@@ -37,6 +40,7 @@ from assignments.models import (
     AssignmentQuestion,
     AssignmentAnswer,
 )
+from scheduling.models import Lesson
 from payments.models import Payment
 from reports.models import (
     Report,
@@ -434,6 +438,319 @@ class Command(BaseCommand):
         chat_type_counts = Counter(chat_types)
         for chat_type, count in chat_type_counts.items():
             self.stdout.write(f"  - {chat_type}: {count}")
+
+        # ========== РАЗДЕЛ A: LESSONS (УРОКИ) ==========
+        self.stdout.write("\nСоздание уроков (Lessons)...")
+
+        now = timezone.now()
+        tomorrow = now.date() + timedelta(days=1)
+
+        lesson1 = Lesson.objects.create(
+            teacher=teacher,
+            student=student,
+            subject=math,
+            date=tomorrow,
+            start_time=time(10, 0),
+            end_time=time(11, 0),
+            description="Квадратные уравнения: методы решения и применение",
+            status=Lesson.Status.CONFIRMED,
+            telemost_link="https://telemost.yandex.ru/j/58624819661",
+        )
+
+        lesson2 = Lesson.objects.create(
+            teacher=teacher,
+            student=student,
+            subject=math,
+            date=tomorrow,
+            start_time=time(15, 0),
+            end_time=time(16, 0),
+            description="Производные: вычисление и геометрический смысл",
+            status=Lesson.Status.CONFIRMED,
+            telemost_link="https://telemost.yandex.ru/j/58624819662",
+        )
+
+        lesson3 = Lesson.objects.create(
+            teacher=teacher,
+            student=student,
+            subject=physics,
+            date=tomorrow + timedelta(days=2),
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+            description="Механика: кинематика и динамика",
+            status=Lesson.Status.CONFIRMED,
+            telemost_link="https://telemost.yandex.ru/j/58624819663",
+        )
+
+        lesson4 = Lesson.objects.create(
+            teacher=teacher,
+            student=student,
+            subject=physics,
+            date=tomorrow + timedelta(days=3),
+            start_time=time(14, 0),
+            end_time=time(15, 0),
+            description="Электричество: поле и потенциал",
+            status=Lesson.Status.PENDING,
+            telemost_link="https://telemost.yandex.ru/j/58624819664",
+        )
+
+        lesson5 = Lesson.objects.create(
+            teacher=teacher,
+            student=student,
+            subject=physics,
+            date=tomorrow + timedelta(days=4),
+            start_time=time(11, 0),
+            end_time=time(13, 0),
+            description="Лабораторная работа: измерение электрического сопротивления",
+            status=Lesson.Status.PENDING,
+            telemost_link="https://telemost.yandex.ru/j/58624819665",
+        )
+
+        self.stdout.write(self.style.SUCCESS("✓ Создано 5 уроков"))
+
+        # ========== РАЗДЕЛ B: MESSAGES (СООБЩЕНИЯ) ==========
+        self.stdout.write("\nСоздание сообщений (Messages)...")
+
+        # Сообщения в прямом чате (Direct)
+        msg1 = Message.objects.create(
+            room=direct_chat,
+            sender=student,
+            content="Привет! Есть вопрос по квадратным уравнениям.",
+            created_at=now - timedelta(hours=5),
+        )
+
+        msg2 = Message.objects.create(
+            room=direct_chat,
+            sender=teacher,
+            content="Привет! Конечно, готов помочь. Какой именно вопрос?",
+            created_at=now - timedelta(hours=4, minutes=50),
+        )
+
+        msg3 = Message.objects.create(
+            room=direct_chat,
+            sender=student,
+            content="Как решить уравнение (x+2)^2 = 9?",
+            created_at=now - timedelta(hours=4, minutes=30),
+        )
+
+        msg4 = Message.objects.create(
+            room=direct_chat,
+            sender=teacher,
+            content="Раскроем скобки: x^2 + 4x + 4 = 9, затем x^2 + 4x - 5 = 0. Применяем формулу дискриминанта.",
+            created_at=now - timedelta(hours=4, minutes=10),
+        )
+
+        # Сообщения в общем чате (General)
+        msg5 = Message.objects.create(
+            room=general_chat,
+            sender=teacher,
+            content="Добрый день всем! Напоминаю, что завтра будут уроки по расписанию.",
+            created_at=now - timedelta(hours=3),
+        )
+
+        msg6 = Message.objects.create(
+            room=general_chat,
+            sender=student,
+            content="Спасибо за напоминание!",
+            created_at=now - timedelta(hours=2, minutes=50),
+        )
+
+        msg7 = Message.objects.create(
+            room=general_chat,
+            sender=tutor,
+            content="Не забывайте про домашние задания!",
+            created_at=now - timedelta(hours=2),
+        )
+
+        msg8 = Message.objects.create(
+            room=general_chat,
+            sender=parent,
+            content="Всем спасибо за вашу работу!",
+            created_at=now - timedelta(hours=1, minutes=30),
+        )
+
+        msg9 = Message.objects.create(
+            room=general_chat,
+            sender=teacher,
+            content="Результаты последней проверки будут готовы завтра.",
+            created_at=now - timedelta(hours=1),
+        )
+
+        msg10 = Message.objects.create(
+            room=general_chat,
+            sender=student,
+            content="Ждем не дождемся! Спасибо!",
+            created_at=now - timedelta(minutes=30),
+        )
+
+        self.stdout.write(self.style.SUCCESS("✓ Создано 10 сообщений"))
+
+        # ========== РАЗДЕЛ C: ASSIGNMENTS (ЗАДАНИЯ) ==========
+        self.stdout.write("\nСоздание заданий (Assignments)...")
+
+        assign1 = Assignment.objects.create(
+            author=teacher,
+            title="Домашнее задание №1: Квадратные уравнения",
+            description="Основное домашнее задание по теме квадратные уравнения",
+            instructions="Решите задачи 1-10 из учебника Мордковича, раздел 'Квадратные уравнения'. Запишите решение и ответ.",
+            type=Assignment.Type.HOMEWORK,
+            status=Assignment.Status.PUBLISHED,
+            start_date=now,
+            due_date=now + timedelta(days=3),
+            max_score=100,
+            attempts_limit=3,
+            time_limit=180,
+            difficulty_level=2,
+            tags="алгебра,квадратные_уравнения",
+        )
+
+        assign2 = Assignment.objects.create(
+            author=teacher,
+            title="Тест: Квадратные уравнения и их решение",
+            description="Проверка знаний по теме квадратные уравнения",
+            instructions="Ответьте на 15 вопросов тестового задания. Время выполнения: 60 минут.",
+            type=Assignment.Type.TEST,
+            status=Assignment.Status.PUBLISHED,
+            start_date=now + timedelta(days=2),
+            due_date=now + timedelta(days=7),
+            max_score=100,
+            attempts_limit=2,
+            time_limit=60,
+            difficulty_level=2,
+            tags="алгебра,тест,квадратные_уравнения",
+        )
+
+        assign3 = Assignment.objects.create(
+            author=teacher,
+            title="Проект: Приложения квадратных уравнений в физике",
+            description="Исследовательский проект на применение квадратных уравнений",
+            instructions="Найдите 3-5 примеров использования квадратных уравнений в реальных физических процессах. Подготовьте презентацию (5-10 слайдов) с объяснением и решением.",
+            type=Assignment.Type.PROJECT,
+            status=Assignment.Status.PUBLISHED,
+            start_date=now,
+            due_date=now + timedelta(days=14),
+            max_score=100,
+            attempts_limit=1,
+            time_limit=None,
+            difficulty_level=4,
+            tags="проект,приложения,междисциплинарный",
+        )
+
+        assign4 = Assignment.objects.create(
+            author=teacher,
+            title="Практическая работа: Численное решение уравнений",
+            description="Практическое задание по численным методам решения уравнений",
+            instructions="Используя Python, напишите программу для решения квадратных уравнений методом итерации. Протестируйте на 10 примерах.",
+            type=Assignment.Type.PRACTICAL,
+            status=Assignment.Status.PUBLISHED,
+            start_date=now + timedelta(days=1),
+            due_date=now + timedelta(days=5),
+            max_score=100,
+            attempts_limit=5,
+            time_limit=240,
+            difficulty_level=3,
+            tags="программирование,практика,численные_методы",
+        )
+
+        self.stdout.write(self.style.SUCCESS("✓ Создано 4 задания"))
+
+        # ========== РАЗДЕЛ D: ASSIGNMENT SUBMISSIONS (ОТВЕТЫ НА ЗАДАНИЯ) ==========
+        self.stdout.write("\nСоздание ответов на задания (Submissions)...")
+
+        submit1 = AssignmentSubmission.objects.create(
+            assignment=assign1,
+            student=student,
+            content="Решение:\n1. x^2 - 5x + 6 = 0\nD = 25 - 24 = 1\nx1 = 3, x2 = 2\n\n2. 2x^2 + x - 1 = 0\nD = 1 + 8 = 9\nx1 = 0.5, x2 = -1\n\nи т.д.",
+            submitted_at=now - timedelta(days=2),
+            status=AssignmentSubmission.Status.GRADED,
+            score=85,
+        )
+
+        submit2 = AssignmentSubmission.objects.create(
+            assignment=assign2,
+            student=student,
+            content="Ответы на тест: 1-B, 2-D, 3-A, 4-C, 5-B, 6-D, 7-A, 8-B, 9-C, 10-A, 11-D, 12-B, 13-C, 14-A, 15-D",
+            submitted_at=now - timedelta(days=1),
+            status=AssignmentSubmission.Status.GRADED,
+            score=92,
+        )
+
+        submit3 = AssignmentSubmission.objects.create(
+            assignment=assign3,
+            student=student,
+            content="Проект в процессе разработки. Завершу к сроку.",
+            submitted_at=now - timedelta(hours=2),
+            status=AssignmentSubmission.Status.SUBMITTED,
+            score=None,
+        )
+
+        self.stdout.write(self.style.SUCCESS("✓ Создано 3 ответа на задания"))
+
+        # ========== РАЗДЕЛ E: MATERIALS (УЧЕБНЫЕ МАТЕРИАЛЫ) ==========
+        self.stdout.write("\nСоздание учебных материалов (Materials)...")
+
+        material1 = Material.objects.create(
+            author=teacher,
+            subject=math,
+            title="Лекция: Квадратные уравнения",
+            description="Полная лекция с примерами, графиками и методами решения",
+            content="Квадратное уравнение - это уравнение вида ax^2 + bx + c = 0, где a ≠ 0.\n\nМетоды решения:\n1. Формула дискриминанта\n2. Теорема Виета\n3. Выделение полного квадрата\n4. Графический метод\n\nПримеры и решения приводятся в лекции.",
+            type=Material.Type.DOCUMENT,
+            status=Material.Status.ACTIVE,
+        )
+
+        material2 = Material.objects.create(
+            author=teacher,
+            subject=physics,
+            title="Руководство: Опыты по механике",
+            description="Практическое руководство для проведения лабораторных работ по механике",
+            content="Лабораторные работы по механике включают:\n- Измерение ускорения свободного падения\n- Исследование равноускоренного движения\n- Проверка законов Ньютона\n- Изучение трения и сопротивления\n\nДля каждой работы указаны оборудование, методика и обработка результатов.",
+            type=Material.Type.PRESENTATION,
+            status=Material.Status.DRAFT,
+        )
+
+        material3 = Material.objects.create(
+            author=teacher,
+            subject=chemistry,
+            title="Справочник: Основные реакции окисления-восстановления",
+            description="Краткий справочник основных окислительно-восстановительных реакций",
+            content="ОВ реакции - это реакции, в которых происходит изменение степеней окисления элементов.\n\nОсновные типы:\n1. Окисление металлов\n2. Восстановление кислорода\n3. Диспропорционирование\n4. Компропорционирование\n\nПримеры: горение металлов, взаимодействие с кислотами и т.д.",
+            type=Material.Type.LESSON,
+            status=Material.Status.ACTIVE,
+        )
+
+        self.stdout.write(self.style.SUCCESS("✓ Создано 3 учебных материала"))
+
+        # ========== РАЗДЕЛ F: SUBJECT PAYMENTS (ПЛАТЕЖИ) ==========
+        self.stdout.write("\nСоздание платежей (SubjectPayment)...")
+
+        payment1 = SubjectPayment.objects.create(
+            enrollment=enrollment1,
+            amount=Decimal("1000.00"),
+            payment_date=now - timedelta(days=30),
+            status="paid",
+        )
+
+        payment2 = SubjectPayment.objects.create(
+            enrollment=enrollment2,
+            amount=Decimal("1200.00"),
+            payment_date=None,
+            status="pending",
+        )
+
+        self.stdout.write(self.style.SUCCESS("✓ Создано 2 платежа"))
+
+        # ========== ФИНАЛЬНАЯ СТАТИСТИКА ==========
+        self.stdout.write(self.style.SUCCESS("\n" + "=" * 60))
+        self.stdout.write(self.style.SUCCESS("СТАТИСТИКА ТЕСТОВЫХ ДАННЫХ:"))
+        self.stdout.write(self.style.SUCCESS("=" * 60))
+        self.stdout.write(f"  ✓ Уроки (Lessons): 5")
+        self.stdout.write(f"  ✓ Сообщения (Messages): 10")
+        self.stdout.write(f"  ✓ Задания (Assignments): 4")
+        self.stdout.write(f"  ✓ Ответы (Submissions): 3")
+        self.stdout.write(f"  ✓ Материалы (Materials): 3")
+        self.stdout.write(f"  ✓ Платежи (Payments): 2")
+        self.stdout.write(self.style.SUCCESS(f"  ✓ ИТОГО новых объектов: 27"))
+        self.stdout.write(self.style.SUCCESS("=" * 60))
 
         # Итоговый вывод
         self.stdout.write(self.style.SUCCESS("\n" + "=" * 60))

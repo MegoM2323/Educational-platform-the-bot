@@ -15,6 +15,11 @@ Environment="PYTHONUNBUFFERED=1"
 # Create logs directory
 ExecStartPre=/bin/mkdir -p /home/mg/THE_BOT_platform/backend/logs
 
+# Create persistent log directory
+ExecStartPre=/bin/mkdir -p /var/log/thebot
+ExecStartPre=/bin/chown mg:mg /var/log/thebot
+ExecStartPre=/bin/chmod 755 /var/log/thebot
+
 # Start command
 ExecStart=/home/mg/venv/bin/celery -A config.celery \
     beat \

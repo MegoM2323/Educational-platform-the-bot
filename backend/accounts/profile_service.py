@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.conf import settings
 from rest_framework.serializers import ValidationError as DRFValidationError
 from PIL import Image
 
@@ -19,7 +20,7 @@ class ProfileService:
     """Service для управления профилями пользователей."""
 
     ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
-    MAX_AVATAR_SIZE = 5 * 1024 * 1024
+    MAX_AVATAR_SIZE = settings.MAX_FILE_SIZE  # 100 MB (from Django settings)
     AVATAR_SIZE = (400, 400)
 
     @staticmethod

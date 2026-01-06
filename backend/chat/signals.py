@@ -40,7 +40,7 @@ def create_forum_chat_on_enrollment(
     2. Student-Tutor chat if student has a tutor (FORUM_TUTOR type) - includes parent
 
     This signal is idempotent - uses get_or_create to prevent race conditions.
-    Handles both created and updated enrollments to ensure all participants are added.
+    Only triggers when a new enrollment is created, not on updates.
 
     Args:
         sender: SubjectEnrollment model class
@@ -48,6 +48,9 @@ def create_forum_chat_on_enrollment(
         created: Boolean indicating if instance was just created
         **kwargs: Additional keyword arguments from signal
     """
+    if not created:
+        return
+
     # Verify that instance is actually a SubjectEnrollment
     # (sometimes post_save signals can be triggered incorrectly)
     if SubjectEnrollment is None or not isinstance(instance, SubjectEnrollment):

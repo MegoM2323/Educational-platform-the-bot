@@ -13,6 +13,11 @@ Environment="DJANGO_SETTINGS_MODULE=config.settings"
 Environment="ENVIRONMENT=production"
 Environment="PYTHONUNBUFFERED=1"
 
+# Create persistent log directory
+ExecStartPre=/bin/mkdir -p /var/log/thebot
+ExecStartPre=/bin/chown mg:mg /var/log/thebot
+ExecStartPre=/bin/chmod 755 /var/log/thebot
+
 # Start command - using Daphne for ASGI
 ExecStart=/home/mg/venv/bin/daphne \
     -b 0.0.0.0 \

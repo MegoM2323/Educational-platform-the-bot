@@ -157,6 +157,19 @@ phase_0_initialization() {
 
     print_success "Configuration valid"
 
+    # Create persistent log directory
+    print_step "Ensuring /var/log/thebot directory exists..."
+    if [[ "$DRY_RUN" == "true" ]]; then
+        print_info "[DRY-RUN] Would create: mkdir -p /var/log/thebot"
+        print_info "[DRY-RUN] Would set: chown www-data:www-data /var/log/thebot"
+        print_info "[DRY-RUN] Would set: chmod 755 /var/log/thebot"
+    else
+        ssh_cmd "mkdir -p /var/log/thebot && chown www-data:www-data /var/log/thebot && chmod 755 /var/log/thebot" || {
+            print_warn "Could not create /var/log/thebot (may require manual setup)"
+        }
+    fi
+    print_success "Log directory ready"
+
     # Test SSH connection
     print_step "Testing SSH connection to $SSH_HOST..."
     if ssh_check "$SSH_USER@$SSH_HOST" -p "$SSH_PORT"; then

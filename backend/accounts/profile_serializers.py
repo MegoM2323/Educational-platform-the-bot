@@ -498,10 +498,10 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     def validate_avatar(self, value):
         """Валидация аватара"""
         if value:
-            # Проверяем размер файла (максимум 5MB)
-            if value.size > 5 * 1024 * 1024:
+            # Проверяем размер файла (максимум 100MB)
+            if value.size > 104857600:
                 raise serializers.ValidationError(
-                    "Размер файла не должен превышать 5MB"
+                    "Размер файла не должен превышать 100MB"
                 )
 
             # Проверяем расширение файла

@@ -299,7 +299,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="invoice",
-            constraint=models.CheckConstraint(
+            constraint=models.CheckConstraint(check=
                 models.Q(amount__gt=0), name="check_invoice_amount_positive"
             ),
         ),

@@ -1055,7 +1055,7 @@ LOGGING = {
         },
         "audit_file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/tmp/audit.log",
+            "filename": "/var/log/thebot/audit.log",
             "maxBytes": 10485760,  # 10MB
             "backupCount": 10,
             "level": "INFO",
@@ -1063,7 +1063,7 @@ LOGGING = {
         },
         "admin_file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/tmp/admin.log",
+            "filename": "/var/log/thebot/admin.log",
             "maxBytes": 10485760,  # 10MB
             "backupCount": 10,
             "level": "INFO",
@@ -1071,7 +1071,7 @@ LOGGING = {
         },
         "celery_file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/tmp/celery.log",
+            "filename": "/var/log/thebot/celery.log",
             "maxBytes": 10485760,  # 10MB
             "backupCount": 10,
             "level": "INFO",
@@ -1079,7 +1079,7 @@ LOGGING = {
         },
         "error_file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/tmp/error.log",
+            "filename": "/var/log/thebot/error.log",
             "maxBytes": 10485760,  # 10MB
             "backupCount": 10,
             "level": "ERROR",

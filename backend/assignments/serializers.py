@@ -684,9 +684,9 @@ class CSVGradeImportSerializer(serializers.Serializer):
         if not value.name.lower().endswith(".csv"):
             raise serializers.ValidationError("File must be a CSV file")
 
-        # Check file size (max 5MB)
-        if value.size > 5 * 1024 * 1024:
-            raise serializers.ValidationError("File size must not exceed 5MB")
+        # Check file size (max 100MB)
+        if value.size > 104857600:
+            raise serializers.ValidationError("File size must not exceed 100MB")
 
         return value
 

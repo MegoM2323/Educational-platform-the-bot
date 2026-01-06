@@ -38,7 +38,7 @@ class ReportCacheStrategy:
     }
 
     # Максимальный размер кэша на одного пользователя (в байтах)
-    MAX_CACHE_PER_USER = 50 * 1024 * 1024  # 50MB
+    MAX_CACHE_PER_USER = 104857600  # 100MB (unified with nginx and Django file upload limits)
 
     def __init__(self):
         self.cache_client = cache

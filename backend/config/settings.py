@@ -40,6 +40,13 @@ except (OSError, PermissionError):
 # КРИТИЧНО: Не перезаписываем ENVIRONMENT если уже установлен (например, pytest-env)
 PROJECT_ROOT = BASE_DIR.parent
 saved_environment = os.environ.get("ENVIRONMENT")
+saved_db_name = os.environ.get("DB_NAME")
+saved_db_host = os.environ.get("DB_HOST")
+saved_db_user = os.environ.get("DB_USER")
+saved_db_password = os.environ.get("DB_PASSWORD")
+saved_db_port = os.environ.get("DB_PORT")
+saved_db_sslmode = os.environ.get("DB_SSLMODE")
+
 for env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
     try:
         if env_path.exists():
@@ -54,6 +61,18 @@ for env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
 # Это критично для pytest (pytest-env устанавливает ENVIRONMENT=test)
 if saved_environment is not None:
     os.environ["ENVIRONMENT"] = saved_environment
+if saved_db_name is not None:
+    os.environ["DB_NAME"] = saved_db_name
+if saved_db_host is not None:
+    os.environ["DB_HOST"] = saved_db_host
+if saved_db_user is not None:
+    os.environ["DB_USER"] = saved_db_user
+if saved_db_password is not None:
+    os.environ["DB_PASSWORD"] = saved_db_password
+if saved_db_port is not None:
+    os.environ["DB_PORT"] = saved_db_port
+if saved_db_sslmode is not None:
+    os.environ["DB_SSLMODE"] = saved_db_sslmode
 
 # IMPORTANT: Sentry initialization is DEFERRED to wsgi.py, asgi.py, and manage.py
 # This is necessary because Sentry's DjangoIntegration requires Django to be fully initialized,

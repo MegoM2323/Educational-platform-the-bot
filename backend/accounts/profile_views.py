@@ -1106,7 +1106,7 @@ class AdminUserFullInfoView(APIView):
 
             enrollments_qs = SubjectEnrollment.objects.filter(
                 student=user
-            ).select_related("subject", "teacher", "tutor")
+            ).select_related("subject", "teacher", "assigned_by")
 
             for enrollment in enrollments_qs:
                 enrollments.append(
@@ -1118,8 +1118,8 @@ class AdminUserFullInfoView(APIView):
                         "teacher": enrollment.teacher.get_full_name()
                         if enrollment.teacher
                         else None,
-                        "tutor": enrollment.tutor.get_full_name()
-                        if enrollment.tutor
+                        "assigned_by": enrollment.assigned_by.get_full_name()
+                        if enrollment.assigned_by
                         else None,
                         "enrolled_at": enrollment.enrolled_at.isoformat()
                         if enrollment.enrolled_at
@@ -1418,7 +1418,7 @@ class TeacherListView(APIView):
         from materials.models import TeacherSubject
 
         teacher_subjects_prefetch = Prefetch(
-            "teacherprofile__user__teacher_subjects",
+            "teacher_profile__user__teacher_subjects",
             queryset=TeacherSubject.objects.select_related("subject").filter(
                 is_active=True
             ),

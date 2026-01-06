@@ -508,7 +508,11 @@ def yookassa_webhook(request):
 
         # Получаем объект платежа
         payment_object = data.get("object", {})
-        yookassa_payment_id = payment_object.get("id")
+
+        if event_type == "refund.succeeded":
+            yookassa_payment_id = payment_object.get("payment_id")
+        else:
+            yookassa_payment_id = payment_object.get("id")
 
         if not yookassa_payment_id:
             logger.error("Webhook received without payment ID")
@@ -616,6 +620,8 @@ def yookassa_webhook(request):
                 # CRITICAL FIX: Invalidate YooKassa status cache after webhook processing
                 # This prevents check_payment_status() from serving stale cached data
                 # If webhook processed payment as SUCCEEDED, cache should not return "pending"
+                payment.save(update_fields=["status", "raw_response", "updated"])
+
                 from django.core.cache import cache
 
                 cache_key = f"yookassa_status_{payment.yookassa_payment_id}"
@@ -634,7 +640,7 @@ def yookassa_webhook(request):
 
             elif event_type == "payment.canceled":
                 payment.status = Payment.Status.CANCELED
-                payment.save(update_fields=["status", "updated"])
+                payment.save(update_fields=["status", "raw_response", "updated"])
                 logger.info(f"Payment {payment.id} marked as canceled")
 
                 # CRITICAL FIX: Invalidate cache for canceled payments too
@@ -665,7 +671,7 @@ def yookassa_webhook(request):
 
             elif event_type == "payment.waiting_for_capture":
                 payment.status = Payment.Status.WAITING_FOR_CAPTURE
-                payment.save(update_fields=["status", "updated"])
+                payment.save(update_fields=["status", "raw_response", "updated"])
                 logger.info(f"Payment {payment.id} marked as waiting for capture")
                 # Устанавливаем статус WAITING_FOR_PAYMENT для SubjectPayment
                 try:
@@ -686,7 +692,7 @@ def yookassa_webhook(request):
 
             elif event_type == "payment.failed":
                 payment.status = Payment.Status.FAILED
-                payment.save(update_fields=["status", "updated"])
+                payment.save(update_fields=["status", "raw_response", "updated"])
                 logger.info(f"Payment {payment.id} marked as failed")
 
                 # CRITICAL FIX: Invalidate cache for failed payments too
@@ -716,80 +722,34 @@ def yookassa_webhook(request):
                     )
 
             elif event_type == "refund.succeeded":
-                # Для refund объект содержит payment_id оригинального платежа
-                refund_object = data.get("object", {})
-                payment_id_from_refund = refund_object.get("payment_id")
+                payment.status = Payment.Status.REFUNDED
+                payment.save(update_fields=["status", "raw_response", "updated"])
+                logger.info(f"Payment {payment.id} marked as REFUNDED")
 
-                if not payment_id_from_refund:
-                    logger.error("Refund webhook received without payment_id")
-                    return HttpResponseBadRequest("No payment_id in refund")
+                # CRITICAL FIX: Invalidate cache for refunded payments too
+                from django.core.cache import cache
 
-                # Находим оригинальный платеж
+                cache_key = f"yookassa_status_{payment.yookassa_payment_id}"
+                cache.delete(cache_key)
+                logger.info(
+                    f"Invalidated YooKassa status cache for refunded payment {payment.yookassa_payment_id}"
+                )
+
+                # Обновляем статус SubjectPayment на REFUNDED
                 try:
-                    original_payment = Payment.objects.get(
-                        yookassa_payment_id=payment_id_from_refund
-                    )
-                    original_payment.status = Payment.Status.REFUNDED
-                    original_payment.raw_response = data  # Сохраняем данные о возврате
-                    original_payment.save(
-                        update_fields=["status", "raw_response", "updated"]
-                    )
-                    logger.info(f"Payment {original_payment.id} marked as REFUNDED")
+                    from materials.models import SubjectPayment as SP
 
-                    # CRITICAL FIX: Invalidate cache for refunded payments too
-                    from django.core.cache import cache
-
-                    cache_key = (
-                        f"yookassa_status_{original_payment.yookassa_payment_id}"
-                    )
-                    cache.delete(cache_key)
-                    logger.info(
-                        f"Invalidated YooKassa status cache for refunded payment {original_payment.yookassa_payment_id}"
-                    )
-
-                    # Обновляем статус SubjectPayment на REFUNDED
-                    try:
-                        from materials.models import SubjectPayment as SP
-
-                        subject_payments = SP.objects.filter(payment=original_payment)
-                        for subject_payment in subject_payments:
-                            subject_payment.status = SP.Status.REFUNDED
-                            subject_payment.save(update_fields=["status", "updated_at"])
-                            logger.info(
-                                f"SubjectPayment {subject_payment.id} marked as REFUNDED"
-                            )
-
-                            # Уведомляем родителя о возврате
-                            try:
-                                from notifications.notification_service import (
-                                    NotificationService,
-                                )
-
-                                student = subject_payment.enrollment.student
-                                parent = (
-                                    getattr(student.student_profile, "parent", None)
-                                    if hasattr(student, "student_profile")
-                                    else None
-                                )
-                                if parent:
-                                    NotificationService().notify_payment_processed(
-                                        parent=parent,
-                                        status="refunded",
-                                        amount=str(subject_payment.amount),
-                                        enrollment_id=subject_payment.enrollment.id,
-                                    )
-                            except Exception:
-                                pass
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to update SubjectPayment status after refund: {e}"
+                    subject_payments = SP.objects.filter(payment=payment)
+                    for subject_payment in subject_payments:
+                        subject_payment.status = SP.Status.REFUNDED
+                        subject_payment.save(update_fields=["status", "updated_at"])
+                        logger.info(
+                            f"SubjectPayment {subject_payment.id} marked as REFUNDED"
                         )
-
-                except Payment.DoesNotExist:
+                except Exception as e:
                     logger.error(
-                        f"Original payment not found for refund: {payment_id_from_refund}"
+                        f"Failed to update SubjectPayment status after refund: {e}"
                     )
-                    return HttpResponseBadRequest("Original payment not found")
 
             return HttpResponse("OK")
 

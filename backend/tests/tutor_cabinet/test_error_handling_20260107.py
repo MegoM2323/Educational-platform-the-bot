@@ -29,7 +29,7 @@ from datetime import timedelta
 from accounts.models import StudentProfile, TutorProfile, ParentProfile
 from materials.models import Subject, SubjectEnrollment
 from scheduling.models import Lesson
-from chat.models import Room, RoomMember, Message
+from chat.models import ChatRoom, Message, MessageRead
 
 User = get_user_model()
 

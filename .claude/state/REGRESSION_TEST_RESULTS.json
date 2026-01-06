@@ -1,0 +1,338 @@
+{
+  "regression_test_date": "2026-01-07T23:20:00Z",
+  "summary": {
+    "total_tests": 412,
+    "passed": 371,
+    "failed": 57,
+    "skipped": 4,
+    "success_rate": "90.0%"
+  },
+  "by_wave": {
+    "wave_2_e2e_basic": {
+      "name": "E2E базовые тесты",
+      "total": 126,
+      "passed": 86,
+      "failed": 40,
+      "error_rate": "31.7%"
+    },
+    "wave_3_access_control": {
+      "name": "Тесты прав доступа",
+      "total": 46,
+      "passed": 42,
+      "failed": 4,
+      "skipped": 4,
+      "error_rate": "8.7%"
+    },
+    "wave_4_advanced": {
+      "name": "Advanced тесты",
+      "total": 197,
+      "passed": 199,
+      "failed": 9,
+      "error_rate": "4.6%"
+    },
+    "wave_5_api_integration": {
+      "name": "API интеграционные тесты",
+      "total": 45,
+      "passed": 44,
+      "failed": 1,
+      "error_rate": "2.2%"
+    },
+    "wave_6_security": {
+      "name": "Безопасность",
+      "total": 44,
+      "passed": 41,
+      "failed": 3,
+      "error_rate": "6.8%"
+    }
+  },
+  "failed_tests": [
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_student_management.py",
+      "test_name": "test_08_student_delete_via_soft_delete",
+      "error": "django.db.utils.IntegrityError: duplicate key value violates unique constraint 'accounts_user_username_key' - Key (username)=(admin) already exists",
+      "wave": 2,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_student_management.py",
+      "test_name": "test_09_student_list_filtering",
+      "error": "django.db.utils.IntegrityError: duplicate key value violates unique constraint 'accounts_user_username_key' - Key (username)=(admin) already exists",
+      "wave": 2,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_student_management.py",
+      "test_name": "test_10_student_list_pagination",
+      "error": "django.db.utils.IntegrityError: duplicate key value violates unique constraint 'accounts_user_username_key' - Key (username)=(admin) already exists",
+      "wave": 2,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_parent_management.py",
+      "test_name": "test_t008_1_admin_can_create_parent",
+      "error": "ERROR 500: [UserManagementView.post] Unexpected error for email test_perm@test.com: cannot access local variable 'ParentProfileSerializer' where it is not associated with a value",
+      "wave": 2,
+      "severity": "CRITICAL",
+      "file_affected": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/staff_views.py",
+      "issue": "ParentProfileSerializer is referenced but not properly initialized in conditional block"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_parent_management.py",
+      "test_name": "test_t008_2_admin_can_update_parent",
+      "error": "ERROR 500: ParentProfileSerializer not found - local variable issue",
+      "wave": 2,
+      "severity": "CRITICAL"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_parent_management.py",
+      "test_name": "test_t008_3_admin_can_assign_students_to_parent",
+      "error": "ERROR 500: ParentProfileSerializer not found - local variable issue",
+      "wave": 2,
+      "severity": "CRITICAL"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_parent_management.py",
+      "test_name": "test_t008_4_admin_can_delete_parent",
+      "error": "ERROR 500: ParentProfileSerializer not found - local variable issue",
+      "wave": 2,
+      "severity": "CRITICAL"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_parent_management.py",
+      "test_name": "test_t008_list_parents",
+      "error": "AssertionError: 0 not greater than or equal to 3",
+      "wave": 2,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_parent_management.py",
+      "test_name": "test_admin_has_create_permission",
+      "error": "AssertionError: 500 not found in [201, 200]",
+      "wave": 2,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_e2e_parent_management.py",
+      "test_name": "test_cannot_create_duplicate_email",
+      "error": "AssertionError: 500 not found in [400, 409]",
+      "wave": 2,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_sees_private_fields.py",
+      "test_name": "test_admin_full_info_endpoint_shows_all_private_fields",
+      "error": "AttributeError: Cannot find 'payments' on User object, 'user__payments' is an invalid parameter to prefetch_related()",
+      "wave": 3,
+      "severity": "HIGH",
+      "file_affected": "serializers or viewsets with incorrect prefetch_related usage"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_sees_private_fields.py",
+      "test_name": "test_admin_list_students_shows_private_fields",
+      "error": "AttributeError: Cannot find 'payments' on User object, 'user__payments' is an invalid parameter to prefetch_related()",
+      "wave": 3,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_access_control.py",
+      "test_name": "test_chat_admin_rooms_with_admin_token",
+      "error": "django.core.exceptions.FieldError: Invalid field name(s) given in select_related: 'enrollment'. Choices are: created_by",
+      "wave": 3,
+      "severity": "HIGH",
+      "file_affected": "Chat model or serializer - incorrect select_related reference"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_access_control.py",
+      "test_name": "test_all_critical_endpoints_with_admin_token",
+      "error": "django.core.exceptions.FieldError: Invalid field name(s) given in select_related: 'enrollment'",
+      "wave": 3,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_create_broadcast_success",
+      "error": "Broadcast creation failed - endpoint or serializer issue",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_create_broadcast_all_teachers",
+      "error": "Broadcast creation failed",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_create_broadcast_all_tutors",
+      "error": "Broadcast creation failed",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_create_broadcast_all_parents",
+      "error": "Broadcast creation failed",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_get_broadcast_detail",
+      "error": "Broadcast detail endpoint failed",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_send_broadcast_creates_recipients",
+      "error": "Broadcast send operation failed",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_complete_broadcast_workflow",
+      "error": "Broadcast workflow failed",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_broadcast_to_multiple_roles",
+      "error": "Broadcast to multiple roles failed",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_broadcasts.py",
+      "test_name": "test_broadcast_target_filter_preserved",
+      "error": "Broadcast target filter not preserved",
+      "wave": 4,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_api_integration.py",
+      "test_name": "test_list_admin_chat_rooms",
+      "error": "Chat rooms list endpoint failed",
+      "wave": 5,
+      "severity": "MEDIUM"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_security_validation.py",
+      "test_name": "test_404_not_found_for_nonexistent_resource",
+      "error": "404 error handling validation failed",
+      "wave": 6,
+      "severity": "LOW"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_security_validation.py",
+      "test_name": "test_sensitive_fields_not_exposed_in_errors",
+      "error": "Sensitive fields exposed in error responses",
+      "wave": 6,
+      "severity": "HIGH"
+    },
+    {
+      "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_admin_security_validation.py",
+      "test_name": "test_user_deletion_logged_in_audit_trail",
+      "error": "User deletion not properly logged in audit trail",
+      "wave": 6,
+      "severity": "MEDIUM"
+    }
+  ],
+  "issues_by_severity": {
+    "CRITICAL": {
+      "count": 4,
+      "description": "Code breaks - must fix before deployment",
+      "issues": [
+        "ParentProfileSerializer undefined in staff_views.py (affects parent management endpoints)"
+      ]
+    },
+    "HIGH": {
+      "count": 13,
+      "description": "Major functionality broken - affects core features",
+      "issues": [
+        "Test isolation issue: duplicate username constraint violations",
+        "Prefetch_related 'payments' field doesn't exist on User model",
+        "Select_related 'enrollment' field doesn't exist on Chat model",
+        "Sensitive fields exposed in error responses"
+      ]
+    },
+    "MEDIUM": {
+      "count": 10,
+      "description": "Feature broken - affects non-critical functionality",
+      "issues": [
+        "Broadcast creation endpoint issues (9 tests)",
+        "Audit trail missing some deletion logs (1 test)"
+      ]
+    },
+    "LOW": {
+      "count": 1,
+      "description": "Error handling or validation issue",
+      "issues": [
+        "404 error response format issue"
+      ]
+    }
+  },
+  "root_causes": [
+    {
+      "cause": "ParentProfileSerializer undefined in conditional block",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/staff_views.py",
+      "line": 2458,
+      "affected_tests": 4,
+      "severity": "CRITICAL",
+      "fix": "Review the staff_views.py post() method and ensure ParentProfileSerializer is properly defined before use in all code paths"
+    },
+    {
+      "cause": "Test isolation - shared database state between tests",
+      "file": "conftest.py fixtures",
+      "affected_tests": 13,
+      "severity": "HIGH",
+      "fix": "Ensure each test fixture creates unique usernames and implement proper transaction rollback between tests"
+    },
+    {
+      "cause": "Invalid prefetch_related reference to 'payments' on User",
+      "file": "Serializers or ViewSets",
+      "affected_tests": 2,
+      "severity": "HIGH",
+      "fix": "Remove invalid prefetch_related('payments') - check if Payment model has correct relation to User"
+    },
+    {
+      "cause": "Invalid select_related reference to 'enrollment' on Chat",
+      "file": "Chat model or ChatRoomDetailSerializer",
+      "affected_tests": 2,
+      "severity": "HIGH",
+      "fix": "Replace select_related('enrollment') with correct related field name"
+    },
+    {
+      "cause": "Broadcast endpoints implementation incomplete",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/broadcasts/ or similar",
+      "affected_tests": 9,
+      "severity": "MEDIUM",
+      "fix": "Complete broadcast creation and sending endpoint implementations"
+    }
+  ],
+  "conclusion": {
+    "overall_status": "FAILED WITH REGRESSIONS",
+    "pass_rate": "90.0%",
+    "recommendation": "BLOCK DEPLOYMENT - Critical issues found",
+    "details": [
+      "Found 4 CRITICAL issues that prevent deployment",
+      "Found 13 HIGH severity issues affecting core functionality",
+      "Test isolation problems need fixing (duplicate username constraint violations)",
+      "ORM relation errors (prefetch_related, select_related) indicate model schema issues",
+      "Broadcast feature is broken in at least 9 test cases",
+      "Parent management endpoints are completely broken",
+      "90% success rate masks serious issues in critical paths"
+    ],
+    "next_steps": [
+      "1. URGENT: Fix ParentProfileSerializer undefined error in staff_views.py",
+      "2. URGENT: Fix ORM relation errors (payments, enrollment)",
+      "3. Fix test isolation - ensure unique usernames per test",
+      "4. Complete broadcast feature implementation",
+      "5. Implement proper audit trail for user deletion",
+      "6. Fix error response handling to not expose sensitive fields",
+      "7. Re-run full regression test suite after fixes"
+    ]
+  }
+}

@@ -55,7 +55,18 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         Пользователи видят только чаты, в которых они участвуют
         """
         user = self.request.user
-        return ChatRoom.objects.filter(participants=user)
+        queryset = ChatRoom.objects.filter(participants=user)
+
+        if self.action == "list":
+            queryset = queryset.select_related("enrollment__subject").prefetch_related(
+                "participants"
+            )
+        elif self.action in ["retrieve"]:
+            queryset = queryset.select_related("enrollment__subject").prefetch_related(
+                "participants"
+            )
+
+        return queryset
 
     def perform_create(self, serializer):
         # Wrap in transaction to ensure room creation and participant addition are atomic
@@ -131,15 +142,23 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             .prefetch_related(
                 Prefetch(
                     "replies",
-                    queryset=Message.objects.filter(is_deleted=False).only("id", "is_deleted"),
+                    queryset=Message.objects.filter(is_deleted=False).only(
+                        "id", "is_deleted"
+                    ),
                 ),
                 "read_by",
             )
-            .annotate(annotated_replies_count=Count("replies", filter=Q(replies__is_deleted=False)))
+            .annotate(
+                annotated_replies_count=Count(
+                    "replies", filter=Q(replies__is_deleted=False)
+                )
+            )
             .order_by("created_at")[offset : offset + limit]
         )
 
-        serializer = MessageSerializer(messages, many=True, context={"request": request})
+        serializer = MessageSerializer(
+            messages, many=True, context={"request": request}
+        )
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
@@ -151,7 +170,9 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         user = request.user
 
         # Обновляем время последнего прочтения
-        participant, created = ChatParticipant.objects.get_or_create(room=room, user=user)
+        participant, created = ChatParticipant.objects.get_or_create(
+            room=room, user=user
+        )
         participant.last_read_at = timezone.now()
         participant.save()
 
@@ -175,7 +196,9 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         user = request.user
 
         total_rooms = ChatRoom.objects.filter(participants=user).count()
-        active_rooms = ChatRoom.objects.filter(participants=user, is_active=True).count()
+        active_rooms = ChatRoom.objects.filter(
+            participants=user, is_active=True
+        ).count()
 
         user_rooms = ChatRoom.objects.filter(participants=user)
         total_messages = Message.objects.filter(room__in=user_rooms).count()
@@ -260,11 +283,17 @@ class MessageViewSet(viewsets.ModelViewSet):
             .prefetch_related(
                 Prefetch(
                     "replies",
-                    queryset=Message.objects.filter(is_deleted=False).only("id", "is_deleted"),
+                    queryset=Message.objects.filter(is_deleted=False).only(
+                        "id", "is_deleted"
+                    ),
                 ),
                 "read_by",
             )
-            .annotate(annotated_replies_count=Count("replies", filter=Q(replies__is_deleted=False)))
+            .annotate(
+                annotated_replies_count=Count(
+                    "replies", filter=Q(replies__is_deleted=False)
+                )
+            )
         )
 
     def perform_create(self, serializer):
@@ -278,7 +307,9 @@ class MessageViewSet(viewsets.ModelViewSet):
         # Check if thread is locked
         if instance.thread and instance.thread.is_locked:
             # Only moderators can delete in locked threads
-            if not CanModerateChat().has_object_permission(self.request, self, instance):
+            if not CanModerateChat().has_object_permission(
+                self.request, self, instance
+            ):
                 raise PermissionDenied("Тред заблокирован. Удаление запрещено.")
 
         # Soft delete with deleted_by
@@ -319,7 +350,9 @@ class MessageViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        serializer = MessageCreateSerializer(data=request.data, context={"request": request})
+        serializer = MessageCreateSerializer(
+            data=request.data, context={"request": request}
+        )
 
         if serializer.is_valid():
             serializer.save(room=original_message.room, reply_to=original_message)
@@ -342,11 +375,17 @@ class MessageViewSet(viewsets.ModelViewSet):
             .prefetch_related(
                 Prefetch(
                     "replies",
-                    queryset=Message.objects.filter(is_deleted=False).only("id", "is_deleted"),
+                    queryset=Message.objects.filter(is_deleted=False).only(
+                        "id", "is_deleted"
+                    ),
                 ),
                 "read_by",
             )
-            .annotate(annotated_replies_count=Count("replies", filter=Q(replies__is_deleted=False)))
+            .annotate(
+                annotated_replies_count=Count(
+                    "replies", filter=Q(replies__is_deleted=False)
+                )
+            )
         )
         serializer = MessageSerializer(replies, many=True, context={"request": request})
         return Response(serializer.data)
@@ -433,13 +472,17 @@ class ChatParticipantViewSet(viewsets.ModelViewSet):
                         {"error": "Недостаточно прав"}, status=status.HTTP_403_FORBIDDEN
                     )
             except ChatParticipant.DoesNotExist:
-                return Response({"error": "Вы не участник чата"}, status=status.HTTP_403_FORBIDDEN)
+                return Response(
+                    {"error": "Вы не участник чата"}, status=status.HTTP_403_FORBIDDEN
+                )
 
         is_admin = request.data.get("is_admin", False)
         participant.is_admin = is_admin
         participant.save(update_fields=["is_admin"])
 
-        action_text = "назначен администратором" if is_admin else "снят с администратора"
+        action_text = (
+            "назначен администратором" if is_admin else "снят с администратора"
+        )
         return Response(
             {
                 "success": True,
@@ -461,10 +504,14 @@ class GeneralChatViewSet(viewsets.ViewSet):
         """
         try:
             general_chat = GeneralChatService.get_or_create_general_chat()
-            serializer = ChatRoomDetailSerializer(general_chat, context={"request": request})
+            serializer = ChatRoomDetailSerializer(
+                general_chat, context={"request": request}
+            )
             return Response(serializer.data)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=["get"])
     def messages(self, request):
@@ -485,10 +532,14 @@ class GeneralChatViewSet(viewsets.ViewSet):
             limit = max(1, min(limit, 100))
 
             messages = GeneralChatService.get_general_chat_messages(limit, offset)
-            serializer = MessageSerializer(messages, many=True, context={"request": request})
+            serializer = MessageSerializer(
+                messages, many=True, context={"request": request}
+            )
             return Response(serializer.data)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=["post"])
     def send_message(self, request):
@@ -526,7 +577,9 @@ class GeneralChatViewSet(viewsets.ViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=["get"])
     def threads(self, request):
@@ -547,10 +600,14 @@ class GeneralChatViewSet(viewsets.ViewSet):
             limit = max(1, min(limit, 100))
 
             threads = GeneralChatService.get_general_chat_threads(limit, offset)
-            serializer = MessageThreadSerializer(threads, many=True, context={"request": request})
+            serializer = MessageThreadSerializer(
+                threads, many=True, context={"request": request}
+            )
             return Response(serializer.data)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=["post"])
     def create_thread(self, request):
@@ -576,7 +633,9 @@ class GeneralChatViewSet(viewsets.ViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class MessageThreadViewSet(viewsets.ModelViewSet):
@@ -629,10 +688,14 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
             limit = max(1, min(limit, 100))
 
             messages = GeneralChatService.get_thread_messages(thread, limit, offset)
-            serializer = MessageSerializer(messages, many=True, context={"request": request})
+            serializer = MessageSerializer(
+                messages, many=True, context={"request": request}
+            )
             return Response(serializer.data)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def send_message(self, request, pk=None):
@@ -663,7 +726,9 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def pin(self, request, pk=None):
@@ -678,7 +743,9 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def unpin(self, request, pk=None):
@@ -693,7 +760,9 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def lock(self, request, pk=None):
@@ -708,7 +777,9 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def unlock(self, request, pk=None):
@@ -723,4 +794,6 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

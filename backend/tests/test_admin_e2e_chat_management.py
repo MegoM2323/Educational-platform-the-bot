@@ -11,6 +11,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
+from uuid import uuid4
 
 from chat.models import ChatRoom, Message
 from materials.models import Subject, SubjectEnrollment
@@ -22,9 +23,10 @@ User = get_user_model()
 @pytest.fixture
 def admin_user(db):
     """Create superuser for admin access"""
+    unique_id = uuid4().hex[:8]
     user = User.objects.create_superuser(
-        username="admin",
-        email="admin@test.com",
+        username=f"admin_{unique_id}",
+        email=f"admin_{unique_id}@test.com",
         password="admin123secure",
         first_name="Admin",
         last_name="User",
@@ -36,9 +38,10 @@ def admin_user(db):
 @pytest.fixture
 def teacher_user(db):
     """Create teacher user with profile"""
+    unique_id = uuid4().hex[:8]
     user = User.objects.create_user(
-        username="teacher1",
-        email="teacher1@test.com",
+        username=f"teacher1_{unique_id}",
+        email=f"teacher1_{unique_id}@test.com",
         password="teacher123secure",
         first_name="John",
         last_name="Teacher",
@@ -57,9 +60,10 @@ def teacher_user(db):
 @pytest.fixture
 def student_user(db):
     """Create student user with profile"""
+    unique_id = uuid4().hex[:8]
     user = User.objects.create_user(
-        username="student1",
-        email="student1@test.com",
+        username=f"student1_{unique_id}",
+        email=f"student1_{unique_id}@test.com",
         password="student123secure",
         first_name="Alice",
         last_name="Student",
@@ -77,9 +81,10 @@ def student_user(db):
 @pytest.fixture
 def student_user_2(db):
     """Create second student"""
+    unique_id = uuid4().hex[:8]
     user = User.objects.create_user(
-        username="student2",
-        email="student2@test.com",
+        username=f"student2_{unique_id}",
+        email=f"student2_{unique_id}@test.com",
         password="student456secure",
         first_name="Bob",
         last_name="Learner",

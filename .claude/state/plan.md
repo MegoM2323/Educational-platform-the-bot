@@ -1,61 +1,47 @@
-# CRIT_001: Исправить создание пользователя через POST /api/accounts/users/
+# Regression Tests: tutor_cabinet_final_test_regression_20260107
 
-## Статус: T001 done, T002 pending
+## Objective
+Verify all fixed endpoints work correctly after critical issues were resolved.
 
-## Проблема
-POST /api/accounts/users/ возвращает 405 Method Not Allowed. Блокирует валидацию входных данных и создание пользователей через API.
+## Fixed Issues Background
+- Issue #1: Chat room creation returns 500 (duplicate created_by parameter)
+- Issue #2: GET /api/accounts/students/ returns 403 (URL routing priority)
+- Issue #3: Invoices endpoints return 404 (routing verification)
+- Issue #4: Assignments endpoints return 404 (routing verification)
 
-## Корневая причина
-- Путь `/api/accounts/users/` в urls.py определён только для GET (функция `list_users`)
-- Создание пользователей доступно только через `/api/accounts/users/create/` (функция `create_user_with_profile`)
-- Нарушает REST соглашение: POST на `/users/` должен создавать пользователя
+## Test Groups
 
-## Решение
-Добавить POST обработчик к `/api/accounts/users/` с логикой создания пользователя.
+### Group 1: Chat Endpoints (Fixed #1)
+- [ ] POST /api/chat/rooms/ - Create chat room (should be 201)
+- [ ] GET /api/chat/rooms/ - List chat rooms (should be 200)
+- [ ] GET /api/chat/rooms/{id}/ - Retrieve chat room (should be 200)
+- [ ] DELETE /api/chat/rooms/{id}/ - Delete chat room (should be 204)
 
-Стратегия: Переоформить `create_user_with_profile` как обработчик ОБОИХ методов:
-- GET /api/accounts/users/ - список пользователей (существующая функция `list_users`)
-- POST /api/accounts/users/ - создание пользователя (существующая функция `create_user_with_profile`)
+### Group 2: Accounts Endpoints (Fixed #2)
+- [ ] GET /api/accounts/students/ - List students (should be 200, NOT 403)
+- [ ] POST /api/accounts/students/ - Create student (should be 201)
+- [ ] GET /api/accounts/students/{id}/ - Retrieve student (should be 200)
+- [ ] PATCH /api/accounts/users/{id}/ - Update user (should be 200)
+- [ ] GET /api/profile/tutor/ - Get tutor profile (should be 200)
 
-## Параллельная группа 1: Реализация (2 независимые задачи)
+### Group 3: Payments Endpoints (Fixed #3)
+- [ ] GET /api/invoices/ - List invoices (should be 200)
+- [ ] POST /api/invoices/ - Create invoice (should be 201)
+- [ ] GET /api/invoices/{id}/ - Retrieve invoice (should be 200)
 
-### T001: Создать класс-view для /api/accounts/users/ - coder
-- Создать новый class-based view UserManagementView(APIView) в staff_views.py
-- Метод GET: вызвать list_users логику
-- Метод POST: вызвать create_user_with_profile логику
-- Требуемые permissions: IsStaffOrAdmin
-- Authentication: TokenAuthentication, SessionAuthentication
-- Обновить urls.py: заменить `path("users/", views.list_users)` на `path("users/", UserManagementView.as_view())`
-- Удалить путь `/users/create/` (deprecated - использовать POST /users/ вместо)
+### Group 4: Assignments Endpoints (Fixed #4)
+- [ ] GET /api/assignments/ - List assignments (should be 200)
+- [ ] POST /api/assignments/ - Create assignment (should be 201)
+- [ ] GET /api/assignments/{id}/ - Retrieve assignment (should be 200)
 
-### T002: Проверить и обновить тесты - coder
-- Найти все тесты которые делают POST на `/api/accounts/users/create/`
-- Обновить их на POST `/api/accounts/users/`
-- Убедиться что GET /api/accounts/users/ всё ещё работает
-- STATUS: PENDING
+## Success Criteria
+- All endpoints return 200/201 (NOT 403/404/500)
+- Response structures are valid JSON
+- No regressions in other endpoints
+- Pass rate >= 95%
 
-## Параллельная группа 2: Review & Testing
+## Test File
+File: `/home/mego/Python Projects/THE_BOT_platform/backend/tests/api/test_regression_20260107.py`
 
-### T101: Code review - reviewer
-- Проверить что оба метода работают в одном классе
-- Убедиться что permissions корректны для обоих методов
-- Проверить что authentication остался на обе методы
-- Проверить что логика валидации не нарушена
-
-### T102: Запустить тесты - tester
-- Проверить что GET /api/accounts/users/ возвращает список
-- Проверить что POST /api/accounts/users/ создаёт пользователя (201)
-- Проверить валидацию: email duplicate (400)
-- Проверить валидацию: пароль < 8 символов (400)
-- Проверить валидацию: роль не в (student, teacher, tutor, parent) (400)
-- Проверить что возвращается credentials при создании
-
-## Ожидаемый результат
-✓ POST /api/accounts/users/ создаёт пользователя с 201 Created
-✓ GET /api/accounts/users/ возвращает список пользователей
-✓ Валидация email (duplicate, формат)
-✓ Валидация пароля (минимум 8 символов)
-✓ Валидация роли (student, teacher, tutor, parent)
-✓ Профиль создаётся через signals
-✓ Тесты проходят
-✓ LGTM от reviewer
+## Output
+Report: `REGRESSION_TEST_REPORT_20260107_RETRY.md`

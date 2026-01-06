@@ -575,7 +575,7 @@ def list_users(request):
     # Фильтруем по роли, если указана
     # Оптимизация: используем select_related для профилей
     queryset = User.objects.filter(is_active=True).select_related(
-        "student_profile", "teacher_profile", "parent_profile"
+        "student_profile", "teacher_profile", "tutor_profile", "parent_profile"
     )
     if role:
         queryset = queryset.filter(role=role)

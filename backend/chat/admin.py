@@ -44,7 +44,7 @@ class ChatRoomAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             "Основная информация",
-            {"fields": ("name", "description", "type", "created_by")},
+            {"fields": ("name", "description", "type", "created_by", "enrollment")},
         ),
         ("Настройки", {"fields": ("is_active",)}),
         ("Участники", {"fields": ("participants",)}),
@@ -86,7 +86,7 @@ class ChatRoomAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Переопределяем queryset с annotate для избежания N+1"""
         qs = super().get_queryset(request)
-        return qs.select_related("created_by").annotate(
+        return qs.select_related("created_by", "enrollment__subject").annotate(
             _participants_count=Count("participants", distinct=True),
             _messages_count=Count("messages", distinct=True),
         )

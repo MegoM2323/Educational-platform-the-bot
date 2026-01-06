@@ -13,16 +13,4 @@ class Migration(migrations.Migration):
             model_name="chatroom",
             name="chat_type_enrollment_idx",
         ),
-        migrations.AddIndex(
-            model_name="chatroom",
-            index=models.Index(
-                fields=["type", "enrollment"], name="chat_type_enrollment_idx"
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="chatroom",
-            constraint=models.UniqueConstraint(
-                fields=("type", "enrollment"), name="unique_forum_per_enrollment"
-            ),
-        ),
     ]

@@ -17,6 +17,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
 from accounts.models import StudentProfile, ParentProfile, User
+from uuid import uuid4
 
 
 User = get_user_model()
@@ -28,11 +29,12 @@ class AdminParentManagementE2ETests(TestCase):
     def setUp(self):
         """Setup test data"""
         self.client = APIClient()
+        unique_id = uuid4().hex[:8]
 
         # Create admin user
         self.admin = User.objects.create_superuser(
-            username='admin_e2e_test',
-            email='admin_e2e_test@test.com',
+            username=f'admin_e2e_test_{unique_id}',
+            email=f'admin_e2e_test_{unique_id}@test.com',
             password='TestAdmin123!',
             first_name='Admin',
             last_name='Test',
@@ -42,8 +44,8 @@ class AdminParentManagementE2ETests(TestCase):
 
         # Create test students for assignment
         self.student1 = User.objects.create_user(
-            username='student_e2e_1',
-            email='student_e2e_1@test.com',
+            username=f'student_e2e_1_{unique_id}',
+            email=f'student_e2e_1_{unique_id}@test.com',
             password='TestStudent123!',
             first_name='Student',
             last_name='One',
@@ -53,8 +55,8 @@ class AdminParentManagementE2ETests(TestCase):
         StudentProfile.objects.create(user=self.student1, grade='9')
 
         self.student2 = User.objects.create_user(
-            username='student_e2e_2',
-            email='student_e2e_2@test.com',
+            username=f'student_e2e_2_{unique_id}',
+            email=f'student_e2e_2_{unique_id}@test.com',
             password='TestStudent123!',
             first_name='Student',
             last_name='Two',
@@ -65,13 +67,14 @@ class AdminParentManagementE2ETests(TestCase):
 
     def test_t008_1_admin_can_create_parent(self):
         """T008.1: Admin can create new parent via API"""
+        unique_id = uuid4().hex[:8]
         # Login as admin
         self.client.force_authenticate(user=self.admin)
 
         # Create parent data
         parent_data = {
             'role': 'parent',
-            'email': 'new_parent_e2e@test.com',
+            'email': f'new_parent_e2e_{unique_id}@test.com',
             'first_name': 'Иван',
             'last_name': 'Петровский',
             'phone': '+79999999999',
@@ -163,11 +166,12 @@ class AdminParentManagementE2ETests(TestCase):
 
     def test_t008_list_parents(self):
         """Test listing parents with pagination"""
+        unique_id = uuid4().hex[:8]
         # Create several parents
         for i in range(3):
             User.objects.create_user(
-                username=f'parent_list_{i}',
-                email=f'parent_list_{i}@test.com',
+                username=f'parent_list_{i}_{unique_id}',
+                email=f'parent_list_{i}_{unique_id}@test.com',
                 password='TestParent123!',
                 first_name=f'Parent{i}',
                 last_name='List',
@@ -193,10 +197,11 @@ class AdminParentManagementE2ETests(TestCase):
 
     def test_t008_parent_children_count(self):
         """Test that parent has children_count field"""
+        unique_id = uuid4().hex[:8]
         # Create a parent
         parent = User.objects.create_user(
-            username='parent_with_children',
-            email='parent_children@test.com',
+            username=f'parent_with_children_{unique_id}',
+            email=f'parent_children_{unique_id}@test.com',
             password='TestParent123!',
             first_name='Parent',
             last_name='WithChildren',
@@ -229,10 +234,11 @@ class AdminParentManagementE2ETests(TestCase):
 
     def test_t008_unauthorized_user_cannot_manage_parents(self):
         """Test that unauthorized users cannot manage parents"""
+        unique_id = uuid4().hex[:8]
         # Create regular student user
         student = User.objects.create_user(
-            username='student_unauthorized',
-            email='student_unauth@test.com',
+            username=f'student_unauthorized_{unique_id}',
+            email=f'student_unauth_{unique_id}@test.com',
             password='TestStudent123!',
             first_name='Student',
             last_name='Unauth',
@@ -272,19 +278,20 @@ class AdminParentManagementPermissionsTests(TestCase):
     def setUp(self):
         """Setup test data"""
         self.client = APIClient()
+        unique_id = uuid4().hex[:8]
 
         # Create admin
         self.admin = User.objects.create_superuser(
-            username='admin_perm_test',
-            email='admin_perm@test.com',
+            username=f'admin_perm_test_{unique_id}',
+            email=f'admin_perm_{unique_id}@test.com',
             password='TestAdmin123!',
             is_staff=True,
         )
 
         # Create non-admin staff
         self.staff = User.objects.create_user(
-            username='staff_user',
-            email='staff@test.com',
+            username=f'staff_user_{unique_id}',
+            email=f'staff_{unique_id}@test.com',
             password='TestStaff123!',
             is_staff=True,
             role=User.Role.PARENT,
@@ -292,13 +299,14 @@ class AdminParentManagementPermissionsTests(TestCase):
 
     def test_admin_has_create_permission(self):
         """Test that admin can create parents"""
+        unique_id = uuid4().hex[:8]
         self.client.force_authenticate(user=self.admin)
 
         response = self.client.post(
             '/api/auth/users/',
             data=json.dumps({
                 'role': 'parent',
-                'email': 'test_perm@test.com',
+                'email': f'test_perm_{unique_id}@test.com',
                 'first_name': 'Test',
                 'last_name': 'Perm',
             }),
@@ -309,10 +317,11 @@ class AdminParentManagementPermissionsTests(TestCase):
 
     def test_admin_can_delete_parents(self):
         """Test that admin can delete parents"""
+        unique_id = uuid4().hex[:8]
         # Create parent
         parent = User.objects.create_user(
-            username='parent_to_delete',
-            email='parent_delete@test.com',
+            username=f'parent_to_delete_{unique_id}',
+            email=f'parent_delete_{unique_id}@test.com',
             password='TestParent123!',
             role=User.Role.PARENT,
         )
@@ -335,10 +344,11 @@ class AdminParentManagementDataValidationTests(TestCase):
     def setUp(self):
         """Setup test data"""
         self.client = APIClient()
+        unique_id = uuid4().hex[:8]
 
         self.admin = User.objects.create_superuser(
-            username='admin_validation',
-            email='admin_validation@test.com',
+            username=f'admin_validation_{unique_id}',
+            email=f'admin_validation_{unique_id}@test.com',
             password='TestAdmin123!',
             is_staff=True,
         )
@@ -366,6 +376,7 @@ class AdminParentManagementDataValidationTests(TestCase):
 
     def test_cannot_create_duplicate_email(self):
         """Test that duplicate email is rejected"""
+        unique_email = f'duplicate_{uuid4().hex[:8]}@test.com'
         self.client.force_authenticate(user=self.admin)
 
         # Create first parent
@@ -373,7 +384,7 @@ class AdminParentManagementDataValidationTests(TestCase):
             '/api/auth/users/',
             data=json.dumps({
                 'role': 'parent',
-                'email': 'duplicate@test.com',
+                'email': unique_email,
                 'first_name': 'First',
                 'last_name': 'Parent',
             }),
@@ -385,7 +396,7 @@ class AdminParentManagementDataValidationTests(TestCase):
             '/api/auth/users/',
             data=json.dumps({
                 'role': 'parent',
-                'email': 'duplicate@test.com',
+                'email': unique_email,
                 'first_name': 'Second',
                 'last_name': 'Parent',
             }),

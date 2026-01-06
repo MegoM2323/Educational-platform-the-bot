@@ -26,6 +26,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.hashers import make_password
 from accounts.models import StudentProfile, TeacherProfile, ParentProfile
 from datetime import datetime
+from uuid import uuid4
 
 User = get_user_model()
 
@@ -41,10 +42,12 @@ class StudentManagementE2ETest(TestCase):
 
     def setUp(self):
         """Setup test environment with admin user"""
+        unique_id = uuid4().hex[:8]
+
         # Create admin user
         self.admin_user = User.objects.create_user(
-            email='admin@test.com',
-            username='admin',
+            email=f'admin_{unique_id}@test.com',
+            username=f'admin_{unique_id}',
             first_name='Admin',
             last_name='User',
             password='AdminPass123!',
@@ -56,8 +59,8 @@ class StudentManagementE2ETest(TestCase):
 
         # Create teacher for assignment test
         self.teacher_user = User.objects.create_user(
-            email='teacher@test.com',
-            username='teacher',
+            email=f'teacher_{unique_id}@test.com',
+            username=f'teacher_{unique_id}',
             first_name='Teacher',
             last_name='Test',
             password='TeacherPass123!',
@@ -72,8 +75,8 @@ class StudentManagementE2ETest(TestCase):
 
         # Create parent for assignment test
         self.parent_user = User.objects.create_user(
-            email='parent@test.com',
-            username='parent',
+            email=f'parent_{unique_id}@test.com',
+            username=f'parent_{unique_id}',
             first_name='Parent',
             last_name='Test',
             password='ParentPass123!',
@@ -85,14 +88,15 @@ class StudentManagementE2ETest(TestCase):
         )
 
         # Login as admin
-        self.client.login(username='admin', password='AdminPass123!')
+        self.client.login(username=f'admin_{unique_id}', password='AdminPass123!')
 
     def test_01_student_create(self):
         """CREATE: Add new student with all required fields"""
         print("\n[TEST] 01_student_create - Creating new student")
 
+        unique_id = uuid4().hex[:8]
         new_student_data = {
-            'email': 'newstudent@test.com',
+            'email': f'newstudent_{unique_id}@test.com',
             'first_name': 'John',
             'last_name': 'Doe',
             'password': 'StudentPass123!',
@@ -144,10 +148,11 @@ class StudentManagementE2ETest(TestCase):
         """READ: Verify student appears in list"""
         print("\n[TEST] 02_student_read - Verifying student in list")
 
+        unique_id = uuid4().hex[:8]
         # Create test student first
         test_user = User.objects.create_user(
-            email='liststudent@test.com',
-            username='liststudent',
+            email=f'liststudent_{unique_id}@test.com',
+            username=f'liststudent_{unique_id}',
             first_name='List',
             last_name='Student',
             password='Pass123!',
@@ -191,10 +196,11 @@ class StudentManagementE2ETest(TestCase):
         """UPDATE: Edit student grade and goal"""
         print("\n[TEST] 03_student_update_profile - Updating student fields")
 
+        unique_id = uuid4().hex[:8]
         # Create student to update
         student_user = User.objects.create_user(
-            email='updatestudent@test.com',
-            username='updatestudent',
+            email=f'updatestudent_{unique_id}@test.com',
+            username=f'updatestudent_{unique_id}',
             first_name='Update',
             last_name='Student',
             password='Pass123!',
@@ -245,10 +251,11 @@ class StudentManagementE2ETest(TestCase):
         """ASSIGN: Assign teacher to student"""
         print("\n[TEST] 04_student_assign_teacher - Assigning teacher")
 
+        unique_id = uuid4().hex[:8]
         # Create student
         student_user = User.objects.create_user(
-            email='assignstudent@test.com',
-            username='assignstudent',
+            email=f'assignstudent_{unique_id}@test.com',
+            username=f'assignstudent_{unique_id}',
             first_name='Assign',
             last_name='Student',
             password='Pass123!',
@@ -293,10 +300,11 @@ class StudentManagementE2ETest(TestCase):
         """ASSIGN: Assign parent to student"""
         print("\n[TEST] 05_student_assign_parent - Assigning parent")
 
+        unique_id = uuid4().hex[:8]
         # Create student
         student_user = User.objects.create_user(
-            email='parentstudent@test.com',
-            username='parentstudent',
+            email=f'parentstudent_{unique_id}@test.com',
+            username=f'parentstudent_{unique_id}',
             first_name='Parent',
             last_name='Student',
             password='Pass123!',
@@ -341,9 +349,10 @@ class StudentManagementE2ETest(TestCase):
         """ASSIGN: Assign both teacher and parent to same student"""
         print("\n[TEST] 06_student_assign_both_teacher_and_parent")
 
+        unique_id = uuid4().hex[:8]
         student_user = User.objects.create_user(
-            email='bothstudent@test.com',
-            username='bothstudent',
+            email=f'bothstudent_{unique_id}@test.com',
+            username=f'bothstudent_{unique_id}',
             first_name='Both',
             last_name='Student',
             password='Pass123!',
@@ -370,10 +379,11 @@ class StudentManagementE2ETest(TestCase):
         """DELETE: Remove student from system"""
         print("\n[TEST] 07_student_delete - Deleting student")
 
+        unique_id = uuid4().hex[:8]
         # Create student to delete
         student_user = User.objects.create_user(
-            email='deletestudent@test.com',
-            username='deletestudent',
+            email=f'deletestudent_{unique_id}@test.com',
+            username=f'deletestudent_{unique_id}',
             first_name='Delete',
             last_name='Student',
             password='Pass123!',
@@ -412,9 +422,10 @@ class StudentManagementE2ETest(TestCase):
         """DELETE: Soft delete student (is_active=False)"""
         print("\n[TEST] 08_student_delete_via_soft_delete")
 
+        unique_id = uuid4().hex[:8]
         student_user = User.objects.create_user(
-            email='softdelstudent@test.com',
-            username='softdelstudent',
+            email=f'softdelstudent_{unique_id}@test.com',
+            username=f'softdelstudent_{unique_id}',
             first_name='SoftDel',
             last_name='Student',
             password='Pass123!',
@@ -449,11 +460,12 @@ class StudentManagementE2ETest(TestCase):
         """LIST: Filter students by grade"""
         print("\n[TEST] 09_student_list_filtering")
 
+        unique_id = uuid4().hex[:8]
         # Create students with different grades
         for grade in [9, 10, 11]:
             user = User.objects.create_user(
-                email=f'student{grade}@test.com',
-                username=f'student{grade}',
+                email=f'student{grade}_{unique_id}@test.com',
+                username=f'student{grade}_{unique_id}',
                 first_name=f'Student{grade}',
                 last_name='Grade',
                 password='Pass123!',
@@ -478,11 +490,12 @@ class StudentManagementE2ETest(TestCase):
         """LIST: Verify pagination works"""
         print("\n[TEST] 10_student_list_pagination")
 
+        unique_id = uuid4().hex[:8]
         # Create multiple students
         for i in range(15):
             user = User.objects.create_user(
-                email=f'pagstudent{i}@test.com',
-                username=f'pagstudent{i}',
+                email=f'pagstudent{i}_{unique_id}@test.com',
+                username=f'pagstudent{i}_{unique_id}',
                 first_name=f'PageStudent{i}',
                 last_name='Test',
                 password='Pass123!',

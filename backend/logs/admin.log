@@ -103,3 +103,73 @@
 [INFO] 2026-01-06 23:20:05 accounts.staff_views - [UserManagementView.get] Retrieved 50 users (role filter: None)
 [INFO] 2026-01-06 23:20:05 accounts.staff_views - [UserManagementView.get] Retrieved 50 users (role filter: None)
 [INFO] 2026-01-06 23:20:05 accounts.staff_views - [UserManagementView.get] Retrieved 50 users (role filter: None)
+[INFO] 2026-01-06 23:22:43 accounts.staff_views - [UserManagementView.get] Retrieved 2 users (role filter: student)
+[INFO] 2026-01-06 23:22:43 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:44 accounts.staff_views - [UserManagementView.get] Retrieved 2 users (role filter: student)
+[INFO] 2026-01-06 23:22:45 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: teacher)
+[INFO] 2026-01-06 23:22:46 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:47 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:47 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:48 accounts.staff_views - [UserManagementView.get] Retrieved 3 users (role filter: None)
+[INFO] 2026-01-06 23:22:48 accounts.staff_views - [UserManagementView.get] Retrieved 3 users (role filter: None)
+[INFO] 2026-01-06 23:22:48 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:49 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:50 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:50 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:51 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:52 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:52 accounts.staff_views - [UserManagementView.get] Retrieved 6 users (role filter: None)
+[INFO] 2026-01-06 23:22:53 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:53 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:53 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:53 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:53 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:53 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:53 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:54 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:54 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:54 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:22:54 accounts.staff_views - [UserManagementView.get] Retrieved 21 users (role filter: None)
+[INFO] 2026-01-06 23:25:31 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:25:32 accounts.staff_views - [UserManagementView.get] Retrieved 0 users (role filter: teacher)
+[WARNING] 2026-01-06 23:25:32 accounts.staff_views - [UserManagementView.get] WARNING: No users returned! Total count was: 0
+[INFO] 2026-01-06 23:25:32 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:25:32 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:25:32 accounts.staff_views - [UserManagementView.get] Retrieved 2 users (role filter: None)
+[INFO] 2026-01-06 23:25:35 accounts.staff_views - [delete_user] Hard deleted user 6010 (student@test.com) from database
+[INFO] 2026-01-06 23:25:35 accounts.staff_views - [delete_user] Hard deleted user 6012 (student@test.com) from database
+[INFO] 2026-01-06 23:25:35 accounts.staff_views - [reactivate_user] User student@test.com (id=6016) reactivated by admin@test.com
+[INFO] 2026-01-06 23:25:41 accounts.staff_views - [UserManagementView.get] Retrieved 4 users (role filter: None)
+[INFO] 2026-01-06 23:25:42 accounts.staff_views - [UserManagementView.get] Retrieved 4 users (role filter: None)
+[INFO] 2026-01-06 23:25:43 accounts.staff_views - [UserManagementView.get] Retrieved 3 users (role filter: None)
+[INFO] 2026-01-06 23:25:43 accounts.staff_views - [UserManagementView.get] Retrieved 3 users (role filter: None)
+[INFO] 2026-01-06 23:25:43 accounts.staff_views - [UserManagementView.get] Retrieved 0 users (role filter: student' OR '1'='1)
+[WARNING] 2026-01-06 23:25:43 accounts.staff_views - [UserManagementView.get] WARNING: No users returned! Total count was: 0
+[INFO] 2026-01-06 23:25:44 accounts.staff_views - [UserManagementView.get] Retrieved 3 users (role filter: None)
+[INFO] 2026-01-06 23:25:44 accounts.staff_views - [UserManagementView.get] Retrieved 3 users (role filter: None)
+[INFO] 2026-01-06 23:25:45 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:25:45 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:25:45 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:29:54 accounts.staff_views - [UserManagementView.post] User new_parent_e2e_51e7d010@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:29:54 accounts.staff_views - [UserManagementView.post] User new_parent_e2e_4905abe1@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:29:55 accounts.staff_views - [UserManagementView.post] User new_parent_e2e_3056df26@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:29:55 accounts.staff_views - [UserManagementView.post] User new_parent_e2e_7f5cd369@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:29:57 accounts.staff_views - [UserManagementView.post] User test_perm_9cbaadcb@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:29:58 accounts.staff_views - [UserManagementView.post] User duplicate_e5d9cf3b@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:31:13 accounts.staff_views - [UserManagementView.post] User new_parent_e2e_c80b07e0@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:31:13 accounts.staff_views - [UserManagementView.post] User new_parent_e2e_940d79c7@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:31:14 accounts.staff_views - [UserManagementView.post] User new_parent_e2e_d17fdfe2@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:31:14 accounts.staff_views - [UserManagementView.post] User new_parent_e2e_281d6687@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:31:16 accounts.staff_views - [UserManagementView.post] User test_perm_a49be40c@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:31:16 accounts.staff_views - [UserManagementView.post] User duplicate_5d4e0875@test.com (role=parent) created successfully
+[INFO] 2026-01-06 23:31:52 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:31:52 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:32:16 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:32:16 accounts.staff_views - [UserManagementView.get] Retrieved 0 users (role filter: teacher)
+[WARNING] 2026-01-06 23:32:16 accounts.staff_views - [UserManagementView.get] WARNING: No users returned! Total count was: 0
+[INFO] 2026-01-06 23:32:16 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:32:17 accounts.staff_views - [UserManagementView.get] Retrieved 1 users (role filter: None)
+[INFO] 2026-01-06 23:32:17 accounts.staff_views - [UserManagementView.get] Retrieved 2 users (role filter: None)
+[INFO] 2026-01-06 23:32:22 accounts.staff_views - [delete_user] Hard deleted user 6896 (student@test.com) from database
+[INFO] 2026-01-06 23:32:23 accounts.staff_views - [delete_user] Hard deleted user 6901 (student@test.com) from database
+[INFO] 2026-01-06 23:32:24 accounts.staff_views - [reactivate_user] User student@test.com (id=6913) reactivated by admin@test.com

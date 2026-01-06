@@ -15,7 +15,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 COMPOSE_FILE="$PROJECT_DIR/docker-compose.prod.yml"
-ENV_FILE="$PROJECT_DIR/.env.production"
+# Use .env.production.native first, then .env as fallback
+ENV_FILE="$PROJECT_DIR/.env.production.native"
+if [ ! -f "$ENV_FILE" ]; then
+    ENV_FILE="$PROJECT_DIR/.env"
+fi
 WORKERS=1
 
 # Color codes for output
@@ -53,13 +57,13 @@ print_success() {
 check_environment() {
     print_header "Checking Environment"
 
-    # Check if .env.production exists
+    # Check if env file exists
     if [ ! -f "$ENV_FILE" ]; then
-        print_error ".env.production not found!"
-        echo "Please create .env.production file from .env.example"
+        print_error "Environment file not found!"
+        echo "Please ensure .env.production.native or .env exists"
         exit 1
     fi
-    print_info ".env.production found"
+    print_info "Environment file found: $ENV_FILE"
 
     # Check if docker-compose file exists
     if [ ! -f "$COMPOSE_FILE" ]; then

@@ -14,7 +14,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 COMPOSE_FILE="$PROJECT_DIR/docker-compose.prod.yml"
-ENV_FILE="$PROJECT_DIR/.env.production"
+# Use .env.production.native first, then .env as fallback
+ENV_FILE="$PROJECT_DIR/.env.production.native"
+if [ ! -f "$ENV_FILE" ]; then
+    ENV_FILE="$PROJECT_DIR/.env"
+fi
 
 # Color codes
 RED='\033[0;31m'

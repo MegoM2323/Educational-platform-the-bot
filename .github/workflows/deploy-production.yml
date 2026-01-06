@@ -385,11 +385,16 @@ jobs:
 
             # 4. Load production environment
             echo "[4/8] Loading production environment..."
-            if [ -f .env.production ]; then
+            if [ -f .env.production.native ]; then
               set -a
-              source .env.production
+              source .env.production.native
               set +a
-              echo "✓ Environment loaded from .env.production"
+              echo "✓ Environment loaded from .env.production.native"
+            elif [ -f .env ]; then
+              set -a
+              source .env
+              set +a
+              echo "✓ Environment loaded from .env"
             fi
 
             # 5. Create green docker-compose

@@ -24,7 +24,8 @@ rsync -avz --delete \
   --exclude '.venv' \
   --exclude 'node_modules' \
   --exclude '.env.local' \
-  --exclude '.env.production' \
+  --exclude '.env' \
+  --exclude '.env.production.native' \
   --exclude 'dist' \
   --exclude 'build' \
   "$LOCAL_PATH/backend" \

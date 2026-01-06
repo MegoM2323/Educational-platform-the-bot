@@ -105,11 +105,12 @@ check_prerequisites() {
     fi
     log_success "docker-compose.prod.yml found"
 
-    if [ ! -f "$PROJECT_DIR/.deploy.env" ]; then
-        log_error ".deploy.env not found"
+    # Check for env file (.env or .env.production.native)
+    if [ ! -f "$PROJECT_DIR/.env" ] && [ ! -f "$PROJECT_DIR/.env.production.native" ]; then
+        log_error "Neither .env nor .env.production.native found"
         exit 1
     fi
-    log_success ".deploy.env found"
+    log_success "Environment file found"
 
     # Check Docker installation
     if ! command -v docker &> /dev/null; then
@@ -179,10 +180,8 @@ deploy_docker_safe() {
 
     cd "$PROJECT_DIR"
 
-    log_info "Copying environment file..."
-    if [ ! -f ".env.prod" ]; then
-        cp ".deploy.env" ".env.prod"
-    fi
+    log_info "Using environment file..."
+    # docker-compose will use .env by default, no need to copy
 
     log_info "Stopping services (preserving database volumes)..."
     # CRITICAL: Use 'down' without --volumes to preserve data

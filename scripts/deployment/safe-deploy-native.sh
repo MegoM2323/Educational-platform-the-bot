@@ -178,9 +178,9 @@ After=network.target
 [Service]
 Type=simple
 User=mg
-Group=mg
+Group=www-data
 WorkingDirectory=$REMOTE_PATH/backend
-Environment=\"PATH=$VENV_PATH/bin\"
+Environment=\"PATH=$VENV_PATH/bin:/usr/local/bin:/usr/bin:/bin\"
 ExecStart=$VENV_PATH/bin/daphne -b 0.0.0.0 -p 8001 config.asgi:application
 Restart=on-failure
 RestartSec=5s

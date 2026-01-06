@@ -11,7 +11,7 @@ Group=www-data
 WorkingDirectory=/home/mg/THE_BOT_platform/backend
 
 # Virtual environment и Python path
-Environment="PATH=/home/mg/venv/bin"
+Environment="PATH=/home/mg/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
 Environment="DJANGO_SETTINGS_MODULE=config.settings"
 

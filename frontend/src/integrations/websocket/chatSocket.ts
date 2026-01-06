@@ -54,7 +54,7 @@ class ChatSocketService extends WebSocketService {
 
   async connect(roomId?: number, token?: string): Promise<void> {
     try {
-      const authToken = token || tokenStorage.getToken();
+      const authToken = token || tokenStorage.getAccessToken();
 
       if (!authToken) {
         logger.warn('[ChatSocket] No auth token available');

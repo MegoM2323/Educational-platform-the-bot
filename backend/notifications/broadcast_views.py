@@ -396,6 +396,7 @@ class BroadcastViewSet(viewsets.ModelViewSet):
 
             return Response(
                 {
+                    "success": True,
                     "status": "sent",
                     "broadcast_id": broadcast.id,
                     "recipients_count": broadcast.recipient_count,

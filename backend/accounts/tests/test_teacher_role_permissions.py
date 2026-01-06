@@ -14,7 +14,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from accounts.models import StudentProfile, TeacherProfile, TutorProfile, ParentProfile
-from tests.factories import (
+from accounts.factories import (
     StudentFactory,
     TeacherFactory,
     TutorFactory,
@@ -22,6 +22,7 @@ from tests.factories import (
     StudentProfileFactory,
     TeacherProfileFactory,
     TutorProfileFactory,
+    UserFactory,
 )
 
 User = get_user_model()

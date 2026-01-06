@@ -22,13 +22,13 @@ from rest_framework import status
 from accounts.models import StudentProfile
 from accounts.staff_views import assign_students_to_teacher
 from materials.models import Subject, SubjectEnrollment
-from tests.factories import (
+from accounts.factories import (
     StudentFactory,
     TeacherFactory,
-    SubjectFactory,
-    StudentProfileFactory,
     UserFactory,
 )
+from accounts.factories import StudentProfileFactory, TeacherProfileFactory
+from materials.factories import SubjectFactory
 
 User = get_user_model()
 
@@ -117,6 +117,7 @@ class TestAssignStudentsToTeacherSuccess:
 
     def test_assign_multiple_students_to_teacher(self, api_factory, admin_user):
         """Назначение нескольких студентов учителю на предмет"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -146,6 +147,7 @@ class TestAssignStudentsToTeacherSuccess:
 
     def test_assign_students_idempotent(self, api_factory, admin_user):
         """Повторное назначение (update_or_create) не создает дубликатов"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -183,6 +185,7 @@ class TestAssignStudentsToTeacherValidation:
 
     def test_missing_student_ids(self, api_factory, admin_user):
         """Ошибка если student_ids не передан"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -198,6 +201,7 @@ class TestAssignStudentsToTeacherValidation:
 
     def test_empty_student_ids(self, api_factory, admin_user):
         """Ошибка если student_ids пустой список"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -213,6 +217,7 @@ class TestAssignStudentsToTeacherValidation:
 
     def test_missing_subject_id(self, api_factory, admin_user):
         """Ошибка если subject_id не передан"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -228,6 +233,7 @@ class TestAssignStudentsToTeacherValidation:
 
     def test_teacher_not_found(self, api_factory, admin_user):
         """Ошибка если учитель не найден"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         student = StudentFactory()
@@ -243,6 +249,7 @@ class TestAssignStudentsToTeacherValidation:
 
     def test_subject_not_found(self, api_factory, admin_user):
         """Ошибка если предмет не найден"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -258,6 +265,7 @@ class TestAssignStudentsToTeacherValidation:
 
     def test_students_not_found(self, api_factory, admin_user):
         """Ошибка если студенты не найдены"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -273,6 +281,7 @@ class TestAssignStudentsToTeacherValidation:
 
     def test_inactive_student_rejected(self, api_factory, admin_user):
         """Ошибка если студент неактивен"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -289,6 +298,7 @@ class TestAssignStudentsToTeacherValidation:
 
     def test_partial_students_found(self, api_factory, admin_user):
         """Ошибка если часть студентов не найдена"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -311,6 +321,7 @@ class TestAssignStudentsToTeacherPermissions:
 
     def test_admin_can_assign(self, api_factory, admin_user):
         """Admin может назначать студентов"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -327,6 +338,7 @@ class TestAssignStudentsToTeacherPermissions:
 
     def test_staff_can_assign(self, api_factory, staff_user):
         """Staff может назначать студентов"""
+        api_client = APIClient()
         api_client.force_authenticate(user=staff_user)
 
         teacher = TeacherFactory()
@@ -343,6 +355,7 @@ class TestAssignStudentsToTeacherPermissions:
 
     def test_regular_user_forbidden(self, api_factory, regular_user):
         """Regular user не может назначать студентов"""
+        api_client = APIClient()
         api_client.force_authenticate(user=regular_user)
 
         teacher = TeacherFactory()
@@ -356,8 +369,9 @@ class TestAssignStudentsToTeacherPermissions:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_unauthenticated_forbidden(self, api_client):
+    def test_unauthenticated_forbidden(self):
         """Неавторизованный пользователь не может назначать студентов"""
+        api_client = APIClient()
         teacher = TeacherFactory()
         student = StudentFactory()
         subject = SubjectFactory(name="Math")
@@ -376,6 +390,7 @@ class TestAssignStudentsToTeacherEdgeCases:
 
     def test_assign_same_student_twice_same_request(self, api_factory, admin_user):
         """Дублирование ID студента в одном запросе"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -397,6 +412,7 @@ class TestAssignStudentsToTeacherEdgeCases:
 
     def test_assign_student_to_inactive_teacher(self, api_factory, admin_user):
         """Ошибка при назначении студента неактивному учителю"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory(is_active=False)
@@ -413,6 +429,7 @@ class TestAssignStudentsToTeacherEdgeCases:
 
     def test_assign_student_without_profile(self, api_factory, admin_user):
         """Успешное назначение студента без профиля (профиль не обязателен)"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()
@@ -431,6 +448,7 @@ class TestAssignStudentsToTeacherEdgeCases:
 
     def test_assign_large_batch_students(self, api_factory, admin_user):
         """Назначение большого количества студентов"""
+        api_client = APIClient()
         api_client.force_authenticate(user=admin_user)
 
         teacher = TeacherFactory()

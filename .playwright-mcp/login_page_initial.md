@@ -1,0 +1,46 @@
+### Page state
+- Page URL: http://localhost:8000/api/auth/login/
+- Page Title: Login View – Django REST framework
+- Page Snapshot:
+```yaml
+- generic [ref=e2]:
+  - navigation "navbar" [ref=e3]:
+    - generic [ref=e4]:
+      - link "Django REST framework" [ref=e5] [cursor=pointer]:
+        - /url: https://www.django-rest-framework.org/
+      - list
+  - generic [ref=e6]:
+    - list [ref=e7]:
+      - listitem [ref=e8]:
+        - link "Api Root" [ref=e9] [cursor=pointer]:
+          - /url: /api/auth/
+      - listitem [ref=e10]:
+        - text: /
+        - link "Login View" [ref=e11] [cursor=pointer]:
+          - /url: /api/auth/login/
+    - main "content" [ref=e12]:
+      - generic "request form":
+        - button "OPTIONS" [ref=e14] [cursor=pointer]
+      - main "main content" [ref=e15]:
+        - heading "Login View" [level=1] [ref=e17]
+        - paragraph [ref=e19]: Вход пользователя через Django аутентификацию (поддерживает email и username)
+        - generic "request info" [ref=e20]:
+          - generic [ref=e21]:
+            - generic [ref=e22]: GET
+            - text: /api/auth/login/
+        - generic "response info" [ref=e23]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: "HTTP 405 Method Not Allowed Allow: POST, OPTIONS Content-Type: application/json Vary: Accept"
+            - text: "{ \"detail\": \"Method \\\"GET\\\" not allowed.\" }"
+      - group [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: "Media type:"
+          - combobox "Media type:" [ref=e34]:
+            - option "application/json" [selected]
+            - option "application/x-www-form-urlencoded"
+            - option "multipart/form-data"
+        - generic [ref=e35]:
+          - generic [ref=e36]: "Content:"
+          - textbox "Content:" [ref=e38]
+        - button "POST" [ref=e40] [cursor=pointer]
+```

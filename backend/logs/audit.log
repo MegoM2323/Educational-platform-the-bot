@@ -410,3 +410,372 @@ rest_framework.exceptions.ParseError: JSON parse error - Invalid \escape: line 1
 [AUDIT] 2026-01-06 21:13:59 action=create_user user_id=28 email=parent@test.com role=parent first_name=Mary last_name=Parent is_active=True is_staff=False
 [AUDIT] 2026-01-06 21:13:59 action=create_user user_id=29 email=inactive_parent@test.com role=parent first_name=Inactive last_name=Parent is_active=False is_staff=False
 [AUDIT] 2026-01-06 21:13:59 action=create_user user_id=30 email=student@test.com role=student first_name=Alice last_name=Student is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:40 action=create_user user_id=162 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:40 action=create_user user_id=163 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:41 action=create_user user_id=164 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:41 action=create_user user_id=165 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:41 action=create_user user_id=166 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:41 action=create_user user_id=167 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:41 action=create_user user_id=168 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:41 action=create_user user_id=169 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:42 action=create_user user_id=170 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:42 action=create_user user_id=171 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:42 action=create_user user_id=172 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:42 action=create_user user_id=173 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:42 action=create_user user_id=174 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:42 action=create_user user_id=175 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:18:43 action=create_user user_id=176 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:17 action=create_user user_id=177 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:17 action=create_user user_id=178 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:17 action=create_user user_id=179 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:17 action=create_user user_id=180 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:17 action=create_user user_id=181 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:18 action=create_user user_id=182 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:18 action=create_user user_id=183 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:18 action=create_user user_id=184 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:18 action=create_user user_id=185 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:18 action=create_user user_id=186 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:18 action=create_user user_id=187 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:19 action=create_user user_id=188 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:19 action=create_user user_id=189 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:19 action=create_user user_id=190 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:19 action=create_user user_id=191 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:19 action=create_user user_id=192 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:19 action=create_user user_id=193 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:20 action=create_user user_id=194 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:20 action=create_user user_id=195 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:20 action=create_user user_id=196 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:20 action=create_user user_id=197 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:20 action=create_user user_id=198 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:21 action=create_user user_id=199 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:21 action=create_user user_id=200 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:21 action=create_user user_id=201 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:21 action=create_user user_id=202 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:21 action=create_user user_id=203 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:21 action=create_user user_id=204 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:22 action=create_user user_id=205 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:22 action=create_user user_id=206 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:22 action=create_user user_id=207 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:22 action=create_user user_id=208 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:22 action=create_user user_id=209 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:22 action=create_user user_id=210 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:23 action=create_user user_id=211 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:23 action=create_user user_id=212 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:23 action=create_user user_id=213 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:23 action=create_user user_id=214 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:23 action=create_user user_id=215 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:23 action=create_user user_id=216 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:24 action=create_user user_id=217 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:24 action=create_user user_id=218 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:24 action=create_user user_id=219 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:24 action=create_user user_id=220 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:24 action=create_user user_id=221 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:25 action=create_user user_id=222 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:25 action=create_user user_id=223 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:25 action=create_user user_id=224 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:25 action=create_user user_id=225 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:25 action=create_user user_id=226 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:25 action=create_user user_id=227 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:25 action=create_user user_id=228 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:26 action=create_user user_id=229 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:26 action=create_user user_id=230 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:26 action=create_user user_id=231 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:26 action=create_user user_id=232 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:26 action=create_user user_id=233 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:27 action=create_user user_id=234 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:27 action=create_user user_id=235 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:27 action=create_user user_id=236 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:27 action=create_user user_id=237 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:27 action=create_user user_id=238 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:27 action=create_user user_id=239 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:28 action=create_user user_id=240 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:28 action=create_user user_id=241 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:28 action=create_user user_id=242 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:28 action=create_user user_id=243 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:28 action=create_user user_id=244 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:28 action=create_user user_id=245 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:29 action=create_user user_id=246 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:29 action=create_user user_id=247 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:29 action=create_user user_id=248 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:29 action=create_user user_id=249 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:29 action=create_user user_id=250 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:30 action=create_user user_id=251 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:30 action=create_user user_id=252 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:30 action=create_user user_id=253 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:30 action=create_user user_id=254 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:30 action=create_user user_id=255 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:30 action=create_user user_id=256 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:31 action=create_user user_id=257 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:31 action=create_user user_id=258 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:31 action=create_user user_id=259 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:31 action=create_user user_id=260 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:31 action=create_user user_id=261 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:32 action=create_user user_id=262 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:32 action=create_user user_id=263 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:32 action=create_user user_id=264 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:32 action=create_user user_id=265 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:32 action=create_user user_id=266 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:32 action=create_user user_id=267 email=test@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:33 action=create_user user_id=268 email=test@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:33 action=create_user user_id=269 email=test@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:33 action=create_user user_id=270 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:33 action=create_user user_id=271 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:33 action=create_user user_id=272 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:34 action=create_user user_id=273 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:34 action=create_user user_id=274 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:34 action=create_user user_id=275 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:34 action=create_user user_id=276 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:34 action=create_user user_id=277 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:34 action=create_user user_id=278 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:35 action=create_user user_id=279 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:35 action=create_user user_id=280 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:35 action=create_user user_id=281 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:35 action=create_user user_id=282 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:35 action=create_user user_id=283 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:35 action=create_user user_id=284 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:36 action=create_user user_id=285 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:36 action=create_profile type=TeacherProfile user_id=285 email=teacher@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:19:36 action=create_user user_id=286 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:36 action=create_profile type=TeacherProfile user_id=286 email=teacher@test.com subject=N/A experience_years=5 bio=N/A
+[AUDIT] 2026-01-06 21:19:36 action=create_user user_id=287 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:36 action=create_profile type=TeacherProfile user_id=287 email=teacher@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:19:36 action=create_user user_id=288 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:36 action=create_profile type=TeacherProfile user_id=288 email=teacher@test.com subject=Mathematics experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:19:36 action=create_user user_id=289 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:36 action=create_profile type=TutorProfile user_id=289 email=tutor@test.com specialization=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:19:37 action=create_user user_id=290 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:37 action=create_profile type=TutorProfile user_id=290 email=tutor@test.com specialization=N/A experience_years=3 bio=N/A
+[AUDIT] 2026-01-06 21:19:37 action=create_user user_id=291 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:37 action=create_profile type=TutorProfile user_id=291 email=tutor@test.com specialization=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:19:37 action=create_user user_id=292 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:37 action=create_profile type=TutorProfile user_id=292 email=tutor@test.com specialization=English experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:19:37 action=create_user user_id=293 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:37 action=create_user user_id=294 email=student1@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:38 action=create_user user_id=295 email=student2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:38 action=create_profile type=ParentProfile user_id=293 email=parent@test.com
+[AUDIT] 2026-01-06 21:19:38 action=create_user user_id=296 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:38 action=create_user user_id=297 email=student1@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:38 action=create_user user_id=298 email=student2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:38 action=create_profile type=ParentProfile user_id=296 email=parent@test.com
+[AUDIT] 2026-01-06 21:19:38 action=create_user user_id=299 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:38 action=create_user user_id=300 email=student1@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:39 action=create_user user_id=301 email=student2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:39 action=create_profile type=ParentProfile user_id=299 email=parent@test.com
+[AUDIT] 2026-01-06 21:19:39 action=create_user user_id=302 email=admin@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=True
+[AUDIT] 2026-01-06 21:19:39 action=create_user user_id=303 email=user@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:39 [login] Attempt - identifier: user@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:39
+[AUDIT] 2026-01-06 21:19:39 [login] SUCCESS - email: user@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:39
+[AUDIT] 2026-01-06 21:19:40 action=create_user user_id=304 email=admin@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=True
+[AUDIT] 2026-01-06 21:19:40 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:40
+[AUDIT] 2026-01-06 21:19:40 [login] FAILED - email: admin@test.com, reason: invalid_credentials, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:40
+[AUDIT] 2026-01-06 21:19:40 action=create_user user_id=305 email=user@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:19:40 [login] Attempt - identifier: user@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:40
+[AUDIT] 2026-01-06 21:19:41 [login] SUCCESS - email: user@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:40
+[AUDIT] 2026-01-06 21:19:41 action=create_user user_id=306 email=inactive@test.com role=student first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:19:41 [login] Attempt - identifier: inactive@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:41
+[AUDIT] 2026-01-06 21:19:41 [login] FAILED - identifier: inactive@test.com, reason: user_inactive, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:41
+[AUDIT] 2026-01-06 21:19:41 [login] Attempt - identifier: notanemail, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:41
+[AUDIT] 2026-01-06 21:19:41 [login] FAILED - identifier: notanemail, reason: user_not_found, ip: 127.0.0.1, timestamp: 2026-01-06 21:19:41
+[AUDIT] 2026-01-06 21:19:41 action=create_user user_id=307 email=user@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:04 action=create_user user_id=308 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:04 action=create_user user_id=309 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:04 action=create_user user_id=310 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:04 action=create_user user_id=311 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:04 action=create_user user_id=312 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:04 action=create_user user_id=313 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:05 action=create_user user_id=314 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:05 action=create_user user_id=315 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:05 action=create_user user_id=316 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:05 action=create_user user_id=317 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:05 action=create_user user_id=318 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:05 action=create_user user_id=319 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:06 action=create_user user_id=320 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:06 action=create_user user_id=321 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:06 action=create_user user_id=322 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:06 action=create_user user_id=323 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:06 action=create_user user_id=324 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:07 action=create_user user_id=325 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:07 action=create_user user_id=326 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:07 action=create_user user_id=327 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:07 action=create_user user_id=328 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:07 action=create_user user_id=329 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:07 action=create_user user_id=330 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:08 action=create_user user_id=331 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:08 action=create_user user_id=332 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:08 action=create_user user_id=333 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:08 action=create_user user_id=334 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:08 action=create_user user_id=335 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:08 action=create_user user_id=336 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:09 action=create_user user_id=337 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:09 action=create_user user_id=338 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:09 action=create_user user_id=339 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:09 action=create_user user_id=340 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:09 action=create_user user_id=341 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:09 action=create_user user_id=342 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:10 action=create_user user_id=343 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:10 action=create_user user_id=344 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:10 action=create_user user_id=345 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:10 action=create_user user_id=346 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:10 action=create_user user_id=347 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:10 action=create_user user_id=348 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:11 action=create_user user_id=349 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:11 action=create_user user_id=350 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:11 action=create_user user_id=351 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:11 action=create_user user_id=352 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:11 action=create_user user_id=353 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:12 action=create_user user_id=354 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:12 action=create_user user_id=355 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:12 action=create_user user_id=356 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:12 action=create_user user_id=357 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:12 action=create_user user_id=358 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:12 action=create_user user_id=359 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:13 action=create_user user_id=360 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:13 action=create_user user_id=361 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:13 action=create_user user_id=362 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:13 action=create_user user_id=363 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:13 action=create_user user_id=364 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:13 action=create_user user_id=365 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:14 action=create_user user_id=366 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:14 action=create_user user_id=367 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:14 action=create_user user_id=368 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:14 action=create_user user_id=369 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:14 action=create_user user_id=370 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:14 action=create_user user_id=371 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:15 action=create_user user_id=372 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:15 action=create_user user_id=373 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:15 action=create_user user_id=374 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:15 action=create_user user_id=375 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:15 action=create_user user_id=376 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:16 action=create_user user_id=377 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:16 action=create_user user_id=378 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:16 action=create_user user_id=379 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:16 action=create_user user_id=380 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:16 action=create_user user_id=381 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:16 action=create_user user_id=382 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:17 action=create_user user_id=383 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:17 action=create_user user_id=384 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:17 action=create_user user_id=385 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:17 action=create_user user_id=386 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:17 action=create_user user_id=387 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:17 action=create_user user_id=388 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:18 action=create_user user_id=389 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:18 action=create_user user_id=390 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:18 action=create_user user_id=391 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:18 action=create_user user_id=392 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:18 action=create_user user_id=393 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:19 action=create_user user_id=394 email=inactive_tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:19 action=create_user user_id=395 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:19 action=create_user user_id=396 email=inactive_parent@test.com role=parent first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:19 action=create_user user_id=397 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:19 action=create_user user_id=398 email=test@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:19 action=create_user user_id=399 email=test@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:20 action=create_user user_id=400 email=test@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:20 action=create_user user_id=401 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:20 action=create_user user_id=402 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:20 action=create_user user_id=403 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:20 action=create_user user_id=404 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:20 action=create_user user_id=405 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:21 action=create_user user_id=406 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:21 action=create_user user_id=407 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:21 action=create_user user_id=408 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:21 action=create_user user_id=409 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:21 action=create_user user_id=410 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:21 action=create_user user_id=411 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:22 action=create_user user_id=412 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:22 action=create_user user_id=413 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:22 action=create_user user_id=414 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:22 action=create_user user_id=415 email=student@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:22 action=create_user user_id=416 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:22 action=create_profile type=TeacherProfile user_id=416 email=teacher@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:20:23 action=create_user user_id=417 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:23 action=create_profile type=TeacherProfile user_id=417 email=teacher@test.com subject=N/A experience_years=5 bio=N/A
+[AUDIT] 2026-01-06 21:20:23 action=create_user user_id=418 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:23 action=create_profile type=TeacherProfile user_id=418 email=teacher@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:20:23 action=create_user user_id=419 email=teacher@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:23 action=create_profile type=TeacherProfile user_id=419 email=teacher@test.com subject=Mathematics experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:20:23 action=create_user user_id=420 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:23 action=create_profile type=TutorProfile user_id=420 email=tutor@test.com specialization=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:20:23 action=create_user user_id=421 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:23 action=create_profile type=TutorProfile user_id=421 email=tutor@test.com specialization=N/A experience_years=3 bio=N/A
+[AUDIT] 2026-01-06 21:20:23 action=create_user user_id=422 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:23 action=create_profile type=TutorProfile user_id=422 email=tutor@test.com specialization=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:20:24 action=create_user user_id=423 email=tutor@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:24 action=create_profile type=TutorProfile user_id=423 email=tutor@test.com specialization=English experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:20:24 action=create_user user_id=424 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:24 action=create_user user_id=425 email=student1@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:24 action=create_user user_id=426 email=student2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:24 action=create_profile type=ParentProfile user_id=424 email=parent@test.com
+[AUDIT] 2026-01-06 21:20:24 action=create_user user_id=427 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:25 action=create_user user_id=428 email=student1@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:25 action=create_user user_id=429 email=student2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:25 action=create_profile type=ParentProfile user_id=427 email=parent@test.com
+[AUDIT] 2026-01-06 21:20:25 action=create_user user_id=430 email=parent@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:25 action=create_user user_id=431 email=student1@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:25 action=create_user user_id=432 email=student2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:25 action=create_profile type=ParentProfile user_id=430 email=parent@test.com
+[AUDIT] 2026-01-06 21:20:25 action=create_user user_id=433 email=admin@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=True
+[AUDIT] 2026-01-06 21:20:26 action=create_user user_id=434 email=user@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:26 [login] Attempt - identifier: user@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:26
+[AUDIT] 2026-01-06 21:20:26 [login] SUCCESS - email: user@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:26
+[AUDIT] 2026-01-06 21:20:26 action=create_user user_id=435 email=admin@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=True
+[AUDIT] 2026-01-06 21:20:26 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:26
+[AUDIT] 2026-01-06 21:20:27 [login] FAILED - email: admin@test.com, reason: invalid_credentials, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:26
+[AUDIT] 2026-01-06 21:20:27 action=create_user user_id=436 email=user@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:27 [login] Attempt - identifier: user@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:27
+[AUDIT] 2026-01-06 21:20:27 [login] SUCCESS - email: user@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:27
+[AUDIT] 2026-01-06 21:20:28 action=create_user user_id=437 email=inactive@test.com role=student first_name=N/A last_name=N/A is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:20:28 [login] Attempt - identifier: inactive@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:28
+[AUDIT] 2026-01-06 21:20:28 [login] FAILED - identifier: inactive@test.com, reason: user_inactive, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:28
+[AUDIT] 2026-01-06 21:20:28 [login] Attempt - identifier: notanemail, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:28
+[AUDIT] 2026-01-06 21:20:28 [login] FAILED - identifier: notanemail, reason: user_not_found, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:28
+[AUDIT] 2026-01-06 21:20:28 action=create_user user_id=438 email=user@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:20:55 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:55
+[AUDIT] 2026-01-06 21:20:55 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:55
+[AUDIT] 2026-01-06 21:20:55 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:55
+[AUDIT] 2026-01-06 21:20:56 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:55
+[AUDIT] 2026-01-06 21:20:56 [login] Attempt - identifier: teacher@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:56
+[AUDIT] 2026-01-06 21:20:57 [login] SUCCESS - email: teacher@test.com, role: teacher, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:56
+[AUDIT] 2026-01-06 21:20:57 [login] Attempt - identifier: tutor@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:57
+[AUDIT] 2026-01-06 21:20:57 [login] SUCCESS - email: tutor@test.com, role: tutor, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:57
+[AUDIT] 2026-01-06 21:20:57 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:57
+[AUDIT] 2026-01-06 21:20:58 [login] SUCCESS - email: admin@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:20:57
+[AUDIT] 2026-01-06 21:29:11 action=create_profile type=StudentProfile user_id=439 email=student@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-06 21:29:11 [Signal] StudentProfile auto-created for user_id=439 email=student@test.com
+[AUDIT] 2026-01-06 21:29:11 [Signal] NotificationSettings auto-created for user_id=439 email=student@test.com
+[AUDIT] 2026-01-06 21:29:11 action=create_user user_id=439 email=student@test.com role=student first_name=Test last_name=Student is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:29:11 action=create_profile type=StudentProfile user_id=440 email=parent@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-06 21:29:11 [Signal] StudentProfile auto-created for user_id=440 email=parent@test.com
+[AUDIT] 2026-01-06 21:29:11 [Signal] NotificationSettings auto-created for user_id=440 email=parent@test.com
+[AUDIT] 2026-01-06 21:29:11 action=create_user user_id=440 email=parent@test.com role=student first_name=Test last_name=Parent is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:29:11 action=create_profile type=StudentProfile user_id=441 email=teacher@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-06 21:29:12 [Signal] StudentProfile auto-created for user_id=441 email=teacher@test.com
+[AUDIT] 2026-01-06 21:29:12 [Signal] NotificationSettings auto-created for user_id=441 email=teacher@test.com
+[AUDIT] 2026-01-06 21:29:12 action=create_user user_id=441 email=teacher@test.com role=student first_name=Test last_name=Teacher is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:29:12 action=create_profile type=StudentProfile user_id=442 email=tutor@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-06 21:29:12 [Signal] StudentProfile auto-created for user_id=442 email=tutor@test.com
+[AUDIT] 2026-01-06 21:29:12 [Signal] NotificationSettings auto-created for user_id=442 email=tutor@test.com
+[AUDIT] 2026-01-06 21:29:12 action=create_user user_id=442 email=tutor@test.com role=student first_name=Test last_name=Tutor is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:29:12 action=create_profile type=StudentProfile user_id=443 email=admin@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-06 21:29:12 [Signal] StudentProfile auto-created for user_id=443 email=admin@test.com
+[AUDIT] 2026-01-06 21:29:12 [Signal] NotificationSettings auto-created for user_id=443 email=admin@test.com
+[AUDIT] 2026-01-06 21:29:12 action=create_user user_id=443 email=admin@test.com role=student first_name=Test last_name=Admin is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:29:54 [login] Attempt - identifier: test_student, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:54
+[AUDIT] 2026-01-06 21:29:55 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:54
+[AUDIT] 2026-01-06 21:29:55 [login] Attempt - identifier: test_parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:55
+[AUDIT] 2026-01-06 21:29:55 [login] SUCCESS - email: parent@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:55
+[AUDIT] 2026-01-06 21:29:55 [login] Attempt - identifier: test_teacher, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:55
+[AUDIT] 2026-01-06 21:29:55 [login] SUCCESS - email: teacher@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:55
+[AUDIT] 2026-01-06 21:29:55 [login] Attempt - identifier: test_tutor, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:55
+[AUDIT] 2026-01-06 21:29:55 [login] SUCCESS - email: tutor@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:55
+[AUDIT] 2026-01-06 21:29:55 [login] Attempt - identifier: test_admin, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:55
+[AUDIT] 2026-01-06 21:29:55 [login] SUCCESS - email: admin@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:29:55
+[AUDIT] 2026-01-06 21:30:46 [login] Attempt - identifier: test_student, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:46
+[AUDIT] 2026-01-06 21:30:46 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:46
+[AUDIT] 2026-01-06 21:30:46 [login] Attempt - identifier: test_parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:46
+[AUDIT] 2026-01-06 21:30:46 [login] SUCCESS - email: parent@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:46
+[AUDIT] 2026-01-06 21:30:46 [login] Attempt - identifier: test_teacher, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:46
+[AUDIT] 2026-01-06 21:30:46 [login] SUCCESS - email: teacher@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:46
+[AUDIT] 2026-01-06 21:30:46 [login] Attempt - identifier: test_tutor, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:46
+[AUDIT] 2026-01-06 21:30:47 [login] SUCCESS - email: tutor@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:46
+[AUDIT] 2026-01-06 21:30:47 [login] Attempt - identifier: test_admin, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:47
+[AUDIT] 2026-01-06 21:30:47 [login] SUCCESS - email: admin@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:30:47

@@ -12,12 +12,12 @@ from rest_framework import status
 
 from accounts.staff_views import assign_students_to_teacher
 from materials.models import SubjectEnrollment
-from tests.factories import (
+from accounts.factories import (
     StudentFactory,
     TeacherFactory,
-    SubjectFactory,
     UserFactory,
 )
+from materials.factories import SubjectFactory
 
 User = get_user_model()
 

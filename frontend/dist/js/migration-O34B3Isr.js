@@ -1,1 +1,0 @@
-import{f as i}from"./main-fde3JC90.js";const n=i;i.login.bind(i),i.logout.bind(i),i.getProfile.bind(i),i.updateProfile.bind(i),i.changePassword.bind(i),i.setToken.bind(i),i.getToken.bind(i),i.isAuthenticated.bind(i);export{n as a};

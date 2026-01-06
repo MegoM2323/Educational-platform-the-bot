@@ -1,0 +1,16 @@
+{
+  "completed_tasks": [
+    {
+      "id": "csrf_fix",
+      "agent": "coder",
+      "status": "done",
+      "files": ["/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py"],
+      "duration_sec": 2,
+      "changes": [
+        "Added import: from django.views.decorators.csrf import csrf_exempt",
+        "Added @csrf_exempt decorator to login_view before @api_view",
+        "Formatted with black"
+      ]
+    }
+  ]
+}

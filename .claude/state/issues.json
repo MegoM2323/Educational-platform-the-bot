@@ -1,0 +1,57 @@
+{
+  "review_iteration": 1,
+  "status": "has_issues",
+  "deleted_files_count": 70,
+  "files_deleted": [
+    "Management commands (9): export_user_data, reset_all_test_data, test_telegram, test_pachca, analyze_queries, audit_queries, create_full_test_dataset, create_test_subjects, seed_test_materials, seed_admin_notifications, create_report_templates",
+    "Documentation files (61): markdown docs from backend modules and frontend components"
+  ],
+  "issues": [
+    {
+      "severity": "high",
+      "file": "backend/accounts/tests/test_assign_students_function.py",
+      "line": 15,
+      "issue": "Broken import: 'from tests.factories import' references non-existent tests module. Should import from module-specific factories: accounts.factories, materials.factories, etc.",
+      "fix": "Change 'from tests.factories import ...' to 'from accounts.factories import StudentFactory, TeacherFactory' and 'from materials.factories import SubjectFactory'"
+    },
+    {
+      "severity": "high",
+      "file": "backend/accounts/tests/test_assign_students_to_teacher.py",
+      "line": 13,
+      "issue": "Broken import: 'from tests.factories import' references non-existent tests module",
+      "fix": "Update imports to use module-specific factories (accounts.factories, materials.factories, etc.)"
+    },
+    {
+      "severity": "high",
+      "file": "backend/accounts/tests/test_teacher_role_permissions.py",
+      "line": 10,
+      "issue": "Broken import: 'from tests.factories import' references non-existent tests module",
+      "fix": "Update imports to use module-specific factories"
+    },
+    {
+      "severity": "high",
+      "file": "backend/chat/tests/test_enrollment_forum_signal.py",
+      "line": 9,
+      "issue": "Broken import: 'from tests.factories import' references non-existent tests module",
+      "fix": "Update imports to use module-specific factories (accounts.factories, materials.factories, chat.factories, etc.)"
+    }
+  ],
+  "passed_checks": [
+    "git_status_clean",
+    "management_commands_no_references",
+    "tests_directories_intact",
+    "makefile_clean",
+    "core_structure_intact",
+    "no_migrations_affected"
+  ],
+  "failed_checks": [
+    "broken_imports"
+  ],
+  "summary": {
+    "deleted_successfully": 70,
+    "broken_imports_found": 4,
+    "impact": "4 test files will fail during pytest collection due to broken imports from non-existent tests.factories module",
+    "root_cause": "Tests reference centralized tests.factories that was removed. Factories exist in module directories (accounts/factories.py, materials/factories.py, etc.) but tests import from wrong location",
+    "critical_action": "Fix imports in 4 test files before running test suite"
+  }
+}

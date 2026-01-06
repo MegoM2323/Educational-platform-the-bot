@@ -1,0 +1,163 @@
+=== УДАЛЕННЫЕ ФАЙЛЫ ТЕСТОВ ===
+
+BACKEND ACCOUNTS:
+- backend/accounts/test_export.py
+- backend/accounts/test_export_simple.py
+- backend/accounts/test_export_unit.py
+- backend/accounts/test_tutor_subject_assignment.py
+- backend/accounts/tests/test_admin_complete_workflow.py
+- backend/accounts/tests/test_admin_unit_tests.py
+- backend/accounts/tests/test_assign_students_function.py
+- backend/accounts/tests/test_assign_students_to_teacher.py
+- backend/accounts/tests/test_auth.py
+- backend/accounts/tests/test_change_password.py
+- backend/accounts/tests/test_csrf_protection.py
+- backend/accounts/tests/test_enum_consistency.py
+- backend/accounts/tests/test_fixes_comprehensive.py
+- backend/accounts/tests/test_logging.py
+- backend/accounts/tests/test_login_response.py
+- backend/accounts/tests/test_models.py
+- backend/accounts/tests/test_permissions.py
+- backend/accounts/tests/test_prefetch_with_filters.py
+- backend/accounts/tests/test_profile_serializers.py
+- backend/accounts/tests/test_race_conditions.py
+- backend/accounts/tests/test_serializers.py
+- backend/accounts/tests/test_staff_views_comprehensive.py
+- backend/accounts/tests/test_staff_views_functions.py
+- backend/accounts/tests/test_staff_views_unit.py
+- backend/accounts/tests/test_student_cabinet_fixes.py
+- backend/accounts/tests/test_teacher_role_permissions.py
+- backend/accounts/tests/test_teacher_signals.py
+- backend/accounts/tests/test_teacher_visibility.py
+- backend/accounts/tests/test_telegram_integration.py
+- backend/accounts/tests/test_telegram_linking.py
+- backend/accounts/tests/test_tutor_chat_signal.py
+- backend/accounts/tests/test_tutor_n1_queries.py
+- backend/accounts/tests/test_validation_error_security.py
+
+BACKEND ASSIGNMENTS:
+- backend/assignments/test_analytics.py
+- backend/assignments/test_asn_002_question_ordering.py
+- backend/assignments/test_attempt_tracking.py
+- backend/assignments/test_autograder_webhook.py
+- backend/assignments/test_bulk_grading.py
+- backend/assignments/test_cache_stats.py
+- backend/assignments/test_cloning.py
+- backend/assignments/test_history_versioning.py
+- backend/assignments/test_late_submission_handling.py
+- backend/assignments/test_peer_review.py
+- backend/assignments/test_permission_consolidation.py
+- backend/assignments/test_plagiarism.py
+- backend/assignments/test_rubric_system.py
+- backend/assignments/test_scheduling.py
+- backend/assignments/tests.py
+- backend/assignments/test_statistics.py
+- backend/assignments/test_submission_comments.py
+
+BACKEND MATERIALS:
+- backend/materials/test_bulk_operations.py
+- backend/materials/test_comments_threading.py
+- backend/materials/test_download_logging.py
+- backend/materials/test_enrollment_validation.py
+- backend/materials/test_file_security.py
+- backend/materials/test_file_security_simple.py
+- backend/materials/test_mat_003_edge_cases.py
+- backend/materials/test_mat_006_enrollment.py
+- backend/materials/test_materials_validation.py
+- backend/materials/test_progress_edge_cases.py
+- backend/materials/test_search.py
+- backend/materials/tests.py
+- backend/materials/tests/test_material_download_api.py
+- backend/materials/tests/test_permissions.py
+- backend/materials/test_submission_file_validation.py
+- backend/materials/test_submission_validation_unit.py
+
+BACKEND CHAT:
+- backend/chat/test_messaging_all_roles.py
+- backend/chat/tests.py
+- backend/chat/tests/test_enrollment_forum_signal.py
+- backend/chat/tests/test_permissions.py
+
+BACKEND NOTIFICATIONS:
+- backend/notifications/services/test_sms_service.py
+- backend/notifications/services/test_template.py
+- backend/notifications/test_analytics.py
+- backend/notifications/test_analytics_fix.py
+- backend/notifications/test_analytics_simple.py
+- backend/notifications/test_archive.py
+- backend/notifications/test_broadcast_batch.py
+- backend/notifications/test_broadcast_enhancements.py
+- backend/notifications/test_channels.py
+- backend/notifications/test_click_tracking.py
+- backend/notifications/test_email_service.py
+- backend/notifications/test_email_simple.py
+- backend/notifications/test_in_app_service.py
+- backend/notifications/test_push_service.py
+- backend/notifications/test_scheduling.py
+- backend/notifications/tests.py
+- backend/notifications/tests/test_notification_preferences.py
+- backend/notifications/test_templates_api.py
+- backend/notifications/test_templates_implementation.py
+- backend/notifications/test_unsubscribe.py
+
+BACKEND REPORTS:
+- backend/reports/test_access_control.py
+- backend/reports/test_analytics_api.py
+- backend/reports/test_analytics_export.py
+- backend/reports/test_analytics_export_simple.py
+- backend/reports/test_cache_simple.py
+- backend/reports/test_cache_simple_unit.py
+- backend/reports/test_charts_simple.py
+- backend/reports/test_custom_reports_core.py
+- backend/reports/test_dashboard_api.py
+- backend/reports/test_exports_comprehensive.py
+- backend/reports/test_generation_service.py
+- backend/reports/test_generation_service_simple.py
+- backend/reports/test_multilevel_cache.py
+- backend/reports/test_parent_report_sharing.py
+- backend/reports/test_query_optimization.py
+- backend/reports/test_realtime_dashboard.py
+- backend/reports/test_realtime_simple.py
+- backend/reports/test_scheduled_reports.py
+- backend/reports/tests.py
+- backend/reports/tests/test_admin_analytics_a12.py
+- backend/reports/tests/test_teacher_weekly_report_service.py
+- backend/reports/test_warehouse_simple.py
+
+BACKEND KNOWLEDGE GRAPH:
+- backend/knowledge_graph/tests.py
+- backend/knowledge_graph/tests/test_knowledge_graph_core.py
+
+BACKEND CONFIG:
+- backend/config/test_init.py
+- backend/config/tests/test_error_logging.py
+
+BACKEND CORE:
+- backend/core/test_caching.py
+- backend/core/test_configuration.py
+- backend/core/tests/test_admin_database_api.py
+- backend/core/tests/test_admin_operations.py
+- backend/core/tests/test_health_check_basic.py
+- backend/core/tests/test_health_check_enhancement.py
+
+BACKEND SCHEDULING:
+- backend/scheduling/tests.py
+- backend/scheduling/tests/test_lesson_scheduling.py
+
+BACKEND INVOICES:
+- backend/invoices/test_telegram_notifications.py
+
+BACKEND PAYMENTS:
+- backend/payments/tests.py
+
+BACKEND APPLICATIONS:
+- backend/applications/tests.py
+
+ВСЕГО УДАЛЕНО: 144 файла тестов
+
+=== СОХРАНЕНО ===
+- Директории tests/ во всех модулях
+- __init__.py файлы в директориях tests/
+- Основные файлы: models.py, views.py, serializers.py, urls.py, admin.py, permissions.py и т.д.
+- Вся остальная логика приложений
+

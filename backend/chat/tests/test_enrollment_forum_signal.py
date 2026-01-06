@@ -11,29 +11,38 @@ Tests для create_forum_chat_on_enrollment signal
 import pytest
 from django.contrib.auth import get_user_model
 
-from accounts.models import StudentProfile
-from materials.models import SubjectEnrollment
-from chat.models import ChatRoom, ChatParticipant
-from tests.factories import (
+from accounts.factories import (
     StudentFactory,
     TeacherFactory,
     TutorFactory,
-    SubjectFactory,
     StudentProfileFactory,
+)
+from materials.factories import (
+    SubjectFactory,
     SubjectEnrollmentFactory,
 )
 
-User = get_user_model()
-
 pytestmark = pytest.mark.unit
+
+
+@pytest.fixture
+def _imports_fixture():
+    from materials.models import SubjectEnrollment
+    from chat.models import ChatRoom, ChatParticipant
+    return SubjectEnrollment, ChatRoom, ChatParticipant
 
 
 @pytest.mark.django_db
 class TestForumChatCreation:
     """Тесты создания FORUM_SUBJECT чата"""
 
+    @pytest.fixture(autouse=True)
+    def _setup_imports(self, _imports_fixture):
+        self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant = _imports_fixture
+
     def test_creates_forum_subject_chat_on_enrollment(self):
         """При создании SubjectEnrollment создается FORUM_SUBJECT чат"""
+        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
         teacher = TeacherFactory()
         student = StudentFactory()
         StudentProfileFactory(user=student, grade="10")
@@ -134,6 +143,10 @@ class TestForumChatCreation:
 @pytest.mark.django_db
 class TestForumTutorChatCreation:
     """Тесты создания FORUM_TUTOR чата"""
+
+    @pytest.fixture(autouse=True)
+    def _setup_imports(self, _imports_fixture):
+        self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant = _imports_fixture
 
     def test_creates_forum_tutor_chat_if_student_has_tutor(self):
         """Создается FORUM_TUTOR чат если у студента есть tutor"""
@@ -245,6 +258,10 @@ class TestForumTutorChatCreation:
 @pytest.mark.django_db
 class TestEnrollmentSignalEdgeCases:
     """Тесты граничных случаев"""
+
+    @pytest.fixture(autouse=True)
+    def _setup_imports(self, _imports_fixture):
+        self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant = _imports_fixture
 
     def test_signal_skips_if_enrollment_updated_not_created(self):
         """Signal не триггерится при update enrollment"""

@@ -1055,7 +1055,7 @@ LOGGING = {
         },
         "audit_file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/var/log/thebot/audit.log",
+            "filename": os.path.join(_logs_dir, "audit.log"),  # Use dynamic path
             "maxBytes": 10485760,  # 10MB
             "backupCount": 10,
             "level": "INFO",
@@ -1063,7 +1063,7 @@ LOGGING = {
         },
         "admin_file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/var/log/thebot/admin.log",
+            "filename": os.path.join(_logs_dir, "admin.log"),  # Use dynamic path
             "maxBytes": 10485760,  # 10MB
             "backupCount": 10,
             "level": "INFO",
@@ -1071,7 +1071,7 @@ LOGGING = {
         },
         "celery_file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/var/log/thebot/celery.log",
+            "filename": os.path.join(_logs_dir, "celery.log"),  # Use dynamic path
             "maxBytes": 10485760,  # 10MB
             "backupCount": 10,
             "level": "INFO",
@@ -1079,7 +1079,7 @@ LOGGING = {
         },
         "error_file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/var/log/thebot/error.log",
+            "filename": os.path.join(_logs_dir, "error.log"),  # Use dynamic path
             "maxBytes": 10485760,  # 10MB
             "backupCount": 10,
             "level": "ERROR",

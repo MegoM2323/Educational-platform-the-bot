@@ -97,9 +97,9 @@ class SlidingWindowRateLimiter:
         reset_timestamp = int(reset_time.timestamp())
 
         return {
-            'X-RateLimit-Limit': str(self.limit),
-            'X-RateLimit-Remaining': str(remaining),
-            'X-RateLimit-Reset': str(reset_timestamp),
+            "X-RateLimit-Limit": str(self.limit),
+            "X-RateLimit-Remaining": str(remaining),
+            "X-RateLimit-Reset": str(reset_timestamp),
         }
 
     def get_retry_after(self) -> int:
@@ -131,12 +131,12 @@ class RateLimitThrottle(BaseThrottle):
     """
 
     scope = None
-    _cache_key_prefix = 'rate_limit'
+    _cache_key_prefix = "rate_limit"
 
     def __init__(self):
         """Initialize throttle with logging."""
         super().__init__()
-        self.logger = logging.getLogger(f'{__name__}.{self.__class__.__name__}')
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     def get_identifier(self, request) -> str:
         """
@@ -146,16 +146,16 @@ class RateLimitThrottle(BaseThrottle):
             String identifier for rate limit tracking
         """
         if request.user and request.user.is_authenticated:
-            return f'user_{request.user.id}'
+            return f"user_{request.user.id}"
 
         # Get client IP (handle X-Forwarded-For for proxies)
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
+            ip = x_forwarded_for.split(",")[0].strip()
         else:
-            ip = request.META.get('REMOTE_ADDR', 'unknown')
+            ip = request.META.get("REMOTE_ADDR", "unknown")
 
-        return f'ip_{ip}'
+        return f"ip_{ip}"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """
@@ -169,7 +169,7 @@ class RateLimitThrottle(BaseThrottle):
         # Default tiered limits
         if request.user and request.user.is_authenticated:
             # Check if premium user (future feature)
-            if hasattr(request.user, 'is_premium') and request.user.is_premium:
+            if hasattr(request.user, "is_premium") and request.user.is_premium:
                 return (500, 60)  # Premium: 500/min
             # Check if admin (bypass)
             if request.user.is_staff or request.user.is_superuser:
@@ -197,7 +197,7 @@ class RateLimitThrottle(BaseThrottle):
 
         # Get cache key
         identifier = self.get_identifier(request)
-        cache_key = f'{self._cache_key_prefix}_{self.scope}_{identifier}'
+        cache_key = f"{self._cache_key_prefix}_{self.scope}_{identifier}"
 
         # Check rate limit using sliding window
         limiter = SlidingWindowRateLimiter(cache_key, limit, window)
@@ -209,16 +209,16 @@ class RateLimitThrottle(BaseThrottle):
         # Log rate limit violations
         if not is_allowed:
             self.logger.warning(
-                f'Rate limit exceeded: scope={self.scope}, '
-                f'identifier={identifier}, limit={limit}/{window}s, '
-                f'path={request.path}',
+                f"Rate limit exceeded: scope={self.scope}, "
+                f"identifier={identifier}, limit={limit}/{window}s, "
+                f"path={request.path}",
                 extra={
-                    'scope': self.scope,
-                    'identifier': identifier,
-                    'user_id': request.user.id if request.user.is_authenticated else None,
-                    'ip': request.META.get('REMOTE_ADDR'),
-                    'path': request.path,
-                }
+                    "scope": self.scope,
+                    "identifier": identifier,
+                    "user_id": request.user.id if request.user.is_authenticated else None,
+                    "ip": request.META.get("REMOTE_ADDR"),
+                    "path": request.path,
+                },
             )
             # Store retry-after for response
             self.retry_after = limiter.get_retry_after()
@@ -227,22 +227,25 @@ class RateLimitThrottle(BaseThrottle):
 
     def get_headers(self) -> Dict[str, str]:
         """Return rate limit headers for response."""
-        return getattr(self, 'headers', {})
+        return getattr(self, "headers", {})
 
 
 class RateLimitThrottleNoStatus(RateLimitThrottle):
     """Base class for implementing throttle_classes on views."""
+
     pass
 
 
 # Tier-based throttles
+
 
 class AnonUserThrottle(RateLimitThrottle):
     """
     Rate limit for anonymous users.
     Default: 20 requests per minute (IP-based).
     """
-    scope = 'anon'
+
+    scope = "anon"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """Anonymous users: 20/min."""
@@ -254,7 +257,8 @@ class AuthenticatedUserThrottle(RateLimitThrottle):
     Rate limit for authenticated users.
     Default: 100 requests per minute (user-based).
     """
-    scope = 'authenticated'
+
+    scope = "authenticated"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """Authenticated users: 100/min."""
@@ -266,12 +270,13 @@ class PremiumUserThrottle(RateLimitThrottle):
     Rate limit for premium users.
     Default: 500 requests per minute (user-based).
     """
-    scope = 'premium'
+
+    scope = "premium"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """Premium users: 500/min."""
         if request.user and request.user.is_authenticated:
-            if hasattr(request.user, 'is_premium') and request.user.is_premium:
+            if hasattr(request.user, "is_premium") and request.user.is_premium:
                 return (500, 60)
         # Fallback to authenticated
         return (100, 60)
@@ -282,7 +287,8 @@ class AdminThrottle(RateLimitThrottle):
     Rate limit for admin users.
     Admins bypass all rate limiting.
     """
-    scope = 'admin'
+
+    scope = "admin"
 
     def throttle(self, request, view) -> bool:
         """Admins are never throttled."""
@@ -292,7 +298,36 @@ class AdminThrottle(RateLimitThrottle):
         return super().throttle(request, view)
 
 
+class AdminPanelThrottle(RateLimitThrottle):
+    """
+    Rate limit for admin panel endpoints.
+    Default: 5000 requests per hour (user-based).
+    Allows burst admin operations without throttling.
+    """
+
+    scope = "admin_panel"
+
+    def get_limit_and_window(self, request) -> Tuple[int, int]:
+        """Admin panel: 5000/hour."""
+        return (5000, 3600)
+
+
+class AdminPanelBurstThrottle(RateLimitThrottle):
+    """
+    Rate limit for admin panel burst operations (fast navigation).
+    Default: 200 requests per minute (user-based).
+    Handles rapid UI interactions during admin panel navigation.
+    """
+
+    scope = "admin_burst"
+
+    def get_limit_and_window(self, request) -> Tuple[int, int]:
+        """Admin burst: 200/min."""
+        return (200, 60)
+
+
 # Endpoint-specific throttles
+
 
 class LoginThrottle(RateLimitThrottle):
     """
@@ -300,7 +335,8 @@ class LoginThrottle(RateLimitThrottle):
     Default: 5 attempts per minute (IP-based).
     Protects against brute force password attacks.
     """
-    scope = 'login'
+
+    scope = "login"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """Login: 5/min."""
@@ -313,7 +349,8 @@ class UploadThrottle(RateLimitThrottle):
     Default: 10 uploads per hour (user-based).
     Prevents server storage abuse.
     """
-    scope = 'upload'
+
+    scope = "upload"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """Upload: 10/hour."""
@@ -323,40 +360,43 @@ class UploadThrottle(RateLimitThrottle):
 class SearchThrottle(RateLimitThrottle):
     """
     Rate limit for search endpoints.
-    Default: 30 searches per minute (user-based).
+    Default: 200 searches per minute (user-based).
     Prevents database abuse from excessive searches.
     """
-    scope = 'search'
+
+    scope = "search"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
-        """Search: 30/min."""
-        return (30, 60)
+        """Search: 200/min."""
+        return (200, 60)
 
 
 class AnalyticsThrottle(RateLimitThrottle):
     """
     Rate limit for analytics/report endpoints.
-    Default: 100 requests per hour (user-based).
+    Default: 5000 requests per hour (user-based).
     Prevents excessive report generation.
     """
-    scope = 'analytics'
+
+    scope = "analytics"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
-        """Analytics: 100/hour."""
-        return (100, 3600)
+        """Analytics: 5000/hour."""
+        return (5000, 3600)
 
 
 class ChatMessageThrottle(RateLimitThrottle):
     """
     Rate limit for chat message posting.
-    Default: 60 messages per minute (user-based).
+    Default: 300 messages per minute (user-based).
     Prevents chat spam and abuse.
     """
-    scope = 'chat_message'
+
+    scope = "chat_message"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
-        """Chat message: 60/min."""
-        return (60, 60)
+        """Chat message: 300/min."""
+        return (300, 60)
 
 
 class ChatRoomThrottle(RateLimitThrottle):
@@ -365,7 +405,8 @@ class ChatRoomThrottle(RateLimitThrottle):
     Default: 5 rooms per hour (user-based).
     Prevents creation spam.
     """
-    scope = 'chat_room'
+
+    scope = "chat_room"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """Chat room creation: 5/hour."""
@@ -378,7 +419,8 @@ class AssignmentSubmissionThrottle(RateLimitThrottle):
     Default: 10 submissions per hour (user-based).
     Prevents submission spam.
     """
-    scope = 'assignment_submission'
+
+    scope = "assignment_submission"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """Assignment submission: 10/hour."""
@@ -391,7 +433,8 @@ class ReportGenerationThrottle(RateLimitThrottle):
     Default: 10 reports per hour (user-based).
     Prevents excessive CPU usage from report generation.
     """
-    scope = 'report_generation'
+
+    scope = "report_generation"
 
     def get_limit_and_window(self, request) -> Tuple[int, int]:
         """Report generation: 10/hour."""
@@ -399,6 +442,7 @@ class ReportGenerationThrottle(RateLimitThrottle):
 
 
 # Rate limit decorator for function-based views
+
 
 def rate_limit(limit: int, window: int = 60, scope: Optional[str] = None):
     """
@@ -414,6 +458,7 @@ def rate_limit(limit: int, window: int = 60, scope: Optional[str] = None):
         def my_view(request):
             return Response({'status': 'ok'})
     """
+
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
@@ -422,14 +467,14 @@ def rate_limit(limit: int, window: int = 60, scope: Optional[str] = None):
 
             # Get identifier
             if request.user and request.user.is_authenticated:
-                identifier = f'user_{request.user.id}'
+                identifier = f"user_{request.user.id}"
             else:
-                x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-                ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.META.get('REMOTE_ADDR')
-                identifier = f'ip_{ip}'
+                x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+                ip = x_forwarded_for.split(",")[0].strip() if x_forwarded_for else request.META.get("REMOTE_ADDR")
+                identifier = f"ip_{ip}"
 
             # Check rate limit
-            cache_key = f'rate_limit_{func_scope}_{identifier}'
+            cache_key = f"rate_limit_{func_scope}_{identifier}"
             limiter = SlidingWindowRateLimiter(cache_key, limit, window)
             is_allowed, headers = limiter.is_allowed()
 
@@ -437,15 +482,12 @@ def rate_limit(limit: int, window: int = 60, scope: Optional[str] = None):
                 retry_after = limiter.get_retry_after()
                 return JsonResponse(
                     {
-                        'error': 'rate_limit_exceeded',
-                        'message': f'Rate limit exceeded. Maximum {limit} requests per {window} seconds.',
-                        'retry_after': retry_after
+                        "error": "rate_limit_exceeded",
+                        "message": f"Rate limit exceeded. Maximum {limit} requests per {window} seconds.",
+                        "retry_after": retry_after,
                     },
                     status=HTTP_429_TOO_MANY_REQUESTS,
-                    headers={
-                        **headers,
-                        'Retry-After': str(retry_after)
-                    }
+                    headers={**headers, "Retry-After": str(retry_after)},
                 )
 
             # Call the view function
@@ -455,13 +497,14 @@ def rate_limit(limit: int, window: int = 60, scope: Optional[str] = None):
             if isinstance(response, Response):
                 for header_name, header_value in headers.items():
                     response[header_name] = header_value
-            elif hasattr(response, '__setitem__'):
+            elif hasattr(response, "__setitem__"):
                 for header_name, header_value in headers.items():
                     response[header_name] = header_value
 
             return response
 
         return wrapper
+
     return decorator
 
 
@@ -472,3 +515,4 @@ BurstThrottle = RateLimitThrottle  # Default burst protection
 StudentUserThrottle = AuthenticatedUserThrottle  # Student is authenticated user
 GeneralUserThrottle = AuthenticatedUserThrottle  # General user is authenticated
 AdminUserThrottle = AdminThrottle  # Admin throttle for backward compat
+AdminPanelBurst = AdminPanelBurstThrottle  # Admin panel burst for backward compat

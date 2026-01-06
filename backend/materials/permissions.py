@@ -20,6 +20,42 @@ from accounts.models import User
 logger = logging.getLogger(__name__)
 
 
+class IsTutor(BasePermission):
+    """Разрешение для тьюторов - проверяет role == TUTOR"""
+
+    def has_permission(self, request, view):
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_active
+            and request.user.role == User.Role.TUTOR
+        )
+
+
+class IsTeacher(BasePermission):
+    """Разрешение для учителей - проверяет role == TEACHER"""
+
+    def has_permission(self, request, view):
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_active
+            and request.user.role == User.Role.TEACHER
+        )
+
+
+class IsTutorOrTeacher(BasePermission):
+    """Разрешение для тьюторов или учителей"""
+
+    def has_permission(self, request, view):
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_active
+            and request.user.role in [User.Role.TUTOR, User.Role.TEACHER]
+        )
+
+
 class StudentEnrollmentPermission(BasePermission):
     """
     Разрешение для студентов - проверяет что они зачислены на предмет.

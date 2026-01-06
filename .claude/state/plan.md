@@ -1,69 +1,58 @@
-# Добавление keyboard accessibility для StudentDashboard
+# Исправление JWT validation для material endpoints
 
-## Статус: planning → ready for implementation
+## Статус: implementation
 
 ## Задача
-Добавить полную keyboard accessibility и поддержку screen readers для интерактивных элементов в StudentDashboard.tsx:
+Исправить JWT authentication broken на material endpoints. Все authenticated requests к `/api/materials/materials/{id}/` возвращают 401 даже с валидным Bearer token.
 
-1. Материалы (line 281-316): Заменить div с onClick на button с надлежащими ARIA атрибутами
-2. Offline состояние: Добавить aria-disabled и aria-label к disabled контенту
-3. BookingWidget: Показывать disabled состояние вместо удаления из DOM
-4. Все интерактивные div элементы: role='button', tabIndex=0, onKeyDown обработчик
-5. Улучшить ARIA labels для всех интерактивных элементов
+## Корневая проблема
+JWT authentication class отсутствует в DEFAULT_AUTHENTICATION_CLASSES в settings.py. Текущий конфиг поддерживает только TokenAuthentication и SessionAuthentication, но не поддерживает JWT Bearer tokens.
 
-## Текущие проблемы
+## Параллельная группа 1: Реализация (4 независимые задачи)
 
-### P1: Material items (line 281-316)
-- Используется простой div с onClick
-- Не keyboard accessible (нет табуляции)
-- Нет aria атрибутов для screen readers
-- Нужно: заменить на button или добавить role, tabIndex, onKeyDown
+### T001: Добавить JWT authentication в settings.py - DONE
+- Line 672-675: Добавить "rest_framework_simplejwt.authentication.JWTAuthentication" в DEFAULT_AUTHENTICATION_CLASSES
+- Позиция: ПЕРВЫМ в списке (до TokenAuthentication)
+- Необходимо поддерживать обе схемы (JWT и Token для обратной совместимости)
+- STATUS: COMPLETED ✓
 
-### P2: Offline состояние (line 231)
-- Используется pointer-events-none и opacity для disabled контента
-- Нет aria-disabled атрибута
-- Нет aria-label объяснения
-- Нужно: добавить aria-disabled и aria-label
+### T002: Обновить material viewsets - DONE
+- MaterialViewSet, SubjectViewSet: убедиться что используют authentication_classes
+- Если не используют - явно указать в классе с приоритетом JWT
+- Проверить что все endpoints с @action имеют корректные permission_classes
+- STATUS: COMPLETED ✓
 
-### P3: BookingWidget (line 268-270)
-- Условно удаляется из DOM при offline
-- Лучше показывать disabled состояние
-- Нужно: всегда рендерить с disabled пропсом
+### T003: Добавить IsAuthenticated для read-only endpoints - IN PROGRESS
+- MaterialDetailView, MaterialListView: требуют IsAuthenticated
+- Добавить StudentEnrollmentPermission для endpoints требующих проверки зачисления
+- Обновить permission_classes в views.py согласно требованиям ролей
+- STATUS: 50% (добавлена StudentEnrollmentPermission в MaterialViewSet)
 
-### P4: Subjects section buttons (line 354-362)
-- Button элементы, но нужна проверка ARIA
-- Нужна aria-label для улучшения доступности
-
-## Параллельная группа 1: Реализация (1 независимая задача)
-
-### T001: Добавить keyboard accessibility - coder
-- Line 281-316: Заменить material div на button или добавить role/tabIndex/onKeyDown
-- Line 231: Добавить aria-disabled и aria-label к disabled контенту
-- Line 268-270: Сделать BookingWidget всегда видимым с disabled пропсом
-- Line 354-362: Добавить aria-label к subject buttons
-- Все кнопки в Quick Actions должны иметь aria-label
-- Добавить функцию handleMaterialKeyDown для KeyEvent обработки (Enter/Space)
+### T004: Проверить и исправить permissions.py - PENDING
+- StudentEnrollmentPermission: проверить что has_permission корректно работает
+- Убедиться что все permission checks поддерживают JWT токены (не проверяют только Token)
+- Исправить логику проверки authenticated в has_permission
 
 ## Параллельная группа 2: Review & Testing
 
-### T101: Code review (reviewer)
-- Проверить корректность ARIA атрибутов
-- Убедиться что все интерактивные элементы keyboard accessible
-- Проверить что отключенное состояние явно обозначено
+### T101: Code review - reviewer
+- Проверить что JWT добавлен ПЕРВЫМ в список authentication
+- Убедиться что all endpoints имеют явные permission_classes
+- Проверить что TokenAuthentication остался для обратной совместимости
+- Проверить что permission classes не ломают другие endpoints
 
-### T102: Testing (tester)
-- Написать тесты на keyboard навигацию (Tab, Enter)
-- Проверить что ARIA атрибуты правильно применены
-- Тест offline состояния (aria-disabled)
-- E2E тест для проверки accessibility с экран ридером
+### T102: Запустить failing tests - tester
+- T008_AUTH_ROLE_HIERARCHY
+- T115_TUTOR_TEACHER_INTERACTION
+- T139_SECURITY_AUTH_HEADER
+- Проверить что все тесты с 401 теперь проходят
+- Убедиться что новые permission classes не ломают существующие тесты
 
 ## Ожидаемый результат
-✓ Material items клиентские через button с надлежащими ARIA
-✓ KeyDown обработчик для Enter/Space на всех интерактивных элементах
-✓ aria-disabled добавлена к offline контенту
-✓ aria-label добавлены для улучшения контекста
-✓ BookingWidget всегда рендерится с disabled состоянием
-✓ Полная keyboard навигация (Tab, Enter, Space)
-✓ Screen reader совместимость
-✓ Tests pass
+✓ JWT authentication добавлена в settings.py
+✓ Material endpoints принимают Bearer tokens
+✓ Permission classes соответствуют ролям (student/tutor/teacher/admin)
+✓ Все failing tests (T008, T115, T139) проходят
+✓ Обратная совместимость с TokenAuthentication сохранена
+✓ Тесты pass
 ✓ LGTM от reviewer

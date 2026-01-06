@@ -42,9 +42,7 @@ class ParentDashboardService:
             raise ValueError("Пользователь должен иметь роль PARENT")
 
         # Логируем информацию о пользователе для отладки
-        logger.info(
-            f"[ParentDashboardService] Initializing for user: {parent_user.username}"
-        )
+        logger.info(f"[ParentDashboardService] Initializing for user: {parent_user.username}")
         logger.info(
             f"[ParentDashboardService] User role: {parent_user.role}, type: {type(parent_user.role)}"
         )
@@ -74,15 +72,11 @@ class ParentDashboardService:
         is_parent = user_role_str == parent_role_str
 
         # Для администраторов проверяем, создали ли они детей (через created_by_tutor) или являются родителями
-        is_admin_with_children = (
-            parent_user.is_staff or parent_user.is_superuser
-        ) and (
+        is_admin_with_children = (parent_user.is_staff or parent_user.is_superuser) and (
             User.objects.filter(
                 student_profile__parent=parent_user, role=User.Role.STUDENT
             ).exists()
-            or User.objects.filter(
-                created_by_tutor=parent_user, role=User.Role.STUDENT
-            ).exists()
+            or User.objects.filter(created_by_tutor=parent_user, role=User.Role.STUDENT).exists()
         )
 
         if not is_parent and not is_admin_with_children:
@@ -100,9 +94,7 @@ class ParentDashboardService:
         # Создаем ParentProfile, если его нет
         from accounts.models import ParentProfile
 
-        self.parent_profile, created = ParentProfile.objects.get_or_create(
-            user=parent_user
-        )
+        self.parent_profile, created = ParentProfile.objects.get_or_create(user=parent_user)
         if created:
             logger.info(f"Создан ParentProfile для пользователя {parent_user.username}")
 
@@ -148,10 +140,7 @@ class ParentDashboardService:
             children = self.parent_profile.children.filter(role=User.Role.STUDENT)
 
             # Проверяем есть ли ParentProfile
-            if (
-                not hasattr(self.parent_user, "parent_profile")
-                or self.parent_profile is None
-            ):
+            if not hasattr(self.parent_user, "parent_profile") or self.parent_profile is None:
                 logger.warning(
                     f"[get_children] ParentProfile not found for parent {self.parent_user.id}"
                 )
@@ -161,8 +150,7 @@ class ParentDashboardService:
                 f"[get_children] User is not PARENT, searching through StudentProfile.parent or created_by_tutor"
             )
             children = User.objects.filter(
-                Q(student_profile__parent=self.parent_user)
-                | Q(created_by_tutor=self.parent_user),
+                Q(student_profile__parent=self.parent_user) | Q(created_by_tutor=self.parent_user),
                 role=User.Role.STUDENT,
             ).distinct()
 
@@ -179,9 +167,7 @@ class ParentDashboardService:
             logger.warning(f"  - StudentProfile.parent is None or incorrect")
             logger.warning(f"  - Children don't exist in database")
         else:
-            logger.debug(
-                f"[get_children] Children: {[(c.id, c.username) for c in children]}"
-            )
+            logger.debug(f"[get_children] Children: {[(c.id, c.username) for c in children]}")
 
         return children
 
@@ -210,9 +196,7 @@ class ParentDashboardService:
                     )
                     return SubjectEnrollment.objects.none()
             except Exception as e:
-                logger.error(
-                    f"[get_child_subjects] Error checking child ownership: {e}"
-                )
+                logger.error(f"[get_child_subjects] Error checking child ownership: {e}")
                 return SubjectEnrollment.objects.none()
         else:
             # Для администраторов проверяем через created_by_tutor или parent
@@ -312,17 +296,13 @@ class ParentDashboardService:
         total_time = progress_stats["total_time"] or 0
 
         # Оптимизированный прогресс по предметам через аннотации
-        enrollments = self.get_child_subjects(child).select_related(
-            "subject", "teacher"
-        )
+        enrollments = self.get_child_subjects(child).select_related("subject", "teacher")
 
         # Получаем статистику по предметам одним запросом
         subject_progress_data = (
             MaterialProgress.objects.filter(
                 student=child,
-                material__subject__in=[
-                    enrollment.subject for enrollment in enrollments
-                ],
+                material__subject__in=[enrollment.subject for enrollment in enrollments],
             )
             .values("material__subject__name", "material__subject__id")
             .annotate(
@@ -363,9 +343,7 @@ class ParentDashboardService:
             "total_materials": total_materials,
             "completed_materials": completed_materials,
             "completion_percentage": round(
-                (completed_materials / total_materials * 100)
-                if total_materials > 0
-                else 0,
+                (completed_materials / total_materials * 100) if total_materials > 0 else 0,
                 1,
             ),
             "average_progress": round(avg_progress, 1),
@@ -432,9 +410,7 @@ class ParentDashboardService:
                 continue
 
             # Получаем последний платеж из prefetched данных
-            last_payment = (
-                enrollment.all_payments[0] if enrollment.all_payments else None
-            )
+            last_payment = enrollment.all_payments[0] if enrollment.all_payments else None
 
             # Проверяем статус платежа
             payment_status = "no_payment"
@@ -537,9 +513,7 @@ class ParentDashboardService:
         from django.db import transaction as db_transaction
 
         with db_transaction.atomic():
-            logger.info(
-                f"[initiate_payment] Creating payment for enrollment {enrollment.id}"
-            )
+            logger.info(f"[initiate_payment] Creating payment for enrollment {enrollment.id}")
 
             payment = Payment.objects.create(
                 amount=amount,
@@ -586,16 +560,12 @@ class ParentDashboardService:
 
                 # Проверяем наличие ключей перед созданием платежа
                 if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
-                    logger.error(
-                        "YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured"
-                    )
+                    logger.error("YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY not configured")
                     raise ValueError(
                         "Настройки ЮКассы не сконфигурированы. Обратитесь к администратору."
                     )
 
-                logger.info(
-                    f"[initiate_payment] Calling YooKassa API for payment {payment.id}"
-                )
+                logger.info(f"[initiate_payment] Calling YooKassa API for payment {payment.id}")
                 yookassa_payment = create_yookassa_payment(payment, request)
 
                 if yookassa_payment:
@@ -627,9 +597,7 @@ class ParentDashboardService:
 
                     # Обновляем статус SubjectPayment на WAITING_FOR_PAYMENT если получили confirmation_url
                     if payment.confirmation_url:
-                        subject_payment.status = (
-                            SubjectPayment.Status.WAITING_FOR_PAYMENT
-                        )
+                        subject_payment.status = SubjectPayment.Status.WAITING_FOR_PAYMENT
                         subject_payment.save(update_fields=["status", "updated_at"])
                         logger.info(
                             f"[initiate_payment] SubjectPayment {subject_payment.id} status updated to "
@@ -638,9 +606,7 @@ class ParentDashboardService:
                 else:
                     # Если платеж не создан, логируем ошибку
                     # Транзакция откатится автоматически при raise
-                    logger.error(
-                        f"Failed to create YooKassa payment for payment {payment.id}"
-                    )
+                    logger.error(f"Failed to create YooKassa payment for payment {payment.id}")
                     raise ValueError(
                         "Не удалось создать платеж в ЮКассу. Проверьте настройки "
                         "YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY, а также логи сервера для деталей."
@@ -662,8 +628,7 @@ class ParentDashboardService:
             "due_date": due_date.isoformat(),
             "confirmation_url": payment.confirmation_url,
             "return_url": payment.return_url,
-            "payment_url": payment.confirmation_url
-            or payment.return_url,  # Для фронтенда
+            "payment_url": payment.confirmation_url or payment.return_url,  # Для фронтенда
             "subscription_created": False,  # Подписка будет создана после успешной оплаты
         }
 
@@ -758,9 +723,7 @@ class ParentDashboardService:
             )
         return data
 
-    def mark_payment_processed(
-        self, *, enrollment: SubjectEnrollment, status: str, amount
-    ) -> None:
+    def mark_payment_processed(self, *, enrollment: SubjectEnrollment, status: str, amount) -> None:
         """Уведомить родителя об изменении статуса платежа по зачислению."""
         parent = (
             getattr(enrollment.student.student_profile, "parent", None)
@@ -860,12 +823,8 @@ class ParentDashboardService:
                     payments_by_enrollment[payment.enrollment_id] = {
                         "status": payment_status,
                         "amount": str(payment.amount),
-                        "due_date": payment.due_date.isoformat()
-                        if payment.due_date
-                        else None,
-                        "paid_at": payment.paid_at.isoformat()
-                        if payment.paid_at
-                        else None,
+                        "due_date": payment.due_date.isoformat() if payment.due_date else None,
+                        "paid_at": payment.paid_at.isoformat() if payment.paid_at else None,
                         "next_payment_date": None,
                         "enrollment_id": payment.enrollment_id,
                     }
@@ -887,14 +846,10 @@ class ParentDashboardService:
                 student_profile = getattr(child, "student_profile", None)
                 grade = getattr(student_profile, "grade", "") if student_profile else ""
                 goal = getattr(student_profile, "goal", "") if student_profile else ""
-                tutor = (
-                    getattr(student_profile, "tutor", None) if student_profile else None
-                )
+                tutor = getattr(student_profile, "tutor", None) if student_profile else None
                 tutor_name = tutor.get_full_name() if tutor else ""
                 progress_percentage = (
-                    getattr(student_profile, "progress_percentage", 0)
-                    if student_profile
-                    else 0
+                    getattr(student_profile, "progress_percentage", 0) if student_profile else 0
                 )
                 avatar = getattr(child, "avatar", None)
 
@@ -904,7 +859,7 @@ class ParentDashboardService:
 
                 try:
                     # Получаем enrollments из prefetch_related
-                    child_enrollments = getattr(child, "subjectenrollment_set", [])
+                    child_enrollments = getattr(child, "subject_enrollments", [])
                     if hasattr(child_enrollments, "all"):
                         child_enrollments = child_enrollments.all()
                     else:
@@ -925,15 +880,12 @@ class ParentDashboardService:
                             subscription = getattr(enrollment, "subscription", None)
                             if (
                                 subscription
-                                and subscription.status
-                                == SubjectSubscription.Status.ACTIVE
+                                and subscription.status == SubjectSubscription.Status.ACTIVE
                                 and subscription.expires_at >= current_time
                             ):
                                 has_subscription = True
                                 if subscription.next_payment_date:
-                                    next_payment_date = (
-                                        subscription.next_payment_date.isoformat()
-                                    )
+                                    next_payment_date = subscription.next_payment_date.isoformat()
                         except Exception:
                             pass
 
@@ -1022,9 +974,7 @@ class ParentDashboardService:
 
         avg_progress = 0
         if total_progress_list:
-            avg_progress = round(
-                sum(total_progress_list) / max(len(total_progress_list), 1), 1
-            )
+            avg_progress = round(sum(total_progress_list) / max(len(total_progress_list), 1), 1)
 
         result = {
             "parent": {

@@ -507,5 +507,241 @@ class IsParent(BasePermission):
         return request.user.role == User.Role.PARENT
 
 
+class TutorCanViewStudentData(BasePermission):
+    """
+    Тьютор может видеть только данные своих студентов.
+
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+    - Пользователь имеет роль TUTOR или ADMIN/STAFF
+
+    Права по ролям:
+    - Admin (is_staff/is_superuser): может видеть всех студентов
+    - Tutor (role=TUTOR, active): может видеть только своих студентов (через StudentProfile.tutor)
+    - Остальные: запрещено
+
+    Используется для:
+    - GET запросы к профилям студентов
+    - Тьютор видит только студентов назначенных ему
+    """
+
+    def has_permission(self, request, view):
+        """Проверяет что пользователь активен и аутентифицирован"""
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_active
+        )
+
+    def has_object_permission(self, request, view, obj):
+        """Проверяет может ли пользователь видеть конкретного студента"""
+        if not request.user.is_active:
+            return False
+
+        # Админы видят всех
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+
+        # Тьютор может видеть только своих студентов
+        if request.user.role == User.Role.TUTOR:
+            from .models import StudentProfile
+            if isinstance(obj, StudentProfile):
+                return obj.tutor == request.user
+            return False
+
+        return False
+
+
+class TutorCanEditStudent(BasePermission):
+    """
+    Тьютор может редактировать только профили своих студентов.
+
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Объект является StudentProfile
+
+    Права по ролям:
+    - Admin (is_staff/is_superuser): может редактировать любого студента
+    - Tutor (role=TUTOR, active): может редактировать только своих студентов
+    - Все активные: GET доступ
+    - Остальные: запрещено
+
+    Используется для:
+    - PATCH/PUT запросы к StudentProfile
+    - Тьютор не может менять критичные поля (role, is_active)
+    """
+
+    PROTECTED_FIELDS = ["role", "email", "is_active", "is_superuser", "is_staff"]
+
+    def has_permission(self, request, view):
+        """Проверяет глобальные права пользователя"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return request.user.is_active
+
+    def has_object_permission(self, request, view, obj):
+        """Проверяет есть ли права на редактирование студента"""
+        if not request.user.is_active:
+            return False
+
+        # Админы могут всё
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+
+        # Все могут читать
+        if request.method in ["GET", "HEAD", "OPTIONS"]:
+            return True
+
+        from .models import StudentProfile
+        if not isinstance(obj, StudentProfile):
+            return False
+
+        # Тьютор может редактировать только своих студентов
+        if request.user.role == User.Role.TUTOR:
+            if obj.tutor != request.user:
+                return False
+
+            # Проверяем что не пытается менять protected fields
+            if request.method in ["PATCH", "PUT"]:
+                request_data = request.data or {}
+                for field in self.PROTECTED_FIELDS:
+                    if field in request_data:
+                        audit_logger.warning(
+                            f"action=unauthorized_field_change user_id={request.user.id} "
+                            f"user_role=TUTOR student_id={obj.user_id} field={field}"
+                        )
+                        return False
+            return True
+
+        return False
+
+
+class ParentCanViewChild(BasePermission):
+    """
+    Родитель может видеть только данные своего ребенка.
+
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+    - Пользователь имеет роль PARENT или ADMIN/STAFF
+
+    Права по ролям:
+    - Admin (is_staff/is_superuser): может видеть всех студентов
+    - Parent (role=PARENT, active): может видеть только своего ребенка (через StudentProfile.parent)
+    - Остальные: запрещено
+
+    Используется для:
+    - GET запросы к профилям студентов родителем
+    - Родитель видит только своего ребенка
+    """
+
+    def has_permission(self, request, view):
+        """Проверяет что пользователь активен и аутентифицирован"""
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_active
+        )
+
+    def has_object_permission(self, request, view, obj):
+        """Проверяет может ли родитель видеть ребенка"""
+        if not request.user.is_active:
+            return False
+
+        # Админы видят всех
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+
+        # Родитель может видеть только своего ребенка
+        if request.user.role == User.Role.PARENT:
+            from .models import StudentProfile
+            if isinstance(obj, StudentProfile):
+                return obj.parent == request.user
+            return False
+
+        return False
+
+
+class TeacherCanViewAssignedStudents(BasePermission):
+    """
+    Учитель может видеть только студентов которых учит.
+
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+    - Пользователь имеет роль TEACHER или ADMIN/STAFF
+
+    Права по ролям:
+    - Admin (is_staff/is_superuser): может видеть всех студентов
+    - Teacher (role=TEACHER, active): может видеть только своих студентов (через StudentProfile.teacher)
+    - Остальные: запрещено
+
+    Используется для:
+    - GET запросы к профилям студентов учителем
+    - Учитель видит только студентов назначенных ему
+    """
+
+    def has_permission(self, request, view):
+        """Проверяет что пользователь активен и аутентифицирован"""
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_active
+        )
+
+    def has_object_permission(self, request, view, obj):
+        """Проверяет может ли учитель видеть студента"""
+        if not request.user.is_active:
+            return False
+
+        # Админы видят всех
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+
+        # Учитель может видеть только своих студентов
+        if request.user.role == User.Role.TEACHER:
+            from .models import StudentProfile
+            if isinstance(obj, StudentProfile):
+                # Студент должен быть назначен этому учителю
+                return obj.teacher == request.user
+            return False
+
+        return False
+
+
+class IsAdminOrStaffOrTutor(BasePermission):
+    """
+    Разрешение для администраторов, staff пользователей и тьюторов.
+
+    Иерархия ролей:
+    - Admin (is_superuser=True): полный доступ
+    - Staff (is_staff=True): административный доступ
+    - Tutor (role=TUTOR): тьюторский доступ
+
+    Требует:
+    - Пользователь активен (is_active=True)
+    - Пользователь аутентифицирован
+
+    Используется для:
+    - Endpoints требующие admin или tutor уровень доступа
+    - Список студентов, управление назначениями
+    """
+
+    def has_permission(self, request, view) -> bool:
+        """Проверяет глобальные права пользователя"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if not request.user.is_active:
+            return False
+
+        return (
+            request.user.is_superuser
+            or request.user.is_staff
+            or request.user.role == User.Role.TUTOR
+        )
+
+
 # Backward compatibility alias (maps to IsStaffOrAdmin)
 IsAdminUser = IsStaffOrAdmin

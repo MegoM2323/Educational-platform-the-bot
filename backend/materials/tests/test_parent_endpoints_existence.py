@@ -14,7 +14,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 
-from accounts.factories import ParentFactory, StudentFactory
+from accounts.factories import ParentFactory, StudentFactory, TeacherFactory
 from materials.factories import SubjectFactory, SubjectEnrollmentFactory
 
 User = get_user_model()
@@ -32,6 +32,7 @@ def parent(db):
     """Create parent with profile"""
     user = ParentFactory(username="testparent", email="parent@test.com")
     from accounts.models import ParentProfile
+
     ParentProfile.objects.get_or_create(user=user)
     return user
 
@@ -41,6 +42,7 @@ def student(db, parent):
     """Create student belonging to parent"""
     student = StudentFactory(username="teststudent", email="student@test.com")
     from accounts.models import StudentProfile
+
     profile = StudentProfile.objects.get_or_create(user=student)[0]
     profile.parent = parent
     profile.save()
@@ -56,7 +58,7 @@ def subject(db):
 @pytest.fixture
 def teacher(db):
     """Create test teacher"""
-    return StudentFactory(username="teacher1", email="teacher@test.com")
+    return TeacherFactory(username="teacher1", email="teacher@test.com")
 
 
 @pytest.fixture
@@ -169,7 +171,9 @@ class TestParentEndpointsCorrectData:
             assert "id" in child
             assert "name" in child or "full_name" in child
 
-    def test_child_subjects_returns_array(self, api_client, parent, parent_token, student, enrollment):
+    def test_child_subjects_returns_array(
+        self, api_client, parent, parent_token, student, enrollment
+    ):
         """Child subjects should return array"""
         api_client.credentials(HTTP_AUTHORIZATION=f"Token {parent_token.key}")
         url = f"/api/materials/parent/children/{student.id}/subjects/"
@@ -199,7 +203,9 @@ class TestParentEndpointsCorrectData:
         data = response.data
         assert isinstance(data, list)
 
-    def test_initiate_payment_returns_payment_data(self, api_client, parent, parent_token, student, enrollment):
+    def test_initiate_payment_returns_payment_data(
+        self, api_client, parent, parent_token, student, enrollment
+    ):
         """Initiate payment should return payment data with keys"""
         api_client.credentials(HTTP_AUTHORIZATION=f"Token {parent_token.key}")
         url = f"/api/materials/parent/children/{student.id}/payment/{enrollment.id}/"
@@ -211,7 +217,9 @@ class TestParentEndpointsCorrectData:
         # Should have either payment_id, id, or similar
         assert any(k in response_data for k in ["id", "payment_id", "amount", "status"])
 
-    def test_cancel_subscription_returns_success(self, api_client, parent, parent_token, student, enrollment):
+    def test_cancel_subscription_returns_success(
+        self, api_client, parent, parent_token, student, enrollment
+    ):
         """Cancel subscription should return success message"""
         api_client.credentials(HTTP_AUTHORIZATION=f"Token {parent_token.key}")
 

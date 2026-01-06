@@ -55,15 +55,10 @@ for env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
 if saved_environment is not None:
     os.environ["ENVIRONMENT"] = saved_environment
 
-# Initialize Sentry for error tracking (MUST be before any imports of other modules)
-try:
-    from config.sentry import init_sentry
-
-    init_sentry(sys.modules[__name__])
-except Exception as e:
-    import sys
-
-    print(f"[Warning] Failed to initialize Sentry: {e}", file=sys.stderr)
+# IMPORTANT: Sentry initialization is DEFERRED to wsgi.py, asgi.py, and manage.py
+# This is necessary because Sentry's DjangoIntegration requires Django to be fully initialized,
+# including AppRegistry. Early init in settings.py would fail or not capture models properly.
+# The init_sentry() function is available for manual initialization if needed.
 
 # (Удалено) Опасный ранний импорт модулей приложений.
 # Ранее здесь создавались двусторонние алиасы импортов для `backend.*` и без префикса,
@@ -173,7 +168,74 @@ if not DEBUG:
 
 # Application definition
 
+
+def _validate_installed_apps_order():
+    """
+    Validate INSTALLED_APPS order matches dependency graph.
+
+    Raises ImproperlyConfigured if apps are in wrong order relative to their dependencies.
+    """
+    # Dependency map: app -> list of required apps it depends on
+    DEPS = {
+        "scheduling": ["materials"],
+        "invoices": ["materials", "payments"],
+        "assignments": ["materials"],
+    }
+
+    positions = {app: idx for idx, app in enumerate(INSTALLED_APPS)}
+
+    for app, dependencies in DEPS.items():
+        if app not in positions:
+            continue
+        app_pos = positions[app]
+        for dep in dependencies:
+            if dep not in positions:
+                raise ImproperlyConfigured(
+                    f"App '{app}' depends on '{dep}', but '{dep}' not in INSTALLED_APPS"
+                )
+            dep_pos = positions[dep]
+            if dep_pos > app_pos:
+                raise ImproperlyConfigured(
+                    f"INSTALLED_APPS order error: '{dep}' (pos {dep_pos}) must come "
+                    f"before '{app}' (pos {app_pos}). App '{app}' depends on '{dep}'."
+                )
+
+
+# CRITICAL: INSTALLED_APPS dependency order matters for Django model registration
+# Apps are organized by dependency levels (do NOT reorder without understanding implications):
+#
+# LEVEL 1: Django core & third-party (no dependencies)
+#   - All django.contrib.* modules
+#   - Third-party libraries (rest_framework, channels, etc.)
+#
+# LEVEL 2: Custom core app (foundation with no model dependencies)
+#   - 'core' - provides base utilities, settings, middleware
+#
+# LEVEL 3: Data model apps (provide base models for other apps)
+#   - 'materials' - defines Subject, Material, Category models
+#   - 'accounts' - defines User-related models
+#   - 'payments' - defines Payment-related models
+#
+# LEVEL 4: Dependent apps (import and extend models from Level 3)
+#   - 'scheduling' - DEPENDS ON: materials.Subject
+#   - 'assignments' - DEPENDS ON: materials.* models
+#   - 'invoices' - DEPENDS ON: materials.*, payments.* models
+#
+# LEVEL 5: Other apps (independent or have limited dependencies)
+#   - 'chat', 'reports', 'notifications', 'applications', 'knowledge_graph'
+#
+# VALIDATION:
+#   Function _validate_installed_apps_order() runs on startup and ensures all dependencies
+#   are placed correctly. If you move apps, make sure dependent apps come AFTER their deps.
+#
+# WHEN ADDING NEW APPS:
+#   1. Identify what models it imports/depends on
+#   2. Place it AFTER all its dependency apps
+#   3. Add entry to DEPS dict in _validate_installed_apps_order()
+#   4. Run tests to verify: python manage.py makemigrations --dry-run
+
 _BASE_INSTALLED_APPS = [
+    # Django core & third-party (no custom dependencies)
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -186,22 +248,35 @@ _BASE_INSTALLED_APPS = [
     "corsheaders",
     "django_filters",
     "channels",  # Django Channels для WebSocket
+    # Custom: Core app (foundation)
     "core",
+    # Custom: Data model apps (dependencies for apps below)
     "materials",
     "accounts",
-    "scheduling",  # Система бронирования расписания (должна быть ПОСЛЕ materials, т.к. импортирует Subject)
-    "assignments",
+    "payments",
+    # Custom: Dependent apps (require models from data model apps)
+    "scheduling",  # System for booking lessons (must be AFTER materials - imports Subject model)
+    "assignments",  # Requires materials models
+    "invoices",  # System for billing (must be AFTER materials and payments - imports their models)
+    # Custom: Other apps
     "chat",
     "reports",
     "notifications",
-    "payments",
-    "invoices",  # Система выставления счетов (должна быть ПОСЛЕ materials и payments)
     "applications",
-    "knowledge_graph",  # Система графов знаний для обучения
+    "knowledge_graph",  # Knowledge graphs for learning
 ]
 
 # Use all apps in all environments
 INSTALLED_APPS = _BASE_INSTALLED_APPS
+
+# Validate INSTALLED_APPS order on startup
+try:
+    _validate_installed_apps_order()
+except ImproperlyConfigured as e:
+    import sys
+
+    sys.stderr.write(f"ERROR: {e}\n")
+    raise
 
 # Add daphne only if not in test mode (to avoid Twisted SSL issues during testing)
 # ВРЕМЕННО ОТКЛЮЧЕНО: проблема совместимости pyOpenSSL 25.3.0 с Python 3.13

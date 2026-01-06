@@ -20,6 +20,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 # SQLAlchemy интеграция опциональна
 try:
     from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
     HAS_SQLALCHEMY = True
 except (ImportError, Exception):
     # Может выбросить DidNotEnable если sqlalchemy не установлен
@@ -41,39 +42,38 @@ def init_sentry(settings):
         SENTRY_PROFILES_SAMPLE_RATE: Profiling sample rate (0.0-1.0)
     """
 
-    sentry_dsn = os.getenv('SENTRY_DSN')
-    environment = os.getenv('ENVIRONMENT', 'production').lower()
-    debug = os.getenv('DEBUG', 'False').lower() == 'true'
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    environment = os.getenv("ENVIRONMENT", "production").lower()
+    debug = os.getenv("DEBUG", "False").lower() == "true"
 
     # Skip Sentry initialization in test environment or if DSN is not configured
-    if environment == 'test' or not sentry_dsn:
+    if environment == "test" or not sentry_dsn:
         return
 
     # Determine trace sample rate based on environment
     # Production: 10%, Staging: 50%, Development: 100%
-    traces_sample_rate = float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', {
-        'development': '1.0',
-        'staging': '0.5',
-        'production': '0.1'
-    }.get(environment, '0.1')))
+    traces_sample_rate = float(
+        os.getenv(
+            "SENTRY_TRACES_SAMPLE_RATE",
+            {"development": "1.0", "staging": "0.5", "production": "0.1"}.get(environment, "0.1"),
+        )
+    )
 
     # Profiling sample rate (subset of traces)
-    profiles_sample_rate = float(os.getenv('SENTRY_PROFILES_SAMPLE_RATE', {
-        'development': '1.0',
-        'staging': '0.1',
-        'production': '0.01'
-    }.get(environment, '0.01')))
+    profiles_sample_rate = float(
+        os.getenv(
+            "SENTRY_PROFILES_SAMPLE_RATE",
+            {"development": "1.0", "staging": "0.1", "production": "0.01"}.get(environment, "0.01"),
+        )
+    )
 
     sentry_sdk.init(
         dsn=sentry_dsn,
-
         # Environment separation
         environment=environment,
         debug=debug,
-
         # Release identification for source maps
-        release=os.getenv('SENTRY_RELEASE', 'unknown'),
-
+        release=os.getenv("SENTRY_RELEASE", "unknown"),
         # Integrations
         integrations=[
             DjangoIntegration(
@@ -97,47 +97,46 @@ def init_sentry(settings):
                 # Send logs that are ERROR and above to Sentry
                 event_level=40,  # logging.ERROR
             ),
-        ] + ([SqlalchemyIntegration()] if HAS_SQLALCHEMY else []),
-
+        ]
+        + ([SqlalchemyIntegration()] if HAS_SQLALCHEMY else []),
         # Performance monitoring
         traces_sample_rate=traces_sample_rate,
         profiles_sample_rate=profiles_sample_rate,
-
         # Source maps configuration
         # Sentry can match minified source maps to original source
         include_source_context=True,
-
         # Exception information
         attach_stacktrace=True,
-
         # Request body capture for debugging
-        request_bodies='small',  # Capture small request bodies
-
+        request_bodies="small",  # Capture small request bodies
         # Sensitive data filtering
         before_send=_before_send,
         before_send_transaction=_before_send_transaction,
-
         # Error filtering - ignore certain errors
         ignore_errors=[
             # Ignore common browser-related errors
-            'NetworkError',
-            'TimeoutError',
+            "NetworkError",
+            "TimeoutError",
             # Ignore specific Django exceptions
-            'django.http.response.Http404',
+            "django.http.response.Http404",
         ],
-
         # URL patterns to ignore
         ignore_transactions=[
             # Health check endpoints
-            r'^GET /api/system/health/',
-            r'^GET /api/system/readiness/',
+            r"^GET /api/system/health/",
+            r"^GET /api/system/readiness/",
             # Static files
-            r'^GET /static/',
-            r'^GET /assets/',
+            r"^GET /static/",
+            r"^GET /assets/",
             # Admin actions that don't need monitoring
-            r'^GET /admin/',
+            r"^GET /admin/",
         ],
     )
+
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"[Sentry] Initialized successfully for environment: {environment}")
 
 
 def _before_send(event, hint):
@@ -157,40 +156,40 @@ def _before_send(event, hint):
     """
 
     # Get exception info if available
-    if 'exception' in event:
-        exc_info = event['exception']
-        if isinstance(exc_info, dict) and 'values' in exc_info:
-            for exception in exc_info['values']:
+    if "exception" in event:
+        exc_info = event["exception"]
+        if isinstance(exc_info, dict) and "values" in exc_info:
+            for exception in exc_info["values"]:
                 # Skip rate limit errors (429) - normal in high-load
-                if exception.get('type') == 'Http429':
+                if exception.get("type") == "Http429":
                     return None
 
                 # Skip connection errors that are transient
-                if exception.get('type') in ['ConnectionError', 'TimeoutError']:
+                if exception.get("type") in ["ConnectionError", "TimeoutError"]:
                     # Only send if there's user context (actual user impact)
-                    if not event.get('user'):
+                    if not event.get("user"):
                         return None
 
     # Redact sensitive headers
-    if 'request' in event and 'headers' in event['request']:
-        headers = event['request']['headers']
+    if "request" in event and "headers" in event["request"]:
+        headers = event["request"]["headers"]
 
         # List of sensitive header patterns
         sensitive_patterns = [
-            'authorization',
-            'cookie',
-            'x-token',
-            'x-api-key',
-            'password',
+            "authorization",
+            "cookie",
+            "x-token",
+            "x-api-key",
+            "password",
         ]
 
         for pattern in sensitive_patterns:
             for key in list(headers.keys()):
                 if pattern.lower() in key.lower():
-                    headers[key] = '[REDACTED]'
+                    headers[key] = "[REDACTED]"
 
     # Add fingerprinting for error grouping
-    if 'exception' in event:
+    if "exception" in event:
         _add_fingerprinting(event)
 
     return event
@@ -213,24 +212,25 @@ def _before_send_transaction(event, hint):
     """
 
     # Sample more aggressively for successful requests
-    if event.get('status') == 'ok':
+    if event.get("status") == "ok":
         import random
+
         # Sample 50% of successful transactions in production
-        if os.getenv('ENVIRONMENT', 'production').lower() == 'production':
+        if os.getenv("ENVIRONMENT", "production").lower() == "production":
             if random.random() > 0.5:
                 return None
 
     # Add performance tags
-    if 'measurements' in event:
-        measurements = event['measurements']
+    if "measurements" in event:
+        measurements = event["measurements"]
 
         # Tag slow transactions
-        if 'duration' in measurements:
-            duration = measurements['duration']['value']
+        if "duration" in measurements:
+            duration = measurements["duration"]["value"]
             if duration > 2000:  # > 2 seconds
-                if 'tags' not in event:
-                    event['tags'] = {}
-                event['tags']['performance_issue'] = 'slow_transaction'
+                if "tags" not in event:
+                    event["tags"] = {}
+                event["tags"]["performance_issue"] = "slow_transaction"
 
     return event
 
@@ -246,73 +246,72 @@ def _add_fingerprinting(event):
         event: Sentry event dictionary (modified in-place)
     """
 
-    if 'exception' not in event or 'values' not in event['exception']:
+    if "exception" not in event or "values" not in event["exception"]:
         return
 
     fingerprint = []
-    exception = event['exception']['values'][0] if event['exception']['values'] else None
+    exception = event["exception"]["values"][0] if event["exception"]["values"] else None
 
     if not exception:
         return
 
-    exc_type = exception.get('type', 'Unknown')
-    exc_module = exception.get('module', '')
+    exc_type = exception.get("type", "Unknown")
+    exc_module = exception.get("module", "")
 
     # Group by exception type and module
     fingerprint.append(exc_type)
 
     # Add module for context
     if exc_module:
-        fingerprint.append(exc_module.split('.')[-1])  # Last part of module
+        fingerprint.append(exc_module.split(".")[-1])  # Last part of module
 
     # Special handling for common exceptions
-    if exc_type == 'ValidationError':
+    if exc_type == "ValidationError":
         # Group validation errors by field (if available)
-        if 'value' in exception and exception['value']:
-            value = exception['value']
-            if 'message' in value:
+        if "value" in exception and exception["value"]:
+            value = exception["value"]
+            if "message" in value:
                 # Extract field name if present
-                message = value['message']
-                if '.' in message:
-                    field = message.split('.')[0]
+                message = value["message"]
+                if "." in message:
+                    field = message.split(".")[0]
                     fingerprint.append(field)
 
-    elif exc_type == 'IntegrityError':
+    elif exc_type == "IntegrityError":
         # Group database constraint violations by constraint
-        if 'value' in exception:
-            value = exception['value']
-            if 'UNIQUE constraint' in str(value):
-                fingerprint.append('unique_constraint')
-            elif 'FOREIGN KEY constraint' in str(value):
-                fingerprint.append('foreign_key_constraint')
+        if "value" in exception:
+            value = exception["value"]
+            if "UNIQUE constraint" in str(value):
+                fingerprint.append("unique_constraint")
+            elif "FOREIGN KEY constraint" in str(value):
+                fingerprint.append("foreign_key_constraint")
 
-    elif exc_type == 'Http404' or exc_type == 'NotFound':
+    elif exc_type == "Http404" or exc_type == "NotFound":
         # Group 404s by path pattern, not exact path
-        if 'request' in event and 'url' in event['request']:
-            url = event['request']['url']
+        if "request" in event and "url" in event["request"]:
+            url = event["request"]["url"]
             # Use path without ID numbers
-            path_parts = url.split('/')
-            normalized_path = '/'.join(
-                part if not part.isdigit() else '{id}'
-                for part in path_parts
+            path_parts = url.split("/")
+            normalized_path = "/".join(
+                part if not part.isdigit() else "{id}" for part in path_parts
             )
             fingerprint.append(normalized_path)
 
-    elif exc_type == 'PermissionDenied' or exc_type == 'Http403':
+    elif exc_type == "PermissionDenied" or exc_type == "Http403":
         # Group by endpoint and method
-        if 'request' in event:
-            fingerprint.append(event['request'].get('method', 'UNKNOWN'))
-            if 'url' in event['request']:
-                url = event['request']['url']
-                path = url.split('?')[0]  # Remove query string
-                fingerprint.append(path.split('/')[-1])  # Last path segment
+        if "request" in event:
+            fingerprint.append(event["request"].get("method", "UNKNOWN"))
+            if "url" in event["request"]:
+                url = event["request"]["url"]
+                path = url.split("?")[0]  # Remove query string
+                fingerprint.append(path.split("/")[-1])  # Last path segment
 
     # Only set custom fingerprint if we have useful grouping info
     if len(fingerprint) > 1:
-        event['fingerprint'] = fingerprint
+        event["fingerprint"] = fingerprint
     else:
         # Use default grouping for simple cases
-        event['fingerprint'] = ['{{ default }}']
+        event["fingerprint"] = ["{{ default }}"]
 
 
 def attach_user_context(user_id, email=None, username=None, role=None, metadata=None):
@@ -345,28 +344,28 @@ def attach_user_context(user_id, email=None, username=None, role=None, metadata=
         return
 
     context = {
-        'id': str(user_id),
+        "id": str(user_id),
     }
 
     if email:
-        context['email'] = email
+        context["email"] = email
 
     if username:
-        context['username'] = username
+        context["username"] = username
 
     if role:
-        context['role'] = role
+        context["role"] = role
 
     # Add additional metadata
     if metadata:
-        if not 'metadata' in context:
-            context['other'] = {}
-        context['other'].update(metadata)
+        if not "metadata" in context:
+            context["other"] = {}
+        context["other"].update(metadata)
 
     sentry_sdk.set_user(context)
 
 
-def add_breadcrumb(message, category='default', level='info', data=None):
+def add_breadcrumb(message, category="default", level="info", data=None):
     """
     Add a breadcrumb to track user actions before an error occurs.
 
@@ -385,7 +384,7 @@ def add_breadcrumb(message, category='default', level='info', data=None):
         data: Additional context data dictionary
     """
 
-    breadcrumb_data = {'message': message}
+    breadcrumb_data = {"message": message}
     if data:
         breadcrumb_data.update(data)
 
@@ -393,15 +392,15 @@ def add_breadcrumb(message, category='default', level='info', data=None):
         message=message,
         level=level,
         breadcrumb={
-            'message': message,
-            'category': category,
-            'level': level,
-            'data': data or {},
-        }
+            "message": message,
+            "category": category,
+            "level": level,
+            "data": data or {},
+        },
     )
 
 
-def capture_exception(exception, level='error', user_id=None, extra_data=None):
+def capture_exception(exception, level="error", user_id=None, extra_data=None):
     """
     Explicitly capture an exception with additional context.
 
@@ -432,7 +431,7 @@ def capture_exception(exception, level='error', user_id=None, extra_data=None):
         sentry_sdk.capture_exception(exception)
 
 
-def capture_message(message, level='info', extra_data=None):
+def capture_message(message, level="info", extra_data=None):
     """
     Capture a custom message in Sentry.
 
@@ -500,7 +499,11 @@ class SentryMiddleware:
         # Attach user context if authenticated
         if request.user and request.user.is_authenticated:
             try:
-                role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+                role = (
+                    getattr(request.user.profile, "role", None)
+                    if hasattr(request.user, "profile")
+                    else None
+                )
 
                 attach_user_context(
                     user_id=request.user.id,
@@ -508,9 +511,9 @@ class SentryMiddleware:
                     username=request.user.username,
                     role=role,
                     metadata={
-                        'session_id': request.session.session_key,
-                        'ip_address': self.get_client_ip(request),
-                    }
+                        "session_id": request.session.session_key,
+                        "ip_address": self.get_client_ip(request),
+                    },
                 )
             except Exception:
                 # Silently ignore errors in middleware
@@ -522,20 +525,20 @@ class SentryMiddleware:
     @staticmethod
     def get_client_ip(request):
         """Get client IP from request headers."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(",")[0]
         else:
-            ip = request.META.get('REMOTE_ADDR')
+            ip = request.META.get("REMOTE_ADDR")
         return ip
 
 
 __all__ = [
-    'init_sentry',
-    'attach_user_context',
-    'add_breadcrumb',
-    'capture_exception',
-    'capture_message',
-    'set_error_tag',
-    'SentryMiddleware',
+    "init_sentry",
+    "attach_user_context",
+    "add_breadcrumb",
+    "capture_exception",
+    "capture_message",
+    "set_error_tag",
+    "SentryMiddleware",
 ]

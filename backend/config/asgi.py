@@ -1,6 +1,9 @@
 import os
+import sys
+
 from django.core.asgi import get_asgi_application
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 # Initialize Django ASGI application early to ensure the AppRegistry
 # is populated before importing code that may import ORM models.
@@ -25,13 +28,28 @@ websocket_urlpatterns = (
     + notifications_websocket_urlpatterns
 )
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket": AllowedHostsOriginValidator(
-        TokenAuthMiddleware(  # Extract token from query parameter
-            AuthMiddlewareStack(  # Fallback to session auth if no token
-                URLRouter(websocket_urlpatterns)
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        "websocket": AllowedHostsOriginValidator(
+            TokenAuthMiddleware(  # Extract token from query parameter
+                AuthMiddlewareStack(  # Fallback to session auth if no token
+                    URLRouter(websocket_urlpatterns)
+                )
             )
-        )
-    ),
-})
+        ),
+    }
+)
+
+try:
+    from config.sentry import init_sentry
+    import logging
+
+    logger = logging.getLogger(__name__)
+    init_sentry(sys.modules["config.settings"])
+    logger.info("[ASGI] Sentry initialized successfully")
+except Exception as e:
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.error(f"[ASGI] Sentry initialization failed: {e}", exc_info=True)

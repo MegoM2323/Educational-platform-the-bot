@@ -266,12 +266,16 @@ def _get_database_config() -> dict:
         ImproperlyConfigured: Если параметры БД не заданы
     """
     # Настройки таймаутов для предотвращения зависания
-    connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "60"))
+    # Database: 30s (fail-fast for broken connections)
+    # Nginx: 120s (API proxy_read_timeout)
+    # Frontend: 300s (client timeout)
+    connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "30"))
     sslmode = os.getenv("DB_SSLMODE", "require")
 
-    # База данных опций с таймаутами
+    # База данных опций с таймаутами и проверками здоровья
     db_options = {
         "connect_timeout": str(connect_timeout),
+        "CONN_HEALTH_CHECKS": True,
     }
 
     # Добавляем SSL режим если указан
@@ -338,7 +342,7 @@ try:
 
         def get_new_connection_with_timeout(self, conn_params):
             """Обертка для установки таймаута подключения"""
-            connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "10"))
+            connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "30"))
             # Устанавливаем таймаут в параметрах подключения psycopg2
             if "connect_timeout" not in conn_params:
                 conn_params["connect_timeout"] = connect_timeout
@@ -508,8 +512,11 @@ else:
     MEDIA_ROOT = BASE_DIR / "media"
 
 # File Upload Configuration
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+MAX_FILE_SIZE = (
+    104857600  # 100 MB (100 * 1024 * 1024) - unified across nginx and Django
+)
+FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_FILE_SIZE
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_FILE_SIZE
 
 # Email Backend Configuration
 # For test environment use in-memory backend (does not send actual emails)
@@ -810,8 +817,12 @@ if USE_REDIS_CHANNELS:
                         int(os.getenv("REDIS_PORT", "6379")),
                     )
                 ],
-                "capacity": 1500,
-                "expiry": 10,
+                "capacity": 5000,
+                "expiry": 60,
+                "connection_pool_kwargs": {
+                    "max_connections": 50,
+                    "socket_keepalive": True,
+                },
             },
         },
     }

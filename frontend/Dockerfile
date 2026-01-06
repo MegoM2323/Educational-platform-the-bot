@@ -17,9 +17,10 @@ FROM node:22-slim AS builder
 # Set working directory
 WORKDIR /build
 
-# Copy package files for dependency caching
+# Copy package files and TypeScript configs for dependency caching
 # Note: build context is project root, so we need frontend/ prefix
 COPY frontend/package.json frontend/package-lock.json* ./
+COPY frontend/tsconfig*.json ./
 
 # Install dependencies with optimized flags
 # Use --legacy-peer-deps for compatibility with all dependencies

@@ -130,7 +130,7 @@ class UserSerializer(serializers.ModelSerializer):
     Сериализатор для отображения пользователя
     """
 
-    role_display = serializers.CharField(source="get_role_display", read_only=True)
+    role_display = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -151,6 +151,11 @@ class UserSerializer(serializers.ModelSerializer):
             "full_name",
         )
         read_only_fields = ("id", "role", "date_joined", "is_verified", "is_staff")
+
+    def get_role_display(self, obj):
+        if obj.is_superuser:
+            return "Администратор"
+        return obj.get_role_display()
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
@@ -891,7 +896,7 @@ class UserPublicSerializer(serializers.ModelSerializer):
     Minimal serializer for User - excludes email for privacy
     """
 
-    role_display = serializers.CharField(source="get_role_display", read_only=True)
+    role_display = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -907,6 +912,11 @@ class UserPublicSerializer(serializers.ModelSerializer):
             "full_name",
         )
         read_only_fields = fields
+
+    def get_role_display(self, obj):
+        if obj.is_superuser:
+            return "Администратор"
+        return obj.get_role_display()
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()

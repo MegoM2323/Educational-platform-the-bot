@@ -1,0 +1,7 @@
+[ERROR] 2026-01-06 21:00:04 django.request log_message:249 - Internal Server Error: /api/auth/login/
+[ERROR] 2026-01-06 21:02:21 django.request log_message:249 - Internal Server Error: /api/auth/login/
+[ERROR] 2026-01-06 21:02:21 django.request log_message:249 - Internal Server Error: /api/auth/login/
+[ERROR] 2026-01-06 21:02:21 django.request log_message:249 - Internal Server Error: /api/auth/login/
+[ERROR] 2026-01-06 21:02:21 django.request log_message:249 - Internal Server Error: /api/auth/login/
+[ERROR] 2026-01-06 21:03:46 django.request log_message:249 - Internal Server Error: /api/auth/login/
+[ERROR] 2026-01-06 21:03:55 django.request log_message:249 - Internal Server Error: /api/auth/login/

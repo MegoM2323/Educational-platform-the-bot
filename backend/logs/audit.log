@@ -1,0 +1,412 @@
+[AUDIT] 2026-01-06 21:00:04 [login] Unexpected error - ip: 127.0.0.1, error: JSON parse error - Invalid \escape: line 1 column 52 (char 51), timestamp: 2026-01-06 21:00:04
+[AUDIT] 2026-01-06 21:00:04 [login] Traceback: Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 66, in parse
+    return json.load(decoded_stream, parse_constant=parse_constant)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/utils/json.py", line 31, in load
+    return json.load(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 359, in loads
+    return cls(**kw).decode(s)
+           ~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Invalid \escape: line 1 column 52 (char 51)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py", line 67, in login_view
+    serializer = UserLoginSerializer(data=request.data)
+                                          ^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 221, in data
+    self._load_data_and_files()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 284, in _load_data_and_files
+    self._data, self._files = self._parse()
+                              ~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 359, in _parse
+    parsed = parser.parse(stream, media_type, self.parser_context)
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 68, in parse
+    raise ParseError('JSON parse error - %s' % str(exc))
+rest_framework.exceptions.ParseError: JSON parse error - Invalid \escape: line 1 column 52 (char 51)
+
+[AUDIT] 2026-01-06 21:02:16 [login] VALIDATION_ERROR - reason: unknown, ip: 127.0.0.1, timestamp: 2026-01-06 21:02:16
+[AUDIT] 2026-01-06 21:02:21 [login] Unexpected error - ip: 127.0.0.1, error: JSON parse error - Invalid \escape: line 1 column 55 (char 54), timestamp: 2026-01-06 21:02:21
+[AUDIT] 2026-01-06 21:02:21 [login] Traceback: Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 66, in parse
+    return json.load(decoded_stream, parse_constant=parse_constant)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/utils/json.py", line 31, in load
+    return json.load(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 359, in loads
+    return cls(**kw).decode(s)
+           ~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Invalid \escape: line 1 column 55 (char 54)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py", line 67, in login_view
+    serializer = UserLoginSerializer(data=request.data)
+                                          ^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 221, in data
+    self._load_data_and_files()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 284, in _load_data_and_files
+    self._data, self._files = self._parse()
+                              ~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 359, in _parse
+    parsed = parser.parse(stream, media_type, self.parser_context)
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 68, in parse
+    raise ParseError('JSON parse error - %s' % str(exc))
+rest_framework.exceptions.ParseError: JSON parse error - Invalid \escape: line 1 column 55 (char 54)
+
+[AUDIT] 2026-01-06 21:02:21 [login] Unexpected error - ip: 127.0.0.1, error: JSON parse error - Invalid \escape: line 1 column 54 (char 53), timestamp: 2026-01-06 21:02:21
+[AUDIT] 2026-01-06 21:02:21 [login] Traceback: Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 66, in parse
+    return json.load(decoded_stream, parse_constant=parse_constant)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/utils/json.py", line 31, in load
+    return json.load(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 359, in loads
+    return cls(**kw).decode(s)
+           ~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Invalid \escape: line 1 column 54 (char 53)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py", line 67, in login_view
+    serializer = UserLoginSerializer(data=request.data)
+                                          ^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 221, in data
+    self._load_data_and_files()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 284, in _load_data_and_files
+    self._data, self._files = self._parse()
+                              ~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 359, in _parse
+    parsed = parser.parse(stream, media_type, self.parser_context)
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 68, in parse
+    raise ParseError('JSON parse error - %s' % str(exc))
+rest_framework.exceptions.ParseError: JSON parse error - Invalid \escape: line 1 column 54 (char 53)
+
+[AUDIT] 2026-01-06 21:02:21 [login] Unexpected error - ip: 127.0.0.1, error: JSON parse error - Invalid \escape: line 1 column 55 (char 54), timestamp: 2026-01-06 21:02:21
+[AUDIT] 2026-01-06 21:02:21 [login] Traceback: Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 66, in parse
+    return json.load(decoded_stream, parse_constant=parse_constant)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/utils/json.py", line 31, in load
+    return json.load(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 359, in loads
+    return cls(**kw).decode(s)
+           ~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Invalid \escape: line 1 column 55 (char 54)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py", line 67, in login_view
+    serializer = UserLoginSerializer(data=request.data)
+                                          ^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 221, in data
+    self._load_data_and_files()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 284, in _load_data_and_files
+    self._data, self._files = self._parse()
+                              ~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 359, in _parse
+    parsed = parser.parse(stream, media_type, self.parser_context)
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 68, in parse
+    raise ParseError('JSON parse error - %s' % str(exc))
+rest_framework.exceptions.ParseError: JSON parse error - Invalid \escape: line 1 column 55 (char 54)
+
+[AUDIT] 2026-01-06 21:02:21 [login] Unexpected error - ip: 127.0.0.1, error: JSON parse error - Invalid \escape: line 1 column 53 (char 52), timestamp: 2026-01-06 21:02:21
+[AUDIT] 2026-01-06 21:02:21 [login] Traceback: Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 66, in parse
+    return json.load(decoded_stream, parse_constant=parse_constant)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/utils/json.py", line 31, in load
+    return json.load(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 359, in loads
+    return cls(**kw).decode(s)
+           ~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Invalid \escape: line 1 column 53 (char 52)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py", line 67, in login_view
+    serializer = UserLoginSerializer(data=request.data)
+                                          ^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 221, in data
+    self._load_data_and_files()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 284, in _load_data_and_files
+    self._data, self._files = self._parse()
+                              ~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 359, in _parse
+    parsed = parser.parse(stream, media_type, self.parser_context)
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 68, in parse
+    raise ParseError('JSON parse error - %s' % str(exc))
+rest_framework.exceptions.ParseError: JSON parse error - Invalid \escape: line 1 column 53 (char 52)
+
+[AUDIT] 2026-01-06 21:03:02 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:02
+[AUDIT] 2026-01-06 21:03:02 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:02
+[AUDIT] 2026-01-06 21:03:11 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:11
+[AUDIT] 2026-01-06 21:03:11 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:11
+[AUDIT] 2026-01-06 21:03:11 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:11
+[AUDIT] 2026-01-06 21:03:11 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:11
+[AUDIT] 2026-01-06 21:03:11 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:11
+[AUDIT] 2026-01-06 21:03:12 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:11
+[AUDIT] 2026-01-06 21:03:12 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:12
+[AUDIT] 2026-01-06 21:03:12 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:12
+[AUDIT] 2026-01-06 21:03:46 [login] Unexpected error - ip: 127.0.0.1, error: JSON parse error - Invalid \escape: line 1 column 52 (char 51), timestamp: 2026-01-06 21:03:46
+[AUDIT] 2026-01-06 21:03:46 [login] Traceback: Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 66, in parse
+    return json.load(decoded_stream, parse_constant=parse_constant)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/utils/json.py", line 31, in load
+    return json.load(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 359, in loads
+    return cls(**kw).decode(s)
+           ~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Invalid \escape: line 1 column 52 (char 51)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py", line 67, in login_view
+    serializer = UserLoginSerializer(data=request.data)
+                                          ^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 221, in data
+    self._load_data_and_files()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 284, in _load_data_and_files
+    self._data, self._files = self._parse()
+                              ~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 359, in _parse
+    parsed = parser.parse(stream, media_type, self.parser_context)
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 68, in parse
+    raise ParseError('JSON parse error - %s' % str(exc))
+rest_framework.exceptions.ParseError: JSON parse error - Invalid \escape: line 1 column 52 (char 51)
+
+[AUDIT] 2026-01-06 21:03:55 [login] Unexpected error - ip: 127.0.0.1, error: JSON parse error - Invalid \escape: line 1 column 52 (char 51), timestamp: 2026-01-06 21:03:55
+[AUDIT] 2026-01-06 21:03:55 [login] Traceback: Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 66, in parse
+    return json.load(decoded_stream, parse_constant=parse_constant)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/utils/json.py", line 31, in load
+    return json.load(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 359, in loads
+    return cls(**kw).decode(s)
+           ~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Invalid \escape: line 1 column 52 (char 51)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/views.py", line 67, in login_view
+    serializer = UserLoginSerializer(data=request.data)
+                                          ^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 221, in data
+    self._load_data_and_files()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 284, in _load_data_and_files
+    self._data, self._files = self._parse()
+                              ~~~~~~~~~~~^^
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/request.py", line 359, in _parse
+    parsed = parser.parse(stream, media_type, self.parser_context)
+  File "/home/mego/Python Projects/THE_BOT_platform/venv/lib/python3.13/site-packages/rest_framework/parsers.py", line 68, in parse
+    raise ParseError('JSON parse error - %s' % str(exc))
+rest_framework.exceptions.ParseError: JSON parse error - Invalid \escape: line 1 column 52 (char 51)
+
+[AUDIT] 2026-01-06 21:03:55 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:55
+[AUDIT] 2026-01-06 21:03:55 [login] FAILED - email: student@test.com, reason: invalid_credentials, ip: 127.0.0.1, timestamp: 2026-01-06 21:03:55
+[AUDIT] 2026-01-06 21:04:01 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:01
+[AUDIT] 2026-01-06 21:04:01 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:01
+[AUDIT] 2026-01-06 21:04:01 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:01
+[AUDIT] 2026-01-06 21:04:02 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:01
+[AUDIT] 2026-01-06 21:04:33 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:33
+[AUDIT] 2026-01-06 21:04:33 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:33
+[AUDIT] 2026-01-06 21:04:33 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:33
+[AUDIT] 2026-01-06 21:04:33 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:33
+[AUDIT] 2026-01-06 21:04:34 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:34
+[AUDIT] 2026-01-06 21:04:35 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:34
+[AUDIT] 2026-01-06 21:04:35 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:35
+[AUDIT] 2026-01-06 21:04:35 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:35
+[AUDIT] 2026-01-06 21:04:36 [login] Attempt - identifier: teacher@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:36
+[AUDIT] 2026-01-06 21:04:37 [login] SUCCESS - email: teacher@test.com, role: teacher, ip: 127.0.0.1, timestamp: 2026-01-06 21:04:36
+[AUDIT] 2026-01-06 21:05:27 [login] Attempt - identifier: teacher@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:27
+[AUDIT] 2026-01-06 21:05:27 [login] SUCCESS - email: teacher@test.com, role: teacher, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:27
+[AUDIT] 2026-01-06 21:05:27 [login] Attempt - identifier: teacher@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:27
+[AUDIT] 2026-01-06 21:05:28 [login] SUCCESS - email: teacher@test.com, role: teacher, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:27
+[AUDIT] 2026-01-06 21:05:43 [login] Attempt - identifier: tutor@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:43
+[AUDIT] 2026-01-06 21:05:43 [login] SUCCESS - email: tutor@test.com, role: tutor, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:43
+[AUDIT] 2026-01-06 21:05:43 [login] Attempt - identifier: tutor@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:43
+[AUDIT] 2026-01-06 21:05:44 [login] SUCCESS - email: tutor@test.com, role: tutor, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:43
+[AUDIT] 2026-01-06 21:05:59 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:59
+[AUDIT] 2026-01-06 21:05:59 [login] SUCCESS - email: admin@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:59
+[AUDIT] 2026-01-06 21:05:59 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:59
+[AUDIT] 2026-01-06 21:06:00 [login] SUCCESS - email: admin@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:05:59
+[AUDIT] 2026-01-06 21:06:20 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:20
+[AUDIT] 2026-01-06 21:06:20 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:20
+[AUDIT] 2026-01-06 21:06:34 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:34
+[AUDIT] 2026-01-06 21:06:34 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:34
+[AUDIT] 2026-01-06 21:06:42 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:42
+[AUDIT] 2026-01-06 21:06:42 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:42
+[AUDIT] 2026-01-06 21:06:42 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:42
+[AUDIT] 2026-01-06 21:06:43 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:42
+[AUDIT] 2026-01-06 21:06:56 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:56
+[AUDIT] 2026-01-06 21:06:56 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:56
+[AUDIT] 2026-01-06 21:06:56 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:56
+[AUDIT] 2026-01-06 21:06:56 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:06:56
+[AUDIT] 2026-01-06 21:07:36 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:07:36
+[AUDIT] 2026-01-06 21:07:36 [login] SUCCESS - email: admin@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:07:36
+[AUDIT] 2026-01-06 21:07:36 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:07:36
+[AUDIT] 2026-01-06 21:07:36 [login] SUCCESS - email: admin@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:07:36
+[AUDIT] 2026-01-06 21:08:46 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:08:46
+[AUDIT] 2026-01-06 21:08:47 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:08:46
+[AUDIT] 2026-01-06 21:08:47 [login] Attempt - identifier: student@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:08:47
+[AUDIT] 2026-01-06 21:08:47 [login] SUCCESS - email: student@test.com, role: student, ip: 127.0.0.1, timestamp: 2026-01-06 21:08:47
+[AUDIT] 2026-01-06 21:09:07 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:07
+[AUDIT] 2026-01-06 21:09:08 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:07
+[AUDIT] 2026-01-06 21:09:08 [login] Attempt - identifier: parent@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:08
+[AUDIT] 2026-01-06 21:09:08 [login] SUCCESS - email: parent@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:08
+[AUDIT] 2026-01-06 21:09:29 [login] Attempt - identifier: teacher@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:29
+[AUDIT] 2026-01-06 21:09:29 [login] SUCCESS - email: teacher@test.com, role: teacher, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:29
+[AUDIT] 2026-01-06 21:09:49 [login] Attempt - identifier: tutor@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:49
+[AUDIT] 2026-01-06 21:09:50 [login] SUCCESS - email: tutor@test.com, role: tutor, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:49
+[AUDIT] 2026-01-06 21:09:50 [login] Attempt - identifier: tutor@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:50
+[AUDIT] 2026-01-06 21:09:50 [login] SUCCESS - email: tutor@test.com, role: tutor, ip: 127.0.0.1, timestamp: 2026-01-06 21:09:50
+[AUDIT] 2026-01-06 21:10:10 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:10:10
+[AUDIT] 2026-01-06 21:10:11 [login] SUCCESS - email: admin@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:10:10
+[AUDIT] 2026-01-06 21:10:11 [login] Attempt - identifier: admin@test.com, ip: 127.0.0.1, timestamp: 2026-01-06 21:10:11
+[AUDIT] 2026-01-06 21:10:11 [login] SUCCESS - email: admin@test.com, role: parent, ip: 127.0.0.1, timestamp: 2026-01-06 21:10:11
+[AUDIT] 2026-01-06 21:13:31 action=create_user user_id=18 email=user@test.com role=student first_name=John last_name=Doe is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:31 action=create_user user_id=19 email=user@test.com role=student first_name=John last_name=Doe is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:31 action=create_user user_id=20 email=user@test.com role=student first_name=John last_name=Doe is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:39 action=create_profile type=ParentProfile user_id=21 email=admin@test.com
+[AUDIT] 2026-01-06 21:13:39 [Signal] ParentProfile auto-created for user_id=21 email=admin@test.com
+[AUDIT] 2026-01-06 21:13:39 [Signal] NotificationSettings auto-created for user_id=21 email=admin@test.com
+[AUDIT] 2026-01-06 21:13:39 action=create_user user_id=21 email=admin@test.com role=parent first_name=Admin last_name=User is_active=True is_staff=True
+[AUDIT] 2026-01-06 21:13:39 action=delete_user type=hard user_id=21 email=admin@test.com role=parent
+[AUDIT] 2026-01-06 21:13:39 ParentProfile deleted for user 21
+[AUDIT] 2026-01-06 21:13:39 [Signal] ParentProfile 3 deleted for user 21
+[AUDIT] 2026-01-06 21:13:45 action=create_profile type=ParentProfile user_id=22 email=parent@test.com
+[AUDIT] 2026-01-06 21:13:45 [Signal] ParentProfile auto-created for user_id=22 email=parent@test.com
+[AUDIT] 2026-01-06 21:13:45 [Signal] NotificationSettings auto-created for user_id=22 email=parent@test.com
+[AUDIT] 2026-01-06 21:13:45 action=create_user user_id=22 email=parent@test.com role=parent first_name=Parent last_name=User is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:45 action=delete_user type=hard user_id=22 email=parent@test.com role=parent
+[AUDIT] 2026-01-06 21:13:45 ParentProfile deleted for user 22
+[AUDIT] 2026-01-06 21:13:45 [Signal] ParentProfile 4 deleted for user 22
+[AUDIT] 2026-01-06 21:13:51 action=create_profile type=StudentProfile user_id=23 email=student@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-06 21:13:51 [Signal] StudentProfile auto-created for user_id=23 email=student@test.com
+[AUDIT] 2026-01-06 21:13:51 [Signal] NotificationSettings auto-created for user_id=23 email=student@test.com
+[AUDIT] 2026-01-06 21:13:51 action=create_user user_id=23 email=student@test.com role=student first_name=Test last_name=User is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:51 action=delete_user type=hard user_id=23 email=student@test.com role=student
+[AUDIT] 2026-01-06 21:13:51 StudentProfile deleted for user 23
+[AUDIT] 2026-01-06 21:13:51 [Signal] StudentProfile 3 deleted for user 23
+[AUDIT] 2026-01-06 21:13:51 action=delete_user type=hard user_id=23 email=student@test.com role=student
+[AUDIT] 2026-01-06 21:13:51 [Signal] Cascade deleted user 23 (student@test.com) after StudentProfile 3 deletion
+[AUDIT] 2026-01-06 21:13:51 action=create_profile type=TeacherProfile user_id=24 email=teacher@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:13:51 [Signal] TeacherProfile auto-created for user_id=24 email=teacher@test.com
+[AUDIT] 2026-01-06 21:13:51 [Signal] NotificationSettings auto-created for user_id=24 email=teacher@test.com
+[AUDIT] 2026-01-06 21:13:51 action=create_user user_id=24 email=teacher@test.com role=teacher first_name=Test last_name=User is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:51 action=delete_user type=hard user_id=24 email=teacher@test.com role=teacher
+[AUDIT] 2026-01-06 21:13:51 TeacherProfile deleted for user 24
+[AUDIT] 2026-01-06 21:13:51 [Signal] TeacherProfile 13 deleted for user 24
+[AUDIT] 2026-01-06 21:13:52 action=create_profile type=TutorProfile user_id=25 email=tutor@test.com specialization=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-06 21:13:52 [Signal] TutorProfile auto-created for user_id=25 email=tutor@test.com
+[AUDIT] 2026-01-06 21:13:52 [Signal] NotificationSettings auto-created for user_id=25 email=tutor@test.com
+[AUDIT] 2026-01-06 21:13:52 action=create_user user_id=25 email=tutor@test.com role=tutor first_name=Test last_name=User is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:52 action=delete_user type=hard user_id=25 email=tutor@test.com role=tutor
+[AUDIT] 2026-01-06 21:13:52 TutorProfile deleted for user 25
+[AUDIT] 2026-01-06 21:13:52 [Signal] TutorProfile 2 deleted for user 25
+[AUDIT] 2026-01-06 21:13:58 action=create_user user_id=26 email=tutor@test.com role=tutor first_name=John last_name=Tutor is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:58 action=create_user user_id=27 email=inactive_tutor@test.com role=tutor first_name=Inactive last_name=Tutor is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:13:59 action=create_user user_id=28 email=parent@test.com role=parent first_name=Mary last_name=Parent is_active=True is_staff=False
+[AUDIT] 2026-01-06 21:13:59 action=create_user user_id=29 email=inactive_parent@test.com role=parent first_name=Inactive last_name=Parent is_active=False is_staff=False
+[AUDIT] 2026-01-06 21:13:59 action=create_user user_id=30 email=student@test.com role=student first_name=Alice last_name=Student is_active=True is_staff=False

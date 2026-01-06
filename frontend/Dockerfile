@@ -17,18 +17,14 @@ FROM node:22-slim AS builder
 # Set working directory
 WORKDIR /build
 
-# Copy package files and TypeScript configs for dependency caching
+# Copy all frontend files
 # Note: build context is project root, so we need frontend/ prefix
-COPY frontend/package.json frontend/package-lock.json* ./
-COPY frontend/tsconfig*.json ./
+COPY frontend/ .
 
 # Install dependencies with optimized flags
 # Use --legacy-peer-deps for compatibility with all dependencies
 RUN npm install --no-fund --legacy-peer-deps && \
     npm cache clean --force
-
-# Copy application source
-COPY frontend/ .
 
 # Build application with production optimizations
 # Vite automatically applies tree-shaking, minification, etc.

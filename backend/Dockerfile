@@ -3,25 +3,23 @@
 #  - builder: compile Python dependencies
 #  - runtime: minimal production image with app code only
 # Optimization:
-#  - Use Debian slim instead of Alpine (faster deps compilation)
+#  - Use Alpine for smaller image size
 #  - Multi-stage to exclude build dependencies
 #  - Pinned base image versions for reproducibility
 
 # =============================================================================
 # STAGE 1: BUILDER
 # =============================================================================
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.12-alpine AS builder
 
 # Install build dependencies (system level)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     gcc \
-    g++ \
+    musl-dev \
     libffi-dev \
-    libssl-dev \
+    openssl-dev \
     postgresql-client \
-    libpq-dev \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+    postgresql-dev
 
 # Set working directory
 WORKDIR /build
@@ -45,7 +43,7 @@ RUN rm -rf /root/.cache/pip
 # =============================================================================
 # STAGE 2: RUNTIME
 # =============================================================================
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.12-alpine AS runtime
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -55,17 +53,14 @@ ENV PYTHONUNBUFFERED=1 \
     ENVIRONMENT=production
 
 # Install runtime dependencies only (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    libffi8 \
-    libssl3 \
+RUN apk add --no-cache \
+    postgresql-client \
     ca-certificates \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && update-ca-certificates
+    libc6-compat
 
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create non-root user (Alpine uses addgroup/adduser)
+RUN addgroup -S appuser && adduser -S appuser -G appuser
 
 # Create application directories
 RUN mkdir -p /app /app/static /app/media /app/logs && \

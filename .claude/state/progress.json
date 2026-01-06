@@ -1,6 +1,47 @@
 {
   "completed_tasks": [
     {
+      "id": "TUTOR_CABINET_PERMISSIONS_20260107",
+      "task": "Добавить permission classes для Tutor Cabinet Role Support",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/accounts/permissions.py"
+      ],
+      "changes": [
+        "Добавлен класс TutorCanViewStudentData - тьютор видит только своих студентов",
+        "Добавлен класс TutorCanEditStudent - тьютор редактирует только своих студентов",
+        "Добавлен класс ParentCanViewChild - родитель видит только своего ребенка",
+        "Добавлен класс TeacherCanViewAssignedStudents - учитель видит только своих студентов",
+        "Добавлен класс IsAdminOrStaffOrTutor - объединенная проверка иерархии ролей",
+        "Все классы документированы с примерами использования",
+        "Существующий код не изменен, только добавлены новые классы",
+        "Все тесты T113 и T114 успешно проходят (7/7)"
+      ],
+      "duration_sec": 25,
+      "test_results": {
+        "T113_tutor_student_isolation": {
+          "passed": 4,
+          "failed": 0,
+          "total": 4
+        },
+        "T114_tutor_admin_interaction": {
+          "passed": 3,
+          "failed": 0,
+          "total": 3
+        }
+      },
+      "key_features": [
+        "TutorCanViewStudentData: has_object_permission проверяет StudentProfile.tutor",
+        "TutorCanEditStudent: protected fields (role, is_active) не могут быть изменены",
+        "ParentCanViewChild: has_object_permission проверяет StudentProfile.parent",
+        "TeacherCanViewAssignedStudents: has_object_permission проверяет StudentProfile.teacher",
+        "IsAdminOrStaffOrTutor: объединяет is_superuser, is_staff, role==TUTOR",
+        "Все классы следуют паттерну DRF BasePermission с has_permission и has_object_permission",
+        "Полная иерархия: Admin > Staff > Tutor > Teacher > Parent > Student"
+      ]
+    },
+    {
       "id": "T018_ADMIN_USER_PAGINATION",
       "task": "E2E тест пагинации в списке пользователей админ кабинета",
       "agent": "tester",
@@ -1177,11 +1218,46 @@
         "Performance: <500ms response time"
       ],
       "duration_sec": 60
+    },
+    {
+      "id": "JWT_MATERIAL_ENDPOINTS_FIX_20260107",
+      "task": "Исправить JWT validation broken на material endpoints",
+      "agent": "coder",
+      "status": "done",
+      "date": "2026-01-07",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/config/settings.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/materials/views.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/materials/permissions.py"
+      ],
+      "changes": [
+        "T001: Добавлена JWTAuthentication в DEFAULT_AUTHENTICATION_CLASSES (settings.py line 673)",
+        "JWT Authentication ПЕРВАЯ в списке перед TokenAuthentication и SessionAuthentication",
+        "Сохранена обратная совместимость с TokenAuthentication для legacy clients",
+        "T002: Добавлены импорты StudentEnrollmentPermission и MaterialSubmissionEnrollmentPermission в views.py",
+        "T003: Добавлена StudentEnrollmentPermission в MaterialViewSet.permission_classes",
+        "T003: Добавлена MaterialSubmissionEnrollmentPermission в MaterialSubmissionViewSet.permission_classes",
+        "T004: Добавлены новые permission classes в permissions.py:",
+        "  - IsTutor: проверяет role == TUTOR",
+        "  - IsTeacher: проверяет role == TEACHER",
+        "  - IsTutorOrTeacher: объединенная проверка для обеих ролей",
+        "Все permission classes поддерживают JWT токены через request.user.is_authenticated",
+        "Все ViewSet классы имеют явные permission_classes для безопасности"
+      ],
+      "duration_sec": 25,
+      "unit_id": "tutor_cabinet_fix_20260107",
+      "implementation_details": {
+        "jwt_authentication": "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "priority_in_list": "first (перед TokenAuthentication)",
+        "permission_classes_added": 3,
+        "viewsets_updated": 2,
+        "backward_compatibility": "full (TokenAuthentication сохранена)"
+      }
     }
   ],
   "summary": {
-    "total_tasks": 26,
-    "completed": 22,
+    "total_tasks": 27,
+    "completed": 23,
     "status": "COMPLETE",
     "total_duration_sec": 896.87,
     "notes": "T022: E2E тест мониторинга системы - 46/46 тестов пройдено (100%). Протестированы endpoints /api/admin/stats/users/, /api/system/admin/system/health/, /api/system/admin/system/metrics/ с полной проверкой аутентификации, авторизации, структуры данных и производительности. Все тесты указывают на корректную работу системного мониторинга.",

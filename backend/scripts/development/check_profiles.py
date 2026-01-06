@@ -4,10 +4,12 @@
 import os
 import sys
 import django
+from pathlib import Path
 
 # Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+backend_dir = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(backend_dir))
 django.setup()
 
 from django.test import Client

@@ -4,8 +4,8 @@ Configuration Validation Script for THE_BOT_platform
 
 Проверяет корректность настроек перед deployment.
 Использование:
-    python backend/check_config.py
-    python backend/check_config.py --strict  # Строгая проверка (fail on warnings)
+    python backend/scripts/development/check_config.py
+    python backend/scripts/development/check_config.py --strict  # Строгая проверка (fail on warnings)
 """
 
 import os
@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 # Добавляем backend в PYTHONPATH
-backend_dir = Path(__file__).parent
+backend_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(backend_dir))
 
 # Загружаем .env перед импортом Django

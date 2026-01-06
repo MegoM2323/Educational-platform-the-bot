@@ -60,11 +60,7 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
 
     def get_subject(self, obj):
         """Return subject if chat is forum_subject type"""
-        if (
-            obj.type == ChatRoom.Type.FORUM_SUBJECT
-            and obj.enrollment
-            and obj.enrollment.subject
-        ):
+        if obj.type == ChatRoom.Type.FORUM_SUBJECT and obj.enrollment and obj.enrollment.subject:
             return {
                 "id": obj.enrollment.subject.id,
                 "name": obj.enrollment.subject.name,
@@ -122,7 +118,6 @@ class ChatRoomDetailSerializer(serializers.ModelSerializer):
             "description",
             "type",
             "participants",
-            "created_by",
             "is_active",
             "created_at",
             "updated_at",
@@ -168,9 +163,7 @@ class ChatRoomCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         participants = validated_data.pop("participants", [])
-        room = ChatRoom.objects.create(
-            created_by=self.context["request"].user, **validated_data
-        )
+        room = ChatRoom.objects.create(created_by=self.context["request"].user, **validated_data)
         room.participants.set(participants)
         return room
 
@@ -363,10 +356,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
         # Проверяем prefetched данные (read_by уже загружены)
         # Если prefetch_related('read_by') был вызван, _prefetched_cache будет содержать данные
-        if (
-            hasattr(obj, "_prefetched_objects_cache")
-            and "read_by" in obj._prefetched_objects_cache
-        ):
+        if hasattr(obj, "_prefetched_objects_cache") and "read_by" in obj._prefetched_objects_cache:
             # Используем prefetched данные без дополнительного запроса
             return any(read.user_id == user_id for read in obj.read_by.all())
 
@@ -433,9 +423,7 @@ class MessageUpdateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Сообщение не может быть пустым")
         if len(value) > 5000:
-            raise serializers.ValidationError(
-                "Сообщение слишком длинное (максимум 5000 символов)"
-            )
+            raise serializers.ValidationError("Сообщение слишком длинное (максимум 5000 символов)")
         return value.strip()
 
     def update(self, instance, validated_data):
@@ -499,9 +487,7 @@ class MessageThreadSerializer(serializers.ModelSerializer):
     Сериализатор для тредов сообщений
     """
 
-    created_by_name = serializers.CharField(
-        source="created_by.get_full_name", read_only=True
-    )
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
     created_by_role = serializers.CharField(source="created_by.role", read_only=True)
     messages_count = serializers.IntegerField(read_only=True)
     last_message = serializers.SerializerMethodField()
@@ -512,7 +498,6 @@ class MessageThreadSerializer(serializers.ModelSerializer):
             "id",
             "room",
             "title",
-            "created_by",
             "created_by_name",
             "created_by_role",
             "is_pinned",

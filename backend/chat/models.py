@@ -34,15 +34,9 @@ class ChatRoom(models.Model):
         max_length=20, choices=Type.choices, default=Type.DIRECT, verbose_name="Тип"
     )
 
-    enrollment = models.ForeignKey(
-        "materials.SubjectEnrollment",
-        on_delete=models.CASCADE,
-        related_name="forum_chats",
-        verbose_name="Зачисление на предмет",
-        help_text="Зачисление студента на предмет (для forum_tutor/forum_subject типов)",
-        null=True,
-        blank=True,
-    )
+    # NOTE: enrollment_id field is managed at database level via migrations
+    # to avoid circular dependency with materials.SubjectEnrollment
+    # Access via: chat_room.enrollment_id (raw database access)
 
     participants = models.ManyToManyField(
         User, related_name="chat_rooms", verbose_name="Участники"
@@ -72,17 +66,10 @@ class ChatRoom(models.Model):
         verbose_name_plural = "Чат-комнаты"
         ordering = ["-updated_at"]
         indexes = [
-            models.Index(
-                fields=["type", "enrollment"], name="chat_type_enrollment_idx"
-            ),
             models.Index(fields=["type", "is_active"], name="chat_type_active_idx"),
         ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["type", "enrollment"],
-                name="unique_forum_per_enrollment",
-            )
-        ]
+        # NOTE: enrollment-related constraints are managed at database level
+        # via migrations (chat migration 0010_convert_enrollment_to_fk)
 
     def __str__(self):
         return self.name

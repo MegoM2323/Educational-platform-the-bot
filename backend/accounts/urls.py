@@ -60,7 +60,9 @@ urlpatterns = [
     path("refresh/", views.refresh_token_view, name="refresh_token"),
     path("session-status/", views.session_status, name="session_status"),  # Debug endpoint
     # Профиль пользователя (общий endpoint)
-    path("me/", views.CurrentUserProfileView.as_view(), name="current_user_me"),  # Алиас для фронтенда
+    path(
+        "me/", views.CurrentUserProfileView.as_view(), name="current_user_me"
+    ),  # Алиас для фронтенда
     path("profile/", views.CurrentUserProfileView.as_view(), name="current_user_profile"),
     path("profile/update/", views.update_profile, name="update_profile"),
     path("change-password/", views.change_password, name="change_password"),
@@ -76,7 +78,9 @@ urlpatterns = [
         name="notification_settings_api",
     ),
     # Список пользователей + создание (для тьюторов и администраторов)
-    path("users/", UserManagementView.as_view(), name="user_management"),  # GET: список, POST: создание
+    path(
+        "users/", UserManagementView.as_view(), name="user_management"
+    ),  # GET: список, POST: создание
     # Deprecated: POST /api/accounts/users/create/ использует старый endpoint, используйте POST /api/accounts/users/ вместо
     path("users/create/", create_user_with_profile, name="admin_create_user_deprecated"),
     # Admin-only staff management
@@ -87,21 +91,27 @@ urlpatterns = [
         update_teacher_subjects,
         name="update_teacher_subjects",
     ),
-    # Admin-only student management (доступен только через /api/admin/students/)
+    # Router URLs (ViewSet endpoints) - ПРИОРИТЕТ перед static paths
+    path("", include(router.urls)),
+    # Admin-only student management (должны быть ПОСЛЕ router чтобы router.students был приоритетом)
     path("students/", list_students, name="admin_list_students"),  # GET - список студентов
-    path("students/create/", create_student, name="admin_create_student"),  # POST - создание студента (legacy)
+    path(
+        "students/create/", create_student, name="admin_create_student"
+    ),  # POST - создание студента (legacy)
     path("students/<int:student_id>/", get_student_detail, name="admin_student_detail"),
     # Admin-only parent management
     path("parents/", list_parents, name="admin_list_parents"),  # GET - список родителей
-    path("parents/create/", create_parent, name="admin_create_parent"),  # POST - создание родителя (legacy)
-    path("assign-parent/", assign_parent_to_students, name="admin_assign_parent"),  # POST - назначение родителя
+    path(
+        "parents/create/", create_parent, name="admin_create_parent"
+    ),  # POST - создание родителя (legacy)
+    path(
+        "assign-parent/", assign_parent_to_students, name="admin_assign_parent"
+    ),  # POST - назначение родителя
     path(
         "teachers/<int:teacher_id>/assign-students/",
         assign_students_to_teacher,
         name="admin_assign_students_to_teacher",
     ),  # POST - назначение студентов учителю
-    # Router URLs (ViewSet endpoints) - ПОСЛЕ admin endpoints
-    path("", include(router.urls)),
     # Admin-only user management (CRUD)
     path("users/<int:user_id>/", update_user, name="admin_update_user"),
     path(

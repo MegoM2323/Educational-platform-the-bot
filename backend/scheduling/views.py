@@ -59,18 +59,20 @@ class LessonViewSet(viewsets.ModelViewSet):
         """Get lessons filtered by user role."""
         user = self.request.user
 
-        if user.role == "teacher":
+        from accounts.models import User as UserModel
+
+        if user.role == UserModel.Role.TEACHER:
             queryset = Lesson.objects.filter(teacher=user)
-        elif user.role == "student":
+        elif user.role == UserModel.Role.STUDENT:
             queryset = Lesson.objects.filter(student=user)
-        elif user.role == "tutor":
+        elif user.role == UserModel.Role.TUTOR:
             from accounts.models import StudentProfile
 
             student_ids = StudentProfile.objects.filter(tutor=user).values_list(
                 "user_id", flat=True
             )
             queryset = Lesson.objects.filter(student_id__in=student_ids)
-        elif user.role == "parent":
+        elif user.role == UserModel.Role.PARENT:
             from accounts.models import StudentProfile
 
             children_ids = StudentProfile.objects.filter(parent=user).values_list(
@@ -151,9 +153,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonCreateSerializer(
-            data=request.data, context={"request": request}
-        )
+        serializer = LessonCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -178,7 +178,9 @@ class LessonViewSet(viewsets.ModelViewSet):
                 )
 
             # Check teacher authorization
-            if request.user.role == "teacher":
+            from accounts.models import User as UserModel
+
+            if request.user.role == UserModel.Role.TEACHER:
                 # Teachers must have SubjectEnrollment with student
                 from materials.models import SubjectEnrollment
 
@@ -235,9 +237,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonUpdateSerializer(
-            data=request.data, context={"lesson": lesson}
-        )
+        serializer = LessonUpdateSerializer(data=request.data, context={"lesson": lesson})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -440,9 +440,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         student_id = request.query_params.get("student_id")
         if not student_id:
-            return Response(
-                {"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Валидация формата student_id (должен быть целым числом)
         try:
@@ -454,7 +452,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            if request.user.role == "tutor":
+            from accounts.models import User as UserModel
+
+            if request.user.role == UserModel.Role.TUTOR:
                 # Use service to get lessons (validates tutor manages student)
                 queryset = LessonService.get_tutor_student_lessons(
                     tutor=request.user, student_id=student_id_int
@@ -470,9 +470,9 @@ class LessonViewSet(viewsets.ModelViewSet):
                         {"error": "You can only view schedules for your children"},
                         status=status.HTTP_403_FORBIDDEN,
                     )
-                queryset = Lesson.objects.filter(
-                    student_id=student_id_int
-                ).select_related("teacher", "student", "subject")
+                queryset = Lesson.objects.filter(student_id=student_id_int).select_related(
+                    "teacher", "student", "subject"
+                )
 
             # Apply filters
             date_from = request.query_params.get("date_from")
@@ -513,12 +513,12 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         # Verify permission to view history
         # Teacher, student, tutor, or parent of student
-        has_permission = (
-            lesson.teacher == request.user or lesson.student == request.user
-        )
+        from accounts.models import User as UserModel
+
+        has_permission = lesson.teacher == request.user or lesson.student == request.user
 
         # Check if tutor has access to this lesson (manages the student)
-        if not has_permission and request.user.role == "tutor":
+        if not has_permission and request.user.role == UserModel.Role.TUTOR:
             from accounts.models import StudentProfile
 
             has_permission = StudentProfile.objects.filter(
@@ -526,7 +526,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             ).exists()
 
         # Check if parent has access to this lesson (child is the student)
-        if not has_permission and request.user.role == "parent":
+        if not has_permission and request.user.role == UserModel.Role.PARENT:
             from accounts.models import StudentProfile
 
             has_permission = StudentProfile.objects.filter(
@@ -629,9 +629,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             end_time = datetime.strptime(end_time_str, "%H:%M").time()
         except ValueError:
             return Response(
-                {
-                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
-                },
+                {"error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -720,9 +718,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             new_end_time = datetime.strptime(end_time_str, "%H:%M").time()
         except ValueError:
             return Response(
-                {
-                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
-                },
+                {"error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

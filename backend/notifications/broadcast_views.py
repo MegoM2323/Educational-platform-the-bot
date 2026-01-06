@@ -22,7 +22,7 @@ from .serializers import (
     BroadcastListSerializer,
     BroadcastDetailSerializer,
     CreateBroadcastSerializer,
-    BroadcastRecipientSerializer
+    BroadcastRecipientSerializer,
 )
 from .services.broadcast import BroadcastService
 
@@ -56,35 +56,35 @@ class BroadcastViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от action"""
-        if self.action == 'list':
+        if self.action == "list":
             return BroadcastListSerializer
-        elif self.action == 'create':
+        elif self.action == "create":
             return CreateBroadcastSerializer
-        elif self.action == 'recipients':
+        elif self.action == "recipients":
             return BroadcastRecipientSerializer
         return BroadcastDetailSerializer
 
     def get_queryset(self):
         """Получение queryset с фильтрацией и оптимизацией запросов"""
-        queryset = Broadcast.objects.select_related('created_by').order_by('-created_at')
+        queryset = Broadcast.objects.select_related("created_by").order_by("-created_at")
 
         # Фильтр по статусу
-        status_filter = self.request.query_params.get('status')
+        status_filter = self.request.query_params.get("status")
         if status_filter:
             queryset = queryset.filter(status=status_filter)
 
         # Фильтр по дате (date_from)
-        date_from = self.request.query_params.get('date_from')
+        date_from = self.request.query_params.get("date_from")
         if date_from:
             queryset = queryset.filter(created_at__gte=date_from)
 
         # Фильтр по дате (date_to)
-        date_to = self.request.query_params.get('date_to')
+        date_to = self.request.query_params.get("date_to")
         if date_to:
             queryset = queryset.filter(created_at__lte=date_to)
 
         # Поиск по тексту сообщения
-        search = self.request.query_params.get('search')
+        search = self.request.query_params.get("search")
         if search:
             queryset = queryset.filter(message__icontains=search)
 
@@ -99,8 +99,8 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
 
         # Пагинация
-        page_size = int(request.query_params.get('page_size', 20))
-        page_number = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get("page_size", 20))
+        page_number = int(request.query_params.get("page", 1))
 
         paginator = Paginator(queryset, page_size)
         page_obj = paginator.get_page(page_number)
@@ -112,15 +112,17 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             f"broadcasts (total: {paginator.count}, page: {page_number})"
         )
 
-        return Response({
-            'count': paginator.count,
-            'next': page_obj.has_next() and page_obj.next_page_number() or None,
-            'previous': page_obj.has_previous() and page_obj.previous_page_number() or None,
-            'results': serializer.data,
-            'page': page_number,
-            'page_size': page_size,
-            'total_pages': paginator.num_pages
-        })
+        return Response(
+            {
+                "count": paginator.count,
+                "next": page_obj.has_next() and page_obj.next_page_number() or None,
+                "previous": page_obj.has_previous() and page_obj.previous_page_number() or None,
+                "results": serializer.data,
+                "page": page_number,
+                "page_size": page_size,
+                "total_pages": paginator.num_pages,
+            }
+        )
 
     def create(self, request, *args, **kwargs):
         """
@@ -138,31 +140,29 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             logger.warning(f"[create_broadcast] Validation error: {serializer.errors}")
             return Response(
-                {
-                    'success': False,
-                    'error': serializer.errors,
-                    'code': 'VALIDATION_ERROR'
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"success": False, "error": serializer.errors, "code": "VALIDATION_ERROR"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        target_group = serializer.validated_data['target_group']
-        target_filter = serializer.validated_data.get('target_filter', {})
-        message = serializer.validated_data['message']
-        send_immediately = request.data.get('send_immediately', False)
+        target_group = serializer.validated_data["target_group"]
+        target_filter = serializer.validated_data.get("target_filter", {})
+        message = serializer.validated_data["message"]
+        send_immediately = request.data.get("send_immediately", False)
 
         # Получить получателей
         recipients = _get_recipients_by_group(target_group, target_filter)
 
         if not recipients:
-            logger.warning(f"[create_broadcast] No recipients found for target_group={target_group}")
+            logger.warning(
+                f"[create_broadcast] No recipients found for target_group={target_group}"
+            )
             return Response(
                 {
-                    'success': False,
-                    'error': 'Не найдено получателей для указанной группы',
-                    'code': 'NO_RECIPIENTS'
+                    "success": False,
+                    "error": "Не найдено получателей для указанной группы",
+                    "code": "NO_RECIPIENTS",
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Определить статус
@@ -175,7 +175,7 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             target_filter=target_filter,
             message=message,
             recipient_count=len(recipients),
-            status=broadcast_status
+            status=broadcast_status,
         )
 
         # Создать BroadcastRecipient записи
@@ -198,7 +198,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 broadcast.status = Broadcast.Status.FAILED
                 broadcast.save()
-                logger.error(f"[create_broadcast] Failed to send broadcast {broadcast.id}: {str(e)}")
+                logger.error(
+                    f"[create_broadcast] Failed to send broadcast {broadcast.id}: {str(e)}"
+                )
 
         # Обновить данные из БД
         broadcast.refresh_from_db()
@@ -206,11 +208,12 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         output_serializer = BroadcastDetailSerializer(broadcast)
         return Response(
             {
-                'success': True,
-                'data': output_serializer.data,
-                'message': 'Рассылка успешно создана' + (' и отправлена' if send_immediately else '')
+                "success": True,
+                "data": output_serializer.data,
+                "message": "Рассылка успешно создана"
+                + (" и отправлена" if send_immediately else ""),
             },
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )
 
     def retrieve(self, request, pk=None):
@@ -220,28 +223,23 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         GET /api/admin/broadcasts/{id}/
         """
         try:
-            broadcast = Broadcast.objects.select_related('created_by').prefetch_related(
-                'recipients__recipient'
-            ).get(id=pk)
+            broadcast = (
+                Broadcast.objects.select_related("created_by")
+                .prefetch_related("recipients__recipient")
+                .get(id=pk)
+            )
         except Broadcast.DoesNotExist:
             logger.warning(f"[get_broadcast] Broadcast {pk} not found")
             return Response(
-                {
-                    'success': False,
-                    'error': 'Рассылка не найдена',
-                    'code': 'NOT_FOUND'
-                },
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": "Рассылка не найдена", "code": "NOT_FOUND"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         serializer = self.get_serializer(broadcast)
         logger.info(f"[get_broadcast] User {request.user.email} viewed broadcast {pk}")
-        return Response({
-            'success': True,
-            'data': serializer.data
-        })
+        return Response({"success": True, "data": serializer.data})
 
-    @action(detail=True, methods=['get'], url_path='progress')
+    @action(detail=True, methods=["get"], url_path="progress")
     def progress(self, request, pk=None):
         """
         Получить информацию о прогрессе рассылки.
@@ -261,32 +259,21 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         try:
             progress_data = BroadcastService.get_progress(pk)
             logger.info(f"[progress] User {request.user.email} viewed progress for broadcast {pk}")
-            return Response({
-                'success': True,
-                'data': progress_data
-            })
+            return Response({"success": True, "data": progress_data})
         except ValueError as e:
             logger.warning(f"[progress] {str(e)}")
             return Response(
-                {
-                    'success': False,
-                    'error': str(e),
-                    'code': 'NOT_FOUND'
-                },
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": str(e), "code": "NOT_FOUND"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             logger.error(f"[progress] Error: {str(e)}", exc_info=True)
             return Response(
-                {
-                    'success': False,
-                    'error': 'Ошибка при получении прогресса',
-                    'code': 'ERROR'
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"success": False, "error": "Ошибка при получении прогресса", "code": "ERROR"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=['post'], url_path='cancel')
+    @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk=None):
         """
         Отменить рассылку и остановить дальнейшую отправку.
@@ -304,32 +291,21 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         try:
             result = BroadcastService.cancel_broadcast(pk)
             logger.info(f"[cancel] User {request.user.email} cancelled broadcast {pk}")
-            return Response({
-                'success': True,
-                'data': result
-            })
+            return Response({"success": True, "data": result})
         except ValueError as e:
             logger.warning(f"[cancel] {str(e)}")
             return Response(
-                {
-                    'success': False,
-                    'error': str(e),
-                    'code': 'INVALID_REQUEST'
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"success": False, "error": str(e), "code": "INVALID_REQUEST"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             logger.error(f"[cancel] Error: {str(e)}", exc_info=True)
             return Response(
-                {
-                    'success': False,
-                    'error': 'Ошибка при отмене рассылки',
-                    'code': 'ERROR'
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"success": False, "error": "Ошибка при отмене рассылки", "code": "ERROR"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=['post'], url_path='retry')
+    @action(detail=True, methods=["post"], url_path="retry")
     def retry(self, request, pk=None):
         """
         Повторить отправку для неудачных получателей.
@@ -350,32 +326,21 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         try:
             result = BroadcastService.retry_failed(pk)
             logger.info(f"[retry] User {request.user.email} retried broadcast {pk}")
-            return Response({
-                'success': True,
-                'data': result
-            })
+            return Response({"success": True, "data": result})
         except ValueError as e:
             logger.warning(f"[retry] {str(e)}")
             return Response(
-                {
-                    'success': False,
-                    'error': str(e),
-                    'code': 'NOT_FOUND'
-                },
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": str(e), "code": "NOT_FOUND"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             logger.error(f"[retry] Error: {str(e)}", exc_info=True)
             return Response(
-                {
-                    'success': False,
-                    'error': 'Ошибка при повторной отправке',
-                    'code': 'ERROR'
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"success": False, "error": "Ошибка при повторной отправке", "code": "ERROR"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=['post'], url_path='send')
+    @action(detail=True, methods=["post"], url_path="send")
     def send(self, request, pk=None):
         """
         Отправить рассылку всем получателям.
@@ -395,12 +360,8 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         except Broadcast.DoesNotExist:
             logger.warning(f"[send_broadcast] Broadcast {pk} not found")
             return Response(
-                {
-                    'success': False,
-                    'error': 'Рассылка не найдена',
-                    'code': 'NOT_FOUND'
-                },
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": "Рассылка не найдена", "code": "NOT_FOUND"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         if broadcast.status != Broadcast.Status.DRAFT:
@@ -409,11 +370,11 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             )
             return Response(
                 {
-                    'success': False,
-                    'error': f'Рассылка уже {broadcast.get_status_display()}, отправка невозможна',
-                    'code': 'INVALID_STATUS'
+                    "success": False,
+                    "error": f"Рассылка уже {broadcast.get_status_display()}, отправка невозможна",
+                    "code": "INVALID_STATUS",
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -421,6 +382,7 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             broadcast.save()
 
             from .telegram_broadcast_service import TelegramBroadcastService
+
             service = TelegramBroadcastService()
             result = service.send_broadcast(broadcast, broadcast.message)
 
@@ -432,12 +394,15 @@ class BroadcastViewSet(viewsets.ModelViewSet):
                 f"[send_broadcast] Broadcast {pk} sent: sent={result.get('sent')}, failed={result.get('failed')}"
             )
 
-            return Response({
-                'status': 'sent',
-                'broadcast_id': broadcast.id,
-                'recipients_count': broadcast.recipient_count,
-                'sent_at': broadcast.sent_at
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "status": "sent",
+                    "broadcast_id": broadcast.id,
+                    "recipients_count": broadcast.recipient_count,
+                    "sent_at": broadcast.sent_at,
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             broadcast.status = Broadcast.Status.FAILED
@@ -445,14 +410,14 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             logger.error(f"[send_broadcast] Failed to send broadcast {pk}: {str(e)}")
             return Response(
                 {
-                    'success': False,
-                    'error': f'Ошибка при отправке: {str(e)}',
-                    'code': 'TELEGRAM_ERROR'
+                    "success": False,
+                    "error": f"Ошибка при отправке: {str(e)}",
+                    "code": "TELEGRAM_ERROR",
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=['post'], url_path='resend')
+    @action(detail=True, methods=["post"], url_path="resend")
     def resend(self, request, pk=None):
         """
         Повторная отправка неудачных сообщений.
@@ -466,30 +431,27 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         except Broadcast.DoesNotExist:
             logger.warning(f"[resend_broadcast] Broadcast {pk} not found")
             return Response(
-                {
-                    'success': False,
-                    'error': 'Рассылка не найдена',
-                    'code': 'NOT_FOUND'
-                },
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": "Рассылка не найдена", "code": "NOT_FOUND"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         # Получить неудачных получателей
         failed_recipients = BroadcastRecipient.objects.filter(
-            broadcast=broadcast,
-            telegram_sent=False
-        ).select_related('recipient')
+            broadcast=broadcast, telegram_sent=False
+        ).select_related("recipient")
 
         if not failed_recipients.exists():
             logger.info(f"[resend_broadcast] No failed recipients for broadcast {pk}")
-            return Response({
-                'success': True,
-                'data': {
-                    'resent_count': 0,
-                    'error_count': 0,
-                    'message': 'Нет неудачных отправок для повторной попытки'
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "resent_count": 0,
+                        "error_count": 0,
+                        "message": "Нет неудачных отправок для повторной попытки",
+                    },
                 }
-            })
+            )
 
         # Обновить статус на sending
         broadcast.status = Broadcast.Status.SENDING
@@ -498,24 +460,27 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         # Отправить через Telegram
         try:
             from .telegram_broadcast_service import TelegramBroadcastService
+
             service = TelegramBroadcastService()
             result = service.send_broadcast(broadcast, broadcast.message)
 
-            resent_count = result['sent']
-            error_count = result['failed']
+            resent_count = result["sent"]
+            error_count = result["failed"]
 
             logger.info(
                 f"[resend_broadcast] Broadcast {pk} resent: sent={resent_count}, failed={error_count}"
             )
 
-            return Response({
-                'success': True,
-                'data': {
-                    'resent_count': resent_count,
-                    'error_count': error_count,
-                    'message': f'Повторно отправлено {resent_count} сообщений'
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "resent_count": resent_count,
+                        "error_count": error_count,
+                        "message": f"Повторно отправлено {resent_count} сообщений",
+                    },
                 }
-            })
+            )
 
         except Exception as e:
             broadcast.status = Broadcast.Status.FAILED
@@ -523,14 +488,14 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             logger.error(f"[resend_broadcast] Failed to resend broadcast {pk}: {str(e)}")
             return Response(
                 {
-                    'success': False,
-                    'error': f'Ошибка при повторной отправке: {str(e)}',
-                    'code': 'TELEGRAM_ERROR'
+                    "success": False,
+                    "error": f"Ошибка при повторной отправке: {str(e)}",
+                    "code": "TELEGRAM_ERROR",
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=['get'], url_path='recipients')
+    @action(detail=True, methods=["get"], url_path="recipients")
     def recipients(self, request, pk=None):
         """
         Список получателей рассылки с фильтрацией и пагинацией.
@@ -547,31 +512,27 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         except Broadcast.DoesNotExist:
             logger.warning(f"[broadcast_recipients] Broadcast {pk} not found")
             return Response(
-                {
-                    'success': False,
-                    'error': 'Рассылка не найдена',
-                    'code': 'NOT_FOUND'
-                },
-                status=status.HTTP_404_NOT_FOUND
+                {"success": False, "error": "Рассылка не найдена", "code": "NOT_FOUND"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         # Получить queryset получателей
-        recipients_qs = BroadcastRecipient.objects.filter(
-            broadcast=broadcast
-        ).select_related('recipient')
+        recipients_qs = BroadcastRecipient.objects.filter(broadcast=broadcast).select_related(
+            "recipient"
+        )
 
         # Фильтр по статусу
-        status_filter = request.query_params.get('status')
-        if status_filter == 'sent':
+        status_filter = request.query_params.get("status")
+        if status_filter == "sent":
             recipients_qs = recipients_qs.filter(telegram_sent=True)
-        elif status_filter == 'failed':
+        elif status_filter == "failed":
             recipients_qs = recipients_qs.filter(telegram_sent=False, telegram_error__isnull=False)
-        elif status_filter == 'pending':
+        elif status_filter == "pending":
             recipients_qs = recipients_qs.filter(telegram_sent=False, telegram_error__isnull=True)
 
         # Пагинация
-        page_size = int(request.query_params.get('page_size', 20))
-        page_number = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get("page_size", 20))
+        page_number = int(request.query_params.get("page", 1))
 
         paginator = Paginator(recipients_qs, page_size)
         page_obj = paginator.get_page(page_number)
@@ -583,18 +544,21 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             f"(page {page_number}, total: {paginator.count})"
         )
 
-        return Response({
-            'count': paginator.count,
-            'next': page_obj.has_next() and page_obj.next_page_number() or None,
-            'previous': page_obj.has_previous() and page_obj.previous_page_number() or None,
-            'results': serializer.data,
-            'page': page_number,
-            'page_size': page_size,
-            'total_pages': paginator.num_pages
-        })
+        return Response(
+            {
+                "count": paginator.count,
+                "next": page_obj.has_next() and page_obj.next_page_number() or None,
+                "previous": page_obj.has_previous() and page_obj.previous_page_number() or None,
+                "results": serializer.data,
+                "page": page_number,
+                "page_size": page_size,
+                "total_pages": paginator.num_pages,
+            }
+        )
 
 
 # ============= HELPER FUNCTIONS =============
+
 
 def _get_recipients_by_group(target_group: str, target_filter: dict = None) -> List[User]:
     """
@@ -610,31 +574,31 @@ def _get_recipients_by_group(target_group: str, target_filter: dict = None) -> L
     target_filter = target_filter or {}
 
     if target_group == Broadcast.TargetGroup.ALL_STUDENTS:
-        return list(User.objects.filter(role='student', is_active=True))
+        return list(User.objects.filter(role="student", is_active=True))
 
     elif target_group == Broadcast.TargetGroup.ALL_TEACHERS:
-        return list(User.objects.filter(role='teacher', is_active=True))
+        return list(User.objects.filter(role="teacher", is_active=True))
 
     elif target_group == Broadcast.TargetGroup.ALL_TUTORS:
-        return list(User.objects.filter(role='tutor', is_active=True))
+        return list(User.objects.filter(role="tutor", is_active=True))
 
     elif target_group == Broadcast.TargetGroup.ALL_PARENTS:
-        return list(User.objects.filter(role='parent', is_active=True))
+        return list(User.objects.filter(role="parent", is_active=True))
 
     elif target_group == Broadcast.TargetGroup.BY_SUBJECT:
-        subject_id = target_filter.get('subject_id')
+        subject_id = target_filter.get("subject_id")
         if not subject_id:
             logger.warning("[_get_recipients_by_group] BY_SUBJECT requires subject_id")
             return []
 
         # Получить всех студентов и учителей по предмету
-        enrollments = SubjectEnrollment.objects.filter(
-            subject_id=subject_id
-        ).select_related('student')
+        enrollments = SubjectEnrollment.objects.filter(subject_id=subject_id).select_related(
+            "student"
+        )
 
-        teacher_subjects = TeacherSubject.objects.filter(
-            subject_id=subject_id
-        ).select_related('teacher')
+        teacher_subjects = TeacherSubject.objects.filter(subject_id=subject_id).select_related(
+            "teacher"
+        )
 
         recipients = []
         for enrollment in enrollments:
@@ -645,31 +609,32 @@ def _get_recipients_by_group(target_group: str, target_filter: dict = None) -> L
         return list(set(recipients))  # Убираем дубликаты
 
     elif target_group == Broadcast.TargetGroup.BY_TUTOR:
-        tutor_id = target_filter.get('tutor_id')
+        tutor_id = target_filter.get("tutor_id")
         if not tutor_id:
             logger.warning("[_get_recipients_by_group] BY_TUTOR requires tutor_id")
             return []
 
         # Получить всех студентов этого тьютора
         from accounts.models import StudentProfile
-        student_profiles = StudentProfile.objects.filter(tutor_id=tutor_id).select_related('user')
+
+        student_profiles = StudentProfile.objects.filter(tutor_id=tutor_id).select_related("user")
         return [profile.user for profile in student_profiles]
 
     elif target_group == Broadcast.TargetGroup.BY_TEACHER:
-        teacher_id = target_filter.get('teacher_id')
+        teacher_id = target_filter.get("teacher_id")
         if not teacher_id:
             logger.warning("[_get_recipients_by_group] BY_TEACHER requires teacher_id")
             return []
 
         # Получить всех студентов этого учителя через SubjectEnrollment
-        enrollments = SubjectEnrollment.objects.filter(
-            teacher_id=teacher_id
-        ).select_related('student')
+        enrollments = SubjectEnrollment.objects.filter(teacher_id=teacher_id).select_related(
+            "student"
+        )
 
         return [enrollment.student for enrollment in enrollments]
 
     elif target_group == Broadcast.TargetGroup.CUSTOM:
-        user_ids = target_filter.get('user_ids', [])
+        user_ids = target_filter.get("user_ids", [])
         if not user_ids:
             logger.warning("[_get_recipients_by_group] CUSTOM requires user_ids")
             return []
@@ -689,11 +654,12 @@ def _create_broadcast_recipients(broadcast: Broadcast, users: List[User]):
         users: список пользователей-получателей
     """
     broadcast_recipients = [
-        BroadcastRecipient(broadcast=broadcast, recipient=user)
-        for user in users
+        BroadcastRecipient(broadcast=broadcast, recipient=user) for user in users
     ]
     BroadcastRecipient.objects.bulk_create(broadcast_recipients)
-    logger.info(f"[_create_broadcast_recipients] Created {len(broadcast_recipients)} recipient records")
+    logger.info(
+        f"[_create_broadcast_recipients] Created {len(broadcast_recipients)} recipient records"
+    )
 
 
 def _send_telegram_broadcasts(broadcast: Broadcast):
@@ -716,5 +682,5 @@ def _send_telegram_broadcasts(broadcast: Broadcast):
         f"failed={result['failed']}"
     )
 
-    if result['failed'] > 0 and result['sent'] == 0:
+    if result["failed"] > 0 and result["sent"] == 0:
         raise Exception(f"Все отправки не удались: {result['failed']} ошибок")

@@ -9,6 +9,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth import get_user_model
@@ -16,6 +17,7 @@ from django.utils import timezone
 from django.http import HttpResponse
 
 from django.db.models import Q, Prefetch
+from django.db import transaction
 from .models import StudentProfile
 from .tutor_service import StudentCreationService, SubjectAssignmentService
 from .tutor_serializers import (
@@ -26,40 +28,19 @@ from .tutor_serializers import (
     SubjectBulkAssignSerializer,
 )
 from .serializers import UserSerializer
+from .permissions import IsTutor
 
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-class IsTutor(permissions.BasePermission):
-    """
-    Разрешение для пользователей с ролью TUTOR или администраторов (staff/superuser).
-    Администраторы имеют доступ ко всем функциям тьютора.
-    """
-
-    def has_permission(self, request, view):
-        if not request.user.is_authenticated:
-            return False
-
-        user_role = getattr(request.user, "role", None)
-        is_staff = getattr(request.user, "is_staff", False)
-        is_superuser = getattr(request.user, "is_superuser", False)
-
-        # Разрешаем доступ для тьюторов или администраторов
-        result = user_role == User.Role.TUTOR or is_staff or is_superuser
-
-        if not result:
-            logger.warning(
-                f"IsTutor permission denied: user role '{user_role}' is not tutor "
-                f"and user is not staff/superuser"
-            )
-
-        return result
-
-
 class TutorStudentsViewSet(viewsets.ViewSet):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    authentication_classes = [
+        JWTAuthentication,
+        TokenAuthentication,
+        SessionAuthentication,
+    ]
     permission_classes = [permissions.IsAuthenticated, IsTutor]
 
     def list(self, request):
@@ -147,22 +128,23 @@ class TutorStudentsViewSet(viewsets.ViewSet):
 
         data = serializer.validated_data
         try:
-            (
-                student_user,
-                parent_user,
-                student_creds,
-                parent_creds,
-            ) = StudentCreationService.create_student_with_parent(
-                tutor=request.user,
-                student_first_name=data["first_name"],
-                student_last_name=data["last_name"],
-                grade=data["grade"],
-                goal=data.get("goal", ""),
-                parent_first_name=data["parent_first_name"],
-                parent_last_name=data["parent_last_name"],
-                parent_email=data.get("parent_email", ""),
-                parent_phone=data.get("parent_phone", ""),
-            )
+            with transaction.atomic():
+                (
+                    student_user,
+                    parent_user,
+                    student_creds,
+                    parent_creds,
+                ) = StudentCreationService.create_student_with_parent(
+                    tutor=request.user,
+                    student_first_name=data["first_name"],
+                    student_last_name=data["last_name"],
+                    grade=data["grade"],
+                    goal=data.get("goal", ""),
+                    parent_first_name=data["parent_first_name"],
+                    parent_last_name=data["parent_last_name"],
+                    parent_email=data.get("parent_email", ""),
+                    parent_phone=data.get("parent_phone", ""),
+                )
         except PermissionError as e:
             logger.error(f"PermissionError creating student: {e}")
             return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
@@ -498,7 +480,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
 
         if format_type not in ["csv"]:
             return Response(
-                {"detail": "Поддерживаемые форматы: csv"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Поддерживаемые форматы: csv"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         enrollments_prefetch = Prefetch(
@@ -523,7 +506,16 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             response["Content-Disposition"] = "attachment; filename=students.csv"
             writer = csv.writer(response)
             writer.writerow(
-                ["ID", "Имя", "Фамилия", "Email", "Класс", "Статус", "Предметы", "Дата создания"]
+                [
+                    "ID",
+                    "Имя",
+                    "Фамилия",
+                    "Email",
+                    "Класс",
+                    "Статус",
+                    "Предметы",
+                    "Дата создания",
+                ]
             )
 
             for profile in students_queryset:
@@ -626,6 +618,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
     def bulk_assign_subjects(self, request):
         """Bulk assignment of subjects to multiple students.
 
+        POST /api/accounts/tutors/bulk_assign_subjects/
+
         Request body:
         {
             "assignments": [
@@ -634,14 +628,23 @@ class TutorStudentsViewSet(viewsets.ViewSet):
             ]
         }
 
-        Response:
-        {
-            "successful": <int>,
-            "failed": [
-                {"student_id": <int>, "subject_id": <int>, "error": "<error_message>"},
-                ...
-            ]
-        }
+        Parameters:
+        - assignments: List of assignment objects (max 100 per request)
+        - student_id: ID of student to assign subject to (required)
+        - subject_id: ID of subject to assign (required)
+        - teacher_id: ID of teacher for this subject (optional)
+
+        Response status codes:
+        - 200 OK: All assignments successful
+        - 207 Multi-Status: Partial success (some assignments failed)
+            Returns: {
+                "successful": <int>,
+                "failed": [
+                    {"student_id": <int>, "subject_id": <int>, "error": "<error_message>"},
+                    ...
+                ]
+            }
+        - 400 Bad Request: Validation error (missing assignments, max 100 exceeded)
         """
         from materials.models import SubjectEnrollment, Subject
 
@@ -652,8 +655,40 @@ class TutorStudentsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if len(assignments) > 100:
+            return Response(
+                {"detail": "Максимум 100 назначений за один запрос"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         successful = 0
         failed = []
+
+        student_ids = [a.get("student_id") for a in assignments if a.get("student_id")]
+        subject_ids = [a.get("subject_id") for a in assignments if a.get("subject_id")]
+        teacher_ids = [
+            a.get("teacher_id") for a in assignments if a.get("teacher_id") and a.get("teacher_id")
+        ]
+
+        students_map = {}
+        if student_ids:
+            students_list = StudentProfile.objects.filter(
+                Q(id__in=student_ids)
+                & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
+            ).select_related("user")
+            students_map = {s.id: s for s in students_list}
+
+        subjects_map = {}
+        if subject_ids:
+            subjects_list = Subject.objects.filter(id__in=subject_ids)
+            subjects_map = {s.id: s for s in subjects_list}
+
+        teachers_map = {}
+        if teacher_ids:
+            teachers_list = User.objects.filter(
+                id__in=teacher_ids, role=User.Role.TEACHER, is_active=True
+            )
+            teachers_map = {t.id: t for t in teachers_list}
 
         for assignment in assignments:
             student_id = assignment.get("student_id")
@@ -670,12 +705,8 @@ class TutorStudentsViewSet(viewsets.ViewSet):
                 )
                 continue
 
-            try:
-                student_profile = StudentProfile.objects.select_related("user").get(
-                    Q(id=student_id)
-                    & (Q(tutor=request.user) | Q(user__created_by_tutor=request.user))
-                )
-            except StudentProfile.DoesNotExist:
+            student_profile = students_map.get(student_id)
+            if not student_profile:
                 failed.append(
                     {
                         "student_id": student_id,
@@ -684,20 +715,9 @@ class TutorStudentsViewSet(viewsets.ViewSet):
                     }
                 )
                 continue
-            except Exception as e:
-                logger.error(f"Error getting student {student_id}: {e}")
-                failed.append(
-                    {
-                        "student_id": student_id,
-                        "subject_id": subject_id,
-                        "error": f"Ошибка получения ученика: {e}",
-                    }
-                )
-                continue
 
-            try:
-                subject = Subject.objects.get(id=subject_id)
-            except Subject.DoesNotExist:
+            subject = subjects_map.get(subject_id)
+            if not subject:
                 failed.append(
                     {
                         "student_id": student_id,
@@ -706,39 +726,16 @@ class TutorStudentsViewSet(viewsets.ViewSet):
                     }
                 )
                 continue
-            except Exception as e:
-                logger.error(f"Error getting subject {subject_id}: {e}")
-                failed.append(
-                    {
-                        "student_id": student_id,
-                        "subject_id": subject_id,
-                        "error": f"Ошибка получения предмета: {e}",
-                    }
-                )
-                continue
 
             teacher = None
             if teacher_id:
-                try:
-                    teacher = User.objects.get(
-                        id=teacher_id, role=User.Role.TEACHER, is_active=True
-                    )
-                except User.DoesNotExist:
+                teacher = teachers_map.get(teacher_id)
+                if not teacher:
                     failed.append(
                         {
                             "student_id": student_id,
                             "subject_id": subject_id,
                             "error": "Преподаватель не найден или неактивен",
-                        }
-                    )
-                    continue
-                except Exception as e:
-                    logger.error(f"Error getting teacher {teacher_id}: {e}")
-                    failed.append(
-                        {
-                            "student_id": student_id,
-                            "subject_id": subject_id,
-                            "error": f"Ошибка получения преподавателя: {e}",
                         }
                     )
                     continue
@@ -752,7 +749,13 @@ class TutorStudentsViewSet(viewsets.ViewSet):
                 )
                 successful += 1
             except (PermissionError, ValueError) as e:
-                failed.append({"student_id": student_id, "subject_id": subject_id, "error": str(e)})
+                failed.append(
+                    {
+                        "student_id": student_id,
+                        "subject_id": subject_id,
+                        "error": str(e),
+                    }
+                )
             except Exception as e:
                 logger.error(f"Error assigning subject {subject_id} to student {student_id}: {e}")
                 failed.append(
@@ -770,7 +773,7 @@ class TutorStudentsViewSet(viewsets.ViewSet):
 
 
 @api_view(["GET"])
-@authentication_classes([TokenAuthentication, SessionAuthentication])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated, IsTutor])
 def list_teachers(request):
     """

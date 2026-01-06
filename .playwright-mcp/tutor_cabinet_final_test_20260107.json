@@ -1,0 +1,307 @@
+{
+  "test_name": "tutor_cabinet_final_test_20260107",
+  "timestamp": "2026-01-07T00:00:00",
+  "summary": {
+    "total_endpoints_tested": 32,
+    "total_tests_run": 27,
+    "passed": 16,
+    "failed": 11,
+    "pass_rate_percent": 59.3,
+    "critical_issues": 3,
+    "regression_issues": 8
+  },
+  "results_by_category": {
+    "chat_endpoints": {
+      "status": "PARTIALLY_WORKING",
+      "total": 4,
+      "passed": 3,
+      "failed": 1,
+      "issues": [
+        {
+          "endpoint": "POST /api/chat/rooms/",
+          "http_method": "POST",
+          "status_code": 500,
+          "expected_status": 201,
+          "error": "TypeError: django.db.models.query.QuerySet.create() got multiple values for keyword argument 'created_by'",
+          "severity": "CRITICAL",
+          "location": "backend/chat/serializers.py:166",
+          "description": "ChatRoomDetailSerializer passes created_by twice - once in perform_create and once in serializer.create()"
+        }
+      ]
+    },
+    "accounts_endpoints": {
+      "status": "FAILED",
+      "total": 4,
+      "passed": 0,
+      "failed": 4,
+      "issues": [
+        {
+          "endpoint": "GET /api/accounts/students/",
+          "http_method": "GET",
+          "status_code": 403,
+          "expected_status": 200,
+          "severity": "HIGH",
+          "description": "Permission denied - teacher role cannot access student list. May indicate permission check regression."
+        },
+        {
+          "endpoint": "GET /api/accounts/students/{id}/",
+          "http_method": "GET",
+          "status_code": 404,
+          "expected_status": 200,
+          "severity": "MEDIUM",
+          "description": "Student detail endpoint not found or not accessible"
+        },
+        {
+          "endpoint": "PATCH /api/accounts/users/{id}/",
+          "http_method": "PATCH",
+          "status_code": 404,
+          "expected_status": 200,
+          "severity": "MEDIUM",
+          "description": "Users update endpoint returns 404 - possible URL routing issue"
+        },
+        {
+          "endpoint": "GET /api/profile/tutor/",
+          "http_method": "GET",
+          "status_code": 404,
+          "expected_status": 200,
+          "severity": "MEDIUM",
+          "description": "Tutor profile endpoint returns 404"
+        }
+      ]
+    },
+    "scheduling_endpoints": {
+      "status": "WORKING",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "issues": []
+    },
+    "materials_endpoints": {
+      "status": "WORKING",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "issues": []
+    },
+    "assignments_endpoints": {
+      "status": "PARTIALLY_WORKING",
+      "total": 3,
+      "passed": 2,
+      "failed": 1,
+      "issues": [
+        {
+          "endpoint": "POST /api/assignments/",
+          "http_method": "POST",
+          "status_code": 404,
+          "expected_status": 201,
+          "severity": "HIGH",
+          "description": "Assignment create endpoint returns 404 - endpoint may not be properly registered"
+        }
+      ]
+    },
+    "payments_endpoints": {
+      "status": "FAILED",
+      "total": 2,
+      "passed": 0,
+      "failed": 2,
+      "issues": [
+        {
+          "endpoint": "GET /api/invoices/",
+          "http_method": "GET",
+          "status_code": 404,
+          "expected_status": 200,
+          "severity": "HIGH",
+          "description": "Invoices list endpoint returns 404"
+        },
+        {
+          "endpoint": "POST /api/invoices/",
+          "http_method": "POST",
+          "status_code": 404,
+          "expected_status": 201,
+          "severity": "HIGH",
+          "description": "Invoices create endpoint returns 404"
+        }
+      ]
+    },
+    "reports_endpoints": {
+      "status": "WORKING",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "issues": []
+    },
+    "authentication_checks": {
+      "status": "WORKING",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "issues": []
+    },
+    "performance_checks": {
+      "status": "WORKING",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "performance_metrics": {
+        "avg_response_time_ms": 45,
+        "max_response_time_ms": 120,
+        "endpoints_below_threshold": 6,
+        "threshold_seconds": 2.0
+      }
+    },
+    "http_methods_handling": {
+      "status": "PARTIALLY_WORKING",
+      "total": 2,
+      "passed": 0,
+      "failed": 2,
+      "issues": [
+        {
+          "description": "DELETE on list returns 200 instead of 405 Method Not Allowed",
+          "severity": "MEDIUM"
+        },
+        {
+          "description": "PUT method handling inconsistent - returns 405 instead of expected 403/404",
+          "severity": "MEDIUM"
+        }
+      ]
+    }
+  },
+  "regression_findings": {
+    "total_regressions": 8,
+    "by_severity": {
+      "CRITICAL": [
+        {
+          "id": "REG_001",
+          "title": "Chat room creation broken - duplicate created_by parameter",
+          "file": "backend/chat/serializers.py",
+          "line": 166,
+          "status": "NEEDS_FIX",
+          "impact": "Users cannot create chat rooms via API"
+        }
+      ],
+      "HIGH": [
+        {
+          "id": "REG_002",
+          "title": "Student list endpoint returns 403 instead of 200",
+          "file": "backend/accounts/views.py",
+          "status": "NEEDS_INVESTIGATION",
+          "impact": "Teachers cannot view student lists"
+        },
+        {
+          "id": "REG_003",
+          "title": "Invoices endpoints return 404",
+          "file": "backend/invoices/views.py or urls.py",
+          "status": "NEEDS_INVESTIGATION",
+          "impact": "Payments functionality is not accessible"
+        },
+        {
+          "id": "REG_004",
+          "title": "Assignments create endpoint returns 404",
+          "file": "backend/assignments/views.py or urls.py",
+          "status": "NEEDS_INVESTIGATION",
+          "impact": "Teachers cannot create assignments"
+        }
+      ],
+      "MEDIUM": [
+        {
+          "id": "REG_005",
+          "title": "Student detail endpoint returns 404",
+          "status": "NEEDS_INVESTIGATION"
+        },
+        {
+          "id": "REG_006",
+          "title": "User update endpoint returns 404",
+          "status": "NEEDS_INVESTIGATION"
+        },
+        {
+          "id": "REG_007",
+          "title": "Tutor profile endpoint returns 404",
+          "status": "NEEDS_INVESTIGATION"
+        },
+        {
+          "id": "REG_008",
+          "title": "HTTP method validation inconsistent",
+          "status": "NEEDS_INVESTIGATION"
+        }
+      ]
+    }
+  },
+  "endpoints_status_matrix": {
+    "working_endpoints": [
+      "GET /api/chat/rooms/",
+      "GET /api/chat/messages/",
+      "POST /api/chat/messages/",
+      "GET /api/scheduling/lessons/",
+      "POST /api/scheduling/lessons/",
+      "GET /api/scheduling/schedule/",
+      "GET /api/materials/subjects/",
+      "POST /api/materials/subjects/",
+      "GET /api/materials/materials/{id}/",
+      "GET /api/assignments/",
+      "GET /api/assignments/{id}/submissions/",
+      "GET /api/reports/",
+      "GET /api/chat/rooms/ (auth check)",
+      "GET /api/accounts/students/ (role check)",
+      "GET /api/scheduling/lessons/ (teacher role)"
+    ],
+    "broken_endpoints": [
+      "POST /api/chat/rooms/ (500 - duplicate created_by)",
+      "GET /api/accounts/students/ (403 - permission issue)",
+      "GET /api/accounts/students/{id}/ (404)",
+      "PATCH /api/accounts/users/{id}/ (404)",
+      "GET /api/profile/tutor/ (404)",
+      "POST /api/assignments/ (404)",
+      "GET /api/invoices/ (404)",
+      "POST /api/invoices/ (404)"
+    ],
+    "permission_issues": [
+      "GET /api/accounts/students/ - teacher role blocked (expected 200, got 403)"
+    ]
+  },
+  "recommendations": {
+    "immediate_actions": [
+      {
+        "priority": "P0 CRITICAL",
+        "action": "Fix chat room creation - remove duplicate created_by parameter",
+        "file": "backend/chat/serializers.py",
+        "line": 166,
+        "details": "ChatRoomDetailSerializer.create() already receives created_by via context, perform_create also passes it"
+      },
+      {
+        "priority": "P1 HIGH",
+        "action": "Investigate 404 responses for /api/accounts/students/ and other account endpoints",
+        "file": "backend/accounts/urls.py",
+        "details": "Verify URL routing is correct and endpoints are registered"
+      },
+      {
+        "priority": "P1 HIGH",
+        "action": "Verify /api/invoices/ endpoint is registered",
+        "file": "backend/invoices/urls.py",
+        "details": "Payments endpoints returning 404 - check URL routing"
+      },
+      {
+        "priority": "P1 HIGH",
+        "action": "Check permissions for student list endpoint",
+        "file": "backend/accounts/views.py",
+        "details": "Teacher role is being blocked from accessing student list (getting 403)"
+      }
+    ],
+    "testing_recommendations": [
+      "Run endpoint discovery test to verify all expected URLs are registered",
+      "Add integration tests for URL routing verification",
+      "Verify all ViewSet permission_classes are correctly configured",
+      "Test role-based access control for each endpoint"
+    ]
+  },
+  "test_execution_details": {
+    "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/tutor_cabinet_final_test_20260107.py",
+    "test_classes": 10,
+    "test_methods": 27,
+    "environment": "test",
+    "database": "test_thebot_db",
+    "duration_seconds": 10.24,
+    "python_version": "3.13.7",
+    "pytest_version": "9.0.2",
+    "django_version": "4.2.7"
+  }
+}

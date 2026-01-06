@@ -451,16 +451,17 @@ class IsTeacher(BasePermission):
 
 class IsTutor(BasePermission):
     """
-    Разрешение только для тьюторов.
+    Разрешение для тьюторов и администраторов.
 
     Требует:
     - Пользователь активен (is_active=True)
     - Пользователь аутентифицирован
-    - role=TUTOR
+    - role=TUTOR или is_staff=True
 
     Права по ролям:
     - Tutor (role=TUTOR, active): полный доступ
-    - Все остальные (Admin, Student, Teacher, Parent): запрещено
+    - Admin (is_staff=True, active): полный доступ
+    - Все остальные (Student, Teacher, Parent): запрещено
     - Неактивные: запрещено
 
     Используется для:
@@ -468,14 +469,18 @@ class IsTutor(BasePermission):
     """
 
     def has_permission(self, request, view) -> bool:
-        """Проверяет что пользователь тьютор"""
+        """Проверяет что пользователь тьютор или администратор"""
         if not request.user or not request.user.is_authenticated:
             return False
 
         if not request.user.is_active:
             return False
 
-        return request.user.role == User.Role.TUTOR
+        return (
+            request.user.role == User.Role.TUTOR
+            or request.user.is_staff
+            or request.user.is_superuser
+        )
 
 
 class IsParent(BasePermission):
@@ -528,11 +533,7 @@ class TutorCanViewStudentData(BasePermission):
 
     def has_permission(self, request, view):
         """Проверяет что пользователь активен и аутентифицирован"""
-        return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.is_active
-        )
+        return request.user and request.user.is_authenticated and request.user.is_active
 
     def has_object_permission(self, request, view, obj):
         """Проверяет может ли пользователь видеть конкретного студента"""
@@ -546,6 +547,7 @@ class TutorCanViewStudentData(BasePermission):
         # Тьютор может видеть только своих студентов
         if request.user.role == User.Role.TUTOR:
             from .models import StudentProfile
+
             if isinstance(obj, StudentProfile):
                 return obj.tutor == request.user
             return False
@@ -594,6 +596,7 @@ class TutorCanEditStudent(BasePermission):
             return True
 
         from .models import StudentProfile
+
         if not isinstance(obj, StudentProfile):
             return False
 
@@ -638,11 +641,7 @@ class ParentCanViewChild(BasePermission):
 
     def has_permission(self, request, view):
         """Проверяет что пользователь активен и аутентифицирован"""
-        return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.is_active
-        )
+        return request.user and request.user.is_authenticated and request.user.is_active
 
     def has_object_permission(self, request, view, obj):
         """Проверяет может ли родитель видеть ребенка"""
@@ -656,6 +655,7 @@ class ParentCanViewChild(BasePermission):
         # Родитель может видеть только своего ребенка
         if request.user.role == User.Role.PARENT:
             from .models import StudentProfile
+
             if isinstance(obj, StudentProfile):
                 return obj.parent == request.user
             return False
@@ -684,11 +684,7 @@ class TeacherCanViewAssignedStudents(BasePermission):
 
     def has_permission(self, request, view):
         """Проверяет что пользователь активен и аутентифицирован"""
-        return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.is_active
-        )
+        return request.user and request.user.is_authenticated and request.user.is_active
 
     def has_object_permission(self, request, view, obj):
         """Проверяет может ли учитель видеть студента"""
@@ -702,6 +698,7 @@ class TeacherCanViewAssignedStudents(BasePermission):
         # Учитель может видеть только своих студентов
         if request.user.role == User.Role.TEACHER:
             from .models import StudentProfile
+
             if isinstance(obj, StudentProfile):
                 # Студент должен быть назначен этому учителю
                 return obj.teacher == request.user

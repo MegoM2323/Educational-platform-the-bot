@@ -50,15 +50,10 @@ class Invoice(models.Model):
     )
 
     # Связи с другими моделями
-    enrollment = models.ForeignKey(
-        "materials.SubjectEnrollment",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="invoices",
-        verbose_name="Зачисление на предмет",
-        help_text="Опционально: привязка к конкретному предмету",
-    )
+    # NOTE: enrollment_id field is managed at database level via migrations
+    # to avoid circular dependency with materials.SubjectEnrollment
+    # The field is created via migration 0006_invoice_enrollment
+    # Access via: invoice.enrollment_id (raw database access)
 
     payment = models.OneToOneField(
         "payments.Payment",

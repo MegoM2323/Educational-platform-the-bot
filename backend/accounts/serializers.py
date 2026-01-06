@@ -31,9 +31,13 @@ def _validate_role_for_assignment(user_obj, expected_role, role_name):
     """
     if user_obj:
         if user_obj.role != expected_role:
-            raise serializers.ValidationError(f"Указанный пользователь не является {role_name}ом")
+            raise serializers.ValidationError(
+                f"Указанный пользователь не является {role_name}ом"
+            )
         if not user_obj.is_active:
-            raise serializers.ValidationError(f"{role_name.capitalize()} должен быть активным")
+            raise serializers.ValidationError(
+                f"{role_name.capitalize()} должен быть активным"
+            )
 
 
 __all__ = [
@@ -44,6 +48,7 @@ __all__ = [
     "StudentProfileSerializer",
     "TeacherProfileSerializer",
     "TutorProfileSerializer",
+    "TutorProfileDetailSerializer",
     "ParentProfileSerializer",
     "ParentProfileListSerializer",
     "ChangePasswordSerializer",
@@ -116,7 +121,9 @@ class UserLoginSerializer(serializers.Serializer):
         password = attrs.get("password")
 
         if not email and not username:
-            raise serializers.ValidationError("Необходимо указать email или имя пользователя")
+            raise serializers.ValidationError(
+                "Необходимо указать email или имя пользователя"
+            )
 
         attrs["email"] = email if email else None
         attrs["username"] = username if username else None
@@ -195,7 +202,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             viewer_user = request.user
             profile_owner_user = self.instance.user
 
-            if not can_view_private_fields(viewer_user, profile_owner_user, User.Role.STUDENT):
+            if not can_view_private_fields(
+                viewer_user, profile_owner_user, User.Role.STUDENT
+            ):
                 self.fields.pop("goal", None)
                 self.fields.pop("tutor", None)
                 self.fields.pop("tutor_name", None)
@@ -231,7 +240,9 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
             viewer_user = request.user
             profile_owner_user = self.instance.user
 
-            if not can_view_private_fields(viewer_user, profile_owner_user, User.Role.TEACHER):
+            if not can_view_private_fields(
+                viewer_user, profile_owner_user, User.Role.TEACHER
+            ):
                 self.fields.pop("bio", None)
                 self.fields.pop("experience_years", None)
 
@@ -257,6 +268,7 @@ class TutorProfileSerializer(serializers.ModelSerializer):
             "specialization",
             "experience_years",
             "bio",
+            "telegram",
             "reportsCount",
         )
 
@@ -268,7 +280,9 @@ class TutorProfileSerializer(serializers.ModelSerializer):
             viewer_user = request.user
             profile_owner_user = self.instance.user
 
-            if not can_view_private_fields(viewer_user, profile_owner_user, User.Role.TUTOR):
+            if not can_view_private_fields(
+                viewer_user, profile_owner_user, User.Role.TUTOR
+            ):
                 self.fields.pop("bio", None)
                 self.fields.pop("experience_years", None)
 
@@ -363,7 +377,9 @@ class StudentListSerializer(serializers.ModelSerializer):
             return {
                 "id": obj.tutor.id,
                 "name": obj.tutor.get_full_name(),
-                "avatar": getattr(obj.tutor.avatar, "url", None) if obj.tutor.avatar else None,
+                "avatar": getattr(obj.tutor.avatar, "url", None)
+                if obj.tutor.avatar
+                else None,
             }
         return None
 
@@ -375,7 +391,9 @@ class StudentListSerializer(serializers.ModelSerializer):
             return {
                 "id": obj.parent.id,
                 "name": obj.parent.get_full_name(),
-                "avatar": getattr(obj.parent.avatar, "url", None) if obj.parent.avatar else None,
+                "avatar": getattr(obj.parent.avatar, "url", None)
+                if obj.parent.avatar
+                else None,
             }
         return None
 
@@ -437,7 +455,9 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             return {
                 "id": obj.tutor.id,
                 "name": obj.tutor.get_full_name(),
-                "avatar": getattr(obj.tutor.avatar, "url", None) if obj.tutor.avatar else None,
+                "avatar": getattr(obj.tutor.avatar, "url", None)
+                if obj.tutor.avatar
+                else None,
             }
         return None
 
@@ -449,7 +469,9 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             return {
                 "id": obj.parent.id,
                 "name": obj.parent.get_full_name(),
-                "avatar": getattr(obj.parent.avatar, "url", None) if obj.parent.avatar else None,
+                "avatar": getattr(obj.parent.avatar, "url", None)
+                if obj.parent.avatar
+                else None,
             }
         return None
 
@@ -559,7 +581,9 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         ).count()
 
         # Статистика по заданиям
-        total_assignments = AssignmentSubmission.objects.filter(student=obj.user).count()
+        total_assignments = AssignmentSubmission.objects.filter(
+            student=obj.user
+        ).count()
         reviewed_assignments = AssignmentSubmission.objects.filter(
             student=obj.user, status="reviewed"
         ).count()
@@ -615,7 +639,9 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         # Проверяем уникальность email (исключая текущего пользователя)
         if User.objects.filter(email=value).exclude(id=user.id).exists():
-            raise serializers.ValidationError("Пользователь с таким email уже существует")
+            raise serializers.ValidationError(
+                "Пользователь с таким email уже существует"
+            )
 
         return value
 
@@ -677,7 +703,9 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
         """
         if value is not None:
             if not isinstance(value, int) or value < 1 or value > 12:
-                raise serializers.ValidationError("Grade must be an integer between 1 and 12")
+                raise serializers.ValidationError(
+                    "Grade must be an integer between 1 and 12"
+                )
         return value
 
 
@@ -739,6 +767,75 @@ class TutorProfileUpdateSerializer(serializers.ModelSerializer):
         if value:
             value = escape(value)
         return value
+
+
+class TutorProfileDetailSerializer(serializers.ModelSerializer):
+    """
+    Детальный сериализатор для профиля тьютора с поддержкой avatar загрузки.
+    Используется для обновления профиля через PUT/PATCH с файлом avatar.
+    """
+
+    user = UserSerializer(read_only=True)
+    avatar = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    reportsCount = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TutorProfile
+        fields = (
+            "id",
+            "user",
+            "specialization",
+            "experience_years",
+            "bio",
+            "telegram",
+            "avatar",
+            "reportsCount",
+        )
+        read_only_fields = ("id", "user", "reportsCount")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+
+        if self.instance and request:
+            viewer_user = request.user
+            profile_owner_user = self.instance.user
+
+            if not can_view_private_fields(
+                viewer_user, profile_owner_user, User.Role.TUTOR
+            ):
+                self.fields.pop("bio", None)
+                self.fields.pop("experience_years", None)
+
+    def validate(self, attrs):
+        """Валидация профиля при обновлении"""
+        if "experience_years" in attrs and attrs["experience_years"] is not None:
+            if attrs["experience_years"] < 0:
+                raise serializers.ValidationError(
+                    {"experience_years": "Опыт работы не может быть отрицательным"}
+                )
+
+        return attrs
+
+    def get_reportsCount(self, obj):
+        """Получить количество отправленных отчётов тьютора из annotated поля"""
+        return getattr(obj, "reports_count", 0)
+
+    def update(self, instance, validated_data):
+        """Обновить профиль тьютора, включая обработку avatar"""
+        from .profile_service import ProfileService
+
+        avatar = validated_data.pop("avatar", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        if avatar:
+            ProfileService.handle_avatar_upload(instance.user, avatar)
+
+        return instance
 
 
 class ParentProfileUpdateSerializer(serializers.ModelSerializer):
@@ -808,8 +905,12 @@ class UserCreateSerializer(serializers.Serializer):
 
     # Поля для преподавателя и тьютора
     subject = serializers.CharField(required=False, allow_blank=True, max_length=100)
-    specialization = serializers.CharField(required=False, allow_blank=True, max_length=200)
-    experience_years = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    specialization = serializers.CharField(
+        required=False, allow_blank=True, max_length=200
+    )
+    experience_years = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0
+    )
     bio = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
@@ -829,7 +930,9 @@ class UserCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Невалидный формат email")
 
         if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Пользователь с таким email уже существует")
+            raise serializers.ValidationError(
+                "Пользователь с таким email уже существует"
+            )
 
         return value
 
@@ -839,7 +942,9 @@ class UserCreateSerializer(serializers.Serializer):
             try:
                 tutor = User.objects.get(id=value, is_active=True)
                 if tutor.role != User.Role.TUTOR:
-                    raise serializers.ValidationError("Указанный пользователь не является тьютором")
+                    raise serializers.ValidationError(
+                        "Указанный пользователь не является тьютором"
+                    )
             except User.DoesNotExist:
                 raise serializers.ValidationError("Тьютор не найден")
 
@@ -876,7 +981,9 @@ class UserCreateSerializer(serializers.Serializer):
         # Для студента проверяем обязательные поля
         if role == User.Role.STUDENT:
             if not attrs.get("grade"):
-                raise serializers.ValidationError({"grade": "Поле обязательно для студента"})
+                raise serializers.ValidationError(
+                    {"grade": "Поле обязательно для студента"}
+                )
 
         # Для тьютора проверяем обязательные поля
         elif role == User.Role.TUTOR:
@@ -1009,7 +1116,9 @@ class TeacherProfilePublicSerializer(serializers.ModelSerializer):
     def get_subjects(self, obj):
         """Возвращает список предметов преподавателя из prefetched TeacherSubject"""
         teacher_subjects = getattr(obj.user, "_prefetched_teacher_subjects", [])
-        return [{"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects]
+        return [
+            {"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects
+        ]
 
 
 class TeacherProfileFullSerializer(serializers.ModelSerializer):
@@ -1031,7 +1140,9 @@ class TeacherProfileFullSerializer(serializers.ModelSerializer):
     def get_subjects(self, obj):
         """Возвращает список предметов преподавателя из prefetched TeacherSubject"""
         teacher_subjects = getattr(obj.user, "_prefetched_teacher_subjects", [])
-        return [{"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects]
+        return [
+            {"id": ts.subject.id, "name": ts.subject.name} for ts in teacher_subjects
+        ]
 
 
 class TutorProfilePublicSerializer(serializers.ModelSerializer):
@@ -1108,14 +1219,28 @@ def get_profile_serializer(profile, viewer_user, profile_owner_user):
     """
     profile_type = profile_owner_user.role
 
-    can_view_private = can_view_private_fields(viewer_user, profile_owner_user, profile_type)
+    can_view_private = can_view_private_fields(
+        viewer_user, profile_owner_user, profile_type
+    )
 
     if profile_type == User.Role.STUDENT:
-        return StudentProfileFullSerializer if can_view_private else StudentProfilePublicSerializer
+        return (
+            StudentProfileFullSerializer
+            if can_view_private
+            else StudentProfilePublicSerializer
+        )
     elif profile_type == User.Role.TEACHER:
-        return TeacherProfileFullSerializer if can_view_private else TeacherProfilePublicSerializer
+        return (
+            TeacherProfileFullSerializer
+            if can_view_private
+            else TeacherProfilePublicSerializer
+        )
     elif profile_type == User.Role.TUTOR:
-        return TutorProfileFullSerializer if can_view_private else TutorProfilePublicSerializer
+        return (
+            TutorProfileFullSerializer
+            if can_view_private
+            else TutorProfilePublicSerializer
+        )
     elif profile_type == User.Role.PARENT:
         return ParentProfileSerializer
 
@@ -1345,8 +1470,12 @@ class CurrentUserProfileSerializer(serializers.Serializer):
             from notifications.models import NotificationSettings
             from notifications.serializers import NotificationSettingsSerializer
 
-            notification_settings, _ = NotificationSettings.objects.get_or_create(user=user)
-            notification_settings_data = NotificationSettingsSerializer(notification_settings).data
+            notification_settings, _ = NotificationSettings.objects.get_or_create(
+                user=user
+            )
+            notification_settings_data = NotificationSettingsSerializer(
+                notification_settings
+            ).data
         except Exception:
             # Если настройки уведомлений недоступны, просто пропускаем
             notification_settings_data = None
@@ -1421,7 +1550,9 @@ def optimize_teacher_profile_queryset(queryset):
 
     teacher_subjects_prefetch = Prefetch(
         "user__teacher_subjects",
-        queryset=TeacherSubject.objects.filter(is_active=True).select_related("subject"),
+        queryset=TeacherSubject.objects.filter(is_active=True).select_related(
+            "subject"
+        ),
     )
 
     return queryset.select_related("user").prefetch_related(teacher_subjects_prefetch)

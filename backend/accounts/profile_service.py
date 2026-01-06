@@ -39,7 +39,9 @@ class ProfileService:
 
     @staticmethod
     @transaction.atomic
-    def update_profile_with_validation(user: User, data: Dict[str, Any], profile_type: str) -> Any:
+    def update_profile_with_validation(
+        user: User, data: Dict[str, Any], profile_type: str
+    ) -> Any:
         """Обновить профиль пользователя с валидацией."""
         profile = ProfileService.get_user_profile(user)
         if not profile:
@@ -66,11 +68,15 @@ class ProfileService:
         """Валидировать загруженный файл аватара."""
         max_size_mb = ProfileService.MAX_AVATAR_SIZE / (1024 * 1024)
         if file.size > ProfileService.MAX_AVATAR_SIZE:
-            raise ValidationError(f"Размер файла превышает максимум ({max_size_mb:.0f} MB)")
+            raise ValidationError(
+                f"Размер файла превышает максимум ({max_size_mb:.0f} MB)"
+            )
 
         if file.content_type not in ProfileService.ALLOWED_AVATAR_TYPES:
             allowed_types = ", ".join(ProfileService.ALLOWED_AVATAR_TYPES)
-            raise ValidationError(f"Недопустимый тип файла. Допустимые: {allowed_types}")
+            raise ValidationError(
+                f"Недопустимый тип файла. Допустимые: {allowed_types}"
+            )
 
         try:
             image = Image.open(file)
@@ -82,11 +88,11 @@ class ProfileService:
         return True
 
     @staticmethod
-    def handle_avatar_upload(profile: User, file) -> str:
+    def handle_avatar_upload(user: User, file) -> str:
         """Обработать загрузку аватара - resize, optimize и сохранить.
 
         Args:
-            profile: User объект (передается из view как request.user)
+            user: User объект (передается из view как request.user)
             file: Загруженный файл изображения
 
         Returns:
@@ -98,7 +104,9 @@ class ProfileService:
 
             if image.mode in ("RGBA", "LA", "P"):
                 background = Image.new("RGB", image.size, (255, 255, 255))
-                background.paste(image, mask=image.split()[-1] if image.mode == "RGBA" else None)
+                background.paste(
+                    image, mask=image.split()[-1] if image.mode == "RGBA" else None
+                )
                 image = background
 
             image.thumbnail(ProfileService.AVATAR_SIZE, Image.Resampling.LANCZOS)
@@ -114,13 +122,12 @@ class ProfileService:
             square_image.save(output, format="JPEG", quality=85, optimize=True)
             output.seek(0)
 
-            filename = f"{profile.id}_avatar.jpg"
+            filename = f"{user.id}_avatar.jpg"
             avatar_file = ContentFile(output.getvalue(), name=filename)
 
-            # Сохраняем файл в storage через ImageField
-            profile.avatar.save(filename, avatar_file, save=True)
+            user.avatar.save(filename, avatar_file, save=True)
 
-            return profile.avatar.url
+            return user.avatar.url
 
         except ValidationError:
             raise
@@ -170,7 +177,9 @@ class ProfileService:
         """Валидировать данные профиля тьютора."""
         errors = {}
         if "specialization" in data and len(str(data.get("specialization", ""))) > 200:
-            errors["specialization"] = "Специализация не может быть длиннее 200 символов"
+            errors[
+                "specialization"
+            ] = "Специализация не может быть длиннее 200 символов"
         if "experience_years" in data and data.get("experience_years") is not None:
             exp = int(data.get("experience_years", 0))
             if exp < 0 or exp > 80:

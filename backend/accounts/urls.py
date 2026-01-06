@@ -111,7 +111,6 @@ urlpatterns = [
     ),
     path("users/<int:user_id>/delete/", delete_user, name="admin_delete_user"),
     path("users/<int:user_id>/reactivate/", reactivate_user, name="admin_reactivate_user"),
-    path("users/create/", create_user_with_profile, name="admin_create_user"),
     # Admin-only profile management
     path(
         "students/<int:student_id>/profile/",

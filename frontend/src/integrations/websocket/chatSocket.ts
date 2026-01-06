@@ -307,7 +307,11 @@ class ChatSocketService extends WebSocketService {
 
   private getCurrentUrl(roomId?: number): string {
     if (typeof window !== 'undefined') {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      // Принудительно wss для production домена
+      const isProduction =
+        window.location.hostname === 'the-bot.ru' ||
+        window.location.hostname.endsWith('.the-bot.ru');
+      const protocol = isProduction || window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const baseUrl = `${protocol}//${window.location.host}/ws/chat`;
       return roomId ? `${baseUrl}/${roomId}/` : baseUrl;
     }
@@ -364,7 +368,10 @@ export function getChatSocket(): ChatSocketService {
 
 export function getDefaultWebSocketUrl(roomId?: number): string {
   if (typeof window !== 'undefined') {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Принудительно wss для production домена
+    const isProduction =
+      window.location.hostname === 'the-bot.ru' || window.location.hostname.endsWith('.the-bot.ru');
+    const protocol = isProduction || window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const baseUrl = `${protocol}//${window.location.host}/ws/chat`;
     return roomId ? `${baseUrl}/${roomId}/` : baseUrl;
   }

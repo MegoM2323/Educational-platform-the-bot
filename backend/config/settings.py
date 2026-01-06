@@ -27,7 +27,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Define logs directory early (used in logging configuration later)
 _logs_dir = "/app/logs" if os.path.exists("/app") else os.path.join(BASE_DIR, "logs")
-if not os.path.exists(_logs_dir):
+try:
+    if not os.path.exists(_logs_dir):
+        os.makedirs(_logs_dir, exist_ok=True)
+except (OSError, PermissionError):
+    # If we can't create the directory, fall back to /tmp or a writable location
+    _logs_dir = os.path.expanduser("~/.thebot/logs")
     os.makedirs(_logs_dir, exist_ok=True)
 
 # Загружаем переменные окружения из .env (без ошибок на посторонние строки)

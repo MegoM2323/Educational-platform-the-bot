@@ -17,7 +17,9 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 # WebSocket message size limit (default 1MB)
-WEBSOCKET_MESSAGE_MAX_LENGTH = getattr(settings, "WEBSOCKET_MESSAGE_MAX_LENGTH", 1048576)
+WEBSOCKET_MESSAGE_MAX_LENGTH = getattr(
+    settings, "WEBSOCKET_MESSAGE_MAX_LENGTH", 1048576
+)
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -71,7 +73,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
                 return True
 
-            logger.warning(f"[ChatConsumer] Token validation failed for room {self.room_id}")
+            logger.warning(
+                f"[ChatConsumer] Token validation failed for room {self.room_id}"
+            )
             return False
 
         except Exception as e:
@@ -112,11 +116,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not is_authenticated:
             is_authenticated = await self._authenticate_token_from_query_string()
 
-        logger.debug(f"[ChatConsumer] After token check: authenticated={is_authenticated}")
+        logger.debug(
+            f"[ChatConsumer] After token check: authenticated={is_authenticated}"
+        )
 
         # Проверяем, что пользователь аутентифицирован
         if not is_authenticated:
-            logger.warning(f"[ChatConsumer] Connection rejected: user not authenticated")
+            logger.warning(
+                f"[ChatConsumer] Connection rejected: user not authenticated"
+            )
             await self.close(code=4001)
             return
 
@@ -172,7 +180,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     },
                 },
             )
-            logger.debug(f"[ChatConsumer] Broadcasting user_joined to {self.room_group_name}")
+            logger.debug(
+                f"[ChatConsumer] Broadcasting user_joined to {self.room_group_name}"
+            )
         except Exception as e:
             logger.error(
                 f"Channel layer error broadcasting user_joined in room {self.room_id}: {e}",
@@ -188,7 +198,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Если пользователь не аутентифицирован, просто покидаем группу
             if hasattr(self, "room_group_name") and self.room_group_name:
                 try:
-                    await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+                    await self.channel_layer.group_discard(
+                        self.room_group_name, self.channel_name
+                    )
                 except Exception as e:
                     logger.error(
                         f"Error leaving group on disconnect (unauthenticated): {e}",
@@ -240,12 +252,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Покидаем группу комнаты
             try:
-                await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+                await self.channel_layer.group_discard(
+                    self.room_group_name, self.channel_name
+                )
                 logger.debug(
                     f"[GroupDiscard] Group={self.room_group_name}, Channel={self.channel_name}"
                 )
             except Exception as e:
-                logger.error(f"Error leaving group {self.room_group_name}: {e}", exc_info=True)
+                logger.error(
+                    f"Error leaving group {self.room_group_name}: {e}", exc_info=True
+                )
 
     async def receive(self, text_data):
         # Проверяем размер сообщения для защиты от DoS
@@ -253,7 +269,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             logger.debug(
                 f"WebSocket message size exceeds limit: {len(text_data)} > {WEBSOCKET_MESSAGE_MAX_LENGTH}"
             )
-            await self.send(text_data=json.dumps({"type": "error", "message": "Message too large"}))
+            await self.send(
+                text_data=json.dumps({"type": "error", "message": "Message too large"})
+            )
             return
 
         try:
@@ -278,11 +296,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_lock_chat(data)
 
         except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({"type": "error", "message": "Invalid JSON"}))
+            await self.send(
+                text_data=json.dumps({"type": "error", "message": "Invalid JSON"})
+            )
         except Exception as e:
             logger.error(f"Error in receive: {e}")
             await self.send(
-                text_data=json.dumps({"type": "error", "message": "Internal server error"})
+                text_data=json.dumps(
+                    {"type": "error", "message": "Internal server error"}
+                )
             )
 
     async def handle_chat_message(self, data):
@@ -347,7 +369,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     f'[HandleChatMessage] Broadcast completed for message_id={message.get("id", "unknown")} to {participant_count} participants'
                 )
             except Exception as e:
-                logger.error(f"Channel layer error in room {self.room_id}: {e}", exc_info=True)
+                logger.error(
+                    f"Channel layer error in room {self.room_id}: {e}", exc_info=True
+                )
                 await self.send(
                     text_data=json.dumps(
                         {
@@ -494,7 +518,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         try:
             await self.send(
-                text_data=json.dumps({"type": "chat_message", "message": event["message"]})
+                text_data=json.dumps(
+                    {"type": "chat_message", "message": event["message"]}
+                )
             )
             logger.debug(
                 f"[ChatMessage Handler] SENT to client! message_id={message_id}, recipient={user.username} (role={user_role})"
@@ -511,15 +537,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def typing_stop(self, event):
         """Отправка остановки печати клиенту"""
-        await self.send(text_data=json.dumps({"type": "typing_stop", "user": event["user"]}))
+        await self.send(
+            text_data=json.dumps({"type": "typing_stop", "user": event["user"]})
+        )
 
     async def user_joined(self, event):
         """Уведомление о присоединении пользователя"""
-        await self.send(text_data=json.dumps({"type": "user_joined", "user": event["user"]}))
+        await self.send(
+            text_data=json.dumps({"type": "user_joined", "user": event["user"]})
+        )
 
     async def user_left(self, event):
         """Уведомление об уходе пользователя"""
-        await self.send(text_data=json.dumps({"type": "user_left", "user": event["user"]}))
+        await self.send(
+            text_data=json.dumps({"type": "user_left", "user": event["user"]})
+        )
 
     async def message_edited(self, event):
         """Отправка уведомления о редактировании сообщения клиенту"""
@@ -701,7 +733,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             return
 
-        logger.info(f"[HandleLockChat] Broadcasting lock to group {self.room_group_name}")
+        logger.info(
+            f"[HandleLockChat] Broadcasting lock to group {self.room_group_name}"
+        )
         try:
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -744,7 +778,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         user = self.scope["user"]
         is_author = message.sender_id == user.id
-        is_moderator = user.is_staff or user.is_superuser or user.role in ["teacher", "admin"]
+        is_moderator = (
+            user.is_staff or user.is_superuser or user.role in ["teacher", "admin"]
+        )
 
         if not is_author and not is_moderator:
             return {
@@ -773,13 +809,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Возвращает dict с is_pinned или error.
         """
         try:
-            message = Message.objects.get(id=message_id, room_id=self.room_id, is_deleted=False)
+            message = Message.objects.get(
+                id=message_id, room_id=self.room_id, is_deleted=False
+            )
         except Message.DoesNotExist:
             return {"error": "Message not found", "code": "not_found"}
 
         user = self.scope["user"]
         is_moderator = (
-            user.is_staff or user.is_superuser or user.role in ["teacher", "tutor", "admin"]
+            user.is_staff
+            or user.is_superuser
+            or user.role in ["teacher", "tutor", "admin"]
         )
 
         if not is_moderator:
@@ -791,7 +831,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not message.thread:
             thread = MessageThread.objects.create(
                 room_id=self.room_id,
-                title=message.content[:100] if message.content else f"Thread #{message.id}",
+                title=message.content[:100]
+                if message.content
+                else f"Thread #{message.id}",
                 created_by=message.sender,
             )
             message.thread = thread
@@ -822,7 +864,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         user = self.scope["user"]
         is_moderator = (
-            user.is_staff or user.is_superuser or user.role in ["teacher", "tutor", "admin"]
+            user.is_staff
+            or user.is_superuser
+            or user.role in ["teacher", "tutor", "admin"]
         )
 
         if not is_moderator:
@@ -859,6 +903,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             user = self.scope["user"]
             user_id = user.id
 
+            logger.debug(
+                f"check_room_access: user={user_id}, room={self.room_id}, "
+                f"participants_count={room.participants.count()}"
+            )
+
             # Admin/Staff bypass - read-only access to all forum chats
             if user.is_staff or user.is_superuser:
                 if room.type in [
@@ -878,7 +927,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     ChatRoom.Type.FORUM_TUTOR,
                 ]:
                     has_access = room.participants.filter(id=user_id).exists()
-                    if not has_access and room.enrollment and room.enrollment.teacher_id == user_id:
+                    if (
+                        not has_access
+                        and room.enrollment
+                        and room.enrollment.teacher_id == user_id
+                    ):
                         has_access = True
                     if has_access:
                         logger.info(
@@ -925,7 +978,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                                 # Add tutor to participants for faster future access
                                 with transaction.atomic():
                                     room.participants.add(user)
-                                    ChatParticipant.objects.get_or_create(room=room, user=user)
+                                    ChatParticipant.objects.get_or_create(
+                                        room=room, user=user
+                                    )
                                 self.tutor_added_to_participants = True
                                 return True
                             else:
@@ -940,9 +995,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     # Check via student's tutor relationship (without enrollment)
                     from accounts.models import StudentProfile
 
-                    student_ids = room.participants.filter(role=UserModel.Role.STUDENT).values_list(
-                        "id", flat=True
-                    )
+                    student_ids = room.participants.filter(
+                        role=UserModel.Role.STUDENT
+                    ).values_list("id", flat=True)
 
                     if student_ids:
                         related_students = StudentProfile.objects.filter(
@@ -956,7 +1011,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                             # Add tutor to participants for faster future access
                             with transaction.atomic():
                                 room.participants.add(user)
-                                ChatParticipant.objects.get_or_create(room=room, user=user)
+                                ChatParticipant.objects.get_or_create(
+                                    room=room, user=user
+                                )
                             self.tutor_added_to_participants = True
                             return True
                         else:
@@ -994,7 +1051,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Проверка 1: M2M participants
             if room.participants.filter(id=user_id).exists():
-                logger.debug(f"[check_room_access] User {user_id} has access via M2M participants")
+                logger.debug(
+                    f"[check_room_access] User {user_id} has access via M2M participants"
+                )
                 return True
 
             # Проверка 2: ChatParticipant (fallback для старых чатов)
@@ -1048,9 +1107,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             room = ChatRoom.objects.filter(participants=user).first()
 
             if room:
-                logger.info(f"[get_first_available_room] Found room {room.id} for user {user.id}")
+                logger.info(
+                    f"[get_first_available_room] Found room {room.id} for user {user.id}"
+                )
             else:
-                logger.debug(f"[get_first_available_room] No rooms found for user {user.id}")
+                logger.debug(
+                    f"[get_first_available_room] No rooms found for user {user.id}"
+                )
 
             return room
         except Exception as e:
@@ -1077,7 +1140,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             self.parent_needs_participant_add = False
         except Exception as e:
-            logger.error(f"[add_parent_to_participants] Error adding parent to participants: {e}")
+            logger.error(
+                f"[add_parent_to_participants] Error adding parent to participants: {e}"
+            )
 
     @database_sync_to_async
     def check_user_is_participant(self, room_id):
@@ -1129,7 +1194,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     ChatParticipant.objects.get_or_create(room=room, user=user)
             except Exception as e:
                 # Игнорируем ошибки создания (возможен race condition), участник уже есть в M2M
-                logger.debug(f"[check_user_is_participant] ChatParticipant sync skipped: {e}")
+                logger.debug(
+                    f"[check_user_is_participant] ChatParticipant sync skipped: {e}"
+                )
             return True
 
         return False
@@ -1149,7 +1216,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             room = ChatRoom.objects.get(id=self.room_id)
 
             # Получаем всех участников комнаты
-            participants = list(room.participants.all().values_list("id", "username", "role"))
+            participants = list(
+                room.participants.all().values_list("id", "username", "role")
+            )
 
             if participants:
                 logger.info(
@@ -1158,7 +1227,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             return len(participants)
         except ObjectDoesNotExist:
-            logger.warning(f"[verify_all_participants_in_group] Room {self.room_id} not found")
+            logger.warning(
+                f"[verify_all_participants_in_group] Room {self.room_id} not found"
+            )
             return 0
         except Exception as e:
             logger.error(
@@ -1180,7 +1251,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
                 if not is_participant:
                     if room.participants.filter(id=self.scope["user"].id).exists():
-                        ChatParticipant.objects.get_or_create(room=room, user=self.scope["user"])
+                        ChatParticipant.objects.get_or_create(
+                            room=room, user=self.scope["user"]
+                        )
                         is_participant = True
 
                 if not is_participant:
@@ -1255,7 +1328,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.is_edited = True
         message.save(update_fields=["content", "is_edited", "updated_at"])
 
-        logger.info(f'[edit_message] Message {message_id} edited by user {self.scope["user"].id}')
+        logger.info(
+            f'[edit_message] Message {message_id} edited by user {self.scope["user"].id}'
+        )
         return {"edited_at": message.updated_at.isoformat()}
 
     @database_sync_to_async
@@ -1271,7 +1346,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             user = self.scope["user"]
 
             # Обновляем или создаём запись ChatParticipant с текущим временем прочтения
-            participant, created = ChatParticipant.objects.get_or_create(room=room, user=user)
+            participant, created = ChatParticipant.objects.get_or_create(
+                room=room, user=user
+            )
             participant.last_read_at = timezone.now()
             participant.save(update_fields=["last_read_at"])
 
@@ -1290,7 +1367,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             room = ChatRoom.objects.get(id=self.room_id)
             # Получаем ID последних 50 сообщений
             latest_ids = (
-                room.messages.filter(is_deleted=False).order_by("-created_at").values("id")[:50]
+                room.messages.filter(is_deleted=False)
+                .order_by("-created_at")
+                .values("id")[:50]
             )
             # Получаем эти сообщения в хронологическом порядке (старые первые)
             messages = (
@@ -1305,7 +1384,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def send_room_history(self):
         """Отправка истории сообщений клиенту"""
         messages = await self.get_room_history()
-        await self.send(text_data=json.dumps({"type": "room_history", "messages": messages}))
+        await self.send(
+            text_data=json.dumps({"type": "room_history", "messages": messages})
+        )
 
 
 class GeneralChatConsumer(AsyncWebsocketConsumer):
@@ -1354,7 +1435,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
             user = await self._validate_token(token)
             if user:
                 self.scope["user"] = user
-                logger.info(f"[GeneralChatConsumer] User {user.id} authenticated via token")
+                logger.info(
+                    f"[GeneralChatConsumer] User {user.id} authenticated via token"
+                )
                 return True
 
             logger.warning(f"[GeneralChatConsumer] Token validation failed")
@@ -1396,7 +1479,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
             # Если пользователь не аутентифицирован, просто покидаем группу
             if hasattr(self, "room_group_name") and self.room_group_name:
                 try:
-                    await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+                    await self.channel_layer.group_discard(
+                        self.room_group_name, self.channel_name
+                    )
                 except Exception as e:
                     logger.error(
                         f"Error leaving general chat group on disconnect (unauthenticated): {e}",
@@ -1425,7 +1510,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
 
             # Покидаем группу общего чата
             try:
-                await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+                await self.channel_layer.group_discard(
+                    self.room_group_name, self.channel_name
+                )
             except Exception as e:
                 logger.error(f"Error leaving general chat group: {e}", exc_info=True)
 
@@ -1444,11 +1531,15 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_typing_stop(data)
 
         except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({"type": "error", "message": "Invalid JSON"}))
+            await self.send(
+                text_data=json.dumps({"type": "error", "message": "Invalid JSON"})
+            )
         except Exception as e:
             logger.error(f"Error in general chat receive: {e}")
             await self.send(
-                text_data=json.dumps({"type": "error", "message": "Internal server error"})
+                text_data=json.dumps(
+                    {"type": "error", "message": "Internal server error"}
+                )
             )
 
     async def handle_chat_message(self, data):
@@ -1538,7 +1629,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         """Отправка сообщения клиенту"""
-        await self.send(text_data=json.dumps({"type": "chat_message", "message": event["message"]}))
+        await self.send(
+            text_data=json.dumps({"type": "chat_message", "message": event["message"]})
+        )
 
     async def typing(self, event):
         """Отправка индикатора печати клиенту"""
@@ -1546,7 +1639,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
 
     async def typing_stop(self, event):
         """Отправка остановки печати клиенту"""
-        await self.send(text_data=json.dumps({"type": "typing_stop", "user": event["user"]}))
+        await self.send(
+            text_data=json.dumps({"type": "typing_stop", "user": event["user"]})
+        )
 
     async def handle_message_edit(self, data):
         """Обработка редактирования сообщения в общем чате"""
@@ -1706,7 +1801,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
                 },
             )
 
-            message = Message.objects.create(room=room, sender=self.scope["user"], content=content)
+            message = Message.objects.create(
+                room=room, sender=self.scope["user"], content=content
+            )
             return MessageSerializer(message).data
         except Exception as e:
             logger.error(f"Error creating general message: {e}")
@@ -1715,7 +1812,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
     async def send_general_chat_history(self):
         """Отправка истории сообщений общего чата"""
         messages = await self.get_general_chat_history()
-        await self.send(text_data=json.dumps({"type": "room_history", "messages": messages}))
+        await self.send(
+            text_data=json.dumps({"type": "room_history", "messages": messages})
+        )
 
     @database_sync_to_async
     def get_general_chat_history(self):
@@ -1751,7 +1850,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
             user = self.scope["user"]
 
             # Обновляем или создаём запись ChatParticipant с текущим временем прочтения
-            participant, created = ChatParticipant.objects.get_or_create(room=room, user=user)
+            participant, created = ChatParticipant.objects.get_or_create(
+                room=room, user=user
+            )
             participant.last_read_at = timezone.now()
             participant.save(update_fields=["last_read_at"])
 
@@ -1759,7 +1860,9 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
                 f"[clear_general_unread_count] Cleared unread count for user {user.id} in general chat"
             )
         except Exception as e:
-            logger.error(f"[clear_general_unread_count] Error clearing unread count: {e}")
+            logger.error(
+                f"[clear_general_unread_count] Error clearing unread count: {e}"
+            )
 
 
 class NotificationConsumer(AsyncWebsocketConsumer):
@@ -1808,7 +1911,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             user = await self._validate_token(token)
             if user:
                 self.scope["user"] = user
-                logger.info(f"[NotificationConsumer] User {user.id} authenticated via token")
+                logger.info(
+                    f"[NotificationConsumer] User {user.id} authenticated via token"
+                )
                 return True
 
             logger.warning(f"[NotificationConsumer] Token validation failed")
@@ -1837,12 +1942,16 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             return
 
         # Присоединяемся к группе уведомлений пользователя
-        await self.channel_layer.group_add(self.notification_group_name, self.channel_name)
+        await self.channel_layer.group_add(
+            self.notification_group_name, self.channel_name
+        )
 
         await self.accept()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.notification_group_name, self.channel_name)
+        await self.channel_layer.group_discard(
+            self.notification_group_name, self.channel_name
+        )
 
     async def receive(self, text_data):
         # Уведомления обычно только отправляются, не принимаются
@@ -1850,7 +1959,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def notification(self, event):
         """Отправка уведомления клиенту"""
-        await self.send(text_data=json.dumps({"type": "notification", "data": event["data"]}))
+        await self.send(
+            text_data=json.dumps({"type": "notification", "data": event["data"]})
+        )
 
 
 class DashboardConsumer(AsyncWebsocketConsumer):
@@ -1899,7 +2010,9 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             user = await self._validate_token(token)
             if user:
                 self.scope["user"] = user
-                logger.info(f"[DashboardConsumer] User {user.id} authenticated via token")
+                logger.info(
+                    f"[DashboardConsumer] User {user.id} authenticated via token"
+                )
                 return True
 
             logger.warning(f"[DashboardConsumer] Token validation failed")
@@ -1933,7 +2046,9 @@ class DashboardConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.dashboard_group_name, self.channel_name)
+        await self.channel_layer.group_discard(
+            self.dashboard_group_name, self.channel_name
+        )
 
     async def receive(self, text_data):
         # Обновления дашборда обычно только отправляются, не принимаются
@@ -1941,4 +2056,6 @@ class DashboardConsumer(AsyncWebsocketConsumer):
 
     async def dashboard_update(self, event):
         """Отправка обновления дашборда клиенту"""
-        await self.send(text_data=json.dumps({"type": "dashboard_update", "data": event["data"]}))
+        await self.send(
+            text_data=json.dumps({"type": "dashboard_update", "data": event["data"]})
+        )

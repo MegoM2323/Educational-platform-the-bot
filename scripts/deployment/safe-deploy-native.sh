@@ -115,6 +115,10 @@ print_warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
+print_info() {
+    echo -e "${CYAN}ℹ${NC} $1"
+}
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
@@ -196,6 +200,97 @@ EOF
         fi
     fi
 
+    print_header "PHASE 1.0: PRE-DEPLOYMENT BACKUP"
+
+    BACKUP_FILE="thebot_db_backup_${TIMESTAMP}.sql"
+
+    if [[ "$DRY_RUN" != "true" ]]; then
+        print_step "Creating database backup..."
+        ssh "$SSH_HOST" "pg_dump -U postgres thebot_db > /tmp/$BACKUP_FILE" || {
+            print_warning "DB backup failed, but continuing..."
+        }
+
+        # Download backup locally for safety
+        scp "$SSH_HOST:/tmp/$BACKUP_FILE" "$LOG_DIR/" 2>/dev/null || true
+        print_success "Database backed up: $LOG_DIR/$BACKUP_FILE"
+    else
+        print_info "[DRY-RUN] Would backup database to $BACKUP_FILE"
+    fi
+
+    print_header "PHASE 1.5: ENV SYNCHRONIZATION"
+
+    # Check if .env.production.native exists locally
+    if [[ ! -f "$LOCAL_PATH/.env.production.native" ]]; then
+        print_step "Creating .env.production.native from template..."
+        if [[ -f "$LOCAL_PATH/.env.production.native.template" ]]; then
+            cp "$LOCAL_PATH/.env.production.native.template" "$LOCAL_PATH/.env.production.native" || {
+                print_warning "Failed to create .env from template"
+            }
+        else
+            print_warning "Template not found: .env.production.native.template"
+        fi
+    fi
+
+    if [[ -f "$LOCAL_PATH/.env.production.native" ]]; then
+        # Generate strong DB password if needed
+        DB_PASSWORD=$(grep "^DB_PASSWORD=" "$LOCAL_PATH/.env.production.native" 2>/dev/null | cut -d= -f2)
+        if [[ "$DB_PASSWORD" == "postgres" ]] || [[ -z "$DB_PASSWORD" ]] || [[ "$DB_PASSWORD" == "{{AUTO_GENERATED}}" ]]; then
+            print_step "Generating strong DB password..."
+            NEW_DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+            sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$NEW_DB_PASSWORD/" "$LOCAL_PATH/.env.production.native"
+
+            if [[ "$DRY_RUN" != "true" ]]; then
+                ssh "$SSH_HOST" "sudo -u postgres psql -c \"ALTER USER thebot_user WITH PASSWORD '$NEW_DB_PASSWORD';\"" 2>/dev/null || {
+                    print_warning "Failed to update DB password on server"
+                }
+                print_success "DB password generated and updated on server"
+            else
+                print_success "[DRY-RUN] Would generate DB password"
+            fi
+        fi
+
+        # Generate Redis password if needed
+        REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" "$LOCAL_PATH/.env.production.native" 2>/dev/null | cut -d= -f2)
+        if [[ -z "$REDIS_PASSWORD" ]] || [[ "$REDIS_PASSWORD" == "{{AUTO_GENERATED}}" ]]; then
+            print_step "Generating Redis password..."
+            NEW_REDIS_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
+            sed -i "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$NEW_REDIS_PASSWORD/" "$LOCAL_PATH/.env.production.native"
+
+            if [[ "$DRY_RUN" != "true" ]]; then
+                ssh "$SSH_HOST" "echo 'requirepass $NEW_REDIS_PASSWORD' | sudo tee -a /etc/redis/redis.conf && sudo systemctl restart redis" 2>/dev/null || {
+                    print_warning "Failed to set Redis password"
+                }
+                print_success "Redis password generated and set"
+            else
+                print_success "[DRY-RUN] Would generate Redis password"
+            fi
+        fi
+
+        # Search for API keys in project
+        print_step "Searching for API keys in project files..."
+        TELEGRAM_TOKEN=$(grep -r "TELEGRAM_BOT_TOKEN" "$LOCAL_PATH" --include="*.env*" 2>/dev/null | grep -v "template" | head -1 | cut -d= -f2)
+        OPENROUTER_KEY=$(grep -r "OPENROUTER_API_KEY" "$LOCAL_PATH" --include="*.env*" 2>/dev/null | grep -v "template" | head -1 | cut -d= -f2)
+
+        if [[ -n "$TELEGRAM_TOKEN" ]] && [[ "$TELEGRAM_TOKEN" != "{{MANUAL_INPUT}}" ]]; then
+            sed -i "s/^TELEGRAM_BOT_TOKEN=.*/TELEGRAM_BOT_TOKEN=$TELEGRAM_TOKEN/" "$LOCAL_PATH/.env.production.native"
+            print_success "Found and set Telegram token"
+        fi
+
+        if [[ -n "$OPENROUTER_KEY" ]] && [[ "$OPENROUTER_KEY" != "{{MANUAL_INPUT}}" ]]; then
+            sed -i "s/^OPENROUTER_API_KEY=.*/OPENROUTER_API_KEY=$OPENROUTER_KEY/" "$LOCAL_PATH/.env.production.native"
+            print_success "Found and set OpenRouter key"
+        fi
+
+        # Copy .env to server
+        print_step "Copying .env to server..."
+        scp "$LOCAL_PATH/.env.production.native" "$SSH_HOST:$REMOTE_PATH/backend/.env" 2>/dev/null || {
+            print_warning "Failed to copy .env, using existing remote .env"
+        }
+        print_success "ENV synchronized"
+    else
+        print_warning "No .env file found, skipping ENV synchronization"
+    fi
+
     print_header "PHASE 1: BACKUP"
 
     print_step "Creating code backup..."
@@ -254,7 +349,38 @@ EOF
         print_success "[DRY-RUN] Would collect static"
     fi
 
-    print_header "PHASE 6: RESTART SERVICES"
+    print_header "PHASE 6: DATABASE MIGRATIONS"
+
+    print_step "Checking pending migrations..."
+    if [[ "$DRY_RUN" != "true" ]]; then
+        PENDING=$(ssh "$SSH_HOST" "bash -c 'source $VENV_PATH/bin/activate && cd $REMOTE_PATH/backend && python manage.py showmigrations --plan 2>/dev/null | grep \"\\[ \\]\" | wc -l'" 2>/dev/null || echo "0")
+
+        if [[ "$PENDING" -gt 0 ]]; then
+            print_warning "Found $PENDING pending migrations"
+            ssh "$SSH_HOST" "bash -c 'source $VENV_PATH/bin/activate && cd $REMOTE_PATH/backend && python manage.py showmigrations --plan | grep \"\\[ \\]\"'" 2>/dev/null || true
+
+            if [[ "$FORCE_DEPLOY" != "true" ]]; then
+                read -p "Apply migrations? (y/N): " APPLY
+                if [[ "$APPLY" != "y" ]]; then
+                    print_error "Migration aborted by user"
+                    return 1
+                fi
+            fi
+
+            print_step "Applying migrations..."
+            ssh "$SSH_HOST" "bash -c 'source $VENV_PATH/bin/activate && cd $REMOTE_PATH/backend && python manage.py migrate'" || {
+                print_error "Migration failed"
+                return 1
+            }
+            print_success "Migrations applied successfully"
+        else
+            print_success "No pending migrations"
+        fi
+    else
+        print_info "[DRY-RUN] Would check and apply migrations"
+    fi
+
+    print_header "PHASE 7: RESTART SERVICES"
 
     print_step "Restarting services..."
     if [[ "$DRY_RUN" != "true" ]]; then

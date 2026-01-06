@@ -145,6 +145,10 @@ venv.bak/
 *.pfx
 credentials.*
 secrets.*
+# Deployment credentials
+.claude/deployment/CREDENTIALS.md
+.env.production.native
+deployment-logs/thebot_db_backup_*.sql
 
 # Spyder project settings
 .spyderproject

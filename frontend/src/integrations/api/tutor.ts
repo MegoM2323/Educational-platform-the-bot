@@ -72,7 +72,7 @@ export const tutorAPI = {
       throw new Error('Authentication required. Please login again.');
     }
 
-    const resp = await unifiedAPI.request<any>('/tutor/my-students/');
+    const resp = await unifiedAPI.request<any>('/api/tutor/my-students/');
     
     logger.debug('[tutorAPI.listStudents] Response status:', resp.success);
     logger.debug('[tutorAPI.listStudents] Response data:', resp.data);
@@ -108,7 +108,7 @@ export const tutorAPI = {
       throw new Error('HTTP 403: Forbidden - Authentication required');
     }
     
-    const resp = await unifiedAPI.request<CreateStudentResponse>('/tutor/my-students/', {
+    const resp = await unifiedAPI.request<CreateStudentResponse>('/api/tutor/my-students/', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -130,7 +130,7 @@ export const tutorAPI = {
   },
 
   getStudent: async (id: number): Promise<TutorStudent> => {
-    const resp = await unifiedAPI.request<TutorStudent>(`/tutor/students/${id}/`);
+    const resp = await unifiedAPI.request<TutorStudent>(`/api/tutor/students/${id}/`);
     if (resp.error) throw new Error(resp.error);
     return resp.data!;
   },
@@ -138,7 +138,7 @@ export const tutorAPI = {
   assignSubject: async (studentId: number, data: AssignSubjectRequest): Promise<void> => {
     try {
       logger.debug('[tutorAPI.assignSubject] Starting request:', { studentId, data });
-      const resp = await unifiedAPI.request(`/tutor/students/${studentId}/subjects/`, {
+      const resp = await unifiedAPI.request(`/api/tutor/students/${studentId}/subjects/`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
@@ -175,7 +175,7 @@ export const tutorAPI = {
   },
 
   removeSubject: async (studentId: number, subjectId: number): Promise<void> => {
-    const resp = await unifiedAPI.request(`/tutor/students/${studentId}/subjects/${subjectId}/`, {
+    const resp = await unifiedAPI.request(`/api/tutor/students/${studentId}/subjects/${subjectId}/`, {
       method: 'DELETE',
     });
     if (resp.error) throw new Error(resp.error);
@@ -188,7 +188,7 @@ export const tutorAPI = {
   getStudentsSchedule: async (): Promise<TutorStudent[]> => {
     logger.debug('[tutorAPI.getStudentsSchedule] Starting request');
 
-    const resp = await unifiedAPI.request<any>('/scheduling/tutor/schedule/');
+    const resp = await unifiedAPI.request<any>('/api/scheduling/tutor/schedule/');
 
     logger.debug('[tutorAPI.getStudentsSchedule] Response:', resp.data);
 

@@ -1,0 +1,8 @@
+[2026-01-04 23:29:36] WARNING: ⚠ WARN: No pending database migrations
+[2026-01-04 23:29:36] WARNING:   Note: Pending migrations will be applied during deployment
+[2026-01-04 23:29:50] WARNING: ⚠ WARN: No pending database migrations
+[2026-01-04 23:29:50] WARNING:   Note: Pending migrations will be applied during deployment
+[2026-01-04 23:29:50] WARNING: ⚠ WARN: Static files directory exists and writable
+[2026-01-04 23:29:50] WARNING:   Note: Will be created during deployment (COLLECT_STATIC=true)
+[2026-01-04 23:29:50] SUCCESS: ✓ PASS: Celery queue accessible and responding (11ms)
+[2026-01-04 23:29:50] ERROR: DEPLOYMENT BLOCKED - Failures detected

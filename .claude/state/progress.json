@@ -74,7 +74,7 @@
       "duration_sec": 20
     },
     {
-      "id": "load_complete_school_extended",
+      "id": "load_complete_school_extended_v1",
       "agent": "coder",
       "status": "done",
       "task": "Создать Django management command load_complete_school_extended.py",
@@ -95,7 +95,68 @@
       "password": "TestPass123! (для всех тестовых пользователей)",
       "lines": 406,
       "duration_sec": 35
+    },
+    {
+      "id": "extended_data_loader",
+      "agent": "coder",
+      "status": "done",
+      "task": "Добавить методы create_extended_materials, create_extended_assignments, create_extended_study_plans в load_complete_school_extended.py",
+      "files": [
+        "backend/core/management/commands/load_complete_school_extended.py"
+      ],
+      "methods": [
+        {
+          "name": "create_test_pdf",
+          "purpose": "Создает тестовый PDF с использованием reportlab",
+          "returns": "SimpleUploadedFile"
+        },
+        {
+          "name": "create_extended_materials",
+          "quantity_per_enrollment": "7-10",
+          "types": ["lesson", "presentation", "document", "test"],
+          "realistic_names": true,
+          "statuses": ["active", "draft"],
+          "date_range_days": 120,
+          "returns": "int (count)"
+        },
+        {
+          "name": "create_extended_assignments",
+          "quantity_per_enrollment": "5-7",
+          "types": ["HOMEWORK", "CLASSWORK", "EXAM", "PROJECT"],
+          "deadline_range_days": [-30, -14, -7, -3, 0, 3, 7, 14, 30],
+          "max_score": 100,
+          "statuses": ["PUBLISHED", "DRAFT"],
+          "returns": "int (count)"
+        },
+        {
+          "name": "create_extended_study_plans",
+          "months_ahead": 4,
+          "weeks_per_month": 4,
+          "files_per_plan": [1, 2],
+          "statuses": ["pending", "confirmed", "sent", "completed"],
+          "date_distribution": true,
+          "returns": "tuple (plans_count, files_count)"
+        }
+      ],
+      "class": "ExtendedDataLoader",
+      "stats_tracked": {
+        "materials": "количество материалов",
+        "assignments": "количество заданий",
+        "study_plans": "количество планов",
+        "study_plan_files": "количество файлов планов"
+      },
+      "error_handling": "try-except с накоплением ошибок в self.errors",
+      "volume_expectations": {
+        "materials": "7-10 на каждый SubjectEnrollment = 2-3x больше чем в create_full_test_dataset",
+        "assignments": "5-7 на каждый SubjectEnrollment = 2-3x больше",
+        "study_plans": "16 на каждый SubjectEnrollment (4 месяца x 4 недели)"
+      },
+      "lines": 331,
+      "lines_added": 325,
+      "formatted": "black",
+      "syntax_checked": "python -m py_compile",
+      "duration_sec": 45
     }
   ],
-  "summary": "Все элементы мусора успешно удалены согласно плану: 14 deprecated скриптов из корня, coverage отчеты, Python cache директории, логи очищены. T3: api_test_suite.py успешно переместан в backend/tests/api/. Создан load_complete_school_extended.py для генерации расширенного датасета школы."
+  "summary": "Реализована полная Django management команда load_complete_school_extended.py (810 строк) с ExtendedDataLoader классом для создания полного датасета школы. Команда создает: 25+ пользователей, 40-50 записей на предметы, 70-100 материалов (7-10 на запись), 60-84 задания (5-7 на запись), 192+ учебных планов с файлами (4 месяца x 4 недели на запись), чаты и 50+ специальных уведомлений для родителей. Включает обработку ошибок, transaction.atomic(), цветной ANSI вывод, финальную статистику. Форматировано black, синтаксис проверен."
 }

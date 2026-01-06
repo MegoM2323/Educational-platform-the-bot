@@ -9,13 +9,13 @@ set -euo pipefail
 # =============================================================================
 # CONFIGURATION (can be overridden by environment variables)
 # =============================================================================
-REMOTE_HOST="${REMOTE_HOST:-neil@176.108.248.21}"
-REMOTE_DIR="${REMOTE_DIR:-/opt/vextra-trading}"
-REMOTE_DOMAIN="${REMOTE_DOMAIN:-vextratrading.ru}"
+REMOTE_HOST="${REMOTE_HOST:-mg@5.129.249.206}"
+REMOTE_DIR="${REMOTE_DIR:-/opt/the-bot}"
+REMOTE_DOMAIN="${REMOTE_DOMAIN:-the-bot.ru}"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_BEFORE_DEPLOY="${BACKUP_BEFORE_DEPLOY:-true}"
 DRY_RUN="${DRY_RUN:-false}"
-CERTBOT_EMAIL="${CERTBOT_EMAIL:-admin@vextratrading.ru}"
+CERTBOT_EMAIL="${CERTBOT_EMAIL:-admin@the-bot.ru}"
 
 # Colors
 if [ "${NO_COLOR:-0}" = "1" ]; then
@@ -74,7 +74,7 @@ deploy() {
         log_step "Creating database backup on remote server..."
         ssh -o StrictHostKeyChecking=no "$REMOTE_HOST" bash << 'BACKUP_EOF'
 set -euo pipefail
-REMOTE_DIR="/opt/vextra-trading"
+REMOTE_DIR="/opt/the-bot"
 BACKUP_DIR="$REMOTE_DIR/backups"
 sudo mkdir -p "$BACKUP_DIR" 2>/dev/null || true
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -101,36 +101,36 @@ BACKUP_EOF
 
     # Create remote directories
     ssh -o StrictHostKeyChecking=no "$REMOTE_HOST" bash << 'MKDIR_EOF'
-sudo mkdir -p /opt/vextra-trading/{backend,frontend,nginx,database,scripts,backups}
+sudo mkdir -p /opt/the-bot/{backend,frontend,nginx,database,scripts,backups}
 CURRENT_USER=$(whoami)
-sudo chown -R $CURRENT_USER:$CURRENT_USER /opt/vextra-trading
+sudo chown -R $CURRENT_USER:$CURRENT_USER /opt/the-bot
 MKDIR_EOF
 
     # Copy docker-compose configuration
     log_info "Copying docker-compose.prod.yml..."
     scp -o StrictHostKeyChecking=no \
         "$PROJECT_DIR/docker-compose.prod.yml" \
-        "$REMOTE_HOST:/opt/vextra-trading/" 2>&1 | grep -v "^docker-compose" || true
+        "$REMOTE_HOST:/opt/the-bot/" 2>&1 | grep -v "^docker-compose" || true
 
     # Copy .env file
     log_info "Copying environment file..."
     scp -o StrictHostKeyChecking=no \
         "$PROJECT_DIR/.deploy.env" \
-        "$REMOTE_HOST:/opt/vextra-trading/.env" 2>&1 | grep -v "^\.env" || true
+        "$REMOTE_HOST:/opt/the-bot/.env" 2>&1 | grep -v "^\.env" || true
 
     # Copy backend files
     log_info "Copying backend Dockerfile and requirements..."
     scp -o StrictHostKeyChecking=no \
         "$PROJECT_DIR/backend/Dockerfile" \
-        "$REMOTE_HOST:/opt/vextra-trading/backend/" 2>&1 | grep -v "^Dockerfile" || true
+        "$REMOTE_HOST:/opt/the-bot/backend/" 2>&1 | grep -v "^Dockerfile" || true
 
     scp -o StrictHostKeyChecking=no \
         "$PROJECT_DIR/backend/requirements.txt" \
-        "$REMOTE_HOST:/opt/vextra-trading/backend/" 2>&1 | grep -v "^requirements" || true
+        "$REMOTE_HOST:/opt/the-bot/backend/" 2>&1 | grep -v "^requirements" || true
 
     scp -o StrictHostKeyChecking=no \
         "$PROJECT_DIR/backend/docker-entrypoint.sh" \
-        "$REMOTE_HOST:/opt/vextra-trading/backend/" 2>&1 | grep -v "^docker-entrypoint" || true
+        "$REMOTE_HOST:/opt/the-bot/backend/" 2>&1 | grep -v "^docker-entrypoint" || true
 
     # Sync backend source code
     log_info "Syncing backend source code (this may take a few minutes)..."
@@ -138,14 +138,14 @@ MKDIR_EOF
         --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' \
         --exclude='*.egg-info' --exclude='static' --exclude='media' \
         --exclude='logs' --exclude='htmlcov' \
-        "$PROJECT_DIR/backend/" "$REMOTE_HOST:/opt/vextra-trading/backend/" 2>&1 | tail -5
+        "$PROJECT_DIR/backend/" "$REMOTE_HOST:/opt/the-bot/backend/" 2>&1 | tail -5
 
     # Copy frontend files if exist
     if [ -f "$PROJECT_DIR/frontend/Dockerfile" ]; then
         log_info "Copying frontend Dockerfile..."
         scp -o StrictHostKeyChecking=no \
             "$PROJECT_DIR/frontend/Dockerfile" \
-            "$REMOTE_HOST:/opt/vextra-trading/frontend/" 2>&1 | grep -v "^Dockerfile" || true
+            "$REMOTE_HOST:/opt/the-bot/frontend/" 2>&1 | grep -v "^Dockerfile" || true
     fi
 
     log_success "Files synchronized"
@@ -157,9 +157,9 @@ MKDIR_EOF
         ssh -o StrictHostKeyChecking=no "$REMOTE_HOST" bash -s << 'DEPLOY_EOF'
 set -euo pipefail
 
-REMOTE_DIR="/opt/vextra-trading"
-DOMAIN="vextratrading.ru"
-EMAIL="admin@vextratrading.ru"
+REMOTE_DIR="/opt/the-bot"
+DOMAIN="the-bot.ru"
+EMAIL="admin@the-bot.ru"
 
 cd "$REMOTE_DIR"
 
@@ -221,7 +221,7 @@ DEPLOY_EOF
     # Verify deployment
     log_step "Verifying deployment..."
     ssh -o StrictHostKeyChecking=no "$REMOTE_HOST" bash -s << 'VERIFY_EOF'
-REMOTE_DIR="/opt/vextra-trading"
+REMOTE_DIR="/opt/the-bot"
 cd "$REMOTE_DIR" || exit 0
 
 if sudo docker compose version &> /dev/null 2>&1; then
@@ -255,7 +255,7 @@ VERIFY_EOF
     echo "  https://$REMOTE_DOMAIN/api/"
     echo ""
     echo "To monitor deployment:"
-    echo "  ssh $REMOTE_HOST 'cd /opt/vextra-trading && sudo docker-compose -f docker-compose.prod.yml logs -f'"
+    echo "  ssh $REMOTE_HOST 'cd /opt/the-bot && sudo docker-compose -f docker-compose.prod.yml logs -f'"
     echo ""
 }
 
@@ -265,7 +265,7 @@ VERIFY_EOF
 main() {
     echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${YELLOW}║  THE_BOT Platform - Automated Deployment                       ║${NC}"
-    echo -e "${YELLOW}║  https://vextratrading.ru                                      ║${NC}"
+    echo -e "${YELLOW}║  https://the-bot.ru                                            ║${NC}"
     echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 

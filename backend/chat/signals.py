@@ -9,7 +9,7 @@ Includes:
 
 import logging
 from django.db import transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
@@ -20,7 +20,7 @@ try:
 except ImportError:
     SubjectEnrollment = None
 
-from accounts.models import StudentProfile
+from accounts.models import StudentProfile, ParentProfile
 from .models import ChatRoom, Message, ChatParticipant
 from .services.pachca_service import PachcaService
 
@@ -36,10 +36,11 @@ def create_forum_chat_on_enrollment(
     Automatically create forum chats when a student enrolls in a subject.
 
     Creates two chats:
-    1. Student-Teacher chat (FORUM_SUBJECT type)
-    2. Student-Tutor chat if student has a tutor (FORUM_TUTOR type)
+    1. Student-Teacher chat (FORUM_SUBJECT type) - includes parent
+    2. Student-Tutor chat if student has a tutor (FORUM_TUTOR type) - includes parent
 
-    This signal is idempotent - it checks if chats already exist before creating.
+    This signal is idempotent - uses get_or_create to prevent race conditions.
+    Handles both created and updated enrollments to ensure all participants are added.
 
     Args:
         sender: SubjectEnrollment model class
@@ -47,21 +48,24 @@ def create_forum_chat_on_enrollment(
         created: Boolean indicating if instance was just created
         **kwargs: Additional keyword arguments from signal
     """
-    if not created:
-        return
-
     # Verify that instance is actually a SubjectEnrollment
     # (sometimes post_save signals can be triggered incorrectly)
     if SubjectEnrollment is None or not isinstance(instance, SubjectEnrollment):
         return
 
+    if not instance.teacher:
+        logger.warning(
+            f"SubjectEnrollment {instance.id} has no teacher assigned, skipping forum chat creation"
+        )
+        return
+
     try:
-        # Get student profile for tutor info
+        # Get student profile for tutor and parent info
         student_profile: StudentProfile | None = None
         try:
-            student_profile = StudentProfile.objects.select_related("tutor").get(
-                user=instance.student
-            )
+            student_profile = StudentProfile.objects.select_related(
+                "tutor", "parent"
+            ).get(user=instance.student)
         except StudentProfile.DoesNotExist:
             logger.warning(
                 f"StudentProfile not found for user {instance.student.id} during enrollment "
@@ -70,51 +74,52 @@ def create_forum_chat_on_enrollment(
 
         subject_name = instance.get_subject_name()
         student_name = instance.student.get_full_name()
-
-        if not instance.teacher:
-            logger.warning(
-                f"SubjectEnrollment {instance.id} has no teacher assigned, skipping forum chat creation"
-            )
-            return
-
         teacher_name = instance.teacher.get_full_name()
 
         # Format: "{Subject} - {Student} ↔ {Teacher}"
         forum_chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
 
-        # Check if forum chat already exists (idempotent)
-        existing_forum_chat = ChatRoom.objects.filter(
-            type=ChatRoom.Type.FORUM_SUBJECT, enrollment=instance
-        ).first()
+        # Use transaction.atomic for consistency between ChatRoom and ChatParticipant
+        with transaction.atomic():
+            # Use get_or_create to prevent race conditions
+            forum_chat, forum_created = ChatRoom.objects.get_or_create(
+                type=ChatRoom.Type.FORUM_SUBJECT,
+                enrollment=instance,
+                defaults={
+                    "name": forum_chat_name,
+                    "created_by": instance.student,
+                    "description": f"Forum for {subject_name} between {student_name} and {teacher_name}",
+                },
+            )
 
-        if not existing_forum_chat:
-            # Wrap in transaction to ensure consistency
-            # If ChatParticipant creation fails, ChatRoom creation is rolled back
-            with transaction.atomic():
-                forum_chat = ChatRoom.objects.create(
-                    name=forum_chat_name,
-                    type=ChatRoom.Type.FORUM_SUBJECT,
-                    enrollment=instance,
-                    created_by=instance.student,
-                    description=f"Forum for {subject_name} between {student_name} and {teacher_name}",
-                )
-                # Add student and teacher as participants (M2M)
-                forum_chat.participants.add(instance.student, instance.teacher)
+            # Collect all participants for this chat
+            participants_to_add = [instance.student, instance.teacher]
 
-                # Create ChatParticipant records for unread_count tracking and WebSocket access
-                ChatParticipant.objects.get_or_create(
-                    room=forum_chat, user=instance.student
-                )
-                ChatParticipant.objects.get_or_create(
-                    room=forum_chat, user=instance.teacher
-                )
+            # Add parent if exists
+            if student_profile and student_profile.parent:
+                participants_to_add.append(student_profile.parent)
 
+            # Add participants to M2M relation (idempotent - duplicates ignored)
+            forum_chat.participants.add(*participants_to_add)
+
+            # Create ChatParticipant records using bulk_create with ignore_conflicts
+            participant_records = [
+                ChatParticipant(room=forum_chat, user=user)
+                for user in participants_to_add
+            ]
+            ChatParticipant.objects.bulk_create(
+                participant_records, ignore_conflicts=True
+            )
+
+        if forum_created:
             logger.info(
-                f"Created forum_subject chat '{forum_chat.name}' for enrollment {instance.id}"
+                f"Created forum_subject chat '{forum_chat.name}' for enrollment {instance.id} "
+                f"with {len(participants_to_add)} participants"
             )
         else:
             logger.info(
-                f"Forum_subject chat already exists for enrollment {instance.id}, skipping creation"
+                f"Forum_subject chat already exists for enrollment {instance.id}, "
+                f"ensured {len(participants_to_add)} participants"
             )
 
         # Create student-tutor forum chat if student has a tutor
@@ -128,72 +133,56 @@ def create_forum_chat_on_enrollment(
             tutors_to_add.append(instance.student.created_by_tutor)
 
         if tutors_to_add:
-            # Build chat name using first tutor (or both if needed)
-            first_tutor = tutors_to_add[0]
+            # Remove duplicates (if tutor == created_by_tutor)
+            unique_tutors = list({tutor.id: tutor for tutor in tutors_to_add}.values())
+
+            # Build chat name using first tutor
+            first_tutor = unique_tutors[0]
             tutor_name = first_tutor.get_full_name()
             tutor_chat_name = f"{subject_name} - {student_name} ↔ {tutor_name}"
 
-            # Check if tutor chat already exists
-            existing_tutor_chat = ChatRoom.objects.filter(
-                type=ChatRoom.Type.FORUM_TUTOR, enrollment=instance
-            ).first()
+            # Use transaction.atomic for consistency
+            with transaction.atomic():
+                # Use get_or_create to prevent race conditions
+                tutor_chat, tutor_created = ChatRoom.objects.get_or_create(
+                    type=ChatRoom.Type.FORUM_TUTOR,
+                    enrollment=instance,
+                    defaults={
+                        "name": tutor_chat_name,
+                        "created_by": instance.student,
+                        "description": f"Forum for {subject_name} between {student_name} and {', '.join([t.get_full_name() for t in unique_tutors])}",
+                    },
+                )
 
-            if not existing_tutor_chat:
-                # Wrap in transaction to ensure consistency
-                with transaction.atomic():
-                    tutor_chat = ChatRoom.objects.create(
-                        name=tutor_chat_name,
-                        type=ChatRoom.Type.FORUM_TUTOR,
-                        enrollment=instance,
-                        created_by=instance.student,
-                        description=f"Forum for {subject_name} between {student_name} and {', '.join([t.get_full_name() for t in tutors_to_add])}",
-                    )
-                    # Add student as participant
-                    tutor_chat.participants.add(instance.student)
-                    # Add ChatParticipant record for student
-                    ChatParticipant.objects.get_or_create(
-                        room=tutor_chat, user=instance.student
-                    )
+                # Collect all participants for tutor chat
+                tutor_participants = [instance.student] + unique_tutors
 
-                    # Add all tutors as participants (removes duplicates automatically)
-                    tutor_chat.participants.add(*tutors_to_add)
+                # Add parent if exists
+                if student_profile and student_profile.parent:
+                    tutor_participants.append(student_profile.parent)
 
-                    # Create ChatParticipant records for each tutor (idempotent via get_or_create)
-                    for tutor in tutors_to_add:
-                        ChatParticipant.objects.get_or_create(
-                            room=tutor_chat, user=tutor
-                        )
+                # Add participants to M2M relation (idempotent)
+                tutor_chat.participants.add(*tutor_participants)
 
+                # Create ChatParticipant records using bulk_create with ignore_conflicts
+                tutor_participant_records = [
+                    ChatParticipant(room=tutor_chat, user=user)
+                    for user in tutor_participants
+                ]
+                ChatParticipant.objects.bulk_create(
+                    tutor_participant_records, ignore_conflicts=True
+                )
+
+            if tutor_created:
                 logger.info(
                     f"Created forum_tutor chat '{tutor_chat.name}' for enrollment {instance.id} "
-                    f"with {len(tutors_to_add)} tutor(s)"
+                    f"with {len(tutor_participants)} participants (tutors: {len(unique_tutors)})"
                 )
             else:
-                # Check if we need to add any missing tutors to existing chat
-                existing_participants = set(
-                    existing_tutor_chat.participants.values_list("id", flat=True)
+                logger.info(
+                    f"Forum_tutor chat already exists for enrollment {instance.id}, "
+                    f"ensured {len(tutor_participants)} participants"
                 )
-                tutors_ids = set(t.id for t in tutors_to_add)
-                missing_tutors = [
-                    t for t in tutors_to_add if t.id not in existing_participants
-                ]
-
-                if missing_tutors:
-                    # Add missing tutors to existing chat
-                    with transaction.atomic():
-                        existing_tutor_chat.participants.add(*missing_tutors)
-                        for tutor in missing_tutors:
-                            ChatParticipant.objects.get_or_create(
-                                room=existing_tutor_chat, user=tutor
-                            )
-                    logger.info(
-                        f"Added {len(missing_tutors)} missing tutor(s) to existing forum_tutor chat "
-                        f"for enrollment {instance.id}"
-                    )
-                else:
-                    logger.info(
-                        f"Forum_tutor chat already exists for enrollment {instance.id} with all tutors"
-                    )
 
     except Exception as e:
         logger.error(
@@ -283,6 +272,85 @@ def send_forum_notification(sender, instance: Message, created: bool, **kwargs) 
             },
         )
         # Don't raise - log error but let message creation succeed
+
+
+@receiver(post_save, sender=StudentProfile)
+def sync_parent_participants(
+    sender, instance: StudentProfile, created: bool, **kwargs
+) -> None:
+    """
+    When a parent is assigned to a student, add the parent to all chats where the student is a participant.
+
+    This ensures parents can see all their child's chats (FORUM_SUBJECT, FORUM_TUTOR, etc.).
+    Uses transaction.atomic() to ensure consistency between M2M and ChatParticipant model.
+
+    Args:
+        sender: StudentProfile model class
+        instance: The StudentProfile instance being saved
+        created: Boolean indicating if instance was just created
+        **kwargs: Additional keyword arguments from signal
+    """
+    if not instance.parent:
+        return
+
+    student_user = instance.user
+    parent_user = instance.parent
+
+    try:
+        with transaction.atomic():
+            student_rooms = ChatRoom.objects.filter(
+                participants__id=student_user.id
+            ).distinct()
+
+            if not student_rooms.exists():
+                logger.debug(
+                    f"Student {student_user.id} has no chat rooms yet, skipping parent sync"
+                )
+                return
+
+            participants_to_create = []
+            rooms_to_add_parent = []
+
+            for room in student_rooms:
+                if not room.participants.filter(id=parent_user.id).exists():
+                    room.participants.add(parent_user)
+                    rooms_to_add_parent.append(room)
+                    participants_to_create.append(
+                        ChatParticipant(
+                            room=room, user=parent_user, joined_at=timezone.now()
+                        )
+                    )
+
+            if participants_to_create:
+                ChatParticipant.objects.bulk_create(
+                    participants_to_create, ignore_conflicts=True, batch_size=100
+                )
+                logger.info(
+                    f"Added parent {parent_user.id} to {len(rooms_to_add_parent)} chat rooms for student {student_user.id}",
+                    extra={
+                        "parent_id": parent_user.id,
+                        "student_id": student_user.id,
+                        "rooms_count": len(rooms_to_add_parent),
+                        "room_ids": [room.id for room in rooms_to_add_parent],
+                    },
+                )
+            else:
+                logger.debug(
+                    f"Parent {parent_user.id} already in all {student_rooms.count()} chat rooms for student {student_user.id}"
+                )
+
+    except Exception as e:
+        logger.error(
+            f"Error syncing parent {parent_user.id if instance.parent else 'None'} to student {student_user.id} chats: {str(e)}",
+            exc_info=True,
+            extra={
+                "student_profile_id": instance.id,
+                "student_id": student_user.id,
+                "parent_id": parent_user.id if instance.parent else None,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
+        )
 
 
 @receiver(post_save, sender=User)

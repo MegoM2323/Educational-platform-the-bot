@@ -290,13 +290,17 @@ export const useWebSocketChat = (chatId: number, enabled: boolean = true) => {
           setIsConnected(connected);
           if (connected) {
             setError(null);
-            logger.info('[useWebSocketChat] Connected to socket');
+            logger.info('[useWebSocketChat] Connected to socket', { chatId });
           }
         });
 
-        if (!socket.isConnected()) {
-          await socket.connect();
+        if (socket.isConnected()) {
+          socket.disconnect();
+          logger.info('[useWebSocketChat] Disconnecting from previous room');
         }
+
+        await socket.connect(chatId);
+        logger.info('[useWebSocketChat] Connected to room', { chatId });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Ошибка подключения WebSocket';
         setError(message);
@@ -308,6 +312,7 @@ export const useWebSocketChat = (chatId: number, enabled: boolean = true) => {
 
     return () => {
       if (socketRef.current) {
+        socketRef.current.disconnect();
         socketRef.current = null;
       }
     };

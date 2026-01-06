@@ -161,6 +161,41 @@ main() {
         print_warning "Disk usage high: ${DISK_USAGE}%"
     fi
 
+    print_step "Checking systemd services..."
+    if ssh "$SSH_HOST" "test -f /etc/systemd/system/thebot-daphne.service"; then
+        print_success "Daphne systemd service configured"
+    else
+        print_warning "Daphne systemd service not found"
+        print_step "Setting up Daphne systemd service..."
+
+        if [[ "$DRY_RUN" != "true" ]]; then
+            # Create Daphne service file on remote
+            ssh "$SSH_HOST" "sudo bash -c 'cat > /etc/systemd/system/thebot-daphne.service << EOF
+[Unit]
+Description=THE_BOT Platform Daphne ASGI WebSocket Server
+After=network.target
+
+[Service]
+Type=simple
+User=mg
+Group=mg
+WorkingDirectory=$REMOTE_PATH/backend
+Environment=\"PATH=$VENV_PATH/bin\"
+ExecStart=$VENV_PATH/bin/daphne -b 0.0.0.0 -p 8001 config.asgi:application
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+'"
+            ssh "$SSH_HOST" "sudo systemctl daemon-reload && sudo systemctl enable thebot-daphne"
+            print_success "Daphne systemd service created and enabled"
+        else
+            print_success "[DRY-RUN] Would create Daphne systemd service"
+        fi
+    fi
+
     print_header "PHASE 1: BACKUP"
 
     print_step "Creating code backup..."
@@ -224,20 +259,22 @@ main() {
     print_step "Restarting services..."
     if [[ "$DRY_RUN" != "true" ]]; then
         # Stop services
-        ssh "$SSH_HOST" "sudo systemctl stop thebot-backend thebot-celery-worker thebot-celery-beat 2>/dev/null || true" || true
+        ssh "$SSH_HOST" "sudo systemctl stop thebot-backend thebot-daphne thebot-celery-worker thebot-celery-beat 2>/dev/null || true" || true
         sleep 2
 
         # Start services
-        ssh "$SSH_HOST" "sudo systemctl start thebot-backend thebot-celery-worker thebot-celery-beat" || print_error "Service restart failed"
+        ssh "$SSH_HOST" "sudo systemctl start thebot-backend thebot-daphne thebot-celery-worker thebot-celery-beat" || print_error "Service restart failed"
         sleep 3
 
         # Check status
         STATUS=$(ssh "$SSH_HOST" "sudo systemctl is-active thebot-backend" 2>/dev/null || echo "inactive")
-        if [[ "$STATUS" == "active" ]]; then
-            print_success "Services restarted successfully"
+        DAPHNE_STATUS=$(ssh "$SSH_HOST" "sudo systemctl is-active thebot-daphne" 2>/dev/null || echo "inactive")
+
+        if [[ "$STATUS" == "active" ]] && [[ "$DAPHNE_STATUS" == "active" ]]; then
+            print_success "Services restarted successfully (Backend + Daphne)"
         else
             print_warning "Services may not be fully started, checking..."
-            ssh "$SSH_HOST" "sudo systemctl status thebot-backend" 2>&1 | head -5 || true
+            ssh "$SSH_HOST" "sudo systemctl status thebot-backend thebot-daphne" 2>&1 | head -10 || true
         fi
     else
         print_success "[DRY-RUN] Would restart services"
@@ -257,6 +294,27 @@ main() {
         else
             print_success "Backend is responding"
         fi
+
+        # Check Daphne WebSocket port
+        print_step "Checking Daphne WebSocket service..."
+        DAPHNE_PORT_CHECK=$(ssh "$SSH_HOST" "nc -z localhost 8001 && echo 'open' || echo 'closed'" 2>/dev/null)
+
+        if [[ "$DAPHNE_PORT_CHECK" == "open" ]]; then
+            print_success "Daphne port 8001 is accessible"
+        else
+            print_warning "Daphne port 8001 is not accessible - check service logs"
+        fi
+
+        # Check WebSocket endpoint (should return HTTP 426 Upgrade Required)
+        WS_ENDPOINT_CHECK=$(ssh "$SSH_HOST" "curl -s -o /dev/null -w '%{http_code}' -i http://localhost:8001/ws/chat/1/ 2>/dev/null || echo '000'")
+
+        if [[ "$WS_ENDPOINT_CHECK" == "426" ]]; then
+            print_success "WebSocket endpoint responding correctly (HTTP 426)"
+        elif [[ "$WS_ENDPOINT_CHECK" == "000" ]]; then
+            print_warning "WebSocket endpoint check failed - connection error"
+        else
+            print_warning "WebSocket endpoint returned HTTP $WS_ENDPOINT_CHECK (expected 426)"
+        fi
     fi
 
     echo ""
@@ -269,10 +327,12 @@ main() {
     echo "  https://$DOMAIN/api/"
     echo ""
     echo "Service status:"
-    echo "  ssh $SSH_HOST 'sudo systemctl status thebot-backend thebot-celery-worker thebot-celery-beat'"
+    echo "  ssh $SSH_HOST 'sudo systemctl status thebot-backend thebot-daphne thebot-celery-worker thebot-celery-beat'"
     echo ""
     echo "View logs:"
-    echo "  ssh $SSH_HOST 'sudo journalctl -u thebot-backend -f'"
+    echo "  Backend:   ssh $SSH_HOST 'sudo journalctl -u thebot-backend -f'"
+    echo "  Daphne:    ssh $SSH_HOST 'sudo journalctl -u thebot-daphne -f'"
+    echo "  Celery:    ssh $SSH_HOST 'sudo journalctl -u thebot-celery-worker -f'"
     echo ""
 }
 

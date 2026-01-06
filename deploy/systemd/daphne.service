@@ -1,0 +1,45 @@
+[Unit]
+Description=Daphne ASGI Server for THE_BOT Platform
+After=network.target redis-server.service postgresql.service
+Wants=redis-server.service postgresql.service
+Documentation=https://github.com/MegoM2323/Educational-platform-the-bot
+
+[Service]
+Type=simple
+User=mg
+Group=www-data
+WorkingDirectory=/home/mg/THE_BOT_platform/backend
+
+# Virtual environment и Python path
+Environment="PATH=/home/mg/venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="DJANGO_SETTINGS_MODULE=config.settings"
+
+# Environment файл для переменных
+EnvironmentFile=/home/mg/THE_BOT_platform/.env.production
+
+# Start Daphne ASGI server
+ExecStart=/home/mg/venv/bin/daphne \
+    -b 0.0.0.0 \
+    -p 8001 \
+    -t 3600 \
+    config.asgi:application
+
+# Restart policy
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daphne
+
+# Security and resource limits
+PrivateTmp=yes
+NoNewPrivileges=yes
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

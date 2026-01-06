@@ -1,5 +1,6 @@
 import json
 import logging
+from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -45,17 +46,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         - ws://host/ws/chat/room_id/?authorization=Bearer%20abc123
         """
         try:
-            query_string = self.scope.get('query_string', b'').decode()
+            query_string = self.scope.get("query_string", b"").decode()
             if not query_string:
                 return False
 
             token = None
 
-            if 'token=' in query_string:
-                token = query_string.split('token=')[1].split('&')[0]
-            elif 'authorization=' in query_string:
-                auth_header = query_string.split('authorization=')[1].split('&')[0]
-                if auth_header.startswith('Bearer%20'):
+            if "token=" in query_string:
+                token = query_string.split("token=")[1].split("&")[0]
+            elif "authorization=" in query_string:
+                auth_header = query_string.split("authorization=")[1].split("&")[0]
+                if auth_header.startswith("Bearer%20"):
                     token = auth_header[9:]
 
             if not token:
@@ -63,7 +64,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             user = await self._validate_token(token)
             if user:
-                self.scope['user'] = user
+                self.scope["user"] = user
                 logger.info(
                     f"[ChatConsumer] User {user.id} authenticated via token for room {self.room_id}"
                 )
@@ -79,7 +80,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return False
 
     async def connect(self):
-        self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
+        # 1. Try to get room_id from URL path parameter
+        self.room_id = self.scope["url_route"]["kwargs"].get("room_id")
+
+        # 2. If not in path, check query string ?room_id=123
+        if not self.room_id:
+            query_string = self.scope.get("query_string", b"").decode()
+            query_params = parse_qs(query_string)
+            room_ids = query_params.get("room_id", [])
+            if room_ids:
+                self.room_id = room_ids[0]
+
+        # 3. If still no room_id, get first available room for user
+        if not self.room_id:
+            first_room = await self.get_first_available_room()
+            if first_room:
+                self.room_id = str(first_room.id)
+            else:
+                logger.warning(
+                    f"[ChatConsumer] No room_id provided and no rooms available for user {self.scope['user'].id}"
+                )
+                await self.close(code=4003)
+                return
+
         self.room_group_name = f"chat_{self.room_id}"
 
         logger.debug(
@@ -91,7 +114,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             is_authenticated = await self._authenticate_token_from_query_string()
 
         logger.debug(
-            f'[ChatConsumer] After token check: authenticated={is_authenticated}'
+            f"[ChatConsumer] After token check: authenticated={is_authenticated}"
         )
 
         # Проверяем, что пользователь аутентифицирован
@@ -317,12 +340,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message = await self.create_message(content)
         logger.warning(f"[HandleChatMessage] Created message: {message}")
         if message:
-            # Подтверждаем отправителю, что сообщение сохранено
+            # Подтверждаем отправителю, что сообщение сохранено (с полным объектом)
             await self.send(
                 text_data=json.dumps(
                     {
                         "type": "message_sent",
-                        "message_id": message.get("id"),
+                        "message": message,
                         "status": "delivered",
                     }
                 )
@@ -1060,6 +1083,36 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return False
 
     @database_sync_to_async
+    def get_first_available_room(self):
+        """
+        Get first available room for authenticated user.
+
+        Returns first room where user is a participant.
+        Used as fallback when room_id is not provided in URL or query string.
+        """
+        user = self.scope["user"]
+        if not user.is_authenticated:
+            return None
+
+        try:
+            # Get first room where user is participant (M2M)
+            room = ChatRoom.objects.filter(participants=user).first()
+
+            if room:
+                logger.info(
+                    f"[get_first_available_room] Found room {room.id} for user {user.id}"
+                )
+            else:
+                logger.warning(
+                    f"[get_first_available_room] No rooms found for user {user.id}"
+                )
+
+            return room
+        except Exception as e:
+            logger.error(f"[get_first_available_room] Error: {e}", exc_info=True)
+            return None
+
+    @database_sync_to_async
     def add_parent_to_participants_if_needed(self):
         """
         Добавляет родителя в participants комнаты после успешного WebSocket подключения.
@@ -1352,17 +1405,17 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
         - ws://host/ws/general_chat/?authorization=Bearer%20abc123
         """
         try:
-            query_string = self.scope.get('query_string', b'').decode()
+            query_string = self.scope.get("query_string", b"").decode()
             if not query_string:
                 return False
 
             token = None
 
-            if 'token=' in query_string:
-                token = query_string.split('token=')[1].split('&')[0]
-            elif 'authorization=' in query_string:
-                auth_header = query_string.split('authorization=')[1].split('&')[0]
-                if auth_header.startswith('Bearer%20'):
+            if "token=" in query_string:
+                token = query_string.split("token=")[1].split("&")[0]
+            elif "authorization=" in query_string:
+                auth_header = query_string.split("authorization=")[1].split("&")[0]
+                if auth_header.startswith("Bearer%20"):
                     token = auth_header[9:]
 
             if not token:
@@ -1370,15 +1423,13 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
 
             user = await self._validate_token(token)
             if user:
-                self.scope['user'] = user
+                self.scope["user"] = user
                 logger.info(
                     f"[GeneralChatConsumer] User {user.id} authenticated via token"
                 )
                 return True
 
-            logger.warning(
-                f"[GeneralChatConsumer] Token validation failed"
-            )
+            logger.warning(f"[GeneralChatConsumer] Token validation failed")
             return False
 
         except Exception as e:
@@ -1499,12 +1550,12 @@ class GeneralChatConsumer(AsyncWebsocketConsumer):
         # Создаем сообщение в общем чате
         message = await self.create_general_message(content)
         if message:
-            # Подтверждаем отправителю, что сообщение сохранено
+            # Подтверждаем отправителю, что сообщение сохранено (с полным объектом)
             await self.send(
                 text_data=json.dumps(
                     {
                         "type": "message_sent",
-                        "message_id": message.get("id"),
+                        "message": message,
                         "status": "delivered",
                     }
                 )
@@ -1827,17 +1878,17 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         - ws://host/ws/notifications/user_id/?authorization=Bearer%20abc123
         """
         try:
-            query_string = self.scope.get('query_string', b'').decode()
+            query_string = self.scope.get("query_string", b"").decode()
             if not query_string:
                 return False
 
             token = None
 
-            if 'token=' in query_string:
-                token = query_string.split('token=')[1].split('&')[0]
-            elif 'authorization=' in query_string:
-                auth_header = query_string.split('authorization=')[1].split('&')[0]
-                if auth_header.startswith('Bearer%20'):
+            if "token=" in query_string:
+                token = query_string.split("token=")[1].split("&")[0]
+            elif "authorization=" in query_string:
+                auth_header = query_string.split("authorization=")[1].split("&")[0]
+                if auth_header.startswith("Bearer%20"):
                     token = auth_header[9:]
 
             if not token:
@@ -1845,15 +1896,13 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
             user = await self._validate_token(token)
             if user:
-                self.scope['user'] = user
+                self.scope["user"] = user
                 logger.info(
                     f"[NotificationConsumer] User {user.id} authenticated via token"
                 )
                 return True
 
-            logger.warning(
-                f"[NotificationConsumer] Token validation failed"
-            )
+            logger.warning(f"[NotificationConsumer] Token validation failed")
             return False
 
         except Exception as e:
@@ -1925,17 +1974,17 @@ class DashboardConsumer(AsyncWebsocketConsumer):
         - ws://host/ws/dashboard/user_id/?authorization=Bearer%20abc123
         """
         try:
-            query_string = self.scope.get('query_string', b'').decode()
+            query_string = self.scope.get("query_string", b"").decode()
             if not query_string:
                 return False
 
             token = None
 
-            if 'token=' in query_string:
-                token = query_string.split('token=')[1].split('&')[0]
-            elif 'authorization=' in query_string:
-                auth_header = query_string.split('authorization=')[1].split('&')[0]
-                if auth_header.startswith('Bearer%20'):
+            if "token=" in query_string:
+                token = query_string.split("token=")[1].split("&")[0]
+            elif "authorization=" in query_string:
+                auth_header = query_string.split("authorization=")[1].split("&")[0]
+                if auth_header.startswith("Bearer%20"):
                     token = auth_header[9:]
 
             if not token:
@@ -1943,15 +1992,13 @@ class DashboardConsumer(AsyncWebsocketConsumer):
 
             user = await self._validate_token(token)
             if user:
-                self.scope['user'] = user
+                self.scope["user"] = user
                 logger.info(
                     f"[DashboardConsumer] User {user.id} authenticated via token"
                 )
                 return True
 
-            logger.warning(
-                f"[DashboardConsumer] Token validation failed"
-            )
+            logger.warning(f"[DashboardConsumer] Token validation failed")
             return False
 
         except Exception as e:

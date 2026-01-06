@@ -35,6 +35,12 @@ class ChatSocketService extends WebSocketService {
   private globalSubscriptions = new Map<ChatSocketEvent, Set<(msg: ChatSocketMessage) => void>>();
   private typingTimeouts = new Map<number, NodeJS.Timeout>();
   private connectionCallbacks: ((connected: boolean) => void)[] = [];
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private baseReconnectInterval = 1000;
+  private maxReconnectInterval = 30000;
+  private lastRoomId?: number;
+  private lastToken?: string;
 
   constructor(url: string) {
     super({
@@ -46,7 +52,7 @@ class ChatSocketService extends WebSocketService {
     });
   }
 
-  async connect(token?: string): Promise<void> {
+  async connect(roomId?: number, token?: string): Promise<void> {
     try {
       const authToken = token || tokenStorage.getToken();
 
@@ -55,28 +61,35 @@ class ChatSocketService extends WebSocketService {
         throw new Error('Требуется аутентификация');
       }
 
-      const wsUrl = `${this.getCurrentUrl()}?token=${authToken}`;
-      logger.info('[ChatSocket] Connecting with token');
+      this.lastRoomId = roomId;
+      this.lastToken = authToken;
+
+      const wsUrl = roomId
+        ? `${this.getCurrentUrl(roomId)}?token=${authToken}`
+        : `${this.getCurrentUrl()}?token=${authToken}`;
+      logger.info('[ChatSocket] Connecting with token', { roomId });
 
       await super.connect(wsUrl);
       this.setupEventHandlers();
+      this.setupConnectionMonitoring();
     } catch (error) {
       logger.error('[ChatSocket] Connection failed:', error);
       throw error;
     }
   }
 
-  private setupEventHandlers(): void {
+  private setupConnectionMonitoring(): void {
     this.onConnectionChange((connected) => {
       if (connected) {
-        logger.info('[ChatSocket] Connected');
-        this.broadcastConnectionEvent('connection_established');
+        this.notifyConnectionRestored();
       } else {
-        logger.warn('[ChatSocket] Disconnected');
-        this.broadcastConnectionEvent('connection_lost');
+        logger.warn('[ChatSocket] Connection lost unexpectedly - attempting reconnect');
+        this.attemptReconnect();
       }
     });
+  }
 
+  private setupEventHandlers(): void {
     this.subscribe('chat_message', (message) => {
       this.handleChatMessage(message);
     });
@@ -208,6 +221,46 @@ class ChatSocketService extends WebSocketService {
     });
   }
 
+  private getReconnectDelay(): number {
+    const delay = Math.min(
+      this.baseReconnectInterval * Math.pow(2, this.reconnectAttempts),
+      this.maxReconnectInterval
+    );
+    return delay;
+  }
+
+  private attemptReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      logger.error('[ChatSocket] Max reconnect attempts reached');
+      this.notifyConnectionLost();
+      return;
+    }
+
+    const delay = this.getReconnectDelay();
+    logger.info(
+      `[ChatSocket] Reconnecting in ${delay}ms... (attempt ${this.reconnectAttempts + 1})`
+    );
+
+    setTimeout(() => {
+      this.reconnectAttempts++;
+      this.connect(this.lastRoomId, this.lastToken).catch((error) => {
+        logger.error('[ChatSocket] Reconnection failed:', error);
+        this.attemptReconnect();
+      });
+    }, delay);
+  }
+
+  private notifyConnectionLost(): void {
+    logger.warn('[ChatSocket] Connection permanently lost. Please refresh the page.');
+    this.broadcastConnectionEvent('connection_lost');
+  }
+
+  private notifyConnectionRestored(): void {
+    logger.info('[ChatSocket] Connection restored successfully');
+    this.reconnectAttempts = 0;
+    this.broadcastConnectionEvent('connection_established');
+  }
+
   onConnectionChange(callback: (connected: boolean) => void): () => void {
     this.connectionCallbacks.push(callback);
     return () => {
@@ -252,12 +305,14 @@ class ChatSocketService extends WebSocketService {
     return this.isConnected() ? 'connected' : 'disconnected';
   }
 
-  private getCurrentUrl(): string {
+  private getCurrentUrl(roomId?: number): string {
     if (typeof window !== 'undefined') {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${protocol}//${window.location.host}/ws/chat`;
+      const baseUrl = `${protocol}//${window.location.host}/ws/chat`;
+      return roomId ? `${baseUrl}/${roomId}/` : baseUrl;
     }
-    return 'ws://localhost:8003/ws/chat';
+    const baseUrl = 'ws://localhost:8003/ws/chat';
+    return roomId ? `${baseUrl}/${roomId}/` : baseUrl;
   }
 
   override disconnect(): void {
@@ -307,10 +362,12 @@ export function getChatSocket(): ChatSocketService {
   return chatSocketInstance;
 }
 
-export function getDefaultWebSocketUrl(): string {
+export function getDefaultWebSocketUrl(roomId?: number): string {
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/ws/chat`;
+    const baseUrl = `${protocol}//${window.location.host}/ws/chat`;
+    return roomId ? `${baseUrl}/${roomId}/` : baseUrl;
   }
-  return 'ws://localhost:8003/ws/chat';
+  const baseUrl = 'ws://localhost:8003/ws/chat';
+  return roomId ? `${baseUrl}/${roomId}/` : baseUrl;
 }

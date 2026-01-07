@@ -73,6 +73,8 @@ class Lesson(models.Model):
         related_name="student_lessons",
         limit_choices_to={"role": "student"},
         verbose_name="Student",
+        null=True,
+        blank=True,
     )
 
     subject = models.ForeignKey(
@@ -120,8 +122,9 @@ class Lesson(models.Model):
         ]
 
     def __str__(self):
+        student_name = self.student.get_full_name() if self.student else "(No student)"
         return (
-            f"{self.teacher.get_full_name()} - {self.student.get_full_name()} - "
+            f"{self.teacher.get_full_name()} - {student_name} - "
             f"{self.subject.name} - {self.date} {self.start_time}"
         )
 

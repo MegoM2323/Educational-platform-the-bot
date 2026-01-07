@@ -11,7 +11,11 @@ from datetime import datetime
 from django.contrib.auth import get_user_model
 from accounts.permissions import IsAdminUser
 from scheduling.admin_schedule_service import AdminScheduleService
-from scheduling.serializers import AdminLessonSerializer, LessonCreateSerializer, LessonSerializer
+from scheduling.serializers import (
+    AdminLessonSerializer,
+    LessonCreateSerializer,
+    LessonSerializer,
+)
 from scheduling.views import LessonPagination
 from scheduling.services.lesson_service import LessonService
 
@@ -198,7 +202,7 @@ def admin_create_lesson_view(request):
 
     Request body:
     - teacher: teacher user ID (required)
-    - student: student user ID (required)
+    - student: student user ID (optional)
     - subject: subject ID (required)
     - date: lesson date YYYY-MM-DD (required)
     - start_time: start time HH:MM:SS (required)
@@ -207,7 +211,7 @@ def admin_create_lesson_view(request):
     - telemost_link: optional video call link
 
     Returns:
-    - Created lesson data with teacher_name, student_name, subject_name
+    - Created lesson data with teacher_name, subject_name, and student_name (if student provided)
     """
     try:
         # Extract data from request
@@ -221,11 +225,11 @@ def admin_create_lesson_view(request):
         telemost_link = request.data.get("telemost_link", "")
 
         # Validate required fields
-        if not all([teacher_id, student_id, subject_id, date_str, start_time, end_time]):
+        if not all([teacher_id, subject_id, date_str, start_time, end_time]):
             return Response(
                 {
                     "success": False,
-                    "error": "Missing required fields: teacher, student, subject, date, start_time, end_time",
+                    "error": "Missing required fields: teacher, subject, date, start_time, end_time",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -239,14 +243,19 @@ def admin_create_lesson_view(request):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Get student
-        try:
-            student = User.objects.get(id=student_id, role="student")
-        except User.DoesNotExist:
-            return Response(
-                {"success": False, "error": f"Student with id {student_id} not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        # Get student if provided, otherwise None
+        student = None
+        if student_id:
+            try:
+                student = User.objects.get(id=student_id, role="student")
+            except User.DoesNotExist:
+                return Response(
+                    {
+                        "success": False,
+                        "error": f"Student with id {student_id} not found",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         # Get subject
         try:
@@ -272,11 +281,22 @@ def admin_create_lesson_view(request):
 
             start_parts = start_time.split(":")
             end_parts = end_time.split(":")
-            start_time_obj = dt_time(int(start_parts[0]), int(start_parts[1]), int(start_parts[2]) if len(start_parts) > 2 else 0)
-            end_time_obj = dt_time(int(end_parts[0]), int(end_parts[1]), int(end_parts[2]) if len(end_parts) > 2 else 0)
+            start_time_obj = dt_time(
+                int(start_parts[0]),
+                int(start_parts[1]),
+                int(start_parts[2]) if len(start_parts) > 2 else 0,
+            )
+            end_time_obj = dt_time(
+                int(end_parts[0]),
+                int(end_parts[1]),
+                int(end_parts[2]) if len(end_parts) > 2 else 0,
+            )
         except (ValueError, IndexError):
             return Response(
-                {"success": False, "error": "Invalid time format. Use HH:MM or HH:MM:SS"},
+                {
+                    "success": False,
+                    "error": "Invalid time format. Use HH:MM or HH:MM:SS",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

@@ -74,16 +74,28 @@ class LessonSerializer(serializers.ModelSerializer):
     """Serializer for lessons with computed fields."""
 
     teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
-    student_name = serializers.CharField(source="student.get_full_name", read_only=True)
+    student_name = serializers.SerializerMethodField()
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     # Explicit ID fields for frontend compatibility
     teacher_id = serializers.ReadOnlyField(source="teacher.id")
     subject_id = serializers.ReadOnlyField(source="subject.id")
-    student_id = serializers.ReadOnlyField(source="student.id")
+    student_id = serializers.SerializerMethodField()
     is_upcoming = serializers.BooleanField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
     datetime_start = serializers.DateTimeField(read_only=True)
     datetime_end = serializers.DateTimeField(read_only=True)
+
+    def get_student_name(self, obj):
+        """Get student full name or placeholder if not assigned."""
+        if obj.student is None:
+            return "(No student assigned)"
+        return obj.student.get_full_name()
+
+    def get_student_id(self, obj):
+        """Get student ID or None if not assigned."""
+        if obj.student is None:
+            return None
+        return obj.student.id
 
     class Meta:
         model = Lesson
@@ -145,7 +157,7 @@ class LessonSerializer(serializers.ModelSerializer):
 class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
     """Serializer for creating lessons."""
 
-    student = serializers.CharField()  # ID студента
+    student = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     subject = serializers.CharField()  # ID предмета
     date = serializers.DateField()
     start_time = serializers.TimeField()
@@ -155,6 +167,8 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
 
     def validate_student(self, value):
         """Validate student exists and has role=student."""
+        if value is None or value == "":
+            return None
         try:
             user = User.objects.get(id=value, role="student")
         except User.DoesNotExist:
@@ -196,24 +210,27 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
                 {"start_time": "Start time cannot be in the past"}
             )
 
-        # Check for time conflicts
-        try:
-            from scheduling.services.lesson_service import LessonService
-            from django.core.exceptions import ValidationError as DjangoValidationError
+        # Check for time conflicts (only if student is assigned)
+        if data.get("student"):
+            try:
+                from scheduling.services.lesson_service import LessonService
+                from django.core.exceptions import (
+                    ValidationError as DjangoValidationError,
+                )
 
-            teacher = self.context["request"].user
-            student_id = data["student"]
+                teacher = self.context["request"].user
+                student_id = data["student"]
 
-            student = User.objects.get(id=student_id)
-            LessonService._check_time_conflicts(
-                date=data["date"],
-                start_time=data["start_time"],
-                end_time=data["end_time"],
-                teacher=teacher,
-                student=student,
-            )
-        except DjangoValidationError as e:
-            raise serializers.ValidationError({"non_field_errors": str(e)})
+                student = User.objects.get(id=student_id)
+                LessonService._check_time_conflicts(
+                    date=data["date"],
+                    start_time=data["start_time"],
+                    end_time=data["end_time"],
+                    teacher=teacher,
+                    student=student,
+                )
+            except DjangoValidationError as e:
+                raise serializers.ValidationError({"non_field_errors": str(e)})
 
         return data
 
@@ -390,7 +407,7 @@ class AdminLessonSerializer(serializers.ModelSerializer):
     def get_student_name(self, obj):
         """Get full student name."""
         if not obj.student:
-            return "(Удаленный студент)"
+            return "(No student assigned)"
         if obj.student.first_name or obj.student.last_name:
             return f"{obj.student.first_name} {obj.student.last_name}".strip()
         return obj.student.email

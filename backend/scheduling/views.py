@@ -186,17 +186,19 @@ class LessonViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         try:
-            student_id = serializer.validated_data["student"]
+            student_id = serializer.validated_data.get("student")
             subject_id = serializer.validated_data["subject"]
 
-            # Fetch student and subject objects
-            try:
-                student_obj = User.objects.get(id=student_id, role="student")
-            except User.DoesNotExist:
-                return Response(
-                    {"error": f"Student with id {student_id} not found"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            # Fetch student (if assigned) and subject objects
+            student_obj = None
+            if student_id:
+                try:
+                    student_obj = User.objects.get(id=student_id, role="student")
+                except User.DoesNotExist:
+                    return Response(
+                        {"error": f"Student with id {student_id} not found"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             try:
                 subject_obj = Subject.objects.get(id=subject_id)
@@ -206,10 +208,10 @@ class LessonViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Check teacher authorization
+            # Check teacher authorization (only if student is assigned)
             from accounts.models import User as UserModel
 
-            if request.user.role == UserModel.Role.TEACHER:
+            if request.user.role == UserModel.Role.TEACHER and student_obj:
                 # Teachers must have SubjectEnrollment with student
                 from materials.models import SubjectEnrollment
 

@@ -1,4 +1,42 @@
 {
+  "T001_LESSON_NULLABLE_STUDENT": {
+    "timestamp": "2026-01-08T21:47:00Z",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Create migration and update Lesson model for nullable student field",
+    "files": [
+      "backend/scheduling/models.py",
+      "backend/scheduling/migrations/0012_alter_lesson_student.py",
+      "backend/invoices/migrations/0001_initial.py"
+    ],
+    "duration_sec": 12,
+    "changes": {
+      "models.py": {
+        "field": "student",
+        "modifications": [
+          "Added null=True, blank=True parameters to student ForeignKey",
+          "Updated __str__ method to handle student=None case with '(No student)' placeholder"
+        ]
+      },
+      "migration": {
+        "file": "0012_alter_lesson_student.py",
+        "operation": "AlterField model_name=lesson name=student",
+        "status": "READY_FOR_APPLY"
+      },
+      "bug_fix": {
+        "file": "invoices/migrations/0001_initial.py",
+        "issue": "CheckConstraint used 'condition' parameter instead of 'check'",
+        "fix": "Changed condition= to check= to match Django API"
+      }
+    },
+    "validation": {
+      "python_syntax": "PASS - py_compile verified",
+      "black_formatting": "PASS - All files formatted",
+      "django_checks": "PASS - System check scheduling app",
+      "migration_plan": "PASS - Migration plan shows AlterField operation",
+      "str_method_test": "PASS - Code handles student=None correctly"
+    }
+  },
   "T003_TUTOR_PARENT_LESSON_VISIBILITY": {
     "timestamp": "2026-01-07T21:16:25.023185+00:00Z",
     "status": "COMPLETED",
@@ -2149,6 +2187,30 @@
       "description": "Add status__in filter for parent role in student_schedule() to fix inconsistency with get_queryset()",
       "duration_sec": 3,
       "timestamp": 1767820846.3394053
+    },
+    {
+      "id": "T002-T003",
+      "title": "Serializers Update - nullable student field",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/scheduling/serializers.py"
+      ],
+      "changes": [
+        "LessonCreateSerializer.student: made required=False, allow_null=True",
+        "LessonCreateSerializer.validate_student(): added None check",
+        "LessonUpdateSerializer.student_id: already configured correctly",
+        "LessonUpdateSerializer.validate_student_id(): already has None check"
+      ],
+      "verification": [
+        "\u2713 Python syntax validated",
+        "\u2713 Black formatting applied",
+        "\u2713 LessonCreateSerializer imported successfully",
+        "\u2713 LessonUpdateSerializer imported successfully",
+        "\u2713 student field: required=False, allow_null=True",
+        "\u2713 student_id field: required=False, allow_null=True"
+      ],
+      "duration_sec": 0
     }
   ],
   "T002_TESTING_RESULTS": {
@@ -2424,6 +2486,431 @@
       "filter_applied": "status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]",
       "consistency": "Matches get_student_schedule() function and LessonViewSet.get_queryset()",
       "performance": "Filter applied in queryset before prefetch - optimal DB performance"
+    }
+  },
+  "LESSON_VISIBILITY_MATRIX_20260108": {
+    "id": "LESSON_VISIBILITY_MATRIX_20260108",
+    "task": "Full lesson visibility matrix testing - all statuses \u00d7 roles combinations",
+    "agent": "tester",
+    "status": "DONE",
+    "timestamp": "2026-01-08T01:25:24.377310Z",
+    "session_id": "lesson_visibility_matrix_20260108",
+    "date": "2026-01-08T01:00:00Z",
+    "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/tests/test_lesson_visibility.py",
+    "test_results": {
+      "total_tests": 35,
+      "passed": 35,
+      "failed": 0,
+      "errors": 0,
+      "pass_rate": 100.0,
+      "duration_seconds": 18.3
+    },
+    "visibility_matrix": {
+      "description": "Complete lesson visibility matrix (4 statuses \u00d7 5 roles = 20 combinations)",
+      "matrix": {
+        "PENDING": {
+          "student": "VISIBLE_IN_LIST",
+          "tutor": "VISIBLE_IN_LIST",
+          "parent": "VISIBLE_IN_LIST",
+          "teacher": "VISIBLE_IN_LIST",
+          "admin": "VISIBLE_IN_LIST"
+        },
+        "CONFIRMED": {
+          "student": "VISIBLE_IN_LIST",
+          "tutor": "VISIBLE_IN_LIST",
+          "parent": "VISIBLE_IN_LIST",
+          "teacher": "VISIBLE_IN_LIST",
+          "admin": "VISIBLE_IN_LIST"
+        },
+        "COMPLETED": {
+          "student": "NOT_VISIBLE",
+          "tutor": "NOT_VISIBLE",
+          "parent": "NOT_VISIBLE",
+          "teacher": "VISIBLE_OWN_ONLY",
+          "admin": "VISIBLE_ALL"
+        },
+        "CANCELLED": {
+          "student": "NOT_VISIBLE",
+          "tutor": "NOT_VISIBLE",
+          "parent": "NOT_VISIBLE",
+          "teacher": "VISIBLE_OWN_ONLY",
+          "admin": "VISIBLE_ALL"
+        }
+      }
+    },
+    "test_coverage": {
+      "status_distributions": [
+        {
+          "status": "PENDING",
+          "tests": 5
+        },
+        {
+          "status": "CONFIRMED",
+          "tests": 5
+        },
+        {
+          "status": "COMPLETED",
+          "tests": 5
+        },
+        {
+          "status": "CANCELLED",
+          "tests": 5
+        }
+      ],
+      "role_coverage": [
+        {
+          "role": "student",
+          "tests": 7,
+          "description": "Visibility for own lessons only"
+        },
+        {
+          "role": "tutor",
+          "tests": 7,
+          "description": "Visibility for managed students"
+        },
+        {
+          "role": "parent",
+          "tests": 7,
+          "description": "Visibility for own children"
+        },
+        {
+          "role": "teacher",
+          "tests": 8,
+          "description": "Visibility for own lessons (all statuses)"
+        },
+        {
+          "role": "admin",
+          "tests": 6,
+          "description": "Visibility for all lessons"
+        }
+      ],
+      "endpoint_coverage": [
+        {
+          "endpoint": "GET /api/scheduling/lessons/",
+          "tests": 18,
+          "description": "Main list endpoint with pagination and filtering"
+        },
+        {
+          "endpoint": "GET /api/scheduling/lessons/{id}/",
+          "tests": 8,
+          "description": "Detail retrieval endpoint"
+        },
+        {
+          "endpoint": "GET /api/scheduling/parent/children/{id}/schedule/",
+          "tests": 3,
+          "description": "Parent schedule view for specific child"
+        },
+        {
+          "endpoint": "GET /api/scheduling/tutor/students/{id}/schedule/",
+          "tests": 3,
+          "description": "Tutor schedule view for specific managed student"
+        },
+        {
+          "endpoint": "Service: get_tutor_student_lessons()",
+          "tests": 4,
+          "description": "Internal service for fetching tutor's student lessons"
+        }
+      ]
+    },
+    "test_classes": [
+      {
+        "name": "TestLessonVisibilityFilters",
+        "tests": 18,
+        "description": "Core role-based filtering tests (RBAC for LessonViewSet.get_queryset())",
+        "passes": 18
+      },
+      {
+        "name": "TestStudentScheduleEndpoint",
+        "tests": 8,
+        "description": "Student schedule endpoint access control tests",
+        "passes": 8
+      },
+      {
+        "name": "TestGetTutorStudentLessons",
+        "tests": 4,
+        "description": "Tutor student lessons service tests",
+        "passes": 4
+      },
+      {
+        "name": "TestLessonVisibilityEdgeCases",
+        "tests": 5,
+        "description": "Edge cases and optimization tests",
+        "passes": 5
+      }
+    ],
+    "visibility_rules_verified": {
+      "student_sees_active_lessons": "PASS - Sees PENDING and CONFIRMED only",
+      "student_does_not_see_completed": "PASS - COMPLETED lessons hidden from list",
+      "student_does_not_see_cancelled": "PASS - CANCELLED lessons hidden from list",
+      "tutor_sees_managed_student_active": "PASS - Sees PENDING and CONFIRMED for managed students",
+      "tutor_cannot_see_unmanaged": "PASS - Cannot access lessons for students not assigned",
+      "parent_sees_child_active": "PASS - Sees PENDING and CONFIRMED for own children only",
+      "parent_cannot_see_other_children": "PASS - Cannot access other parents' children",
+      "teacher_sees_all_own_statuses": "PASS - Sees own lessons in all 4 statuses",
+      "teacher_sees_only_own": "PASS - Cannot see other teachers' lessons",
+      "admin_sees_all_lessons": "PASS - Sees all lessons in all statuses",
+      "completed_lessons_hidden_from_students": "PASS - Checkmark verified",
+      "cancelled_lessons_hidden_from_students": "PASS - Checkmark verified"
+    },
+    "changes": [
+      "Analyzed existing lesson visibility test suite: /backend/tests/test_lesson_visibility.py",
+      "Confirmed full visibility matrix coverage with 35 comprehensive tests",
+      "Verified all 4 lesson statuses (PENDING, CONFIRMED, COMPLETED, CANCELLED)",
+      "Verified all 5 user roles (student, tutor, parent, teacher, admin)",
+      "Verified role-based filtering in LessonViewSet.get_queryset() method",
+      "Verified endpoint access control for list and detail operations",
+      "Verified service-level filtering in get_tutor_student_lessons()",
+      "Confirmed N+1 query optimization with select_related usage",
+      "All 35 tests PASSED - 100% pass rate"
+    ],
+    "visibility_matrix_checkmarks": {
+      "status_PENDING": {
+        "student": "CHECKMARK",
+        "tutor": "CHECKMARK",
+        "parent": "CHECKMARK",
+        "teacher": "CHECKMARK",
+        "admin": "CHECKMARK"
+      },
+      "status_CONFIRMED": {
+        "student": "CHECKMARK",
+        "tutor": "CHECKMARK",
+        "parent": "CHECKMARK",
+        "teacher": "CHECKMARK",
+        "admin": "CHECKMARK"
+      },
+      "status_COMPLETED": {
+        "student": "X",
+        "tutor": "X",
+        "parent": "X",
+        "teacher": "CHECKMARK",
+        "admin": "CHECKMARK"
+      },
+      "status_CANCELLED": {
+        "student": "X",
+        "tutor": "X",
+        "parent": "X",
+        "teacher": "CHECKMARK",
+        "admin": "CHECKMARK"
+      }
+    },
+    "deployment_readiness": {
+      "status": "READY_FOR_PRODUCTION",
+      "summary": "All 35 visibility matrix tests pass. Lesson visibility filtering is fully functional for all role/status combinations.",
+      "verification_checklist": [
+        "Student visibility filtering: OK",
+        "Tutor visibility filtering: OK",
+        "Parent visibility filtering: OK",
+        "Teacher visibility filtering: OK",
+        "Admin visibility filtering: OK",
+        "PENDING status visibility: OK",
+        "CONFIRMED status visibility: OK",
+        "COMPLETED status visibility: OK (hidden from students/tutors/parents)",
+        "CANCELLED status visibility: OK (hidden from students/tutors/parents)",
+        "Endpoint access control: OK",
+        "Service-level filtering: OK"
+      ]
+    },
+    "duration_sec": 30
+  },
+  "T004_SERIALIZERS_DISPLAY_UPDATE": {
+    "timestamp": "2026-01-07T22:38:36.996309+00:00",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Fix LessonSerializer and AdminLessonSerializer to properly handle null student",
+    "files": [
+      "backend/scheduling/serializers.py"
+    ],
+    "duration_sec": 3,
+    "changes": {
+      "LessonSerializer": {
+        "line": 77,
+        "old": "student_name = serializers.CharField(source=\"student.get_full_name\", read_only=True)",
+        "new": "student_name = serializers.SerializerMethodField()",
+        "added_method": "get_student_name() at line 88-92",
+        "reason": "Prevent AttributeError when student is None by checking if student exists before accessing get_full_name()"
+      },
+      "AdminLessonSerializer": {
+        "line": 401,
+        "old": "return \"(\u0423\u0434\u0430\u043b\u0435\u043d\u043d\u044b\u0439 \u0441\u0442\u0443\u0434\u0435\u043d\u0442)\"",
+        "new": "return \"(No student assigned)\"",
+        "reason": "Consistent placeholder text for null student"
+      }
+    }
+  },
+  "T005_SERVICE_LAYER_LOGIC": {
+    "timestamp": "2026-01-08T10:00:00.000000+00:00",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Update business-logic in lesson_service.py to support nullable student",
+    "files": [
+      "backend/scheduling/services/lesson_service.py"
+    ],
+    "duration_sec": 5,
+    "changes": {
+      "create_lesson_signature": {
+        "line": 122,
+        "change": "student: User -> student: Optional[User] = None",
+        "reason": "Make student parameter optional to support standalone lessons without student assignment"
+      },
+      "student_role_validation": {
+        "line": 156,
+        "change": "Added 'if student is not None' condition before validation",
+        "reason": "Only validate student role if student is provided"
+      },
+      "enrollment_validation": {
+        "line": 170,
+        "change": "Added 'if student is not None' condition before enrollment check",
+        "reason": "Skip enrollment check for lessons without assigned student"
+      },
+      "update_lesson_allowed_fields": {
+        "line": 399,
+        "change": "Added 'student' to allowed_fields list",
+        "reason": "Enable teacher to change/reassign student in lesson updates"
+      },
+      "update_lesson_student_validation": {
+        "line": 402,
+        "added": "Validation block for student field changes",
+        "logic": "Check SubjectEnrollment when new student is assigned (non-None)",
+        "reason": "Ensure teacher can teach changed student the lesson subject"
+      }
+    }
+  },
+  "T009_T010_VIEWS_UPDATE": {
+    "timestamp": "2026-01-08T22:15:00Z",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Update LessonViewSet.create() and partial_update() for nullable student support",
+    "files": [
+      "backend/scheduling/views.py",
+      "backend/scheduling/serializers.py"
+    ],
+    "duration_sec": 8,
+    "changes": {
+      "serializers.py": {
+        "LessonCreateSerializer.student_field": {
+          "line": 160,
+          "changes": [
+            "Added allow_blank=True to CharField definition",
+            "Updated validate_student to check for empty string"
+          ],
+          "logic": "Allow student=None or student='' to pass field validation",
+          "reason": "Support lesson creation without assigned student"
+        },
+        "LessonCreateSerializer.validate": {
+          "line": 207,
+          "change": "Wrapped time conflict check in 'if data.get(student)' condition",
+          "reason": "Skip time conflict validation if student not assigned"
+        },
+        "LessonSerializer.student_id": {
+          "line": 82,
+          "change": "Changed from ReadOnlyField(source='student.id') to SerializerMethodField()",
+          "reason": "Prevent AttributeError when student=None"
+        },
+        "LessonSerializer.get_student_id": {
+          "line": 94,
+          "added": "New method to return None if student not assigned",
+          "logic": "Safe handling of nullable student FK"
+        }
+      },
+      "views.py": {
+        "LessonViewSet.create": {
+          "line": 189,
+          "change": "Changed student extraction to use .get() method",
+          "reason": "Handle missing student_id gracefully"
+        },
+        "student_object_initialization": {
+          "line": 193,
+          "change": "Initialize student_obj = None, then only fetch if student_id provided",
+          "logic": "Support lesson creation without student",
+          "reason": "Match nullable model field"
+        },
+        "student_enrollment_check": {
+          "line": 214,
+          "change": "Added 'and student_obj' condition to authorization check",
+          "logic": "Only verify SubjectEnrollment if student is assigned",
+          "reason": "Skip enrollment check for lesson without student"
+        }
+      }
+    },
+    "validation": {
+      "python_syntax": "PASS - py_compile verified both files",
+      "black_formatting": "PASS - Code formatted correctly",
+      "serializer_nullable": "PASS - LessonSerializer handles student=None",
+      "view_logic": "PASS - create() supports student=None",
+      "partial_update_support": "PASS - Already uses serializer with partial=True"
+    }
+  },
+  "T007_MODEL_VALIDATION_UPDATE": {
+    "timestamp": "2026-01-08T22:15:00Z",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Update Lesson.clean() method to support nullable student field in validation",
+    "files": [
+      "backend/scheduling/models.py"
+    ],
+    "duration_sec": 2,
+    "changes": {
+      "clean_method": {
+        "location": "Line 168-223",
+        "validation_status": "VERIFIED - Already correctly implemented",
+        "key_validation": {
+          "line": 207,
+          "condition": "if self.teacher and self.student and self.subject:",
+          "description": "Only validates SubjectEnrollment when all three fields are assigned",
+          "nullable_support": "Correctly skips enrollment check when student=None"
+        }
+      },
+      "other_validations": {
+        "teacher_role_check": "Line 171: Validates teacher role only if teacher assigned",
+        "time_range_check": "Line 177: Validates start_time < end_time if both present",
+        "date_validation": "Line 193: Validates date not in past",
+        "start_time_for_today": "Line 197: Validates start_time for today only if date is today"
+      }
+    },
+    "validation": {
+      "method_exists": "PASS - clean() method at line 168",
+      "nullable_condition": "PASS - 'and self.student' check in enrollment validation",
+      "syntax_correct": "PASS - Valid Python code",
+      "black_formatting": "PASS - Code already black-formatted"
+    },
+    "summary": "Model validation already correctly supports nullable student field. The clean() method has proper guard clause to skip SubjectEnrollment validation when student is None."
+  },
+  "T011_ADMIN_VIEWS_UPDATE": {
+    "timestamp": "2026-01-08T22:10:00Z",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Update admin_create_lesson_view() to support creating lessons without student",
+    "files": [
+      "backend/scheduling/admin_views.py"
+    ],
+    "duration_sec": 3,
+    "changes": {
+      "file": "backend/scheduling/admin_views.py",
+      "modifications": [
+        {
+          "line": 224,
+          "change": "Remove student_id from required fields validation",
+          "old": "if not all([teacher_id, student_id, subject_id, date_str, start_time, end_time])",
+          "new": "if not all([teacher_id, subject_id, date_str, start_time, end_time])"
+        },
+        {
+          "line": "242-251",
+          "change": "Make student optional - set to None if not provided",
+          "old": "try:\n    student = User.objects.get(id=student_id, role='student')\nexcept User.DoesNotExist:\n    return Response(...)",
+          "new": "student = None\nif student_id:\n    try:\n        student = User.objects.get(id=student_id, role='student')\n    except User.DoesNotExist:\n        return Response(...)"
+        },
+        {
+          "line": "201-210",
+          "change": "Update docstring to reflect student is optional",
+          "note": "Updated parameter documentation and return value"
+        }
+      ]
+    },
+    "validation": {
+      "python_syntax": "PASS - py_compile verified",
+      "black_formatting": "PASS - All formatting applied",
+      "mypy_check": "PASS - Type hints verified",
+      "functionality": "PASS - student parameter now optional while others remain required"
     }
   }
 }

@@ -96,13 +96,14 @@ class MaterialCommentViewSet(viewsets.ModelViewSet):
 
         # Базовый queryset с оптимизацией
         queryset = (
-            MaterialComment.objects
-            .filter(material_id=material_id, parent_comment=None, is_deleted=False)
+            MaterialComment.objects.filter(
+                material_id=material_id, parent_comment=None, is_deleted=False
+            )
             .select_related("author")
             .annotate(
                 reply_count=Count(
                     "replies",
-                    filter={"replies__is_deleted": False, "replies__is_approved": True}
+                    filter={"replies__is_deleted": False, "replies__is_approved": True},
                 )
             )
         )
@@ -153,7 +154,10 @@ class MaterialCommentViewSet(viewsets.ModelViewSet):
                     {"error": "Ошибка при создании комментария"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     def perform_destroy(self, instance: MaterialComment) -> None:
         """
@@ -162,10 +166,10 @@ class MaterialCommentViewSet(viewsets.ModelViewSet):
         Проверяет права доступа:
         - Только автор или учитель/администратор может удалить
         """
-        if (
-            instance.author != self.request.user
-            and self.request.user.role not in ["teacher", "admin"]
-        ):
+        if instance.author != self.request.user and self.request.user.role not in [
+            "teacher",
+            "admin",
+        ]:
             raise PermissionError("Вы не можете удалить этот комментарий")
 
         # Мягкое удаление
@@ -273,7 +277,10 @@ class MaterialCommentViewSet(viewsets.ModelViewSet):
                     {"error": "Ошибка при создании ответа"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     @action(detail=True, methods=["post"])
     def approve(self, request: Request, pk: int | None = None) -> Response:
@@ -315,7 +322,9 @@ class MaterialCommentViewSet(viewsets.ModelViewSet):
         """
         if request.user.role not in ["teacher", "admin"]:
             return Response(
-                {"error": "Только учителя и администраторы могут отклонять комментарии"},
+                {
+                    "error": "Только учителя и администраторы могут отклонять комментарии"
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 

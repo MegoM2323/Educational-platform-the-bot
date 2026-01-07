@@ -9,7 +9,7 @@ router.register(r'reports', views.ReportViewSet)
 router.register(r'templates', views.ReportTemplateViewSet)
 router.register(r'custom-reports', CustomReportViewSet, basename='custom-reports')
 router.register(r'custom-templates', CustomReportTemplateViewSet, basename='custom-templates')
-router.register(r'analytics-data', views.AnalyticsDataViewSet)  # Renamed from 'analytics'
+router.register(r'analytics-data', views.AnalyticsDataViewSet)
 router.register(r'schedules', views.ReportScheduleViewSet, basename='schedules')
 router.register(r'stats', views.ReportStatsViewSet, basename='stats')
 router.register(r'student-reports', views.StudentReportViewSet, basename='student-reports')
@@ -17,7 +17,6 @@ router.register(r'tutor-weekly-reports', views.TutorWeeklyReportViewSet, basenam
 router.register(r'teacher-weekly-reports', views.TeacherWeeklyReportViewSet, basename='teacher-weekly-reports')
 router.register(r'parent-preferences', views.ParentReportPreferenceViewSet, basename='parent-preferences')
 
-# Analytics API endpoints
 analytics_router = DefaultRouter()
 analytics_router.register(r'analytics/dashboard', analytics_api.DashboardAnalyticsViewSet, basename='analytics-dashboard')
 analytics_router.register(r'analytics/students', analytics_api.StudentAnalyticsViewSet, basename='analytics-students')
@@ -27,6 +26,7 @@ analytics_router.register(r'analytics/engagement', analytics_api.EngagementAnaly
 analytics_router.register(r'analytics/progress', analytics_api.ProgressAnalyticsViewSet, basename='analytics-progress')
 
 urlpatterns = [
+    path('parent/', views.ParentReportViewSet.as_view(), name='parent-reports'),
     path('', include(router.urls)),
     path('', include(analytics_router.urls)),
 ]

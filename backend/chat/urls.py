@@ -26,6 +26,10 @@ router.register(r'general', views.GeneralChatViewSet, basename='general-chat')
 router.register(r'forum', forum_views.ForumChatViewSet, basename='forum-chat')
 
 urlpatterns = [
+    # Parent chat endpoints (list and create) - must be before router
+    re_path(r'^/?$', views.ParentChatView.as_view(), name='parent-chat'),
+
+    # Main router endpoints
     path('', include(router.urls)),
 
     # Notifications - support both with and without trailing slash

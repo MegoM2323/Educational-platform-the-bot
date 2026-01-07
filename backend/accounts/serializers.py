@@ -51,6 +51,8 @@ __all__ = [
     "TutorProfileDetailSerializer",
     "ParentProfileSerializer",
     "ParentProfileListSerializer",
+    "StudentUserListSerializer",
+    "ParentUserListSerializer",
     "ChangePasswordSerializer",
     "StudentListSerializer",
     "EnrollmentDetailSerializer",
@@ -345,6 +347,17 @@ class StudentListSerializer(serializers.ModelSerializer):
     IMPORTANT: This serializer expects StudentProfile entries where user.role='STUDENT'.
     The API view (list_students) filters at queryset level to ensure this requirement.
 
+    For admin users, returns nested structure:
+    {
+        "id": <user_id>,
+        "student_profile": {
+            "goal": "...",
+            "tutor": <tutor_id>,
+            "parent": <parent_id>,
+            ...
+        }
+    }
+
     Скрывает email адреса тьюторов и родителей в целях приватности.
     """
 
@@ -352,6 +365,8 @@ class StudentListSerializer(serializers.ModelSerializer):
     tutor_info = serializers.SerializerMethodField()
     parent_info = serializers.SerializerMethodField()
     enrollments_count = serializers.IntegerField(read_only=True)
+    student_profile = serializers.SerializerMethodField()
+    id = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
@@ -367,7 +382,12 @@ class StudentListSerializer(serializers.ModelSerializer):
             "total_points",
             "accuracy_percentage",
             "enrollments_count",
+            "student_profile",
         )
+
+    def get_id(self, obj):
+        """Return user_id instead of StudentProfile id"""
+        return obj.user_id
 
     def get_tutor_info(self, obj):
         """Information about tutor (with role and active status validation, email excluded for privacy)"""
@@ -396,6 +416,129 @@ class StudentListSerializer(serializers.ModelSerializer):
                 else None,
             }
         return None
+
+    def get_student_profile(self, obj):
+        """Return nested student_profile with private fields for admin"""
+        return {
+            "goal": obj.goal,
+            "tutor": obj.tutor_id,
+            "parent": obj.parent_id,
+            "grade": obj.grade,
+            "progress_percentage": obj.progress_percentage,
+            "streak_days": obj.streak_days,
+            "total_points": obj.total_points,
+            "accuracy_percentage": obj.accuracy_percentage,
+        }
+
+
+class StudentUserListSerializer(serializers.Serializer):
+    """
+    Сериализатор для списка студентов работающий с User объектами
+    (вместо StudentProfile).
+
+    Используется когда студент создан но не имеет StudentProfile.
+    """
+
+    id = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+    grade = serializers.SerializerMethodField()
+    goal = serializers.SerializerMethodField()
+    tutor_info = serializers.SerializerMethodField()
+    parent_info = serializers.SerializerMethodField()
+    progress_percentage = serializers.SerializerMethodField()
+    streak_days = serializers.SerializerMethodField()
+    total_points = serializers.SerializerMethodField()
+    accuracy_percentage = serializers.SerializerMethodField()
+    enrollments_count = serializers.IntegerField(read_only=True)
+
+    def get_id(self, obj):
+        """Get id from User object"""
+        return obj.id
+
+    def get_user(self, obj):
+        """Get user data serialized"""
+        return UserSerializer(obj).data
+
+    def get_grade(self, obj):
+        """Get grade from student_profile if exists"""
+        profile = getattr(obj, "student_profile", None)
+        return profile.grade if profile else None
+
+    def get_goal(self, obj):
+        """Get goal from student_profile if exists"""
+        profile = getattr(obj, "student_profile", None)
+        return profile.goal if profile else None
+
+    def get_tutor_info(self, obj):
+        """Get tutor info from student_profile if exists"""
+        profile = getattr(obj, "student_profile", None)
+        if profile and profile.tutor:
+            if profile.tutor.role != User.Role.TUTOR or not profile.tutor.is_active:
+                return None
+            return {
+                "id": profile.tutor.id,
+                "name": profile.tutor.get_full_name(),
+                "avatar": getattr(profile.tutor.avatar, "url", None)
+                if profile.tutor.avatar
+                else None,
+            }
+        return None
+
+    def get_parent_info(self, obj):
+        """Get parent info from student_profile if exists"""
+        profile = getattr(obj, "student_profile", None)
+        if profile and profile.parent:
+            if profile.parent.role != User.Role.PARENT or not profile.parent.is_active:
+                return None
+            return {
+                "id": profile.parent.id,
+                "name": profile.parent.get_full_name(),
+                "avatar": getattr(profile.parent.avatar, "url", None)
+                if profile.parent.avatar
+                else None,
+            }
+        return None
+
+    def get_progress_percentage(self, obj):
+        """Get progress from student_profile if exists"""
+        profile = getattr(obj, "student_profile", None)
+        return profile.progress_percentage if profile else 0
+
+    def get_streak_days(self, obj):
+        """Get streak days from student_profile if exists"""
+        profile = getattr(obj, "student_profile", None)
+        return profile.streak_days if profile else 0
+
+    def get_total_points(self, obj):
+        """Get total points from student_profile if exists"""
+        profile = getattr(obj, "student_profile", None)
+        return profile.total_points if profile else 0
+
+    def get_accuracy_percentage(self, obj):
+        """Get accuracy from student_profile if exists"""
+        profile = getattr(obj, "student_profile", None)
+        return profile.accuracy_percentage if profile else 0
+
+
+class ParentUserListSerializer(serializers.Serializer):
+    """
+    Сериализатор для списка родителей работающий с User объектами
+    (вместо ParentProfile).
+
+    Используется когда родитель создан но не имеет ParentProfile.
+    """
+
+    id = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+    children_count = serializers.IntegerField(read_only=True)
+
+    def get_id(self, obj):
+        """Get id from User object"""
+        return obj.id
+
+    def get_user(self, obj):
+        """Get user data serialized"""
+        return UserSerializer(obj).data
 
 
 class EnrollmentDetailSerializer(serializers.Serializer):

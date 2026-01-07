@@ -7,6 +7,7 @@ router = DefaultRouter()
 router.register(r"payments", views.PaymentViewSet)
 
 urlpatterns = [
+    path("initiate/", views.initiate_parent_payment, name="initiate_parent_payment"),
     path("", include(router.urls)),
     path("yookassa-webhook/", views.yookassa_webhook, name="yookassa_webhook"),
     path("check-payment/", views.check_payment_status, name="check_payment_status"),

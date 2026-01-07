@@ -66,7 +66,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Получение queryset с фильтрацией и оптимизацией запросов"""
-        queryset = Broadcast.objects.select_related("created_by").order_by("-created_at")
+        queryset = Broadcast.objects.select_related("created_by").order_by(
+            "-created_at"
+        )
 
         # Фильтр по статусу
         status_filter = self.request.query_params.get("status")
@@ -116,7 +118,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             {
                 "count": paginator.count,
                 "next": page_obj.has_next() and page_obj.next_page_number() or None,
-                "previous": page_obj.has_previous() and page_obj.previous_page_number() or None,
+                "previous": page_obj.has_previous()
+                and page_obj.previous_page_number()
+                or None,
                 "results": serializer.data,
                 "page": page_number,
                 "page_size": page_size,
@@ -140,14 +144,18 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             logger.warning(f"[create_broadcast] Validation error: {serializer.errors}")
             return Response(
-                {"success": False, "error": serializer.errors, "code": "VALIDATION_ERROR"},
+                {
+                    "success": False,
+                    "error": serializer.errors,
+                    "code": "VALIDATION_ERROR",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         target_group = serializer.validated_data["target_group"]
         target_filter = serializer.validated_data.get("target_filter", {})
         message = serializer.validated_data["message"]
-        send_immediately = request.data.get("send_immediately", False)
+        send_immediately = serializer.validated_data.get("send_telegram", False)
 
         # Получить получателей
         recipients = _get_recipients_by_group(target_group, target_filter)
@@ -166,7 +174,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             )
 
         # Определить статус
-        broadcast_status = Broadcast.Status.SENDING if send_immediately else Broadcast.Status.DRAFT
+        broadcast_status = (
+            Broadcast.Status.SENDING if send_immediately else Broadcast.Status.DRAFT
+        )
 
         # Создать Broadcast
         broadcast = Broadcast.objects.create(
@@ -194,7 +204,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
                 broadcast.sent_at = timezone.now()
                 broadcast.completed_at = timezone.now()
                 broadcast.save()
-                logger.info(f"[create_broadcast] Broadcast {broadcast.id} sent successfully")
+                logger.info(
+                    f"[create_broadcast] Broadcast {broadcast.id} sent successfully"
+                )
             except Exception as e:
                 broadcast.status = Broadcast.Status.FAILED
                 broadcast.save()
@@ -207,12 +219,7 @@ class BroadcastViewSet(viewsets.ModelViewSet):
 
         output_serializer = BroadcastDetailSerializer(broadcast)
         return Response(
-            {
-                "success": True,
-                "data": output_serializer.data,
-                "message": "Рассылка успешно создана"
-                + (" и отправлена" if send_immediately else ""),
-            },
+            output_serializer.data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -237,7 +244,7 @@ class BroadcastViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(broadcast)
         logger.info(f"[get_broadcast] User {request.user.email} viewed broadcast {pk}")
-        return Response({"success": True, "data": serializer.data})
+        return Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="progress")
     def progress(self, request, pk=None):
@@ -258,7 +265,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         """
         try:
             progress_data = BroadcastService.get_progress(pk)
-            logger.info(f"[progress] User {request.user.email} viewed progress for broadcast {pk}")
+            logger.info(
+                f"[progress] User {request.user.email} viewed progress for broadcast {pk}"
+            )
             return Response({"success": True, "data": progress_data})
         except ValueError as e:
             logger.warning(f"[progress] {str(e)}")
@@ -269,7 +278,11 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"[progress] Error: {str(e)}", exc_info=True)
             return Response(
-                {"success": False, "error": "Ошибка при получении прогресса", "code": "ERROR"},
+                {
+                    "success": False,
+                    "error": "Ошибка при получении прогресса",
+                    "code": "ERROR",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -301,7 +314,11 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"[cancel] Error: {str(e)}", exc_info=True)
             return Response(
-                {"success": False, "error": "Ошибка при отмене рассылки", "code": "ERROR"},
+                {
+                    "success": False,
+                    "error": "Ошибка при отмене рассылки",
+                    "code": "ERROR",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -336,7 +353,11 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"[retry] Error: {str(e)}", exc_info=True)
             return Response(
-                {"success": False, "error": "Ошибка при повторной отправке", "code": "ERROR"},
+                {
+                    "success": False,
+                    "error": "Ошибка при повторной отправке",
+                    "code": "ERROR",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -486,7 +507,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         except Exception as e:
             broadcast.status = Broadcast.Status.FAILED
             broadcast.save()
-            logger.error(f"[resend_broadcast] Failed to resend broadcast {pk}: {str(e)}")
+            logger.error(
+                f"[resend_broadcast] Failed to resend broadcast {pk}: {str(e)}"
+            )
             return Response(
                 {
                     "success": False,
@@ -518,18 +541,22 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             )
 
         # Получить queryset получателей
-        recipients_qs = BroadcastRecipient.objects.filter(broadcast=broadcast).select_related(
-            "recipient"
-        )
+        recipients_qs = BroadcastRecipient.objects.filter(
+            broadcast=broadcast
+        ).select_related("recipient")
 
         # Фильтр по статусу
         status_filter = request.query_params.get("status")
         if status_filter == "sent":
             recipients_qs = recipients_qs.filter(telegram_sent=True)
         elif status_filter == "failed":
-            recipients_qs = recipients_qs.filter(telegram_sent=False, telegram_error__isnull=False)
+            recipients_qs = recipients_qs.filter(
+                telegram_sent=False, telegram_error__isnull=False
+            )
         elif status_filter == "pending":
-            recipients_qs = recipients_qs.filter(telegram_sent=False, telegram_error__isnull=True)
+            recipients_qs = recipients_qs.filter(
+                telegram_sent=False, telegram_error__isnull=True
+            )
 
         # Пагинация
         page_size = int(request.query_params.get("page_size", 20))
@@ -549,7 +576,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             {
                 "count": paginator.count,
                 "next": page_obj.has_next() and page_obj.next_page_number() or None,
-                "previous": page_obj.has_previous() and page_obj.previous_page_number() or None,
+                "previous": page_obj.has_previous()
+                and page_obj.previous_page_number()
+                or None,
                 "results": serializer.data,
                 "page": page_number,
                 "page_size": page_size,
@@ -561,7 +590,9 @@ class BroadcastViewSet(viewsets.ModelViewSet):
 # ============= HELPER FUNCTIONS =============
 
 
-def _get_recipients_by_group(target_group: str, target_filter: dict = None) -> List[User]:
+def _get_recipients_by_group(
+    target_group: str, target_filter: dict | None = None
+) -> List[User]:
     """
     Получить список получателей по группе и фильтрам.
 
@@ -574,67 +605,83 @@ def _get_recipients_by_group(target_group: str, target_filter: dict = None) -> L
     """
     target_filter = target_filter or {}
 
-    if target_group == Broadcast.TargetGroup.ALL_STUDENTS:
-        return list(User.objects.filter(role="student", is_active=True))
+    if (
+        target_group == Broadcast.TargetGroup.ALL_STUDENTS
+        or target_group == "all_students"
+    ):
+        return list(User.objects.filter(role=User.Role.STUDENT, is_active=True))
 
-    elif target_group == Broadcast.TargetGroup.ALL_TEACHERS:
-        return list(User.objects.filter(role="teacher", is_active=True))
+    elif (
+        target_group == Broadcast.TargetGroup.ALL_TEACHERS
+        or target_group == "all_teachers"
+    ):
+        return list(User.objects.filter(role=User.Role.TEACHER, is_active=True))
 
-    elif target_group == Broadcast.TargetGroup.ALL_TUTORS:
-        return list(User.objects.filter(role="tutor", is_active=True))
+    elif (
+        target_group == Broadcast.TargetGroup.ALL_TUTORS or target_group == "all_tutors"
+    ):
+        return list(User.objects.filter(role=User.Role.TUTOR, is_active=True))
 
-    elif target_group == Broadcast.TargetGroup.ALL_PARENTS:
-        return list(User.objects.filter(role="parent", is_active=True))
+    elif (
+        target_group == Broadcast.TargetGroup.ALL_PARENTS
+        or target_group == "all_parents"
+    ):
+        return list(User.objects.filter(role=User.Role.PARENT, is_active=True))
 
-    elif target_group == Broadcast.TargetGroup.BY_SUBJECT:
+    elif (
+        target_group == Broadcast.TargetGroup.BY_SUBJECT or target_group == "by_subject"
+    ):
         subject_id = target_filter.get("subject_id")
         if not subject_id:
             logger.warning("[_get_recipients_by_group] BY_SUBJECT requires subject_id")
             return []
 
-        # Получить всех студентов и учителей по предмету
-        enrollments = SubjectEnrollment.objects.filter(subject_id=subject_id).select_related(
-            "student"
-        )
+        enrollments = SubjectEnrollment.objects.filter(
+            subject_id=subject_id
+        ).select_related("student")
 
-        teacher_subjects = TeacherSubject.objects.filter(subject_id=subject_id).select_related(
-            "teacher"
-        )
+        teacher_subjects = TeacherSubject.objects.filter(
+            subject_id=subject_id
+        ).select_related("teacher")
 
         recipients = []
         for enrollment in enrollments:
-            recipients.append(enrollment.student)
+            if enrollment.student.is_active:
+                recipients.append(enrollment.student)
         for ts in teacher_subjects:
-            recipients.append(ts.teacher)
+            if ts.teacher.is_active:
+                recipients.append(ts.teacher)
 
-        return list(set(recipients))  # Убираем дубликаты
+        return list(set(recipients))
 
-    elif target_group == Broadcast.TargetGroup.BY_TUTOR:
+    elif target_group == Broadcast.TargetGroup.BY_TUTOR or target_group == "by_tutor":
         tutor_id = target_filter.get("tutor_id")
         if not tutor_id:
             logger.warning("[_get_recipients_by_group] BY_TUTOR requires tutor_id")
             return []
 
-        # Получить всех студентов этого тьютора
         from accounts.models import StudentProfile
 
-        student_profiles = StudentProfile.objects.filter(tutor_id=tutor_id).select_related("user")
+        student_profiles = StudentProfile.objects.filter(
+            tutor_id=tutor_id, user__is_active=True
+        ).select_related("user")
         return [profile.user for profile in student_profiles]
 
-    elif target_group == Broadcast.TargetGroup.BY_TEACHER:
+    elif (
+        target_group == Broadcast.TargetGroup.BY_TEACHER or target_group == "by_teacher"
+    ):
         teacher_id = target_filter.get("teacher_id")
         if not teacher_id:
             logger.warning("[_get_recipients_by_group] BY_TEACHER requires teacher_id")
             return []
 
-        # Получить всех студентов этого учителя через SubjectEnrollment
-        enrollments = SubjectEnrollment.objects.filter(teacher_id=teacher_id).select_related(
-            "student"
-        )
+        enrollments = SubjectEnrollment.objects.filter(
+            teacher_id=teacher_id, student__is_active=True
+        ).select_related("student")
 
         return [enrollment.student for enrollment in enrollments]
 
-    elif target_group == Broadcast.TargetGroup.CUSTOM:
+    elif target_group == Broadcast.TargetGroup.CUSTOM or target_group == "custom":
         user_ids = target_filter.get("user_ids", [])
         if not user_ids:
             logger.warning("[_get_recipients_by_group] CUSTOM requires user_ids")

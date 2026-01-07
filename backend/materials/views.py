@@ -361,7 +361,10 @@ class MaterialViewSet(viewsets.ModelViewSet):
             if serializer.is_valid():
                 serializer.save(material=material)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     @action(detail=False, methods=["get"])
     def student_materials(self, request):
@@ -677,7 +680,10 @@ class MaterialSubmissionViewSet(viewsets.ModelViewSet):
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     @action(detail=True, methods=["post"])
     def submit_feedback(self, request, pk=None):
@@ -706,7 +712,10 @@ class MaterialSubmissionViewSet(viewsets.ModelViewSet):
             serializer.save(submission=submission)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class MaterialFeedbackViewSet(viewsets.ReadOnlyModelViewSet):

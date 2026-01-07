@@ -66,7 +66,9 @@ class ParentDashboardView(generics.RetrieveAPIView):
         try:
             # Логируем информацию о пользователе и токене
             auth_header = request.META.get("HTTP_AUTHORIZATION", "NOT SET")
-            logger.info(f"[ParentDashboardView.get] Authorization header: {auth_header}")
+            logger.info(
+                f"[ParentDashboardView.get] Authorization header: {auth_header}"
+            )
 
             # Проверяем, какой токен используется
             if auth_header.startswith("Token "):
@@ -84,7 +86,9 @@ class ParentDashboardView(generics.RetrieveAPIView):
                             f"[ParentDashboardView.get] TOKEN MISMATCH! Token user: {token_obj.user.username} (id: {token_obj.user.id}), request.user: {request.user.username} (id: {request.user.id})"
                         )
                 except Token.DoesNotExist:
-                    logger.warning(f"[ParentDashboardView.get] Token not found in database")
+                    logger.warning(
+                        f"[ParentDashboardView.get] Token not found in database"
+                    )
 
             logger.info(
                 f"[ParentDashboardView.get] Request from user: {request.user.username} (id: {request.user.id})"
@@ -95,7 +99,9 @@ class ParentDashboardView(generics.RetrieveAPIView):
             logger.info(
                 f"[ParentDashboardView.get] User authenticated: {request.user.is_authenticated}"
             )
-            logger.info(f"[ParentDashboardView.get] User.Role.PARENT: {User.Role.PARENT}")
+            logger.info(
+                f"[ParentDashboardView.get] User.Role.PARENT: {User.Role.PARENT}"
+            )
             logger.info(
                 f"[ParentDashboardView.get] Role match: {request.user.role == User.Role.PARENT}"
             )
@@ -106,7 +112,12 @@ class ParentDashboardView(generics.RetrieveAPIView):
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
-            # Проверяем связь родитель-ребенок
+            if request.user.role != User.Role.PARENT:
+                return Response(
+                    {"detail": "Only parent users can access this endpoint."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             user = request.user
             service = ParentDashboardService(user, request)
             dashboard_data = service.get_dashboard_data()
@@ -172,6 +183,12 @@ class ParentChildrenView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         try:
+            if request.user.role != User.Role.PARENT:
+                return Response(
+                    {"detail": "Only parent users can access this endpoint."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             logger.info(
                 f"[ParentChildrenView.list] Request from user: {request.user.username}, role: {request.user.role}"
             )
@@ -201,7 +218,9 @@ class ParentChildrenView(generics.ListAPIView):
 
             result = []
             for child in children:
-                logger.debug(f"[ParentChildrenView.list] Processing child: {child.username}")
+                logger.debug(
+                    f"[ParentChildrenView.list] Processing child: {child.username}"
+                )
                 # Основные поля профиля
                 student_profile = getattr(child, "student_profile", None)
                 grade = getattr(student_profile, "grade", "") if student_profile else ""
@@ -243,10 +262,18 @@ class ParentChildrenView(generics.ListAPIView):
                             "name": enrollment.get_subject_name(),
                             "teacher_name": enrollment.teacher.get_full_name(),
                             "teacher_id": enrollment.teacher.id,
-                            "enrollment_status": "active" if enrollment.is_active else "inactive",
-                            "payment_status": (payment["status"] if payment else "no_payment"),
-                            "next_payment_date": payment["next_payment_date"] if payment else None,
-                            "has_subscription": service._has_active_subscription(enrollment),
+                            "enrollment_status": "active"
+                            if enrollment.is_active
+                            else "inactive",
+                            "payment_status": (
+                                payment["status"] if payment else "no_payment"
+                            ),
+                            "next_payment_date": payment["next_payment_date"]
+                            if payment
+                            else None,
+                            "has_subscription": service._has_active_subscription(
+                                enrollment
+                            ),
                             "subscription_status": subscription_status,
                             "expires_at": expires_at,
                         }
@@ -268,7 +295,7 @@ class ParentChildrenView(generics.ListAPIView):
             logger.info(f"[ParentChildrenView.list] Returning {len(result)} children")
             return Response(
                 {
-                    "children": result,
+                    "results": result,
                     "pagination": {
                         "page": page,
                         "limit": limit,
@@ -281,7 +308,9 @@ class ParentChildrenView(generics.ListAPIView):
             logger.error(f"[ParentChildrenView.list] ValueError: {e}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(f"[ParentChildrenView.list] Unexpected error: {e}", exc_info=True)
+            logger.error(
+                f"[ParentChildrenView.list] Unexpected error: {e}", exc_info=True
+            )
             return Response(
                 {"error": f"Ошибка получения списка детей: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -336,7 +365,9 @@ def get_child_subjects(request, child_id):
 
         return Response(subjects_data, status=status.HTTP_200_OK)
     except User.DoesNotExist:
-        return Response({"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -368,7 +399,9 @@ def get_child_progress(request, child_id):
         progress_data = service.get_child_progress(child)
         return Response(progress_data, status=status.HTTP_200_OK)
     except User.DoesNotExist:
-        return Response({"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -397,7 +430,9 @@ def get_child_teachers(request, child_id):
         teachers = service.get_child_teachers(child)
         return Response(teachers, status=status.HTTP_200_OK)
     except User.DoesNotExist:
-        return Response({"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -459,7 +494,9 @@ def get_payment_status(request, child_id):
         payment_data = service.get_payment_status(child)
         return Response(payment_data, status=status.HTTP_200_OK)
     except User.DoesNotExist:
-        return Response({"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -483,7 +520,9 @@ def initiate_payment(request, child_id, enrollment_id):
         logger.info(
             f"[initiate_payment] Request from user: {request.user.username}, role: {request.user.role}"
         )
-        logger.info(f"[initiate_payment] child_id: {child_id}, enrollment_id: {enrollment_id}")
+        logger.info(
+            f"[initiate_payment] child_id: {child_id}, enrollment_id: {enrollment_id}"
+        )
         logger.info(f"[initiate_payment] Request data: {request.data}")
 
         service = ParentDashboardService(request.user)
@@ -516,7 +555,10 @@ def initiate_payment(request, child_id, enrollment_id):
         # Валидация данных
         serializer = PaymentInitiationSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Если amount не указан, будет использоваться значение из настроек в service.initiate_payment
         amount = serializer.validated_data.get("amount")
@@ -529,7 +571,9 @@ def initiate_payment(request, child_id, enrollment_id):
                 )
 
         description = serializer.validated_data.get("description", "")
-        create_subscription = serializer.validated_data.get("create_subscription", False)
+        create_subscription = serializer.validated_data.get(
+            "create_subscription", False
+        )
 
         payment_data = service.initiate_payment(
             child=child,
@@ -545,14 +589,19 @@ def initiate_payment(request, child_id, enrollment_id):
 
         return Response(payment_data_api, status=status.HTTP_201_CREATED)
     except User.DoesNotExist:
-        return Response({"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Error initiating payment: {e}", exc_info=True)
         error_message = str(e)
         # Если это ошибка уникальности подписки, даём более понятное сообщение
-        if "UNIQUE constraint failed" in error_message and "subscription" in error_message.lower():
+        if (
+            "UNIQUE constraint failed" in error_message
+            and "subscription" in error_message.lower()
+        ):
             error_message = 'Подписка для этого предмета уже существует. Используйте кнопку "Отменить подписку" для отмены текущей подписки.'
         return Response(
             {"error": f"Ошибка при создании платежа: {error_message}"},
@@ -588,7 +637,9 @@ def get_reports(request, child_id=None):
         serializer = TutorWeeklyReportSerializer(reports, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     except User.DoesNotExist:
-        return Response({"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -667,7 +718,9 @@ def cancel_subscription(request, child_id, enrollment_id):
         )
 
     except User.DoesNotExist:
-        return Response({"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Ребенок не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
     except Exception as e:
         logger.error(f"Error cancelling subscription: {e}", exc_info=True)
         return Response(

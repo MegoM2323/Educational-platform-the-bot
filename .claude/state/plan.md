@@ -1,47 +1,87 @@
-# Regression Tests: tutor_cabinet_final_test_regression_20260107
+# План: Исправить 41 failure в Backend API тестах T016-T027
 
-## Objective
-Verify all fixed endpoints work correctly after critical issues were resolved.
+## Summary
+Исправить недостающие fields и endpoints в Parent API для прохождения тестов.
 
-## Fixed Issues Background
-- Issue #1: Chat room creation returns 500 (duplicate created_by parameter)
-- Issue #2: GET /api/accounts/students/ returns 403 (URL routing priority)
-- Issue #3: Invoices endpoints return 404 (routing verification)
-- Issue #4: Assignments endpoints return 404 (routing verification)
+## Параллельные Task Группы
 
-## Test Groups
+### Группа 1: ParentDashboard & ParentChildren (materials app)
 
-### Group 1: Chat Endpoints (Fixed #1)
-- [ ] POST /api/chat/rooms/ - Create chat room (should be 201)
-- [ ] GET /api/chat/rooms/ - List chat rooms (should be 200)
-- [ ] GET /api/chat/rooms/{id}/ - Retrieve chat room (should be 200)
-- [ ] DELETE /api/chat/rooms/{id}/ - Delete chat room (should be 204)
+#### Task T001: Добавить payments_summary и upcoming_classes в ParentDashboard
+**Files:** backend/materials/parent_dashboard_service.py
+**Changes:**
+- В методе get_dashboard_data() строка 979-1004, добавить после ключа "total_children":
+  - "payments_summary": {totals по статусам, последние 3 платежа}
+  - "upcoming_classes": {array с ближайшими классами}
+**Success:** Тест test_dashboard_response_has_required_fields PASS
 
-### Group 2: Accounts Endpoints (Fixed #2)
-- [ ] GET /api/accounts/students/ - List students (should be 200, NOT 403)
-- [ ] POST /api/accounts/students/ - Create student (should be 201)
-- [ ] GET /api/accounts/students/{id}/ - Retrieve student (should be 200)
-- [ ] PATCH /api/accounts/users/{id}/ - Update user (should be 200)
-- [ ] GET /api/profile/tutor/ - Get tutor profile (should be 200)
+#### Task T002: Исправить /api/parent/children/ endpoint
+**Files:** backend/materials/parent_dashboard_views.py, urls.py
+**Changes:**
+- ParentChildrenView уже реализован (строка 164), но URL может быть не зарегистрирован
+- Проверить urlpatterns регистрацию
+- Response должен быть list или dict с 'results' (текущее: вернет dict с 'children' и 'pagination')
+**Success:** Тесты test_get_children_* PASS
 
-### Group 3: Payments Endpoints (Fixed #3)
-- [ ] GET /api/invoices/ - List invoices (should be 200)
-- [ ] POST /api/invoices/ - Create invoice (should be 201)
-- [ ] GET /api/invoices/{id}/ - Retrieve invoice (should be 200)
+### Группа 2: ParentPayments, ParentInvoices, ParentReports, ParentChat (разные apps)
 
-### Group 4: Assignments Endpoints (Fixed #4)
-- [ ] GET /api/assignments/ - List assignments (should be 200)
-- [ ] POST /api/assignments/ - Create assignment (should be 201)
-- [ ] GET /api/assignments/{id}/ - Retrieve assignment (should be 200)
+#### Task T003: Добавить /api/dashboard/parent/payments/ endpoint
+**Files:** backend/materials/parent_dashboard_views.py, urls.py
+**Changes:**
+- Endpoint parent_payments() уже есть (строка 432)
+- Возвращает get_parent_payments() из service
+- Убедиться в авторизации IsAuthenticated
+- URL должен быть зарегистрирован
+
+#### Task T004: Добавить /api/invoices/parent/ endpoint
+**Files:** backend/invoices/views.py, urls.py
+**Changes:**
+- Создать ParentInvoicesView (ListAPIView)
+- Фильтровать по parent_id текущего пользователя
+- Support pagination
+- Support filter по status
+- Authorization: IsAuthenticated, IsParent
+
+#### Task T005: Добавить /api/reports/weekly-reports/ endpoint
+**Files:** backend/reports/views.py, urls.py
+**Changes:**
+- Создать ParentReportsView (ListAPIView)
+- Фильтровать отчеты по parent_id
+- Support filters: child_id, date_from, date_to
+- Support pagination
+- Support export PDF
+
+#### Task T006: Исправить /api/chat/conversations/ endpoint
+**Files:** backend/chat/views.py, urls.py
+**Changes:**
+- Создать ParentChatView (ListAPIView)
+- Фильтровать conversations по parent_id
+- Поддерживать pagination и filters
+- POST для отправки сообщения
+
+#### Task T007: Добавить PATCH метод в /api/profile/parent/
+**Files:** backend/accounts/views.py, urls.py
+**Changes:**
+- ParentProfileView должна иметь PATCH метод
+- Обновлять поля: first_name, last_name, phone, avatar
+- НЕ позволять менять email
+- Возвращать обновленный profile
+- Authorization: IsAuthenticated
 
 ## Success Criteria
-- All endpoints return 200/201 (NOT 403/404/500)
-- Response structures are valid JSON
-- No regressions in other endpoints
-- Pass rate >= 95%
+- Все 41 failing test должны быть PASSED
+- Все 88 backend тестов должны быть PASSED
+- Без создания новых failures
 
-## Test File
-File: `/home/mego/Python Projects/THE_BOT_platform/backend/tests/api/test_regression_20260107.py`
-
-## Output
-Report: `REGRESSION_TEST_REPORT_20260107_RETRY.md`
+## Test Files (для запуска)
+```bash
+pytest backend/materials/tests/test_get_parent_dashboard_api.py \
+        backend/materials/tests/test_get_parent_children_api.py \
+        backend/materials/tests/test_initiate_payment_api.py \
+        backend/materials/tests/test_cancel_subscription_api.py \
+        backend/invoices/tests/test_get_parent_invoices_api.py \
+        backend/reports/tests/test_parent_reports_api.py \
+        backend/chat/tests/test_parent_chat_api.py \
+        backend/accounts/tests/test_parent_profile_api.py \
+        -v
+```

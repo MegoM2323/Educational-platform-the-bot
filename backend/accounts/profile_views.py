@@ -1637,7 +1637,10 @@ class NotificationSettingsView(APIView):
                 logger.warning(
                     f"Invalid notification settings data for user {request.user.id}: {serializer.errors}"
                 )
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"success": False, "error": "Ошибка валидации данных"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
             logger.error(
                 f"Error updating notification settings for user {request.user.id}: {str(e)}"
@@ -1646,3 +1649,66 @@ class NotificationSettingsView(APIView):
                 {"error": "Failed to update notification settings"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class ParentProfileDetailView(APIView):
+    """
+    API endpoint для просмотра профилей других родителей.
+    
+    GET /api/accounts/profile/<user_id>/
+    - Возвращает профиль конкретного родителя
+    - Родители могут видеть только свой профиль (403 для других)
+    - Администраторы могут видеть все профили
+    """
+    
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, user_id: int) -> Response:
+        """Получить профиль родителя по ID"""
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Проверяем permissions
+        if request.user.role == User.Role.PARENT and request.user.id != user_id:
+            return Response(
+                {"error": "You do not have permission to view this profile"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        
+        if target_user.role != User.Role.PARENT:
+            return Response(
+                {"error": "User is not a parent"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        try:
+            profile, created = ParentProfile.objects.select_related("user").get_or_create(
+                user=target_user
+            )
+            
+            user_data = {
+                "id": target_user.id,
+                "email": target_user.email,
+                "first_name": target_user.first_name,
+                "last_name": target_user.last_name,
+                "phone": target_user.phone,
+                "avatar": target_user.avatar.url if target_user.avatar else None,
+                "role": target_user.role,
+            }
+            
+            profile_serializer = ParentProfileDetailSerializer(profile)
+            
+            return Response({"user": user_data, "profile": profile_serializer.data})
+        except Exception as e:
+            logger.exception(f"Error retrieving parent profile for user_id={user_id}: {str(e)}")
+            return Response(
+                {"error": "Failed to retrieve profile"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+

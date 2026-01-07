@@ -30,6 +30,11 @@ from core.json_utils import safe_json_parse, safe_json_response, safe_json_dumps
 from core.environment import EnvConfig
 from django.contrib.auth import get_user_model
 from notifications.notification_service import NotificationService
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework.response import Response
+from rest_framework import status
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -1336,3 +1341,82 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         serializer = PaymentSerializer(payment)
         return Response(serializer.data)
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def initiate_parent_payment(request):
+    """
+    Инициировать платеж за обучение ребенка
+    Endpoint: POST /api/payments/initiate/
+    """
+    if request.user.role != User.Role.PARENT:
+        return Response(
+            {"detail": "Only parent users can initiate payments."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        child_id = request.data.get('child_id')
+        amount = request.data.get('amount')
+        description = request.data.get('description', '')
+
+        if not child_id:
+            return Response(
+                {"error": "child_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not amount:
+            return Response(
+                {"error": "amount is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            amount_decimal = Decimal(str(amount))
+            if amount_decimal <= 0:
+                return Response(
+                    {"error": "amount must be positive"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "invalid amount"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        child = User.objects.get(id=child_id, role=User.Role.STUDENT)
+
+        payment = Payment.objects.create(
+            amount=amount_decimal,
+            description=description,
+            customer_fio=request.user.get_full_name(),
+            metadata={
+                'parent_id': request.user.id,
+                'child_id': child.id,
+            },
+        )
+
+        return Response(
+            {
+                "id": payment.id,
+                "payment_id": payment.id,
+                "amount": str(payment.amount),
+                "status": payment.status,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {"error": "Student not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        logger.error(f"Error initiating payment: {e}", exc_info=True)
+        return Response(
+            {"error": "Internal server error"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

@@ -47,7 +47,7 @@ class BulkUserOperationsViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsAdminUser]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def bulk_activate(self, request):
         """
         Activate multiple users.
@@ -78,28 +78,27 @@ class BulkUserOperationsViewSet(viewsets.ViewSet):
         """
         serializer = BulkActivateSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             service = BulkUserOperationService(request.user)
             result = service.bulk_activate(
-                serializer.validated_data['user_ids'],
-                request=request
+                serializer.validated_data["user_ids"], request=request
             )
             return Response(result, status=status.HTTP_200_OK)
         except BulkOperationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Bulk activate error: {str(e)}")
             return Response(
-                {'error': 'Internal server error'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def bulk_deactivate(self, request):
         """
         Deactivate multiple users.
@@ -113,28 +112,27 @@ class BulkUserOperationsViewSet(viewsets.ViewSet):
         """
         serializer = BulkDeactivateSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             service = BulkUserOperationService(request.user)
             result = service.bulk_deactivate(
-                serializer.validated_data['user_ids'],
-                request=request
+                serializer.validated_data["user_ids"], request=request
             )
             return Response(result, status=status.HTTP_200_OK)
         except BulkOperationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Bulk deactivate error: {str(e)}")
             return Response(
-                {'error': 'Internal server error'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def bulk_assign_role(self, request):
         """
         Assign role to multiple users.
@@ -151,29 +149,29 @@ class BulkUserOperationsViewSet(viewsets.ViewSet):
         """
         serializer = BulkAssignRoleSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             service = BulkUserOperationService(request.user)
             result = service.bulk_assign_role(
-                serializer.validated_data['user_ids'],
-                serializer.validated_data['role'],
-                request=request
+                serializer.validated_data["user_ids"],
+                serializer.validated_data["role"],
+                request=request,
             )
             return Response(result, status=status.HTTP_200_OK)
         except BulkOperationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Bulk assign role error: {str(e)}")
             return Response(
-                {'error': 'Internal server error'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def bulk_reset_password(self, request):
         """
         Reset passwords for multiple users.
@@ -211,28 +209,27 @@ class BulkUserOperationsViewSet(viewsets.ViewSet):
         """
         serializer = BulkResetPasswordSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             service = BulkUserOperationService(request.user)
             result = service.bulk_reset_password(
-                serializer.validated_data['user_ids'],
-                request=request
+                serializer.validated_data["user_ids"], request=request
             )
             return Response(result, status=status.HTTP_200_OK)
         except BulkOperationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Bulk reset password error: {str(e)}")
             return Response(
-                {'error': 'Internal server error'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def bulk_suspend(self, request):
         """
         Suspend multiple users (deactivate them).
@@ -247,34 +244,33 @@ class BulkUserOperationsViewSet(viewsets.ViewSet):
         """
         serializer = BulkSuspendSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             service = BulkUserOperationService(request.user)
             result = service.bulk_suspend(
-                serializer.validated_data['user_ids'],
-                request=request
+                serializer.validated_data["user_ids"], request=request
             )
 
             # Add reason to metadata if provided
-            reason = serializer.validated_data.get('reason')
-            if reason and result['success']:
-                result['reason'] = reason
+            reason = serializer.validated_data.get("reason")
+            if reason and result["success"]:
+                result["reason"] = reason
 
             return Response(result, status=status.HTTP_200_OK)
         except BulkOperationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Bulk suspend error: {str(e)}")
             return Response(
-                {'error': 'Internal server error'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def bulk_unsuspend(self, request):
         """
         Unsuspend multiple users (reactivate them).
@@ -288,28 +284,27 @@ class BulkUserOperationsViewSet(viewsets.ViewSet):
         """
         serializer = BulkUnsuspendSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             service = BulkUserOperationService(request.user)
             result = service.bulk_unsuspend(
-                serializer.validated_data['user_ids'],
-                request=request
+                serializer.validated_data["user_ids"], request=request
             )
             return Response(result, status=status.HTTP_200_OK)
         except BulkOperationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Bulk unsuspend error: {str(e)}")
             return Response(
-                {'error': 'Internal server error'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def bulk_delete(self, request):
         """
         Delete (archive) multiple users.
@@ -328,29 +323,28 @@ class BulkUserOperationsViewSet(viewsets.ViewSet):
         """
         serializer = BulkDeleteSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             service = BulkUserOperationService(request.user)
             result = service.bulk_delete(
-                serializer.validated_data['user_ids'],
-                request=request
+                serializer.validated_data["user_ids"], request=request
             )
 
             # Add reason to metadata if provided
-            reason = serializer.validated_data.get('reason')
-            if reason and result['success']:
-                result['reason'] = reason
+            reason = serializer.validated_data.get("reason")
+            if reason and result["success"]:
+                result["reason"] = reason
 
             return Response(result, status=status.HTTP_200_OK)
         except BulkOperationError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Bulk delete error: {str(e)}")
             return Response(
-                {'error': 'Internal server error'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

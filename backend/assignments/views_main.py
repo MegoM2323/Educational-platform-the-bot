@@ -204,7 +204,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             send_submission_notification(submission)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     @action(
         detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
@@ -357,7 +360,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         # Validate request
         serializer = BulkGradeSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Apply grades
         result = BulkGradingService.apply_bulk_grades(
@@ -423,7 +429,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         # Validate request
         serializer = CSVGradeImportSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             # Read CSV file
@@ -711,7 +720,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         # Validate and parse request data
         serializer = AssignmentCloneSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             # Perform cloning
@@ -1502,7 +1514,10 @@ class PeerReviewAssignmentViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = PeerReviewCreateSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             review = PeerAssignmentService.submit_review(
@@ -1785,7 +1800,10 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
 
         serializer = AssignmentAttemptGradeSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             attempt = AttemptCreationService.grade_attempt(

@@ -6,6 +6,32 @@ from rest_framework.views import exception_handler
 
 logger = logging.getLogger(__name__)
 
+SENSITIVE_FIELDS = {
+    "password",
+    "password_confirm",
+    "new_password",
+    "new_password_confirm",
+    "old_password",
+    "ssn",
+    "credit_card",
+    "card_number",
+    "cvv",
+    "api_key",
+    "secret_key",
+    "token",
+    "private_key",
+}
+
+
+def _filter_sensitive_fields(errors):
+    if isinstance(errors, dict):
+        filtered = {}
+        for field, messages in errors.items():
+            if field.lower() not in SENSITIVE_FIELDS:
+                filtered[field] = messages
+        return filtered
+    return errors
+
 
 def custom_exception_handler(exc, context):
     if isinstance(exc, DRFValidationError):

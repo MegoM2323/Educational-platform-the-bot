@@ -178,7 +178,10 @@ def teacher_materials(request):
         return Response(
             {"id": material.id, "title": material.title}, status=status.HTTP_201_CREATED
         )
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {"success": False, "error": "Ошибка валидации данных"},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 
 @api_view(["POST"])
@@ -493,7 +496,10 @@ def submission_feedback(request, submission_id: int):
         submission.status = MaterialSubmission.Status.REVIEWED
         submission.save(update_fields=["status"])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {"success": False, "error": "Ошибка валидации данных"},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 
 @api_view(["PUT"])
@@ -751,7 +757,10 @@ def teacher_study_plans(request):
                 request.user.id,
                 serializer.errors,
             )
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     except Exception as e:
         logger.error(f"Error in teacher_study_plans: {e}", exc_info=True)
@@ -868,7 +877,10 @@ def teacher_study_plan_detail(request, plan_id):
                 )
                 return Response(response_serializer.data, status=status.HTTP_200_OK)
 
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         elif request.method == "DELETE":
             plan.delete()

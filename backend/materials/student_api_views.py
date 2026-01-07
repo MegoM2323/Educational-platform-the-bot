@@ -17,7 +17,10 @@ User = get_user_model()
 
 def _ensure_student(user: User):
     if getattr(user, "role", None) != User.Role.STUDENT:
-        return Response({"error": "Доступ разрешен только студентам"}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"error": "Доступ разрешен только студентам"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     return None
 
 
@@ -74,8 +77,13 @@ def list_subject_materials(request, subject_id: int):
         return forbidden
 
     # Проверим наличие активной записи зачисления на предмет
-    if not SubjectEnrollment.objects.filter(student=request.user, subject_id=subject_id, is_active=True).exists():
-        return Response({"error": "Вы не зачислены на этот предмет"}, status=status.HTTP_403_FORBIDDEN)
+    if not SubjectEnrollment.objects.filter(
+        student=request.user, subject_id=subject_id, is_active=True
+    ).exists():
+        return Response(
+            {"error": "Вы не зачислены на этот предмет"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     materials = (
         Material.objects.filter(
@@ -88,7 +96,9 @@ def list_subject_materials(request, subject_id: int):
         .order_by("-created_at")
     )
 
-    serializer = MaterialListSerializer(materials, many=True, context={"request": request})
+    serializer = MaterialListSerializer(
+        materials, many=True, context={"request": request}
+    )
     return Response(serializer.data)
 
 
@@ -104,13 +114,17 @@ def get_subject_teacher(request, subject_id: int):
         return forbidden
 
     enrollment = (
-        SubjectEnrollment.objects.filter(student=request.user, subject_id=subject_id, is_active=True)
+        SubjectEnrollment.objects.filter(
+            student=request.user, subject_id=subject_id, is_active=True
+        )
         .select_related("teacher")
         .first()
     )
 
     if not enrollment:
-        return Response({"error": "Запись зачисления не найдена"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Запись зачисления не найдена"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     teacher = enrollment.teacher
     data = {
@@ -137,27 +151,43 @@ def submit_material_submission(request, material_id: int):
     try:
         material = Material.objects.get(id=material_id)
     except Material.DoesNotExist:
-        return Response({"error": "Материал не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Материал не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     # Проверка доступа к материалу
-    if not (material.is_public or material.assigned_to.filter(id=request.user.id).exists()):
-        return Response({"error": "Материал не назначен вам"}, status=status.HTTP_403_FORBIDDEN)
+    if not (
+        material.is_public or material.assigned_to.filter(id=request.user.id).exists()
+    ):
+        return Response(
+            {"error": "Материал не назначен вам"}, status=status.HTTP_403_FORBIDDEN
+        )
 
     # Один сабмишен на материал на текущей модели
-    if MaterialSubmission.objects.filter(material=material, student=request.user).exists():
-        return Response({"error": "Ответ уже отправлен"}, status=status.HTTP_400_BAD_REQUEST)
+    if MaterialSubmission.objects.filter(
+        material=material, student=request.user
+    ).exists():
+        return Response(
+            {"error": "Ответ уже отправлен"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
     payload = request.data.copy()
     payload["material"] = material.id
 
-    serializer = MaterialSubmissionSerializer(data=payload, context={"request": request})
+    serializer = MaterialSubmissionSerializer(
+        data=payload, context={"request": request}
+    )
     if serializer.is_valid():
         submission = serializer.save(material=material, student=request.user)
         return Response(
-            MaterialSubmissionSerializer(submission, context={"request": request}).data, status=status.HTTP_201_CREATED
+            MaterialSubmissionSerializer(submission, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
         )
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {"success": False, "error": "Ошибка валидации данных"},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 
 @api_view(["GET"])
@@ -172,9 +202,13 @@ def list_student_submissions(request):
         return forbidden
 
     submissions = (
-        MaterialSubmission.objects.filter(student=request.user).select_related("material").order_by("-submitted_at")
+        MaterialSubmission.objects.filter(student=request.user)
+        .select_related("material")
+        .order_by("-submitted_at")
     )
-    serializer = MaterialSubmissionSerializer(submissions, many=True, context={"request": request})
+    serializer = MaterialSubmissionSerializer(
+        submissions, many=True, context={"request": request}
+    )
     return Response(serializer.data)
 
 
@@ -190,15 +224,23 @@ def get_submission_feedback(request, submission_id: int):
         return forbidden
 
     try:
-        submission = MaterialSubmission.objects.select_related("student").get(id=submission_id, student=request.user)
+        submission = MaterialSubmission.objects.select_related("student").get(
+            id=submission_id, student=request.user
+        )
     except MaterialSubmission.DoesNotExist:
-        return Response({"error": "Сабмишен не найден"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Сабмишен не найден"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     feedback = MaterialFeedback.objects.filter(submission=submission).first()
     if not feedback:
-        return Response({"error": "Фидбэк отсутствует"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Фидбэк отсутствует"}, status=status.HTTP_404_NOT_FOUND
+        )
 
-    return Response(MaterialFeedbackSerializer(feedback, context={"request": request}).data)
+    return Response(
+        MaterialFeedbackSerializer(feedback, context={"request": request}).data
+    )
 
 
 @api_view(["GET"])
@@ -232,21 +274,31 @@ def get_student_progress(request):
 
     subject_id = request.query_params.get("subject")
     if not subject_id:
-        return Response({"error": "Требуется параметр subject"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Требуется параметр subject"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
     try:
         subject_id = int(subject_id)
     except (ValueError, TypeError):
-        return Response({"error": "subject должен быть целым числом"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "subject должен быть целым числом"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     enrollment = (
-        SubjectEnrollment.objects.filter(student=request.user, subject_id=subject_id, is_active=True)
+        SubjectEnrollment.objects.filter(
+            student=request.user, subject_id=subject_id, is_active=True
+        )
         .select_related("subject")
         .first()
     )
 
     if not enrollment:
-        return Response({"error": "Вы не зачислены на этот предмет"}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"error": "Вы не зачислены на этот предмет"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     materials = Material.objects.filter(
         Q(assigned_to=request.user) | Q(is_public=True),
@@ -288,7 +340,9 @@ def get_student_progress(request):
                 "id": material.id,
                 "name": material.title,
                 "completed": is_completed,
-                "score": int(progress_percentage * material.difficulty_level / 100) if progress else 0,
+                "score": int(progress_percentage * material.difficulty_level / 100)
+                if progress
+                else 0,
                 "max_score": material.difficulty_level,
                 "accuracy": float(progress_percentage) if progress else 0.0,
             }

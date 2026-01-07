@@ -10,6 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarProvider,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ const items = [
   { title: "Сообщения", url: "/dashboard/parent/chat", icon: MessageSquare },
 ];
 
-export function ParentSidebar() {
+function ParentSidebarContent() {
   const { state } = useSidebar();
   const { signOut } = useAuth();
 
@@ -102,5 +103,13 @@ export function ParentSidebar() {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+export function ParentSidebar() {
+  return (
+    <SidebarProvider>
+      <ParentSidebarContent />
+    </SidebarProvider>
   );
 }

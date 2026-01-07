@@ -976,6 +976,48 @@ class ParentDashboardService:
         if total_progress_list:
             avg_progress = round(sum(total_progress_list) / max(len(total_progress_list), 1), 1)
 
+        all_payments = []
+        for child_data in children_data:
+            for payment in child_data.get("payments", []):
+                all_payments.append(payment)
+
+        paid_total = Decimal(0)
+        pending_total = Decimal(0)
+        overdue_total = Decimal(0)
+
+        for payment in all_payments:
+            try:
+                amount = Decimal(str(payment.get("amount", 0))) if payment.get("amount") else Decimal(0)
+                status = payment.get("status", "")
+                if status == "paid":
+                    paid_total += amount
+                elif status in ["pending", "waiting_for_payment"]:
+                    pending_total += amount
+                elif status == "overdue":
+                    overdue_total += amount
+            except (ValueError, TypeError):
+                pass
+
+        payments_summary = {
+            "paid": str(paid_total),
+            "pending": str(pending_total),
+            "overdue": str(overdue_total),
+            "total": str(paid_total + pending_total + overdue_total),
+        }
+
+        upcoming_classes = []
+        for child_data in children_data:
+            for subject in child_data.get("subjects", []):
+                if subject.get("has_subscription"):
+                    upcoming_classes.append({
+                        "child_id": child_data["id"],
+                        "child_name": child_data["name"],
+                        "subject_id": subject["id"],
+                        "subject_name": subject["name"],
+                        "teacher_name": subject["teacher_name"],
+                        "next_payment_date": subject.get("next_payment_date"),
+                    })
+
         result = {
             "parent": {
                 "id": self.parent_user.id,
@@ -983,7 +1025,7 @@ class ParentDashboardService:
                 "email": self.parent_user.email,
             },
             "children": children_data,
-            "reports": [],  # пока нет реальных отчётов
+            "reports": [],
             "statistics": {
                 "total_children": len(children_list),
                 "average_progress": avg_progress,
@@ -991,8 +1033,9 @@ class ParentDashboardService:
                 "pending_payments": pending_payments,
                 "overdue_payments": overdue_payments,
             },
-            # Дублируем ключ для совместимости с ожиданиями тестов
             "total_children": len(children_list),
+            "payments_summary": payments_summary,
+            "upcoming_classes": upcoming_classes,
         }
         logger.info(
             f"[get_dashboard_data] Returning dashboard data with {len(children_data)} children"

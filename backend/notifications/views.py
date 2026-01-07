@@ -8,15 +8,31 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
-from .models import Notification, NotificationTemplate, NotificationSettings, NotificationQueue, NotificationClick
+from .models import (
+    Notification,
+    NotificationTemplate,
+    NotificationSettings,
+    NotificationQueue,
+    NotificationClick,
+)
 from .serializers import (
-    NotificationSerializer, NotificationListSerializer, NotificationCreateSerializer,
-    NotificationTemplateSerializer, NotificationSettingsSerializer, NotificationQueueSerializer,
-    NotificationStatsSerializer, BulkNotificationSerializer, NotificationMarkReadSerializer,
-    ScheduleNotificationSerializer, ScheduleNotificationResponseSerializer,
-    NotificationScheduleStatusSerializer, CancelScheduledNotificationSerializer,
-    NotificationClickSerializer, TrackClickSerializer, NotificationAnalyticsSerializer,
-    NotificationMetricsQuerySerializer
+    NotificationSerializer,
+    NotificationListSerializer,
+    NotificationCreateSerializer,
+    NotificationTemplateSerializer,
+    NotificationSettingsSerializer,
+    NotificationQueueSerializer,
+    NotificationStatsSerializer,
+    BulkNotificationSerializer,
+    NotificationMarkReadSerializer,
+    ScheduleNotificationSerializer,
+    ScheduleNotificationResponseSerializer,
+    NotificationScheduleStatusSerializer,
+    CancelScheduledNotificationSerializer,
+    NotificationClickSerializer,
+    TrackClickSerializer,
+    NotificationAnalyticsSerializer,
+    NotificationMetricsQuerySerializer,
 )
 from .analytics import NotificationAnalytics
 from .services.template import TemplateService, TemplateSyntaxError, TemplateRenderError
@@ -31,98 +47,106 @@ class NotificationViewSet(viewsets.ModelViewSet):
     """
     ViewSet для уведомлений
     """
+
     queryset = Notification.objects.all()
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['type', 'priority', 'is_read', 'is_sent']
-    search_fields = ['title', 'message']
-    ordering_fields = ['created_at', 'read_at', 'sent_at']
-    ordering = ['-created_at']
-    
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["type", "priority", "is_read", "is_sent"]
+    search_fields = ["title", "message"]
+    ordering_fields = ["created_at", "read_at", "sent_at"]
+    ordering = ["-created_at"]
+
     def get_serializer_class(self):
-        if self.action == 'list':
+        if self.action == "list":
             return NotificationListSerializer
-        elif self.action == 'create':
+        elif self.action == "create":
             return NotificationCreateSerializer
         return NotificationSerializer
-    
+
     def get_queryset(self):
         """
         Пользователи видят только свои уведомления
         """
         return Notification.objects.filter(recipient=self.request.user)
-    
+
     def perform_create(self, serializer):
         serializer.save(recipient=self.request.user)
-    
-    @action(detail=True, methods=['post'])
+
+    @action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):
         """
         Отметить уведомление как прочитанное
         """
         notification = self.get_object()
         notification.mark_as_read()
-        return Response({'message': 'Уведомление отмечено как прочитанное'})
-    
-    @action(detail=False, methods=['post'])
+        return Response({"message": "Уведомление отмечено как прочитанное"})
+
+    @action(detail=False, methods=["post"])
     def mark_multiple_read(self, request):
         """
         Отметить несколько уведомлений как прочитанные
         """
         serializer = NotificationMarkReadSerializer(data=request.data)
         if serializer.is_valid():
-            if serializer.validated_data['mark_all']:
+            if serializer.validated_data["mark_all"]:
                 # Отмечаем все уведомления пользователя как прочитанные
                 updated_count = Notification.objects.filter(
-                    recipient=request.user,
-                    is_read=False
+                    recipient=request.user, is_read=False
                 ).update(is_read=True, read_at=timezone.now())
-                
-                return Response({
-                    'message': f'Отмечено как прочитанные: {updated_count} уведомлений'
-                })
+
+                return Response(
+                    {
+                        "message": f"Отмечено как прочитанные: {updated_count} уведомлений"
+                    }
+                )
             else:
                 # Отмечаем конкретные уведомления
-                notification_ids = serializer.validated_data['notification_ids']
+                notification_ids = serializer.validated_data["notification_ids"]
                 updated_count = Notification.objects.filter(
-                    id__in=notification_ids,
-                    recipient=request.user,
-                    is_read=False
+                    id__in=notification_ids, recipient=request.user, is_read=False
                 ).update(is_read=True, read_at=timezone.now())
-                
-                return Response({
-                    'message': f'Отмечено как прочитанные: {updated_count} уведомлений'
-                })
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=False, methods=['get'])
+
+                return Response(
+                    {
+                        "message": f"Отмечено как прочитанные: {updated_count} уведомлений"
+                    }
+                )
+
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(detail=False, methods=["get"])
     def unread_count(self, request):
         """
         Получить количество непрочитанных уведомлений
         """
         count = Notification.objects.filter(
-            recipient=request.user,
-            is_read=False
+            recipient=request.user, is_read=False
         ).count()
-        
-        return Response({'unread_count': count})
-    
-    @action(detail=False, methods=['post'])
+
+        return Response({"unread_count": count})
+
+    @action(detail=False, methods=["post"])
     def send_bulk(self, request):
         """
         Отправить уведомления нескольким пользователям
         """
         serializer = BulkNotificationSerializer(data=request.data)
         if serializer.is_valid():
-            recipients = serializer.validated_data['recipients']
-            title = serializer.validated_data['title']
-            message = serializer.validated_data['message']
-            notification_type = serializer.validated_data['type']
-            priority = serializer.validated_data['priority']
-            data = serializer.validated_data.get('data', {})
-            scheduled_at = serializer.validated_data.get('scheduled_at')
-            
+            recipients = serializer.validated_data["recipients"]
+            title = serializer.validated_data["title"]
+            message = serializer.validated_data["message"]
+            notification_type = serializer.validated_data["type"]
+            priority = serializer.validated_data["priority"]
+            data = serializer.validated_data.get("data", {})
+            scheduled_at = serializer.validated_data.get("scheduled_at")
+
             # Создаем уведомления для каждого получателя
             notifications = []
             for recipient_id in recipients:
@@ -134,26 +158,33 @@ class NotificationViewSet(viewsets.ModelViewSet):
                         message=message,
                         type=notification_type,
                         priority=priority,
-                        data=data
+                        data=data,
                     )
                     notifications.append(notification)
                 except User.DoesNotExist:
                     continue
-            
-            return Response({
-                'message': f'Создано {len(notifications)} уведомлений',
-                'notifications': NotificationSerializer(notifications, many=True).data
-            })
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=False, methods=['get'])
+
+            return Response(
+                {
+                    "message": f"Создано {len(notifications)} уведомлений",
+                    "notifications": NotificationSerializer(
+                        notifications, many=True
+                    ).data,
+                }
+            )
+
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(detail=False, methods=["get"])
     def stats(self, request):
         """
         Получить статистику уведомлений
         """
         user = request.user
-        
+
         # Общая статистика
         total_notifications = Notification.objects.filter(recipient=user).count()
         unread_notifications = Notification.objects.filter(
@@ -162,16 +193,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
         sent_notifications = Notification.objects.filter(
             recipient=user, is_sent=True
         ).count()
-        
+
         # Статистика по типам
         notifications_by_type = {}
         for type_choice in Notification.Type.choices:
             type_value = type_choice[0]
-            count = Notification.objects.filter(
-                recipient=user, type=type_value
-            ).count()
+            count = Notification.objects.filter(recipient=user, type=type_value).count()
             notifications_by_type[type_value] = count
-        
+
         # Статистика по приоритетам
         notifications_by_priority = {}
         for priority_choice in Notification.Priority.choices:
@@ -180,21 +209,21 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 recipient=user, priority=priority_value
             ).count()
             notifications_by_priority[priority_value] = count
-        
+
         stats_data = {
-            'total_notifications': total_notifications,
-            'unread_notifications': unread_notifications,
-            'sent_notifications': sent_notifications,
-            'pending_notifications': 0,  # Заглушка
-            'failed_notifications': 0,   # Заглушка
-            'notifications_by_type': notifications_by_type,
-            'notifications_by_priority': notifications_by_priority
+            "total_notifications": total_notifications,
+            "unread_notifications": unread_notifications,
+            "sent_notifications": sent_notifications,
+            "pending_notifications": 0,  # Заглушка
+            "failed_notifications": 0,  # Заглушка
+            "notifications_by_type": notifications_by_type,
+            "notifications_by_priority": notifications_by_priority,
         }
-        
+
         serializer = NotificationStatsSerializer(stats_data)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def schedule(self, request):
         """
         Schedule notifications for future delivery.
@@ -224,38 +253,50 @@ class NotificationViewSet(viewsets.ModelViewSet):
             try:
                 scheduler = NotificationScheduler()
                 created_ids = scheduler.schedule_notification(
-                    recipients=serializer.validated_data['recipients'],
-                    title=serializer.validated_data['title'],
-                    message=serializer.validated_data['message'],
-                    scheduled_at=serializer.validated_data['scheduled_at'],
-                    notif_type=serializer.validated_data.get('type', Notification.Type.SYSTEM),
-                    priority=serializer.validated_data.get('priority', Notification.Priority.NORMAL),
-                    related_object_type=serializer.validated_data.get('related_object_type', ''),
-                    related_object_id=serializer.validated_data.get('related_object_id'),
-                    data=serializer.validated_data.get('data', {}),
+                    recipients=serializer.validated_data["recipients"],
+                    title=serializer.validated_data["title"],
+                    message=serializer.validated_data["message"],
+                    scheduled_at=serializer.validated_data["scheduled_at"],
+                    notif_type=serializer.validated_data.get(
+                        "type", Notification.Type.SYSTEM
+                    ),
+                    priority=serializer.validated_data.get(
+                        "priority", Notification.Priority.NORMAL
+                    ),
+                    related_object_type=serializer.validated_data.get(
+                        "related_object_type", ""
+                    ),
+                    related_object_id=serializer.validated_data.get(
+                        "related_object_id"
+                    ),
+                    data=serializer.validated_data.get("data", {}),
                 )
 
-                response_serializer = ScheduleNotificationResponseSerializer({
-                    'notification_ids': created_ids,
-                    'count': len(created_ids),
-                    'scheduled_at': serializer.validated_data['scheduled_at'],
-                })
-                return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+                response_serializer = ScheduleNotificationResponseSerializer(
+                    {
+                        "notification_ids": created_ids,
+                        "count": len(created_ids),
+                        "scheduled_at": serializer.validated_data["scheduled_at"],
+                    }
+                )
+                return Response(
+                    response_serializer.data, status=status.HTTP_201_CREATED
+                )
 
             except ValueError as e:
-                return Response(
-                    {'error': str(e)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 return Response(
-                    {'error': f'Scheduling failed: {str(e)}'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {"error": f"Scheduling failed: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-    @action(detail=True, methods=['delete'])
+    @action(detail=True, methods=["delete"])
     def cancel_scheduled(self, request, pk=None):
         """
         Cancel a scheduled notification before it's sent.
@@ -274,24 +315,23 @@ class NotificationViewSet(viewsets.ModelViewSet):
             success = scheduler.cancel_scheduled(notification.id)
 
             if success:
-                serializer = CancelScheduledNotificationSerializer({
-                    'message': 'Notification cancelled successfully',
-                    'notification_id': notification.id,
-                })
+                serializer = CancelScheduledNotificationSerializer(
+                    {
+                        "message": "Notification cancelled successfully",
+                        "notification_id": notification.id,
+                    }
+                )
                 return Response(serializer.data)
             else:
                 return Response(
-                    {'error': 'Cannot cancel notification - not in pending state'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": "Cannot cancel notification - not in pending state"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
         except ValueError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def schedule_status(self, request, pk=None):
         """
         Get the scheduling status of a notification.
@@ -318,11 +358,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         else:
             return Response(
-                {'error': 'Notification not found'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def archive(self, request, pk=None):
         """
         Archive a notification (move to archive without deleting).
@@ -338,17 +377,19 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notification = self.get_object()
 
         if InAppNotificationService.archive_notification(notification.id, request.user):
-            return Response({
-                'message': 'Notification archived successfully',
-                'notification_id': notification.id
-            })
+            return Response(
+                {
+                    "message": "Notification archived successfully",
+                    "notification_id": notification.id,
+                }
+            )
         else:
             return Response(
-                {'error': 'Could not archive notification'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Could not archive notification"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def unarchive(self, request, pk=None):
         """
         Restore an archived notification.
@@ -363,18 +404,22 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """
         notification = self.get_object()
 
-        if InAppNotificationService.unarchive_notification(notification.id, request.user):
-            return Response({
-                'message': 'Notification unarchived successfully',
-                'notification_id': notification.id
-            })
+        if InAppNotificationService.unarchive_notification(
+            notification.id, request.user
+        ):
+            return Response(
+                {
+                    "message": "Notification unarchived successfully",
+                    "notification_id": notification.id,
+                }
+            )
         else:
             return Response(
-                {'error': 'Could not unarchive notification'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Could not unarchive notification"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def archive_multiple(self, request):
         """
         Archive multiple notifications at once.
@@ -392,26 +437,26 @@ class NotificationViewSet(viewsets.ModelViewSet):
             "count": 3
         }
         """
-        notification_ids = request.data.get('notification_ids', [])
+        notification_ids = request.data.get("notification_ids", [])
 
         if not notification_ids:
             return Response(
-                {'error': 'notification_ids is required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "notification_ids is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         updated_count = Notification.objects.filter(
-            id__in=notification_ids,
-            recipient=request.user,
-            is_archived=False
+            id__in=notification_ids, recipient=request.user, is_archived=False
         ).update(is_archived=True, archived_at=timezone.now())
 
-        return Response({
-            'message': f'{updated_count} notifications archived',
-            'count': updated_count
-        })
+        return Response(
+            {
+                "message": f"{updated_count} notifications archived",
+                "count": updated_count,
+            }
+        )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def delete_multiple(self, request):
         """
         Delete multiple notifications at once.
@@ -429,25 +474,26 @@ class NotificationViewSet(viewsets.ModelViewSet):
             "count": 3
         }
         """
-        notification_ids = request.data.get('notification_ids', [])
+        notification_ids = request.data.get("notification_ids", [])
 
         if not notification_ids:
             return Response(
-                {'error': 'notification_ids is required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "notification_ids is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         deleted_count, _ = Notification.objects.filter(
-            id__in=notification_ids,
-            recipient=request.user
+            id__in=notification_ids, recipient=request.user
         ).delete()
 
-        return Response({
-            'message': f'{deleted_count} notifications deleted',
-            'count': deleted_count
-        })
+        return Response(
+            {
+                "message": f"{deleted_count} notifications deleted",
+                "count": deleted_count,
+            }
+        )
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def archived(self, request):
         """
         Get archived notifications for the user.
@@ -464,26 +510,23 @@ class NotificationViewSet(viewsets.ModelViewSet):
             "results": [...]
         }
         """
-        limit = int(request.query_params.get('limit', 50))
-        offset = int(request.query_params.get('offset', 0))
+        limit = int(request.query_params.get("limit", 50))
+        offset = int(request.query_params.get("offset", 0))
 
         archived_notifications = Notification.objects.filter(
-            recipient=request.user,
-            is_archived=True
-        ).order_by('-archived_at')[offset:offset + limit]
+            recipient=request.user, is_archived=True
+        ).order_by("-archived_at")[offset : offset + limit]
 
-        serializer = NotificationListSerializer(
-            archived_notifications,
-            many=True
+        serializer = NotificationListSerializer(archived_notifications, many=True)
+
+        return Response(
+            {
+                "count": Notification.objects.filter(
+                    recipient=request.user, is_archived=True
+                ).count(),
+                "results": serializer.data,
+            }
         )
-
-        return Response({
-            'count': Notification.objects.filter(
-                recipient=request.user,
-                is_archived=True
-            ).count(),
-            'results': serializer.data
-        })
 
 
 class NotificationTemplateViewSet(viewsets.ModelViewSet):
@@ -497,16 +540,21 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
     - /api/notifications/templates/{id}/clone/ - клонирование шаблона
     - /api/notifications/templates/validate/ - валидация шаблона
     """
+
     queryset = NotificationTemplate.objects.all()
     serializer_class = NotificationTemplateSerializer
     permission_classes = [permissions.IsAdminUser]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['type', 'is_active']
-    search_fields = ['name', 'description']
-    ordering_fields = ['created_at', 'name']
-    ordering = ['-created_at']
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["type", "is_active"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["created_at", "name"]
+    ordering = ["-created_at"]
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
     def preview(self, request, pk=None):
         """
         Предпросмотр шаблона с подставленными значениями
@@ -534,22 +582,19 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
         """
         template = self.get_object()
 
-        context = request.data.get('context', {})
+        context = request.data.get("context", {})
 
         try:
             preview = TemplateService.preview(
-                template.title_template,
-                template.message_template,
-                context
+                template.title_template, template.message_template, context
             )
             return Response(preview)
         except TemplateRenderError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(
+        detail=False, methods=["post"], permission_classes=[permissions.IsAdminUser]
+    )
     def validate(self, request):
         """
         Валидирует синтаксис шаблонов заголовка и сообщения
@@ -573,17 +618,14 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
             "errors": ["Title: unknown variable '{{unknown}}'"]
         }
         """
-        title_template = request.data.get('title_template', '')
-        message_template = request.data.get('message_template', '')
+        title_template = request.data.get("title_template", "")
+        message_template = request.data.get("message_template", "")
 
         is_valid, errors = TemplateService.validate(title_template, message_template)
 
-        return Response({
-            'is_valid': is_valid,
-            'errors': errors
-        })
+        return Response({"is_valid": is_valid, "errors": errors})
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
     def clone(self, request, pk=None):
         """
         Создает копию шаблона с суффиксом "_copy"
@@ -622,7 +664,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
             type=template.type,
             title_template=template.title_template,
             message_template=template.message_template,
-            is_active=True
+            is_active=True,
         )
 
         serializer = self.get_serializer(cloned_template)
@@ -633,13 +675,14 @@ class NotificationSettingsViewSet(viewsets.ModelViewSet):
     """
     ViewSet для настроек уведомлений
     """
+
     queryset = NotificationSettings.objects.all()
     serializer_class = NotificationSettingsSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         return NotificationSettings.objects.filter(user=self.request.user)
-    
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -648,19 +691,21 @@ class NotificationQueueViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet для очереди уведомлений (только для администраторов)
     """
+
     queryset = NotificationQueue.objects.all()
     serializer_class = NotificationQueueSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['status', 'channel']
-    ordering_fields = ['created_at', 'scheduled_at', 'processed_at']
-    ordering = ['-created_at']
-    
+    filterset_fields = ["status", "channel"]
+    ordering_fields = ["created_at", "scheduled_at", "processed_at"]
+    ordering = ["-created_at"]
+
     def get_queryset(self):
         # Только администраторы могут видеть очередь
         if self.request.user.is_staff:
             return NotificationQueue.objects.all()
         return NotificationQueue.objects.none()
+
 
 class AnalyticsViewSet(viewsets.ViewSet):
     """
@@ -671,6 +716,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
     - GET /api/notifications/analytics/performance/ - Производительность каналов
     - GET /api/notifications/analytics/top-types/ - Топ типов по open rate
     """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def _check_admin_permission(self, request):
@@ -682,7 +728,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 "Только администраторы могут просматривать аналитику"
             )
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def metrics(self, request):
         """
         Get notification delivery metrics
@@ -698,31 +744,34 @@ class AnalyticsViewSet(viewsets.ViewSet):
         self._check_admin_permission(request)
 
         # Parse query parameters (convert empty strings to None)
-        date_from = request.query_params.get('date_from') or None
-        date_to = request.query_params.get('date_to') or None
-        notification_type = request.query_params.get('type') or None
-        channel = request.query_params.get('channel') or None
-        granularity = request.query_params.get('granularity', 'day') or 'day'
-        scope = request.query_params.get('scope') or None
+        date_from = request.query_params.get("date_from") or None
+        date_to = request.query_params.get("date_to") or None
+        notification_type = request.query_params.get("type") or None
+        channel = request.query_params.get("channel") or None
+        granularity = request.query_params.get("granularity", "day") or "day"
+        scope = request.query_params.get("scope") or None
 
         # Build data dict for serializer (exclude None values)
         data = {
-            'granularity': granularity,
+            "granularity": granularity,
         }
         if date_from is not None:
-            data['date_from'] = date_from
+            data["date_from"] = date_from
         if date_to is not None:
-            data['date_to'] = date_to
+            data["date_to"] = date_to
         if notification_type is not None:
-            data['type'] = notification_type
+            data["type"] = notification_type
         if channel is not None:
-            data['channel'] = channel
+            data["channel"] = channel
 
         # Validate parameters
         serializer = NotificationMetricsQuerySerializer(data=data)
 
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         validated_data = serializer.validated_data
 
@@ -730,11 +779,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
             # Get metrics from analytics service with optional scope filter
             # Pass None for optional filters that weren't provided
             metrics = NotificationAnalytics.get_metrics(
-                date_from=validated_data.get('date_from'),
-                date_to=validated_data.get('date_to'),
-                notification_type=validated_data.get('type'),
-                channel=validated_data.get('channel'),
-                granularity=validated_data.get('granularity', 'day'),
+                date_from=validated_data.get("date_from"),
+                date_to=validated_data.get("date_to"),
+                notification_type=validated_data.get("type"),
+                channel=validated_data.get("channel"),
+                granularity=validated_data.get("granularity", "day"),
                 scope=scope,  # Pass scope parameter
             )
 
@@ -744,19 +793,18 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         except Exception as e:
             return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def performance(self, request):
         """
         Get channel performance metrics
         """
         self._check_admin_permission(request)
 
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
 
         try:
             channel_perf = NotificationAnalytics.get_channel_performance(
@@ -766,47 +814,41 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
             # Format response
             channels = [
-                {
-                    'channel': channel,
-                    **metrics
-                }
+                {"channel": channel, **metrics}
                 for channel, metrics in channel_perf.items()
             ]
 
             # Find best and worst channels
             best_channel = max(
-                channels,
-                key=lambda x: x.get('delivery_rate', 0),
-                default=None
+                channels, key=lambda x: x.get("delivery_rate", 0), default=None
             )
             worst_channel = min(
-                channels,
-                key=lambda x: x.get('delivery_rate', 0),
-                default=None
+                channels, key=lambda x: x.get("delivery_rate", 0), default=None
             )
 
-            return Response({
-                'channels': channels,
-                'best_channel': best_channel,
-                'worst_channel': worst_channel,
-            })
+            return Response(
+                {
+                    "channels": channels,
+                    "best_channel": best_channel,
+                    "worst_channel": worst_channel,
+                }
+            )
 
         except Exception as e:
             return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def top_types(self, request):
         """
         Get top performing notification types by open rate
         """
         self._check_admin_permission(request)
 
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
-        limit = int(request.query_params.get('limit', 5))
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        limit = int(request.query_params.get("limit", 5))
 
         try:
             top_types = NotificationAnalytics.get_top_performing_types(
@@ -815,17 +857,18 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 limit=limit,
             )
 
-            return Response({
-                'top_types': top_types,
-            })
+            return Response(
+                {
+                    "top_types": top_types,
+                }
+            )
 
         except Exception as e:
             return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def track_click(self, request):
         """
         Track a click on a notification.
@@ -857,41 +900,40 @@ class AnalyticsViewSet(viewsets.ViewSet):
         serializer = TrackClickSerializer(data=request.data)
 
         if not serializer.is_valid():
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         validated_data = serializer.validated_data
 
         try:
             # Get client IP if not provided
-            ip_address = validated_data.get('ip_address')
+            ip_address = validated_data.get("ip_address")
             if not ip_address:
-                x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+                x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
                 if x_forwarded_for:
-                    ip_address = x_forwarded_for.split(',')[0]
+                    ip_address = x_forwarded_for.split(",")[0]
                 else:
-                    ip_address = request.META.get('REMOTE_ADDR')
+                    ip_address = request.META.get("REMOTE_ADDR")
 
             # Get user agent if not provided
-            user_agent = validated_data.get('user_agent') or request.META.get('HTTP_USER_AGENT', '')
+            user_agent = validated_data.get("user_agent") or request.META.get(
+                "HTTP_USER_AGENT", ""
+            )
 
             # Track the click
             click = NotificationAnalytics.track_click(
-                notification_id=validated_data['notification_id'],
+                notification_id=validated_data["notification_id"],
                 user_id=request.user.id,
-                action_type=validated_data.get('action_type', 'link_click'),
-                action_url=validated_data.get('action_url'),
-                action_data=validated_data.get('action_data'),
+                action_type=validated_data.get("action_type", "link_click"),
+                action_url=validated_data.get("action_url"),
+                action_data=validated_data.get("action_data"),
                 user_agent=user_agent,
-                ip_address=ip_address
+                ip_address=ip_address,
             )
 
             if click is None:
                 return Response(
-                    {'error': 'Notification not found'},
-                    status=status.HTTP_404_NOT_FOUND
+                    {"error": "Notification not found"},
+                    status=status.HTTP_404_NOT_FOUND,
                 )
 
             response_serializer = NotificationClickSerializer(click)
@@ -899,8 +941,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         except Exception as e:
             return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -932,6 +973,7 @@ class UnsubscribeView(APIView):
         "message": "Detailed error message"
     }
     """
+
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, token):
@@ -946,8 +988,8 @@ class UnsubscribeView(APIView):
             JSON response with status
         """
         # Get notification type(s) from query params
-        notif_type = request.query_params.get('type', 'all')
-        notification_types = [t.strip() for t in notif_type.split(',') if t.strip()]
+        notif_type = request.query_params.get("type", "all")
+        notification_types = [t.strip() for t in notif_type.split(",") if t.strip()]
 
         # Validate token
         is_valid, token_data = UnsubscribeTokenGenerator.validate(token)
@@ -955,30 +997,30 @@ class UnsubscribeView(APIView):
         if not is_valid:
             return Response(
                 {
-                    'success': False,
-                    'error': 'Invalid or expired token',
-                    'message': 'The unsubscribe link is invalid or has expired. '
-                               'Please try again or contact support.'
+                    "success": False,
+                    "error": "Invalid or expired token",
+                    "message": "The unsubscribe link is invalid or has expired. "
+                    "Please try again or contact support.",
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Extract user_id from token
-        user_id = token_data.get('user_id')
-        token_types = token_data.get('notification_types', [])
+        user_id = token_data.get("user_id")
+        token_types = token_data.get("notification_types", [])
 
         # Determine which types to disable
         # Priority: token_types (from URL) > query param > 'all'
-        if token_types and token_types != ['all']:
+        if token_types and token_types != ["all"]:
             types_to_disable = token_types
-        elif notification_types and notification_types != ['all']:
+        elif notification_types and notification_types != ["all"]:
             types_to_disable = notification_types
         else:
-            types_to_disable = ['all']
+            types_to_disable = ["all"]
 
         # Extract client information for audit trail
         ip_address = self._get_client_ip(request)
-        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
 
         # Process unsubscribe
         result = UnsubscribeService.unsubscribe(
@@ -986,10 +1028,10 @@ class UnsubscribeView(APIView):
             types_to_disable,
             ip_address=ip_address,
             user_agent=user_agent,
-            token_used=True
+            token_used=True,
         )
 
-        if not result.get('success'):
+        if not result.get("success"):
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(result, status=status.HTTP_200_OK)
@@ -997,9 +1039,9 @@ class UnsubscribeView(APIView):
     @staticmethod
     def _get_client_ip(request):
         """Extract client IP address from request"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(",")[0]
         else:
-            ip = request.META.get('REMOTE_ADDR')
+            ip = request.META.get("REMOTE_ADDR")
         return ip

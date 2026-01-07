@@ -18,12 +18,10 @@ if not settings.configured:
     django.setup()
 
 import pytest
-import time
 from django.contrib.auth import get_user_model
-from django.db import transaction
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
-from accounts.models import StudentProfile, TeacherProfile, ParentProfile, TutorProfile
+from accounts.models import StudentProfile
 
 User = get_user_model()
 
@@ -60,27 +58,33 @@ def api_client(admin_token):
 @pytest.fixture
 def test_users(db):
     """Create 60 test users for pagination testing with deadlock prevention"""
-    users = []
+    users_batch = []
+    profiles_batch = []
 
-    with transaction.atomic():
-        for i in range(60):
-            user = User.objects.create_user(
-                email=f'student_page_{i:03d}@test.com',
-                username=f'student_page_{i:03d}',
-                first_name=f'Student_{i:03d}',
-                last_name=f'Paginate_{i:03d}',
-                password='StudentPass123!',
-                role=User.Role.STUDENT,
-                is_active=True,
-            )
-            StudentProfile.objects.create(
-                user=user,
-                goal=f'Learning goal {i}',
-            )
-            users.append(user)
-            time.sleep(0.001)
+    for i in range(60):
+        user = User(
+            email=f'student_page_{i:03d}@test.com',
+            username=f'student_page_{i:03d}',
+            first_name=f'Student_{i:03d}',
+            last_name=f'Paginate_{i:03d}',
+            password='StudentPass123!',
+            role=User.Role.STUDENT,
+            is_active=True,
+        )
+        users_batch.append(user)
 
-    return users
+    created_users = User.objects.bulk_create(users_batch, batch_size=10)
+
+    for i, user in enumerate(created_users):
+        profile = StudentProfile(
+            user=user,
+            goal=f'Learning goal {i}',
+        )
+        profiles_batch.append(profile)
+
+    StudentProfile.objects.bulk_create(profiles_batch, batch_size=10)
+
+    return created_users
 
 
 class TestAdminUserPaginationBasics:

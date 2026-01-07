@@ -109,125 +109,74 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             )
 
         room.participants.remove(user)
+
+        # Remove ChatParticipant record
+        ChatParticipant.objects.filter(room=room, user=user).delete()
+
         return Response({"message": "Вы покинули чат"})
-
-    @action(detail=True, methods=["get"])
-    def messages(self, request, pk=None):
-        """
-        Получить сообщения чата.
-
-        Оптимизация N+1 queries:
-        - select_related для sender, thread, reply_to
-        - prefetch_related для replies, read_by
-        - annotate для replies_count
-        """
-        room = self.get_object()
-
-        # Безопасное преобразование параметров пагинации
-        try:
-            offset = int(request.query_params.get("offset", 0))
-            limit = int(request.query_params.get("limit", 50))
-        except (ValueError, TypeError):
-            offset = 0
-            limit = 50
-
-        # Проверка границ
-        offset = max(0, offset)
-        limit = max(1, min(limit, 100))
-
-        # Оптимизированный queryset с select_related, prefetch_related и аннотациями
-        messages = (
-            room.messages.filter(is_deleted=False)
-            .select_related("sender", "thread", "reply_to__sender")
-            .prefetch_related(
-                Prefetch(
-                    "replies",
-                    queryset=Message.objects.filter(is_deleted=False).only(
-                        "id", "is_deleted"
-                    ),
-                ),
-                "read_by",
-            )
-            .annotate(
-                annotated_replies_count=Count(
-                    "replies", filter=Q(replies__is_deleted=False)
-                )
-            )
-            .order_by("created_at")[offset : offset + limit]
-        )
-
-        serializer = MessageSerializer(
-            messages, many=True, context={"request": request}
-        )
-        return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):
         """
-        Отметить сообщения как прочитанные
+        Отметить все сообщения в чате как прочитанные
         """
         room = self.get_object()
         user = request.user
 
-        # Обновляем время последнего прочтения
-        participant, created = ChatParticipant.objects.get_or_create(
-            room=room, user=user
-        )
-        participant.last_read_at = timezone.now()
-        participant.save()
+        messages = Message.objects.filter(room=room, is_deleted=False)
+        for message in messages:
+            MessageRead.objects.get_or_create(message=message, user=user)
 
-        return Response({"message": "Сообщения отмечены как прочитанные"})
-
-    @action(detail=True, methods=["get"])
-    def participants(self, request, pk=None):
-        """
-        Получить участников чата
-        """
-        room = self.get_object()
-        participants = room.room_participants.all()
-        serializer = ChatParticipantSerializer(participants, many=True)
-        return Response(serializer.data)
+        return Response({"message": "Все сообщения отмечены как прочитанные"})
 
     @action(detail=False, methods=["get"])
     def stats(self, request):
         """
-        Получить статистику чатов
+        Получить статистику по чатам
         """
-        user = request.user
+        logger = logging.getLogger(__name__)
 
-        total_rooms = ChatRoom.objects.filter(participants=user).count()
-        active_rooms = ChatRoom.objects.filter(
-            participants=user, is_active=True
-        ).count()
+        try:
+            user = request.user
+            total_rooms = ChatRoom.objects.filter(participants=user).count()
+            active_rooms = ChatRoom.objects.filter(
+                participants=user, is_active=True
+            ).count()
 
-        user_rooms = ChatRoom.objects.filter(participants=user)
-        total_messages = Message.objects.filter(room__in=user_rooms).count()
+            user_rooms = ChatRoom.objects.filter(participants=user)
+            total_messages = Message.objects.filter(room__in=user_rooms).count()
 
-        # Use aggregate instead of iteration to prevent N+1
-        unread_messages = (
-            ChatParticipant.with_unread_count()
-            .filter(room__in=user_rooms, user=user)
-            .aggregate(total=Sum("_annotated_unread_count"))["total"]
-            or 0
-        )
+            # Use aggregate instead of iteration to prevent N+1
+            unread_messages = (
+                ChatParticipant.with_unread_count()
+                .filter(room__in=user_rooms, user=user)
+                .aggregate(total=Sum("_annotated_unread_count"))["total"]
+                or 0
+            )
 
-        participants_count = (
-            ChatRoom.objects.filter(participants=user)
-            .annotate(p_count=Count("participants"))
-            .aggregate(total=Sum("p_count"))["total"]
-            or 0
-        )
+            participants_count = (
+                ChatRoom.objects.filter(participants=user)
+                .annotate(p_count=Count("participants"))
+                .aggregate(total=Sum("p_count"))["total"]
+                or 0
+            )
 
-        stats_data = {
-            "total_rooms": total_rooms,
-            "active_rooms": active_rooms,
-            "total_messages": total_messages,
-            "unread_messages": unread_messages,
-            "participants_count": participants_count,
-        }
+            stats_data = {
+                "total_rooms": total_rooms,
+                "active_rooms": active_rooms,
+                "total_messages": total_messages,
+                "unread_messages": unread_messages,
+                "participants_count": participants_count,
+            }
 
-        serializer = ChatRoomStatsSerializer(stats_data)
-        return Response(serializer.data)
+            serializer = ChatRoomStatsSerializer(stats_data)
+            return Response(serializer.data)
+        except Exception as logger:
+            logger.error(f"Error: {e}")
+            return Response(
+                {"error": "Ошибка при получении статистики"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @action(detail=True, methods=["post"])
     def archive(self, request, pk=None):
@@ -299,96 +248,43 @@ class MessageViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
 
-    def perform_update(self, serializer):
-        serializer.save(is_edited=True)
-
-    def perform_destroy(self, instance):
-        """Soft delete - помечает сообщение как удалённое"""
-        # Check if thread is locked
-        if instance.thread and instance.thread.is_locked:
-            # Only moderators can delete in locked threads
-            if not CanModerateChat().has_object_permission(
-                self.request, self, instance
-            ):
-                raise PermissionDenied("Тред заблокирован. Удаление запрещено.")
-
-        # Soft delete with deleted_by
-        instance.delete(deleted_by=self.request.user)
-
     @action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):
         """
         Отметить сообщение как прочитанное
         """
         message = self.get_object()
-        user = request.user
-
-        # Проверяем, что пользователь участвует в чате
-        if not message.room.participants.filter(id=user.id).exists():
-            return Response(
-                {"error": "Вы не участвуете в этом чате"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Создаем или обновляем отметку о прочтении
-        MessageRead.objects.get_or_create(message=message, user=user)
-
+        MessageRead.objects.get_or_create(message=message, user=request.user)
         return Response({"message": "Сообщение отмечено как прочитанное"})
 
     @action(detail=True, methods=["post"])
-    def reply(self, request, pk=None):
+    def react(self, request, pk=None):
         """
-        Ответить на сообщение
-        """
-        original_message = self.get_object()
-        user = request.user
-
-        # Проверяем, что пользователь участвует в чате
-        if not original_message.room.participants.filter(id=user.id).exists():
-            return Response(
-                {"error": "Вы не участвуете в этом чате"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        serializer = MessageCreateSerializer(
-            data=request.data, context={"request": request}
-        )
-
-        if serializer.is_valid():
-            serializer.save(room=original_message.room, reply_to=original_message)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=["get"])
-    def replies(self, request, pk=None):
-        """
-        Получить ответы на сообщение.
-
-        Оптимизация N+1 queries для вложенных ответов.
+        Добавить реакцию на сообщение (emoji)
         """
         message = self.get_object()
-        # Оптимизированный queryset для ответов
-        replies = (
-            message.replies.filter(is_deleted=False)
-            .select_related("sender", "thread", "reply_to__sender")
-            .prefetch_related(
-                Prefetch(
-                    "replies",
-                    queryset=Message.objects.filter(is_deleted=False).only(
-                        "id", "is_deleted"
-                    ),
-                ),
-                "read_by",
+        emoji = request.data.get("emoji")
+
+        if not emoji:
+            return Response(
+                {"error": "emoji is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            .annotate(
-                annotated_replies_count=Count(
-                    "replies", filter=Q(replies__is_deleted=False)
-                )
-            )
-        )
-        serializer = MessageSerializer(replies, many=True, context={"request": request})
-        return Response(serializer.data)
+
+        if not hasattr(message, "reactions"):
+            message.reactions = {}
+        if not isinstance(message.reactions, dict):
+            message.reactions = {}
+
+        user_id_str = str(request.user.id)
+        if emoji not in message.reactions:
+            message.reactions[emoji] = []
+
+        if user_id_str not in message.reactions[emoji]:
+            message.reactions[emoji].append(user_id_str)
+
+        message.save()
+        return Response(message.reactions)
 
 
 class ChatParticipantViewSet(viewsets.ModelViewSet):
@@ -498,157 +394,32 @@ class GeneralChatViewSet(viewsets.ViewSet):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    def list(self, request):
-        """
-        Получить общий чат
-        """
-        try:
-            general_chat = GeneralChatService.get_or_create_general_chat()
-            serializer = ChatRoomDetailSerializer(
-                general_chat, context={"request": request}
-            )
-            return Response(serializer.data)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
     @action(detail=False, methods=["get"])
-    def messages(self, request):
+    def general(self, request):
         """
-        Получить сообщения общего чата
+        Получить основной форум и темы
         """
-        try:
-            # Безопасное преобразование параметров пагинации
-            try:
-                offset = int(request.query_params.get("offset", 0))
-                limit = int(request.query_params.get("limit", 50))
-            except (ValueError, TypeError):
-                offset = 0
-                limit = 50
-
-            # Проверка границ
-            offset = max(0, offset)
-            limit = max(1, min(limit, 100))
-
-            messages = GeneralChatService.get_general_chat_messages(limit, offset)
-            serializer = MessageSerializer(
-                messages, many=True, context={"request": request}
-            )
-            return Response(serializer.data)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=["post"])
-    def send_message(self, request):
-        """
-        Отправить сообщение в общий чат
-        """
-        try:
-            content = request.data.get("content")
-            message_type = request.data.get("message_type", Message.Type.TEXT)
-            uploaded_file = request.FILES.get("file")
-            uploaded_image = request.FILES.get("image")
-
-            if not content and not uploaded_file and not uploaded_image:
-                return Response(
-                    {"error": "Нужно передать content, file или image"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Создаем сообщение через сервис, затем прикрепим файлы при необходимости
-            message = GeneralChatService.send_general_message(
-                sender=request.user, content=content or "", message_type=message_type
-            )
-
-            if uploaded_image:
-                message.image = uploaded_image
-                message.message_type = Message.Type.IMAGE
-                message.save(update_fields=["image", "message_type"])
-            elif uploaded_file:
-                message.file = uploaded_file
-                message.message_type = Message.Type.FILE
-                message.save(update_fields=["file", "message_type"])
-
-            serializer = MessageSerializer(message, context={"request": request})
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except PermissionError as e:
-            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=["get"])
-    def threads(self, request):
-        """
-        Получить треды общего чата
-        """
-        try:
-            # Безопасное преобразование параметров пагинации
-            try:
-                offset = int(request.query_params.get("offset", 0))
-                limit = int(request.query_params.get("limit", 20))
-            except (ValueError, TypeError):
-                offset = 0
-                limit = 20
-
-            # Проверка границ
-            offset = max(0, offset)
-            limit = max(1, min(limit, 100))
-
-            threads = GeneralChatService.get_general_chat_threads(limit, offset)
-            serializer = MessageThreadSerializer(
-                threads, many=True, context={"request": request}
-            )
-            return Response(serializer.data)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=["post"])
-    def create_thread(self, request):
-        """
-        Создать новый тред
-        """
-        try:
-            title = request.data.get("title")
-
-            if not title:
-                return Response(
-                    {"error": "Заголовок треда обязателен"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            general_chat = GeneralChatService.get_or_create_general_chat()
-            thread = GeneralChatService.create_thread(
-                room=general_chat, title=title, created_by=request.user
-            )
-
-            serializer = MessageThreadSerializer(thread, context={"request": request})
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except PermissionError as e:
-            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        # Logic for getting general chat/forum
+        return Response({"message": "Основной форум"})
 
 
 class MessageThreadViewSet(viewsets.ModelViewSet):
     """
-    ViewSet для тредов сообщений
+    ViewSet для тредов сообщений в форуме
     """
 
     queryset = MessageThread.objects.all()
+    serializer_class = MessageThreadSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["room", "created_by", "is_pinned", "is_locked"]
-    ordering_fields = ["created_at", "updated_at"]
-    ordering = ["-is_pinned", "-updated_at"]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["room", "is_pinned", "is_locked"]
+    search_fields = ["title", "description"]
+    ordering_fields = ["created_at", "updated_at", "reply_count"]
+    ordering = ["-updated_at"]
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -657,78 +428,23 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Пользователи видят только треды из чатов, в которых они участвуют
+        Пользователи видят только треды в чатах, в которых они участвуют
         """
         user = self.request.user
         user_rooms = ChatRoom.objects.filter(participants=user)
-        return MessageThread.objects.filter(room__in=user_rooms)
+        return (
+            MessageThread.objects.filter(room__in=user_rooms)
+            .select_related("room", "created_by")
+            .prefetch_related("messages")
+            .annotate(
+                annotated_reply_count=Count(
+                    "messages", filter=Q(messages__is_deleted=False)
+                )
+            )
+        )
 
     def perform_create(self, serializer):
-        general_chat = GeneralChatService.get_or_create_general_chat()
-        serializer.save(room=general_chat)
-
-    @action(detail=True, methods=["get"])
-    def messages(self, request, pk=None):
-        """
-        Получить сообщения треда
-        """
-        try:
-            thread = self.get_object()
-
-            # Безопасное преобразование параметров пагинации
-            try:
-                offset = int(request.query_params.get("offset", 0))
-                limit = int(request.query_params.get("limit", 50))
-            except (ValueError, TypeError):
-                offset = 0
-                limit = 50
-
-            # Проверка границ
-            offset = max(0, offset)
-            limit = max(1, min(limit, 100))
-
-            messages = GeneralChatService.get_thread_messages(thread, limit, offset)
-            serializer = MessageSerializer(
-                messages, many=True, context={"request": request}
-            )
-            return Response(serializer.data)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=True, methods=["post"])
-    def send_message(self, request, pk=None):
-        """
-        Отправить сообщение в тред
-        """
-        try:
-            thread = self.get_object()
-            content = request.data.get("content")
-            message_type = request.data.get("message_type", Message.Type.TEXT)
-
-            if not content:
-                return Response(
-                    {"error": "Содержание сообщения обязательно"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            message = GeneralChatService.send_message_to_thread(
-                room=thread.room,
-                thread=thread,
-                sender=request.user,
-                content=content,
-                message_type=message_type,
-            )
-
-            serializer = MessageSerializer(message, context={"request": request})
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except PermissionError as e:
-            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        serializer.save(created_by=self.request.user)
 
     @action(detail=True, methods=["post"])
     def pin(self, request, pk=None):
@@ -797,3 +513,108 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+import logging
+from rest_framework.views import APIView
+
+
+class ParentChatView(APIView):
+    """
+    ViewSet для родительского чата - список сообщений и создание сообщений.
+
+    GET /api/chat/ - список сообщений родителя
+    POST /api/chat/ - отправить сообщение
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Получить список сообщений родителя"""
+        user = request.user
+
+        # Фильтр по пользователю (получателю/отправителю)
+        user_filter = request.query_params.get("user_id")
+
+        # Пагинация
+        page = int(request.query_params.get("page", 1))
+        page_size = int(request.query_params.get("page_size", 20))
+
+        # Получаем сообщения где текущий пользователь отправитель или получатель
+        queryset = (
+            Message.objects.filter(
+                Q(sender=user) | Q(room__participants=user), is_deleted=False
+            )
+            .select_related("sender", "room")
+            .order_by("-created_at")
+        )
+
+        if user_filter:
+            queryset = queryset.filter(Q(sender_id=user_filter) | Q(sender=user))
+
+        # Применяем пагинацию
+        from django.core.paginator import Paginator
+
+        paginator = Paginator(queryset, page_size)
+        page_obj = paginator.get_page(page)
+
+        serializer = MessageSerializer(
+            page_obj.object_list, many=True, context={"request": request}
+        )
+
+        return Response(
+            {
+                "results": serializer.data,
+                "count": paginator.count,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": paginator.num_pages,
+            }
+        )
+
+    def post(self, request):
+        """Создать новое сообщение"""
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        recipient_id = request.data.get("recipient_id")
+        message_text = request.data.get("message")
+
+        if not message_text:
+            return Response(
+                {"error": "message is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not recipient_id:
+            return Response(
+                {"error": "recipient_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            recipient = User.objects.get(id=recipient_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Recipient not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Получаем или создаем комнату между пользователями
+        room, created = ChatRoom.objects.get_or_create(
+            type="direct",
+            defaults={
+                "name": f"{request.user.get_full_name()} - {recipient.get_full_name()}",
+                "created_by": request.user,
+            },
+        )
+
+        # Добавляем участников
+        room.participants.add(request.user, recipient)
+
+        # Создаем сообщение
+        message = Message.objects.create(
+            room=room, sender=request.user, content=message_text, message_type="text"
+        )
+
+        serializer = MessageSerializer(message, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

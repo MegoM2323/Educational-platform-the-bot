@@ -98,7 +98,7 @@ class ConfirmTelegramLinkView(APIView):
         if not serializer.is_valid():
             logger.warning(f"[TelegramLink] Validation error: {serializer.errors}")
             return Response(
-                {"success": False, "error": serializer.errors},
+                {"success": False, "error": "Ошибка валидации данных"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

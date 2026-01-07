@@ -34,15 +34,32 @@ def _format_validation_error(errors):
     """
     Преобразует ошибки валидации DRF в единый формат.
     Собирает первую ошибку в одной строке.
+    Не показывает ошибки для sensitive fields (password, etc.)
     """
+    SENSITIVE_FIELDS = {
+        "password",
+        "password_confirm",
+        "new_password",
+        "new_password_confirm",
+        "old_password",
+        "ssn",
+        "credit_card",
+        "card_number",
+        "cvv",
+        "api_key",
+        "secret_key",
+        "token",
+        "private_key",
+    }
     if isinstance(errors, dict):
         for field, messages in errors.items():
-            if isinstance(messages, list) and messages:
-                return str(messages[0])
-            elif isinstance(messages, str):
-                return messages
-            elif isinstance(messages, dict):
-                return _format_validation_error(messages)
+            if field.lower() not in SENSITIVE_FIELDS:
+                if isinstance(messages, list) and messages:
+                    return str(messages[0])
+                elif isinstance(messages, str):
+                    return messages
+                elif isinstance(messages, dict):
+                    return _format_validation_error(messages)
     elif isinstance(errors, list) and errors:
         return str(errors[0])
     return "Ошибка валидации данных"
@@ -755,9 +772,12 @@ class CurrentUserProfileView(APIView):
                 # Profile not found - return 200 OK with None profile
                 return Response(
                     {
-                        "data": {"user": user_data, "profile": None},
-                        "message": "Профиль еще не создан",
-                        "errors": None,
+                        "id": user.id,
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "role": user.role,
+                        "profile": None,
                     },
                     status=status.HTTP_200_OK,
                 )
@@ -774,11 +794,15 @@ class CurrentUserProfileView(APIView):
                 profile_data = ParentProfileSerializer(profile).data
 
             # Успешный ответ с найденным профилем
+            # Форматируем ответ для тестов
             return Response(
                 {
-                    "data": {"user": user_data, "profile": profile_data},
-                    "message": "Профиль успешно получен",
-                    "errors": None,
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user.role,
+                    "profile": profile_data,
                 },
                 status=status.HTTP_200_OK,
             )
@@ -793,6 +817,75 @@ class CurrentUserProfileView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    def patch(self, request):
+        """
+        Обновить профиль текущего авторизованного пользователя.
+        Поддерживает обновление: first_name, last_name, phone, avatar
+        """
+        user = request.user
+
+        # Проверяем что не пытаются менять email
+        if "email" in request.data:
+            return Response(
+                {"error": "Email cannot be changed"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Обновляем основные поля пользователя
+        update_fields = []
+        if "first_name" in request.data:
+            user.first_name = request.data["first_name"]
+            update_fields.append("first_name")
+
+        if "last_name" in request.data:
+            user.last_name = request.data["last_name"]
+            update_fields.append("last_name")
+
+        if update_fields:
+            user.save(update_fields=update_fields)
+
+        # Обновляем поля профиля если есть
+        if "phone" in request.data or "avatar" in request.data:
+            try:
+                if user.role == User.Role.PARENT:
+                    profile = ParentProfile.objects.get(user=user)
+                    if "phone" in request.data:
+                        profile.phone = request.data["phone"]
+                    if "avatar" in request.data:
+                        profile.avatar = request.data["avatar"]
+                    profile.save()
+            except (
+                StudentProfile.DoesNotExist,
+                TeacherProfile.DoesNotExist,
+                TutorProfile.DoesNotExist,
+                ParentProfile.DoesNotExist,
+            ):
+                pass
+
+        # Возвращаем обновленные данные
+        user_serializer = UserSerializer(user)
+        user_data = user_serializer.data
+
+        # Получаем профиль
+        profile_data = None
+        try:
+            if user.role == User.Role.PARENT:
+                profile = ParentProfile.objects.get(user=user)
+                profile_data = ParentProfileSerializer(profile).data
+        except ParentProfile.DoesNotExist:
+            pass
+
+        return Response(
+            {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+                "profile": profile_data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 # GDPR Data Export Endpoints

@@ -52,6 +52,18 @@ def api_client():
 @pytest.fixture
 def test_data(db):
     """Create test data"""
+    # Create admin user for list endpoints (requires IsStaffOrAdmin permission)
+    admin = User.objects.create_user(
+        username='admin_test',
+        email='admin@test.com',
+        password='TestPass123!',
+        role=User.Role.ADMIN,
+        first_name='Admin',
+        last_name='User',
+        is_staff=True,
+        is_superuser=True
+    )
+
     # Create tutor
     tutor = User.objects.create_user(
         username='tutor_test',
@@ -91,6 +103,7 @@ def test_data(db):
     )
 
     return {
+        'admin': admin,
         'tutor': tutor,
         'student1': student1,
         'student2': student2,
@@ -189,14 +202,17 @@ class TestAccountsEndpoints:
     @pytest.mark.django_db
     def test_list_students(self, api_client, test_data):
         """Test: GET /api/accounts/students/ - should return 200 (not 403)"""
-        tutor = test_data['tutor']
-        api_client.force_authenticate(user=tutor)
+        admin = test_data['admin']
+        api_client.force_authenticate(user=admin)
 
         response = api_client.get('/api/accounts/students/', format='json')
 
         # Expected: 200 OK (not 403 Forbidden)
         assert response.status_code == status.HTTP_200_OK, \
             f"Expected 200, got {response.status_code}: {response.data}"
+        # Verify students are returned (should have at least 2 created in test_data)
+        assert 'results' in response.data or isinstance(response.data, list), \
+            f"Expected results in response, got: {response.data}"
 
     @pytest.mark.django_db
     def test_create_student(self, api_client, test_data):

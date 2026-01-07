@@ -254,7 +254,10 @@ def update_teacher_subjects(request, teacher_id):
     # Валидация входных данных
     serializer = TeacherSubjectUpdateSerializer(data=request.data)
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     subject_ids = serializer.validated_data["subject_ids"]
 
@@ -580,8 +583,6 @@ def list_students(request):
         .prefetch_related(
             "user__subject_enrollments__subject",
             "user__subject_enrollments__teacher",
-            "user__payments",
-            "user__reports",
         )
         .annotate(enrollments_count=Count("user__subject_enrollments"))
     )
@@ -768,7 +769,10 @@ def update_user(request, user_id):
         # 1. Обновляем базовые поля пользователя
         user_serializer = UserUpdateSerializer(user, data=request.data, partial=True)
         if not user_serializer.is_valid():
-            return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Проверка целостности при изменении role
         if "role" in user_serializer.validated_data:
@@ -1018,7 +1022,10 @@ def update_student_profile(request, student_id):
         student_profile, data=request.data, partial=True
     )
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     updated_profile = serializer.save()
 
@@ -1086,7 +1093,10 @@ def update_teacher_profile(request, teacher_id):
         teacher_profile, data=request.data, partial=True
     )
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     updated_profile = serializer.save()
 
@@ -1151,7 +1161,10 @@ def update_tutor_profile(request, tutor_id):
         tutor_profile, data=request.data, partial=True
     )
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     updated_profile = serializer.save()
 
@@ -1211,7 +1224,10 @@ def update_parent_profile(request, parent_id):
         parent_profile, data=request.data, partial=True
     )
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     updated_profile = serializer.save()
 
@@ -1441,7 +1457,10 @@ def create_user_with_profile(request):
     # Валидация данных
     serializer = UserCreateSerializer(data=request.data)
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     validated_data = serializer.validated_data
 
@@ -1668,7 +1687,10 @@ def create_student(request):
     # Валидация данных
     serializer = StudentCreateSerializer(data=request.data)
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     validated_data = serializer.validated_data
 
@@ -1862,7 +1884,10 @@ def create_parent(request):
     # Валидация данных через serializer
     serializer = ParentCreateSerializer(data=request.data)
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": False, "error": "Ошибка валидации данных"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     # Извлекаем валидированные данные
     validated_data = serializer.validated_data
@@ -2083,33 +2108,46 @@ def list_parents(request):
         }
     """
     from django.db.models import Count
-    from .serializers import ParentProfileListSerializer
 
-    # Annotate children_count in single query instead of N+1
-    # Показываем всех родителей (включая неактивных), если не указан фильтр is_active
-    parents_queryset = ParentProfile.objects.select_related("user").annotate(
-        children_count=Count("user__children_students")
-    )
-
-    # Фильтр по активности (опциональный)
     is_active = request.query_params.get("is_active")
     if is_active is not None:
         is_active_bool = is_active.lower() == "true"
-        parents_queryset = parents_queryset.filter(user__is_active=is_active_bool)
+    else:
+        is_active_bool = None
 
-    parents_queryset = parents_queryset.order_by("-user__date_joined", "-user__id")
+    queryset = User.objects.filter(role=User.Role.PARENT)
+    if is_active_bool is not None:
+        queryset = queryset.filter(is_active=is_active_bool)
 
-    # Apply pagination
+    queryset = queryset.annotate(children_count=Count("children_students")).order_by(
+        "-date_joined", "-id"
+    )
+
     paginator = StudentPagination()
-    page = paginator.paginate_queryset(parents_queryset, request)
+    page = paginator.paginate_queryset(queryset, request)
 
     if page is not None:
-        serializer = ParentProfileListSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        data = []
+        for user in page:
+            data.append(
+                {
+                    "id": None,
+                    "user": UserSerializer(user).data,
+                    "children_count": user.children_count,
+                }
+            )
+        return paginator.get_paginated_response(data)
 
-    # Fallback if pagination fails
-    serializer = ParentProfileListSerializer(parents_queryset, many=True)
-    return Response({"results": serializer.data})
+    data = []
+    for user in queryset:
+        data.append(
+            {
+                "id": None,
+                "user": UserSerializer(user).data,
+                "children_count": user.children_count,
+            }
+        )
+    return Response({"results": data})
 
 
 @api_view(["POST"])
@@ -2410,7 +2448,10 @@ class UserManagementView(APIView):
         """
         serializer = UserCreateSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         validated_data = serializer.validated_data
 
@@ -2591,3 +2632,107 @@ class UserManagementView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class UserDetailView(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsStaffOrAdmin]
+
+    def get(self, request, user_id):
+        try:
+            user = User.objects.select_related(
+                "student_profile", "teacher_profile", "tutor_profile", "parent_profile"
+            ).get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Пользователь не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, user_id):
+        try:
+            user = User.objects.select_related(
+                "student_profile", "teacher_profile", "tutor_profile", "parent_profile"
+            ).get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if "is_active" in request.data:
+            if not request.data["is_active"] and user.id == request.user.id:
+                return Response(
+                    {"detail": "Вы не можете деактивировать сам себя"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        with transaction.atomic():
+            user_serializer = UserUpdateSerializer(
+                user, data=request.data, partial=True
+            )
+            if not user_serializer.is_valid():
+                return Response(
+                    user_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            updated_user = user_serializer.save()
+            log_object_changes(request, user, user_serializer, "update_user")
+            audit_logger.info(f"Admin {request.user.id} updated user {user.id}")
+
+        return Response(
+            {
+                "success": True,
+                "user": UserSerializer(updated_user).data,
+                "message": "Пользователь успешно обновлен",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Пользователь не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user.id == request.user.id:
+            audit_logger.warning(f"Admin {request.user.id} attempted self-delete")
+            return Response(
+                {"error": "Cannot delete yourself"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.is_superuser:
+            superuser_count = User.objects.filter(
+                is_superuser=True, is_active=True
+            ).count()
+            if superuser_count <= 1:
+                audit_logger.warning(
+                    f"Admin {request.user.id} attempted to delete last superuser {user_id}"
+                )
+                return Response(
+                    {"error": "Cannot delete last superuser"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        soft_delete = request.query_params.get("soft", "false").lower() == "true"
+
+        with transaction.atomic():
+            if soft_delete:
+                user.is_active = False
+                user.save(update_fields=["is_active"])
+                logger.info(f"[delete_user] Soft deleted user {user.id} ({user.email})")
+            else:
+                user_id_deleted = user.id
+                user_email = user.email
+                user.delete()
+                logger.info(
+                    f"[delete_user] Hard deleted user {user_id_deleted} ({user_email})"
+                )
+
+        audit_logger.info(f"Admin {request.user.id} deleted user {user_id}")
+        return Response(status=status.HTTP_204_NO_CONTENT)

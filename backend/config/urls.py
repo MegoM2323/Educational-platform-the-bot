@@ -53,6 +53,7 @@ urlpatterns = [
     path("api/payments/", include("payments.api_urls")),
     path("api/applications/", include("applications.urls")),
     path("api/dashboard/", include("materials.urls")),  # Dashboard endpoints
+    path("api/parent/", include("materials.parent_urls")),  # Parent API endpoints
     path("api/teacher/", include("materials.teacher_urls")),
     path("api/system/", include("core.urls")),  # System monitoring and management
     path("api/scheduling/", include("scheduling.urls")),  # Scheduling system
@@ -60,6 +61,7 @@ urlpatterns = [
         "api/knowledge-graph/", include("knowledge_graph.urls")
     ),  # Knowledge Graph system
     path("api/invoices/", include("invoices.urls")),  # Invoice system
+    path("api/subscriptions/", include("materials.subscriptions_urls")),  # Subscription management
     # Compatibility aliases (non-API prefixed) used by tests and legacy frontend
     path("auth/", include("accounts.urls")),
     path("materials/", include("materials.urls")),

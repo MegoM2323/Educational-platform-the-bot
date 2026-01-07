@@ -17,13 +17,18 @@ import logging
 
 from .models import CustomReport, CustomReportExecution, CustomReportBuilderTemplate
 from .custom_report_serializers import (
-    CustomReportListSerializer, CustomReportDetailSerializer,
-    CustomReportCreateSerializer, CustomReportUpdateSerializer,
-    CustomReportGenerateSerializer, CustomReportExecutionSerializer,
-    ReportTemplateSerializer, ReportTemplateCloneSerializer,
-    ShareReportSerializer
+    CustomReportListSerializer,
+    CustomReportDetailSerializer,
+    CustomReportCreateSerializer,
+    CustomReportUpdateSerializer,
+    CustomReportGenerateSerializer,
+    CustomReportExecutionSerializer,
+    ReportTemplateSerializer,
+    ReportTemplateCloneSerializer,
+    ShareReportSerializer,
 )
 from .services.report_builder import ReportBuilder, ReportBuilderException
+
 try:
     from .permissions import IsTeacherOrAdmin
 except ImportError:
@@ -43,7 +48,7 @@ class IsReportOwnerOrAdmin(permissions.BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
-        if request.user.role == 'admin':
+        if request.user.role == "admin":
             return True
         return obj.created_by == request.user
 
@@ -54,7 +59,7 @@ class IsReportOwnerOrSharedWith(permissions.BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
-        if request.user.role == 'admin':
+        if request.user.role == "admin":
             return True
         if obj.created_by == request.user:
             return True
@@ -81,26 +86,30 @@ class CustomReportViewSet(viewsets.ModelViewSet):
 
     queryset = CustomReport.objects.filter(deleted_at__isnull=True)
     permission_classes = [permissions.IsAuthenticated, IsTeacherOrAdmin]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'is_shared', 'created_by']
-    search_fields = ['name', 'description']
-    ordering_fields = ['-created_at', '-updated_at']
-    ordering = ['-created_at']
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["status", "is_shared", "created_by"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["-created_at", "-updated_at"]
+    ordering = ["-created_at"]
     parser_classes = [JSONParser]
 
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
-        if self.action == 'list':
+        if self.action == "list":
             return CustomReportListSerializer
-        elif self.action == 'create':
+        elif self.action == "create":
             return CustomReportCreateSerializer
-        elif self.action in ['update', 'partial_update']:
+        elif self.action in ["update", "partial_update"]:
             return CustomReportUpdateSerializer
-        elif self.action == 'generate':
+        elif self.action == "generate":
             return CustomReportGenerateSerializer
-        elif self.action == 'share':
+        elif self.action == "share":
             return ShareReportSerializer
-        elif self.action == 'clone':
+        elif self.action == "clone":
             return ReportTemplateCloneSerializer
         return CustomReportDetailSerializer
 
@@ -112,24 +121,23 @@ class CustomReportViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
 
-        if user.role == 'admin':
+        if user.role == "admin":
             return self.queryset.all()
 
         # Teachers see their own reports and shared reports
         return self.queryset.filter(
-            DBQ(created_by=user) |
-            DBQ(is_shared=True, shared_with=user)
+            DBQ(created_by=user) | DBQ(is_shared=True, shared_with=user)
         ).distinct()
 
     def get_permissions(self):
         """Set permissions based on action."""
-        if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
+        if self.action in ["retrieve", "update", "partial_update", "destroy"]:
             return [permissions.IsAuthenticated(), IsReportOwnerOrAdmin()]
-        elif self.action == 'generate':
+        elif self.action == "generate":
             return [permissions.IsAuthenticated(), IsReportOwnerOrSharedWith()]
         return super().get_permissions()
 
-    @action(detail=True, methods=['post'], url_path='generate')
+    @action(detail=True, methods=["post"], url_path="generate")
     def generate(self, request, pk=None):
         """
         Generate report based on current configuration.
@@ -140,11 +148,14 @@ class CustomReportViewSet(viewsets.ModelViewSet):
         report = self.get_object()
 
         # Check if user has permission to execute
-        if not (request.user == report.created_by or request.user.role == 'admin' or
-                (report.is_shared and request.user in report.shared_with.all())):
+        if not (
+            request.user == report.created_by
+            or request.user.role == "admin"
+            or (report.is_shared and request.user in report.shared_with.all())
+        ):
             return Response(
-                {'error': 'You do not have permission to generate this report'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "You do not have permission to generate this report"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         try:
@@ -155,18 +166,17 @@ class CustomReportViewSet(viewsets.ModelViewSet):
 
         except ReportBuilderException as e:
             logger.error(f"Report generation error: {str(e)}")
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(f"Unexpected error during report generation: {str(e)}", exc_info=True)
+            logger.error(
+                f"Unexpected error during report generation: {str(e)}", exc_info=True
+            )
             return Response(
-                {'error': 'An unexpected error occurred during report generation'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "An unexpected error occurred during report generation"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=['post'], url_path='clone')
+    @action(detail=True, methods=["post"], url_path="clone")
     def clone(self, request, pk=None):
         """
         Clone this report as a new custom report template.
@@ -185,33 +195,38 @@ class CustomReportViewSet(viewsets.ModelViewSet):
         serializer = ReportTemplateCloneSerializer(data=request.data)
 
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             config = report.config.copy()
-            config.update(serializer.validated_data.get('config_overrides', {}))
+            config.update(serializer.validated_data.get("config_overrides", {}))
 
             new_report = CustomReport.objects.create(
-                name=serializer.validated_data['name'],
-                description=serializer.validated_data.get('description', report.description),
+                name=serializer.validated_data["name"],
+                description=serializer.validated_data.get(
+                    "description", report.description
+                ),
                 created_by=request.user,
                 config=config,
-                status=CustomReport.Status.DRAFT
+                status=CustomReport.Status.DRAFT,
             )
 
             return Response(
                 CustomReportDetailSerializer(new_report).data,
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_201_CREATED,
             )
 
         except Exception as e:
             logger.error(f"Clone error: {str(e)}")
             return Response(
-                {'error': f'Failed to clone report: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": f"Failed to clone report: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-    @action(detail=True, methods=['post'], url_path='share')
+    @action(detail=True, methods=["post"], url_path="share")
     def share(self, request, pk=None):
         """
         Share report with other teachers.
@@ -227,19 +242,22 @@ class CustomReportViewSet(viewsets.ModelViewSet):
         report = self.get_object()
 
         # Check permission
-        if report.created_by != request.user and request.user.role != 'admin':
+        if report.created_by != request.user and request.user.role != "admin":
             return Response(
-                {'error': 'Only the report owner can share it'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Only the report owner can share it"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         serializer = ShareReportSerializer(data=request.data)
 
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
-            user_ids = serializer.validated_data['user_ids']
+            user_ids = serializer.validated_data["user_ids"]
             users = User.objects.filter(id__in=user_ids)
 
             report.shared_with.add(*users)
@@ -248,24 +266,24 @@ class CustomReportViewSet(viewsets.ModelViewSet):
 
             return Response(
                 {
-                    'success': True,
-                    'message': f'Report shared with {len(user_ids)} users',
-                    'shared_with': [
-                        {'id': u.id, 'name': u.get_full_name()}
+                    "success": True,
+                    "message": f"Report shared with {len(user_ids)} users",
+                    "shared_with": [
+                        {"id": u.id, "name": u.get_full_name()}
                         for u in report.shared_with.all()
-                    ]
+                    ],
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:
             logger.error(f"Share error: {str(e)}")
             return Response(
-                {'error': f'Failed to share report: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": f"Failed to share report: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-    @action(detail=True, methods=['post'], url_path='unshare')
+    @action(detail=True, methods=["post"], url_path="unshare")
     def unshare(self, request, pk=None):
         """
         Remove report sharing from specific users.
@@ -281,19 +299,22 @@ class CustomReportViewSet(viewsets.ModelViewSet):
         report = self.get_object()
 
         # Check permission
-        if report.created_by != request.user and request.user.role != 'admin':
+        if report.created_by != request.user and request.user.role != "admin":
             return Response(
-                {'error': 'Only the report owner can unshare it'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Only the report owner can unshare it"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         serializer = ShareReportSerializer(data=request.data)
 
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
-            user_ids = serializer.validated_data['user_ids']
+            user_ids = serializer.validated_data["user_ids"]
             report.shared_with.remove(*user_ids)
 
             if report.shared_with.count() == 0:
@@ -302,20 +323,17 @@ class CustomReportViewSet(viewsets.ModelViewSet):
 
             return Response(
                 {
-                    'success': True,
-                    'message': f'Sharing removed for {len(user_ids)} users'
+                    "success": True,
+                    "message": f"Sharing removed for {len(user_ids)} users",
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:
             logger.error(f"Unshare error: {str(e)}")
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'], url_path='executions')
+    @action(detail=True, methods=["get"], url_path="executions")
     def executions(self, request, pk=None):
         """
         Get execution history for this report.
@@ -327,19 +345,22 @@ class CustomReportViewSet(viewsets.ModelViewSet):
             List of execution records.
         """
         report = self.get_object()
-        limit = int(request.query_params.get('limit', 20))
+        limit = int(request.query_params.get("limit", 20))
 
         executions = report.executions.all()[:limit]
         serializer = CustomReportExecutionSerializer(executions, many=True)
 
-        return Response({
-            'report_id': report.id,
-            'report_name': report.name,
-            'total_executions': report.executions.count(),
-            'executions': serializer.data
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "report_id": report.id,
+                "report_name": report.name,
+                "total_executions": report.executions.count(),
+                "executions": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
-    @action(detail=True, methods=['delete'], url_path='soft-delete')
+    @action(detail=True, methods=["delete"], url_path="soft-delete")
     def soft_delete(self, request, pk=None):
         """
         Soft-delete a report (can be restored).
@@ -352,11 +373,11 @@ class CustomReportViewSet(viewsets.ModelViewSet):
         report.soft_delete()
 
         return Response(
-            {'success': True, 'message': 'Report soft-deleted'},
-            status=status.HTTP_200_OK
+            {"success": True, "message": "Report soft-deleted"},
+            status=status.HTTP_200_OK,
         )
 
-    @action(detail=True, methods=['post'], url_path='restore')
+    @action(detail=True, methods=["post"], url_path="restore")
     def restore(self, request, pk=None):
         """
         Restore a soft-deleted report.
@@ -367,17 +388,15 @@ class CustomReportViewSet(viewsets.ModelViewSet):
         # Get from all reports, including deleted
         report = get_object_or_404(CustomReport.objects.all(), pk=pk)
 
-        if report.created_by != request.user and request.user.role != 'admin':
+        if report.created_by != request.user and request.user.role != "admin":
             return Response(
-                {'error': 'Permission denied'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
             )
 
         report.restore()
 
         return Response(
-            CustomReportDetailSerializer(report).data,
-            status=status.HTTP_200_OK
+            CustomReportDetailSerializer(report).data, status=status.HTTP_200_OK
         )
 
     def destroy(self, request, *args, **kwargs):
@@ -391,8 +410,8 @@ class CustomReportViewSet(viewsets.ModelViewSet):
         report.soft_delete()
 
         return Response(
-            {'success': True, 'message': 'Report deleted'},
-            status=status.HTTP_204_NO_CONTENT
+            {"success": True, "message": "Report deleted"},
+            status=status.HTTP_204_NO_CONTENT,
         )
 
 
@@ -410,11 +429,11 @@ class ReportTemplateViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ReportTemplateSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['template_type', 'is_system']
-    search_fields = ['name', 'description']
-    ordering_fields = ['-created_at']
+    filterset_fields = ["template_type", "is_system"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["-created_at"]
 
-    @action(detail=True, methods=['post'], url_path='clone')
+    @action(detail=True, methods=["post"], url_path="clone")
     def clone(self, request, pk=None):
         """
         Clone a template as a new custom report.
@@ -433,23 +452,26 @@ class ReportTemplateViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = ReportTemplateCloneSerializer(data=request.data)
 
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             custom_report = template.create_custom_report(
                 user=request.user,
-                name=serializer.validated_data['name'],
-                **serializer.validated_data.get('config_overrides', {})
+                name=serializer.validated_data["name"],
+                **serializer.validated_data.get("config_overrides", {}),
             )
 
             return Response(
                 CustomReportDetailSerializer(custom_report).data,
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_201_CREATED,
             )
 
         except Exception as e:
             logger.error(f"Template clone error: {str(e)}")
             return Response(
-                {'error': f'Failed to clone template: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": f"Failed to clone template: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )

@@ -113,7 +113,10 @@ class ConfigurationViewSet(viewsets.GenericViewSet):
             data=request.data, context={"request": request, "view": self}
         )
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         value = serializer.validated_data.get("value")
 
@@ -144,7 +147,10 @@ class ConfigurationViewSet(viewsets.GenericViewSet):
         """
         serializer = ConfigurationBulkUpdateSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         configs = serializer.validated_data.get("configurations", {})
 
@@ -173,7 +179,10 @@ class ConfigurationViewSet(viewsets.GenericViewSet):
         """
         serializer = ConfigurationResetSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "error": "Ошибка валидации данных"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         reset_type = serializer.validated_data.get("reset_type", "all")
         group = serializer.validated_data.get("group", "")

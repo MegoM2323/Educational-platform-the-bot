@@ -8,6 +8,7 @@ T049-T055: Schedule (Week/Month/Day views, Time conflicts, Tutor availability, C
 
 import pytest
 import json
+import uuid
 from datetime import datetime, timedelta, time
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
@@ -32,22 +33,26 @@ class TestLessonsCreateEditCancel:
     @pytest.fixture(autouse=True)
     def setup_data(self):
         """Setup test data"""
+        unique_id = str(uuid.uuid4())[:8]
         self.client = APIClient()
+
+        # Create unique identifiers for this test class instance
+        unique_id = str(uuid.uuid4())[:8]
 
         # Create users
         self.tutor = User.objects.create_user(
-            username='tutor@test.com',
+            username=f'tutor_{unique_id}@test.com',
             password='tutor123',
-            email='tutor@test.com',
+            email=f'tutor_{unique_id}@test.com',
             role=User.Role.TUTOR,
             first_name='Иван',
             last_name='Тьютор'
         )
 
         self.student = User.objects.create_user(
-            username='student@test.com',
+            username=f'student_{unique_id}@test.com',
             password='student123',
-            email='student@test.com',
+            email=f'student_{unique_id}@test.com',
             role=User.Role.STUDENT,
             first_name='Петр',
             last_name='Ученик'
@@ -79,7 +84,6 @@ class TestLessonsCreateEditCancel:
             start_time=tomorrow.time(),
             end_time=(tomorrow + timedelta(hours=1)).time(),
             status=Lesson.Status.CONFIRMED,
-            skip_validation=True
         )
 
         self.client.force_authenticate(user=self.tutor)
@@ -177,24 +181,25 @@ class TestLessonsViewFilterExport:
     @pytest.fixture(autouse=True)
     def setup_data(self):
         """Setup test data"""
+        unique_id = str(uuid.uuid4())[:8]
         self.client = APIClient()
 
         # Create users
         self.tutor = User.objects.create_user(
-            username='tutor@test.com',
+            username=f'tutor_{unique_id}@test.com',
             password='tutor123',
-            email='tutor@test.com',
+            email=f'tutor_{unique_id}@test.com',
             role=User.Role.TUTOR
         )
 
         self.student1 = User.objects.create_user(
-            username='student1@test.com',
+            username=f'student1_{unique_id}@test.com',
             password='student123',
             role=User.Role.STUDENT
         )
 
         self.student2 = User.objects.create_user(
-            username='student2@test.com',
+            username=f'student2_{unique_id}@test.com',
             password='student123',
             role=User.Role.STUDENT
         )
@@ -239,8 +244,7 @@ class TestLessonsViewFilterExport:
                 start_time=lesson_date.time(),
                 end_time=(lesson_date + timedelta(hours=1)).time(),
                 status=Lesson.Status.CONFIRMED if i < 4 else Lesson.Status.COMPLETED,
-                skip_validation=True
-            )
+                )
 
         self.client.force_authenticate(user=self.tutor)
 
@@ -321,16 +325,17 @@ class TestLessonsRemindersCompletion:
     @pytest.fixture(autouse=True)
     def setup_data(self):
         """Setup test data"""
+        unique_id = str(uuid.uuid4())[:8]
         self.client = APIClient()
 
         self.tutor = User.objects.create_user(
-            username='tutor@test.com',
+            username=f'tutor_{unique_id}@test.com',
             password='tutor123',
             role=User.Role.TUTOR
         )
 
         self.student = User.objects.create_user(
-            username='student@test.com',
+            username=f'student_{unique_id}@test.com',
             password='student123',
             role=User.Role.STUDENT
         )
@@ -358,7 +363,6 @@ class TestLessonsRemindersCompletion:
             start_time=today_plus_2h.time(),
             end_time=(today_plus_2h + timedelta(hours=1)).time(),
             status=Lesson.Status.CONFIRMED,
-            skip_validation=True
         )
 
         tomorrow_10am = (timezone.now() + timedelta(days=1)).replace(hour=10, minute=0)
@@ -370,7 +374,6 @@ class TestLessonsRemindersCompletion:
             start_time=tomorrow_10am.time(),
             end_time=(tomorrow_10am + timedelta(hours=1)).time(),
             status=Lesson.Status.CONFIRMED,
-            skip_validation=True
         )
 
         self.client.force_authenticate(user=self.tutor)
@@ -435,16 +438,17 @@ class TestScheduleViewsWeekMonthDay:
     @pytest.fixture(autouse=True)
     def setup_data(self):
         """Setup test data"""
+        unique_id = str(uuid.uuid4())[:8]
         self.client = APIClient()
 
         self.tutor = User.objects.create_user(
-            username='tutor@test.com',
+            username=f'tutor_{unique_id}@test.com',
             password='tutor123',
             role=User.Role.TUTOR
         )
 
         self.student = User.objects.create_user(
-            username='student@test.com',
+            username=f'student_{unique_id}@test.com',
             password='student123',
             role=User.Role.STUDENT
         )
@@ -475,8 +479,7 @@ class TestScheduleViewsWeekMonthDay:
                     start_time=slot_time.time(),
                     end_time=(slot_time + timedelta(hours=1)).time(),
                     status=Lesson.Status.CONFIRMED,
-                    skip_validation=True
-                )
+                        )
 
         self.client.force_authenticate(user=self.tutor)
 
@@ -543,22 +546,23 @@ class TestScheduleConflictsAvailability:
     @pytest.fixture(autouse=True)
     def setup_data(self):
         """Setup test data"""
+        unique_id = str(uuid.uuid4())[:8]
         self.client = APIClient()
 
         self.tutor = User.objects.create_user(
-            username='tutor@test.com',
+            username=f'tutor_{unique_id}@test.com',
             password='tutor123',
             role=User.Role.TUTOR
         )
 
         self.student1 = User.objects.create_user(
-            username='student1@test.com',
+            username=f'student1_{unique_id}@test.com',
             password='student123',
             role=User.Role.STUDENT
         )
 
         self.student2 = User.objects.create_user(
-            username='student2@test.com',
+            username=f'student2_{unique_id}@test.com',
             password='student123',
             role=User.Role.STUDENT
         )
@@ -594,7 +598,6 @@ class TestScheduleConflictsAvailability:
             start_time=self.base_time.time(),
             end_time=(self.base_time + timedelta(hours=1)).time(),
             status=Lesson.Status.CONFIRMED,
-            skip_validation=True
         )
 
         self.client.force_authenticate(user=self.tutor)
@@ -699,16 +702,17 @@ class TestLessonsScheduleIntegration:
     @pytest.fixture(autouse=True)
     def setup_data(self):
         """Setup test data"""
+        unique_id = str(uuid.uuid4())[:8]
         self.client = APIClient()
 
         self.tutor = User.objects.create_user(
-            username='tutor@test.com',
+            username=f'tutor_{unique_id}@test.com',
             password='tutor123',
             role=User.Role.TUTOR
         )
 
         self.student = User.objects.create_user(
-            username='student@test.com',
+            username=f'student_{unique_id}@test.com',
             password='student123',
             role=User.Role.STUDENT
         )
@@ -757,7 +761,6 @@ class TestLessonsScheduleIntegration:
             start_time=lesson_time.time(),
             end_time=(lesson_time + timedelta(hours=1)).time(),
             status=Lesson.Status.CONFIRMED,
-            skip_validation=True
         )
 
         cancel_data = {'status': Lesson.Status.CANCELLED}
@@ -789,7 +792,6 @@ class TestLessonsScheduleIntegration:
             start_time=lesson_time.time(),
             end_time=(lesson_time + timedelta(hours=1)).time(),
             status=Lesson.Status.CONFIRMED,
-            skip_validation=True
         )
 
         new_time = lesson_time + timedelta(hours=4)

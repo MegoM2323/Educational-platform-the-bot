@@ -1,87 +1,102 @@
-# План: Исправить 41 failure в Backend API тестах T016-T027
+# План: Исправить Assignments & Grading тесты до 100% pass rate
 
 ## Summary
-Исправить недостающие fields и endpoints в Parent API для прохождения тестов.
+Исправить модели, сериализаторы и представления в приложении assignments для прохождения всех 39 тестов в test_assignments_and_grading_20260107.py.
+
+## Выявленные проблемы
+
+### 1. Неправильная модель SubjectEnrollment в тестах
+**Проблема:** `SubjectEnrollment() got unexpected keyword arguments: 'tutor'`
+**Файл:** backend/materials/models.py
+**Причина:** Тест передает `tutor=tutor_with_profile` но модель не принимает этот параметр
+**Решение:** Проверить структуру SubjectEnrollment и добавить поле `tutor` если его нет, или изменить тест на правильный параметр
+
+### 2. Неправильные поля в Assignment модели
+**Проблема:** `Assignment() got unexpected keyword arguments: 'subject', 'assignment_type'`
+**Файл:** backend/assignments/models.py
+**Решение:** Assignment модель должна иметь поля:
+- `subject` (ForeignKey на Subject)
+- `assignment_type` (choices: homework, test, project, essay, practical)
+- `max_score` или `max_points`
+- `deadline` или `due_date`
+
+### 3. Endpoints возвращают 405 Method Not Allowed
+**Проблемы:**
+- POST /api/assignments/ не работает (405)
+- POST /api/assignments/assignments/ не работает (405)
+- PATCH /api/assignments/{id}/ не работает (405)
+- DELETE /api/assignments/{id}/ не работает (405)
+**Решение:** Убедиться что ViewSet имеет правильные методы (create, update, partial_update, destroy)
 
 ## Параллельные Task Группы
 
-### Группа 1: ParentDashboard & ParentChildren (materials app)
+### Группа 1: Модели (Materials & Assignments)
 
-#### Task T001: Добавить payments_summary и upcoming_classes в ParentDashboard
-**Files:** backend/materials/parent_dashboard_service.py
+#### Task T001: Проверить/исправить модель SubjectEnrollment
+**Files:** backend/materials/models.py
 **Changes:**
-- В методе get_dashboard_data() строка 979-1004, добавить после ключа "total_children":
-  - "payments_summary": {totals по статусам, последние 3 платежа}
-  - "upcoming_classes": {array с ближайшими классами}
-**Success:** Тест test_dashboard_response_has_required_fields PASS
+- Проверить что SubjectEnrollment имеет поле `tutor`
+- Если нет - добавить ForeignKey на User с role=TUTOR
+- Убедиться что создание с tutor=user работает
 
-#### Task T002: Исправить /api/parent/children/ endpoint
-**Files:** backend/materials/parent_dashboard_views.py, urls.py
+#### Task T002: Проверить/исправить модель Assignment
+**Files:** backend/assignments/models.py
 **Changes:**
-- ParentChildrenView уже реализован (строка 164), но URL может быть не зарегистрирован
-- Проверить urlpatterns регистрацию
-- Response должен быть list или dict с 'results' (текущее: вернет dict с 'children' и 'pagination')
-**Success:** Тесты test_get_children_* PASS
+- Убедиться что есть поля: subject, assignment_type, max_score, deadline, author, status
+- assignment_type choices: homework, test, project, essay, practical
+- status choices: draft, published, archived
+- Все миграции применены
 
-### Группа 2: ParentPayments, ParentInvoices, ParentReports, ParentChat (разные apps)
+### Группа 2: Сериализаторы
 
-#### Task T003: Добавить /api/dashboard/parent/payments/ endpoint
-**Files:** backend/materials/parent_dashboard_views.py, urls.py
+#### Task T003: Проверить AssignmentSerializer
+**Files:** backend/assignments/serializers.py
 **Changes:**
-- Endpoint parent_payments() уже есть (строка 432)
-- Возвращает get_parent_payments() из service
-- Убедиться в авторизации IsAuthenticated
-- URL должен быть зарегистрирован
+- Включить все required fields: title, description, subject, assignment_type, max_score, deadline
+- Валидаторы работают (deadline > now, max_score > 0, title not empty)
+- read_only: id, author, created_at, updated_at
 
-#### Task T004: Добавить /api/invoices/parent/ endpoint
-**Files:** backend/invoices/views.py, urls.py
+#### Task T004: Проверить AssignmentSubmissionSerializer
+**Files:** backend/assignments/serializers.py
 **Changes:**
-- Создать ParentInvoicesView (ListAPIView)
-- Фильтровать по parent_id текущего пользователя
-- Support pagination
-- Support filter по status
-- Authorization: IsAuthenticated, IsParent
+- Включить все поля: assignment, student, submitted_at, content, status, score, feedback
+- Status choices: submitted, graded, needs_revision, resubmitted
+- Score валидируется (0 <= score <= assignment.max_score)
 
-#### Task T005: Добавить /api/reports/weekly-reports/ endpoint
-**Files:** backend/reports/views.py, urls.py
-**Changes:**
-- Создать ParentReportsView (ListAPIView)
-- Фильтровать отчеты по parent_id
-- Support filters: child_id, date_from, date_to
-- Support pagination
-- Support export PDF
+### Группа 3: Views/ViewSets
 
-#### Task T006: Исправить /api/chat/conversations/ endpoint
-**Files:** backend/chat/views.py, urls.py
+#### Task T005: Исправить AssignmentViewSet endpoints
+**Files:** backend/assignments/views_main.py
 **Changes:**
-- Создать ParentChatView (ListAPIView)
-- Фильтровать conversations по parent_id
-- Поддерживать pagination и filters
-- POST для отправки сообщения
+- Убедиться что есть методы: list(), create(), retrieve(), update(), partial_update(), destroy()
+- create() создает Assignment с текущим пользователем как author
+- Нужны пермиссионы: IsAuthenticated + IsTeacher/IsTutor для create/edit/delete
+- Нужны фильтры, сортировка, пагинация
 
-#### Task T007: Добавить PATCH метод в /api/profile/parent/
-**Files:** backend/accounts/views.py, urls.py
+#### Task T006: Исправить AssignmentSubmissionViewSet endpoints
+**Files:** backend/assignments/views_main.py
 **Changes:**
-- ParentProfileView должна иметь PATCH метод
-- Обновлять поля: first_name, last_name, phone, avatar
-- НЕ позволять менять email
-- Возвращать обновленный profile
-- Authorization: IsAuthenticated
+- list() возвращает submissions с фильтром по assignment
+- create() позволяет студенту отправить работу
+- Нужен endpoint grade() для оценивания
+- Нужен endpoint add_feedback() для обратной связи
+- Нужен endpoint mark_reviewed() для отметки проверено
+- Нужен endpoint return_for_rework() для возврата на доработку
+
+#### Task T007: Исправить URL регистрацию
+**Files:** backend/assignments/urls.py, backend/config/urls.py
+**Changes:**
+- Убедиться что ViewSets зарегистрированы в router
+- Проверить что пути /api/assignments/ и /api/assignments/assignments/ работают
+- Все custom actions зарегистрированы
 
 ## Success Criteria
-- Все 41 failing test должны быть PASSED
-- Все 88 backend тестов должны быть PASSED
-- Без создания новых failures
+- Все 39 тестов в test_assignments_and_grading_20260107.py должны быть PASSED
+- Все 31 тест в test_tutor_cabinet_assignments_t056_t072_20260107.py должны оставаться PASSED
+- Нет регрессии в других тестах
 
-## Test Files (для запуска)
+## Test Files
 ```bash
-pytest backend/materials/tests/test_get_parent_dashboard_api.py \
-        backend/materials/tests/test_get_parent_children_api.py \
-        backend/materials/tests/test_initiate_payment_api.py \
-        backend/materials/tests/test_cancel_subscription_api.py \
-        backend/invoices/tests/test_get_parent_invoices_api.py \
-        backend/reports/tests/test_parent_reports_api.py \
-        backend/chat/tests/test_parent_chat_api.py \
-        backend/accounts/tests/test_parent_profile_api.py \
-        -v
+pytest backend/tests/tutor_cabinet/test_assignments_and_grading_20260107.py -v
+pytest backend/tests/tutor_cabinet/test_tutor_cabinet_assignments_t056_t072_20260107.py -v
 ```

@@ -144,9 +144,9 @@ class LessonService:
         Raises:
             ValidationError: If validation fails
         """
-        # Validate teacher/admin role
-        if teacher.role not in ("teacher", "admin"):
-            raise ValidationError("Only teachers and admins can create lessons")
+        # Validate teacher/tutor/admin role
+        if teacher.role not in ("teacher", "tutor", "admin"):
+            raise ValidationError("Only teachers, tutors, and admins can create lessons")
 
         # Validate student role
         if student.role != "student":
@@ -165,8 +165,8 @@ class LessonService:
         if date == now.date() and start_time <= now.time():
             raise ValidationError("Cannot create lesson with start time in the past for today")
 
-        # Validate enrollment: Teacher must have SubjectEnrollment (admins can bypass)
-        if teacher.role == "teacher":
+        # Validate enrollment: Teacher/Tutor must have SubjectEnrollment (admins can bypass)
+        if teacher.role in ("teacher", "tutor"):
             try:
                 SubjectEnrollment.objects.get(
                     student=student, teacher=teacher, subject=subject, is_active=True

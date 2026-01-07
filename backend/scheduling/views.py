@@ -145,10 +145,10 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         User = get_user_model()
 
-        # Only teachers and admins can create lessons
-        if request.user.role not in ("teacher", "admin"):
+        # Only teachers, tutors, and admins can create lessons
+        if request.user.role not in ("teacher", "tutor", "admin"):
             return Response(
-                {"error": "Only teachers and admins can create lessons"},
+                {"error": "Only teachers, tutors, and admins can create lessons"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -560,18 +560,25 @@ class LessonViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], url_path="check-conflicts")
     def check_conflicts(self, request):
         """
         Check for schedule conflicts for a teacher on a specific date/time.
 
         POST /api/scheduling/lessons/check-conflicts/
         {
-            "teacher_id": 123,
             "date": "2026-01-07",
             "start_time": "10:00",
             "end_time": "11:00"
         }
+        OR
+        {
+            "date": "2026-01-07",
+            "start_time": "10:00",
+            "duration_minutes": 60
+        }
+
+        If no teacher_id provided, uses current authenticated user as teacher.
 
         Returns:
         {
@@ -594,6 +601,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         }
         """
         from django.contrib.auth import get_user_model
+        from datetime import datetime, time, timedelta
 
         User = get_user_model()
 
@@ -603,30 +611,47 @@ class LessonViewSet(viewsets.ModelViewSet):
         date_str = data.get("date")
         start_time_str = data.get("start_time")
         end_time_str = data.get("end_time")
+        duration_minutes = data.get("duration_minutes")
 
-        # Check required fields
-        if not all([teacher_id, date_str, start_time_str, end_time_str]):
+        # If teacher_id not provided, use current user
+        if not teacher_id:
+            teacher = request.user
+        else:
+            try:
+                teacher = User.objects.get(id=teacher_id, role__in=["teacher", "tutor"])
+            except User.DoesNotExist:
+                return Response(
+                    {"error": "Teacher/Tutor not found"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Check required date and start_time
+        if not date_str or not start_time_str:
             return Response(
-                {"error": "teacher_id, date, start_time, and end_time are required"},
+                {"error": "date and start_time are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate teacher exists
-        try:
-            teacher = User.objects.get(id=teacher_id, role="teacher")
-        except User.DoesNotExist:
+        # Validate end_time or duration_minutes provided
+        if not end_time_str and not duration_minutes:
             return Response(
-                {"error": "Teacher not found"},
+                {"error": "Either end_time or duration_minutes is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Parse date and times
         try:
-            from datetime import datetime, time
-
             date = datetime.strptime(date_str, "%Y-%m-%d").date()
             start_time = datetime.strptime(start_time_str, "%H:%M").time()
-            end_time = datetime.strptime(end_time_str, "%H:%M").time()
+
+            # Calculate end_time from duration_minutes if not provided
+            if end_time_str:
+                end_time = datetime.strptime(end_time_str, "%H:%M").time()
+            else:
+                # Calculate end_time from start_time + duration_minutes
+                start_dt = datetime.combine(date, start_time)
+                end_dt = start_dt + timedelta(minutes=int(duration_minutes))
+                end_time = end_dt.time()
         except ValueError:
             return Response(
                 {"error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"},

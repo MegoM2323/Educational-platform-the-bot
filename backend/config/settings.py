@@ -939,10 +939,6 @@ if USE_REDIS_CHANNELS:
                 ],
                 "capacity": 5000,
                 "expiry": 60,
-                "connection_pool_kwargs": {
-                    "max_connections": 50,
-                    "socket_keepalive": True,
-                },
             },
         },
     }

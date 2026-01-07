@@ -55,7 +55,9 @@ def get_student_schedule(request, student_id):
 
     # Получить уроки студента с оптимизацией запросов
     lessons = (
-        Lesson.objects.filter(student=student)
+        Lesson.objects.filter(
+            student=student, status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]
+        )
         .select_related("teacher", "subject")
         .order_by("date", "start_time")
     )
@@ -125,9 +127,11 @@ def get_all_student_schedules(request):
     # Оптимизация N+1: Создаём Prefetch объект для уроков студентов
     lessons_prefetch = Prefetch(
         "student_lessons",
-        queryset=Lesson.objects.select_related("teacher", "subject").order_by(
-            "date", "start_time"
-        ),
+        queryset=Lesson.objects.filter(
+            status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]
+        )
+        .select_related("teacher", "subject")
+        .order_by("date", "start_time"),
         to_attr="prefetched_lessons",
     )
 

@@ -168,7 +168,7 @@ if [ "$SKIP_BACKUP" = false ]; then
     log "Создание backup БД на production..."
 
     if [ "$DRY_RUN" = false ]; then
-        ssh "$SSH_HOST" << 'BACKUP_SCRIPT'
+        ssh "$SSH_HOST" /bin/bash << 'BACKUP_SCRIPT'
 set -e
 BACKUP_DIR="/home/mg/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -203,7 +203,7 @@ log "========== PHASE 3: CODE DEPLOYMENT =========="
 log "Развертывание кода на production..."
 
 if [ "$DRY_RUN" = false ]; then
-    ssh "$SSH_HOST" << DEPLOY_SCRIPT
+    ssh "$SSH_HOST" /bin/bash << DEPLOY_SCRIPT
 set -e
 cd $REMOTE_PATH
 
@@ -228,7 +228,7 @@ log "========== PHASE 4: DATABASE MIGRATIONS =========="
 log "Выполнение миграций БД..."
 
 if [ "$DRY_RUN" = false ]; then
-    ssh "$SSH_HOST" << MIGRATE_SCRIPT
+    ssh "$SSH_HOST" /bin/bash << MIGRATE_SCRIPT
 set -e
 cd $REMOTE_PATH/backend
 source $VENV_PATH/bin/activate
@@ -279,7 +279,7 @@ log "========== PHASE 6: VERIFICATION =========="
 log "Проверка статуса сервисов..."
 
 if [ "$DRY_RUN" = false ]; then
-    ssh "$SSH_HOST" << VERIFY_SCRIPT
+    ssh "$SSH_HOST" /bin/bash << VERIFY_SCRIPT
 set -e
 
 echo "Статус сервисов:"

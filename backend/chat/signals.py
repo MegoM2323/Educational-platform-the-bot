@@ -112,8 +112,8 @@ def create_forum_chat_on_enrollment(
         student_name = instance.student.get_full_name()
         teacher_name = instance.teacher.get_full_name()
 
-        # Format: "{Subject} - {Student} ↔ {Teacher}"
-        forum_chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
+        # Format: "{Subject} {Student}"
+        forum_chat_name = f"{subject_name} {student_name}"
 
         # Use transaction.atomic for consistency between ChatRoom and ChatParticipant
         with transaction.atomic():

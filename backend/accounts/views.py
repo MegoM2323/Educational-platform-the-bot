@@ -86,7 +86,9 @@ def login_view(request):
         serializer = UserLoginSerializer(data=request.data)
         if not serializer.is_valid():
             # Логируем ошибки БЕЗ пароля
-            safe_errors = {k: v for k, v in serializer.errors.items() if k != "password"}
+            safe_errors = {
+                k: v for k, v in serializer.errors.items() if k != "password"
+            }
             reason = list(safe_errors.keys())[0] if safe_errors else "unknown"
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             logger.warning(
@@ -111,24 +113,29 @@ def login_view(request):
             f"timestamp: {timestamp}"
         )
 
-        # Проверяем аутентификацию через Django
+        # НОВАЯ ЛОГИКА: Проверяем is_active ДО валидации пароля
         from django.contrib.auth import authenticate
+        from django.contrib.auth.hashers import check_password
 
-        authenticated_user = None
+        user = None
 
+        # Шаг 1: Получаем пользователя по email или username
         if email:
-            logger.debug(f"[login] Authenticating with email: {email}")
-            authenticated_user = authenticate(request, username=email, password=password)
-            if not authenticated_user:
-                logger.debug(f"[login] Email authentication failed for: {email}")
+            logger.debug(f"[login] Looking up user by email: {email}")
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                logger.debug(f"[login] User not found by email: {email}")
 
-        if not authenticated_user and username:
-            logger.debug(f"[login] Authenticating with username: {username}")
-            authenticated_user = authenticate(request, username=username, password=password)
-            if not authenticated_user:
-                logger.debug(f"[login] Username authentication failed for: {username}")
+        if not user and username:
+            logger.debug(f"[login] Looking up user by username: {username}")
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                logger.debug(f"[login] User not found by username: {username}")
 
-        if not authenticated_user:
+        # Если пользователь не найден
+        if not user:
             logger.warning(
                 f"[login] FAILED - identifier: {identifier}, "
                 f"reason: invalid_credentials, ip: {ip_address}, "
@@ -139,73 +146,84 @@ def login_view(request):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Если дошли до сюда — пользователь аутентифицирован
-        if authenticated_user and authenticated_user.is_active:
-            try:
-                # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
-                deleted_count, _ = Token.objects.filter(user=authenticated_user).delete()
-                token = Token.objects.create(user=authenticated_user)
+        # Шаг 2: Проверяем is_active ПЕРЕД валидацией пароля
+        if not user.is_active:
+            logger.warning(
+                f"[login] FAILED - identifier: {user.email}, "
+                f"reason: user_inactive, ip: {ip_address}, "
+                f"timestamp: {timestamp}"
+            )
+            return Response(
+                {"success": False, "error": "Учетная запись отключена или недоступна"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-                # Логируем успешный вход с IP адресом и временем
-                logger.info(
-                    f"[login] SUCCESS - email: {authenticated_user.email}, "
-                    f"role: {authenticated_user.role}, ip: {ip_address}, "
-                    f"timestamp: {timestamp}"
-                )
+        # Шаг 3: Валидируем пароль
+        if not check_password(password, user.password):
+            logger.warning(
+                f"[login] FAILED - identifier: {user.email}, "
+                f"reason: invalid_credentials, ip: {ip_address}, "
+                f"timestamp: {timestamp}"
+            )
+            return Response(
+                {"success": False, "error": "Неверные учетные данные"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
-                # Если есть сессия, обновляем её (безопасно)
-                if hasattr(request, "session"):
-                    try:
-                        if not request.session.session_key:
-                            request.session.create()
-                        else:
-                            request.session.modified = True
-                        # Session handled for authenticated user
-                    except Exception as session_error:
-                        # Сессия не критична для API, просто логируем
-                        logger.warning(
-                            f"[login] Session error (non-critical): {str(session_error)}"
-                        )
+        # Шаг 4: Все проверки пройдены, создаем токен
+        try:
+            # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
+            deleted_count, _ = Token.objects.filter(user=user).delete()
+            token = Token.objects.create(user=user)
 
-                # Сериализуем пользователя
-                user_data = UserSerializer(authenticated_user).data
+            # Логируем успешный вход с IP адресом и временем
+            logger.info(
+                f"[login] SUCCESS - email: {user.email}, "
+                f"role: {user.role}, ip: {ip_address}, "
+                f"timestamp: {timestamp}"
+            )
 
-                return Response(
-                    {
-                        "success": True,
-                        "data": {
-                            "token": token.key,
-                            "user": user_data,
-                            "message": "Вход выполнен успешно",
-                        },
-                    }
-                )
-            except Exception as token_error:
-                import traceback
+            # Если есть сессия, обновляем её (безопасно)
+            if hasattr(request, "session"):
+                try:
+                    if not request.session.session_key:
+                        request.session.create()
+                    else:
+                        request.session.modified = True
+                except Exception as session_error:
+                    logger.warning(
+                        f"[login] Session error (non-critical): {str(session_error)}"
+                    )
 
-                logger.error(
-                    f"[login] Token creation error - email: {authenticated_user.email}, "
-                    f"ip: {ip_address}, error: {str(token_error)}, "
-                    f"timestamp: {timestamp}"
-                )
-                logger.error(f"[login] Traceback: {traceback.format_exc()}")
-                return Response(
-                    {
-                        "success": False,
-                        "error": "Ошибка при создании токена аутентификации",
+            # Сериализуем пользователя
+            user_data = UserSerializer(user).data
+
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "token": token.key,
+                        "user": user_data,
+                        "message": "Вход выполнен успешно",
                     },
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
+                }
+            )
+        except Exception as token_error:
+            import traceback
 
-        logger.warning(
-            f"[login] FAILED - identifier: {authenticated_user.email if authenticated_user else identifier}, "
-            f"reason: user_inactive, ip: {ip_address}, "
-            f"timestamp: {timestamp}"
-        )
-        return Response(
-            {"success": False, "error": "Учетная запись отключена или недоступна"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+            logger.error(
+                f"[login] Token creation error - email: {user.email}, "
+                f"ip: {ip_address}, error: {str(token_error)}, "
+                f"timestamp: {timestamp}"
+            )
+            logger.error(f"[login] Traceback: {traceback.format_exc()}")
+            return Response(
+                {
+                    "success": False,
+                    "error": "Ошибка при создании токена аутентификации",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     except Exception as e:
         import traceback
@@ -356,7 +374,9 @@ def session_status(request):
 
         # Get session info
         session_info = {
-            "session_key": request.session.session_key if hasattr(request, "session") else None,
+            "session_key": request.session.session_key
+            if hasattr(request, "session")
+            else None,
             "session_age": None,
             "user": user.email,
         }
@@ -377,7 +397,11 @@ def session_status(request):
         token_expires_in = 0
         try:
             if hasattr(request, "auth") and request.auth:
-                token_key = request.auth.key if hasattr(request.auth, "key") else str(request.auth)
+                token_key = (
+                    request.auth.key
+                    if hasattr(request.auth, "key")
+                    else str(request.auth)
+                )
                 token = Token.objects.filter(key=token_key).first()
                 if token:
                     token_valid = True
@@ -509,7 +533,9 @@ def update_profile(request):
         )
 
     error_msg = _format_validation_error(user_serializer.errors)
-    return Response({"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 @api_view(["POST"])
@@ -519,14 +545,18 @@ def change_password(request):
     """
     Смена пароля
     """
-    serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+    serializer = ChangePasswordSerializer(
+        data=request.data, context={"request": request}
+    )
     if serializer.is_valid():
         user = request.user
         user.set_password(serializer.validated_data["new_password"])
         user.save()
         return Response({"success": True, "message": "Пароль успешно изменен"})
     error_msg = _format_validation_error(serializer.errors)
-    return Response({"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 @api_view(["GET"])
@@ -584,9 +614,13 @@ def list_users(request):
     serializer = UserSerializer(queryset, many=True)
 
     # Логируем для отладки
-    logger.info(f"[list_users] Retrieved {len(serializer.data)} users (role filter: {role})")
+    logger.info(
+        f"[list_users] Retrieved {len(serializer.data)} users (role filter: {role})"
+    )
     if len(serializer.data) == 0:
-        logger.warning(f"[list_users] WARNING: No users returned! Total count was: {total_count}")
+        logger.warning(
+            f"[list_users] WARNING: No users returned! Total count was: {total_count}"
+        )
 
     # Возвращаем массив напрямую
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -717,13 +751,19 @@ class CurrentUserProfileView(APIView):
             profile_found = False
             try:
                 if user.role == User.Role.STUDENT:
-                    profile = StudentProfile.objects.select_related("user").get(user=user)
+                    profile = StudentProfile.objects.select_related("user").get(
+                        user=user
+                    )
                 elif user.role == User.Role.TEACHER:
-                    profile = TeacherProfile.objects.select_related("user").get(user=user)
+                    profile = TeacherProfile.objects.select_related("user").get(
+                        user=user
+                    )
                 elif user.role == User.Role.TUTOR:
                     profile = TutorProfile.objects.select_related("user").get(user=user)
                 elif user.role == User.Role.PARENT:
-                    profile = ParentProfile.objects.select_related("user").get(user=user)
+                    profile = ParentProfile.objects.select_related("user").get(
+                        user=user
+                    )
                 else:
                     profile = None
                 profile_found = True
@@ -1043,11 +1083,15 @@ def download_export(request, token: str):
     # Extract filename from query params or path
     filename = request.query_params.get("fn")
     if not filename:
-        return Response({"error": "Missing filename parameter"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Missing filename parameter"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
     # Verify token
     if not ExportTokenGenerator.verify(request.user.id, filename, token, timestamp):
-        return Response({"error": "Invalid or expired token"}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"error": "Invalid or expired token"}, status=status.HTTP_403_FORBIDDEN
+        )
 
     # Check file exists
     file_path = f"{ExportFileManager.EXPORT_DIR}/{filename}"

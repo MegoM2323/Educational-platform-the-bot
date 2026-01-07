@@ -71,6 +71,15 @@ class IsTeacherOrTutor(permissions.BasePermission):
         )
 
 
+class IsAuthor(permissions.BasePermission):
+    """
+    Permission class to check if user is the assignment author.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        return obj.author == request.user
+
+
 class AssignmentViewSet(viewsets.ModelViewSet):
     """
     ViewSet для заданий
@@ -94,6 +103,18 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         elif self.action == "create":
             return AssignmentCreateSerializer
         return AssignmentDetailSerializer
+
+    def get_permissions(self):
+        """
+        Assign permissions based on action
+        """
+        if self.action == "create":
+            permission_classes = [permissions.IsAuthenticated, IsTeacherOrTutor]
+        elif self.action in ["update", "partial_update", "destroy"]:
+            permission_classes = [permissions.IsAuthenticated, IsAuthor]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     def get_queryset(self):
         """

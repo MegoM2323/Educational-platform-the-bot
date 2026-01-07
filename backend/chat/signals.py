@@ -114,6 +114,43 @@ def create_forum_chat_on_enrollment(
                 participant_records, ignore_conflicts=True
             )
 
+            # Verify teacher was actually added (critical logging)
+            try:
+                if not forum_chat.participants.filter(id=instance.teacher.id).exists():
+                    logger.warning(
+                        f"Teacher {instance.teacher.username} ({instance.teacher.id}) failed to be added to "
+                        f"forum {forum_chat.name} ({forum_chat.id})"
+                    )
+                else:
+                    logger.debug(
+                        f"Added teacher {instance.teacher.username} ({instance.teacher.id}) to forum "
+                        f"{forum_chat.name} ({forum_chat.id})"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Teacher addition verification failed for {forum_chat.name}: {str(e)}"
+                )
+
+            # Verify parent was actually added (if exists)
+            try:
+                if student_profile and student_profile.parent:
+                    if not forum_chat.participants.filter(
+                        id=student_profile.parent.id
+                    ).exists():
+                        logger.warning(
+                            f"Parent {student_profile.parent.username} ({student_profile.parent.id}) failed to be added to "
+                            f"forum {forum_chat.name} ({forum_chat.id})"
+                        )
+                    else:
+                        logger.debug(
+                            f"Added parent {student_profile.parent.username} ({student_profile.parent.id}) to forum "
+                            f"{forum_chat.name} ({forum_chat.id})"
+                        )
+            except Exception as e:
+                logger.warning(
+                    f"Parent addition verification failed for {forum_chat.name}: {str(e)}"
+                )
+
         if forum_created:
             logger.info(
                 f"Created forum_subject chat '{forum_chat.name}' for enrollment {instance.id} "
@@ -175,6 +212,44 @@ def create_forum_chat_on_enrollment(
                 ChatParticipant.objects.bulk_create(
                     tutor_participant_records, ignore_conflicts=True
                 )
+
+                # Verify tutors were actually added (critical logging)
+                try:
+                    for tutor in unique_tutors:
+                        if not tutor_chat.participants.filter(id=tutor.id).exists():
+                            logger.warning(
+                                f"Tutor {tutor.username} ({tutor.id}) failed to be added to "
+                                f"forum {tutor_chat.name} ({tutor_chat.id})"
+                            )
+                        else:
+                            logger.debug(
+                                f"Added tutor {tutor.username} ({tutor.id}) to forum "
+                                f"{tutor_chat.name} ({tutor_chat.id})"
+                            )
+                except Exception as e:
+                    logger.warning(
+                        f"Tutor addition verification failed for {tutor_chat.name}: {str(e)}"
+                    )
+
+                # Verify parent was actually added (if exists)
+                try:
+                    if student_profile and student_profile.parent:
+                        if not tutor_chat.participants.filter(
+                            id=student_profile.parent.id
+                        ).exists():
+                            logger.warning(
+                                f"Parent {student_profile.parent.username} ({student_profile.parent.id}) failed to be added to "
+                                f"forum {tutor_chat.name} ({tutor_chat.id})"
+                            )
+                        else:
+                            logger.debug(
+                                f"Added parent {student_profile.parent.username} ({student_profile.parent.id}) to forum "
+                                f"{tutor_chat.name} ({tutor_chat.id})"
+                            )
+                except Exception as e:
+                    logger.warning(
+                        f"Parent addition verification failed for {tutor_chat.name}: {str(e)}"
+                    )
 
             if tutor_created:
                 logger.info(

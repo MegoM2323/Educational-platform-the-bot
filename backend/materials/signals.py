@@ -435,7 +435,8 @@ def create_subject_forum_chat(
 
     try:
         # Import here to avoid circular imports
-        from chat.models import ChatRoom
+        from chat.models import ChatRoom, ChatParticipant
+        from accounts.models import StudentProfile
 
         # Check if FORUM_SUBJECT chat already exists for this enrollment
         # Use get_or_create for idempotency
@@ -467,12 +468,51 @@ def create_subject_forum_chat(
             description=f"Forum for {subject_name} between {student_name} and teacher {teacher_name}",
         )
 
-        # Add student and teacher as participants
-        forum_chat.participants.add(instance.student, instance.teacher)
+        # Collect all participants: student + teacher + parent (if exists)
+        participants_to_add = [instance.student, instance.teacher]
+
+        # Add parent if exists
+        try:
+            student_profile = StudentProfile.objects.select_related("parent").get(
+                user=instance.student
+            )
+            if student_profile.parent:
+                participants_to_add.append(student_profile.parent)
+        except StudentProfile.DoesNotExist:
+            pass
+
+        # Add participants to M2M relation
+        forum_chat.participants.add(*participants_to_add)
+
+        # Create ChatParticipant records for tracking
+        participant_records = [
+            ChatParticipant(room=forum_chat, user=user) for user in participants_to_add
+        ]
+        ChatParticipant.objects.bulk_create(participant_records, ignore_conflicts=True)
 
         logger.info(
-            f"[Signal] Created FORUM_SUBJECT chat '{forum_chat.name}' (id={forum_chat.id}) for enrollment {instance.id}"
+            f"[Signal] Created FORUM_SUBJECT chat '{forum_chat.name}' (id={forum_chat.id}) for enrollment {instance.id} "
+            f"with {len(participants_to_add)} participants"
         )
+
+        # Verify parent was added (if exists)
+        try:
+            student_profile = StudentProfile.objects.get(user=instance.student)
+            if student_profile.parent:
+                if not forum_chat.participants.filter(
+                    id=student_profile.parent.id
+                ).exists():
+                    logger.warning(
+                        f"Parent {student_profile.parent.username} ({student_profile.parent.id}) failed to be added to "
+                        f"forum {forum_chat.name} ({forum_chat.id})"
+                    )
+                else:
+                    logger.debug(
+                        f"Added parent {student_profile.parent.username} ({student_profile.parent.id}) to forum "
+                        f"{forum_chat.name} ({forum_chat.id})"
+                    )
+        except (StudentProfile.DoesNotExist, Exception) as e:
+            pass  # Parent verification is optional
 
         # Audit log
         audit_logger.info(

@@ -4,7 +4,7 @@ from . import views
 from .views_plagiarism import SubmissionPlagiarismViewSet, plagiarism_webhook
 
 router = DefaultRouter()
-router.register(r'assignments', views.AssignmentViewSet)
+router.register(r'', views.AssignmentViewSet, basename='assignment')
 router.register(r'submissions', views.AssignmentSubmissionViewSet)
 router.register(r'questions', views.AssignmentQuestionViewSet)
 router.register(r'answers', views.AssignmentAnswerViewSet)

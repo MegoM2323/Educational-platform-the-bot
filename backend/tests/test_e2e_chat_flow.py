@@ -20,15 +20,16 @@ class TestChatFlowNewChat:
 
         try:
             # Navigate to login
-            page.goto(f"{self.BASE_URL}/login")
+            page.goto(f"{self.BASE_URL}/auth/signin")
+            page.wait_for_load_state("networkidle")
 
-            # Fill login form
-            page.fill('input[name="email"]', self.STUDENT_EMAIL)
-            page.fill('input[name="password"]', self.PASSWORD)
-            page.click('button[type="submit"]')
+            # Fill login form using IDs
+            page.fill('#login-identifier', self.STUDENT_EMAIL)
+            page.fill('#login-password', self.PASSWORD)
+            page.click('button:has-text("Войти")')
 
             # Wait for dashboard to load
-            page.wait_for_url(f"{self.BASE_URL}/**", timeout=10000)
+            page.wait_for_url(f"{self.BASE_URL}/dashboard/**", timeout=15000)
 
             # Navigate to student forum
             page.goto(f"{self.BASE_URL}/dashboard/student/forum")
@@ -70,15 +71,16 @@ class TestChatFlowNewChat:
 
         try:
             # Navigate to login
-            page.goto(f"{self.BASE_URL}/login")
+            page.goto(f"{self.BASE_URL}/auth/signin")
+            page.wait_for_load_state("networkidle")
 
             # Fill login form
-            page.fill('input[name="email"]', self.TEACHER_EMAIL)
-            page.fill('input[name="password"]', self.PASSWORD)
-            page.click('button[type="submit"]')
+            page.fill('#login-identifier', self.TEACHER_EMAIL)
+            page.fill('#login-password', self.PASSWORD)
+            page.click('button:has-text("Войти")')
 
             # Wait for dashboard to load
-            page.wait_for_url(f"{self.BASE_URL}/**", timeout=10000)
+            page.wait_for_url(f"{self.BASE_URL}/dashboard/**", timeout=15000)
 
             # Navigate to teacher forum
             page.goto(f"{self.BASE_URL}/dashboard/teacher/forum")
@@ -130,12 +132,14 @@ class TestChatCreationAndMessaging:
 
         try:
             # Student login and navigate to forum
-            student_page.goto(f"{self.BASE_URL}/login")
-            student_page.fill('input[name="email"]', self.STUDENT_EMAIL)
-            student_page.fill('input[name="password"]', self.PASSWORD)
-            student_page.click('button[type="submit"]')
+            student_page.goto(f"{self.BASE_URL}/auth/signin")
+            student_page.wait_for_load_state("networkidle")
 
-            student_page.wait_for_url(f"{self.BASE_URL}/**", timeout=10000)
+            student_page.fill('#login-identifier', self.STUDENT_EMAIL)
+            student_page.fill('#login-password', self.PASSWORD)
+            student_page.click('button:has-text("Войти")')
+
+            student_page.wait_for_url(f"{self.BASE_URL}/dashboard/**", timeout=15000)
             student_page.goto(f"{self.BASE_URL}/dashboard/student/forum")
             student_page.wait_for_load_state("networkidle")
 
@@ -182,12 +186,14 @@ class TestChatCreationAndMessaging:
             message_display.wait_for(state="visible", timeout=5000)
 
             # Teacher login and navigate to same chat
-            teacher_page.goto(f"{self.BASE_URL}/login")
-            teacher_page.fill('input[name="email"]', self.TEACHER_EMAIL)
-            teacher_page.fill('input[name="password"]', self.PASSWORD)
-            teacher_page.click('button[type="submit"]')
+            teacher_page.goto(f"{self.BASE_URL}/auth/signin")
+            teacher_page.wait_for_load_state("networkidle")
 
-            teacher_page.wait_for_url(f"{self.BASE_URL}/**", timeout=10000)
+            teacher_page.fill('#login-identifier', self.TEACHER_EMAIL)
+            teacher_page.fill('#login-password', self.PASSWORD)
+            teacher_page.click('button:has-text("Войти")')
+
+            teacher_page.wait_for_url(f"{self.BASE_URL}/dashboard/**", timeout=15000)
             teacher_page.goto(f"{self.BASE_URL}/dashboard/teacher/forum")
             teacher_page.wait_for_load_state("networkidle")
 
@@ -235,12 +241,16 @@ class TestChatCreationAndMessaging:
 
         try:
             # Student login and create chat with message
-            page.goto(f"{self.BASE_URL}/login")
-            page.fill('input[name="email"]', self.STUDENT_EMAIL)
-            page.fill('input[name="password"]', self.PASSWORD)
-            page.click('button[type="submit"]')
+            page.goto(f"{self.BASE_URL}/auth/signin")
+            page.wait_for_load_state("networkidle")
 
-            page.wait_for_url(f"{self.BASE_URL}/**", timeout=10000)
+            email_input = page.locator('textbox').nth(0)
+            password_input = page.locator('textbox').nth(1)
+            email_input.fill(self.STUDENT_EMAIL)
+            password_input.fill(self.PASSWORD)
+            page.click('button:has-text("Войти")')
+
+            page.wait_for_url(f"{self.BASE_URL}/dashboard/**", timeout=15000)
             page.goto(f"{self.BASE_URL}/dashboard/student/forum")
             page.wait_for_load_state("networkidle")
 
@@ -322,12 +332,16 @@ class TestChatErrorHandling:
 
         try:
             # Login
-            page.goto(f"{self.BASE_URL}/login")
-            page.fill('input[name="email"]', self.STUDENT_EMAIL)
-            page.fill('input[name="password"]', self.PASSWORD)
-            page.click('button[type="submit"]')
+            page.goto(f"{self.BASE_URL}/auth/signin")
+            page.wait_for_load_state("networkidle")
 
-            page.wait_for_url(f"{self.BASE_URL}/**", timeout=10000)
+            email_input = page.locator('textbox').nth(0)
+            password_input = page.locator('textbox').nth(1)
+            email_input.fill(self.STUDENT_EMAIL)
+            password_input.fill(self.PASSWORD)
+            page.click('button:has-text("Войти")')
+
+            page.wait_for_url(f"{self.BASE_URL}/dashboard/**", timeout=15000)
             page.goto(f"{self.BASE_URL}/dashboard/student/forum")
             page.wait_for_load_state("networkidle")
 
@@ -360,12 +374,16 @@ class TestChatUIElements:
 
         try:
             # Login
-            page.goto(f"{self.BASE_URL}/login")
-            page.fill('input[name="email"]', self.STUDENT_EMAIL)
-            page.fill('input[name="password"]', self.PASSWORD)
-            page.click('button[type="submit"]')
+            page.goto(f"{self.BASE_URL}/auth/signin")
+            page.wait_for_load_state("networkidle")
 
-            page.wait_for_url(f"{self.BASE_URL}/**", timeout=10000)
+            email_input = page.locator('textbox').nth(0)
+            password_input = page.locator('textbox').nth(1)
+            email_input.fill(self.STUDENT_EMAIL)
+            password_input.fill(self.PASSWORD)
+            page.click('button:has-text("Войти")')
+
+            page.wait_for_url(f"{self.BASE_URL}/dashboard/**", timeout=15000)
             page.goto(f"{self.BASE_URL}/dashboard/student/forum")
             page.wait_for_load_state("networkidle")
 
@@ -385,12 +403,16 @@ class TestChatUIElements:
 
         try:
             # Login
-            page.goto(f"{self.BASE_URL}/login")
-            page.fill('input[name="email"]', self.STUDENT_EMAIL)
-            page.fill('input[name="password"]', self.PASSWORD)
-            page.click('button[type="submit"]')
+            page.goto(f"{self.BASE_URL}/auth/signin")
+            page.wait_for_load_state("networkidle")
 
-            page.wait_for_url(f"{self.BASE_URL}/**", timeout=10000)
+            email_input = page.locator('textbox').nth(0)
+            password_input = page.locator('textbox').nth(1)
+            email_input.fill(self.STUDENT_EMAIL)
+            password_input.fill(self.PASSWORD)
+            page.click('button:has-text("Войти")')
+
+            page.wait_for_url(f"{self.BASE_URL}/dashboard/**", timeout=15000)
             page.goto(f"{self.BASE_URL}/dashboard/student/forum")
             page.wait_for_load_state("networkidle")
 

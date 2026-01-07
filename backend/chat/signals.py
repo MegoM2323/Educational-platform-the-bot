@@ -8,8 +8,9 @@ Includes:
 """
 
 import logging
+import threading
 from django.db import transaction
-from django.db.models.signals import post_save, m2m_changed
+from django.db.models.signals import post_save, pre_save, m2m_changed
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
@@ -26,6 +27,38 @@ from .services.pachca_service import PachcaService
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+# Thread-local storage for tracking parent changes
+_parent_changes = threading.local()
+
+
+@receiver(pre_save, sender=StudentProfile)
+def capture_parent_change(sender, instance: StudentProfile, **kwargs) -> None:
+    """
+    Capture the old parent before StudentProfile is saved.
+    This allows post_save handler to know if parent changed or was removed.
+    """
+    try:
+        if instance.pk:
+            old_instance = StudentProfile.objects.get(pk=instance.pk)
+            _parent_changes.old_parent_id = old_instance.parent_id
+        else:
+            _parent_changes.old_parent_id = None
+    except StudentProfile.DoesNotExist:
+        _parent_changes.old_parent_id = None
+    except Exception as e:
+        logger.debug(f"Error capturing parent change: {str(e)}")
+        _parent_changes.old_parent_id = None
+
+
+def get_old_parent_id() -> int | None:
+    """Get the old parent ID from thread-local storage."""
+    return getattr(_parent_changes, "old_parent_id", None)
+
+
+def clear_old_parent_id() -> None:
+    """Clear the old parent ID from thread-local storage."""
+    _parent_changes.old_parent_id = None
 
 
 @receiver(post_save, sender=SubjectEnrollment)
@@ -113,6 +146,23 @@ def create_forum_chat_on_enrollment(
             ChatParticipant.objects.bulk_create(
                 participant_records, ignore_conflicts=True
             )
+
+            # Verify student was actually added (critical logging)
+            try:
+                if not forum_chat.participants.filter(id=instance.student.id).exists():
+                    logger.warning(
+                        f"Student {instance.student.username} ({instance.student.id}) failed to be added to "
+                        f"forum {forum_chat.name} ({forum_chat.id})"
+                    )
+                else:
+                    logger.debug(
+                        f"Added student {instance.student.username} ({instance.student.id}) to forum "
+                        f"{forum_chat.name} ({forum_chat.id})"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Student addition verification failed for {forum_chat.name}: {str(e)}"
+                )
 
             # Verify teacher was actually added (critical logging)
             try:
@@ -212,6 +262,25 @@ def create_forum_chat_on_enrollment(
                 ChatParticipant.objects.bulk_create(
                     tutor_participant_records, ignore_conflicts=True
                 )
+
+                # Verify student was actually added (critical logging)
+                try:
+                    if not tutor_chat.participants.filter(
+                        id=instance.student.id
+                    ).exists():
+                        logger.warning(
+                            f"Student {instance.student.username} ({instance.student.id}) failed to be added to "
+                            f"forum {tutor_chat.name} ({tutor_chat.id})"
+                        )
+                    else:
+                        logger.debug(
+                            f"Added student {instance.student.username} ({instance.student.id}) to forum "
+                            f"{tutor_chat.name} ({tutor_chat.id})"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Student addition verification failed for {tutor_chat.name}: {str(e)}"
+                    )
 
                 # Verify tutors were actually added (critical logging)
                 try:
@@ -357,9 +426,10 @@ def sync_parent_participants(
     sender, instance: StudentProfile, created: bool, **kwargs
 ) -> None:
     """
-    When a parent is assigned to a student, add the parent to all chats where the student is a participant.
+    When a parent is assigned to a student, add/remove the parent from all chats where the student is a participant.
 
     This ensures parents can see all their child's chats (FORUM_SUBJECT, FORUM_TUTOR, etc.).
+    Removes old parents when parent is unassigned or changed.
     Uses transaction.atomic() to ensure consistency between M2M and ChatParticipant model.
 
     Args:
@@ -368,14 +438,19 @@ def sync_parent_participants(
         created: Boolean indicating if instance was just created
         **kwargs: Additional keyword arguments from signal
     """
-    if not instance.parent:
-        return
-
     student_user = instance.user
-    parent_user = instance.parent
+    new_parent = instance.parent
 
     try:
         with transaction.atomic():
+            old_parent_id = get_old_parent_id()
+            old_parent = None
+            if old_parent_id:
+                try:
+                    old_parent = User.objects.get(pk=old_parent_id)
+                except User.DoesNotExist:
+                    old_parent = None
+
             student_rooms = ChatRoom.objects.filter(
                 participants__id=student_user.id
             ).distinct()
@@ -384,51 +459,80 @@ def sync_parent_participants(
                 logger.debug(
                     f"Student {student_user.id} has no chat rooms yet, skipping parent sync"
                 )
+                clear_old_parent_id()
                 return
 
-            participants_to_create = []
-            rooms_to_add_parent = []
+            if old_parent and old_parent != new_parent:
+                rooms_to_remove_parent = []
+                for room in student_rooms:
+                    if room.participants.filter(id=old_parent.id).exists():
+                        room.participants.remove(old_parent)
+                        rooms_to_remove_parent.append(room)
+                        ChatParticipant.objects.filter(
+                            room=room, user=old_parent
+                        ).delete()
 
-            for room in student_rooms:
-                if not room.participants.filter(id=parent_user.id).exists():
-                    room.participants.add(parent_user)
-                    rooms_to_add_parent.append(room)
-                    participants_to_create.append(
-                        ChatParticipant(
-                            room=room, user=parent_user, joined_at=timezone.now()
-                        )
+                if rooms_to_remove_parent:
+                    logger.info(
+                        f"Removed old parent {old_parent.id} from {len(rooms_to_remove_parent)} chat rooms for student {student_user.id}",
+                        extra={
+                            "parent_id": old_parent.id,
+                            "student_id": student_user.id,
+                            "rooms_count": len(rooms_to_remove_parent),
+                            "room_ids": [room.id for room in rooms_to_remove_parent],
+                        },
                     )
 
-            if participants_to_create:
-                ChatParticipant.objects.bulk_create(
-                    participants_to_create, ignore_conflicts=True, batch_size=100
-                )
-                logger.info(
-                    f"Added parent {parent_user.id} to {len(rooms_to_add_parent)} chat rooms for student {student_user.id}",
-                    extra={
-                        "parent_id": parent_user.id,
-                        "student_id": student_user.id,
-                        "rooms_count": len(rooms_to_add_parent),
-                        "room_ids": [room.id for room in rooms_to_add_parent],
-                    },
-                )
+            if new_parent:
+                participants_to_create = []
+                rooms_to_add_parent = []
+
+                for room in student_rooms:
+                    if not room.participants.filter(id=new_parent.id).exists():
+                        room.participants.add(new_parent)
+                        rooms_to_add_parent.append(room)
+                        participants_to_create.append(
+                            ChatParticipant(
+                                room=room, user=new_parent, joined_at=timezone.now()
+                            )
+                        )
+
+                if participants_to_create:
+                    ChatParticipant.objects.bulk_create(
+                        participants_to_create, ignore_conflicts=True, batch_size=100
+                    )
+                    logger.info(
+                        f"Added parent {new_parent.id} to {len(rooms_to_add_parent)} chat rooms for student {student_user.id}",
+                        extra={
+                            "parent_id": new_parent.id,
+                            "student_id": student_user.id,
+                            "rooms_count": len(rooms_to_add_parent),
+                            "room_ids": [room.id for room in rooms_to_add_parent],
+                        },
+                    )
+                else:
+                    logger.debug(
+                        f"Parent {new_parent.id} already in all {student_rooms.count()} chat rooms for student {student_user.id}"
+                    )
             else:
                 logger.debug(
-                    f"Parent {parent_user.id} already in all {student_rooms.count()} chat rooms for student {student_user.id}"
+                    f"No parent assigned to student {student_user.id}, skipping parent add"
                 )
 
     except Exception as e:
         logger.error(
-            f"Error syncing parent {parent_user.id if instance.parent else 'None'} to student {student_user.id} chats: {str(e)}",
+            f"Error syncing parent for student {student_user.id} chats: {str(e)}",
             exc_info=True,
             extra={
                 "student_profile_id": instance.id,
                 "student_id": student_user.id,
-                "parent_id": parent_user.id if instance.parent else None,
+                "parent_id": new_parent.id if new_parent else None,
                 "error_type": type(e).__name__,
                 "error": str(e),
             },
         )
+    finally:
+        clear_old_parent_id()
 
 
 @receiver(post_save, sender=User)

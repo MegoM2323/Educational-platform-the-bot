@@ -249,6 +249,11 @@ class ForumChatViewSet(viewsets.ViewSet):
                         .distinct()
                         .order_by("-updated_at")
                     )
+
+                    # Ensure parent is added to participants for all chats
+                    # This is needed so parent can access messages
+                    for chat in chats:
+                        check_parent_access_to_room(user, chat)
                 else:
                     chats = ChatRoom.objects.none()
 

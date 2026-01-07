@@ -3236,3 +3236,5 @@ Traceback (most recent call last):
     ...<7 lines>...
     )
 AttributeError: Cannot find 'payments' on User object, 'user__payments' is an invalid parameter to prefetch_related()
+[ERROR] 2026-01-07 09:29:10 django.request log_response:241 - Internal Server Error: /api/accounts/login/
+[ERROR] 2026-01-07 09:29:20 django.request log_response:241 - Internal Server Error: /api/accounts/login/

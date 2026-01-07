@@ -347,10 +347,17 @@ class GeneralChatService:
     def _can_moderate(user, room):
         """
         Проверить, может ли пользователь модерировать чат
+        Могут модерировать: Teacher, Tutor (with is_admin=True), Admin (with is_admin=True)
         """
         try:
             participant = room.room_participants.get(user=user)
-            return participant.is_admin or user.role == User.Role.TEACHER
+            # Teacher can moderate by default
+            if user.role == User.Role.TEACHER:
+                return True
+            # Tutor and Admin can moderate if marked as admin in room
+            if user.role in [User.Role.TUTOR, User.Role.ADMIN]:
+                return participant.is_admin
+            return False
         except ChatParticipant.DoesNotExist:
             return False
 

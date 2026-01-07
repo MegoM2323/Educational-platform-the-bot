@@ -120,6 +120,24 @@ class LessonViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    def retrieve(self, request, pk=None):
+        """
+        Get a specific lesson by ID (role-aware).
+
+        GET /api/scheduling/lessons/{id}/
+
+        Rules:
+        - Teachers can view their own lessons
+        - Students can view their own lessons
+        - Tutors can view lessons for their managed students
+        - Parents can view lessons for their children
+        - Admins can view all lessons
+        - Returns 404 if lesson not in user's queryset
+        """
+        lesson = self.get_object()
+        serializer = self.get_serializer(lesson)
+        return Response(serializer.data)
+
     def create(self, request, *args, **kwargs):
         """
         Create a new lesson (teacher or admin).
@@ -153,7 +171,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonCreateSerializer(data=request.data, context={"request": request})
+        serializer = LessonCreateSerializer(
+            data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -237,7 +257,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonUpdateSerializer(data=request.data, context={"lesson": lesson})
+        serializer = LessonUpdateSerializer(
+            data=request.data, context={"lesson": lesson}
+        )
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -365,6 +387,34 @@ class LessonViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=["post"], url_path="cancel")
+    def cancel(self, request, pk=None):
+        """
+        Cancel a lesson using POST method (alternative to DELETE).
+
+        POST /api/scheduling/lessons/{id}/cancel/
+
+        Rule: Cannot cancel less than 2 hours before lesson start.
+        """
+        lesson = self.get_object()
+
+        # Only teacher can cancel
+        if lesson.teacher != request.user:
+            return Response(
+                {"error": "Only the teacher who created this lesson can cancel it"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            # Use service to delete lesson
+            LessonService.delete_lesson(lesson=lesson, user=request.user)
+
+            # 204 No Content - must not have response body
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        except DjangoValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=False, methods=["get"], url_path="my-schedule")
     def my_schedule(self, request):
         """
@@ -440,7 +490,9 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         student_id = request.query_params.get("student_id")
         if not student_id:
-            return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Валидация формата student_id (должен быть целым числом)
         try:
@@ -470,9 +522,9 @@ class LessonViewSet(viewsets.ModelViewSet):
                         {"error": "You can only view schedules for your children"},
                         status=status.HTTP_403_FORBIDDEN,
                     )
-                queryset = Lesson.objects.filter(student_id=student_id_int).select_related(
-                    "teacher", "student", "subject"
-                )
+                queryset = Lesson.objects.filter(
+                    student_id=student_id_int
+                ).select_related("teacher", "student", "subject")
 
             # Apply filters
             date_from = request.query_params.get("date_from")
@@ -515,7 +567,9 @@ class LessonViewSet(viewsets.ModelViewSet):
         # Teacher, student, tutor, or parent of student
         from accounts.models import User as UserModel
 
-        has_permission = lesson.teacher == request.user or lesson.student == request.user
+        has_permission = (
+            lesson.teacher == request.user or lesson.student == request.user
+        )
 
         # Check if tutor has access to this lesson (manages the student)
         if not has_permission and request.user.role == UserModel.Role.TUTOR:
@@ -560,10 +614,14 @@ class LessonViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=["post"], url_path="check-conflicts")
+    @action(detail=False, methods=["get", "post"], url_path="check-conflicts")
     def check_conflicts(self, request):
         """
         Check for schedule conflicts for a teacher on a specific date/time.
+
+        GET /api/scheduling/lessons/check-conflicts/?date=2026-01-07&start_time=10:00&end_time=11:00
+        OR
+        GET /api/scheduling/lessons/check-conflicts/?date=2026-01-07&start_time=10:00&duration_minutes=60
 
         POST /api/scheduling/lessons/check-conflicts/
         {
@@ -605,8 +663,12 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         User = get_user_model()
 
-        # Validate input
-        data = request.data
+        # Validate input - get data from query params or POST body
+        if request.method == "GET":
+            data = request.query_params
+        else:
+            data = request.data
+
         teacher_id = data.get("teacher_id")
         date_str = data.get("date")
         start_time_str = data.get("start_time")
@@ -654,7 +716,9 @@ class LessonViewSet(viewsets.ModelViewSet):
                 end_time = end_dt.time()
         except ValueError:
             return Response(
-                {"error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"},
+                {
+                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -743,7 +807,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             new_end_time = datetime.strptime(end_time_str, "%H:%M").time()
         except ValueError:
             return Response(
-                {"error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"},
+                {
+                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

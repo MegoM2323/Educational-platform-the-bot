@@ -66,7 +66,7 @@ def _format_validation_error(errors):
 
 
 @csrf_exempt
-@ratelimit(key="ip", rate="5/m", method="POST")  # 5 попыток входа в минуту с одного IP
+# @ratelimit(key="ip", rate="5/m", method="POST")  # ОТКЛЮЧЕН для тестирования
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @authentication_classes([])

@@ -22,7 +22,9 @@ User = get_user_model()
 ChatRoom = None  # Lazy import to avoid circular dependency
 
 
-def check_parent_access_to_room(parent_user, room, add_to_participants: bool = True) -> bool:
+def check_parent_access_to_room(
+    parent_user, room, add_to_participants: bool = True
+) -> bool:
     """
     Проверяет доступ родителя к комнате чата.
     Родитель имеет доступ если один из его детей является участником.
@@ -45,7 +47,9 @@ def check_parent_access_to_room(parent_user, room, add_to_participants: bool = T
 
         # Получаем ID всех детей этого родителя
         children_ids = list(
-            StudentProfile.objects.filter(parent=parent_user).values_list("user_id", flat=True)
+            StudentProfile.objects.filter(parent=parent_user).values_list(
+                "user_id", flat=True
+            )
         )
 
         if not children_ids:
@@ -74,7 +78,9 @@ def check_parent_access_to_room(parent_user, room, add_to_participants: bool = T
         return True
 
 
-def check_teacher_access_to_room(teacher_user, room, add_to_participants: bool = True) -> bool:
+def check_teacher_access_to_room(
+    teacher_user, room, add_to_participants: bool = True
+) -> bool:
     """
     Проверяет доступ учителя к комнате чата через enrollment.
     Учитель имеет доступ если он назначен учителем в enrollment этого чата.
@@ -103,9 +109,9 @@ def check_teacher_access_to_room(teacher_user, room, add_to_participants: bool =
 
     # Для FORUM_TUTOR чатов: учитель должен преподавать хотя бы одному студенту в этом чате
     if room.type == ChatRoom.Type.FORUM_TUTOR:
-        student_participants = room.participants.filter(role=User.Role.STUDENT).values_list(
-            "id", flat=True
-        )
+        student_participants = room.participants.filter(
+            role=User.Role.STUDENT
+        ).values_list("id", flat=True)
         has_enrollment = SubjectEnrollment.objects.filter(
             teacher=teacher_user, student_id__in=student_participants, is_active=True
         ).exists()
@@ -284,7 +290,10 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check student-teacher relationship
-        if requester.role == User.Role.STUDENT and contact_user.role == User.Role.TEACHER:
+        if (
+            requester.role == User.Role.STUDENT
+            and contact_user.role == User.Role.TEACHER
+        ):
             if subject_id:
                 # Verify student is enrolled with this teacher for this subject
                 enrollment = SubjectEnrollment.objects.filter(
@@ -305,7 +314,10 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check teacher-student relationship (reverse)
-        if requester.role == User.Role.TEACHER and contact_user.role == User.Role.STUDENT:
+        if (
+            requester.role == User.Role.TEACHER
+            and contact_user.role == User.Role.STUDENT
+        ):
             enrollment = None
 
             # If subject_id provided, search for enrollment with specific subject
@@ -377,7 +389,9 @@ class CanInitiateChat(permissions.BasePermission):
                 if enrollment:
                     return True, "FORUM_TUTOR", enrollment
 
-            logger.warning(f"Student {requester.id} does not have tutor {contact_user.id}")
+            logger.warning(
+                f"Student {requester.id} does not have tutor {contact_user.id}"
+            )
             return False, None, None
 
         # Check tutor-student relationship (reverse)
@@ -399,7 +413,9 @@ class CanInitiateChat(permissions.BasePermission):
                 is_tutor_linked = True
 
             if is_tutor_linked:
-                enrollment = SubjectEnrollment.objects.filter(student=contact_user).first()
+                enrollment = SubjectEnrollment.objects.filter(
+                    student=contact_user
+                ).first()
 
                 if subject_id:
                     specific_enrollment = SubjectEnrollment.objects.filter(
@@ -411,7 +427,9 @@ class CanInitiateChat(permissions.BasePermission):
                 if enrollment:
                     return True, "FORUM_TUTOR", enrollment
 
-            logger.warning(f"Tutor {requester.id} not assigned to student {contact_user.id}")
+            logger.warning(
+                f"Tutor {requester.id} not assigned to student {contact_user.id}"
+            )
             return False, None, None
 
         # Check tutor-teacher relationship
@@ -436,7 +454,9 @@ class CanInitiateChat(permissions.BasePermission):
             if not enrollment:
                 # Get all students assigned to this tutor
                 tutor_students = list(
-                    StudentProfile.objects.filter(tutor=requester).values_list("user_id", flat=True)
+                    StudentProfile.objects.filter(tutor=requester).values_list(
+                        "user_id", flat=True
+                    )
                 )
 
                 # Also get students created by this tutor
@@ -519,7 +539,10 @@ class CanInitiateChat(permissions.BasePermission):
 
         # Check parent-teacher relationship
         # Parent can chat with teachers of their child
-        if requester.role == User.Role.PARENT and contact_user.role == User.Role.TEACHER:
+        if (
+            requester.role == User.Role.PARENT
+            and contact_user.role == User.Role.TEACHER
+        ):
             # Find if teacher teaches parent's child
             enrollment = SubjectEnrollment.objects.filter(
                 student__student_profile__parent=requester,
@@ -538,7 +561,10 @@ class CanInitiateChat(permissions.BasePermission):
             return False, None, None
 
         # Check teacher-parent relationship (reverse)
-        if requester.role == User.Role.TEACHER and contact_user.role == User.Role.PARENT:
+        if (
+            requester.role == User.Role.TEACHER
+            and contact_user.role == User.Role.PARENT
+        ):
             enrollment = SubjectEnrollment.objects.filter(
                 student__student_profile__parent=contact_user,
                 teacher=requester,
@@ -569,7 +595,9 @@ class CanInitiateChat(permissions.BasePermission):
 
             if student_profile:
                 # Get an enrollment for this student
-                enrollment = SubjectEnrollment.objects.filter(student=student_profile.user).first()
+                enrollment = SubjectEnrollment.objects.filter(
+                    student=student_profile.user
+                ).first()
 
                 if enrollment:
                     return True, "FORUM_TUTOR", enrollment
@@ -592,7 +620,9 @@ class CanInitiateChat(permissions.BasePermission):
             )
 
             if student_profile:
-                enrollment = SubjectEnrollment.objects.filter(student=student_profile.user).first()
+                enrollment = SubjectEnrollment.objects.filter(
+                    student=student_profile.user
+                ).first()
 
                 if enrollment:
                     return True, "FORUM_TUTOR", enrollment
@@ -658,6 +688,58 @@ class IsMessageAuthor(permissions.BasePermission):
         return is_author
 
 
+class CanDeleteMessage(permissions.BasePermission):
+    """
+    Permission for message deletion.
+
+    A user can delete a message if:
+    1. They are the message author, OR
+    2. They are admin/staff/superuser
+
+    Only the message author or admin can delete. Teachers cannot delete
+    other users' messages through the standard delete endpoint.
+    For message moderation, use pin/unpin/lock/unlock actions instead.
+
+    This implements OR logic: author OR admin.
+
+    Used for: DELETE on Message endpoint
+    """
+
+    message = "Вы не можете удалить это сообщение"
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if user can delete the message.
+
+        Args:
+            request: HTTP request
+            view: View instance
+            obj: Message instance
+
+        Returns:
+            bool: True if user can delete (author OR admin)
+        """
+        user = request.user
+
+        # Check if user is active
+        if not user.is_active:
+            return False
+
+        # Author can always delete their own message
+        if obj.sender == user:
+            return True
+
+        # Only staff/superuser can delete others' messages
+        if user.is_staff or user.is_superuser:
+            return True
+
+        logger.warning(
+            f"CanDeleteMessage: Permission denied for user {user.id} "
+            f"(role={user.role}) to delete message {obj.id}"
+        )
+        return False
+
+
 class CanModerateChat(permissions.BasePermission):
     """
     Permission for chat moderation actions (delete any message, ban, mute).
@@ -696,7 +778,9 @@ class CanModerateChat(permissions.BasePermission):
         # Get room from object (obj can be Message or ChatParticipant)
         room = getattr(obj, "room", None)
         if not room:
-            logger.warning(f"CanModerateChat: Object {type(obj).__name__} has no room attribute")
+            logger.warning(
+                f"CanModerateChat: Object {type(obj).__name__} has no room attribute"
+            )
             return False
 
         # Check if user is room admin (explicit admin flag)
@@ -720,5 +804,74 @@ class CanModerateChat(permissions.BasePermission):
         logger.warning(
             f"CanModerateChat: Permission denied for user {user.id} "
             f"(role={user.role}) in room {room.id}"
+        )
+        return False
+
+
+class IsParticipantPermission(permissions.BasePermission):
+    """
+    Permission check to verify user is a participant of the chat room.
+
+    Protects against IDOR (Insecure Direct Object Reference) attacks by ensuring
+    only chat room participants can access messages in that room.
+
+    Rules:
+    - User must be authenticated
+    - User must be a participant in the room (via room.participants M2M)
+
+    Staff/superuser bypass this check.
+
+    Used for: GET, PUT, PATCH, DELETE on Message endpoints
+    """
+
+    message = "Вы не являетесь участником этой комнаты"
+
+    def has_permission(self, request, view):
+        """Check if user is authenticated."""
+        return request.user and request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if user is a participant of the message's room.
+
+        Args:
+            request: HTTP request
+            view: View instance
+            obj: Message instance (must have room attribute)
+
+        Returns:
+            bool: True if user is a participant or staff/superuser
+        """
+        user = request.user
+
+        # Staff/superuser always have access
+        if user.is_staff or user.is_superuser:
+            logger.debug(
+                f"[IsParticipantPermission] Staff/superuser {user.id} "
+                f"granted access to message {obj.id} (bypass)"
+            )
+            return True
+
+        # Get room from message object
+        room = getattr(obj, "room", None)
+        if not room:
+            logger.warning(
+                f"[IsParticipantPermission] Message {obj.id} has no room attribute"
+            )
+            return False
+
+        # Check if user is a participant in the room
+        is_participant = room.participants.filter(id=user.id).exists()
+
+        if is_participant:
+            logger.debug(
+                f"[IsParticipantPermission] User {user.id} is participant of room {room.id}, "
+                f"access to message {obj.id} granted"
+            )
+            return True
+
+        logger.warning(
+            f"[IsParticipantPermission] User {user.id} is NOT participant of room {room.id}, "
+            f"attempted access to message {obj.id} denied"
         )
         return False

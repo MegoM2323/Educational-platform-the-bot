@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -22,7 +23,7 @@ from .serializers import (
     MessageThreadSerializer,
     MessageThreadCreateSerializer,
 )
-from .permissions import IsMessageAuthor, CanModerateChat
+from .permissions import IsMessageAuthor, CanModerateChat, IsParticipantPermission, CanDeleteMessage
 from .general_chat_service import GeneralChatService
 
 
@@ -210,8 +211,12 @@ class MessageViewSet(viewsets.ModelViewSet):
         return MessageSerializer
 
     def get_permissions(self):
-        if self.action in ["update", "partial_update", "destroy"]:
+        if self.action in ["update", "partial_update"]:
             return [permissions.IsAuthenticated(), IsMessageAuthor()]
+        if self.action == "destroy":
+            return [permissions.IsAuthenticated(), CanDeleteMessage()]
+        if self.action == "create":
+            return [permissions.IsAuthenticated(), IsParticipantPermission()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
@@ -246,7 +251,36 @@ class MessageViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        serializer.save(sender=self.request.user)
+        logger = logging.getLogger(__name__)
+        try:
+            room_id = self.request.data.get("room")
+            if not room_id:
+                raise PermissionDenied("room ID is required")
+
+            room = ChatRoom.objects.get(id=room_id)
+            user = self.request.user
+
+            if not room.participants.filter(id=user.id).exists():
+                logger.warning(
+                    f"[MessageViewSet.perform_create] IDOR attempt: "
+                    f"User {user.id} tried to create message in room {room.id} "
+                    f"where they are not a participant"
+                )
+                raise PermissionDenied("Вы не участник этой комнаты")
+
+            serializer.save(sender=user)
+            logger.info(
+                f"[MessageViewSet.perform_create] Message created by user {user.id} "
+                f"in room {room.id}"
+            )
+        except ChatRoom.DoesNotExist:
+            logger.error(f"[MessageViewSet.perform_create] Room {room_id} not found")
+            raise PermissionDenied("Комната не найдена")
+        except PermissionDenied:
+            raise
+        except Exception as e:
+            logger.error(f"[MessageViewSet.perform_create] Unexpected error: {str(e)}")
+            raise
 
     @action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):
@@ -515,7 +549,6 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
             )
 
 
-import logging
 from rest_framework.views import APIView
 
 

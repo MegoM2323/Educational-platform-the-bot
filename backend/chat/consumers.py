@@ -436,6 +436,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             return
 
+        # IDOR Check 1: Пользователь должен быть участником комнаты
+        if not await self.check_user_is_participant(self.room_id):
+            logger.warning(
+                f"[HandleMessageEdit] Non-participant {self.scope['user'].id} tried to edit message in room {self.room_id}"
+            )
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "message": "You are not a participant in this room",
+                        "code": "access_denied",
+                    }
+                )
+            )
+            return
+
         # Редактируем сообщение в БД
         result = await self.edit_message(message_id, new_content)
 
@@ -593,6 +609,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             return
 
+        # IDOR Check 1: Пользователь должен быть участником комнаты
+        if not await self.check_user_is_participant(self.room_id):
+            logger.warning(
+                f"[HandleMessageDelete] Non-participant {self.scope['user'].id} tried to delete message in room {self.room_id}"
+            )
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "message": "You are not a participant in this room",
+                        "code": "access_denied",
+                    }
+                )
+            )
+            return
+
         result = await self.delete_message(message_id)
 
         if result.get("error"):
@@ -739,25 +771,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             message = Message.objects.get(id=message_id)
         except Message.DoesNotExist:
+            logger.warning(f"[delete_message] Message {message_id} not found")
             return {"error": "Message not found", "code": "not_found"}
 
+        user = self.scope["user"]
+
         if str(message.room_id) != str(self.room_id):
+            logger.warning(
+                f"[delete_message] IDOR attempt: user {user.id} tried to delete message {message_id} from different room {message.room_id}"
+            )
             return {
                 "error": "Message does not belong to this room",
                 "code": "access_denied",
             }
 
-        user = self.scope["user"]
         is_author = message.sender_id == user.id
         is_moderator = user.is_staff or user.is_superuser or user.role in ["teacher", "admin"]
 
         if not is_author and not is_moderator:
+            logger.warning(
+                f"[delete_message] Access denied: user {user.id} tried to delete message {message_id} from author {message.sender_id}"
+            )
             return {
                 "error": "You can only delete your own messages",
                 "code": "access_denied",
             }
 
         if message.is_deleted:
+            logger.debug(f"[delete_message] Message {message_id} already deleted")
             return {"error": "Message already deleted", "code": "validation_error"}
 
         message.is_deleted = True
@@ -765,8 +806,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.deleted_by = user
         message.save(update_fields=["is_deleted", "deleted_at", "deleted_by"])
 
-        logger.info(f"[delete_message] Message {message_id} deleted by user {user.id}")
-        return {"deleted_by_role": "author" if is_author else "moderator"}
+        role_type = "author" if is_author else "moderator"
+        logger.debug(f"[delete_message] Message {message_id} deleted by {role_type} user {user.id}")
+        return {"deleted_by_role": role_type}
 
     @database_sync_to_async
     def pin_message(self, message_id):
@@ -863,14 +905,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 f"participants_count={room.participants.count()}"
             )
 
-            # Admin/Staff bypass - read-only access to all forum chats
+            # Admin/Staff bypass - read-only access to all chats
             if user.is_staff or user.is_superuser:
-                if room.type in [
-                    ChatRoom.Type.FORUM_SUBJECT,
-                    ChatRoom.Type.FORUM_TUTOR,
-                ]:
-                    logger.info(f"[check_room_access] Admin {user_id} granted read-only access to room {self.room_id}")
-                    return True
+                logger.info(f"[check_room_access] Admin {user_id} granted access to room {self.room_id}")
+                return True
 
             if user.role == UserModel.Role.TEACHER:
                 from django.db.models import Q
@@ -885,6 +923,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     if has_access:
                         logger.info(f"[check_room_access] Teacher {user_id} accessing room {self.room_id}")
                         return True
+                    logger.debug(f"[check_room_access] Access denied for teacher {user_id} to room {self.room_id}")
+                    return False
+                # For other room types (CLASS, etc), check M2M participants
+                if room.participants.filter(id=user_id).exists():
+                    logger.info(f"[check_room_access] Teacher {user_id} accessing room {self.room_id} via participants")
+                    return True
                 logger.debug(f"[check_room_access] Access denied for teacher {user_id} to room {self.room_id}")
                 return False
 
@@ -1204,39 +1248,38 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             message = Message.objects.get(id=message_id)
         except Message.DoesNotExist:
+            logger.warning(f"[edit_message] Message {message_id} not found")
             return {"error": "Message not found", "code": "not_found"}
 
-        # Проверяем что сообщение принадлежит текущей комнате
+        user = self.scope["user"]
+
         if str(message.room_id) != str(self.room_id):
-            logger.debug(
-                f"[edit_message] Access denied: message {message_id} belongs to room {message.room_id}, "
-                f"not {self.room_id}"
+            logger.warning(
+                f"[edit_message] IDOR attempt: user {user.id} tried to edit message {message_id} from different room {message.room_id}"
             )
             return {
                 "error": "Message does not belong to this room",
                 "code": "access_denied",
             }
 
-        # Проверяем что пользователь является автором
-        if message.sender_id != self.scope["user"].id:
-            logger.debug(
-                f'[edit_message] Access denied: user {self.scope["user"].id} is not the sender of message {message_id}'
+        if message.sender_id != user.id:
+            logger.warning(
+                f"[edit_message] Access denied: user {user.id} tried to edit message {message_id} from author {message.sender_id}"
             )
             return {
                 "error": "You can only edit your own messages",
                 "code": "access_denied",
             }
 
-        # Проверяем что сообщение не удалено
         if message.is_deleted:
+            logger.debug(f"[edit_message] Cannot edit deleted message {message_id}")
             return {"error": "Cannot edit deleted message", "code": "validation_error"}
 
-        # Обновляем сообщение
         message.content = new_content
         message.is_edited = True
         message.save(update_fields=["content", "is_edited", "updated_at"])
 
-        logger.info(f'[edit_message] Message {message_id} edited by user {self.scope["user"].id}')
+        logger.debug(f"[edit_message] Message {message_id} edited by user {user.id}")
         return {"edited_at": message.updated_at.isoformat()}
 
     @database_sync_to_async

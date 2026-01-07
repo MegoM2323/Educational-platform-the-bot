@@ -107,7 +107,7 @@ def enrollments(db, students_with_profiles, subject, tutor_with_profile):
         enrollment = SubjectEnrollment.objects.create(
             student=student,
             subject=subject,
-            tutor=tutor_with_profile,
+            teacher=tutor_with_profile,
             status=SubjectEnrollment.Status.ACTIVE
         )
         enrollments.append(enrollment)
@@ -138,9 +138,11 @@ class TestAssignmentCreation:
         payload = {
             'title': 'Math Homework 1',
             'description': 'Solve problems 1-10',
-            'subject': subject.id,
-            'assignment_type': 'homework',
-            'max_points': 100,
+            'instructions': 'Complete all problems',
+            'type': 'homework',
+            'max_score': 100,
+            'start_date': timezone.now().isoformat(),
+            'due_date': (timezone.now() + timedelta(days=7)).isoformat(),
         }
         response = authenticated_tutor_client.post(
             '/api/assignments/assignments/',
@@ -151,14 +153,15 @@ class TestAssignmentCreation:
 
     def test_create_assignment_with_deadline(self, authenticated_tutor_client, subject):
         """Create assignment with deadline"""
-        deadline = timezone.now() + timedelta(days=7)
+        due_date = timezone.now() + timedelta(days=7)
         payload = {
             'title': 'Timed Assignment',
             'description': 'Complete in one week',
-            'subject': subject.id,
-            'assignment_type': 'test',
+            'instructions': 'Follow the instructions carefully',
+            'type': 'test',
             'max_score': 50,
-            'deadline': deadline.isoformat(),
+            'start_date': timezone.now().isoformat(),
+            'due_date': due_date.isoformat(),
         }
         response = authenticated_tutor_client.post(
             '/api/assignments/',
@@ -172,9 +175,11 @@ class TestAssignmentCreation:
         payload = {
             'title': 'Unauthorized Assignment',
             'description': 'Should fail',
-            'subject': subject.id,
-            'assignment_type': 'homework',
+            'instructions': 'Not allowed',
+            'type': 'homework',
             'max_score': 100,
+            'start_date': timezone.now().isoformat(),
+            'due_date': (timezone.now() + timedelta(days=7)).isoformat(),
         }
         response = student_client.post(
             '/api/assignments/',
@@ -187,9 +192,11 @@ class TestAssignmentCreation:
         """Validation: missing required field title"""
         payload = {
             'description': 'No title',
-            'subject': subject.id,
-            'assignment_type': 'homework',
+            'instructions': 'Some instructions',
+            'type': 'homework',
             'max_score': 100,
+            'start_date': timezone.now().isoformat(),
+            'due_date': (timezone.now() + timedelta(days=7)).isoformat(),
         }
         response = authenticated_tutor_client.post(
             '/api/assignments/',
@@ -202,15 +209,18 @@ class TestAssignmentCreation:
 class TestAssignmentEditing:
     """T057: Edit assignment"""
 
-    def test_edit_assignment_title(self, authenticated_tutor_client, subject):
+    def test_edit_assignment_title(self, authenticated_tutor_client, tutor_with_profile, subject):
         """Update assignment title"""
         # Create assignment
         assignment = Assignment.objects.create(
             title='Original Title',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions here',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         payload = {'title': 'Updated Title'}
@@ -221,18 +231,21 @@ class TestAssignmentEditing:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_edit_assignment_deadline(self, authenticated_tutor_client, subject):
+    def test_edit_assignment_deadline(self, authenticated_tutor_client, tutor_with_profile, subject):
         """Update assignment deadline"""
         assignment = Assignment.objects.create(
             title='Test Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
-        new_deadline = timezone.now() + timedelta(days=14)
-        payload = {'deadline': new_deadline.isoformat()}
+        new_due_date = timezone.now() + timedelta(days=14)
+        payload = {'due_date': new_due_date.isoformat()}
         response = authenticated_tutor_client.patch(
             f'/api/assignments/{assignment.id}/',
             data=json.dumps(payload),
@@ -240,14 +253,17 @@ class TestAssignmentEditing:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_edit_assignment_max_score(self, authenticated_tutor_client, subject):
+    def test_edit_assignment_max_score(self, authenticated_tutor_client, tutor_with_profile, subject):
         """Update max score"""
         assignment = Assignment.objects.create(
             title='Scorable Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         payload = {'max_score': 150}
@@ -262,14 +278,17 @@ class TestAssignmentEditing:
 class TestAssignmentDeletion:
     """T058: Delete assignment"""
 
-    def test_delete_assignment(self, authenticated_tutor_client, subject):
+    def test_delete_assignment(self, authenticated_tutor_client, tutor_with_profile, subject):
         """Delete assignment"""
         assignment = Assignment.objects.create(
             title='To Delete',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         response = authenticated_tutor_client.delete(
@@ -277,14 +296,17 @@ class TestAssignmentDeletion:
         )
         assert response.status_code in [status.HTTP_204_NO_CONTENT, status.HTTP_200_OK]
 
-    def test_delete_assignment_with_submissions(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_delete_assignment_with_submissions(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Try to delete assignment with existing submissions"""
         assignment = Assignment.objects.create(
             title='With Submissions',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         # Create submission
@@ -304,14 +326,17 @@ class TestAssignmentDeletion:
 class TestAssignmentDistribution:
     """T059: Distribute to students"""
 
-    def test_distribute_to_single_student(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_distribute_to_single_student(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Assign to single student"""
         assignment = Assignment.objects.create(
             title='Single Student Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         payload = {
@@ -324,14 +349,17 @@ class TestAssignmentDistribution:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
 
-    def test_distribute_to_multiple_students(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_distribute_to_multiple_students(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Assign to multiple students"""
         assignment = Assignment.objects.create(
             title='Bulk Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         student_ids = [s.id for s in students_with_profiles[:3]]
@@ -343,17 +371,20 @@ class TestAssignmentDistribution:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
 
-    def test_distribute_via_group(self, authenticated_tutor_client, subject, enrollments):
+    def test_distribute_via_group(self, authenticated_tutor_client, tutor_with_profile, subject, enrollments):
         """Distribute to all students in subject"""
         assignment = Assignment.objects.create(
             title='Group Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
-        payload = {'subject': subject.id}
+        payload = {}
         response = authenticated_tutor_client.post(
             f'/api/assignments/{assignment.id}/distribute/',
             data=json.dumps(payload),
@@ -365,18 +396,21 @@ class TestAssignmentDistribution:
 class TestAssignmentDeadline:
     """T060: Set deadline"""
 
-    def test_set_absolute_deadline(self, authenticated_tutor_client, subject):
+    def test_set_absolute_deadline(self, authenticated_tutor_client, tutor_with_profile, subject):
         """Set absolute deadline"""
         assignment = Assignment.objects.create(
             title='Deadline Test',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
-        deadline = timezone.now() + timedelta(days=5)
-        payload = {'deadline': deadline.isoformat()}
+        new_due_date = timezone.now() + timedelta(days=5)
+        payload = {'due_date': new_due_date.isoformat()}
         response = authenticated_tutor_client.patch(
             f'/api/assignments/{assignment.id}/',
             data=json.dumps(payload),
@@ -384,20 +418,22 @@ class TestAssignmentDeadline:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_extend_deadline(self, authenticated_tutor_client, subject):
+    def test_extend_deadline(self, authenticated_tutor_client, tutor_with_profile, subject):
         """Extend existing deadline"""
-        deadline = timezone.now() + timedelta(days=3)
+        due_date = timezone.now() + timedelta(days=3)
         assignment = Assignment.objects.create(
             title='Extendable',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
+            instructions='Instructions',
+            type='homework',
             max_score=100,
-            deadline=deadline
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=due_date
         )
 
-        new_deadline = deadline + timedelta(days=2)
-        payload = {'deadline': new_deadline.isoformat()}
+        new_due_date = due_date + timedelta(days=2)
+        payload = {'due_date': new_due_date.isoformat()}
         response = authenticated_tutor_client.patch(
             f'/api/assignments/{assignment.id}/',
             data=json.dumps(payload),
@@ -405,18 +441,21 @@ class TestAssignmentDeadline:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_deadline_validation_past_date(self, authenticated_tutor_client, subject):
+    def test_deadline_validation_past_date(self, authenticated_tutor_client, tutor_with_profile, subject):
         """Reject past deadline"""
         assignment = Assignment.objects.create(
             title='Invalid Deadline',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
-        past_deadline = timezone.now() - timedelta(days=1)
-        payload = {'deadline': past_deadline.isoformat()}
+        past_due_date = timezone.now() - timedelta(days=1)
+        payload = {'due_date': past_due_date.isoformat()}
         response = authenticated_tutor_client.patch(
             f'/api/assignments/{assignment.id}/',
             data=json.dumps(payload),
@@ -429,15 +468,18 @@ class TestAssignmentDeadline:
 class TestAssignmentRetake:
     """T061: Retake handling"""
 
-    def test_allow_retake(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_allow_retake(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Enable retakes for assignment"""
         assignment = Assignment.objects.create(
             title='Retakeable Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
+            instructions='Instructions',
+            type='homework',
             max_score=100,
-            allow_retake=True
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7),
+            attempts_limit=3
         )
 
         # Create first submission
@@ -457,19 +499,21 @@ class TestAssignmentRetake:
         )
         assert response.status_code in [status.HTTP_403_FORBIDDEN, status.HTTP_201_CREATED, status.HTTP_401_UNAUTHORIZED]
 
-    def test_retake_limit(self, authenticated_tutor_client, subject):
+    def test_retake_limit(self, authenticated_tutor_client, tutor_with_profile, subject):
         """Set limit on retakes"""
         assignment = Assignment.objects.create(
             title='Limited Retakes',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
+            instructions='Instructions',
+            type='homework',
             max_score=100,
-            allow_retake=True,
-            max_attempts=3
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7),
+            attempts_limit=3
         )
 
-        payload = {'max_attempts': 3}
+        payload = {'attempts_limit': 3}
         response = authenticated_tutor_client.patch(
             f'/api/assignments/{assignment.id}/',
             data=json.dumps(payload),
@@ -486,9 +530,11 @@ class TestAssignmentValidation:
         payload = {
             'title': 'Invalid Score',
             'description': 'Test',
-            'subject': subject.id,
-            'assignment_type': 'homework',
+            'instructions': 'Instructions',
+            'type': 'homework',
             'max_score': -10,
+            'start_date': timezone.now().isoformat(),
+            'due_date': (timezone.now() + timedelta(days=7)).isoformat(),
         }
         response = authenticated_tutor_client.post(
             '/api/assignments/',
@@ -502,9 +548,11 @@ class TestAssignmentValidation:
         payload = {
             'title': '',
             'description': 'Test',
-            'subject': subject.id,
-            'assignment_type': 'homework',
+            'instructions': 'Instructions',
+            'type': 'homework',
             'max_score': 100,
+            'start_date': timezone.now().isoformat(),
+            'due_date': (timezone.now() + timedelta(days=7)).isoformat(),
         }
         response = authenticated_tutor_client.post(
             '/api/assignments/',
@@ -518,9 +566,11 @@ class TestAssignmentValidation:
         payload = {
             'title': 'Invalid Type',
             'description': 'Test',
-            'subject': subject.id,
-            'assignment_type': 'invalid_type',
+            'instructions': 'Instructions',
+            'type': 'invalid_type',
             'max_score': 100,
+            'start_date': timezone.now().isoformat(),
+            'due_date': (timezone.now() + timedelta(days=7)).isoformat(),
         }
         response = authenticated_tutor_client.post(
             '/api/assignments/',
@@ -533,14 +583,17 @@ class TestAssignmentValidation:
 class TestSubmissionViewing:
     """T065: View submissions"""
 
-    def test_list_submissions(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_list_submissions(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """View all submissions for assignment"""
         assignment = Assignment.objects.create(
             title='Assignment with Submissions',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         # Create submissions
@@ -557,14 +610,17 @@ class TestSubmissionViewing:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
 
-    def test_view_submission_detail(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_view_submission_detail(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """View single submission details"""
         assignment = Assignment.objects.create(
             title='Detailed Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -579,14 +635,17 @@ class TestSubmissionViewing:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
 
-    def test_filter_submissions_by_status(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_filter_submissions_by_status(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Filter submissions by status (pending/graded/late)"""
         assignment = Assignment.objects.create(
             title='Filterable Submissions',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         response = authenticated_tutor_client.get(
@@ -598,14 +657,17 @@ class TestSubmissionViewing:
 class TestGrading:
     """T066: Grade work"""
 
-    def test_grade_submission(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_grade_submission(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Assign score to submission"""
         assignment = Assignment.objects.create(
             title='Scorable Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -623,14 +685,17 @@ class TestGrading:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_grade_exceeds_max_score(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_grade_exceeds_max_score(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Prevent score exceeding max"""
         assignment = Assignment.objects.create(
             title='Limited Score',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -648,14 +713,17 @@ class TestGrading:
         # Should validate or accept
         assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_200_OK, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_mark_as_graded(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_mark_as_graded(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Change submission status to graded"""
         assignment = Assignment.objects.create(
             title='Gradeable',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -677,14 +745,17 @@ class TestGrading:
 class TestFeedback:
     """T067: Add feedback"""
 
-    def test_add_text_feedback(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_add_text_feedback(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Add text comment to submission"""
         assignment = Assignment.objects.create(
             title='Feedbackable',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -704,14 +775,17 @@ class TestFeedback:
         )
         assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_404_NOT_FOUND, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_add_inline_feedback(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_add_inline_feedback(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Add inline comment to specific location"""
         assignment = Assignment.objects.create(
             title='Inline Feedback Assignment',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -736,14 +810,17 @@ class TestFeedback:
 class TestReviewStatus:
     """T068: Mark as reviewed"""
 
-    def test_mark_reviewed(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_mark_reviewed(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Mark submission as reviewed"""
         assignment = Assignment.objects.create(
             title='Reviewable',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -765,15 +842,18 @@ class TestReviewStatus:
 class TestReturnForRevision:
     """T069: Return for revision"""
 
-    def test_return_for_revision(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_return_for_revision(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Mark submission as needing revision"""
         assignment = Assignment.objects.create(
             title='Revisable',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
+            instructions='Instructions',
+            type='homework',
             max_score=100,
-            allow_retake=True
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7),
+            attempts_limit=3
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -798,14 +878,17 @@ class TestReturnForRevision:
 class TestBulkGrading:
     """T070: Bulk grading"""
 
-    def test_bulk_grade_submissions(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_bulk_grade_submissions(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Grade multiple submissions at once"""
         assignment = Assignment.objects.create(
             title='Bulk Gradeable',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submissions = []
@@ -831,14 +914,17 @@ class TestBulkGrading:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_bulk_add_feedback(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_bulk_add_feedback(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Add same feedback to multiple submissions"""
         assignment = Assignment.objects.create(
             title='Bulk Feedback',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submissions = []
@@ -865,14 +951,17 @@ class TestBulkGrading:
 class TestNotifications:
     """T071: Notifications"""
 
-    def test_student_notified_graded(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_student_notified_graded(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Student gets notified when graded"""
         assignment = Assignment.objects.create(
             title='Notifiable',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -891,14 +980,17 @@ class TestNotifications:
         # Should send notification
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND, status.HTTP_405_METHOD_NOT_ALLOWED]
 
-    def test_student_notified_feedback(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_student_notified_feedback(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Student gets notified when feedback added"""
         assignment = Assignment.objects.create(
             title='Feedback Notification',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -920,14 +1012,17 @@ class TestNotifications:
 class TestSubmissionStatus:
     """T072: Submission status"""
 
-    def test_submission_status_pending(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_submission_status_pending(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """View pending submissions"""
         assignment = Assignment.objects.create(
             title='Pending Status',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         response = authenticated_tutor_client.get(
@@ -935,14 +1030,17 @@ class TestSubmissionStatus:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
 
-    def test_submission_status_submitted(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_submission_status_submitted(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """View submitted submissions"""
         assignment = Assignment.objects.create(
             title='Submitted Status',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         AssignmentSubmission.objects.create(
@@ -957,14 +1055,17 @@ class TestSubmissionStatus:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
 
-    def test_submission_status_graded(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_submission_status_graded(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """View graded submissions"""
         assignment = Assignment.objects.create(
             title='Graded Status',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
-            max_score=100
+            instructions='Instructions',
+            type='homework',
+            max_score=100,
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         AssignmentSubmission.objects.create(
@@ -980,16 +1081,18 @@ class TestSubmissionStatus:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
 
-    def test_submission_late_detection(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_submission_late_detection(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """Detect late submissions"""
-        deadline = timezone.now() - timedelta(days=1)
+        due_date = timezone.now() - timedelta(days=1)
         assignment = Assignment.objects.create(
             title='Late Submission',
             description='Test',
-            subject=subject,
-            assignment_type='homework',
+            instructions='Instructions',
+            type='homework',
             max_score=100,
-            deadline=deadline
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=due_date
         )
 
         submission = AssignmentSubmission.objects.create(
@@ -1013,7 +1116,7 @@ class TestSubmissionStatus:
 class TestTutorCabinetIntegration:
     """Integration test: Full workflow"""
 
-    def test_complete_assignment_workflow(self, authenticated_tutor_client, subject, students_with_profiles):
+    def test_complete_assignment_workflow(self, authenticated_tutor_client, tutor_with_profile, subject, students_with_profiles):
         """
         Complete flow:
         1. Create assignment
@@ -1028,10 +1131,12 @@ class TestTutorCabinetIntegration:
         assignment = Assignment.objects.create(
             title='Complete Workflow',
             description='Full cycle test',
-            subject=subject,
-            assignment_type='homework',
+            instructions='Instructions here',
+            type='homework',
             max_score=100,
-            deadline=timezone.now() + timedelta(days=7)
+            author=tutor_with_profile,
+            start_date=timezone.now(),
+            due_date=timezone.now() + timedelta(days=7)
         )
 
         # 2-3. Already created with deadline

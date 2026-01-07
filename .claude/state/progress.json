@@ -1,6 +1,27 @@
 {
   "completed_tasks": [
     {
+      "id": "T037_T055_LESSONS_SCHEDULE",
+      "task": "Fix Lessons & Schedule component (T037-T055) - FULL FIX 100% PASS RATE",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "backend/scheduling/models.py",
+        "backend/scheduling/views.py",
+        "backend/scheduling/services/lesson_service.py"
+      ],
+      "tests": "test_lessons_schedule_t037_t055.py: 33/33 PASSED",
+      "duration_sec": 180,
+      "changes": [
+        "1. Updated Lesson model to accept 'tutor' role in addition to 'teacher'",
+        "2. Added teacher role validation in clean() method",
+        "3. Updated views.create() to allow tutors to create lessons",
+        "4. Fixed check-conflicts endpoint: now accepts duration_minutes parameter, defaults to current user as teacher",
+        "5. Updated lesson_service.py to support tutor role in all methods",
+        "6. Added explicit url_path for check-conflicts @action decorator"
+      ]
+    },
+    {
       "id": "T008_HOTFIX",
       "task": "Fix /api/admin/parents/ list view to return all parents",
       "agent": "coder",
@@ -223,5 +244,114 @@
       "Private fields visibility fixed - 12/12 tests passing",
       "API integration stable - 45/45 comprehensive tests passing"
     ]
+  },
+  "FINAL_TESTING_WAVE_20260107": {
+    "timestamp": "2026-01-07T04:40:00Z",
+    "status": "PARTIAL_FAILURE",
+    "test_wave": "T037-T055 + T056-T072",
+    "lessons_schedule_t037_t055": {
+      "status": "PASSED",
+      "total": 33,
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "verdict": "100% PASS - PRODUCTION READY"
+    },
+    "assignments_grading_t056_t072": {
+      "status": "FAILED",
+      "total": 39,
+      "passed": 1,
+      "failed": 37,
+      "errors": 2,
+      "skipped": 0,
+      "failure_reason": "Test file uses incorrect Assignment model fields",
+      "details": [
+        "Tests use: subject, assignment_type, deadline",
+        "Model uses: type, start_date, due_date, start_date",
+        "Model has no 'subject' field (uses Material/Subject relation)",
+        "Need to rewrite tests to match actual Assignment model schema"
+      ],
+      "issue_file": "backend/tests/tutor_cabinet/test_assignments_and_grading_20260107.py",
+      "action": "HANDOFF to coder for test rewrite"
+    },
+    "summary": {
+      "lessons_schedule": "33/33 PASS (100%) - READY",
+      "assignments_grading": "1/39 PASS - NEEDS REWRITE",
+      "total_pass_rate": "34/72 (47%) - AWAITING FIX",
+      "blocker": "Assignments test schema mismatch"
+    }
+  },
+  "TUTOR_CABINET_ASSIGNMENTS_TEST_FIX_20260107": {
+    "timestamp": "2026-01-07T05:15:00Z",
+    "task_id": "tutor_cabinet_assignments_test_fix_20260107",
+    "status": "COMPLETED",
+    "description": "Fix Assignments test file (test_assignments_and_grading_20260107.py) to match real Assignment model field names",
+    "changes_made": [
+      "Replaced all 'subject' parameter usage with proper tuple structure",
+      "Changed 'assignment_type' → 'type' in all test cases",
+      "Changed 'deadline' → 'due_date' in all test cases",
+      "Changed 'max_points' → 'max_score' in all test cases",
+      "Added required 'instructions' field to all Assignment.objects.create() calls",
+      "Added required 'author' parameter using tutor_with_profile fixture",
+      "Added required 'start_date' and 'due_date' (datetime) fields",
+      "Changed 'allow_retake' → 'attempts_limit' field name",
+      "Changed 'max_attempts' → 'attempts_limit' field name",
+      "Fixed SubjectEnrollment fixture: changed 'tutor' → 'teacher' parameter",
+      "Updated all fixture parameters to include tutor_with_profile where needed",
+      "Fixed payload field names in API test requests (deadline → due_date, etc)"
+    ],
+    "files_modified": [
+      "backend/tests/tutor_cabinet/test_assignments_and_grading_20260107.py"
+    ],
+    "total_test_methods": 39,
+    "test_classes_fixed": 11,
+    "replacements_count": 68,
+    "test_results": {
+      "total_tests": 39,
+      "passed": 22,
+      "failed": 17,
+      "pass_rate": "56.4%",
+      "status": "FIELD_NAMES_FIXED",
+      "notes": "17 failures are due to API endpoint 404s (unrelated to field names). 22 tests pass with correct field names."
+    },
+    "passed_test_groups": [
+      "TestAssignmentDistribution (2/2 pass)",
+      "TestSubmissionViewing (3/3 pass)",
+      "TestGrading (2/3 pass)",
+      "TestFeedback (2/2 pass)",
+      "TestReviewStatus (1/1 pass)",
+      "TestReturnForRevision (1/1 pass)",
+      "TestBulkGrading (2/2 pass)",
+      "TestNotifications (2/2 pass)",
+      "TestSubmissionStatus (4/4 pass)",
+      "TestTutorCabinetIntegration (1/1 pass)"
+    ],
+    "verified": {
+      "syntax": "PASS (py_compile successful)",
+      "field_mapping": "COMPLETE",
+      "fixture_usage": "UPDATED",
+      "runtime_test": "22/39 PASS (Field names correctly mapped)"
+    },
+    "model_fields_reference": {
+      "Assignment_model_fields": {
+        "title": "CharField, required",
+        "description": "TextField, required",
+        "instructions": "TextField, required",
+        "type": "CharField with choices (homework, test, project, essay, practical)",
+        "max_score": "PositiveIntegerField, default=100",
+        "author": "ForeignKey to User, required",
+        "start_date": "DateTimeField, required",
+        "due_date": "DateTimeField, required",
+        "status": "CharField with choices (draft, published, closed)",
+        "attempts_limit": "PositiveIntegerField, default=1",
+        "allow_late_submission": "BooleanField, default=True"
+      },
+      "SubjectEnrollment_fields": {
+        "student": "ForeignKey to User",
+        "subject": "ForeignKey to Subject",
+        "teacher": "ForeignKey to User (NOT tutor)",
+        "status": "CharField with choices"
+      }
+    }
   }
 }

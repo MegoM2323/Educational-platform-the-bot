@@ -116,35 +116,30 @@ def login_view(request):
         # Проверяем аутентификацию через Django
         from django.contrib.auth import authenticate
 
-        # Пытаемся найти локального пользователя по email или username
-        user = None
-        if email:
-            user = User.objects.filter(email=email).first()
-        elif username:
-            user = User.objects.filter(username=username).first()
-
         authenticated_user = None
-        if user:
-            # Попробовать через Django authenticate
-            authenticated_user = authenticate(username=user.username, password=password)
-            # Если не сработало, попробовать check_password как фолбэк
-            if not authenticated_user and user.check_password(password):
-                authenticated_user = user
+
+        if email:
+            logger.debug(f"[login] Authenticating with email: {email}")
+            authenticated_user = authenticate(
+                request, username=email, password=password
+            )
+            if not authenticated_user:
+                logger.debug(f"[login] Email authentication failed for: {email}")
+
+        if not authenticated_user and username:
+            logger.debug(f"[login] Authenticating with username: {username}")
+            authenticated_user = authenticate(
+                request, username=username, password=password
+            )
+            if not authenticated_user:
+                logger.debug(f"[login] Username authentication failed for: {username}")
 
         if not authenticated_user:
-            # Логируем неудачную попытку входа (пользователь не найден или пароль неверен)
-            if not user:
-                logger.warning(
-                    f"[login] FAILED - identifier: {identifier}, "
-                    f"reason: user_not_found, ip: {ip_address}, "
-                    f"timestamp: {timestamp}"
-                )
-            else:
-                logger.warning(
-                    f"[login] FAILED - email: {user.email}, "
-                    f"reason: invalid_credentials, ip: {ip_address}, "
-                    f"timestamp: {timestamp}"
-                )
+            logger.warning(
+                f"[login] FAILED - identifier: {identifier}, "
+                f"reason: invalid_credentials, ip: {ip_address}, "
+                f"timestamp: {timestamp}"
+            )
             return Response(
                 {"success": False, "error": "Неверные учетные данные"},
                 status=status.HTTP_401_UNAUTHORIZED,

@@ -171,16 +171,18 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
             return None
         try:
             user = User.objects.get(id=value, role="student")
-        except User.DoesNotExist:
+        except (User.DoesNotExist, ValueError):
             raise serializers.ValidationError("Student not found")
         return value
 
     def validate_subject(self, value):
         """Validate subject exists."""
+        if value is None:
+            return value
         try:
             get_subject_model().objects.get(id=value)
-        except get_subject_model().DoesNotExist:
-            raise serializers.ValidationError("Subject not found")
+        except (get_subject_model().DoesNotExist, ValueError):
+            raise serializers.ValidationError("Subject not found or invalid ID")
         return value
 
     def validate(self, data):
@@ -282,6 +284,51 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
             raise serializers.ValidationError("Subject not found")
         return value
 
+    def to_internal_value(self, data):
+        """Convert IDs to objects for service layer."""
+        ret = super().to_internal_value(data)
+
+        # Convert student_id to student object
+        if "student_id" in ret:
+            student_id = ret.pop("student_id")
+            if student_id is not None:
+                try:
+                    ret["student"] = User.objects.get(id=student_id, role="student")
+                except User.DoesNotExist:
+                    raise serializers.ValidationError(
+                        {"student_id": "Student not found"}
+                    )
+            else:
+                ret["student"] = None
+
+        # Convert teacher_id to teacher object
+        if "teacher_id" in ret:
+            teacher_id = ret.pop("teacher_id")
+            if teacher_id is not None:
+                try:
+                    ret["teacher"] = User.objects.get(id=teacher_id, role="teacher")
+                except User.DoesNotExist:
+                    raise serializers.ValidationError(
+                        {"teacher_id": "Teacher not found"}
+                    )
+            else:
+                ret["teacher"] = None
+
+        # Convert subject_id to subject object
+        if "subject_id" in ret:
+            subject_id = ret.pop("subject_id")
+            if subject_id is not None:
+                try:
+                    ret["subject"] = get_subject_model().objects.get(id=subject_id)
+                except get_subject_model().DoesNotExist:
+                    raise serializers.ValidationError(
+                        {"subject_id": "Subject not found"}
+                    )
+            else:
+                ret["subject"] = None
+
+        return ret
+
     def validate(self, data):
         """Validate update data."""
         # Validate time range if both provided
@@ -298,36 +345,46 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
                     {"date": "Cannot set lesson to the past"}
                 )
 
-        # Check for time conflicts if date/time changed
-        if any(field in data for field in ["date", "start_time", "end_time"]):
+        # Get lesson from context for conflict checking
+        lesson = self.context.get("lesson")
+        if not lesson:
+            # Only needed if checking conflicts
+            if any(
+                field in data for field in ["date", "start_time", "end_time", "student"]
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "non_field_errors": "Lesson context is required for conflict validation"
+                    }
+                )
+        else:
             from scheduling.services.lesson_service import LessonService
             from django.core.exceptions import ValidationError as DjangoValidationError
 
-            # Get lesson from context (set in view) - обязательно для проверки конфликтов
-            lesson = self.context.get("lesson")
-            if not lesson:
-                raise serializers.ValidationError(
-                    {
-                        "non_field_errors": "Lesson context is required for time conflict validation"
-                    }
-                )
+            # Check for conflicts if date/time changed OR student changed
+            should_check_conflicts = any(
+                field in data for field in ["date", "start_time", "end_time", "student"]
+            )
 
-            # Use updated or existing values
-            check_date = data.get("date", lesson.date)
-            check_start = data.get("start_time", lesson.start_time)
-            check_end = data.get("end_time", lesson.end_time)
+            if should_check_conflicts:
+                # Use updated or existing values
+                check_date = data.get("date", lesson.date)
+                check_start = data.get("start_time", lesson.start_time)
+                check_end = data.get("end_time", lesson.end_time)
+                # Use the new student if being changed, otherwise use existing
+                check_student = data.get("student", lesson.student)
 
-            try:
-                LessonService._check_time_conflicts(
-                    date=check_date,
-                    start_time=check_start,
-                    end_time=check_end,
-                    teacher=lesson.teacher,
-                    student=lesson.student,
-                    exclude_lesson_id=lesson.id,
-                )
-            except DjangoValidationError as e:
-                raise serializers.ValidationError({"non_field_errors": str(e)})
+                try:
+                    LessonService._check_time_conflicts(
+                        date=check_date,
+                        start_time=check_start,
+                        end_time=check_end,
+                        teacher=lesson.teacher,
+                        student=check_student,
+                        exclude_lesson_id=lesson.id,
+                    )
+                except DjangoValidationError as e:
+                    raise serializers.ValidationError({"non_field_errors": str(e)})
 
         return data
 

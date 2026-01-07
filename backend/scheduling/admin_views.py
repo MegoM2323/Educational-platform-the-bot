@@ -312,9 +312,10 @@ def admin_create_lesson_view(request):
             telemost_link=telemost_link,
         )
 
+        student_info = f"student {student.id}" if student else "no student assigned"
         logger.info(
             f"[admin_create_lesson] Admin {request.user.id} created lesson {lesson.id} "
-            f"for teacher {teacher.id} and student {student.id}"
+            f"for teacher {teacher.id} and {student_info}"
         )
 
         # Serialize and return

@@ -64,21 +64,27 @@ class LessonViewSet(viewsets.ModelViewSet):
         if user.role == UserModel.Role.TEACHER:
             queryset = Lesson.objects.filter(teacher=user)
         elif user.role == UserModel.Role.STUDENT:
-            queryset = Lesson.objects.filter(student=user)
+            queryset = Lesson.objects.filter(
+                student=user, status__in=["pending", "confirmed"]
+            )
         elif user.role == UserModel.Role.TUTOR:
             from accounts.models import StudentProfile
 
             student_ids = StudentProfile.objects.filter(tutor=user).values_list(
                 "user_id", flat=True
             )
-            queryset = Lesson.objects.filter(student_id__in=student_ids)
+            queryset = Lesson.objects.filter(
+                student_id__in=student_ids, status__in=["pending", "confirmed"]
+            )
         elif user.role == UserModel.Role.PARENT:
             from accounts.models import StudentProfile
 
             children_ids = StudentProfile.objects.filter(parent=user).values_list(
                 "user_id", flat=True
             )
-            queryset = Lesson.objects.filter(student_id__in=children_ids)
+            queryset = Lesson.objects.filter(
+                student_id__in=children_ids, status__in=["pending", "confirmed"]
+            )
         elif user.is_staff or user.is_superuser:
             # Admins see all lessons
             queryset = Lesson.objects.all()

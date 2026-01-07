@@ -72,6 +72,14 @@ docs/_build/
 # PyBuilder
 target/
 
+#castom
+.claude/
+.mypy_cache/
+.pytest_cache/
+logs/
+test-results/
+venv/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

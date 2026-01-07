@@ -1,4 +1,54 @@
 {
+  "T003_TUTOR_PARENT_LESSON_VISIBILITY": {
+    "timestamp": "2026-01-07T21:16:25.023185+00:00Z",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Fix lesson visibility for TUTOR and PARENT roles in LessonViewSet.get_queryset()",
+    "files": [
+      "backend/scheduling/views.py"
+    ],
+    "duration_sec": 5,
+    "changes": {
+      "file": "backend/scheduling/views.py",
+      "lines": [
+        74,
+        81
+      ],
+      "modifications": [
+        {
+          "role": "TUTOR",
+          "line": 74,
+          "old": "queryset = Lesson.objects.filter(student_id__in=student_ids)",
+          "new": "queryset = Lesson.objects.filter(student_id__in=student_ids, status__in=[\"pending\", \"confirmed\"])",
+          "reason": "Tutors should only see pending (new) and confirmed lessons for their students"
+        },
+        {
+          "role": "PARENT",
+          "line": 81,
+          "old": "queryset = Lesson.objects.filter(student_id__in=children_ids)",
+          "new": "queryset = Lesson.objects.filter(student_id__in=children_ids, status__in=[\"pending\", \"confirmed\"])",
+          "reason": "Parents should only see pending (new) and confirmed lessons for their children"
+        }
+      ]
+    }
+  },
+  "T001_STUDENT_LESSON_VISIBILITY": {
+    "timestamp": "2026-01-08T00:15:52.912275Z",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Fix lesson visibility for STUDENT role in LessonViewSet.get_queryset()",
+    "files": [
+      "backend/scheduling/views.py"
+    ],
+    "duration_sec": 2,
+    "changes": {
+      "file": "backend/scheduling/views.py",
+      "line": 67,
+      "old": "queryset = Lesson.objects.filter(student=user)",
+      "new": "queryset = Lesson.objects.filter(student=user, status__in=[\"pending\", \"confirmed\"])",
+      "reason": "Students should only see pending (new) and confirmed lessons, not completed or cancelled ones"
+    }
+  },
   "AVAILABLE_CONTACTS_VIEW_TESTS_20260107": {
     "timestamp": "2026-01-07T16:10:00Z",
     "status": "COMPLETED",
@@ -62,7 +112,9 @@
     "task": "Fix IDOR vulnerability in MessageViewSet - create message endpoint",
     "severity": "HIGH",
     "vulnerability_type": "IDOR (Insecure Direct Object Reference)",
-    "files_modified": ["backend/chat/views.py"],
+    "files_modified": [
+      "backend/chat/views.py"
+    ],
     "changes": {
       "imports": {
         "added_logging": "import logging at module level",
@@ -102,7 +154,9 @@
     "status": "COMPLETED",
     "task": "Verify and enhance teacher addition to forum participants in signals",
     "severity": "MEDIUM",
-    "files_modified": ["backend/chat/signals.py"],
+    "files_modified": [
+      "backend/chat/signals.py"
+    ],
     "lines_modified": {
       "forum_subject_creation": {
         "start": 85,
@@ -151,7 +205,9 @@
     "status": "COMPLETED",
     "task": "Fix HTTP 500 error handling in AvailableContactsView.get() method",
     "severity": "MEDIUM",
-    "files_modified": ["backend/chat/forum_views.py"],
+    "files_modified": [
+      "backend/chat/forum_views.py"
+    ],
     "lines_modified": {
       "except_block": {
         "start": 1625,
@@ -182,7 +238,9 @@
     "task": "Fix authentication logic order in login_view() - check is_active before password validation",
     "severity": "HIGH",
     "security_issue": true,
-    "files_modified": ["backend/accounts/views.py"],
+    "files_modified": [
+      "backend/accounts/views.py"
+    ],
     "lines_modified": {
       "login_view_function": {
         "start": 114,
@@ -343,7 +401,11 @@
         },
         "task_2_assignment_crud": {
           "test_file": "backend/tests/tutor_cabinet/test_assignments_and_grading_20260107.py",
-          "test_suites": ["TestAssignmentCreation", "TestAssignmentEditing", "TestAssignmentDeletion"],
+          "test_suites": [
+            "TestAssignmentCreation",
+            "TestAssignmentEditing",
+            "TestAssignmentDeletion"
+          ],
           "keywords_used": "-k 'create or edit or delete'",
           "tests_run": 9,
           "passed": 8,
@@ -505,7 +567,9 @@
     "task": "Fix PEP8 import organization in login_view - move imports from function to top of file",
     "severity": "LOW",
     "issue_type": "Code quality - PEP8 violation",
-    "files_modified": ["backend/accounts/views.py"],
+    "files_modified": [
+      "backend/accounts/views.py"
+    ],
     "lines_modified": {
       "top_imports": {
         "line": 14,
@@ -539,7 +603,9 @@
     "status": "COMPLETED",
     "task": "Fix datetime JSON serialization issue in AssignmentHistory signals",
     "severity": "HIGH",
-    "files_modified": ["backend/assignments/signals/history.py"],
+    "files_modified": [
+      "backend/assignments/signals/history.py"
+    ],
     "problem_description": "Django JSONField cannot serialize datetime objects directly. When editing assignment deadlines, history record creation failed with: TypeError: Object of type datetime is not JSON serializable",
     "solution": {
       "implementation": "Added serialize_changes() utility function to recursively convert non-JSON-serializable objects to strings",
@@ -608,7 +674,9 @@
     "task": "Fix N+1 queries issue in assignments ViewSets - optimize get_queryset() methods",
     "severity": "MEDIUM",
     "issue_type": "Performance optimization - Database query optimization",
-    "files_modified": ["backend/assignments/views_main.py"],
+    "files_modified": [
+      "backend/assignments/views_main.py"
+    ],
     "problem_description": "Multiple ViewSet get_queryset() methods were missing select_related() and prefetch_related() calls, causing N+1 query issues when accessing ForeignKey and ManyToMany relationships",
     "solution": {
       "implementation": "Added select_related() and prefetch_related() calls to all ViewSet get_queryset() methods",
@@ -831,7 +899,10 @@
       "issue_4_basename": {
         "file": "backend/assignments/urls.py",
         "line": "8-9",
-        "added": ["basename='submission'", "basename='question'"],
+        "added": [
+          "basename='submission'",
+          "basename='question'"
+        ],
         "reason": "Router registration needs basename for proper URL reversal"
       }
     },
@@ -864,7 +935,9 @@
     "status": "COMPLETED",
     "task": "Fix HTTP 500 in /api/chat/available-contacts/ - RelatedObjectDoesNotExist on student_profile access",
     "severity": "MEDIUM",
-    "files_modified": ["backend/chat/forum_views.py"],
+    "files_modified": [
+      "backend/chat/forum_views.py"
+    ],
     "lines_modified": {
       "teacher_role_logic": {
         "start": 1514,
@@ -1004,7 +1077,9 @@
     "task": "Simplify student_profile handling in AvailableContactsView - use getattr instead of try/except",
     "severity": "LOW",
     "issue_type": "Code simplification - error handling improvement",
-    "files_modified": ["backend/chat/forum_views.py"],
+    "files_modified": [
+      "backend/chat/forum_views.py"
+    ],
     "problem_description": "Previous implementation used try/except for StudentProfile.DoesNotExist, but select_related('student__student_profile') makes LEFT JOIN which can still raise RelatedObjectDoesNotExist on direct attribute access. Using getattr() is cleaner and more Pythonic.",
     "solution": {
       "implementation": "Replaced try/except block with getattr() for safe attribute access",
@@ -1062,11 +1137,11 @@
       {
         "name": "test_student_new_chat_loads_contacts",
         "class": "TestChatFlowNewChat",
-        "description": "Student → Forum → 'Новый чат' loads teacher contacts",
+        "description": "Student \u2192 Forum \u2192 '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' loads teacher contacts",
         "verifications": [
           "Student can login with email/password",
           "Student can navigate to /dashboard/student/forum",
-          "Clicking 'Новый чат' button triggers contact list load",
+          "Clicking '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' button triggers contact list load",
           "Contact list has items with data-testid='contact-item'",
           "Teachers are displayed in contacts"
         ]
@@ -1074,11 +1149,11 @@
       {
         "name": "test_teacher_new_chat_loads_student_contacts",
         "class": "TestChatFlowNewChat",
-        "description": "Teacher → Forum → 'Новый чат' loads student contacts",
+        "description": "Teacher \u2192 Forum \u2192 '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' loads student contacts",
         "verifications": [
           "Teacher can login with email/password",
           "Teacher can navigate to /dashboard/teacher/forum",
-          "Clicking 'Новый чат' button triggers student contact list load",
+          "Clicking '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' button triggers student contact list load",
           "Contact list has items with proper structure",
           "Students are displayed in contacts"
         ]
@@ -1117,7 +1192,7 @@
         "description": "Available contacts endpoint returns HTTP 200, not HTTP 500",
         "verifications": [
           "Network response tracking is enabled",
-          "Clicking 'Новый чат' triggers /api/chat/available-contacts/ request",
+          "Clicking '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' triggers /api/chat/available-contacts/ request",
           "Request returns HTTP 200 (not 500)",
           "No HTTP 500 errors during contact loading"
         ]
@@ -1125,9 +1200,9 @@
       {
         "name": "test_new_chat_button_visible_in_forum",
         "class": "TestChatUIElements",
-        "description": "'Новый чат' button is visible and clickable in forum",
+        "description": "'\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' button is visible and clickable in forum",
         "verifications": [
-          "Button with text 'Новый чат' or 'New Chat' is visible",
+          "Button with text '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' or 'New Chat' is visible",
           "Button is enabled and clickable"
         ]
       },
@@ -1144,13 +1219,13 @@
     ],
     "test_selectors_used": {
       "login_form": "input[name='email'], input[name='password'], button[type='submit']",
-      "new_chat_button": "button:has-text('Новый чат'), button:has-text('New Chat')",
+      "new_chat_button": "button:has-text('\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442'), button:has-text('New Chat')",
       "contact_item": "[data-testid='contact-item']",
       "contact_name": "[data-testid='contact-name']",
-      "message_input": "textarea[placeholder*='сообщение'], textarea[placeholder*='message']",
-      "send_button": "button[aria-label='Send'], button:has-text('Send'), button:has-text('Отправить')",
+      "message_input": "textarea[placeholder*='\u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435'], textarea[placeholder*='message']",
+      "send_button": "button[aria-label='Send'], button:has-text('Send'), button:has-text('\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c')",
       "chat_item": "[data-testid='chat-item']",
-      "create_chat_button": "button:has-text('Начать чат'), button:has-text('Create Chat')"
+      "create_chat_button": "button:has-text('\u041d\u0430\u0447\u0430\u0442\u044c \u0447\u0430\u0442'), button:has-text('Create Chat')"
     },
     "test_credentials": {
       "student_email": "student@test.com",
@@ -1166,12 +1241,12 @@
       "fixture_location": "backend/tests/conftest.py"
     },
     "test_coverage": [
-      "Student → Forum → New Chat flow (contacts loading)",
-      "Teacher → Forum → New Chat flow (student contacts loading)",
+      "Student \u2192 Forum \u2192 New Chat flow (contacts loading)",
+      "Teacher \u2192 Forum \u2192 New Chat flow (student contacts loading)",
       "Chat creation between student and teacher",
-      "Real-time message sending (student → teacher)",
+      "Real-time message sending (student \u2192 teacher)",
       "Real-time message receiving (teacher perspective)",
-      "Real-time reply sending (teacher → student)",
+      "Real-time reply sending (teacher \u2192 student)",
       "Real-time reply receiving (student perspective)",
       "Message persistence after page reload",
       "HTTP 200 response verification (not 500 errors)",
@@ -1206,7 +1281,7 @@
           "issue": "HTTP 500 in /api/chat/available-contacts/",
           "error_type": "django.db.transaction.TransactionManagementError",
           "message": "An error occurred in the current transaction. You can't execute queries until the end of the 'atomic' block.",
-          "affected_functionality": "Contact loading for 'Новый чат' (New Chat) dialog",
+          "affected_functionality": "Contact loading for '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' (New Chat) dialog",
           "impact": "Tests cannot proceed - contacts cannot be loaded, preventing chat creation",
           "appears_in": "Test 1, Test 2, Test 5"
         }
@@ -1214,7 +1289,7 @@
       "manual_execution_results": {
         "login": "PASS - Student login successful (student@test.com/SecurePass2026)",
         "navigation": "PASS - Student can navigate to /dashboard/student/forum",
-        "ui_elements": "PASS - 'Новый чат' button is visible and clickable",
+        "ui_elements": "PASS - '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' button is visible and clickable",
         "contact_dialog": "PASS - Dialog opens successfully",
         "contact_loading": "FAIL - HTTP 500 error when loading available contacts"
       },
@@ -1225,12 +1300,12 @@
         "All 7 tests updated with correct selectors and URLs"
       ],
       "tests_written": [
-        "test_student_new_chat_loads_contacts: Tests student → forum → new chat flow",
-        "test_teacher_new_chat_loads_student_contacts: Tests teacher → forum → new chat flow",
+        "test_student_new_chat_loads_contacts: Tests student \u2192 forum \u2192 new chat flow",
+        "test_teacher_new_chat_loads_student_contacts: Tests teacher \u2192 forum \u2192 new chat flow",
         "test_create_chat_and_send_message_student_to_teacher: Tests real-time messaging between student and teacher",
         "test_chat_persistence_after_reload: Tests message persistence after page reload",
         "test_available_contacts_returns_http_200_not_500: Tests HTTP status code for contacts endpoint",
-        "test_new_chat_button_visible_in_forum: Tests 'Новый чат' button visibility",
+        "test_new_chat_button_visible_in_forum: Tests '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' button visibility",
         "test_contact_list_has_proper_structure: Tests contact list HTML structure with data-testid"
       ],
       "browser_setup": "Playwright Chromium installed and configured successfully",
@@ -1248,7 +1323,9 @@
     "task": "Fix TransactionManagementError in AvailableContactsView.get() - wrap _build_contact_to_chat_mapping() call with safe error handling",
     "severity": "HIGH",
     "issue_type": "Database transaction error - TransactionManagementError on contact loading",
-    "files_modified": ["backend/chat/forum_views.py"],
+    "files_modified": [
+      "backend/chat/forum_views.py"
+    ],
     "problem_description": "When SQL query in _build_contact_to_chat_mapping() failed, it broke the transaction scope. Method AvailableContactsView.get() had try-except but the helper method didn't have proper error handling, causing 'An error occurred in the current transaction' error when contacts were being loaded.",
     "solution": {
       "implementation": "Wrapped both the helper method and its call with defensive error handling",
@@ -1341,7 +1418,7 @@
           "Fill email and password - OK",
           "Click login button - OK",
           "Redirect to /dashboard/student - OK",
-          "Success notification: 'Вход выполнен успешно!' - OK",
+          "Success notification: '\u0412\u0445\u043e\u0434 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d \u0443\u0441\u043f\u0435\u0448\u043d\u043e!' - OK",
           "Dashboard loads with sidebar navigation - OK"
         ]
       },
@@ -1349,18 +1426,18 @@
         "name": "Navigate to forum page",
         "status": "PASS",
         "details": [
-          "Click 'Форум' link in sidebar - OK",
+          "Click '\u0424\u043e\u0440\u0443\u043c' link in sidebar - OK",
           "URL changes to /dashboard/student/forum - OK",
           "Forum page loads - OK",
-          "'Новый чат' (New Chat) button visible and clickable - OK"
+          "'\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' (New Chat) button visible and clickable - OK"
         ]
       },
       "test_3_click_new_chat_button": {
-        "name": "Click 'Новый чат' button to load available contacts",
+        "name": "Click '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' button to load available contacts",
         "status": "FAIL",
         "error": "HTTP 500 Internal Server Error",
         "details": [
-          "Dialog opens: 'Начать новый чат' (Start new chat) - OK",
+          "Dialog opens: '\u041d\u0430\u0447\u0430\u0442\u044c \u043d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' (Start new chat) - OK",
           "API call: GET /api/chat/available-contacts/ - FAIL (HTTP 500)",
           "Error message in browser console: '[forumAPI] getAvailableContacts error: HTTP 500: Internal Server Error'",
           "Contact list does not load - NO CONTACTS DISPLAYED",
@@ -1394,7 +1471,7 @@
         "endpoint": "GET /api/chat/available-contacts/",
         "status": "HTTP 500 Internal Server Error",
         "result": "FAIL",
-        "impact": "Cannot load contacts for 'Новый чат' dialog - CRITICAL",
+        "impact": "Cannot load contacts for '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' dialog - CRITICAL",
         "attempts_made": 15,
         "all_attempts_failed": true
       },
@@ -1467,6 +1544,217 @@
       "test_status": "TESTS UNABLE TO COMPLETE - Backend infrastructure failure prevents testing"
     }
   },
+  "WEBSOCKET_NOTIFICATION_CONSUMER_ERROR_HANDLING_TESTS_20260108": {
+    "timestamp": "2026-01-08T01:30:00Z",
+    "status": "COMPLETED",
+    "task": "Write comprehensive unit tests for WebSocket error handling in NotificationConsumer",
+    "test_file": "backend/notifications/tests/test_notifications_consumer_errors.py",
+    "test_framework": "pytest with pytest-asyncio and channels.testing",
+    "description": "Comprehensive test suite for NotificationConsumer error handling covering unauthenticated users, successful connections, group management errors, disconnect safety, and database errors",
+    "test_execution": {
+      "total_tests": 23,
+      "passed": 23,
+      "failed": 0,
+      "pass_rate": "100%",
+      "execution_time": "14.74s"
+    },
+    "test_classes": [
+      "TestNotificationConsumerErrors (14 tests)",
+      "TestNotificationConsumerEdgeCases (3 tests)",
+      "TestNotificationConsumerPermissions (3 tests)",
+      "TestNotificationConsumerGroupManagement (3 tests)"
+    ],
+    "tests_implemented": [
+      {
+        "name": "test_connect_with_unauthenticated_user",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Verifies that unauthenticated users (AnonymousUser) cannot connect to WebSocket"
+      },
+      {
+        "name": "test_connect_success_sends_unread_notifications",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Tests that authenticated users can create unread notifications in database"
+      },
+      {
+        "name": "test_connect_with_group_add_failure",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Mocks channel_layer.group_add() to raise exception and verifies error handling"
+      },
+      {
+        "name": "test_connect_with_accept_failure",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Mocks accept() to raise exception and verifies graceful error handling"
+      },
+      {
+        "name": "test_disconnect_after_failed_connect",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Verifies disconnect() safely handles case when connect() failed to initialize attributes"
+      },
+      {
+        "name": "test_receive_with_invalid_json",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Tests receive() method properly handles invalid JSON from client"
+      },
+      {
+        "name": "test_send_unread_notifications_with_db_error",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Mocks database error in send_unread_notifications() and verifies error message sent to client"
+      },
+      {
+        "name": "test_receive_marks_as_read_action",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Tests mark_as_read action in receive() method"
+      },
+      {
+        "name": "test_receive_delete_action",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Tests delete action in receive() method"
+      },
+      {
+        "name": "test_receive_archive_action",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Tests archive action in receive() method"
+      },
+      {
+        "name": "test_receive_unknown_action",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Tests handling of unknown action in receive() method"
+      },
+      {
+        "name": "test_notification_consumer_logging_on_connect",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Verifies connection attempts are properly logged"
+      },
+      {
+        "name": "test_notification_consumer_logging_on_disconnect",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Verifies disconnections are properly logged with user ID and close code"
+      },
+      {
+        "name": "test_notification_consumer_logging_on_error",
+        "class": "TestNotificationConsumerErrors",
+        "status": "PASSED",
+        "description": "Verifies all error paths include proper logging with exc_info"
+      },
+      {
+        "name": "test_multiple_users_receive_own_notifications",
+        "class": "TestNotificationConsumerEdgeCases",
+        "status": "PASSED",
+        "description": "Tests that different users only receive their own notifications"
+      },
+      {
+        "name": "test_concurrent_connections_same_user",
+        "class": "TestNotificationConsumerEdgeCases",
+        "status": "PASSED",
+        "description": "Tests that same user can have multiple concurrent connections"
+      },
+      {
+        "name": "test_notification_sent_to_already_connected_user",
+        "class": "TestNotificationConsumerEdgeCases",
+        "status": "PASSED",
+        "description": "Tests that new notifications reach already-connected users"
+      },
+      {
+        "name": "test_cannot_mark_other_users_notification_as_read",
+        "class": "TestNotificationConsumerPermissions",
+        "status": "PASSED",
+        "description": "Verifies user cannot modify other user's notifications"
+      },
+      {
+        "name": "test_cannot_delete_other_users_notification",
+        "class": "TestNotificationConsumerPermissions",
+        "status": "PASSED",
+        "description": "Verifies user cannot delete other user's notifications"
+      },
+      {
+        "name": "test_cannot_archive_other_users_notification",
+        "class": "TestNotificationConsumerPermissions",
+        "status": "PASSED",
+        "description": "Verifies user cannot archive other user's notifications"
+      },
+      {
+        "name": "test_user_added_to_correct_group",
+        "class": "TestNotificationConsumerGroupManagement",
+        "status": "PASSED",
+        "description": "Verifies user is added to correct group format (notifications_user_{id})"
+      },
+      {
+        "name": "test_user_removed_from_group_on_disconnect",
+        "class": "TestNotificationConsumerGroupManagement",
+        "status": "PASSED",
+        "description": "Verifies user is removed from group on disconnect"
+      },
+      {
+        "name": "test_group_discard_handles_missing_group",
+        "class": "TestNotificationConsumerGroupManagement",
+        "status": "PASSED",
+        "description": "Tests that group_discard doesn't crash if group doesn't exist"
+      }
+    ],
+    "test_coverage": [
+      "Unauthenticated user rejection with proper WebSocket closure",
+      "Successful authenticated connection with unread notification handling",
+      "Group add() failure handling with graceful error recovery",
+      "Accept() failure handling with error message dispatch",
+      "Disconnect safety when connect() fails partway through",
+      "Invalid JSON in receive() with error response",
+      "Database errors in send_unread_notifications() with error message",
+      "All CRUD actions (mark_as_read, delete, archive) on notifications",
+      "Proper logging at connection, disconnection, and error stages",
+      "Multi-user isolation - users only see their own notifications",
+      "Concurrent connections from same user",
+      "New notifications reaching already-connected users",
+      "Permission enforcement - users cannot modify other users' notifications",
+      "Group management - user added/removed from group correctly"
+    ],
+    "mocking_strategy": [
+      "AsyncMock for channel_layer.group_add() to simulate Redis failures",
+      "MagicMock for send() to track error messages sent to client",
+      "Database fixtures with UserFactory for consistent test data",
+      "AnonymousUser for unauthenticated test scenarios",
+      "Patching of get_unread_notifications() to simulate DB errors"
+    ],
+    "test_data_setup": [
+      "UserFactory with email, username, first_name, last_name",
+      "Notification model with recipient, title, message, is_read status",
+      "Multiple user instances for permission and isolation tests"
+    ],
+    "code_quality": {
+      "pytest_fixtures": "Used for proper test isolation with TransactionTestCase",
+      "async_handling": "pytest-asyncio for async test functions",
+      "naming_convention": "Clear test_{functionality}_{scenario} naming",
+      "no_verbose_output": "Tests run cleanly without debug statements",
+      "mock_usage": "Appropriate mocking without over-mocking dependencies",
+      "error_handling": "Comprehensive error path testing"
+    },
+    "integration_points": [
+      "channels.testing.WebsocketCommunicator for full consumer testing",
+      "Django ORM for database persistence testing",
+      "asyncio with pytest-asyncio for proper async/await handling",
+      "Channel layer mocking for group operations"
+    ],
+    "notes": [
+      "All 23 tests PASS without failures",
+      "Tests use TransactionTestCase for database isolation",
+      "Async tests properly use AsyncMock for async operations",
+      "Permission tests verify isolation between different users",
+      "Error handling tests verify graceful degradation and logging",
+      "Group management tests verify proper channel_layer usage"
+    ]
+  },
   "E2E_FINAL_EXECUTION_RESULT_20260108": {
     "timestamp": "2026-01-08T00:30:00Z",
     "status": "BLOCKED_BY_BACKEND_ERROR",
@@ -1474,11 +1762,11 @@
     "test_execution_datetime": "2026-01-08T00:30:00Z",
     "result_summary": {
       "critical_test_status": "FAILED - HTTP 500",
-      "critical_test_name": "Получить контакты (главная ошибка)",
+      "critical_test_name": "\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043a\u043e\u043d\u0442\u0430\u043a\u0442\u044b (\u0433\u043b\u0430\u0432\u043d\u0430\u044f \u043e\u0448\u0438\u0431\u043a\u0430)",
       "critical_test_steps": [
         "1. Login on https://the-bot.ru - PASS",
         "2. Navigate /dashboard/student/forum - PASS",
-        "3. Click 'Новый чат' button - PASS (dialog opens)",
+        "3. Click '\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442' button - PASS (dialog opens)",
         "4. Verify contacts load (HTTP 200) - FAIL (HTTP 500)"
       ],
       "verification_results": {
@@ -1529,6 +1817,613 @@
         "Restart backend services if configuration issues found",
         "Re-run E2E tests after fixes applied"
       ]
+    }
+  },
+  "WEBSOCKET_NOTIFICATION_CONSUMER_ERROR_HANDLING_20260108": {
+    "timestamp": "2026-01-08T01:00:00Z",
+    "status": "COMPLETED",
+    "task": "Fix WebSocket HTTP 500 error in NotificationConsumer.connect() - add comprehensive error handling",
+    "severity": "HIGH",
+    "issue_type": "WebSocket consumer error handling",
+    "files_modified": [
+      "backend/notifications/consumers.py"
+    ],
+    "problem_description": "NotificationConsumer.connect() method had no error handling. If exceptions occurred in group_add(), accept(), or send_unread_notifications(), clients would receive HTTP 500 instead of proper WebSocket connection closure with error message.",
+    "solution": {
+      "implementation": "Added comprehensive try-except error handling with proper logging and client notification",
+      "changes": [
+        "1. Initialize self.user_group_name = None at method start for safe disconnect handling",
+        "2. Wrap entire connect() logic in try-except-Exception block (lines 30-63)",
+        "3. Log errors with exc_info=True for full traceback (line 64-68)",
+        "4. Send JSON error message to client (lines 71-72)",
+        "5. Close connection with code 1011 (server error) (line 78)",
+        "6. Updated disconnect() to safely handle None user_group_name using getattr()",
+        "7. Updated disconnect() to safely handle None user using getattr()",
+        "8. Added error handling to send_unread_notifications() with try-except block",
+        "9. All exception handlers have nested try-except to prevent double failures"
+      ]
+    },
+    "code_changes": {
+      "connect_method": {
+        "lines": "26-80",
+        "initialization": "self.user_group_name = None (line 28) - prevents error in disconnect if connect fails",
+        "try_block": "Lines 30-63 - all connection logic",
+        "except_block": "Lines 65-80 - comprehensive error handling with 3 fallback blocks",
+        "logging": "logger.error with exc_info=True (line 64-68)",
+        "client_notification": "await self.send(json error) (lines 71-72) with fallback try-except",
+        "connection_closure": "await self.close(code=1011) (line 78) with fallback try-except"
+      },
+      "disconnect_method": {
+        "lines": "82-101",
+        "safe_group_discard": "getattr(self, 'user_group_name', None) - prevents AttributeError",
+        "conditional_discard": "Only discard if user_group_name is not None",
+        "safe_user_access": "getattr(self, 'user', None) - prevents AttributeError",
+        "conditional_logging": "Log different message if user not set (connection failed early)"
+      },
+      "send_unread_notifications_method": {
+        "lines": "194-224",
+        "try_block": "Lines 195-211 - database query and client send",
+        "except_block": "Lines 212-223 - error logging with exc_info=True and safe client notification",
+        "fallback": "except Exception: pass - prevents double failures on send"
+      }
+    },
+    "error_handling_hierarchy": {
+      "level_1_connect_try_except": "Outer try-except in connect() catches all exceptions from group_add(), accept(), send_unread_notifications()",
+      "level_2_nested_try_except": "Inner try-except blocks prevent send/close failures from breaking error handling",
+      "level_3_disconnect_safety": "disconnect() uses getattr() to safely access potentially uninitialized attributes",
+      "result": "Guaranteed client receives proper WebSocket close with code 1011, not HTTP 500"
+    },
+    "websocket_codes": {
+      "1000": "Normal closure (not used here)",
+      "1011": "Server error - indicates unrecoverable error on server (used for exception handling)",
+      "1012": "Service restart - not applicable",
+      "other_codes": "Not used in this implementation"
+    },
+    "logging_pattern": {
+      "connect_error": "logger.error('[NotificationConsumer] Error during connection: {exception}', exc_info=True)",
+      "unread_notifications_error": "logger.error('[NotificationConsumer] Error sending unread notifications: {exception}', exc_info=True)",
+      "disconnect_info": "logger.info('[NotificationConsumer] User disconnected: user_id={id}, close_code={code}')"
+    },
+    "test_scenarios_covered": [
+      "1. Group add fails (redis connection error) - caught, logged, client receives error JSON + close 1011",
+      "2. Accept fails (channel layer unavailable) - caught, logged, client receives error JSON + close 1011",
+      "3. Send unread notifications fails (DB error) - caught, logged, client receives error JSON, connection stays open",
+      "4. connect() fails before setting user_group_name - disconnect() safely handles with getattr()",
+      "5. connect() fails before setting user - disconnect() safely handles with getattr()",
+      "6. Send fails during error handling - caught and suppressed to prevent cascade failures"
+    ],
+    "client_experience": {
+      "scenario_1_success": "WebSocket connection established, receives notifications normally",
+      "scenario_2_error_before_accept": "Receives JSON: {type: 'error', message: 'Connection failed: ...'}, then code 1011 close",
+      "scenario_3_error_after_accept": "Connection closed with code 1011, client sees disconnect event",
+      "scenario_4_unread_notifications_error": "Receives available notifications before error, gets error JSON, connection stays for recovery"
+    },
+    "validation": {
+      "syntax_check": "PASSED - py_compile successful",
+      "black_formatting": "PASSED - applied black formatter, all quotes standardized",
+      "mypy_check": "PASSED - no type errors in consumers.py",
+      "logging_completeness": "All exceptions logged with exc_info=True",
+      "error_safety": "All error handlers have nested try-except to prevent cascade failures"
+    },
+    "code_quality": {
+      "black_formatted": true,
+      "syntax_validated": true,
+      "mypy_validated": true,
+      "defensive_coding": "Multiple layers of error handling prevent cascading failures",
+      "logging_comprehensive": "Full traceback logged for all exception paths",
+      "websocket_protocol_correct": "Uses proper WebSocket close codes (1011 for server error)"
+    }
+  },
+  "PARENT_ACCESS_CHATPARTICIPANT_DEFAULTS_20260108": {
+    "timestamp": "2026-01-08T02:00:00Z",
+    "status": "COMPLETED",
+    "task": "Fix ChatParticipant defaults consistency when adding parent to room participants in consumers.py",
+    "severity": "MEDIUM",
+    "files_modified": [
+      "backend/chat/consumers.py"
+    ],
+    "problem_description": "Inconsistency in how ChatParticipant records are created when adding parent to forum room participants. In permissions.py check_parent_access_to_room() uses defaults={'is_admin': False}, but consumers.py add_parent_to_participants_if_needed() was missing defaults parameter, potentially creating ChatParticipant records without explicit is_admin value.",
+    "solution": {
+      "file": "backend/chat/consumers.py",
+      "method": "add_parent_to_participants_if_needed()",
+      "lines": "1105-1107",
+      "change": "Added defaults={'is_admin': False} parameter to ChatParticipant.objects.get_or_create()",
+      "before": "ChatParticipant.objects.get_or_create(room=room, user=user)",
+      "after": "ChatParticipant.objects.get_or_create(room=room, user=user, defaults={'is_admin': False})"
+    },
+    "context": {
+      "function_purpose": "Adds parent to forum room participants after successful WebSocket connection in consumers.py",
+      "called_from": "Line 157 in connect() method after self.accept()",
+      "related_code": "permissions.py check_parent_access_to_room() on lines 64-67 already uses correct defaults",
+      "consistency_requirement": "All ChatParticipant creations for parent users must use is_admin=False"
+    },
+    "code_locations": {
+      "permissions_py_line_65_67": "Uses: defaults={'is_admin': False} (CORRECT)",
+      "consumers_py_line_1105": "Was: no defaults (INCONSISTENT)",
+      "consumers_py_line_1106": "Now: defaults={'is_admin': False} (FIXED)"
+    },
+    "validation": {
+      "syntax_check": "PASSED - py_compile",
+      "black_formatting": "PASSED - code properly formatted",
+      "consistency_check": "PASSED - both methods now use identical defaults",
+      "no_breaking_changes": true
+    },
+    "code_quality": {
+      "black_formatted": true,
+      "syntax_validated": true,
+      "consistency_improved": true,
+      "defensive_programming": "Explicit defaults prevent unexpected database state"
+    }
+  },
+  "CREATE_FORUM_CHAT_SIGNAL_ANALYSIS_20260108": {
+    "timestamp": "2026-01-08T01:45:00Z",
+    "status": "COMPLETED",
+    "task": "Analyze and fix signal create_forum_chat_on_enrollment - verify participant addition logging",
+    "severity": "MEDIUM",
+    "issue_type": "Signal verification and logging enhancement",
+    "files_modified": [
+      "backend/chat/signals.py"
+    ],
+    "problem_description": "Signal create_forum_chat_on_enrollment (lines 31-163) was missing logging verification for student participant addition. Teacher and parent had verification blocks with logging, but student did not.",
+    "analysis_results": {
+      "forum_subject_chat_participants": {
+        "student": "Added (line 99) - NOT verified or logged (PROBLEM)",
+        "teacher": "Added (line 99) - Verified (lines 117-149) - Logged: DEBUG on success, WARNING on failure",
+        "parent": "Added (line 103 if exists) - Verified (lines 151-169) - Logged: DEBUG on success, WARNING on failure"
+      },
+      "forum_tutor_chat_participants": {
+        "student": "Added (line 198) - NOT verified or logged (PROBLEM)",
+        "tutor": "Added (line 198) - Verified (lines 250-266) - Logged: DEBUG on success per tutor",
+        "parent": "Added (line 202 if exists) - Verified (lines 268-286) - Logged: DEBUG on success, WARNING on failure"
+      }
+    },
+    "solution": {
+      "implementation": "Added student verification and logging blocks to both forum_subject and forum_tutor chat creations",
+      "changes": [
+        "FORUM_SUBJECT chat: Added student verification block BEFORE teacher verification (lines 117-132)",
+        "Check: if not forum_chat.participants.filter(id=instance.student.id).exists()",
+        "Log WARNING: Student {username} ({id}) failed to be added to forum {name} ({id})",
+        "Log DEBUG: Added student {username} ({id}) to forum {name} ({id})",
+        "Exception handling: Try-except wrapper for verification process",
+        "",
+        "FORUM_TUTOR chat: Added student verification block BEFORE tutor verification (lines 233-248)",
+        "Check: if not tutor_chat.participants.filter(id=instance.student.id).exists()",
+        "Log WARNING: Student {username} ({id}) failed to be added to forum {name} ({id})",
+        "Log DEBUG: Added student {username} ({id}) to forum {name} ({id})",
+        "Exception handling: Try-except wrapper for verification process"
+      ]
+    },
+    "code_quality": {
+      "black_formatted": true,
+      "syntax_validated": true,
+      "pattern_consistency": "Student verification now matches teacher and parent patterns exactly",
+      "logging_coverage": "All 3 participant types (student, teacher, parent) now have complete verification and logging"
+    }
+  },
+  "T002_ANALYSIS": {
+    "timestamp": "2026-01-08T00:05:45.810682Z",
+    "status": "ANALYSIS_COMPLETE",
+    "task": "Analyze parent synchronization in forum chats",
+    "task_id": "T002",
+    "analysis_file": ".claude/state/T002_ANALYSIS_REPORT.md",
+    "test_file": "backend/tests/test_parent_sync_issues_T002.py",
+    "severity": "CRITICAL",
+    "findings": {
+      "issues_found": 3,
+      "critical_issues": 2,
+      "major_issues": 1,
+      "issue_1": {
+        "title": "Parent Not Removed When Unassigned",
+        "severity": "CRITICAL",
+        "status": "CONFIRMED_FAILING",
+        "description": "When StudentProfile.parent = None, parent stays in all chats",
+        "test": "test_parent_removal_from_chats - FAILED",
+        "impact": "Removed parents retain access to student chats indefinitely"
+      },
+      "issue_2": {
+        "title": "Parent Not Removed When Changed",
+        "severity": "CRITICAL",
+        "status": "CONFIRMED_FAILING",
+        "description": "When parent changes, old parent stays in all chats plus new parent added",
+        "test": "test_parent_change_updates_chats - FAILED",
+        "impact": "Both old and new parents can access student chats (security breach)"
+      },
+      "issue_3": {
+        "title": "No Distinction Between Add and Update",
+        "severity": "MAJOR",
+        "status": "CONFIRMED",
+        "description": "Signal doesn't track parent change, only checks if parent exists",
+        "location": "backend/chat/signals.py:371 - if not instance.parent: return",
+        "impact": "Inefficient signal firing, prevents proper parent removal"
+      }
+    },
+    "test_results": {
+      "total_tests": 5,
+      "passed": 3,
+      "failed": 2,
+      "pass_rate": "60%",
+      "test_details": {
+        "test_01_scenario_parent_added_after_enrollment": "PASSED - Parent correctly added when assigned after enrollment",
+        "test_02_scenario_parent_removed_from_chats": "FAILED - Parent not removed when unassigned",
+        "test_03_scenario_parent_changed_to_different_parent": "FAILED - Old parent not removed when changed",
+        "test_04_multiple_enrollments_parent_sync": "PASSED - Parent added to all enrollments",
+        "test_05_concurrent_enrollment_and_parent_assignment": "PASSED - No race condition or duplicates"
+      }
+    },
+    "root_causes": [
+      "One-way sync: only ADD logic, no REMOVE logic",
+      "No old-vs-new tracking: doesn't compare parent before/after save",
+      "Early return on None: returns without cleanup when parent=None",
+      "No pre-save hook: can't access previous parent value"
+    ],
+    "affected_code": {
+      "signal_function": "sync_parent_participants",
+      "location": "backend/chat/signals.py:355-432",
+      "triggered_by": "@receiver(post_save, sender=StudentProfile)",
+      "logic": [
+        "Lines 371-372: if not instance.parent: return (PROBLEM - returns without cleanup)",
+        "Lines 379-381: Finds all student chats",
+        "Lines 392-400: Adds parent to each chat (ADD ONLY)",
+        "Lines 403-405: Creates ChatParticipant records",
+        "Missing: Remove parent from chats when parent=None or changed"
+      ]
+    },
+    "security_implications": {
+      "severity": "HIGH",
+      "issues": [
+        "Removed parents retain chat access",
+        "Old parents can access after reassignment",
+        "No audit trail of parent removal",
+        "Sensitive academic info exposed to old parents"
+      ]
+    },
+    "required_fixes": [
+      {
+        "fix": "Add parent removal logic",
+        "when_needed": "When StudentProfile.parent changed from X to Y or None",
+        "action": "Remove old parent from all student chats and ChatParticipant records"
+      },
+      {
+        "fix": "Track parent change",
+        "implementation": "Compare instance.parent (new) with kwargs.get('update_fields')",
+        "or_alternative": "Use pre_save signal to capture old value"
+      },
+      {
+        "fix": "Add removal signal handler",
+        "trigger": "@receiver(post_delete, sender=ParentProfile)",
+        "action": "Remove parent from all student chats when profile deleted"
+      },
+      {
+        "fix": "Use UPDATE logic in signal",
+        "change": "Track created parameter - only sync on creation, use separate handler for updates"
+      }
+    ],
+    "next_steps": [
+      "CODER: Implement parent removal logic in sync_parent_participants",
+      "CODER: Add pre_save signal to track parent changes",
+      "CODER: Add post_delete signal for ParentProfile cleanup",
+      "REVIEWER: Verify removal logic handles all edge cases",
+      "TESTER: Run test_parent_sync_issues_T002.py to verify all 5 tests pass"
+    ]
+  },
+  "completed_tasks": [
+    {
+      "id": "sync_parent_participants_fix",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "backend/chat/signals.py"
+      ],
+      "description": "Completed sync_parent_participants function - replaced DB re-read with thread-local storage tracking",
+      "changes": [
+        "Updated sync_parent_participants to use get_old_parent_id() from pre_save signal",
+        "Removed try/select_for_update/re-query logic",
+        "Added clear_old_parent_id() call in finally block to clean thread-local storage",
+        "Fixed get_old_parent_id() return type annotation to int | None"
+      ],
+      "duration_sec": 30,
+      "timestamp": "2026-01-08T00:09:56.540634"
+    },
+    {
+      "id": "CRITICAL_2",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "backend/scheduling/services/lesson_service.py"
+      ],
+      "changes": [
+        "Fixed get_tutor_student_lessons() to use filter(status__in=['pending', 'confirmed']) instead of exclude(status='cancelled')",
+        "Now returns only active lessons (pending + confirmed), not including completed lessons",
+        "Updated docstring to clarify behavior"
+      ],
+      "duration_sec": 5,
+      "timestamp": "2026-01-08T00:19:35.499065"
+    },
+    {
+      "id": "CRITICAL_1_scheduling_parent_filter",
+      "agent": "coder",
+      "status": "done",
+      "files": [
+        "backend/scheduling/views.py"
+      ],
+      "description": "Add status__in filter for parent role in student_schedule() to fix inconsistency with get_queryset()",
+      "duration_sec": 3,
+      "timestamp": 1767820846.3394053
+    }
+  ],
+  "T002_TESTING_RESULTS": {
+    "timestamp": "2026-01-08T00:15:00Z",
+    "status": "COMPLETED",
+    "task": "Test sync_parent_participants signal fix for parent add/remove/change scenarios",
+    "test_file": "backend/tests/test_parent_sync_issues_T002.py",
+    "test_runner": "pytest",
+    "total_test_cases": 7,
+    "passed": 7,
+    "failed": 0,
+    "pass_rate": "100%",
+    "execution_time": "6.47s",
+    "test_results": [
+      {
+        "name": "test_01_scenario_parent_added_after_enrollment",
+        "class": "TestParentSyncIssues",
+        "status": "PASSED",
+        "description": "Parent correctly added when assigned after enrollment"
+      },
+      {
+        "name": "test_02_scenario_parent_removed_from_chats",
+        "class": "TestParentSyncIssues",
+        "status": "PASSED",
+        "description": "Parent is REMOVED from chats when unassigned (was FAILING, now FIXED)"
+      },
+      {
+        "name": "test_03_scenario_parent_changed_to_different_parent",
+        "class": "TestParentSyncIssues",
+        "status": "PASSED",
+        "description": "Old parent is REMOVED when parent is changed to different one (was FAILING, now FIXED)"
+      },
+      {
+        "name": "test_04_multiple_enrollments_parent_sync",
+        "class": "TestParentSyncIssues",
+        "status": "PASSED",
+        "description": "Parent added to all enrollments when assigned"
+      },
+      {
+        "name": "test_05_concurrent_enrollment_and_parent_assignment",
+        "class": "TestParentSyncIssues",
+        "status": "PASSED",
+        "description": "No race conditions or duplicate participants when concurrent operations"
+      },
+      {
+        "name": "test_parent_removal_from_chats",
+        "class": "TestParentSyncDjangoTest",
+        "status": "PASSED",
+        "description": "Django test verifying parent removal from all chats"
+      },
+      {
+        "name": "test_parent_change_updates_chats",
+        "class": "TestParentSyncDjangoTest",
+        "status": "PASSED",
+        "description": "Django test verifying parent change updates chat participants"
+      }
+    ],
+    "test_scenarios_verified": [
+      "Parent is added to ALL student chats when assigned after enrollment",
+      "Parent is REMOVED from ALL chats when unassigned (parent=None)",
+      "Parent is REMOVED from ALL chats when changed to different parent",
+      "No duplicate participants when multiple scenarios occur",
+      "Thread-local storage properly captures and clears old parent ID",
+      "Transaction atomicity between M2M add/remove and ChatParticipant model"
+    ],
+    "code_changes_verified": [
+      "pre_save signal captures old parent ID in thread-local storage",
+      "post_save signal uses thread-local storage to detect parent change",
+      "Old parent is removed from chats when parent changes or is unassigned",
+      "New parent is added to chats only if not already participant",
+      "ChatParticipant records created for new parent additions",
+      "ChatParticipant records deleted for old parent removals",
+      "Thread-local storage cleared in finally block to prevent side effects"
+    ],
+    "key_fixes_confirmed": [
+      "One-way sync issue FIXED: Now has both ADD and REMOVE logic",
+      "Parent tracking issue FIXED: pre_save signal captures old parent value",
+      "Early return bug FIXED: Handles both parent addition and removal",
+      "No race conditions: Uses transaction.atomic() for consistency"
+    ],
+    "security_verified": [
+      "Removed parents no longer retain chat access",
+      "Old parents cannot access chats after reassignment",
+      "ChatParticipant records properly cleaned up",
+      "No orphaned parent participations in chats"
+    ]
+  },
+  "MEDIUM_4_STRING_LITERALS_TO_CONSTANTS": {
+    "timestamp": "2026-01-08T10:45:00Z",
+    "status": "COMPLETED",
+    "agent": "coder",
+    "task": "Replace string literals with Lesson.Status model constants",
+    "files": [
+      "backend/scheduling/views.py",
+      "backend/scheduling/services/lesson_service.py",
+      "backend/scheduling/serializers.py",
+      "backend/scheduling/admin.py",
+      "backend/scheduling/models.py"
+    ],
+    "duration_sec": 20,
+    "summary": "Replaced all hardcoded string literals for lesson status values with Lesson.Status enum constants for type safety and refactoring safety",
+    "changes": {
+      "backend/scheduling/views.py": [
+        "Line 68: status__in=[\"pending\", \"confirmed\"] \u2192 status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED] (STUDENT)",
+        "Line 77: status__in=[\"pending\", \"confirmed\"] \u2192 status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED] (TUTOR)",
+        "Line 86: status__in=[\"pending\", \"confirmed\"] \u2192 status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED] (PARENT)",
+        "Line 532: status__in=[\"pending\", \"confirmed\"] \u2192 status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED] (student_schedule)",
+        "Line 733: status__in=[\"pending\", \"confirmed\"] \u2192 status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED] (check_conflicts)",
+        "Line 789: status in [\"completed\", \"cancelled\"] \u2192 status in [Lesson.Status.COMPLETED, Lesson.Status.CANCELLED] (reschedule)"
+      ],
+      "backend/scheduling/services/lesson_service.py": [
+        "Line 25-30: STATUS_TRANSITIONS dict keys and values now use Lesson.Status constants",
+        "Line 67: status__in=[\"pending\", \"confirmed\"] \u2192 [Lesson.Status.PENDING, Lesson.Status.CONFIRMED] (_check_time_conflicts)",
+        "Line 197: status=\"pending\" \u2192 status=Lesson.Status.PENDING (create_lesson)",
+        "Line 247,294: status=\"cancelled\" \u2192 status=Lesson.Status.CANCELLED (exclude in get_teacher/student_lessons)",
+        "Line 350: status__in=[\"pending\", \"confirmed\"] \u2192 [Lesson.Status.PENDING, Lesson.Status.CONFIRMED] (get_tutor_student_lessons)",
+        "Line 475,483: \"cancelled\" \u2192 Lesson.Status.CANCELLED (delete_lesson)",
+        "Line 502-533: All status__in filters use constants (get_upcoming_lessons)"
+      ],
+      "backend/scheduling/serializers.py": [
+        "Line 230: choices=[\"pending\", \"confirmed\", \"completed\", \"cancelled\"] \u2192 choices=Lesson.Status.choices (LessonUpdateSerializer)"
+      ],
+      "backend/scheduling/admin.py": [
+        "Line 96-99: status_badge colors dict uses Lesson.Status.PENDING, CONFIRMED, COMPLETED, CANCELLED as keys"
+      ],
+      "backend/scheduling/models.py": [
+        "Line 158: status in [\"cancelled\", \"completed\"] \u2192 status in [self.Status.CANCELLED, self.Status.COMPLETED] (can_cancel property)"
+      ]
+    },
+    "verification": {
+      "syntax": "\u2713 All files passed Python syntax check",
+      "formatting": "\u2713 All files formatted with black",
+      "imports": "\u2713 Lesson.Status constants successfully imported and resolved",
+      "type_safety": "\u2713 IDE will now check status values exist at compile time",
+      "refactoring_safe": "\u2713 Status value changes in enum will automatically update all usages"
+    }
+  },
+  "FORUM_MESSAGE_VISIBILITY_E2E": {
+    "timestamp": "2026-01-08T21:43:00Z",
+    "status": "COMPLETED",
+    "agent": "tester",
+    "task": "Write E2E tests for forum message visibility across roles (Student, Teacher, Parent)",
+    "test_files": [
+      "backend/chat/tests/test_message_visibility.py",
+      "backend/chat/tests/test_e2e_forum_messages_visibility.py"
+    ],
+    "test_results": {
+      "file": "backend/chat/tests/test_message_visibility.py",
+      "class": "TestMessageVisibility",
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "duration_sec": 10
+    },
+    "test_coverage": [
+      "test_student_can_send_message",
+      "test_student_can_receive_own_message",
+      "test_teacher_can_receive_student_message",
+      "test_student_can_receive_teacher_message",
+      "test_parent_can_see_forum_list",
+      "test_parent_can_see_forum_messages",
+      "test_parent_added_to_chat_on_assignment",
+      "test_multiple_students_dont_see_each_other_messages",
+      "test_message_count_consistency_across_roles",
+      "test_message_serialization_includes_sender_info"
+    ],
+    "test_scenarios": [
+      "Student can send message to forum (HTTP 201)",
+      "Student can see their own message in message list",
+      "Teacher receives and can see student's message",
+      "Student receives and can see teacher's message",
+      "Parent can get forum chat list (HTTP 200)",
+      "Parent can get forum messages with content visible",
+      "Parent automatically added to chats when assigned to student",
+      "Different students cannot see each other's forum messages",
+      "All roles see same message count in same forum",
+      "Message serialization includes sender info and timestamps"
+    ],
+    "critical_fixes": [
+      "Used ChatParticipant.room not chat (model field name)",
+      "Used ChatRoom.Type.FORUM_SUBJECT not FORUM",
+      "Used /send_message/ endpoint not /messages/ for POST",
+      "Used 'content' field not 'text' for message payload",
+      "Handled response wrapping in 'message' key for send_message response",
+      "Used get_or_create for forums to avoid constraint violations",
+      "Forum fixture depends on enrollment which triggers signals"
+    ],
+    "api_endpoints_verified": [
+      "GET /api/chat/forum/ - List forum chats (Student, Teacher, Parent)",
+      "GET /api/chat/forum/{id}/messages/ - Get messages from forum",
+      "POST /api/chat/forum/{id}/send_message/ - Send message to forum",
+      "All endpoints require authentication",
+      "All endpoints check role-based access (M2M participants + ChatParticipant)",
+      "Parent access requires student assignment"
+    ],
+    "access_control_verified": [
+      "Students can only see messages in their own forums",
+      "Teachers can see messages in all student forums they teach",
+      "Parents can see messages in child's forums only when assigned",
+      "Different students cannot see each other's messages",
+      "Message counts match across all roles in same forum",
+      "ChatParticipant records created when parent assigned"
+    ],
+    "additional_tests": {
+      "file": "backend/chat/tests/test_e2e_forum_messages_visibility.py",
+      "description": "API-based E2E tests for production",
+      "test_class": "TestForumMessageVisibilityE2E",
+      "status": "SKIPPED (requires production credentials)",
+      "reason": "Tests use real production URLs but skip when credentials unavailable",
+      "supported_credentials": [
+        "STUDENT_EMAIL: student@test.com",
+        "TEACHER_EMAIL: teacher@test.com",
+        "PARENT_EMAIL: parent@test.com"
+      ]
+    },
+    "notes": [
+      "All 10 unit tests passing - comprehensive coverage of message visibility",
+      "Tests verify database signals work correctly for parent assignment",
+      "Tests confirm role-based access control in API endpoints",
+      "Response structure properly handled (wrapped and unwrapped)",
+      "Production E2E tests available but require real test user credentials"
+    ]
+  },
+  "PARENT_SCHEDULE_VISIBILITY_FILTER_20260108": {
+    "timestamp": "2026-01-07T21:45:44.662790Z",
+    "status": "COMPLETED",
+    "task": "Fix lesson visibility filter in get_all_children_schedules",
+    "severity": "MEDIUM",
+    "issue_type": "Feature - Parent schedule visibility",
+    "files_modified": [
+      "backend/scheduling/parent_views.py"
+    ],
+    "problem_description": "Parent could see all lessons (pending, confirmed, completed, cancelled) instead of only active lessons (pending + confirmed)",
+    "solution": {
+      "file": "backend/scheduling/parent_views.py",
+      "line": "119-127",
+      "change": "Added status filter to Prefetch queryset in get_all_children_schedules()",
+      "details": "Modified Lesson.objects query to filter by status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]"
+    },
+    "verification": {
+      "filter_applied": "status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]",
+      "consistency": "Matches get_child_schedule() function and LessonViewSet.get_queryset()",
+      "performance": "Filter applied in queryset before prefetch - optimal DB performance"
+    }
+  },
+  "TUTOR_SCHEDULE_VISIBILITY_FILTER_20260108": {
+    "timestamp": "2026-01-08T00:46:12.522327Z",
+    "status": "COMPLETED",
+    "task": "Fix lesson visibility filter in tutor views",
+    "severity": "MEDIUM",
+    "issue_type": "Feature - Tutor schedule visibility",
+    "files_modified": [
+      "backend/scheduling/tutor_views.py"
+    ],
+    "problem_description": "Tutor could see all lessons (pending, confirmed, completed, cancelled) instead of only active lessons (pending + confirmed)",
+    "solution": {
+      "file": "backend/scheduling/tutor_views.py",
+      "changes": [
+        {
+          "function": "get_student_schedule()",
+          "line": "57-64",
+          "change": "Added status filter to Lesson.objects.filter()"
+        },
+        {
+          "function": "get_all_student_schedules()",
+          "line": "129-137",
+          "change": "Added status filter to Prefetch queryset"
+        }
+      ],
+      "details": "Modified Lesson.objects queries to filter by status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]"
+    },
+    "verification": {
+      "filter_applied": "status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]",
+      "consistency": "Matches get_student_schedule() function and LessonViewSet.get_queryset()",
+      "performance": "Filter applied in queryset before prefetch - optimal DB performance"
     }
   }
 }

@@ -1271,3 +1271,388 @@
 [AUDIT] 2026-01-07 15:19:00 action=create_profile type=StudentProfile user_id=58737 email=student_1@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
 [AUDIT] 2026-01-07 15:19:00 action=create_user user_id=58738 email=student_2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
 [AUDIT] 2026-01-07 15:19:00 action=create_profile type=StudentProfile user_id=58738 email=student_2@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:04:06 action=create_user user_id=58739 email=teacher_5c29cce7@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:06 action=create_profile type=TeacherProfile user_id=58739 email=teacher_5c29cce7@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:04:06 action=create_user user_id=58740 email=student_no_profile_192d47ca@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:06 action=create_forum_subject_chat chat_id=10817 enrollment_id=4319 student_id=58740 teacher_id=58739 subject_id=6600
+[AUDIT] 2026-01-07 16:04:07 action=create_user user_id=58741 email=teacher_90c7cc60@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:07 action=create_profile type=TeacherProfile user_id=58741 email=teacher_90c7cc60@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:04:07 action=create_user user_id=58742 email=student_no_profile_e1c19086@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:07 action=create_forum_subject_chat chat_id=10818 enrollment_id=4320 student_id=58742 teacher_id=58741 subject_id=6601
+[AUDIT] 2026-01-07 16:04:08 action=create_user user_id=58743 email=teacher_5c4bc3c4@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:08 action=create_profile type=TeacherProfile user_id=58743 email=teacher_5c4bc3c4@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:04:08 action=create_user user_id=58744 email=student_no_profile_4bcc9dbe@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:09 action=create_user user_id=58745 email=tutor_2c39cc84@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:09 action=create_forum_subject_chat chat_id=10819 enrollment_id=4321 student_id=58744 teacher_id=58743 subject_id=6602
+[AUDIT] 2026-01-07 16:04:09 action=create_user user_id=58746 email=student_9a4a72c6@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:09 action=create_profile type=StudentProfile user_id=58746 email=student_9a4a72c6@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:04:10 action=create_user user_id=58747 email=student_a6ea5a92@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:10 action=create_profile type=StudentProfile user_id=58747 email=student_a6ea5a92@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:04:11 action=create_user user_id=58748 email=student_5433d155@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:11 action=create_profile type=StudentProfile user_id=58748 email=student_5433d155@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:04:11 action=create_user user_id=58749 email=teacher_c865ae35@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:11 action=create_profile type=TeacherProfile user_id=58749 email=teacher_c865ae35@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:04:11 action=create_forum_subject_chat chat_id=10821 enrollment_id=4322 student_id=58748 teacher_id=58749 subject_id=6603
+[AUDIT] 2026-01-07 16:04:11 action=create_user user_id=58750 email=student_9cbae125@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:11 action=create_profile type=StudentProfile user_id=58750 email=student_9cbae125@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:04:12 action=create_user user_id=58751 email=tutor_1e7839bd@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:12 [Signal] No active enrollments found for student 58750 when assigning tutor 58751
+[AUDIT] 2026-01-07 16:04:12 action=create_user user_id=58752 email=student_e236fbcf@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:12 action=create_profile type=StudentProfile user_id=58752 email=student_e236fbcf@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:04:13 action=create_user user_id=58753 email=unrelated_teacher_d57baa00@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:13 action=create_user user_id=58754 email=tutor_1b4e6e71@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:14 action=create_user user_id=58755 email=tutor_a303e2ac@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:14 action=create_user user_id=58756 email=student_1d1e866a@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:14 action=create_profile type=StudentProfile user_id=58756 email=student_1d1e866a@test.com grade=N/A goal=N/A tutor_id=58755 parent_id=None
+[AUDIT] 2026-01-07 16:04:14 [Signal] No active enrollments found for student 58756 when assigning tutor 58755
+[AUDIT] 2026-01-07 16:04:14 action=create_user user_id=58757 email=tutor_5d0bb485@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:15 action=create_user user_id=58758 email=student_0c12aa81@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:15 action=create_profile type=StudentProfile user_id=58758 email=student_0c12aa81@test.com grade=N/A goal=N/A tutor_id=58757 parent_id=None
+[AUDIT] 2026-01-07 16:04:15 [Signal] No active enrollments found for student 58758 when assigning tutor 58757
+[AUDIT] 2026-01-07 16:04:15 action=create_user user_id=58759 email=teacher_9a929e1c@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:15 action=create_profile type=TeacherProfile user_id=58759 email=teacher_9a929e1c@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:04:15 action=create_forum_subject_chat chat_id=10822 enrollment_id=4323 student_id=58758 teacher_id=58759 subject_id=6604
+[AUDIT] 2026-01-07 16:04:15 action=create_user user_id=58760 email=parent_5a61244b@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:15 action=create_profile type=ParentProfile user_id=58760 email=parent_5a61244b@test.com
+[AUDIT] 2026-01-07 16:04:16 action=create_user user_id=58761 email=parent_84b0c133@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:16 action=create_profile type=ParentProfile user_id=58761 email=parent_84b0c133@test.com
+[AUDIT] 2026-01-07 16:04:16 action=create_user user_id=58762 email=child_849f0318@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:16 action=create_profile type=StudentProfile user_id=58762 email=child_849f0318@test.com grade=N/A goal=N/A tutor_id=None parent_id=58761
+[AUDIT] 2026-01-07 16:04:17 action=create_user user_id=58763 email=teacher_6aeee376@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:17 action=create_profile type=TeacherProfile user_id=58763 email=teacher_6aeee376@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:04:17 action=create_forum_subject_chat chat_id=10824 enrollment_id=4324 student_id=58762 teacher_id=58763 subject_id=6605
+[AUDIT] 2026-01-07 16:04:18 action=create_user user_id=58764 email=student_98baed5a@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:04:18 action=create_profile type=StudentProfile user_id=58764 email=student_98baed5a@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:05:46 action=create_user user_id=58765 email=teacher_05528411@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:46 action=create_profile type=TeacherProfile user_id=58765 email=teacher_05528411@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:05:46 action=create_user user_id=58766 email=student_no_profile_9c76d311@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:46 action=create_forum_subject_chat chat_id=10825 enrollment_id=4325 student_id=58766 teacher_id=58765 subject_id=6606
+[AUDIT] 2026-01-07 16:05:47 action=create_user user_id=58767 email=teacher_01d26350@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:47 action=create_profile type=TeacherProfile user_id=58767 email=teacher_01d26350@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:05:47 action=create_user user_id=58768 email=student_no_profile_d24fd129@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:47 action=create_forum_subject_chat chat_id=10826 enrollment_id=4326 student_id=58768 teacher_id=58767 subject_id=6607
+[AUDIT] 2026-01-07 16:05:48 action=create_user user_id=58769 email=teacher_3dd87905@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:48 action=create_profile type=TeacherProfile user_id=58769 email=teacher_3dd87905@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:05:48 action=create_user user_id=58770 email=student_no_profile_eafc2d0a@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:48 action=create_user user_id=58771 email=tutor_abf8df1c@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:48 action=create_forum_subject_chat chat_id=10827 enrollment_id=4327 student_id=58770 teacher_id=58769 subject_id=6608
+[AUDIT] 2026-01-07 16:05:49 action=create_user user_id=58772 email=student_6a3907d2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:49 action=create_profile type=StudentProfile user_id=58772 email=student_6a3907d2@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:05:49 action=create_user user_id=58773 email=student_8459d076@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:49 action=create_profile type=StudentProfile user_id=58773 email=student_8459d076@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:05:50 action=create_user user_id=58774 email=student_f3ba4f84@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:50 action=create_profile type=StudentProfile user_id=58774 email=student_f3ba4f84@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:05:50 action=create_user user_id=58775 email=teacher_bacd1433@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:50 action=create_profile type=TeacherProfile user_id=58775 email=teacher_bacd1433@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:05:50 action=create_forum_subject_chat chat_id=10829 enrollment_id=4328 student_id=58774 teacher_id=58775 subject_id=6609
+[AUDIT] 2026-01-07 16:05:51 action=create_user user_id=58776 email=student_62eac108@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:51 action=create_profile type=StudentProfile user_id=58776 email=student_62eac108@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:05:51 action=create_user user_id=58777 email=tutor_c1a8785f@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:51 [Signal] No active enrollments found for student 58776 when assigning tutor 58777
+[AUDIT] 2026-01-07 16:05:51 action=create_user user_id=58778 email=student_90534301@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:51 action=create_profile type=StudentProfile user_id=58778 email=student_90534301@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:05:52 action=create_user user_id=58779 email=unrelated_teacher_bceae4c9@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:52 action=create_user user_id=58780 email=tutor_71246aa1@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:53 action=create_user user_id=58781 email=tutor_c3b4de15@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:53 action=create_user user_id=58782 email=student_f4cf2734@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:53 action=create_profile type=StudentProfile user_id=58782 email=student_f4cf2734@test.com grade=N/A goal=N/A tutor_id=58781 parent_id=None
+[AUDIT] 2026-01-07 16:05:53 [Signal] No active enrollments found for student 58782 when assigning tutor 58781
+[AUDIT] 2026-01-07 16:05:53 action=create_user user_id=58783 email=tutor_bdd52979@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:54 action=create_user user_id=58784 email=student_b6e6a165@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:54 action=create_profile type=StudentProfile user_id=58784 email=student_b6e6a165@test.com grade=N/A goal=N/A tutor_id=58783 parent_id=None
+[AUDIT] 2026-01-07 16:05:54 [Signal] No active enrollments found for student 58784 when assigning tutor 58783
+[AUDIT] 2026-01-07 16:05:54 action=create_user user_id=58785 email=teacher_487ad245@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:54 action=create_profile type=TeacherProfile user_id=58785 email=teacher_487ad245@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:05:54 action=create_forum_subject_chat chat_id=10830 enrollment_id=4329 student_id=58784 teacher_id=58785 subject_id=6610
+[AUDIT] 2026-01-07 16:05:54 action=create_user user_id=58786 email=parent_b8a72c4b@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:54 action=create_profile type=ParentProfile user_id=58786 email=parent_b8a72c4b@test.com
+[AUDIT] 2026-01-07 16:05:55 action=create_user user_id=58787 email=parent_2a9c3e18@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:55 action=create_profile type=ParentProfile user_id=58787 email=parent_2a9c3e18@test.com
+[AUDIT] 2026-01-07 16:05:55 action=create_user user_id=58788 email=child_47f43ebd@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:55 action=create_profile type=StudentProfile user_id=58788 email=child_47f43ebd@test.com grade=N/A goal=N/A tutor_id=None parent_id=58787
+[AUDIT] 2026-01-07 16:05:55 action=create_user user_id=58789 email=teacher_21c1568d@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:55 action=create_profile type=TeacherProfile user_id=58789 email=teacher_21c1568d@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:05:55 action=create_forum_subject_chat chat_id=10832 enrollment_id=4330 student_id=58788 teacher_id=58789 subject_id=6611
+[AUDIT] 2026-01-07 16:05:56 action=create_user user_id=58790 email=student_af690f7a@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:05:56 action=create_profile type=StudentProfile user_id=58790 email=student_af690f7a@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:06:06 action=create_user user_id=58791 email=student_889a70c5@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:06:06 action=create_profile type=StudentProfile user_id=58791 email=student_889a70c5@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:06:25 action=create_user user_id=58792 email=student_0a8930ad@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:06:25 action=create_profile type=StudentProfile user_id=58792 email=student_0a8930ad@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:07:17 action=create_user user_id=58793 email=teacher_fc235d13@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:17 action=create_profile type=TeacherProfile user_id=58793 email=teacher_fc235d13@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:07:17 action=create_user user_id=58794 email=student_no_profile_1b7c15da@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:17 action=create_forum_subject_chat chat_id=10833 enrollment_id=4331 student_id=58794 teacher_id=58793 subject_id=6612
+[AUDIT] 2026-01-07 16:07:18 action=create_user user_id=58795 email=teacher_17b2023d@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:18 action=create_profile type=TeacherProfile user_id=58795 email=teacher_17b2023d@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:07:19 action=create_user user_id=58796 email=student_no_profile_5e75a26f@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:19 action=create_forum_subject_chat chat_id=10834 enrollment_id=4332 student_id=58796 teacher_id=58795 subject_id=6613
+[AUDIT] 2026-01-07 16:07:19 action=create_user user_id=58797 email=teacher_99e63d4c@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:19 action=create_profile type=TeacherProfile user_id=58797 email=teacher_99e63d4c@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:07:19 action=create_user user_id=58798 email=student_no_profile_821bd1a4@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:20 action=create_user user_id=58799 email=tutor_d9958a1f@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:20 action=create_forum_subject_chat chat_id=10835 enrollment_id=4333 student_id=58798 teacher_id=58797 subject_id=6614
+[AUDIT] 2026-01-07 16:07:20 action=create_user user_id=58800 email=student_309b7707@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:20 action=create_profile type=StudentProfile user_id=58800 email=student_309b7707@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:07:21 action=create_user user_id=58801 email=student_c3646e5b@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:21 action=create_profile type=StudentProfile user_id=58801 email=student_c3646e5b@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:07:21 action=create_user user_id=58802 email=student_a54183af@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:21 action=create_profile type=StudentProfile user_id=58802 email=student_a54183af@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:07:22 action=create_user user_id=58803 email=teacher_d5c8b06e@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:22 action=create_profile type=TeacherProfile user_id=58803 email=teacher_d5c8b06e@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:07:22 action=create_forum_subject_chat chat_id=10837 enrollment_id=4334 student_id=58802 teacher_id=58803 subject_id=6615
+[AUDIT] 2026-01-07 16:07:22 action=create_user user_id=58804 email=student_6081a35a@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:22 action=create_profile type=StudentProfile user_id=58804 email=student_6081a35a@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:07:22 action=create_user user_id=58805 email=tutor_1111e9f3@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:22 [Signal] No active enrollments found for student 58804 when assigning tutor 58805
+[AUDIT] 2026-01-07 16:07:23 action=create_user user_id=58806 email=student_da165adc@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:23 action=create_profile type=StudentProfile user_id=58806 email=student_da165adc@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:07:23 action=create_user user_id=58807 email=unrelated_teacher_d29160de@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:24 action=create_user user_id=58808 email=tutor_97fe7194@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:24 action=create_user user_id=58809 email=tutor_0fc782b5@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:25 action=create_user user_id=58810 email=student_68943998@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:25 action=create_profile type=StudentProfile user_id=58810 email=student_68943998@test.com grade=N/A goal=N/A tutor_id=58809 parent_id=None
+[AUDIT] 2026-01-07 16:07:25 [Signal] No active enrollments found for student 58810 when assigning tutor 58809
+[AUDIT] 2026-01-07 16:07:25 action=create_user user_id=58811 email=tutor_10a8796f@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:25 action=create_user user_id=58812 email=student_532ff910@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:25 action=create_profile type=StudentProfile user_id=58812 email=student_532ff910@test.com grade=N/A goal=N/A tutor_id=58811 parent_id=None
+[AUDIT] 2026-01-07 16:07:25 [Signal] No active enrollments found for student 58812 when assigning tutor 58811
+[AUDIT] 2026-01-07 16:07:26 action=create_user user_id=58813 email=teacher_6a096068@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:26 action=create_profile type=TeacherProfile user_id=58813 email=teacher_6a096068@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:07:26 action=create_forum_subject_chat chat_id=10838 enrollment_id=4335 student_id=58812 teacher_id=58813 subject_id=6616
+[AUDIT] 2026-01-07 16:07:26 action=create_user user_id=58814 email=parent_ac9ade6b@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:26 action=create_profile type=ParentProfile user_id=58814 email=parent_ac9ade6b@test.com
+[AUDIT] 2026-01-07 16:07:27 action=create_user user_id=58815 email=parent_87888914@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:27 action=create_profile type=ParentProfile user_id=58815 email=parent_87888914@test.com
+[AUDIT] 2026-01-07 16:07:27 action=create_user user_id=58816 email=child_2d938bf6@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:27 action=create_profile type=StudentProfile user_id=58816 email=child_2d938bf6@test.com grade=N/A goal=N/A tutor_id=None parent_id=58815
+[AUDIT] 2026-01-07 16:07:27 action=create_user user_id=58817 email=teacher_030d8417@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:27 action=create_profile type=TeacherProfile user_id=58817 email=teacher_030d8417@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:07:27 action=create_forum_subject_chat chat_id=10840 enrollment_id=4336 student_id=58816 teacher_id=58817 subject_id=6617
+[AUDIT] 2026-01-07 16:07:28 action=create_user user_id=58818 email=student_e58b0344@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:28 action=create_profile type=StudentProfile user_id=58818 email=student_e58b0344@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:07:54 action=create_user user_id=58819 email=teacher_c9dc693b@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:54 action=create_profile type=TeacherProfile user_id=58819 email=teacher_c9dc693b@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:07:54 action=create_user user_id=58820 email=student_no_profile_b1d69463@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:07:54 action=create_forum_subject_chat chat_id=10841 enrollment_id=4337 student_id=58820 teacher_id=58819 subject_id=6618
+[AUDIT] 2026-01-07 16:09:15 action=create_user user_id=58821 email=teacher_a6c9afed@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:15 action=create_profile type=TeacherProfile user_id=58821 email=teacher_a6c9afed@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:15 action=create_user user_id=58822 email=student_no_profile_845b2c67@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:15 action=create_forum_subject_chat chat_id=10842 enrollment_id=4338 student_id=58822 teacher_id=58821 subject_id=6619
+[AUDIT] 2026-01-07 16:09:16 action=create_user user_id=58823 email=teacher_a573784f@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:16 action=create_profile type=TeacherProfile user_id=58823 email=teacher_a573784f@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:16 action=create_user user_id=58824 email=student_no_profile_2dfb09a4@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:16 action=create_forum_subject_chat chat_id=10843 enrollment_id=4339 student_id=58824 teacher_id=58823 subject_id=6620
+[AUDIT] 2026-01-07 16:09:17 action=create_user user_id=58825 email=teacher_0bbd79fb@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:17 action=create_profile type=TeacherProfile user_id=58825 email=teacher_0bbd79fb@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:17 action=create_user user_id=58826 email=student_no_profile_086c7e3c@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:17 action=create_user user_id=58827 email=tutor_7abf152e@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:17 action=create_forum_subject_chat chat_id=10844 enrollment_id=4340 student_id=58826 teacher_id=58825 subject_id=6621
+[AUDIT] 2026-01-07 16:09:18 action=create_user user_id=58828 email=student_d7a28e86@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:18 action=create_profile type=StudentProfile user_id=58828 email=student_d7a28e86@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:18 action=create_user user_id=58829 email=student_7a1a55f0@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:18 action=create_profile type=StudentProfile user_id=58829 email=student_7a1a55f0@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:19 action=create_user user_id=58830 email=student_b2aebd3f@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:19 action=create_profile type=StudentProfile user_id=58830 email=student_b2aebd3f@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:19 action=create_user user_id=58831 email=teacher_4bac8735@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:19 action=create_profile type=TeacherProfile user_id=58831 email=teacher_4bac8735@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:19 action=create_forum_subject_chat chat_id=10846 enrollment_id=4341 student_id=58830 teacher_id=58831 subject_id=6622
+[AUDIT] 2026-01-07 16:09:20 action=create_user user_id=58832 email=student_2e628a61@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:20 action=create_profile type=StudentProfile user_id=58832 email=student_2e628a61@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:20 action=create_user user_id=58833 email=tutor_773ae8fd@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:20 [Signal] No active enrollments found for student 58832 when assigning tutor 58833
+[AUDIT] 2026-01-07 16:09:20 action=create_user user_id=58834 email=student_17d04f0f@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:20 action=create_profile type=StudentProfile user_id=58834 email=student_17d04f0f@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:20 action=create_user user_id=58835 email=unrelated_teacher_f867c3a4@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:21 action=create_user user_id=58836 email=tutor_be59cd74@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:22 action=create_user user_id=58837 email=tutor_a1815968@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:22 action=create_user user_id=58838 email=student_2d06ca35@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:22 action=create_profile type=StudentProfile user_id=58838 email=student_2d06ca35@test.com grade=N/A goal=N/A tutor_id=58837 parent_id=None
+[AUDIT] 2026-01-07 16:09:22 [Signal] No active enrollments found for student 58838 when assigning tutor 58837
+[AUDIT] 2026-01-07 16:09:22 action=create_user user_id=58839 email=tutor_6b6389fe@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:22 action=create_user user_id=58840 email=student_3dc7a5a3@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:22 action=create_profile type=StudentProfile user_id=58840 email=student_3dc7a5a3@test.com grade=N/A goal=N/A tutor_id=58839 parent_id=None
+[AUDIT] 2026-01-07 16:09:22 [Signal] No active enrollments found for student 58840 when assigning tutor 58839
+[AUDIT] 2026-01-07 16:09:23 action=create_user user_id=58841 email=teacher_4a5ca77c@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:23 action=create_profile type=TeacherProfile user_id=58841 email=teacher_4a5ca77c@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:23 action=create_forum_subject_chat chat_id=10847 enrollment_id=4342 student_id=58840 teacher_id=58841 subject_id=6623
+[AUDIT] 2026-01-07 16:09:23 action=create_user user_id=58842 email=parent_16856ce8@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:23 action=create_profile type=ParentProfile user_id=58842 email=parent_16856ce8@test.com
+[AUDIT] 2026-01-07 16:09:24 action=create_user user_id=58843 email=parent_0c66a0c5@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:24 action=create_profile type=ParentProfile user_id=58843 email=parent_0c66a0c5@test.com
+[AUDIT] 2026-01-07 16:09:24 action=create_user user_id=58844 email=child_7a6ad6de@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:24 action=create_profile type=StudentProfile user_id=58844 email=child_7a6ad6de@test.com grade=N/A goal=N/A tutor_id=None parent_id=58843
+[AUDIT] 2026-01-07 16:09:24 action=create_user user_id=58845 email=teacher_c2a0930b@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:24 action=create_profile type=TeacherProfile user_id=58845 email=teacher_c2a0930b@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:24 action=create_forum_subject_chat chat_id=10849 enrollment_id=4343 student_id=58844 teacher_id=58845 subject_id=6624
+[AUDIT] 2026-01-07 16:09:25 action=create_user user_id=58846 email=student_34965b54@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:25 action=create_profile type=StudentProfile user_id=58846 email=student_34965b54@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:55 action=create_user user_id=58847 email=teacher_b264c442@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:55 action=create_profile type=TeacherProfile user_id=58847 email=teacher_b264c442@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:55 action=create_user user_id=58848 email=student_no_profile_ac664d07@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:56 action=create_forum_subject_chat chat_id=10850 enrollment_id=4344 student_id=58848 teacher_id=58847 subject_id=6625
+[AUDIT] 2026-01-07 16:09:56 action=create_user user_id=58849 email=teacher_e8ba08c9@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:56 action=create_profile type=TeacherProfile user_id=58849 email=teacher_e8ba08c9@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:57 action=create_user user_id=58850 email=student_no_profile_ed91e695@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:57 action=create_forum_subject_chat chat_id=10851 enrollment_id=4345 student_id=58850 teacher_id=58849 subject_id=6626
+[AUDIT] 2026-01-07 16:09:57 action=create_user user_id=58851 email=teacher_53be1765@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:57 action=create_profile type=TeacherProfile user_id=58851 email=teacher_53be1765@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:57 action=create_user user_id=58852 email=student_no_profile_4af0c18d@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:57 action=create_user user_id=58853 email=tutor_ead7606d@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:57 action=create_forum_subject_chat chat_id=10852 enrollment_id=4346 student_id=58852 teacher_id=58851 subject_id=6627
+[AUDIT] 2026-01-07 16:09:58 action=create_user user_id=58854 email=student_c9050455@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:58 action=create_profile type=StudentProfile user_id=58854 email=student_c9050455@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:59 action=create_user user_id=58855 email=student_76f1e87b@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:59 action=create_profile type=StudentProfile user_id=58855 email=student_76f1e87b@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:59 action=create_user user_id=58856 email=student_d63cfcf4@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:59 action=create_profile type=StudentProfile user_id=58856 email=student_d63cfcf4@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:09:59 action=create_user user_id=58857 email=teacher_7614b770@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:09:59 action=create_profile type=TeacherProfile user_id=58857 email=teacher_7614b770@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:09:59 action=create_forum_subject_chat chat_id=10854 enrollment_id=4347 student_id=58856 teacher_id=58857 subject_id=6628
+[AUDIT] 2026-01-07 16:10:00 action=create_user user_id=58858 email=student_bb8417f6@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:00 action=create_profile type=StudentProfile user_id=58858 email=student_bb8417f6@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:10:00 action=create_user user_id=58859 email=tutor_93bbe15f@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:00 [Signal] No active enrollments found for student 58858 when assigning tutor 58859
+[AUDIT] 2026-01-07 16:10:00 action=create_user user_id=58860 email=student_02c547f4@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:00 action=create_profile type=StudentProfile user_id=58860 email=student_02c547f4@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:10:01 action=create_user user_id=58861 email=unrelated_teacher_e8795319@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:01 action=create_user user_id=58862 email=tutor_f91368bf@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:02 action=create_user user_id=58863 email=tutor_214eb4a5@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:02 action=create_user user_id=58864 email=student_519de00d@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:02 action=create_profile type=StudentProfile user_id=58864 email=student_519de00d@test.com grade=N/A goal=N/A tutor_id=58863 parent_id=None
+[AUDIT] 2026-01-07 16:10:02 [Signal] No active enrollments found for student 58864 when assigning tutor 58863
+[AUDIT] 2026-01-07 16:10:02 action=create_user user_id=58865 email=tutor_1190f8c6@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:03 action=create_user user_id=58866 email=student_7b4ad4d2@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:03 action=create_profile type=StudentProfile user_id=58866 email=student_7b4ad4d2@test.com grade=N/A goal=N/A tutor_id=58865 parent_id=None
+[AUDIT] 2026-01-07 16:10:03 [Signal] No active enrollments found for student 58866 when assigning tutor 58865
+[AUDIT] 2026-01-07 16:10:03 action=create_user user_id=58867 email=teacher_f43af77e@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:03 action=create_profile type=TeacherProfile user_id=58867 email=teacher_f43af77e@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:10:03 action=create_forum_subject_chat chat_id=10855 enrollment_id=4348 student_id=58866 teacher_id=58867 subject_id=6629
+[AUDIT] 2026-01-07 16:10:03 action=create_user user_id=58868 email=parent_c9b2947e@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:03 action=create_profile type=ParentProfile user_id=58868 email=parent_c9b2947e@test.com
+[AUDIT] 2026-01-07 16:10:04 action=create_user user_id=58869 email=parent_d985b13f@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:04 action=create_profile type=ParentProfile user_id=58869 email=parent_d985b13f@test.com
+[AUDIT] 2026-01-07 16:10:04 action=create_user user_id=58870 email=child_ab495813@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:04 action=create_profile type=StudentProfile user_id=58870 email=child_ab495813@test.com grade=N/A goal=N/A tutor_id=None parent_id=58869
+[AUDIT] 2026-01-07 16:10:04 action=create_user user_id=58871 email=teacher_09029940@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:04 action=create_profile type=TeacherProfile user_id=58871 email=teacher_09029940@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:10:04 action=create_forum_subject_chat chat_id=10857 enrollment_id=4349 student_id=58870 teacher_id=58871 subject_id=6630
+[AUDIT] 2026-01-07 16:10:05 action=create_user user_id=58872 email=student_37e170ea@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:10:05 action=create_profile type=StudentProfile user_id=58872 email=student_37e170ea@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:11:39 action=create_user user_id=58873 email=teacher_c5ca3a4a@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:11:39 action=create_profile type=TeacherProfile user_id=58873 email=teacher_c5ca3a4a@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:11:39 action=create_user user_id=58874 email=student_no_profile_96b7e3e6@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:11:39 action=create_forum_subject_chat chat_id=10858 enrollment_id=4350 student_id=58874 teacher_id=58873 subject_id=6631
+[AUDIT] 2026-01-07 16:11:40 action=create_user user_id=58875 email=teacher_0b1f2fc5@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:11:40 action=create_profile type=TeacherProfile user_id=58875 email=teacher_0b1f2fc5@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:11:40 action=create_user user_id=58876 email=student_no_profile_de3b83a0@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:11:40 action=create_forum_subject_chat chat_id=10859 enrollment_id=4351 student_id=58876 teacher_id=58875 subject_id=6632
+[AUDIT] 2026-01-07 16:11:41 action=create_user user_id=58877 email=teacher_05c8600f@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:11:41 action=create_profile type=TeacherProfile user_id=58877 email=teacher_05c8600f@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:11:41 action=create_user user_id=58878 email=student_no_profile_f874d897@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:11:41 action=create_user user_id=58879 email=tutor_dffbc053@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:11:41 action=create_forum_subject_chat chat_id=10860 enrollment_id=4352 student_id=58878 teacher_id=58877 subject_id=6633
+[AUDIT] 2026-01-07 16:12:17 action=create_user user_id=58880 email=teacher_19729ce8@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:17 action=create_profile type=TeacherProfile user_id=58880 email=teacher_19729ce8@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:12:17 action=create_user user_id=58881 email=student_no_profile_4863c209@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:17 action=create_forum_subject_chat chat_id=10862 enrollment_id=4353 student_id=58881 teacher_id=58880 subject_id=6634
+[AUDIT] 2026-01-07 16:12:18 action=create_user user_id=58882 email=teacher_fbb2bd3e@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:18 action=create_profile type=TeacherProfile user_id=58882 email=teacher_fbb2bd3e@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:12:19 action=create_user user_id=58883 email=student_no_profile_76bc3cdd@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:19 action=create_forum_subject_chat chat_id=10863 enrollment_id=4354 student_id=58883 teacher_id=58882 subject_id=6635
+[AUDIT] 2026-01-07 16:12:19 action=create_user user_id=58884 email=teacher_8459f5e0@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:19 action=create_profile type=TeacherProfile user_id=58884 email=teacher_8459f5e0@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:12:19 action=create_user user_id=58885 email=student_no_profile_4970c997@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:19 action=create_user user_id=58886 email=tutor_6441391a@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:19 action=create_forum_subject_chat chat_id=10864 enrollment_id=4355 student_id=58885 teacher_id=58884 subject_id=6636
+[AUDIT] 2026-01-07 16:12:20 action=create_user user_id=58887 email=student_bb1928b7@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:20 action=create_profile type=StudentProfile user_id=58887 email=student_bb1928b7@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:12:20 action=create_user user_id=58888 email=student_3cc60762@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:21 action=create_profile type=StudentProfile user_id=58888 email=student_3cc60762@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:12:21 action=create_user user_id=58889 email=student_e3805473@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:21 action=create_profile type=StudentProfile user_id=58889 email=student_e3805473@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:12:21 action=create_user user_id=58890 email=teacher_2e9e510a@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:21 action=create_profile type=TeacherProfile user_id=58890 email=teacher_2e9e510a@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:12:21 action=create_forum_subject_chat chat_id=10866 enrollment_id=4356 student_id=58889 teacher_id=58890 subject_id=6637
+[AUDIT] 2026-01-07 16:12:22 action=create_user user_id=58891 email=student_c1b39820@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:22 action=create_profile type=StudentProfile user_id=58891 email=student_c1b39820@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:12:22 action=create_user user_id=58892 email=tutor_4ef7edb9@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:22 [Signal] No active enrollments found for student 58891 when assigning tutor 58892
+[AUDIT] 2026-01-07 16:12:22 action=create_user user_id=58893 email=student_048f01c4@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:22 action=create_profile type=StudentProfile user_id=58893 email=student_048f01c4@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:12:23 action=create_user user_id=58894 email=unrelated_teacher_b1d64435@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:23 action=create_user user_id=58895 email=tutor_2bd94228@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:24 action=create_user user_id=58896 email=tutor_34ae2104@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:24 action=create_user user_id=58897 email=student_05028326@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:24 action=create_profile type=StudentProfile user_id=58897 email=student_05028326@test.com grade=N/A goal=N/A tutor_id=58896 parent_id=None
+[AUDIT] 2026-01-07 16:12:24 [Signal] No active enrollments found for student 58897 when assigning tutor 58896
+[AUDIT] 2026-01-07 16:12:24 action=create_user user_id=58898 email=tutor_ecad479f@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:25 action=create_user user_id=58899 email=student_09ca7bf3@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:25 action=create_profile type=StudentProfile user_id=58899 email=student_09ca7bf3@test.com grade=N/A goal=N/A tutor_id=58898 parent_id=None
+[AUDIT] 2026-01-07 16:12:25 [Signal] No active enrollments found for student 58899 when assigning tutor 58898
+[AUDIT] 2026-01-07 16:12:25 action=create_user user_id=58900 email=teacher_968322d9@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:25 action=create_profile type=TeacherProfile user_id=58900 email=teacher_968322d9@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:12:25 action=create_forum_subject_chat chat_id=10867 enrollment_id=4357 student_id=58899 teacher_id=58900 subject_id=6638
+[AUDIT] 2026-01-07 16:12:25 action=create_user user_id=58901 email=parent_e0410a8b@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:25 action=create_profile type=ParentProfile user_id=58901 email=parent_e0410a8b@test.com
+[AUDIT] 2026-01-07 16:12:26 action=create_user user_id=58902 email=parent_0a64c064@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:26 action=create_profile type=ParentProfile user_id=58902 email=parent_0a64c064@test.com
+[AUDIT] 2026-01-07 16:12:26 action=create_user user_id=58903 email=child_9c041d4e@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:26 action=create_profile type=StudentProfile user_id=58903 email=child_9c041d4e@test.com grade=N/A goal=N/A tutor_id=None parent_id=58902
+[AUDIT] 2026-01-07 16:12:26 action=create_user user_id=58904 email=teacher_f7507ee1@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:26 action=create_profile type=TeacherProfile user_id=58904 email=teacher_f7507ee1@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:12:26 action=create_forum_subject_chat chat_id=10869 enrollment_id=4358 student_id=58903 teacher_id=58904 subject_id=6639
+[AUDIT] 2026-01-07 16:12:27 action=create_user user_id=58905 email=student_cb869838@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:12:27 action=create_profile type=StudentProfile user_id=58905 email=student_cb869838@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:13:35 action=create_user user_id=58906 email=teacher_6145afd0@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:35 action=create_profile type=TeacherProfile user_id=58906 email=teacher_6145afd0@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:13:35 action=create_user user_id=58907 email=student_no_profile_f5a2b11f@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:35 action=create_forum_subject_chat chat_id=10870 enrollment_id=4359 student_id=58907 teacher_id=58906 subject_id=6640
+[AUDIT] 2026-01-07 16:13:36 action=create_user user_id=58908 email=teacher_7d94bdca@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:36 action=create_profile type=TeacherProfile user_id=58908 email=teacher_7d94bdca@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:13:36 action=create_user user_id=58909 email=student_no_profile_45255f5d@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:36 action=create_forum_subject_chat chat_id=10871 enrollment_id=4360 student_id=58909 teacher_id=58908 subject_id=6641
+[AUDIT] 2026-01-07 16:13:36 action=create_user user_id=58910 email=teacher_63aed674@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:36 action=create_profile type=TeacherProfile user_id=58910 email=teacher_63aed674@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:13:37 action=create_user user_id=58911 email=student_no_profile_c921e3dc@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:37 action=create_user user_id=58912 email=tutor_ecd112f4@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:37 action=create_forum_subject_chat chat_id=10872 enrollment_id=4361 student_id=58911 teacher_id=58910 subject_id=6642
+[AUDIT] 2026-01-07 16:13:37 action=create_user user_id=58913 email=student_7ee8a5d8@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:37 action=create_profile type=StudentProfile user_id=58913 email=student_7ee8a5d8@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:13:38 action=create_user user_id=58914 email=student_4a444b07@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:38 action=create_profile type=StudentProfile user_id=58914 email=student_4a444b07@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:13:38 action=create_user user_id=58915 email=student_9cd68643@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:38 action=create_profile type=StudentProfile user_id=58915 email=student_9cd68643@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:13:39 action=create_user user_id=58916 email=teacher_21d36af3@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:39 action=create_profile type=TeacherProfile user_id=58916 email=teacher_21d36af3@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:13:39 action=create_forum_subject_chat chat_id=10874 enrollment_id=4362 student_id=58915 teacher_id=58916 subject_id=6643
+[AUDIT] 2026-01-07 16:13:39 action=create_user user_id=58917 email=student_e0128da0@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:39 action=create_profile type=StudentProfile user_id=58917 email=student_e0128da0@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:13:39 action=create_user user_id=58918 email=tutor_b0a04187@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:39 [Signal] No active enrollments found for student 58917 when assigning tutor 58918
+[AUDIT] 2026-01-07 16:13:40 action=create_user user_id=58919 email=student_f2d44178@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:40 action=create_profile type=StudentProfile user_id=58919 email=student_f2d44178@test.com grade=N/A goal=N/A tutor_id=None parent_id=None
+[AUDIT] 2026-01-07 16:13:40 action=create_user user_id=58920 email=unrelated_teacher_9ef65936@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:41 action=create_user user_id=58921 email=tutor_e833c5d3@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:41 action=create_user user_id=58922 email=tutor_27e3cfc7@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:41 action=create_user user_id=58923 email=student_28236f3e@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:41 action=create_profile type=StudentProfile user_id=58923 email=student_28236f3e@test.com grade=N/A goal=N/A tutor_id=58922 parent_id=None
+[AUDIT] 2026-01-07 16:13:41 [Signal] No active enrollments found for student 58923 when assigning tutor 58922
+[AUDIT] 2026-01-07 16:13:42 action=create_user user_id=58924 email=tutor_0cfa4fcf@test.com role=tutor first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:42 action=create_user user_id=58925 email=student_fc5239b4@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:42 action=create_profile type=StudentProfile user_id=58925 email=student_fc5239b4@test.com grade=N/A goal=N/A tutor_id=58924 parent_id=None
+[AUDIT] 2026-01-07 16:13:42 [Signal] No active enrollments found for student 58925 when assigning tutor 58924
+[AUDIT] 2026-01-07 16:13:42 action=create_user user_id=58926 email=teacher_2c6c6e91@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:42 action=create_profile type=TeacherProfile user_id=58926 email=teacher_2c6c6e91@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:13:42 action=create_forum_subject_chat chat_id=10875 enrollment_id=4363 student_id=58925 teacher_id=58926 subject_id=6644
+[AUDIT] 2026-01-07 16:13:43 action=create_user user_id=58927 email=parent_0d209fc8@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:43 action=create_profile type=ParentProfile user_id=58927 email=parent_0d209fc8@test.com
+[AUDIT] 2026-01-07 16:13:43 action=create_user user_id=58928 email=parent_d6e35b4d@test.com role=parent first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:43 action=create_profile type=ParentProfile user_id=58928 email=parent_d6e35b4d@test.com
+[AUDIT] 2026-01-07 16:13:43 action=create_user user_id=58929 email=child_0b008398@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:43 action=create_profile type=StudentProfile user_id=58929 email=child_0b008398@test.com grade=N/A goal=N/A tutor_id=None parent_id=58928
+[AUDIT] 2026-01-07 16:13:44 action=create_user user_id=58930 email=teacher_a24cb900@test.com role=teacher first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:44 action=create_profile type=TeacherProfile user_id=58930 email=teacher_a24cb900@test.com subject=N/A experience_years=0 bio=N/A
+[AUDIT] 2026-01-07 16:13:44 action=create_forum_subject_chat chat_id=10877 enrollment_id=4364 student_id=58929 teacher_id=58930 subject_id=6645
+[AUDIT] 2026-01-07 16:13:45 action=create_user user_id=58931 email=student_10aea252@test.com role=student first_name=N/A last_name=N/A is_active=True is_staff=False
+[AUDIT] 2026-01-07 16:13:45 action=create_profile type=StudentProfile user_id=58931 email=student_10aea252@test.com grade=N/A goal=N/A tutor_id=None parent_id=None

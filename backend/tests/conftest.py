@@ -13,6 +13,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
+from playwright.sync_api import sync_playwright
 
 from materials.models import Subject, Material, SubjectEnrollment, TeacherSubject
 from accounts.models import TeacherProfile, StudentProfile, TutorProfile, ParentProfile
@@ -298,3 +299,12 @@ def authenticated_admin_client(api_client, admin_user):
     token = str(refresh.access_token)
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
     return api_client
+
+
+@pytest.fixture(scope="function")
+def browser():
+    """Fixture providing a Playwright browser instance for E2E tests"""
+    with sync_playwright() as p:
+        browser_instance = p.chromium.launch(headless=True)
+        yield browser_instance
+        browser_instance.close()

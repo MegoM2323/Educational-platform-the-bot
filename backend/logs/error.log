@@ -4766,3 +4766,4 @@ Traceback (most recent call last):
     ...<2 lines>...
     ) from self.rollback_exc
 django.db.transaction.TransactionManagementError: An error occurred in the current transaction. You can't execute queries until the end of the 'atomic' block.
+[ERROR] 2026-01-07 16:11:41 django.request log_response:241 - Internal Server Error: /api/chat/available-contacts/

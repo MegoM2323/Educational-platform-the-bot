@@ -1400,11 +1400,15 @@ class AvailableContactsView(APIView):
                     enrollment_to_chat,
                 ) = self._build_contact_to_chat_mapping(user)
             except Exception as e:
-                logger.warning(
-                    f"[AvailableContactsView.get()] Failed to build contact_to_chat mapping for user {user.id}: {str(e)}",
+                logger.error(
+                    f"[AvailableContactsView.get()] Critical DB error for user {user.id}: {str(e)}",
                     exc_info=True,
                 )
-                contact_to_chat, enrollment_to_chat = {}, {}
+                # Return early to avoid broken transaction errors
+                return Response(
+                    {"error": "Database error", "detail": "Failed to load contacts. Please try again."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
 
             if user.role == "student":
                 # Получить всех учителей из зачислений студента

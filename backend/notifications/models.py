@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -364,6 +365,7 @@ class Broadcast(models.Model):
     error_log = models.JSONField(
         default=list,
         blank=True,
+        encoder=DjangoJSONEncoder,
         verbose_name="Лог ошибок при отправке",
         help_text='Список ошибок по получателям: [{"recipient_id": 123, "error": "Network error", "timestamp": "2024-01-01T00:00:00Z"}]',
     )

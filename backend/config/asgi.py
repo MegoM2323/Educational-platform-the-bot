@@ -41,15 +41,14 @@ application = ProtocolTypeRouter(
     }
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 try:
     from config.sentry import init_sentry
-    import logging
 
-    logger = logging.getLogger(__name__)
     init_sentry(sys.modules["config.settings"])
     logger.info("[ASGI] Sentry initialized successfully")
 except Exception as e:
-    import logging
-
-    logger = logging.getLogger(__name__)
     logger.error(f"[ASGI] Sentry initialization failed: {e}", exc_info=True)

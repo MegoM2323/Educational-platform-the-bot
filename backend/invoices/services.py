@@ -86,7 +86,7 @@ class InvoiceService:
             channel_layer = get_channel_layer()
             if not channel_layer:
                 logger.warning(
-                    "Channel layer not configured, skipping WebSocket broadcast"
+                    "[InvoiceService] Channel layer not configured, skipping WebSocket broadcast"
                 )
                 return
 
@@ -96,24 +96,30 @@ class InvoiceService:
             # Отправляем в комнату тьютора
             tutor_room = f"tutor_{invoice.tutor.id}"
 
-            async_to_sync(channel_layer.group_send)(
-                tutor_room,
-                {
-                    "type": "invoice.created",
-                    "invoice_id": invoice.id,
-                    "data": data,
-                    "timestamp": timezone.now().isoformat(),
-                },
-            )
-
-            logger.info(
-                f"[WebSocket] Invoice #{invoice.id} created event broadcasted "
-                f"to room {tutor_room}"
-            )
+            try:
+                async_to_sync(channel_layer.group_send)(
+                    tutor_room,
+                    {
+                        "type": "invoice.created",
+                        "invoice_id": invoice.id,
+                        "data": data,
+                        "timestamp": timezone.now().isoformat(),
+                    },
+                )
+                logger.info(
+                    f"[InvoiceService] Invoice #{invoice.id} created event broadcasted "
+                    f"to room {tutor_room}"
+                )
+            except Exception as broadcast_error:
+                logger.error(
+                    f"[InvoiceService] Failed to send broadcast to {tutor_room}: {broadcast_error}",
+                    exc_info=True,
+                )
+                return
 
         except Exception as e:
             logger.error(
-                f"[WebSocket] Failed to broadcast invoice_created for invoice #{invoice.id}: {e}",
+                f"[InvoiceService] Error in broadcast_invoice_created for invoice #{invoice.id}: {e}",
                 exc_info=True,
             )
 
@@ -140,7 +146,7 @@ class InvoiceService:
             channel_layer = get_channel_layer()
             if not channel_layer:
                 logger.warning(
-                    "Channel layer not configured, skipping WebSocket broadcast"
+                    "[InvoiceService] Channel layer not configured, skipping WebSocket broadcast"
                 )
                 return
 
@@ -159,36 +165,46 @@ class InvoiceService:
 
             # Отправляем в комнату тьютора
             tutor_room = f"tutor_{invoice.tutor.id}"
-            result_tutor = async_to_sync(channel_layer.group_send)(tutor_room, message)
-            logger.debug(
-                f"[WebSocket] Status change broadcast to tutor room {tutor_room}: result={result_tutor is not None}"
-            )
+            try:
+                async_to_sync(channel_layer.group_send)(tutor_room, message)
+                logger.info(
+                    f"[InvoiceService] Status change broadcast to tutor room {tutor_room}"
+                )
+            except Exception as tutor_broadcast_error:
+                logger.error(
+                    f"[InvoiceService] Failed to send status change to tutor room {tutor_room}: {tutor_broadcast_error}",
+                    exc_info=True,
+                )
 
             # CRITICAL FIX 2 & 7: Проверяем что родитель видит только счета своих детей
             if InvoiceService._check_parent_student_relationship(
                 invoice.parent, invoice.student
             ):
                 parent_room = f"parent_{invoice.parent.id}"
-                result_parent = async_to_sync(channel_layer.group_send)(
-                    parent_room, message
-                )
-                logger.debug(
-                    f"[WebSocket] Status change broadcast to parent room {parent_room}: result={result_parent is not None}"
-                )
+                try:
+                    async_to_sync(channel_layer.group_send)(parent_room, message)
+                    logger.info(
+                        f"[InvoiceService] Status change broadcast to parent room {parent_room}"
+                    )
+                except Exception as parent_broadcast_error:
+                    logger.error(
+                        f"[InvoiceService] Failed to send status change to parent room {parent_room}: {parent_broadcast_error}",
+                        exc_info=True,
+                    )
             else:
                 logger.warning(
-                    f"[WebSocket] Parent {invoice.parent.id} not authorized for student {invoice.student.id}, "
+                    f"[InvoiceService] Parent {invoice.parent.id} not authorized for student {invoice.student.id}, "
                     f"skipping broadcast to parent room"
                 )
 
             logger.info(
-                f"[WebSocket] Invoice #{invoice.id} status change "
+                f"[InvoiceService] Invoice #{invoice.id} status change "
                 f"({old_status} → {new_status}) broadcasted"
             )
 
         except Exception as e:
             logger.error(
-                f"[WebSocket] Failed to broadcast status change for invoice #{invoice.id}: {e}",
+                f"[InvoiceService] Error in broadcast_invoice_status_change for invoice #{invoice.id}: {e}",
                 exc_info=True,
             )
 
@@ -211,7 +227,7 @@ class InvoiceService:
             channel_layer = get_channel_layer()
             if not channel_layer:
                 logger.warning(
-                    "Channel layer not configured, skipping WebSocket broadcast"
+                    "[InvoiceService] Channel layer not configured, skipping WebSocket broadcast"
                 )
                 return
 
@@ -240,33 +256,45 @@ class InvoiceService:
 
             # Отправляем в комнату тьютора
             tutor_room = f"tutor_{invoice.tutor.id}"
-            result_tutor = async_to_sync(channel_layer.group_send)(tutor_room, message)
-            logger.debug(
-                f"[WebSocket] Payment broadcast to tutor room {tutor_room}: result={result_tutor is not None}"
-            )
+            try:
+                async_to_sync(channel_layer.group_send)(tutor_room, message)
+                logger.info(
+                    f"[InvoiceService] Payment broadcast to tutor room {tutor_room}"
+                )
+            except Exception as tutor_broadcast_error:
+                logger.error(
+                    f"[InvoiceService] Failed to send payment to tutor room {tutor_room}: {tutor_broadcast_error}",
+                    exc_info=True,
+                )
 
             # CRITICAL FIX 2 & 7: Проверяем что родитель видит только счета своих детей
             if InvoiceService._check_parent_student_relationship(
                 invoice.parent, invoice.student
             ):
                 parent_room = f"parent_{invoice.parent.id}"
-                result_parent = async_to_sync(channel_layer.group_send)(
-                    parent_room, message
-                )
-                logger.debug(
-                    f"[WebSocket] Payment broadcast to parent room {parent_room}: result={result_parent is not None}"
-                )
+                try:
+                    async_to_sync(channel_layer.group_send)(parent_room, message)
+                    logger.info(
+                        f"[InvoiceService] Payment broadcast to parent room {parent_room}"
+                    )
+                except Exception as parent_broadcast_error:
+                    logger.error(
+                        f"[InvoiceService] Failed to send payment to parent room {parent_room}: {parent_broadcast_error}",
+                        exc_info=True,
+                    )
             else:
                 logger.warning(
-                    f"[WebSocket] Parent {invoice.parent.id} not authorized for student {invoice.student.id}, "
+                    f"[InvoiceService] Parent {invoice.parent.id} not authorized for student {invoice.student.id}, "
                     f"skipping broadcast to parent room"
                 )
 
-            logger.info(f"[WebSocket] Invoice #{invoice.id} payment event broadcasted")
+            logger.info(
+                f"[InvoiceService] Invoice #{invoice.id} payment event broadcasted"
+            )
 
         except Exception as e:
             logger.error(
-                f"[WebSocket] Failed to broadcast invoice_paid for invoice #{invoice.id}: {e}",
+                f"[InvoiceService] Error in broadcast_invoice_paid for invoice #{invoice.id}: {e}",
                 exc_info=True,
             )
 

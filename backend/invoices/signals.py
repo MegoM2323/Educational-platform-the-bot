@@ -26,6 +26,7 @@ User = get_user_model()
 # Сигналы для дополнительного функционала (если потребуется)
 # Не используются для WebSocket - это уже сделано в InvoiceService
 
+
 @receiver(pre_save, sender=Invoice)
 def track_invoice_status_change(sender, instance, **kwargs):
     """
@@ -67,14 +68,13 @@ def invoice_post_save(sender, instance, created, **kwargs):
     # Логирование для аудита
     if created:
         logger.info(
-            f'[Invoice Signal] Invoice #{instance.id} created: '
-            f'tutor={instance.tutor.id}, student={instance.student.id}, '
-            f'amount={instance.amount}, status={instance.status}'
+            f"[Invoice Signal] Invoice #{instance.id} created: "
+            f"tutor={instance.tutor.id}, student={instance.student.id}, "
+            f"amount={instance.amount}, status={instance.status}"
         )
     else:
         logger.debug(
-            f'[Invoice Signal] Invoice #{instance.id} updated: '
-            f'status={instance.status}'
+            f"[Invoice Signal] Invoice #{instance.id} updated: " f"status={instance.status}"
         )
 
     # Отправка Telegram уведомлений
@@ -90,15 +90,16 @@ def invoice_status_history_post_save(sender, instance, created, **kwargs):
     """
     if created:
         logger.info(
-            f'[Invoice Status History] Invoice #{instance.invoice.id}: '
-            f'{instance.old_status} → {instance.new_status} '
-            f'(changed by user #{instance.changed_by.id})'
+            f"[Invoice Status History] Invoice #{instance.invoice.id}: "
+            f"{instance.old_status} → {instance.new_status} "
+            f"(changed by user #{instance.changed_by.id})"
         )
 
 
 # ============================================================================
 # TELEGRAM УВЕДОМЛЕНИЯ
 # ============================================================================
+
 
 def send_invoice_telegram_notification(invoice: Invoice, created: bool) -> None:
     """
@@ -119,7 +120,7 @@ def send_invoice_telegram_notification(invoice: Invoice, created: bool) -> None:
         # Сценарий 1: Новый счет создан и уже отправлен
         if created and invoice.status == Invoice.Status.SENT:
             # Отправляем уведомление родителю
-            if _has_telegram_id(invoice.parent):
+            if invoice.parent and _has_telegram_id(invoice.parent):
                 message_id = service.send_invoice_notification(invoice)
 
                 if message_id:
@@ -135,9 +136,13 @@ def send_invoice_telegram_notification(invoice: Invoice, created: bool) -> None:
         # Сценарий 2: Счет оплачен
         if not created and invoice.status == Invoice.Status.PAID:
             # Проверяем что это свежая оплата (защита от повторной отправки)
-            if hasattr(invoice, '_status_changed') and invoice._status_changed:
+            if hasattr(invoice, "_status_changed") and invoice._status_changed:
                 # Обновляем существующее сообщение родителю
-                if invoice.telegram_message_id and _has_telegram_id(invoice.parent):
+                if (
+                    invoice.telegram_message_id
+                    and invoice.parent
+                    and _has_telegram_id(invoice.parent)
+                ):
                     success = service.update_invoice_message(invoice)
                     if success:
                         logger.info(
@@ -145,7 +150,7 @@ def send_invoice_telegram_notification(invoice: Invoice, created: bool) -> None:
                         )
 
                 # Отправляем подтверждение родителю
-                if _has_telegram_id(invoice.parent):
+                if invoice.parent and _has_telegram_id(invoice.parent):
                     confirmation_message_id = service.send_payment_confirmation(invoice)
                     if confirmation_message_id:
                         logger.info(
@@ -160,9 +165,9 @@ def send_invoice_telegram_notification(invoice: Invoice, created: bool) -> None:
             return
 
         # Сценарий 3: Статус изменен (не создание, не оплата)
-        if not created and hasattr(invoice, '_status_changed') and invoice._status_changed:
+        if not created and hasattr(invoice, "_status_changed") and invoice._status_changed:
             # Обновляем существующее сообщение если есть message_id
-            if invoice.telegram_message_id and _has_telegram_id(invoice.parent):
+            if invoice.telegram_message_id and invoice.parent and _has_telegram_id(invoice.parent):
                 success = service.update_invoice_message(invoice)
                 if success:
                     logger.info(
@@ -176,11 +181,11 @@ def send_invoice_telegram_notification(invoice: Invoice, created: bool) -> None:
             f"[Telegram] Ошибка при отправке уведомления для счета #{invoice.id}: {str(e)}",
             exc_info=True,
             extra={
-                'invoice_id': invoice.id,
-                'invoice_status': invoice.status,
-                'error_type': type(e).__name__,
-                'error': str(e)
-            }
+                "invoice_id": invoice.id,
+                "invoice_status": invoice.status,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
         )
         # Не прокидываем ошибку - логируем, но позволяем сохранению счета завершиться
 
@@ -197,16 +202,16 @@ def _has_telegram_id(user: User) -> bool:
     """
     profile = None
 
-    if user.role == 'parent' and hasattr(user, 'parent_profile'):
+    if user.role == "parent" and hasattr(user, "parent_profile"):
         profile = user.parent_profile
-    elif user.role == 'tutor' and hasattr(user, 'tutor_profile'):
+    elif user.role == "tutor" and hasattr(user, "tutor_profile"):
         profile = user.tutor_profile
-    elif user.role == 'teacher' and hasattr(user, 'teacher_profile'):
+    elif user.role == "teacher" and hasattr(user, "teacher_profile"):
         profile = user.teacher_profile
-    elif user.role == 'student' and hasattr(user, 'student_profile'):
+    elif user.role == "student" and hasattr(user, "student_profile"):
         profile = user.student_profile
 
-    return profile is not None and bool(getattr(profile, 'telegram_id', None))
+    return profile is not None and bool(getattr(profile, "telegram_id", None))
 
 
 def _send_tutor_payment_notification(invoice: Invoice, service: InvoiceTelegramService) -> None:
@@ -217,11 +222,17 @@ def _send_tutor_payment_notification(invoice: Invoice, service: InvoiceTelegramS
         invoice: Оплаченный Invoice объект
         service: InvoiceTelegramService экземпляр
     """
-    if not hasattr(invoice.tutor, 'tutor_profile'):
+    if not hasattr(invoice.tutor, "tutor_profile"):
         logger.warning(f"[Telegram] У тьютора {invoice.tutor.id} нет профиля TutorProfile")
         return
 
-    tutor_telegram_id = invoice.tutor.tutor_profile.telegram_id
+    try:
+        tutor_telegram_id = invoice.tutor.tutor_profile.telegram_id
+    except AttributeError:
+        logger.warning(
+            f"[Telegram] Не удалось получить tutor_profile для тьютора {invoice.tutor.id}"
+        )
+        return
     if not tutor_telegram_id:
         logger.info(
             f"[Telegram] У тьютора {invoice.tutor.id} не указан telegram_id, пропускаем отправку"
@@ -229,14 +240,19 @@ def _send_tutor_payment_notification(invoice: Invoice, service: InvoiceTelegramS
         return
 
     # Форматируем сообщение для тьютора
-    paid_date_str = invoice.paid_at.strftime('%d.%m.%Y в %H:%M') if invoice.paid_at else ''
+    paid_date_str = (
+        invoice.paid_at.strftime("%d.%m.%Y в %H:%M")
+        if invoice.paid_at
+        else "Дата оплаты не установлена"
+    )
+    parent_name = invoice.parent.get_full_name() if invoice.parent else "Не указан"
 
     message = f"""
 ✅ <b>Счет оплачен</b>
 
 🆔 <b>Номер счета:</b> #{invoice.id}
 👤 <b>Студент:</b> {invoice.student.get_full_name()}
-👨‍👩‍👦 <b>Родитель:</b> {invoice.parent.get_full_name()}
+👨‍👩‍👦 <b>Родитель:</b> {parent_name}
 💰 <b>Сумма:</b> {invoice.amount} руб.
 📅 <b>Дата оплаты:</b> {paid_date_str}
 
@@ -264,10 +280,10 @@ def _send_tutor_payment_notification(invoice: Invoice, service: InvoiceTelegramS
 
     url = f"{service.base_url}/sendMessage"
     data = {
-        'chat_id': tutor_telegram_id,
-        'text': message,
-        'parse_mode': 'HTML',
-        'disable_web_page_preview': True
+        "chat_id": tutor_telegram_id,
+        "text": message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
     }
 
     try:
@@ -275,14 +291,18 @@ def _send_tutor_payment_notification(invoice: Invoice, service: InvoiceTelegramS
         response.raise_for_status()
 
         result = safe_json_response(response)
-        if result and result.get('ok'):
-            message_id = str(result['result']['message_id'])
+        if result and result.get("ok"):
+            message_id = str(result["result"]["message_id"])
             logger.info(
                 f"[Telegram] Уведомление об оплате счета #{invoice.id} отправлено тьютору "
                 f"{invoice.tutor.get_full_name()} (message_id: {message_id})"
             )
         else:
-            error_msg = result.get('description', 'Неизвестная ошибка') if result else 'Не удалось распарсить ответ'
+            error_msg = (
+                result.get("description", "Неизвестная ошибка")
+                if result
+                else "Не удалось распарсить ответ"
+            )
             logger.error(f"[Telegram] Ошибка отправки уведомления тьютору: {error_msg}")
 
     except requests.exceptions.RequestException as e:

@@ -159,6 +159,12 @@ CURRENT_BRANCH=$(git -C "$LOCAL_PATH" rev-parse --abbrev-ref HEAD)
 CURRENT_COMMIT=$(git -C "$LOCAL_PATH" rev-parse --short HEAD)
 log "Текущая ветка: $CURRENT_BRANCH @ $CURRENT_COMMIT"
 
+# If no GIT_BRANCH specified, use current branch
+if [ "$GIT_BRANCH" = "main" ] && [ "$CURRENT_BRANCH" != "main" ]; then
+    log "Использование текущей ветки вместо main: $CURRENT_BRANCH"
+    GIT_BRANCH="$CURRENT_BRANCH"
+fi
+
 # ===== PHASE 2: PRODUCTION BACKUP =====
 
 log ""

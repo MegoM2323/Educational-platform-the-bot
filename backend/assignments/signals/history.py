@@ -8,13 +8,17 @@ Tracks:
 """
 import logging
 import json
+from datetime import datetime
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.core.serializers.json import DjangoJSONEncoder
 
 from assignments.models import (
-    Assignment, AssignmentSubmission, AssignmentHistory, SubmissionVersion
+    Assignment,
+    AssignmentSubmission,
+    AssignmentHistory,
+    SubmissionVersion,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Thread-local storage for request context (changed_by user)
 import threading
+
 _request_context = threading.local()
 
 
@@ -32,22 +37,51 @@ def set_changed_by_user(user):
 
 def get_changed_by_user():
     """Retrieve the user who made the change."""
-    return getattr(_request_context, 'changed_by_user', None)
+    return getattr(_request_context, "changed_by_user", None)
 
 
 def clear_changed_by_user():
     """Clear the stored user."""
-    if hasattr(_request_context, 'changed_by_user'):
-        delattr(_request_context, 'changed_by_user')
+    if hasattr(_request_context, "changed_by_user"):
+        delattr(_request_context, "changed_by_user")
+
+
+def serialize_changes(changes):
+    """
+    Convert non-JSON-serializable objects to strings for JSONField storage.
+
+    Recursively processes dict/list and converts datetime objects to ISO format.
+    """
+    if isinstance(changes, dict):
+        return {k: serialize_changes(v) for k, v in changes.items()}
+    elif isinstance(changes, list):
+        return [serialize_changes(item) for item in changes]
+    elif isinstance(changes, datetime):
+        return changes.isoformat()
+    else:
+        return changes
 
 
 # Fields to track for assignment changes
 ASSIGNMENT_TRACKED_FIELDS = [
-    'title', 'description', 'instructions', 'type', 'status',
-    'max_score', 'time_limit', 'attempts_limit', 'start_date',
-    'due_date', 'difficulty_level', 'tags', 'late_submission_deadline',
-    'late_penalty_type', 'late_penalty_value', 'penalty_frequency',
-    'max_penalty', 'allow_late_submission'
+    "title",
+    "description",
+    "instructions",
+    "type",
+    "status",
+    "max_score",
+    "time_limit",
+    "attempts_limit",
+    "start_date",
+    "due_date",
+    "difficulty_level",
+    "tags",
+    "late_submission_deadline",
+    "late_penalty_type",
+    "late_penalty_value",
+    "penalty_frequency",
+    "max_penalty",
+    "allow_late_submission",
 ]
 
 
@@ -65,8 +99,7 @@ def track_assignment_changes(sender, instance, **kwargs):
     try:
         old_instance = Assignment.objects.get(pk=instance.pk)
         instance._old_state = {
-            field: getattr(old_instance, field)
-            for field in ASSIGNMENT_TRACKED_FIELDS
+            field: getattr(old_instance, field) for field in ASSIGNMENT_TRACKED_FIELDS
         }
     except Assignment.DoesNotExist:
         instance._old_state = {}
@@ -85,7 +118,7 @@ def create_assignment_history(sender, instance, created, **kwargs):
         return
 
     # Skip if no old state was captured
-    if not hasattr(instance, '_old_state'):
+    if not hasattr(instance, "_old_state"):
         return
 
     old_state = instance._old_state
@@ -100,10 +133,7 @@ def create_assignment_history(sender, instance, created, **kwargs):
         # Only record actual changes
         if old_value != new_value:
             fields_changed.append(field)
-            changes[field] = {
-                'old': old_value,
-                'new': new_value
-            }
+            changes[field] = {"old": old_value, "new": new_value}
 
     # Only create history if something actually changed
     if not changes:
@@ -113,8 +143,8 @@ def create_assignment_history(sender, instance, created, **kwargs):
     # Build human-readable summary
     summary_parts = []
     for field in fields_changed:
-        old_val = changes[field]['old']
-        new_val = changes[field]['new']
+        old_val = changes[field]["old"]
+        new_val = changes[field]["new"]
         summary_parts.append(f"{field}: '{old_val}' → '{new_val}'")
     change_summary = "; ".join(summary_parts)
 
@@ -122,12 +152,15 @@ def create_assignment_history(sender, instance, created, **kwargs):
     changed_by = get_changed_by_user()
 
     try:
+        # Serialize non-JSON-serializable objects (e.g., datetime) before saving
+        serialized_changes = serialize_changes(changes)
+
         history = AssignmentHistory.objects.create(
             assignment=instance,
             changed_by=changed_by,
-            changes_dict=changes,
+            changes_dict=serialized_changes,
             change_summary=change_summary,
-            fields_changed=fields_changed
+            fields_changed=fields_changed,
         )
         logger.info(
             f"Created history record {history.id} for assignment {instance.id}: "
@@ -138,8 +171,8 @@ def create_assignment_history(sender, instance, created, **kwargs):
     finally:
         clear_changed_by_user()
         # Clean up the temporary attribute
-        if hasattr(instance, '_old_state'):
-            delattr(instance, '_old_state')
+        if hasattr(instance, "_old_state"):
+            delattr(instance, "_old_state")
 
 
 @receiver(pre_save, sender=AssignmentSubmission)
@@ -171,9 +204,11 @@ def create_submission_version(sender, instance, created, **kwargs):
 
     try:
         # Get the latest version number for this submission
-        latest_version = SubmissionVersion.objects.filter(
-            submission=instance
-        ).order_by('-version_number').first()
+        latest_version = (
+            SubmissionVersion.objects.filter(submission=instance)
+            .order_by("-version_number")
+            .first()
+        )
 
         version_number = (latest_version.version_number + 1) if latest_version else 1
 
@@ -188,13 +223,13 @@ def create_submission_version(sender, instance, created, **kwargs):
             content=instance.content,
             is_final=True,  # New submissions are final by default
             submitted_by=instance.student,
-            previous_version=previous_version
+            previous_version=previous_version,
         )
 
         # Mark previous version as not final
         if previous_version:
             previous_version.is_final = False
-            previous_version.save(update_fields=['is_final'])
+            previous_version.save(update_fields=["is_final"])
 
         logger.info(
             f"Created submission version {version.id} (v{version_number}) "
@@ -204,5 +239,5 @@ def create_submission_version(sender, instance, created, **kwargs):
         logger.error(f"Error creating submission version: {e}", exc_info=True)
     finally:
         # Clean up temporary attribute
-        if hasattr(instance, '_is_new_submission'):
-            delattr(instance, '_is_new_submission')
+        if hasattr(instance, "_is_new_submission"):
+            delattr(instance, "_is_new_submission")

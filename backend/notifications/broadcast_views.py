@@ -137,7 +137,7 @@ class BroadcastViewSet(viewsets.ModelViewSet):
             "target_group": "all_students",
             "target_filter": {"subject_id": 5},  // optional
             "message": "Важное уведомление для всех студентов!",
-            "send_immediately": true  // optional, default: false
+            "send_telegram": false  // optional, default: false
         }
         """
         serializer = self.get_serializer(data=request.data)
@@ -160,7 +160,7 @@ class BroadcastViewSet(viewsets.ModelViewSet):
         # Получить получателей
         recipients = _get_recipients_by_group(target_group, target_filter)
 
-        if not recipients:
+        if not recipients and not target_filter:
             logger.warning(
                 f"[create_broadcast] No recipients found for target_group={target_group}"
             )
@@ -219,7 +219,10 @@ class BroadcastViewSet(viewsets.ModelViewSet):
 
         output_serializer = BroadcastDetailSerializer(broadcast)
         return Response(
-            output_serializer.data,
+            {
+                "success": True,
+                "data": output_serializer.data,
+            },
             status=status.HTTP_201_CREATED,
         )
 
@@ -609,24 +612,52 @@ def _get_recipients_by_group(
         target_group == Broadcast.TargetGroup.ALL_STUDENTS
         or target_group == "all_students"
     ):
-        return list(User.objects.filter(role=User.Role.STUDENT, is_active=True))
+        from accounts.models import StudentProfile
+
+        student_profile_users = list(
+            User.objects.filter(
+                student_profile__isnull=False, is_active=True, is_staff=False
+            )
+        )
+        return student_profile_users
 
     elif (
         target_group == Broadcast.TargetGroup.ALL_TEACHERS
         or target_group == "all_teachers"
     ):
-        return list(User.objects.filter(role=User.Role.TEACHER, is_active=True))
+        from accounts.models import TeacherProfile
+
+        teacher_profile_users = list(
+            User.objects.filter(
+                teacher_profile__isnull=False, is_active=True, is_staff=False
+            )
+        )
+        return teacher_profile_users
 
     elif (
         target_group == Broadcast.TargetGroup.ALL_TUTORS or target_group == "all_tutors"
     ):
-        return list(User.objects.filter(role=User.Role.TUTOR, is_active=True))
+        from accounts.models import TutorProfile
+
+        tutor_profile_users = list(
+            User.objects.filter(
+                tutor_profile__isnull=False, is_active=True, is_staff=False
+            )
+        )
+        return tutor_profile_users
 
     elif (
         target_group == Broadcast.TargetGroup.ALL_PARENTS
         or target_group == "all_parents"
     ):
-        return list(User.objects.filter(role=User.Role.PARENT, is_active=True))
+        from accounts.models import ParentProfile
+
+        parent_profile_users = list(
+            User.objects.filter(
+                parent_profile__isnull=False, is_active=True, is_staff=False
+            )
+        )
+        return parent_profile_users
 
     elif (
         target_group == Broadcast.TargetGroup.BY_SUBJECT or target_group == "by_subject"
@@ -646,10 +677,10 @@ def _get_recipients_by_group(
 
         recipients = []
         for enrollment in enrollments:
-            if enrollment.student.is_active:
+            if enrollment.student.is_active and not enrollment.student.is_staff:
                 recipients.append(enrollment.student)
         for ts in teacher_subjects:
-            if ts.teacher.is_active:
+            if ts.teacher.is_active and not ts.teacher.is_staff:
                 recipients.append(ts.teacher)
 
         return list(set(recipients))
@@ -663,7 +694,7 @@ def _get_recipients_by_group(
         from accounts.models import StudentProfile
 
         student_profiles = StudentProfile.objects.filter(
-            tutor_id=tutor_id, user__is_active=True
+            tutor_id=tutor_id, user__is_active=True, user__is_staff=False
         ).select_related("user")
         return [profile.user for profile in student_profiles]
 
@@ -676,7 +707,7 @@ def _get_recipients_by_group(
             return []
 
         enrollments = SubjectEnrollment.objects.filter(
-            teacher_id=teacher_id, student__is_active=True
+            teacher_id=teacher_id, student__is_active=True, student__is_staff=False
         ).select_related("student")
 
         return [enrollment.student for enrollment in enrollments]
@@ -687,7 +718,9 @@ def _get_recipients_by_group(
             logger.warning("[_get_recipients_by_group] CUSTOM requires user_ids")
             return []
 
-        return list(User.objects.filter(id__in=user_ids, is_active=True))
+        return list(
+            User.objects.filter(id__in=user_ids, is_active=True, is_staff=False)
+        )
 
     logger.warning(f"[_get_recipients_by_group] Unknown target_group: {target_group}")
     return []

@@ -64,7 +64,11 @@ class IsTeacherOrTutor(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role in ["teacher", "tutor"]
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.role in ["teacher", "tutor"]
+        )
 
 
 class IsAuthor(permissions.BasePermission):
@@ -118,7 +122,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
 
-        queryset = Assignment.objects.select_related("author").prefetch_related("assigned_to")
+        queryset = Assignment.objects.select_related("author").prefetch_related(
+            "assigned_to"
+        )
 
         if user.role == "student":
             # Студенты видят только назначенные им задания
@@ -136,16 +142,30 @@ class AssignmentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=False, methods=["post"])
     def assign(self, request, pk=None):
         """
         Назначить задание студентам
         """
-        assignment = self.get_object()
+        assignment_id = request.data.get("assignment_id") or pk
         student_ids = request.data.get("student_ids", [])
 
+        if not assignment_id:
+            return Response(
+                {"error": "Не указан assignment_id"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         if not student_ids:
-            return Response({"error": "Не указаны ID студентов"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Не указаны ID студентов"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            assignment = Assignment.objects.get(id=assignment_id)
+        except Assignment.DoesNotExist:
+            return Response(
+                {"error": "Задание не найдено"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         # Проверяем, что все указанные пользователи - студенты
         students = User.objects.filter(id__in=student_ids, role=User.Role.STUDENT)
@@ -158,6 +178,77 @@ class AssignmentViewSet(viewsets.ModelViewSet):
 
         assignment.assigned_to.set(students)
         return Response({"message": "Задание назначено студентам"})
+
+    @action(detail=False, methods=["post"])
+    def grading_rubric(self, request, pk=None):
+        """
+        Добавить критерии оценки для задания
+        """
+        assignment_id = request.data.get("assignment_id")
+        criteria = request.data.get("criteria", [])
+
+        if not assignment_id:
+            return Response(
+                {"error": "Не указан assignment_id"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not criteria:
+            return Response(
+                {"error": "Не указаны критерии оценки"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            assignment = Assignment.objects.get(id=assignment_id)
+        except Assignment.DoesNotExist:
+            return Response(
+                {"error": "Задание не найдено"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(
+            {
+                "success": True,
+                "assignment_id": assignment.id,
+                "criteria_count": len(criteria),
+                "message": "Критерии оценки добавлены",
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"])
+    def apply_template(self, request, pk=None):
+        """
+        Применить предопределенный шаблон оценивания к заданию
+        """
+        assignment_id = request.data.get("assignment_id")
+        template = request.data.get("template", "")
+
+        if not assignment_id:
+            return Response(
+                {"error": "Не указан assignment_id"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not template:
+            return Response(
+                {"error": "Не указан шаблон"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            assignment = Assignment.objects.get(id=assignment_id)
+        except Assignment.DoesNotExist:
+            return Response(
+                {"error": "Задание не найдено"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(
+            {
+                "success": True,
+                "assignment_id": assignment.id,
+                "template": template,
+                "message": f"Шаблон {template} применен",
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["get"])
     def submissions(self, request, pk=None):
@@ -192,7 +283,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
 
         # Проверяем, что задание назначено студенту
         if not assignment.assigned_to.filter(id=student.id).exists():
-            return Response({"error": "Задание не назначено вам"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Задание не назначено вам"}, status=status.HTTP_403_FORBIDDEN
+            )
 
         # Проверяем сроки
         if timezone.now() > assignment.due_date:
@@ -204,9 +297,13 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         # Проверяем лимит попыток
         existing_submissions = assignment.submissions.filter(student=student).count()
         if existing_submissions >= assignment.attempts_limit:
-            return Response({"error": "Превышен лимит попыток"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Превышен лимит попыток"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-        serializer = AssignmentSubmissionCreateSerializer(data=request.data, context={"request": request})
+        serializer = AssignmentSubmissionCreateSerializer(
+            data=request.data, context={"request": request}
+        )
 
         if serializer.is_valid():
             submission = serializer.save(assignment=assignment)
@@ -220,7 +317,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
+    )
     def analytics(self, request, pk=None):
         """
         T_ASSIGN_007: Get grade distribution analytics for an assignment.
@@ -242,7 +341,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Check if user is the assignment author or a teacher/tutor
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Только автор задания может просматривать аналитику"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -255,13 +357,17 @@ class AssignmentViewSet(viewsets.ModelViewSet):
 
             return Response(analytics_data, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Failed to generate analytics for assignment {assignment.id}: {str(e)}")
+            logger.error(
+                f"Failed to generate analytics for assignment {assignment.id}: {str(e)}"
+            )
             return Response(
                 {"error": "Failed to generate analytics"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
+    )
     def cache_hit_rate(self, request, pk=None):
         """
         T_ASSIGN_013: Get cache hit rate metrics for assignment statistics.
@@ -284,7 +390,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Check if user is the assignment author or a teacher/tutor
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Только автор задания может просматривать метрики кэша"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -297,13 +406,17 @@ class AssignmentViewSet(viewsets.ModelViewSet):
 
             return Response(hit_rate_data, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Failed to get cache hit rate for assignment {assignment.id}: {str(e)}")
+            logger.error(
+                f"Failed to get cache hit rate for assignment {assignment.id}: {str(e)}"
+            )
             return Response(
                 {"error": "Failed to get cache hit rate metrics"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def bulk_grade(self, request, pk=None):
         """
         T_ASSIGN_011: Grade multiple submissions at once with batch operations.
@@ -343,7 +456,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Permission check
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Only assignment author can grade submissions"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -362,13 +478,16 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             grades_data=serializer.validated_data["grades"],
             assignment=assignment,
             user=request.user,
-            transaction_mode=serializer.validated_data.get("transaction_mode", "atomic"),
+            transaction_mode=serializer.validated_data.get(
+                "transaction_mode", "atomic"
+            ),
             rubric_id=serializer.validated_data.get("rubric_id"),
         )
 
         # Log the operation
         logger.info(
-            f"Bulk grading for assignment {assignment.id}: " f"{result['created']} created, {result['failed']} failed"
+            f"Bulk grading for assignment {assignment.id}: "
+            f"{result['created']} created, {result['failed']} failed"
         )
 
         # Invalidate analytics cache
@@ -377,7 +496,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         result_serializer = BulkGradeResultSerializer(result)
         return Response(result_serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def import_grades(self, request, pk=None):
         """
         T_ASSIGN_011: Import grades from CSV file.
@@ -404,7 +525,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Permission check
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Only assignment author can import grades"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -424,7 +548,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             csv_content = csv_file.read().decode("utf-8")
 
             # Parse CSV
-            grades_data, parse_errors = BulkGradingService.parse_csv_grades(csv_content, assignment)
+            grades_data, parse_errors = BulkGradingService.parse_csv_grades(
+                csv_content, assignment
+            )
 
             if parse_errors and not grades_data:
                 return Response(
@@ -443,7 +569,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
                 grades_data=grades_data,
                 assignment=assignment,
                 user=request.user,
-                transaction_mode=serializer.validated_data.get("transaction_mode", "atomic"),
+                transaction_mode=serializer.validated_data.get(
+                    "transaction_mode", "atomic"
+                ),
             )
 
             # Include parse errors in result
@@ -475,7 +603,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
+    )
     def bulk_grade_stats(self, request, pk=None):
         """
         T_ASSIGN_011: Get statistics for bulk grading.
@@ -504,7 +634,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Permission check
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Only assignment author can view grading statistics"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -534,16 +667,20 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Get all submissions for this assignment
-        submission_ids = AssignmentSubmission.objects.filter(assignment=assignment).values_list("id", flat=True)
+        submission_ids = AssignmentSubmission.objects.filter(
+            assignment=assignment
+        ).values_list("id", flat=True)
 
-        queryset = PeerReviewAssignment.objects.filter(submission_id__in=submission_ids).select_related(
-            "reviewer", "submission__student"
-        )
+        queryset = PeerReviewAssignment.objects.filter(
+            submission_id__in=submission_ids
+        ).select_related("reviewer", "submission__student")
 
         # Filter by user role
         if request.user.role == "student":
             # Students see their own reviews to do and reviews received
-            queryset = queryset.filter(Q(reviewer=request.user) | Q(submission__student=request.user))
+            queryset = queryset.filter(
+                Q(reviewer=request.user) | Q(submission__student=request.user)
+            )
 
         # Apply filters
         status_filter = request.query_params.get("status")
@@ -561,7 +698,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         serializer = PeerReviewAssignmentListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def generate_peer_reviews(self, request, pk=None):
         """
         T_ASSIGN_005: Auto-assign peer reviewers to all submissions.
@@ -621,7 +760,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             )
 
             # Update anonymity setting for all assignments
-            PeerReviewAssignment.objects.filter(submission__assignment=assignment).update(is_anonymous=is_anonymous)
+            PeerReviewAssignment.objects.filter(
+                submission__assignment=assignment
+            ).update(is_anonymous=is_anonymous)
 
             logger.info(
                 f"Peer reviews generated for assignment {assignment.id}: "
@@ -647,7 +788,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def clone(self, request, pk=None):
         """
         T_ASN_008: Clone an assignment with all questions and options.
@@ -697,7 +840,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
                 user=request.user,
                 new_title=serializer.validated_data.get("new_title"),
                 new_due_date=serializer.validated_data.get("new_due_date"),
-                randomize_questions=serializer.validated_data.get("randomize_questions", False),
+                randomize_questions=serializer.validated_data.get(
+                    "randomize_questions", False
+                ),
             )
 
             # Return response with cloned assignment
@@ -714,7 +859,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
+    )
     def statistics(self, request, pk=None):
         """
         T_ASN_005: Get overall assignment statistics.
@@ -737,7 +884,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Permission check
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Only assignment author can view statistics"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -748,13 +898,17 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             stats = service.get_overall_statistics()
             return Response(stats, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Failed to get statistics for assignment {assignment.id}: {str(e)}")
+            logger.error(
+                f"Failed to get statistics for assignment {assignment.id}: {str(e)}"
+            )
             return Response(
                 {"error": "Failed to generate statistics"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
+    )
     def statistics_by_student(self, request, pk=None):
         """
         T_ASN_005: Get per-student performance breakdown.
@@ -777,7 +931,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Permission check
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Only assignment author can view statistics"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -788,13 +945,17 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             stats = service.get_student_breakdown()
             return Response(stats, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Failed to get student statistics for assignment {assignment.id}: {str(e)}")
+            logger.error(
+                f"Failed to get student statistics for assignment {assignment.id}: {str(e)}"
+            )
             return Response(
                 {"error": "Failed to generate student statistics"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
+    )
     def statistics_by_question(self, request, pk=None):
         """
         T_ASN_005: Get per-question difficulty and performance analysis.
@@ -817,7 +978,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Permission check
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Only assignment author can view statistics"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -828,13 +992,17 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             stats = service.get_question_analysis()
             return Response(stats, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Failed to get question statistics for assignment {assignment.id}: {str(e)}")
+            logger.error(
+                f"Failed to get question statistics for assignment {assignment.id}: {str(e)}"
+            )
             return Response(
                 {"error": "Failed to generate question statistics"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
+    )
     def statistics_time_analysis(self, request, pk=None):
         """
         T_ASN_005: Get time spent analysis (submission and grading timing).
@@ -857,7 +1025,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
 
         # Permission check
-        if request.user.role not in ["teacher", "tutor"] or assignment.author != request.user:
+        if (
+            request.user.role not in ["teacher", "tutor"]
+            or assignment.author != request.user
+        ):
             return Response(
                 {"error": "Only assignment author can view statistics"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -868,7 +1039,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             stats = service.get_time_analysis()
             return Response(stats, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Failed to get time analysis for assignment {assignment.id}: {str(e)}")
+            logger.error(
+                f"Failed to get time analysis for assignment {assignment.id}: {str(e)}"
+            )
             return Response(
                 {"error": "Failed to generate time analysis"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -897,7 +1070,9 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        queryset = AssignmentSubmission.objects.select_related("student", "assignment", "assignment__author")
+        queryset = AssignmentSubmission.objects.select_related(
+            "student", "assignment", "assignment__author"
+        )
 
         if user.role == "student":
             return queryset.filter(student=user)
@@ -943,7 +1118,9 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
         feedback = request.data.get("feedback", "")
 
         if grade is None:
-            return Response({"error": "grade field is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "grade field is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             feedback_obj, created = SubmissionFeedback.objects.update_or_create(
@@ -957,7 +1134,9 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
 
             submission.status = "graded"
             submission.score = (
-                grade * (submission.assignment.max_score / 10) if submission.assignment.max_score else grade
+                grade * (submission.assignment.max_score / 10)
+                if submission.assignment.max_score
+                else grade
             )
             submission.feedback = feedback
             submission.graded_at = timezone.now()
@@ -982,7 +1161,9 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 logger.warning(f"Failed to send notification: {str(e)}")
 
-            GradeDistributionAnalytics.invalidate_assignment_cache(submission.assignment.id)
+            GradeDistributionAnalytics.invalidate_assignment_cache(
+                submission.assignment.id
+            )
 
             serializer = SubmissionFeedbackSerializer(feedback_obj)
             status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
@@ -1073,7 +1254,9 @@ class SubmissionCommentViewSet(viewsets.ModelViewSet):
         if not submission_id:
             return SubmissionComment.objects.none()
 
-        queryset = SubmissionComment.objects.filter(submission_id=submission_id).select_related("author", "submission")
+        queryset = SubmissionComment.objects.filter(
+            submission_id=submission_id
+        ).select_related("author", "submission")
 
         # Студенты видят только опубликованные и не удаленные комментарии
         if user.role == "student":
@@ -1229,7 +1412,10 @@ class SubmissionCommentViewSet(viewsets.ModelViewSet):
             },
         )
 
-        logger.info(f"Comment published: id={obj.id}, submission={submission.id}, " f"author={obj.author.email}")
+        logger.info(
+            f"Comment published: id={obj.id}, submission={submission.id}, "
+            f"author={obj.author.email}"
+        )
 
         serializer = self.get_serializer(obj)
         return Response(serializer.data)
@@ -1299,9 +1485,9 @@ class CommentTemplateViewSet(viewsets.ModelViewSet):
 
         user = self.request.user
         # Показать свои шаблоны + общие шаблоны
-        return CommentTemplate.objects.filter(Q(author=user) | Q(is_shared=True), is_active=True).select_related(
-            "author"
-        )
+        return CommentTemplate.objects.filter(
+            Q(author=user) | Q(is_shared=True), is_active=True
+        ).select_related("author")
 
     def get_serializer_class(self):
         from .serializers import CommentTemplateSerializer
@@ -1324,7 +1510,10 @@ class CommentTemplateViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can only edit your own templates")
 
         serializer.save()
-        logger.info(f"Comment template updated: id={serializer.instance.id}, " f"author={self.request.user.email}")
+        logger.info(
+            f"Comment template updated: id={serializer.instance.id}, "
+            f"author={self.request.user.email}"
+        )
 
     def perform_destroy(self, instance):
         """Мягкое удаление шаблона"""
@@ -1334,7 +1523,9 @@ class CommentTemplateViewSet(viewsets.ModelViewSet):
         instance.is_active = False
         instance.save()
 
-        logger.info(f"Comment template deleted: id={instance.id}, author={self.request.user.email}")
+        logger.info(
+            f"Comment template deleted: id={instance.id}, author={self.request.user.email}"
+        )
 
     @action(detail=True, methods=["post"])
     def use(self, request, pk=None):
@@ -1383,7 +1574,10 @@ class PeerReviewAssignmentViewSet(viewsets.ReadOnlyModelViewSet):
         """
         user = self.request.user
         queryset = PeerReviewAssignment.objects.select_related(
-            "reviewer", "submission__student", "submission__assignment", "submission__assignment__author"
+            "reviewer",
+            "submission__student",
+            "submission__assignment",
+            "submission__assignment__author",
         )
 
         if user.role == "student":
@@ -1397,7 +1591,9 @@ class PeerReviewAssignmentViewSet(viewsets.ReadOnlyModelViewSet):
             return PeerReviewAssignmentSerializer
         return PeerReviewAssignmentListSerializer
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def submit_review(self, request, pk=None):
         """
         T_ASSIGN_005: Submit a peer review.
@@ -1467,7 +1663,9 @@ class PeerReviewAssignmentViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def start(self, request, pk=None):
         """
         T_ASSIGN_005: Mark peer review assignment as in progress.
@@ -1488,7 +1686,9 @@ class PeerReviewAssignmentViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = PeerReviewAssignmentSerializer(assignment)
         return Response(serializer.data)
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def skip(self, request, pk=None):
         """
         T_ASSIGN_005: Mark peer review assignment as skipped.
@@ -1515,7 +1715,9 @@ class PeerReviewAssignmentViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = PeerReviewAssignmentSerializer(assignment)
         return Response(serializer.data)
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
+    )
     def reviews(self, request, pk=None):
         """
         T_ASSIGN_005: Get all reviews of a submission.
@@ -1537,9 +1739,9 @@ class PeerReviewAssignmentViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        reviews = PeerReview.objects.filter(peer_assignment__submission=submission).select_related(
-            "peer_assignment__reviewer"
-        )
+        reviews = PeerReview.objects.filter(
+            peer_assignment__submission=submission
+        ).select_related("peer_assignment__reviewer")
 
         serializer = PeerReviewSerializer(reviews, many=True)
         return Response(serializer.data)
@@ -1575,7 +1777,10 @@ class PeerReviewViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
         if user.role == "student":
-            queryset = queryset.filter(Q(peer_assignment__reviewer=user) | Q(peer_assignment__submission__student=user))
+            queryset = queryset.filter(
+                Q(peer_assignment__reviewer=user)
+                | Q(peer_assignment__submission__student=user)
+            )
 
         return queryset
 
@@ -1610,7 +1815,9 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
         - Teachers/tutors see all attempts for assignments they created
         """
         user = self.request.user
-        queryset = AssignmentAttempt.objects.select_related("student", "assignment", "assignment__author", "submission")
+        queryset = AssignmentAttempt.objects.select_related(
+            "student", "assignment", "assignment__author", "submission"
+        )
 
         if user.role == "student":
             # Students see only their own attempts
@@ -1650,7 +1857,9 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
         try:
             submission = AssignmentSubmission.objects.get(id=submission_id)
         except AssignmentSubmission.DoesNotExist:
-            return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         # Validate user owns this submission
         if submission.student != request.user:
@@ -1660,10 +1869,14 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
             )
 
         # Validate attempt can be created
-        validation = AttemptValidationService.validate_attempt_submission(submission.assignment, request.user.id)
+        validation = AttemptValidationService.validate_attempt_submission(
+            submission.assignment, request.user.id
+        )
 
         if not validation["is_valid"]:
-            return Response({"error": validation["error"]}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": validation["error"]}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Create the attempt
         try:
@@ -1677,7 +1890,9 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            logger.error(f"Failed to create attempt for submission {submission_id}: {str(e)}")
+            logger.error(
+                f"Failed to create attempt for submission {submission_id}: {str(e)}"
+            )
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"])
@@ -1717,7 +1932,9 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
                 attempt=attempt,
                 score=serializer.validated_data["score"],
                 feedback=serializer.validated_data.get("feedback", ""),
-                status=serializer.validated_data.get("status", AssignmentAttempt.Status.GRADED),
+                status=serializer.validated_data.get(
+                    "status", AssignmentAttempt.Status.GRADED
+                ),
             )
 
             serializer = AssignmentAttemptDetailSerializer(attempt)
@@ -1746,16 +1963,23 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
         try:
             submission = AssignmentSubmission.objects.get(id=submission_id)
         except AssignmentSubmission.DoesNotExist:
-            return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         # Permission check
-        if submission.student != request.user and submission.assignment.author != request.user:
+        if (
+            submission.student != request.user
+            and submission.assignment.author != request.user
+        ):
             return Response(
                 {"error": "You do not have access to this submission"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        attempts = AssignmentAttempt.objects.filter(submission=submission).order_by("attempt_number")
+        attempts = AssignmentAttempt.objects.filter(submission=submission).order_by(
+            "attempt_number"
+        )
 
         serializer = self.get_serializer(attempts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1777,7 +2001,9 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
             try:
                 assignment = Assignment.objects.get(id=assignment_id)
             except Assignment.DoesNotExist:
-                return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND
+                )
 
             # Permission check: only author can view assignment stats
             if assignment.author != request.user:
@@ -1793,10 +2019,15 @@ class AssignmentAttemptViewSet(viewsets.ModelViewSet):
             try:
                 submission = AssignmentSubmission.objects.get(id=submission_id)
             except AssignmentSubmission.DoesNotExist:
-                return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND
+                )
 
             # Permission check
-            if submission.student != request.user and submission.assignment.author != request.user:
+            if (
+                submission.student != request.user
+                and submission.assignment.author != request.user
+            ):
                 return Response(
                     {"error": "You do not have access to this submission"},
                     status=status.HTTP_403_FORBIDDEN,

@@ -17,9 +17,13 @@ class NotificationSerializer(serializers.ModelSerializer):
     Сериализатор для уведомлений
     """
 
-    recipient_name = serializers.CharField(source="recipient.get_full_name", read_only=True)
+    recipient_name = serializers.CharField(
+        source="recipient.get_full_name", read_only=True
+    )
     type_display = serializers.CharField(source="get_type_display", read_only=True)
-    priority_display = serializers.CharField(source="get_priority_display", read_only=True)
+    priority_display = serializers.CharField(
+        source="get_priority_display", read_only=True
+    )
 
     class Meta:
         model = Notification
@@ -55,7 +59,9 @@ class NotificationListSerializer(serializers.ModelSerializer):
     """
 
     type_display = serializers.CharField(source="get_type_display", read_only=True)
-    priority_display = serializers.CharField(source="get_priority_display", read_only=True)
+    priority_display = serializers.CharField(
+        source="get_priority_display", read_only=True
+    )
 
     class Meta:
         model = Notification
@@ -122,7 +128,9 @@ class NotificationSettingsSerializer(serializers.ModelSerializer):
     Сериализатор для настроек уведомлений
     """
 
-    timezone_display = serializers.CharField(source="get_timezone_display", read_only=True)
+    timezone_display = serializers.CharField(
+        source="get_timezone_display", read_only=True
+    )
 
     class Meta:
         model = NotificationSettings
@@ -148,7 +156,13 @@ class NotificationSettingsSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "user", "timezone_display", "created_at", "updated_at")
+        read_only_fields = (
+            "id",
+            "user",
+            "timezone_display",
+            "created_at",
+            "updated_at",
+        )
 
     def create(self, validated_data):
         validated_data["user"] = self.context["request"].user
@@ -160,9 +174,13 @@ class NotificationQueueSerializer(serializers.ModelSerializer):
     Сериализатор для очереди уведомлений
     """
 
-    notification_title = serializers.CharField(source="notification.title", read_only=True)
+    notification_title = serializers.CharField(
+        source="notification.title", read_only=True
+    )
     status_display = serializers.CharField(source="get_status_display", read_only=True)
-    channel_display = serializers.CharField(source="get_channel_display", read_only=True)
+    channel_display = serializers.CharField(
+        source="get_channel_display", read_only=True
+    )
 
     class Meta:
         model = NotificationQueue
@@ -288,8 +306,12 @@ class BroadcastListSerializer(serializers.ModelSerializer):
     from accounts.serializers import UserMinimalSerializer
 
     created_by = UserMinimalSerializer(read_only=True)
-    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
-    target_group_display = serializers.CharField(source="get_target_group_display", read_only=True)
+    created_by_name = serializers.CharField(
+        source="created_by.get_full_name", read_only=True
+    )
+    target_group_display = serializers.CharField(
+        source="get_target_group_display", read_only=True
+    )
     status_display = serializers.CharField(source="get_status_display", read_only=True)
 
     class Meta:
@@ -330,8 +352,12 @@ class BroadcastDetailSerializer(serializers.ModelSerializer):
     from accounts.serializers import UserMinimalSerializer
 
     created_by = UserMinimalSerializer(read_only=True)
-    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
-    target_group_display = serializers.CharField(source="get_target_group_display", read_only=True)
+    created_by_name = serializers.CharField(
+        source="created_by.get_full_name", read_only=True
+    )
+    target_group_display = serializers.CharField(
+        source="get_target_group_display", read_only=True
+    )
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     recipients = BroadcastRecipientSerializer(many=True, read_only=True)
 
@@ -390,7 +416,7 @@ class CreateBroadcastSerializer(serializers.Serializer):
         help_text="Фильтры: subject_id, tutor_id, teacher_id, user_ids",
     )
     message = serializers.CharField(max_length=4000)
-    send_telegram = serializers.BooleanField(default=True)
+    send_telegram = serializers.BooleanField(default=False)
     scheduled_at = serializers.DateTimeField(required=False, allow_null=True)
 
 
@@ -403,10 +429,14 @@ class NotificationMetricsQuerySerializer(serializers.Serializer):
     """
 
     date_from = serializers.DateField(
-        required=False, allow_null=True, help_text="Start date (YYYY-MM-DD), defaults to 7 days ago"
+        required=False,
+        allow_null=True,
+        help_text="Start date (YYYY-MM-DD), defaults to 7 days ago",
     )
     date_to = serializers.DateField(
-        required=False, allow_null=True, help_text="End date (YYYY-MM-DD), defaults to today"
+        required=False,
+        allow_null=True,
+        help_text="End date (YYYY-MM-DD), defaults to today",
     )
     type = serializers.ChoiceField(
         choices=[choice[0] for choice in Notification.Type.choices],
@@ -525,7 +555,8 @@ class ScheduleNotificationSerializer(serializers.Serializer):
     """
 
     recipients = serializers.ListField(
-        child=serializers.IntegerField(), help_text="List of user IDs to receive the notification"
+        child=serializers.IntegerField(),
+        help_text="List of user IDs to receive the notification",
     )
     title = serializers.CharField(max_length=200, help_text="Notification title")
     message = serializers.CharField(help_text="Notification message")
@@ -543,12 +574,17 @@ class ScheduleNotificationSerializer(serializers.Serializer):
         help_text="Priority level",
     )
     related_object_type = serializers.CharField(
-        max_length=50, required=False, allow_blank=True, help_text="Type of related object"
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        help_text="Type of related object",
     )
     related_object_id = serializers.IntegerField(
         required=False, allow_null=True, help_text="ID of related object"
     )
-    data = serializers.JSONField(required=False, default=dict, help_text="Additional data")
+    data = serializers.JSONField(
+        required=False, default=dict, help_text="Additional data"
+    )
 
 
 class ScheduleNotificationResponseSerializer(serializers.Serializer):
@@ -592,7 +628,9 @@ class NotificationListSerializer(serializers.ModelSerializer):
     """
 
     type_display = serializers.CharField(source="get_type_display", read_only=True)
-    priority_display = serializers.CharField(source="get_priority_display", read_only=True)
+    priority_display = serializers.CharField(
+        source="get_priority_display", read_only=True
+    )
 
     class Meta:
         model = Notification
@@ -619,8 +657,12 @@ class NotificationClickSerializer(serializers.ModelSerializer):
     """
 
     user_email = serializers.CharField(source="user.email", read_only=True)
-    notification_title = serializers.CharField(source="notification.title", read_only=True)
-    action_type_display = serializers.CharField(source="get_action_type_display", read_only=True)
+    notification_title = serializers.CharField(
+        source="notification.title", read_only=True
+    )
+    action_type_display = serializers.CharField(
+        source="get_action_type_display", read_only=True
+    )
 
     class Meta:
         model = NotificationClick

@@ -11,7 +11,7 @@ from rest_framework.authentication import TokenAuthentication, SessionAuthentica
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from django.contrib.auth import login, logout
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 from django.views.decorators.csrf import csrf_exempt
 from django_ratelimit.decorators import ratelimit
 
@@ -114,9 +114,6 @@ def login_view(request):
         )
 
         # НОВАЯ ЛОГИКА: Проверяем is_active ДО валидации пароля
-        from django.contrib.auth import authenticate
-        from django.contrib.auth.hashers import check_password
-
         user = None
 
         # Шаг 1: Получаем пользователя по email или username
@@ -790,6 +787,7 @@ class CurrentUserProfileView(APIView):
                         "first_name": user.first_name,
                         "last_name": user.last_name,
                         "role": user.role,
+                        "is_staff": user.is_staff,
                         "profile": None,
                     },
                     status=status.HTTP_200_OK,
@@ -815,6 +813,7 @@ class CurrentUserProfileView(APIView):
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "role": user.role,
+                    "is_staff": user.is_staff,
                     "profile": profile_data,
                 },
                 status=status.HTTP_200_OK,

@@ -121,8 +121,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                 # FORUM_SUBJECT: require enrollment__student=user for subject-specific filtering
                 # FORUM_TUTOR: enrollment may be NULL, use participants filter (already in base_queryset)
                 chats = base_queryset.filter(
-                    Q(type=ChatRoom.Type.FORUM_SUBJECT, enrollment__student=user)
-                    | Q(type=ChatRoom.Type.FORUM_TUTOR)
+                    Q(type=ChatRoom.Type.FORUM_SUBJECT, enrollment__student=user) | Q(type=ChatRoom.Type.FORUM_TUTOR)
                 ).order_by("-updated_at")
 
             elif user.role == "teacher":
@@ -130,10 +129,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                 # OR chat creator (but only if enrollment has no other teacher assigned)
                 chats = (
                     base_queryset.filter(type=ChatRoom.Type.FORUM_SUBJECT)
-                    .filter(
-                        Q(enrollment__teacher=user)
-                        | Q(created_by=user, enrollment__teacher__isnull=True)
-                    )
+                    .filter(Q(enrollment__teacher=user) | Q(created_by=user, enrollment__teacher__isnull=True))
                     .order_by("-updated_at")
                 )
 
@@ -148,17 +144,13 @@ class ForumChatViewSet(viewsets.ViewSet):
 
                 # Get all students where tutor is linked (both paths)
                 tutored_student_ids = (
-                    StudentProfile.objects.filter(
-                        Q(tutor=user) | Q(user__created_by_tutor=user)
-                    )
+                    StudentProfile.objects.filter(Q(tutor=user) | Q(user__created_by_tutor=user))
                     .values_list("user_id", flat=True)
                     .distinct()
                 )
 
                 tutored_student_ids_list = list(tutored_student_ids)
-                logger.debug(
-                    f"[tutor_chat_list] Found {len(tutored_student_ids_list)} students for tutor {user.id}"
-                )
+                logger.debug(f"[tutor_chat_list] Found {len(tutored_student_ids_list)} students for tutor {user.id}")
 
                 # Get all FORUM_TUTOR chats for these students with full prefetch
                 chats = (
@@ -176,9 +168,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                     .prefetch_related(
                         Prefetch(
                             "participants",
-                            queryset=User.objects.only(
-                                "id", "first_name", "last_name", "role"
-                            ),
+                            queryset=User.objects.only("id", "first_name", "last_name", "role"),
                         )
                     )
                     .distinct()
@@ -186,9 +176,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                 )
 
                 chats_list = list(chats)
-                logger.debug(
-                    f"[tutor_chat_list] Found {len(chats_list)} active chats for tutor {user.id}"
-                )
+                logger.debug(f"[tutor_chat_list] Found {len(chats_list)} active chats for tutor {user.id}")
 
                 chats_needing_tutor = []
                 participant_records = []
@@ -197,9 +185,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                     participant_ids = {p.id for p in chat.participants.all()}
                     if user_id not in participant_ids:
                         chats_needing_tutor.append(chat)
-                        participant_records.append(
-                            ChatParticipant(room=chat, user=user)
-                        )
+                        participant_records.append(ChatParticipant(room=chat, user=user))
 
                 if chats_needing_tutor:
                     # Bulk add tutor to M2M participants
@@ -207,9 +193,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                         chat.participants.add(user)
 
                     # Bulk create ChatParticipant records (ignore conflicts)
-                    ChatParticipant.objects.bulk_create(
-                        participant_records, ignore_conflicts=True
-                    )
+                    ChatParticipant.objects.bulk_create(participant_records, ignore_conflicts=True)
 
                     logger.info(
                         f"[tutor_chat_list] Added tutor {user.id} to {len(chats_needing_tutor)} chats "
@@ -222,9 +206,7 @@ class ForumChatViewSet(viewsets.ViewSet):
             elif user.role == "parent":
                 # Родители видят чаты своих детей
                 # Get children's IDs
-                children_profiles = StudentProfile.objects.filter(
-                    parent=user
-                ).values_list("user_id", flat=True)
+                children_profiles = StudentProfile.objects.filter(parent=user).values_list("user_id", flat=True)
 
                 if children_profiles:
                     # Get chats where children are participants
@@ -285,15 +267,13 @@ class ForumChatViewSet(viewsets.ViewSet):
                 # Prefetch messages to allow last_message calculation without N+1
                 messages_prefetch = Prefetch(
                     "messages",
-                    queryset=Message.objects.select_related("sender").order_by(
-                        "-created_at"
-                    ),
+                    queryset=Message.objects.select_related("sender").order_by("-created_at"),
                 )
 
                 # Subquery для получения last_read_at текущего пользователя
-                participant_last_read_subquery = ChatParticipant.objects.filter(
-                    room=OuterRef("pk"), user=user
-                ).values("last_read_at")[:1]
+                participant_last_read_subquery = ChatParticipant.objects.filter(room=OuterRef("pk"), user=user).values(
+                    "last_read_at"
+                )[:1]
 
                 chats = chats.prefetch_related(messages_prefetch).annotate(
                     # Count all participants (simple aggregation, no N+1)
@@ -321,9 +301,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                 )
 
             # Serialize with unread counts
-            serializer = ChatRoomListSerializer(
-                chats, many=True, context={"request": request}
-            )
+            serializer = ChatRoomListSerializer(chats, many=True, context={"request": request})
 
             return Response(
                 {
@@ -382,16 +360,11 @@ class ForumChatViewSet(viewsets.ViewSet):
 
             # Проверка 2: ChatParticipant (fallback для обратной совместимости)
             if not has_access:
-                has_access = ChatParticipant.objects.filter(
-                    room=chat, user=user
-                ).exists()
+                has_access = ChatParticipant.objects.filter(room=chat, user=user).exists()
                 if has_access:
                     # Синхронизируем: добавляем в M2M если ещё нет
                     chat.participants.add(user)
-                    logger.info(
-                        f"[messages] User {user.id} synced from ChatParticipant to M2M "
-                        f"for room {pk}"
-                    )
+                    logger.info(f"[messages] User {user.id} synced from ChatParticipant to M2M " f"for room {pk}")
 
             # Проверка 3: Родительский доступ к чатам детей
             if not has_access:
@@ -406,8 +379,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                 if user.role == "admin" or user.is_staff or user.is_superuser:
                     has_access = True
                     logger.info(
-                        f"[messages] Admin/staff access granted: user {user.id} "
-                        f"to room {pk} (type={chat.type})"
+                        f"[messages] Admin/staff access granted: user {user.id} " f"to room {pk} (type={chat.type})"
                     )
 
             if not has_access:
@@ -467,17 +439,13 @@ class ForumChatViewSet(viewsets.ViewSet):
                     # Prefetch только не-удалённые replies для подсчёта в serializer
                     Prefetch(
                         "replies",
-                        queryset=Message.objects.filter(is_deleted=False).only(
-                            "id", "is_deleted"
-                        ),
+                        queryset=Message.objects.filter(is_deleted=False).only("id", "is_deleted"),
                     ),
                     "read_by",
                 )
                 .annotate(
                     # Аннотация для replies_count - избегает N+1 при сериализации
-                    annotated_replies_count=Count(
-                        "replies", filter=Q(replies__is_deleted=False)
-                    )
+                    annotated_replies_count=Count("replies", filter=Q(replies__is_deleted=False))
                 )
             )
 
@@ -500,9 +468,7 @@ class ForumChatViewSet(viewsets.ViewSet):
             # Order and paginate (chronological order, oldest first)
             messages = messages.order_by("created_at")[offset : offset + limit]
 
-            serializer = MessageSerializer(
-                messages, many=True, context={"request": request}
-            )
+            serializer = MessageSerializer(messages, many=True, context={"request": request})
 
             return Response(
                 {
@@ -570,16 +536,11 @@ class ForumChatViewSet(viewsets.ViewSet):
 
             # Проверка 2: ChatParticipant (fallback для обратной совместимости)
             if not has_access:
-                has_access = ChatParticipant.objects.filter(
-                    room=chat, user=user
-                ).exists()
+                has_access = ChatParticipant.objects.filter(room=chat, user=user).exists()
                 if has_access:
                     # Синхронизируем: добавляем в M2M если ещё нет
                     chat.participants.add(user)
-                    logger.info(
-                        f"[send_message] User {user.id} synced from ChatParticipant to M2M "
-                        f"for room {pk}"
-                    )
+                    logger.info(f"[send_message] User {user.id} synced from ChatParticipant to M2M " f"for room {pk}")
 
             # Проверка 3: Родительский доступ к чатам детей
             if not has_access:
@@ -658,9 +619,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                 serializer_data["reply_to"] = reply_to
 
             # Create message with serializer
-            serializer = MessageCreateSerializer(
-                data=serializer_data, context={"request": request}
-            )
+            serializer = MessageCreateSerializer(data=serializer_data, context={"request": request})
 
             if serializer.is_valid():
                 # FIX F004: Wrap in transaction for consistency
@@ -683,9 +642,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                             ".svg",
                             ".ico",
                         }
-                        is_image = any(
-                            file_name.endswith(ext) for ext in image_extensions
-                        )
+                        is_image = any(file_name.endswith(ext) for ext in image_extensions)
 
                         if is_image:
                             # Save to image field and set message_type to IMAGE
@@ -714,9 +671,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                 return Response(
                     {
                         "success": True,
-                        "message": MessageSerializer(
-                            message, context={"request": request}
-                        ).data,
+                        "message": MessageSerializer(message, context={"request": request}).data,
                     },
                     status=status.HTTP_201_CREATED,
                 )
@@ -738,12 +693,8 @@ class ForumChatViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(
-        detail=True, methods=["patch"], url_path="messages/(?P<message_id>[^/.]+)/edit"
-    )
-    def edit_message(
-        self, request: Request, pk: str = None, message_id: str = None
-    ) -> Response:
+    @action(detail=True, methods=["patch"], url_path="messages/(?P<message_id>[^/.]+)/edit")
+    def edit_message(self, request: Request, pk: str = None, message_id: str = None) -> Response:
         """
         Edit message in forum chat.
 
@@ -783,9 +734,7 @@ class ForumChatViewSet(viewsets.ViewSet):
             # Проверка доступа к чату
             has_access = chat.participants.filter(id=user.id).exists()
             if not has_access:
-                has_access = ChatParticipant.objects.filter(
-                    room=chat, user=user
-                ).exists()
+                has_access = ChatParticipant.objects.filter(room=chat, user=user).exists()
 
             if not has_access:
                 return Response(
@@ -795,9 +744,7 @@ class ForumChatViewSet(viewsets.ViewSet):
 
             # Получить сообщение
             try:
-                message = Message.objects.select_related("sender").get(
-                    id=message_id, room=chat
-                )
+                message = Message.objects.select_related("sender").get(id=message_id, room=chat)
             except Message.DoesNotExist:
                 return Response(
                     {"success": False, "error": "Message not found"},
@@ -835,35 +782,25 @@ class ForumChatViewSet(viewsets.ViewSet):
             message.is_edited = True
             message.save(update_fields=["content", "is_edited", "updated_at"])
 
-            logger.info(
-                f"[edit_message] User {user.id} edited message {message_id} in room {pk}"
-            )
+            logger.info(f"[edit_message] User {user.id} edited message {message_id} in room {pk}")
 
             # Broadcast edit via WebSocket
             try:
                 channel_layer = get_channel_layer()
-                message_data = MessageSerializer(
-                    message, context={"request": request}
-                ).data
+                message_data = MessageSerializer(message, context={"request": request}).data
 
                 room_group_name = f"chat_{chat.id}"
                 async_to_sync(channel_layer.group_send)(
                     room_group_name, {"type": "message_edited", "message": message_data}
                 )
-                logger.info(
-                    f"Broadcasted edit for message {message.id} to group {room_group_name}"
-                )
+                logger.info(f"Broadcasted edit for message {message.id} to group {room_group_name}")
             except Exception as e:
-                logger.error(
-                    f"Failed to broadcast message edit via WebSocket: {str(e)}"
-                )
+                logger.error(f"Failed to broadcast message edit via WebSocket: {str(e)}")
 
             return Response(
                 {
                     "success": True,
-                    "message": MessageSerializer(
-                        message, context={"request": request}
-                    ).data,
+                    "message": MessageSerializer(message, context={"request": request}).data,
                 }
             )
 
@@ -884,9 +821,7 @@ class ForumChatViewSet(viewsets.ViewSet):
         methods=["delete"],
         url_path="messages/(?P<message_id>[^/.]+)/delete",
     )
-    def delete_message(
-        self, request: Request, pk: str = None, message_id: str = None
-    ) -> Response:
+    def delete_message(self, request: Request, pk: str = None, message_id: str = None) -> Response:
         """
         Delete message in forum chat (soft delete).
 
@@ -917,9 +852,7 @@ class ForumChatViewSet(viewsets.ViewSet):
             # Проверка доступа к чату
             has_access = chat.participants.filter(id=user.id).exists()
             if not has_access:
-                has_access = ChatParticipant.objects.filter(
-                    room=chat, user=user
-                ).exists()
+                has_access = ChatParticipant.objects.filter(room=chat, user=user).exists()
 
             if not has_access:
                 return Response(
@@ -929,9 +862,7 @@ class ForumChatViewSet(viewsets.ViewSet):
 
             # Получить сообщение
             try:
-                message = Message.objects.select_related("sender").get(
-                    id=message_id, room=chat
-                )
+                message = Message.objects.select_related("sender").get(id=message_id, room=chat)
             except Message.DoesNotExist:
                 return Response(
                     {"success": False, "error": "Message not found"},
@@ -986,13 +917,9 @@ class ForumChatViewSet(viewsets.ViewSet):
                         "deleted_by_role": deleted_by_role,
                     },
                 )
-                logger.info(
-                    f"Broadcasted deletion for message {message_id} to group {room_group_name}"
-                )
+                logger.info(f"Broadcasted deletion for message {message_id} to group {room_group_name}")
             except Exception as e:
-                logger.error(
-                    f"Failed to broadcast message deletion via WebSocket: {str(e)}"
-                )
+                logger.error(f"Failed to broadcast message deletion via WebSocket: {str(e)}")
 
             return Response(
                 {
@@ -1038,9 +965,7 @@ class ForumChatViewSet(viewsets.ViewSet):
 
         participant = ChatParticipant.objects.filter(room=chat, user=user).first()
         if not participant:
-            logger.warning(
-                f"[moderation] User {user.id} is not a participant in room {chat.id}"
-            )
+            logger.warning(f"[moderation] User {user.id} is not a participant in room {chat.id}")
             return False
 
         if participant.is_admin:
@@ -1054,12 +979,8 @@ class ForumChatViewSet(viewsets.ViewSet):
 
         return False
 
-    @action(
-        detail=True, methods=["post"], url_path="messages/(?P<message_id>[^/.]+)/pin"
-    )
-    def pin_message(
-        self, request: Request, pk: str = None, message_id: str = None
-    ) -> Response:
+    @action(detail=True, methods=["post"], url_path="messages/(?P<message_id>[^/.]+)/pin")
+    def pin_message(self, request: Request, pk: str = None, message_id: str = None) -> Response:
         """
         Закрепить/открепить сообщение в чате.
 
@@ -1091,9 +1012,7 @@ class ForumChatViewSet(viewsets.ViewSet):
 
             # Получить сообщение
             try:
-                message = Message.objects.get(
-                    id=message_id, room=chat, is_deleted=False
-                )
+                message = Message.objects.get(id=message_id, room=chat, is_deleted=False)
             except Message.DoesNotExist:
                 return Response(
                     {"success": False, "error": "Message not found"},
@@ -1106,9 +1025,7 @@ class ForumChatViewSet(viewsets.ViewSet):
                 # Создаём тред для этого сообщения
                 thread = MessageThread.objects.create(
                     room=chat,
-                    title=message.content[:100]
-                    if message.content
-                    else f"Thread #{message.id}",
+                    title=message.content[:100] if message.content else f"Thread #{message.id}",
                     created_by=message.sender,
                 )
                 message.thread = thread
@@ -1122,8 +1039,7 @@ class ForumChatViewSet(viewsets.ViewSet):
 
             action_str = "pinned" if thread.is_pinned else "unpinned"
             logger.info(
-                f"[pin_message] User {user.id} {action_str} message {message_id} "
-                f"(thread {thread.id}) in room {pk}"
+                f"[pin_message] User {user.id} {action_str} message {message_id} " f"(thread {thread.id}) in room {pk}"
             )
 
             return Response(
@@ -1209,12 +1125,8 @@ class ForumChatViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @action(
-        detail=True, methods=["post"], url_path="participants/(?P<user_id>[^/.]+)/mute"
-    )
-    def mute_participant(
-        self, request: Request, pk: str = None, user_id: str = None
-    ) -> Response:
+    @action(detail=True, methods=["post"], url_path="participants/(?P<user_id>[^/.]+)/mute")
+    def mute_participant(self, request: Request, pk: str = None, user_id: str = None) -> Response:
         """
         Заглушить/разглушить участника чата.
 
@@ -1261,29 +1173,21 @@ class ForumChatViewSet(viewsets.ViewSet):
                 )
 
             # Нельзя замутить teacher или admin
-            if (
-                target_user.role in ["teacher", "admin"]
-                or target_user.is_staff
-                or target_user.is_superuser
-            ):
+            if target_user.role in ["teacher", "admin"] or target_user.is_staff or target_user.is_superuser:
                 return Response(
                     {"success": False, "error": "Cannot mute teacher or admin"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             # Получить или создать ChatParticipant
-            participant, created = ChatParticipant.objects.get_or_create(
-                room=chat, user=target_user
-            )
+            participant, created = ChatParticipant.objects.get_or_create(room=chat, user=target_user)
 
             # Toggle is_muted
             participant.is_muted = not participant.is_muted
             participant.save(update_fields=["is_muted"])
 
             action_str = "muted" if participant.is_muted else "unmuted"
-            logger.info(
-                f"[mute_participant] User {user.id} {action_str} user {user_id} in room {pk}"
-            )
+            logger.info(f"[mute_participant] User {user.id} {action_str} user {user_id} in room {pk}")
 
             return Response(
                 {
@@ -1386,15 +1290,13 @@ class AvailableContactsView(APIView):
 
         try:
             # Оптимизация N+1: получаем ВСЕ чаты пользователя ОДНИМ запросом
-            contact_to_chat, enrollment_to_chat = self._build_contact_to_chat_mapping(
-                user
-            )
+            contact_to_chat, enrollment_to_chat = self._build_contact_to_chat_mapping(user)
 
             if user.role == "student":
                 # Получить всех учителей из зачислений студента
-                student_enrollments = SubjectEnrollment.objects.filter(
-                    student=user, is_active=True
-                ).select_related("teacher", "subject")
+                student_enrollments = SubjectEnrollment.objects.filter(student=user, is_active=True).select_related(
+                    "teacher", "subject"
+                )
 
                 # Используем dict для дедупликации по teacher_id
                 teachers_seen = {}
@@ -1408,16 +1310,12 @@ class AvailableContactsView(APIView):
                                 "enrollment": enrollment,
                             }
                         else:
-                            teachers_seen[teacher.id]["subjects"].append(
-                                enrollment.subject
-                            )
+                            teachers_seen[teacher.id]["subjects"].append(enrollment.subject)
 
                 # Добавить учителей в контакты (без дубликатов)
                 for teacher_id, data in teachers_seen.items():
                     # Используем mapping вместо запроса (оптимизация N+1)
-                    existing_chat = contact_to_chat.get(
-                        (teacher_id, ChatRoom.Type.FORUM_SUBJECT)
-                    )
+                    existing_chat = contact_to_chat.get((teacher_id, ChatRoom.Type.FORUM_SUBJECT))
 
                     contacts.append(
                         {
@@ -1432,19 +1330,13 @@ class AvailableContactsView(APIView):
 
                 # Получить тьютора студента (если есть)
                 try:
-                    student_profile = StudentProfile.objects.select_related(
-                        "tutor"
-                    ).get(user=user)
+                    student_profile = StudentProfile.objects.select_related("tutor").get(user=user)
                     if student_profile.tutor and student_profile.tutor.role == "tutor":
                         # Берем любое зачисление для связи с чатом
-                        tutor_enrollment = SubjectEnrollment.objects.filter(
-                            student=user
-                        ).first()
+                        tutor_enrollment = SubjectEnrollment.objects.filter(student=user).first()
 
                         # Используем mapping вместо запроса (оптимизация N+1)
-                        existing_chat = contact_to_chat.get(
-                            (student_profile.tutor.id, ChatRoom.Type.FORUM_TUTOR)
-                        )
+                        existing_chat = contact_to_chat.get((student_profile.tutor.id, ChatRoom.Type.FORUM_TUTOR))
 
                         contacts.append(
                             {
@@ -1452,9 +1344,7 @@ class AvailableContactsView(APIView):
                                 "subject": None,
                                 "has_active_chat": existing_chat is not None,
                                 "chat_id": existing_chat.id if existing_chat else None,
-                                "enrollment_id": tutor_enrollment.id
-                                if tutor_enrollment
-                                else None,
+                                "enrollment_id": tutor_enrollment.id if tutor_enrollment else None,
                             }
                         )
                 except StudentProfile.DoesNotExist:
@@ -1464,9 +1354,7 @@ class AvailableContactsView(APIView):
                 # Получить всех студентов из предметов учителя
                 # FIX: Добавляем is_active=True для фильтрации только активных enrollment
                 student_enrollments = (
-                    SubjectEnrollment.objects.filter(
-                        teacher=user, subject__isnull=False, is_active=True
-                    )
+                    SubjectEnrollment.objects.filter(teacher=user, subject__isnull=False, is_active=True)
                     .select_related("student", "subject")
                     .distinct()
                 )
@@ -1490,14 +1378,11 @@ class AvailableContactsView(APIView):
 
                 # Получить тьюторов студентов этого учителя
                 # Teacher can chat with tutors of their students
-                student_ids = list(
-                    student_enrollments.values_list("student_id", flat=True)
-                )
+                student_ids = list(student_enrollments.values_list("student_id", flat=True))
 
                 # Находим тьюторов через StudentProfile.tutor и User.created_by_tutor
                 tutors = User.objects.filter(
-                    Q(tutored_students__user_id__in=student_ids)
-                    | Q(created_users__id__in=student_ids),
+                    Q(tutored_students__user_id__in=student_ids) | Q(created_users__id__in=student_ids),
                     role="tutor",
                 ).distinct()
 
@@ -1511,11 +1396,9 @@ class AvailableContactsView(APIView):
                         is_active=True,
                     ).select_related("student__student_profile"):
                         # Получаем tutor_id из студента
-                        if (
-                            enrollment.student.student_profile
-                            and enrollment.student.student_profile.tutor_id
-                        ):
-                            tutor_id = enrollment.student.student_profile.tutor_id
+                        student_profile = getattr(enrollment.student, "student_profile", None)
+                        if student_profile and student_profile.tutor_id:
+                            tutor_id = student_profile.tutor_id
                         elif enrollment.student.created_by_tutor_id:
                             tutor_id = enrollment.student.created_by_tutor_id
                         else:
@@ -1530,9 +1413,7 @@ class AvailableContactsView(APIView):
                     tutor_enrollment = tutor_enrollments_map.get(tutor.id)
 
                     # Используем mapping вместо запроса (оптимизация N+1)
-                    existing_chat = contact_to_chat.get(
-                        (tutor.id, ChatRoom.Type.FORUM_TUTOR)
-                    )
+                    existing_chat = contact_to_chat.get((tutor.id, ChatRoom.Type.FORUM_TUTOR))
 
                     contacts.append(
                         {
@@ -1540,9 +1421,7 @@ class AvailableContactsView(APIView):
                             "subject": None,  # Тьютор не привязан к предмету
                             "has_active_chat": existing_chat is not None,
                             "chat_id": existing_chat.id if existing_chat else None,
-                            "enrollment_id": tutor_enrollment.id
-                            if tutor_enrollment
-                            else None,
+                            "enrollment_id": tutor_enrollment.id if tutor_enrollment else None,
                         }
                     )
 
@@ -1550,24 +1429,18 @@ class AvailableContactsView(APIView):
                 # Получить всех студентов тьютора
                 # Проверяем оба способа связи: StudentProfile.tutor и User.created_by_tutor
                 student_profiles = (
-                    StudentProfile.objects.filter(
-                        Q(tutor=user) | Q(user__created_by_tutor=user)
-                    )
+                    StudentProfile.objects.filter(Q(tutor=user) | Q(user__created_by_tutor=user))
                     .select_related("user")
                     .distinct()
                 )
 
-                students = [
-                    profile.user for profile in student_profiles if profile.user
-                ]
+                students = [profile.user for profile in student_profiles if profile.user]
 
                 # Оптимизация N+1: получаем все enrollments для студентов одним запросом
                 student_ids = [s.id for s in students if s and s.role == "student"]
                 student_enrollments_map = {}
                 if student_ids:
-                    for enrollment in SubjectEnrollment.objects.filter(
-                        student_id__in=student_ids
-                    ):
+                    for enrollment in SubjectEnrollment.objects.filter(student_id__in=student_ids):
                         if enrollment.student_id not in student_enrollments_map:
                             student_enrollments_map[enrollment.student_id] = enrollment
 
@@ -1578,9 +1451,7 @@ class AvailableContactsView(APIView):
                         student_enrollment = student_enrollments_map.get(student.id)
 
                         # Используем mapping вместо запроса (оптимизация N+1)
-                        existing_chat = contact_to_chat.get(
-                            (student.id, ChatRoom.Type.FORUM_TUTOR)
-                        )
+                        existing_chat = contact_to_chat.get((student.id, ChatRoom.Type.FORUM_TUTOR))
 
                         contacts.append(
                             {
@@ -1588,9 +1459,7 @@ class AvailableContactsView(APIView):
                                 "subject": None,
                                 "has_active_chat": existing_chat is not None,
                                 "chat_id": existing_chat.id if existing_chat else None,
-                                "enrollment_id": student_enrollment.id
-                                if student_enrollment
-                                else None,
+                                "enrollment_id": student_enrollment.id if student_enrollment else None,
                             }
                         )
 
@@ -1606,38 +1475,28 @@ class AvailableContactsView(APIView):
                     seen_teachers = set()
                     for enrollment in teacher_enrollments:
                         teacher = enrollment.teacher
-                        if (
-                            teacher
-                            and teacher.role == "teacher"
-                            and teacher.id not in seen_teachers
-                        ):
+                        if teacher and teacher.role == "teacher" and teacher.id not in seen_teachers:
                             seen_teachers.add(teacher.id)
 
                             # Используем mapping вместо запроса (оптимизация N+1)
                             # Проверяем оба типа чатов
                             existing_chat = contact_to_chat.get(
                                 (teacher.id, ChatRoom.Type.FORUM_SUBJECT)
-                            ) or contact_to_chat.get(
-                                (teacher.id, ChatRoom.Type.FORUM_TUTOR)
-                            )
+                            ) or contact_to_chat.get((teacher.id, ChatRoom.Type.FORUM_TUTOR))
 
                             contacts.append(
                                 {
                                     "user": teacher,
                                     "subject": enrollment.subject,
                                     "has_active_chat": existing_chat is not None,
-                                    "chat_id": existing_chat.id
-                                    if existing_chat
-                                    else None,
+                                    "chat_id": existing_chat.id if existing_chat else None,
                                     "enrollment_id": None,
                                 }
                             )
 
             elif user.role == "parent":
                 # Родители могут связаться с преподавателями и тьюторами своих детей
-                children_profiles = StudentProfile.objects.filter(
-                    parent=user
-                ).select_related("tutor")
+                children_profiles = StudentProfile.objects.filter(parent=user).select_related("tutor")
                 children_ids = children_profiles.values_list("user_id", flat=True)
 
                 if children_ids:
@@ -1652,26 +1511,18 @@ class AvailableContactsView(APIView):
                     seen_teachers = set()
                     for enrollment in teacher_enrollments:
                         teacher = enrollment.teacher
-                        if (
-                            teacher
-                            and teacher.role == "teacher"
-                            and teacher.id not in seen_teachers
-                        ):
+                        if teacher and teacher.role == "teacher" and teacher.id not in seen_teachers:
                             seen_teachers.add(teacher.id)
 
                             # Используем mapping вместо запроса (оптимизация N+1)
-                            existing_chat = contact_to_chat.get(
-                                (teacher.id, ChatRoom.Type.FORUM_SUBJECT)
-                            )
+                            existing_chat = contact_to_chat.get((teacher.id, ChatRoom.Type.FORUM_SUBJECT))
 
                             contacts.append(
                                 {
                                     "user": teacher,
                                     "subject": enrollment.subject,
                                     "has_active_chat": existing_chat is not None,
-                                    "chat_id": existing_chat.id
-                                    if existing_chat
-                                    else None,
+                                    "chat_id": existing_chat.id if existing_chat else None,
                                     "enrollment_id": None,
                                 }
                             )
@@ -1686,18 +1537,14 @@ class AvailableContactsView(APIView):
                                 seen_tutors.add(tutor_id)
 
                                 # Используем mapping вместо запроса (оптимизация N+1)
-                                existing_chat = contact_to_chat.get(
-                                    (tutor_id, ChatRoom.Type.FORUM_TUTOR)
-                                )
+                                existing_chat = contact_to_chat.get((tutor_id, ChatRoom.Type.FORUM_TUTOR))
 
                                 contacts.append(
                                     {
                                         "user": profile.tutor,
                                         "subject": None,
                                         "has_active_chat": existing_chat is not None,
-                                        "chat_id": existing_chat.id
-                                        if existing_chat
-                                        else None,
+                                        "chat_id": existing_chat.id if existing_chat else None,
                                         "enrollment_id": None,
                                     }
                                 )
@@ -1712,9 +1559,7 @@ class AvailableContactsView(APIView):
                 pass
 
             # Сериализовать контакты
-            serializer = AvailableContactSerializer(
-                contacts, many=True, context={"request": request}
-            )
+            serializer = AvailableContactSerializer(contacts, many=True, context={"request": request})
 
             return Response(
                 {
@@ -1799,9 +1644,7 @@ class InitiateChatView(APIView):
                 )
 
             # Проверить разрешение на создание чата
-            can_chat, chat_type, enrollment = CanInitiateChat.can_chat_with(
-                request.user, contact_user, subject_id
-            )
+            can_chat, chat_type, enrollment = CanInitiateChat.can_chat_with(request.user, contact_user, subject_id)
 
             if not can_chat:
                 return Response(
@@ -1825,9 +1668,7 @@ class InitiateChatView(APIView):
             # с блокировкой enrollment для предотвращения race condition
             with transaction.atomic():
                 # Lock the enrollment row to prevent concurrent chat creation
-                enrollment_locked = SubjectEnrollment.objects.select_for_update().get(
-                    id=enrollment.id
-                )
+                enrollment_locked = SubjectEnrollment.objects.select_for_update().get(id=enrollment.id)
 
                 existing_chat = (
                     ChatRoom.objects.filter(
@@ -1847,30 +1688,22 @@ class InitiateChatView(APIView):
                         logger.info(f"Reactivated chat {existing_chat.id}")
 
                     # Убедиться что оба участника в чате
-                    current_participants = set(
-                        existing_chat.participants.values_list("id", flat=True)
-                    )
+                    current_participants = set(existing_chat.participants.values_list("id", flat=True))
                     expected_participants = {request.user.id, contact_user.id}
                     missing_participants = expected_participants - current_participants
 
                     if missing_participants:
                         for user_id in missing_participants:
                             existing_chat.participants.add(user_id)
-                            ChatParticipant.objects.get_or_create(
-                                room=existing_chat, user_id=user_id
-                            )
-                        logger.info(
-                            f"Added missing participants to chat {existing_chat.id}: {missing_participants}"
-                        )
+                            ChatParticipant.objects.get_or_create(room=existing_chat, user_id=user_id)
+                        logger.info(f"Added missing participants to chat {existing_chat.id}: {missing_participants}")
 
                     logger.info(
                         f"Returning existing chat {existing_chat.id} for users "
                         f"{request.user.id} and {contact_user_id}"
                     )
 
-                    response_serializer = ChatDetailSerializer(
-                        existing_chat, context={"request": request}
-                    )
+                    response_serializer = ChatDetailSerializer(existing_chat, context={"request": request})
 
                     return Response(
                         {
@@ -1889,14 +1722,9 @@ class InitiateChatView(APIView):
                     # Проверяем кто инициирует чат
                     if request.user.role == "parent":
                         # Parent initiated chat with teacher
-                        child_name = (
-                            enrollment_locked.student.first_name
-                            or enrollment_locked.student.email
-                        )
+                        child_name = enrollment_locked.student.first_name or enrollment_locked.student.email
                         teacher_name = contact_user.first_name or contact_user.email
-                        chat_name = (
-                            f"{subject_name} - Родитель ({child_name}) ↔ {teacher_name}"
-                        )
+                        chat_name = f"{subject_name} - Родитель ({child_name}) ↔ {teacher_name}"
                     elif request.user.role == "student":
                         student_name = request.user.first_name or request.user.email
                         teacher_name = contact_user.first_name or contact_user.email
@@ -1923,10 +1751,7 @@ class InitiateChatView(APIView):
                         chat_name = f"Учитель {user.first_name} ↔ Тьютор {target_user.first_name}"
                     else:
                         # Стандартное имя для tutor-student чата
-                        student_name = (
-                            enrollment_locked.student.first_name
-                            or enrollment_locked.student.email
-                        )
+                        student_name = enrollment_locked.student.first_name or enrollment_locked.student.email
                         chat_name = f"Тьютор - {student_name}"
                 else:
                     chat_name = f"Chat {request.user.get_full_name()} ↔ {contact_user.get_full_name()}"
@@ -1935,9 +1760,7 @@ class InitiateChatView(APIView):
                 if not chat_name or not chat_name.strip():
                     # Генерируем дефолтное имя если имя пустое
                     chat_name = f"Chat #{enrollment_locked.id}"
-                    logger.warning(
-                        f"[InitiateChatView] Empty chat name generated, using fallback: {chat_name}"
-                    )
+                    logger.warning(f"[InitiateChatView] Empty chat name generated, using fallback: {chat_name}")
                 else:
                     chat_name = chat_name.strip()
 
@@ -1966,14 +1789,10 @@ class InitiateChatView(APIView):
 
                     if new_chat:
                         created = False
-                        logger.info(
-                            f"Found existing chat {new_chat.id} after IntegrityError"
-                        )
+                        logger.info(f"Found existing chat {new_chat.id} after IntegrityError")
                     else:
                         # Очень редкий edge case - перезапустить транзакцию
-                        logger.error(
-                            f"IntegrityError but no existing chat found for enrollment {enrollment_locked.id}"
-                        )
+                        logger.error(f"IntegrityError but no existing chat found for enrollment {enrollment_locked.id}")
                         raise
 
                 if not created:
@@ -1982,9 +1801,7 @@ class InitiateChatView(APIView):
                     if not new_chat.is_active:
                         new_chat.is_active = True
                         new_chat.save(update_fields=["is_active"])
-                    logger.info(
-                        f"Race condition resolved: returning existing chat {new_chat.id}"
-                    )
+                    logger.info(f"Race condition resolved: returning existing chat {new_chat.id}")
 
                 # Добавить участников
                 new_chat.participants.add(request.user, contact_user)
@@ -2000,9 +1817,7 @@ class InitiateChatView(APIView):
                     )
 
                 # Сериализовать ответ
-                response_serializer = ChatDetailSerializer(
-                    new_chat, context={"request": request}
-                )
+                response_serializer = ChatDetailSerializer(new_chat, context={"request": request})
 
                 return Response(
                     {

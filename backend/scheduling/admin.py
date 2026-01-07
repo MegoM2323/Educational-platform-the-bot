@@ -93,10 +93,10 @@ class LessonAdmin(admin.ModelAdmin):
     def status_badge(self, obj):
         """Colored status badge."""
         colors = {
-            "pending": "#FFA500",
-            "confirmed": "#28a745",
-            "completed": "#6c757d",
-            "cancelled": "#dc3545",
+            Lesson.Status.PENDING: "#FFA500",
+            Lesson.Status.CONFIRMED: "#28a745",
+            Lesson.Status.COMPLETED: "#6c757d",
+            Lesson.Status.CANCELLED: "#dc3545",
         }
         color = colors.get(obj.status, "#6c757d")
         return format_html(

@@ -65,7 +65,8 @@ class LessonViewSet(viewsets.ModelViewSet):
             queryset = Lesson.objects.filter(teacher=user)
         elif user.role == UserModel.Role.STUDENT:
             queryset = Lesson.objects.filter(
-                student=user, status__in=["pending", "confirmed"]
+                student=user,
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
             )
         elif user.role == UserModel.Role.TUTOR:
             from accounts.models import StudentProfile
@@ -74,7 +75,8 @@ class LessonViewSet(viewsets.ModelViewSet):
                 "user_id", flat=True
             )
             queryset = Lesson.objects.filter(
-                student_id__in=student_ids, status__in=["pending", "confirmed"]
+                student_id__in=student_ids,
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
             )
         elif user.role == UserModel.Role.PARENT:
             from accounts.models import StudentProfile
@@ -83,7 +85,8 @@ class LessonViewSet(viewsets.ModelViewSet):
                 "user_id", flat=True
             )
             queryset = Lesson.objects.filter(
-                student_id__in=children_ids, status__in=["pending", "confirmed"]
+                student_id__in=children_ids,
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
             )
         elif user.is_staff or user.is_superuser:
             # Admins see all lessons
@@ -529,7 +532,8 @@ class LessonViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_403_FORBIDDEN,
                     )
                 queryset = Lesson.objects.filter(
-                    student_id=student_id_int
+                    student_id=student_id_int,
+                    status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
                 ).select_related("teacher", "student", "subject")
 
             # Apply filters
@@ -730,7 +734,9 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         # Get all lessons for teacher on that date (not cancelled/completed)
         lessons_on_date = Lesson.objects.filter(
-            teacher=teacher, date=date, status__in=["pending", "confirmed"]
+            teacher=teacher,
+            date=date,
+            status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
         ).select_related("student", "subject")
 
         # Check for time conflicts
@@ -786,7 +792,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Cannot reschedule completed or cancelled lessons
-        if lesson.status in ["completed", "cancelled"]:
+        if lesson.status in [Lesson.Status.COMPLETED, Lesson.Status.CANCELLED]:
             return Response(
                 {"error": f"Cannot reschedule a {lesson.status} lesson"},
                 status=status.HTTP_400_BAD_REQUEST,

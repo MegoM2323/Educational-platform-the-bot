@@ -90,7 +90,9 @@ class Lesson(models.Model):
 
     notes = models.TextField(blank=True, default="", verbose_name="Lesson notes")
 
-    telemost_link = models.URLField(blank=True, max_length=500, verbose_name="Yandex Telemost link")
+    telemost_link = models.URLField(
+        blank=True, max_length=500, verbose_name="Yandex Telemost link"
+    )
 
     status = models.CharField(
         max_length=20,
@@ -155,7 +157,7 @@ class Lesson(models.Model):
     @property
     def can_cancel(self):
         """Check if lesson can be cancelled (at least 2 hours before start)."""
-        if self.status in ["cancelled", "completed"]:
+        if self.status in [self.Status.CANCELLED, self.Status.COMPLETED]:
             return False
         time_until_lesson = self.datetime_start - timezone.now()
         return time_until_lesson > timedelta(hours=2)
@@ -189,8 +191,14 @@ class Lesson(models.Model):
             if self.date < now.date():
                 raise ValidationError("Cannot create lesson in the past")
             # Validate start_time for today's date
-            if self.date == now.date() and self.start_time and self.start_time < now.time():
-                raise ValidationError("Cannot create lesson with start time in the past for today")
+            if (
+                self.date == now.date()
+                and self.start_time
+                and self.start_time < now.time()
+            ):
+                raise ValidationError(
+                    "Cannot create lesson with start time in the past for today"
+                )
 
         # Validate teacher teaches subject to student (via SubjectEnrollment)
         if self.teacher and self.student and self.subject:
@@ -250,7 +258,9 @@ class LessonHistory(models.Model):
         Lesson, on_delete=models.CASCADE, related_name="history", verbose_name="Lesson"
     )
 
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="Action")
+    action = models.CharField(
+        max_length=20, choices=ACTION_CHOICES, verbose_name="Action"
+    )
 
     performed_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, verbose_name="Performed by"

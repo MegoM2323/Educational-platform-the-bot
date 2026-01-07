@@ -226,9 +226,7 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
     end_time = serializers.TimeField(required=False)
     description = serializers.CharField(required=False, allow_blank=True)
     telemost_link = serializers.URLField(required=False, allow_blank=True)
-    status = serializers.ChoiceField(
-        choices=["pending", "confirmed", "completed", "cancelled"], required=False
-    )
+    status = serializers.ChoiceField(choices=Lesson.Status.choices, required=False)
     teacher_id = serializers.IntegerField(required=False, allow_null=True)
     student_id = serializers.IntegerField(required=False, allow_null=True)
     subject_id = serializers.IntegerField(required=False, allow_null=True)

@@ -22,13 +22,11 @@ except ImportError:
 User = get_user_model()
 
 
-# Допустимые переходы статусов урока
-# Ключ - текущий статус, значение - множество допустимых новых статусов
 STATUS_TRANSITIONS = {
-    "pending": {"confirmed", "cancelled"},
-    "confirmed": {"completed", "cancelled"},
-    "completed": set(),  # Завершённый урок нельзя изменить
-    "cancelled": set(),  # Отменённый урок нельзя изменить
+    Lesson.Status.PENDING: {Lesson.Status.CONFIRMED, Lesson.Status.CANCELLED},
+    Lesson.Status.CONFIRMED: {Lesson.Status.COMPLETED, Lesson.Status.CANCELLED},
+    Lesson.Status.COMPLETED: set(),
+    Lesson.Status.CANCELLED: set(),
 }
 
 
@@ -60,11 +58,17 @@ class LessonService:
         # Combine datetime для точной проверки пересечений
         # Используем timezone-aware datetime для корректного сравнения
         current_tz = timezone.get_current_timezone()
-        dt_start = timezone.make_aware(datetime.combine(date, start_time), timezone=current_tz)
-        dt_end = timezone.make_aware(datetime.combine(date, end_time), timezone=current_tz)
+        dt_start = timezone.make_aware(
+            datetime.combine(date, start_time), timezone=current_tz
+        )
+        dt_end = timezone.make_aware(
+            datetime.combine(date, end_time), timezone=current_tz
+        )
 
         # Base queryset - уроки в тот же день, не отменённые
-        base_qs = Lesson.objects.filter(date=date, status__in=["pending", "confirmed"])
+        base_qs = Lesson.objects.filter(
+            date=date, status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]
+        )
         if exclude_lesson_id:
             base_qs = base_qs.exclude(id=exclude_lesson_id)
 
@@ -146,11 +150,15 @@ class LessonService:
         """
         # Validate teacher/tutor/admin role
         if teacher.role not in ("teacher", "tutor", "admin"):
-            raise ValidationError("Only teachers, tutors, and admins can create lessons")
+            raise ValidationError(
+                "Only teachers, tutors, and admins can create lessons"
+            )
 
         # Validate student role
         if student.role != "student":
-            raise ValidationError("Only users with student role can be enrolled in lessons")
+            raise ValidationError(
+                "Only users with student role can be enrolled in lessons"
+            )
 
         # Validate time range
         if start_time >= end_time:
@@ -163,7 +171,9 @@ class LessonService:
         # Validate start_time for today is not in the past
         now = timezone.now()
         if date == now.date() and start_time <= now.time():
-            raise ValidationError("Cannot create lesson with start time in the past for today")
+            raise ValidationError(
+                "Cannot create lesson with start time in the past for today"
+            )
 
         # Validate enrollment: Teacher/Tutor must have SubjectEnrollment (admins can bypass)
         if teacher.role in ("teacher", "tutor"):
@@ -196,7 +206,7 @@ class LessonService:
             end_time=end_time,
             description=description,
             telemost_link=telemost_link,
-            status="pending",
+            status=Lesson.Status.PENDING,
         )
 
         # Record in history
@@ -244,7 +254,7 @@ class LessonService:
 
         # По умолчанию исключаем отменённые уроки для консистентности с get_upcoming_lessons
         if not include_cancelled:
-            queryset = queryset.exclude(status="cancelled")
+            queryset = queryset.exclude(status=Lesson.Status.CANCELLED)
 
         if filters:
             if "date_from" in filters and filters["date_from"]:
@@ -291,7 +301,7 @@ class LessonService:
 
         # По умолчанию исключаем отменённые уроки для консистентности с get_upcoming_lessons
         if not include_cancelled:
-            queryset = queryset.exclude(status="cancelled")
+            queryset = queryset.exclude(status=Lesson.Status.CANCELLED)
 
         if filters:
             if "date_from" in filters and filters["date_from"]:
@@ -323,7 +333,7 @@ class LessonService:
         Args:
             tutor: Tutor user instance
             student_id: Student user ID
-            include_cancelled: Если False, исключает отменённые уроки (по умолчанию False)
+            include_cancelled: Если False, возвращает только active lessons (pending + confirmed)
 
         Returns:
             Optimized QuerySet of lessons
@@ -345,9 +355,11 @@ class LessonService:
             .order_by("date", "start_time")
         )
 
-        # По умолчанию исключаем отменённые уроки для консистентности с get_upcoming_lessons
+        # По умолчанию возвращаем только активные уроки (pending + confirmed)
         if not include_cancelled:
-            queryset = queryset.exclude(status="cancelled")
+            queryset = queryset.filter(
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]
+            )
 
         return queryset
 
@@ -372,7 +384,9 @@ class LessonService:
         """
         # Verify user is the teacher who created the lesson
         if lesson.teacher != user:
-            raise ValidationError("Only the teacher who created the lesson can update it")
+            raise ValidationError(
+                "Only the teacher who created the lesson can update it"
+            )
 
         # Can't edit past or current lessons (before start time + some buffer)
         if lesson.date < timezone.now().date():
@@ -410,7 +424,9 @@ class LessonService:
                 )
 
         # Check if date/time changed for conflict detection
-        date_time_changed = any(field in updates for field in ["date", "start_time", "end_time"])
+        date_time_changed = any(
+            field in updates for field in ["date", "start_time", "end_time"]
+        )
 
         for field, value in updates.items():
             if field not in allowed_fields:
@@ -466,15 +482,19 @@ class LessonService:
         """
         # Verify user is the teacher who created the lesson
         if lesson.teacher != user:
-            raise ValidationError("Only the teacher who created the lesson can cancel it")
+            raise ValidationError(
+                "Only the teacher who created the lesson can cancel it"
+            )
 
         # Check 2-hour rule
         if not lesson.can_cancel:
-            raise ValidationError("Lessons cannot be cancelled less than 2 hours before start time")
+            raise ValidationError(
+                "Lessons cannot be cancelled less than 2 hours before start time"
+            )
 
         # Mark as cancelled and record history
         old_status = lesson.status
-        lesson.status = "cancelled"
+        lesson.status = Lesson.Status.CANCELLED
         lesson.save()
 
         LessonHistory.objects.create(
@@ -482,7 +502,7 @@ class LessonService:
             action="cancelled",
             performed_by=user,
             old_values={"status": old_status},
-            new_values={"status": "cancelled"},
+            new_values={"status": Lesson.Status.CANCELLED},
         )
 
     @staticmethod
@@ -501,11 +521,15 @@ class LessonService:
 
         if user.role == "teacher":
             queryset = Lesson.objects.filter(
-                teacher=user, date__gte=now.date(), status__in=["pending", "confirmed"]
+                teacher=user,
+                date__gte=now.date(),
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
             )
         elif user.role == "student":
             queryset = Lesson.objects.filter(
-                student=user, date__gte=now.date(), status__in=["pending", "confirmed"]
+                student=user,
+                date__gte=now.date(),
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
             )
         elif user.role == "tutor":
             # Get lessons for managed students
@@ -518,7 +542,7 @@ class LessonService:
             queryset = Lesson.objects.filter(
                 student_id__in=student_ids,
                 date__gte=now.date(),
-                status__in=["pending", "confirmed"],
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
             )
         elif user.role == "parent":
             # Get lessons for parent's children
@@ -531,7 +555,7 @@ class LessonService:
             queryset = Lesson.objects.filter(
                 student_id__in=children_ids,
                 date__gte=now.date(),
-                status__in=["pending", "confirmed"],
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
             )
         else:
             return Lesson.objects.none()

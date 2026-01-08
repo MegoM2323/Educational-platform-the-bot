@@ -1,5 +1,11 @@
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+)
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
@@ -17,6 +23,7 @@ User = get_user_model()
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tutor_dashboard(request):
     """
@@ -67,6 +74,7 @@ def tutor_dashboard(request):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tutor_students(request):
     """
@@ -101,6 +109,7 @@ def tutor_students(request):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tutor_student_subjects(request, student_id):
     """
@@ -128,6 +137,7 @@ def tutor_student_subjects(request, student_id):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tutor_student_progress(request, student_id):
     """
@@ -155,6 +165,7 @@ def tutor_student_progress(request, student_id):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tutor_assign_subject(request):
     """
@@ -216,6 +227,7 @@ def tutor_assign_subject(request):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tutor_create_report(request):
     """
@@ -269,6 +281,7 @@ def tutor_create_report(request):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tutor_reports(request):
     """
@@ -294,6 +307,7 @@ def tutor_reports(request):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tutor_student_schedule(request, student_id):
     """

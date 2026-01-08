@@ -113,7 +113,9 @@ export const useStudentDashboardRealTime = (userId: string | number | undefined)
     if (!userId) return;
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/dashboard/${userId}/`;
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+    const tokenParam = token ? `?token=${token}` : '';
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws/dashboard/${userId}/${tokenParam}`;
 
     try {
       if (wsRef.current) {

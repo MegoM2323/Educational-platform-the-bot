@@ -574,8 +574,18 @@ class ParentChatView(APIView):
 
         user = request.user
 
-        page = int(request.query_params.get("page", 1))
-        page_size = int(request.query_params.get("page_size", 20))
+        try:
+            page = int(request.query_params.get("page", 1))
+        except (ValueError, TypeError):
+            page = 1
+
+        try:
+            page_size = int(request.query_params.get("page_size", 20))
+        except (ValueError, TypeError):
+            page_size = 20
+
+        page_size = min(max(page_size, 1), 100)
+
         chat_type = request.query_params.get("type")
 
         base_queryset = (
@@ -594,7 +604,7 @@ class ParentChatView(APIView):
 
         messages_prefetch = Prefetch(
             "messages",
-            queryset=Message.objects.select_related("sender").order_by("-created_at"),
+            queryset=Message.objects.select_related("sender").order_by("-created_at")[:1],
         )
 
         queryset = (

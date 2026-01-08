@@ -183,8 +183,8 @@ class DashboardConsumer(AsyncWebsocketConsumer):
         if not self.user.is_authenticated:
             return False
 
-        # Учителя, тьюторы и админы имеют доступ
-        return self.user.role in ["teacher", "tutor", "admin"]
+        # Студенты, учителя, тьюторы, родители и админы имеют доступ
+        return self.user.role in ["student", "teacher", "tutor", "parent", "admin"]
 
     def is_metrics_broadcaster(self) -> bool:
         """Проверяет, должен ли этот consumer отправлять метрики"""

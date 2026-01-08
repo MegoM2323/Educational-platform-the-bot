@@ -3,7 +3,7 @@
 """
 import logging
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Subquery, OuterRef
 from django.contrib.auth import get_user_model
 from ..models import ChatRoom, ChatParticipant
 
@@ -57,11 +57,19 @@ class DirectChatService:
             user2: Второй пользователь
             for_update: Если True, использует select_for_update() для блокировки строки
         """
-        # Сначала находим ID комнаты (без select_for_update, т.к. есть annotate)
+        # Подзапрос для подсчета участников чата
+        # Используем Subquery вместо annotate с Count, т.к. двойная фильтрация
+        # по ManyToMany полю participants приводит к неверному подсчету
+        participant_count_subquery = (
+            ChatRoom.objects.filter(id=OuterRef("id"))
+            .annotate(cnt=Count("participants"))
+            .values("cnt")[:1]
+        )
+
         room_id = (
             ChatRoom.objects.filter(type=ChatRoom.Type.DIRECT, participants=user1, is_active=True)
             .filter(participants=user2)
-            .annotate(participant_count=Count("participants"))
+            .annotate(participant_count=Subquery(participant_count_subquery))
             .filter(participant_count=2)
             .values_list("id", flat=True)
             .first()

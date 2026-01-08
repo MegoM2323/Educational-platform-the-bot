@@ -1,116 +1,242 @@
 {
-  "checkpoint": "CRITICAL_ERRORS_FIXED",
-  "date": "2026-01-08",
+  "checkpoint": "T009_COMPLETED",
+  "date": "2026-01-09",
   "status": "COMPLETED",
-  "summary": "Исправлены все критические ошибки в Chat API: queryset bug в ChatContactsView, URL routing, endpoints registration и tests",
-  "phase": "TESTING_AND_VERIFICATION",
+  "summary": "Добавлена константа MAX_USERNAME_ATTEMPTS и создан полный набор тестов для проверки безопасности генерации username",
+  "phase": "USERNAME_GENERATION_SAFETY",
   "tasks_completed": [
     {
-      "id": 0,
-      "name": "Исправление queryset bug в ChatContactsView.get()",
-      "severity": "CRITICAL",
-      "file": "/backend/chat/views.py",
-      "issue": "Cannot query 'Ivan Sokolov': Must be ChatRoom instance - неправильный filter в existing_chats queryset",
-      "fix": "Заменен room__chatparticipant__user на двойной filter: room_id__in(my_rooms) вместо неправильного room__chatparticipant__user",
-      "status": "FIXED",
-      "duration_sec": 5
-    },
-    {
-      "id": 1,
-      "name": "Исправление API endpoints registration",
-      "severity": "CRITICAL",
-      "file": "/backend/chat/urls.py",
-      "issue": "API endpoints возвращали 404 - некорректный URL routing для action-ов",
-      "fix": "Добавлены явные path() для custom actions: send_message, messages, mark_as_read",
-      "status": "FIXED",
-      "duration_sec": 10
-    },
-    {
-      "id": 2,
-      "name": "Исправление trailing_slash routing",
-      "severity": "HIGH",
-      "file": "/backend/chat/urls.py",
-      "issue": "SimpleRouter с trailing_slash=False не генерировал правильные URLs",
-      "fix": "Изменен router на SimpleRouter() по умолчанию (с trailing_slash=True)",
-      "status": "FIXED",
-      "duration_sec": 3
-    },
-    {
-      "id": 3,
-      "name": "Исправление тестов API integration",
-      "severity": "HIGH",
-      "file": "/backend/chat/tests/test_api_integration.py",
-      "issue": "Тесты падали на 403 при создании чата student+teacher без SubjectEnrollment",
-      "fixes": [
-        "Добавлен SubjectEnrollment.create() в setup_method() для всех тестов",
-        "Исправлены неправильные assertions на 'results' вместо 'messages'",
-        "Исправлены endpoint URLs с правильными action names",
-        "Заменен ID 99999 на 999999999 для гарантированной отсутствия пользователя"
-      ],
-      "status": "FIXED",
-      "duration_sec": 15
-    },
-    {
-      "id": 4,
-      "name": "Django check и финальное форматирование",
-      "severity": "HIGH",
+      "id": "T001",
+      "name": "Изменить on_delete для StudentProfile.parent на SET_NULL",
       "status": "DONE",
-      "checks": [
-        "Django check: 0 issues",
-        "Black formatter: 2 files reformatted",
-        "All tests PASS: 67/67 (100%)"
+      "duration_sec": 120,
+      "changes": [
+        "Обновлена модель StudentProfile: parent ForeignKey on_delete=CASCADE -> SET_NULL",
+        "Создана миграция 0019_fix_parent_cascade_to_set_null.py с PostgreSQL SQL",
+        "SQL: ALTER TABLE DROP CONSTRAINT -> ADD CONSTRAINT с ON DELETE SET NULL",
+        "Reverse SQL: откатывает на ON DELETE CASCADE для возможности отката"
       ],
-      "duration_sec": 5
-    }
-  ],
-  "test_results": {
-    "django_check": "System check identified no issues (0 silenced)",
-    "test_services": "37/37 PASS (100%)",
-    "test_api_integration": "30/30 PASS (100%)",
-    "total_tests": "67/67 PASS (100%)",
-    "black_formatter": "PASS (2 files reformatted)",
-    "mypy": "Not run (Python static typing)"
-  },
-  "critical_issues_fixed": [
-    {
-      "issue": "Cannot query 'Ivan Sokolov': Must be ChatRoom instance",
-      "root_cause": "Неправильный ORM filter в ChatContactsView line 549",
-      "solution": "Заменен на двойной filter с room_id__in",
-      "affected_endpoint": "GET /api/chat/contacts/",
-      "status": "FIXED"
+      "files_modified": [
+        "/backend/accounts/models.py"
+      ],
+      "files_created": [
+        "/backend/accounts/migrations/0019_fix_parent_cascade_to_set_null.py"
+      ],
+      "verification": {
+        "model_updated": true,
+        "migration_created": true,
+        "sql_syntax_valid": true,
+        "dependencies_correct": true,
+        "reverse_migration_present": true
+      }
     },
     {
-      "issue": "API endpoints return 404",
-      "root_cause": "Action endpoints (send_message, messages, mark_as_read) не зарегистрированы в urls.py",
-      "solution": "Добавлены явные path() entries для всех action endpoints",
-      "affected_endpoints": [
-        "POST /api/chat/{id}/send_message/",
-        "GET /api/chat/{id}/messages/",
-        "POST /api/chat/{id}/mark_as_read/"
+      "id": "T002",
+      "name": "Исправить race condition в UserManagementView.post()",
+      "status": "DONE",
+      "duration_sec": 180,
+      "changes": [
+        "StudentProfile: заменено .create() на .get_or_create() (строки 2522-2537)",
+        "TeacherProfile: заменено .create() на .get_or_create() (строки 2544-2558)",
+        "TutorProfile: заменено .create() на .get_or_create() (строки 2565-2578)",
+        "ParentProfile оставлен без изменений (простой случай с одним полем)"
       ],
-      "status": "FIXED"
+      "race_condition_fix": "get_or_create() атомарна на уровне БД, предотвращает IntegrityError при параллельных запросах",
+      "update_logic": "Если профиль существует (created=False), обновляются все поля через save(update_fields=[...])",
+      "files_modified": [
+        "/backend/accounts/staff_views.py"
+      ],
+      "verification": {
+        "syntax_checked": true,
+        "black_formatted": true,
+        "mypy_passed": true,
+        "all_three_profiles": true,
+        "update_fields_explicit": true,
+        "profile_data_preserved": true
+      }
     },
     {
-      "issue": "WebSocket routing",
-      "status": "VERIFIED - дополнительные изменения не требуются"
+      "id": "T005",
+      "name": "Добавить full_clean() в signal",
+      "status": "DONE",
+      "duration_sec": 45,
+      "changes": [
+        "Добавлен импорт ValidationError из django.core.exceptions (строка 18)",
+        "Вызван profile.full_clean() после успешного создания профиля (строка 253)",
+        "Обёрнут в try/except для перехвата ValidationError (строки 252-259)",
+        "При ошибке валидации: удаляется профиль, логируется ошибка, пробрасывается исключение",
+        "Сохранена существующая обработка IntegrityError race condition (строки 269-284)"
+      ],
+      "implementation_details": {
+        "validation_added": true,
+        "error_handling": "delete profile + log error + re-raise",
+        "race_condition_handling": "не изменена (остаётся нетронутой)",
+        "caller_notification": "ValidationError пробрасывается для информирования о проблеме"
+      },
+      "files_modified": [
+        "/backend/accounts/signals.py"
+      ],
+      "verification": {
+        "syntax_valid": true,
+        "imports_correct": true,
+        "black_formatted": true,
+        "validation_error_imported": true,
+        "full_clean_called": true,
+        "error_handling_correct": true,
+        "existing_code_intact": true
+      }
+    },
+    {
+      "id": "T010",
+      "name": "Создать тест для БАГ 5 (full_clean вызов)",
+      "status": "DONE",
+      "duration_sec": 30,
+      "changes": [
+        "Создан файл: backend/accounts/tests/test_profile_validation_on_creation.py",
+        "5 тестов для StudentProfile.clean() валидации",
+        "Тест 1: проверка роли tutor при clean()",
+        "Тест 2: проверка is_active tutor при clean()",
+        "Тест 3: проверка роли parent при clean()",
+        "Тест 4: проверка is_active parent при clean()",
+        "Тест 5: валидный профиль проходит clean() без ошибок",
+        "Все тесты используют StudentProfile.objects.create() т.к. signals отключены в тестовом окружении"
+      ],
+      "files_created": [
+        "/backend/accounts/tests/test_profile_validation_on_creation.py"
+      ],
+      "test_results": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "duration_sec": 0.07
+      },
+      "verification": {
+        "all_tests_pass": true,
+        "pytest_markers": true,
+        "django_db_decorator": true,
+        "validation_assertions": true
+      }
+    },
+    {
+      "id": "T007",
+      "name": "Создать тест для БАГ 2 (race condition)",
+      "status": "DONE",
+      "duration_sec": 60,
+      "changes": [
+        "Создан файл: backend/accounts/tests/test_user_creation_race_condition.py",
+        "6 тестов для проверки race condition при создании/обновлении профилей",
+        "Тест 1: StudentProfile get_or_create safe при concurrent updates",
+        "Тест 2: TeacherProfile get_or_create safe при concurrent updates",
+        "Тест 3: TutorProfile get_or_create safe при concurrent updates",
+        "Тест 4: StudentProfile multiple updates не создают дубли",
+        "Тест 5: TeacherProfile multiple updates не создают дубли",
+        "Тест 6: TutorProfile multiple updates не создают дубли",
+        "Использованы Faker для генерации уникальных username/email",
+        "Все тесты проверяют отсутствие дублей профилей и корректность обновления данных"
+      ],
+      "files_created": [
+        "/backend/accounts/tests/test_user_creation_race_condition.py"
+      ],
+      "test_results": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "duration_sec": 0.10
+      },
+      "verification": {
+        "all_tests_pass": true,
+        "pytest_markers": true,
+        "django_db_decorator": true,
+        "race_condition_covered": true,
+        "multiple_updates_covered": true,
+        "no_duplicates_asserted": true,
+        "data_integrity_verified": true,
+        "syntax_valid": true,
+        "black_formatted": true
+      }
+    },
+    {
+      "id": "T009",
+      "name": "Создать тест для БАГ 4 (username loop limit)",
+      "status": "DONE",
+      "duration_sec": 35,
+      "changes": [
+        "Добавлена константа MAX_USERNAME_ATTEMPTS = 100 в backend/accounts/staff_views.py",
+        "Обновлены три функции создания users с проверкой на лимит попыток:",
+        "  - create_user_with_profile() (строки 1492-1509)",
+        "  - create_student_profile() (строки 1735-1752)",
+        "  - create_parent_profile() (строки 1937-1954)",
+        "Каждая функция теперь имеет счетчик попыток (attempts) и выбрасывает ошибку после MAX_USERNAME_ATTEMPTS",
+        "Создан файл: backend/accounts/tests/test_username_generation_limit.py",
+        "7 тестов для проверки безопасности генерации username"
+      ],
+      "implementation_details": {
+        "constant_defined": true,
+        "constant_value": 100,
+        "three_functions_updated": true,
+        "attempts_counter_added": true,
+        "error_handling_added": true,
+        "error_status_code": 400
+      },
+      "files_modified": [
+        "/backend/accounts/staff_views.py"
+      ],
+      "files_created": [
+        "/backend/accounts/tests/test_username_generation_limit.py"
+      ],
+      "test_results": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "duration_sec": 0.13
+      },
+      "verification": {
+        "all_tests_pass": true,
+        "pytest_markers": true,
+        "django_db_decorator": true,
+        "constant_exists": true,
+        "constant_value_correct": true,
+        "constant_imported": true,
+        "safety_mechanism_present": true,
+        "all_functions_updated": true,
+        "syntax_valid": true,
+        "black_formatted": true,
+        "mypy_passed": true
+      }
+    },
+    {
+      "id": "T011",
+      "name": "Добавить full_clean() в staff_views.py после get_or_create()",
+      "status": "DONE",
+      "duration_sec": 25,
+      "changes": [
+        "StudentProfile: добавлен full_clean() после get_or_create() с try/except (строки 2568-2575)",
+        "TeacherProfile: добавлен full_clean() после get_or_create() с try/except (строки 2599-2606)",
+        "TutorProfile: добавлен full_clean() после get_or_create() с try/except (строки 2630-2637)",
+        "Все три профиля теперь проверяют валидацию перед возвратом в serializer",
+        "При ошибке валидации: возврат HTTP 400 с описанием ошибки + логирование"
+      ],
+      "implementation_details": {
+        "validation_consistency": "Синхронизировано с signal _create_profile_safe() в signals.py",
+        "error_handling": "try/except для DjangoValidationError с HTTP 400 ответом",
+        "logging": "logger.error() для ошибок валидации с profile ID и детали ошибки",
+        "fk_constraints_checked": "StudentProfile проверяет tutor/parent role и is_active",
+        "coverage": "Все три profile типа покрыты"
+      },
+      "files_modified": [
+        "/backend/accounts/staff_views.py"
+      ],
+      "verification": {
+        "syntax_valid": true,
+        "imports_correct": true,
+        "black_formatted": true,
+        "mypy_check": "notes only (untyped functions)",
+        "all_three_profiles_updated": true,
+        "error_handling_correct": true,
+        "logging_added": true,
+        "http_status_correct": true
+      }
     }
   ],
-  "files_modified": [
-    "/backend/chat/views.py - ChatContactsView.get() queryset fix",
-    "/backend/chat/urls.py - Added custom action endpoints",
-    "/backend/chat/tests/test_api_integration.py - Fixed all 30 tests"
-  ],
-  "verification_checklist": {
-    "user_import_fixed": true,
-    "pagination_optimized": true,
-    "query_params_validated": true,
-    "message_viewset_created": true,
-    "chat_contacts_view_fixed": true,
-    "django_check_passed": true,
-    "all_tests_pass": true,
-    "black_formatter_passed": true,
-    "endpoints_registered": true
-  },
-  "total_time_sec": 38,
-  "deployment_status": "READY_FOR_PRODUCTION"
+  "total_time_sec": 495
 }

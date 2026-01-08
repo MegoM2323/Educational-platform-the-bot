@@ -6,7 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.db import models as db_models
-from django.db.models import Q, Count, Prefetch, Sum
+from django.db.models import Q, Count, Prefetch, Sum, F, OuterRef, Subquery
 from django.utils import timezone
 
 from .models import ChatRoom, Message, MessageRead, ChatParticipant, MessageThread
@@ -23,7 +23,12 @@ from .serializers import (
     MessageThreadSerializer,
     MessageThreadCreateSerializer,
 )
-from .permissions import IsMessageAuthor, CanModerateChat, IsParticipantPermission, CanDeleteMessage
+from .permissions import (
+    IsMessageAuthor,
+    CanModerateChat,
+    IsParticipantPermission,
+    CanDeleteMessage,
+)
 from .general_chat_service import GeneralChatService
 from .services.direct_chat_service import DirectChatService
 
@@ -141,7 +146,9 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         try:
             user = request.user
             total_rooms = ChatRoom.objects.filter(participants=user).count()
-            active_rooms = ChatRoom.objects.filter(participants=user, is_active=True).count()
+            active_rooms = ChatRoom.objects.filter(
+                participants=user, is_active=True
+            ).count()
 
             user_rooms = ChatRoom.objects.filter(participants=user)
             total_messages = Message.objects.filter(room__in=user_rooms).count()
@@ -236,11 +243,17 @@ class MessageViewSet(viewsets.ModelViewSet):
             .prefetch_related(
                 Prefetch(
                     "replies",
-                    queryset=Message.objects.filter(is_deleted=False).only("id", "is_deleted"),
+                    queryset=Message.objects.filter(is_deleted=False).only(
+                        "id", "is_deleted"
+                    ),
                 ),
                 "read_by",
             )
-            .annotate(annotated_replies_count=Count("replies", filter=Q(replies__is_deleted=False)))
+            .annotate(
+                annotated_replies_count=Count(
+                    "replies", filter=Q(replies__is_deleted=False)
+                )
+            )
         )
 
     def perform_create(self, serializer):
@@ -395,13 +408,17 @@ class ChatParticipantViewSet(viewsets.ModelViewSet):
                         {"error": "Недостаточно прав"}, status=status.HTTP_403_FORBIDDEN
                     )
             except ChatParticipant.DoesNotExist:
-                return Response({"error": "Вы не участник чата"}, status=status.HTTP_403_FORBIDDEN)
+                return Response(
+                    {"error": "Вы не участник чата"}, status=status.HTTP_403_FORBIDDEN
+                )
 
         is_admin = request.data.get("is_admin", False)
         participant.is_admin = is_admin
         participant.save(update_fields=["is_admin"])
 
-        action_text = "назначен администратором" if is_admin else "снят с администратора"
+        action_text = (
+            "назначен администратором" if is_admin else "снят с администратора"
+        )
         return Response(
             {
                 "success": True,
@@ -459,7 +476,11 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
             MessageThread.objects.filter(room__in=user_rooms)
             .select_related("room", "created_by")
             .prefetch_related("messages")
-            .annotate(annotated_reply_count=Count("messages", filter=Q(messages__is_deleted=False)))
+            .annotate(
+                annotated_reply_count=Count(
+                    "messages", filter=Q(messages__is_deleted=False)
+                )
+            )
         )
 
     def perform_create(self, serializer):
@@ -478,7 +499,9 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def unpin(self, request, pk=None):
@@ -493,7 +516,9 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def lock(self, request, pk=None):
@@ -508,7 +533,9 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def unlock(self, request, pk=None):
@@ -523,7 +550,9 @@ class MessageThreadViewSet(viewsets.ModelViewSet):
         except PermissionError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 from rest_framework.views import APIView
@@ -531,49 +560,74 @@ from rest_framework.views import APIView
 
 class ParentChatView(APIView):
     """
-    ViewSet для родительского чата - список сообщений и создание сообщений.
+    ViewSet для родительского чата - список чатов и создание сообщений.
 
-    GET /api/chat/ - список сообщений родителя
+    GET /api/chat/ - список чатов родителя
     POST /api/chat/ - отправить сообщение
     """
 
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """Получить список сообщений родителя"""
+        """Получить список чатов пользователя"""
+        from django.core.paginator import Paginator
+
         user = request.user
 
-        # Фильтр по пользователю (получателю/отправителю)
-        user_filter = request.query_params.get("user_id")
-
-        # Пагинация
         page = int(request.query_params.get("page", 1))
         page_size = int(request.query_params.get("page_size", 20))
+        chat_type = request.query_params.get("type")
 
-        # Получаем сообщения где текущий пользователь отправитель или получатель
-        queryset = (
-            Message.objects.filter(Q(sender=user) | Q(room__participants=user), is_deleted=False)
-            .select_related("sender", "room")
-            .order_by("-created_at")
+        base_queryset = (
+            ChatRoom.objects.filter(participants=user, is_active=True)
+            .select_related("created_by")
+            .prefetch_related("participants")
+            .distinct()
         )
 
-        if user_filter:
-            queryset = queryset.filter(Q(sender_id=user_filter) | Q(sender=user))
+        if chat_type:
+            base_queryset = base_queryset.filter(type=chat_type)
 
-        # Применяем пагинацию
-        from django.core.paginator import Paginator
+        participant_last_read_subquery = ChatParticipant.objects.filter(
+            room=OuterRef("pk"), user=user
+        ).values("last_read_at")[:1]
+
+        messages_prefetch = Prefetch(
+            "messages",
+            queryset=Message.objects.select_related("sender").order_by("-created_at"),
+        )
+
+        queryset = (
+            base_queryset.prefetch_related(messages_prefetch)
+            .annotate(
+                annotated_participants_count=Count("participants", distinct=True),
+                _user_last_read_at=Subquery(participant_last_read_subquery),
+                annotated_unread_count=Count(
+                    "messages",
+                    filter=(
+                        Q(messages__is_deleted=False)
+                        & ~Q(messages__sender=user)
+                        & (
+                            Q(messages__created_at__gt=F("_user_last_read_at"))
+                            | Q(_user_last_read_at__isnull=True)
+                        )
+                    ),
+                ),
+            )
+            .order_by("-updated_at")
+        )
 
         paginator = Paginator(queryset, page_size)
         page_obj = paginator.get_page(page)
 
-        serializer = MessageSerializer(
+        serializer = ChatRoomListSerializer(
             page_obj.object_list, many=True, context={"request": request}
         )
 
         return Response(
             {
-                "results": serializer.data,
                 "count": paginator.count,
+                "results": serializer.data,
                 "page": page,
                 "page_size": page_size,
                 "total_pages": paginator.num_pages,
@@ -590,7 +644,9 @@ class ParentChatView(APIView):
         message_text = request.data.get("message")
 
         if not message_text:
-            return Response({"error": "message is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "message is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         if not recipient_id:
             return Response(
@@ -601,10 +657,14 @@ class ParentChatView(APIView):
         try:
             recipient = User.objects.get(id=recipient_id)
         except User.DoesNotExist:
-            return Response({"error": "Recipient not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Recipient not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         # Получаем или создаем комнату между пользователями
-        room, created = DirectChatService.get_or_create_direct_chat(request.user, recipient)
+        room, created = DirectChatService.get_or_create_direct_chat(
+            request.user, recipient
+        )
 
         # Создаем сообщение
         message = Message.objects.create(

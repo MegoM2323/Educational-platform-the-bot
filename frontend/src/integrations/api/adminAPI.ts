@@ -299,7 +299,7 @@ export const adminAPI = {
     parent_id?: number | null;
     password?: string;
   }): Promise<ApiResponse<CreateUserResponse>> {
-    return apiClient.request<CreateUserResponse>('/auth/students/create/', {
+    return apiClient.request<CreateUserResponse>('/api/tutor/my-students/', {
       method: 'POST',
       body: JSON.stringify(data),
     });

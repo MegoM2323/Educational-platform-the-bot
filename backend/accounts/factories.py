@@ -184,7 +184,7 @@ class StudentProfileFactory(DjangoModelFactory):
     """Factory for creating StudentProfile instances"""
 
     class Meta:
-        model = _get_student_profile_model
+        model = _get_student_profile_model()
 
     user = factory.SubFactory(StudentFactory)
     grade = 10
@@ -201,7 +201,7 @@ class TeacherProfileFactory(DjangoModelFactory):
     """Factory for creating TeacherProfile instances"""
 
     class Meta:
-        model = _get_teacher_profile_model
+        model = _get_teacher_profile_model()
 
     user = factory.SubFactory(TeacherFactory)
     subject = factory.Faker("word")
@@ -213,7 +213,7 @@ class TutorProfileFactory(DjangoModelFactory):
     """Factory for creating TutorProfile instances"""
 
     class Meta:
-        model = _get_tutor_profile_model
+        model = _get_tutor_profile_model()
 
     user = factory.SubFactory(TutorFactory)
     specialization = factory.Faker("word")
@@ -225,7 +225,7 @@ class ParentProfileFactory(DjangoModelFactory):
     """Factory for creating ParentProfile instances"""
 
     class Meta:
-        model = _get_parent_profile_model
+        model = _get_parent_profile_model()
 
     user = factory.SubFactory(ParentFactory)
     phone = factory.Faker("phone_number")

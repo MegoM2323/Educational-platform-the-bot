@@ -109,11 +109,17 @@ def create_forum_chat_on_enrollment(
             )
 
         subject_name = instance.get_subject_name()
-        student_name = instance.student.get_full_name()
-        teacher_name = instance.teacher.get_full_name()
 
-        # Format: "{Subject} {Student}"
-        forum_chat_name = f"{subject_name} {student_name}"
+        teacher_name = instance.teacher.get_full_name()
+        if not teacher_name:
+            teacher_name = instance.teacher.email or "Unknown"
+
+        student_name = instance.student.get_full_name()
+        if not student_name:
+            student_name = instance.student.email or "Unknown"
+
+        # Format: "{Subject}: {Teacher}"
+        forum_chat_name = f"{subject_name}: {teacher_name}"
 
         # Use transaction.atomic for consistency between ChatRoom and ChatParticipant
         with transaction.atomic():
@@ -124,7 +130,7 @@ def create_forum_chat_on_enrollment(
                 defaults={
                     "name": forum_chat_name,
                     "created_by": instance.student,
-                    "description": f"Forum for {subject_name} between {student_name} and {teacher_name}",
+                    "description": f"Forum for {subject_name} with {teacher_name}",
                 },
             )
 
@@ -155,7 +161,7 @@ def create_forum_chat_on_enrollment(
                     ChatParticipant.objects.get_or_create(
                         room=forum_chat,
                         user=user,
-                        defaults={'created_at': timezone.now()}
+                        defaults={"created_at": timezone.now()},
                     )
 
             # Verify student was actually added (critical logging)
@@ -199,8 +205,7 @@ def create_forum_chat_on_enrollment(
                     )
                     # Sync: create ChatParticipant if missing (shouldn't happen with fix above)
                     ChatParticipant.objects.get_or_create(
-                        room=forum_chat,
-                        user=instance.teacher
+                        room=forum_chat, user=instance.teacher
                     )
                 else:
                     logger.debug(
@@ -257,10 +262,9 @@ def create_forum_chat_on_enrollment(
             # Remove duplicates (if tutor == created_by_tutor)
             unique_tutors = list({tutor.id: tutor for tutor in tutors_to_add}.values())
 
-            # Build chat name using first tutor
+            # Build chat name using student name only
             first_tutor = unique_tutors[0]
-            tutor_name = first_tutor.get_full_name()
-            tutor_chat_name = f"{subject_name} - {student_name} ↔ {tutor_name}"
+            tutor_chat_name = student_name
 
             # Use transaction.atomic for consistency
             with transaction.atomic():
@@ -302,7 +306,7 @@ def create_forum_chat_on_enrollment(
                         ChatParticipant.objects.get_or_create(
                             room=tutor_chat,
                             user=user,
-                            defaults={'created_at': timezone.now()}
+                            defaults={"created_at": timezone.now()},
                         )
 
                 # Verify student was actually added (critical logging)

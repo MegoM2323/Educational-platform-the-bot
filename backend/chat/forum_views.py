@@ -1937,49 +1937,30 @@ class InitiateChatView(APIView):
                 # Определить имя чата
                 if chat_type == "FORUM_SUBJECT":
                     subject_name = enrollment_locked.subject.name
+                    initiator_role = request.user.role
 
-                    # Проверяем кто инициирует чат
-                    if request.user.role == "parent":
-                        # Parent initiated chat with teacher
-                        child_name = (
-                            enrollment_locked.student.first_name
-                            or enrollment_locked.student.email
+                    if initiator_role in ("student", "parent"):
+                        teacher_name = (
+                            contact_user.get_full_name()
+                            or contact_user.email
+                            or "Unknown"
                         )
-                        teacher_name = contact_user.first_name or contact_user.email
-                        chat_name = (
-                            f"{subject_name} - Родитель ({child_name}) ↔ {teacher_name}"
-                        )
-                    elif request.user.role == "student":
-                        student_name = request.user.first_name or request.user.email
-                        teacher_name = contact_user.first_name or contact_user.email
-                        chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
-                    elif request.user.role == "teacher":
-                        student_name = contact_user.first_name or contact_user.email
-                        teacher_name = request.user.first_name or request.user.email
-                        chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
-                    else:
-                        # Fallback для других ролей
-                        student_name = enrollment_locked.student.get_full_name()
-                        teacher_name = enrollment_locked.teacher.get_full_name()
-                        chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
-                elif chat_type == "FORUM_TUTOR":
-                    # Проверяем тип связи: tutor-teacher или tutor-student
-                    user = request.user
-                    target_user = contact_user
-
-                    if user.role == "tutor" and target_user.role == "teacher":
-                        # Чат между тьютором и учителем
-                        chat_name = f"Тьютор {user.first_name} ↔ Учитель {target_user.first_name}"
-                    elif user.role == "teacher" and target_user.role == "tutor":
-                        # Чат между учителем и тьютором
-                        chat_name = f"Учитель {user.first_name} ↔ Тьютор {target_user.first_name}"
-                    else:
-                        # Стандартное имя для tutor-student чата
+                        chat_name = f"{subject_name}: {teacher_name}"
+                    elif initiator_role == "teacher":
                         student_name = (
-                            enrollment_locked.student.first_name
-                            or enrollment_locked.student.email
+                            contact_user.get_full_name()
+                            or contact_user.email
+                            or "Unknown"
                         )
-                        chat_name = f"Тьютор - {student_name}"
+                        chat_name = f"{subject_name}: {student_name}"
+                elif chat_type == "FORUM_TUTOR":
+                    initiator_role = request.user.role
+
+                    student_name = (
+                        enrollment_locked.student.get_full_name()
+                        or enrollment_locked.student.email
+                    )
+                    chat_name = student_name
                 else:
                     chat_name = f"Chat {request.user.get_full_name()} ↔ {contact_user.get_full_name()}"
 

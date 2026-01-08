@@ -133,7 +133,7 @@ class ChatService:
         return room
 
     @staticmethod
-    def get_user_chats(user: User, page_size: int = 20):
+    def get_user_chats(user: User):
         """
         Получить все чаты пользователя с дополнительной информацией.
 
@@ -147,14 +147,15 @@ class ChatService:
         - other_participant: User объект собеседника (для direct чатов)
 
         Сортировка: по updated_at DESC
-        Пагинация: page_size (по умолчанию 20)
+
+        ВАЖНО: Пагинация должна делаться на уровне View через QuerySet slicing,
+        а не в сервисе. Это позволяет правильно обрабатывать count() и offset.
 
         Args:
             user: Пользователь
-            page_size: Размер страницы для пагинации
 
         Returns:
-            QuerySet[ChatRoom]: Оптимизированный queryset с аннотациями
+            QuerySet[ChatRoom]: Оптимизированный queryset с аннотациями (БЕЗ слайсинга)
         """
         if hasattr(user, "role") and user.role == "admin":
             base_qs = ChatRoom.objects.filter(is_active=True)
@@ -195,7 +196,7 @@ class ChatService:
             )
             .prefetch_related("participants__user")
             .distinct()
-            .order_by("-updated_at")[:page_size]
+            .order_by("-updated_at")
         )
 
         return qs

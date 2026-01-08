@@ -2,8 +2,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.contrib.auth.models import User
-from django.db.models import Q, Count, Case, When, IntegerField, OuterRef, Subquery
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from .models import ChatRoom, Message, ChatParticipant
@@ -12,8 +11,10 @@ from .serializers import (
     ChatRoomDetailSerializer,
     MessageSerializer,
 )
-from .services.chat_service_new import ChatServiceNew
+from .services.chat_service import ChatService
 from .permissions import can_initiate_chat
+
+User = get_user_model()
 
 
 class ChatRoomViewSet(viewsets.ViewSet):
@@ -39,12 +40,25 @@ class ChatRoomViewSet(viewsets.ViewSet):
         - page (int, default=1)
         - page_size (int, default=20, max=50)
         """
-        page = int(request.query_params.get("page", 1))
-        page_size = min(int(request.query_params.get("page_size", 20)), 50)
+        try:
+            page = int(request.query_params.get("page", 1))
+            if page < 1:
+                page = 1
+        except (ValueError, TypeError):
+            page = 1
 
-        service = ChatServiceNew()
+        try:
+            page_size = int(request.query_params.get("page_size", 20))
+            page_size = min(page_size, 50)
+            if page_size < 1:
+                page_size = 20
+        except (ValueError, TypeError):
+            page_size = 20
+
+        service = ChatService()
         all_chats = service.get_user_chats(request.user)
 
+        total_count = all_chats.count()
         offset = (page - 1) * page_size
         paginated = all_chats[offset : offset + page_size]
 
@@ -54,10 +68,10 @@ class ChatRoomViewSet(viewsets.ViewSet):
 
         return Response(
             {
-                "count": all_chats.count(),
+                "count": total_count,
                 "page": page,
                 "page_size": page_size,
-                "total_pages": (all_chats.count() + page_size - 1) // page_size,
+                "total_pages": (total_count + page_size - 1) // page_size,
                 "results": serializer.data,
             }
         )
@@ -107,7 +121,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        service = ChatServiceNew()
+        service = ChatService()
         try:
             room, created = service.get_or_create_chat(request.user, recipient)
         except ValueError as e:
@@ -153,7 +167,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        service = ChatServiceNew()
+        service = ChatService()
         if not service.can_access_chat(request.user, room):
             return Response(
                 {
@@ -189,7 +203,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        service = ChatServiceNew()
+        service = ChatService()
         if not service.can_access_chat(request.user, room):
             return Response(
                 {
@@ -201,15 +215,28 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        before_id = request.query_params.get("before")
-        limit = min(int(request.query_params.get("limit", 50)), 100)
+        before_id = None
+        try:
+            before_param = request.query_params.get("before")
+            if before_param:
+                before_id = int(before_param)
+        except (ValueError, TypeError):
+            before_id = None
+
+        try:
+            limit = int(request.query_params.get("limit", 50))
+            limit = min(limit, 100)
+            if limit < 1:
+                limit = 50
+        except (ValueError, TypeError):
+            limit = 50
 
         qs = Message.objects.filter(room=room, is_deleted=False).select_related(
             "sender"
         )
 
         if before_id:
-            qs = qs.filter(id__lt=int(before_id))
+            qs = qs.filter(id__lt=before_id)
 
         messages = list(qs.order_by("-created_at")[:limit])
         messages.reverse()
@@ -249,7 +276,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        service = ChatServiceNew()
+        service = ChatService()
         if not service.can_access_chat(request.user, room):
             return Response(
                 {
@@ -296,31 +323,11 @@ class ChatRoomViewSet(viewsets.ViewSet):
         serializer = MessageSerializer(message)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["patch"])
-    def edit_message(self, request, pk=None):
+    @action(detail=True, methods=["post"])
+    def mark_as_read(self, request, pk=None):
         """
-        PATCH /api/chat/{id}/messages/ - редактировать сообщение
-        Требует query parameter: message_id
-        Request body:
-        {
-            "content": "Новый текст"
-        }
+        POST /api/chat/{id}/read/ - отметить чат как прочитанный
         """
-        message_id = request.data.get("message_id") or request.query_params.get(
-            "message_id"
-        )
-
-        if not message_id:
-            return Response(
-                {
-                    "error": {
-                        "code": "INVALID_REQUEST",
-                        "message": "message_id required",
-                    }
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
             room = ChatRoom.objects.get(id=pk)
         except ChatRoom.DoesNotExist:
@@ -334,7 +341,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        service = ChatServiceNew()
+        service = ChatService()
         if not service.can_access_chat(request.user, room):
             return Response(
                 {
@@ -346,8 +353,45 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        now = timezone.now()
+        service.mark_chat_as_read(request.user, room)
+
+        return Response({"last_read_at": now.isoformat()})
+
+
+class MessageViewSet(viewsets.ViewSet):
+    """
+    ViewSet для управления сообщениями с path параметрами.
+    Endpoints:
+    - PATCH /api/chat/{room_id}/messages/{message_id}/ - редактировать сообщение
+    - DELETE /api/chat/{room_id}/messages/{message_id}/ - удалить сообщение
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def update(self, request, room_id=None, pk=None):
+        """
+        PATCH /api/chat/{room_id}/messages/{message_id}/ - редактировать сообщение
+        Request body:
+        {
+            "content": "Новый текст"
+        }
+        """
         try:
-            message = Message.objects.get(id=message_id, room=room)
+            room = ChatRoom.objects.get(id=room_id)
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "CHAT_NOT_FOUND",
+                        "message": "Chat not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            message = Message.objects.get(id=pk, room=room)
         except Message.DoesNotExist:
             return Response(
                 {
@@ -357,6 +401,18 @@ class ChatRoomViewSet(viewsets.ViewSet):
                     }
                 },
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = ChatService()
+        if not service.can_access_chat(request.user, room):
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         if message.is_deleted:
@@ -402,27 +458,12 @@ class ChatRoomViewSet(viewsets.ViewSet):
         serializer = MessageSerializer(message)
         return Response(serializer.data)
 
-    @action(detail=True, methods=["delete"])
-    def delete_message(self, request, pk=None):
+    def destroy(self, request, room_id=None, pk=None):
         """
-        DELETE /api/chat/{id}/messages/ - удалить сообщение (soft delete)
-        Требует query parameter: message_id
+        DELETE /api/chat/{room_id}/messages/{message_id}/ - удалить сообщение (soft delete)
         """
-        message_id = request.query_params.get("message_id")
-
-        if not message_id:
-            return Response(
-                {
-                    "error": {
-                        "code": "INVALID_REQUEST",
-                        "message": "message_id required",
-                    }
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
-            room = ChatRoom.objects.get(id=pk)
+            room = ChatRoom.objects.get(id=room_id)
         except ChatRoom.DoesNotExist:
             return Response(
                 {
@@ -434,20 +475,8 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        service = ChatServiceNew()
-        if not service.can_access_chat(request.user, room):
-            return Response(
-                {
-                    "error": {
-                        "code": "ACCESS_DENIED",
-                        "message": "Access denied",
-                    }
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         try:
-            message = Message.objects.get(id=message_id, room=room)
+            message = Message.objects.get(id=pk, room=room)
         except Message.DoesNotExist:
             return Response(
                 {
@@ -457,6 +486,18 @@ class ChatRoomViewSet(viewsets.ViewSet):
                     }
                 },
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = ChatService()
+        if not service.can_access_chat(request.user, room):
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         can_delete = (
@@ -481,41 +522,6 @@ class ChatRoomViewSet(viewsets.ViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=["post"])
-    def mark_as_read(self, request, pk=None):
-        """
-        POST /api/chat/{id}/read/ - отметить чат как прочитанный
-        """
-        try:
-            room = ChatRoom.objects.get(id=pk)
-        except ChatRoom.DoesNotExist:
-            return Response(
-                {
-                    "error": {
-                        "code": "CHAT_NOT_FOUND",
-                        "message": "Chat not found",
-                    }
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        service = ChatServiceNew()
-        if not service.can_access_chat(request.user, room):
-            return Response(
-                {
-                    "error": {
-                        "code": "ACCESS_DENIED",
-                        "message": "Access denied",
-                    }
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        now = timezone.now()
-        service.mark_chat_as_read(request.user, room)
-
-        return Response({"last_read_at": now.isoformat()})
-
 
 class ChatContactsView(APIView):
     """
@@ -529,30 +535,35 @@ class ChatContactsView(APIView):
         Возвращает список пользователей, с которыми текущий пользователь может общаться.
         Проверяется через can_initiate_chat().
         """
-        allowed_users = []
-        for user in User.objects.filter(is_active=True).exclude(id=request.user.id):
-            if can_initiate_chat(request.user, user):
-                allowed_users.append(user)
+        all_users = User.objects.filter(is_active=True).exclude(id=request.user.id)
+
+        if not all_users.exists():
+            return Response({"contacts": []})
+
+        user_ids = list(all_users.values_list("id", flat=True))
 
         existing_chats = {}
         for cp in (
-            ChatParticipant.objects.filter(room__participants__user=request.user)
-            .filter(user_id__in=[u.id for u in allowed_users])
+            ChatParticipant.objects.filter(
+                room__participants__user=request.user, user_id__in=user_ids
+            )
             .select_related("room")
+            .distinct()
         ):
             if cp.user_id not in existing_chats:
                 existing_chats[cp.user_id] = cp.room_id
 
         contacts = []
-        for user in allowed_users:
-            contacts.append(
-                {
-                    "id": user.id,
-                    "full_name": f"{user.first_name} {user.last_name}".strip(),
-                    "role": getattr(user, "role", "user"),
-                    "has_existing_chat": user.id in existing_chats,
-                    "existing_chat_id": existing_chats.get(user.id),
-                }
-            )
+        for user in all_users:
+            if can_initiate_chat(request.user, user):
+                contacts.append(
+                    {
+                        "id": user.id,
+                        "full_name": f"{user.first_name} {user.last_name}".strip(),
+                        "role": getattr(user, "role", "user"),
+                        "has_existing_chat": user.id in existing_chats,
+                        "existing_chat_id": existing_chats.get(user.id),
+                    }
+                )
 
         return Response({"contacts": contacts})

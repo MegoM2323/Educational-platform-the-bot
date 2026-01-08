@@ -31,7 +31,7 @@ export const telegramAPI = {
   async generateLinkToken(): Promise<ApiResponse<GenerateLinkTokenResponse>> {
     try {
       const response = await apiClient.post<GenerateLinkTokenResponse>(
-        '/api/accounts/telegram/link-token/'
+        '/api/profile/telegram/generate-link/'
       );
 
       if (!response.success) {
@@ -52,7 +52,7 @@ export const telegramAPI = {
 
   async getTelegramProfile(): Promise<ApiResponse<TelegramProfile>> {
     try {
-      const response = await apiClient.get<TelegramProfile>('/api/accounts/telegram/profile/');
+      const response = await apiClient.get<TelegramProfile>('/api/profile/telegram/status/');
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to get Telegram profile');
@@ -72,7 +72,7 @@ export const telegramAPI = {
 
   async unlinkTelegram(): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.delete<void>('/api/accounts/telegram/unlink/');
+      const response = await apiClient.delete<void>('/api/profile/telegram/unlink/');
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to unlink Telegram');

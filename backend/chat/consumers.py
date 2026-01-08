@@ -992,7 +992,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             if user.role == UserModel.Role.TEACHER:
                 from django.db.models import Q
-                from scheduling.models import SubjectEnrollment as SchedulingEnrollment
+                from materials.models import SubjectEnrollment
 
                 if room.type in [
                     ChatRoom.Type.FORUM_SUBJECT,
@@ -1020,7 +1020,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                             student_participants = room.participants.filter(
                                 role=UserModel.Role.STUDENT
                             ).values_list("id", flat=True)
-                            has_access = SchedulingEnrollment.objects.filter(
+                            has_access = SubjectEnrollment.objects.filter(
                                 teacher_id=user_id,
                                 student_id__in=student_participants
                             ).exists()

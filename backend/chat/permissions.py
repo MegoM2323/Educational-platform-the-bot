@@ -172,11 +172,12 @@ def check_teacher_access_to_room(
     # Получаем всех участников комнаты (кроме самого учителя)
     room_participants = room.participants.exclude(id=teacher_user.id)
 
-    # Ищем активный enrollment, где учитель преподает одному из участников
+    # Ищем enrollment, где учитель преподает одному из участников
+    # FIXED: Removed is_active=True filter - teacher should see their chats regardless of enrollment status
     for participant in room_participants:
         if participant.role == User.Role.STUDENT:
             enrollment = SubjectEnrollment.objects.filter(
-                student=participant, teacher=teacher_user, is_active=True
+                student=participant, teacher=teacher_user
             ).first()
 
             if enrollment:
@@ -297,11 +298,11 @@ class CanInitiateChat(permissions.BasePermission):
         ):
             if subject_id:
                 # Verify student is enrolled with this teacher for this subject
+                # FIXED: Removed is_active=True - student should access chats regardless of enrollment status
                 enrollment = SubjectEnrollment.objects.filter(
                     student=requester,
                     teacher=contact_user,
                     subject_id=subject_id,
-                    is_active=True,
                 ).first()
 
                 if enrollment:
@@ -323,11 +324,11 @@ class CanInitiateChat(permissions.BasePermission):
 
             # If subject_id provided, search for enrollment with specific subject
             if subject_id:
+                # FIXED: Removed is_active=True - teacher should access chats regardless of enrollment status
                 enrollment = SubjectEnrollment.objects.filter(
                     student=contact_user,
                     teacher=requester,
                     subject_id=subject_id,
-                    is_active=True,
                 ).first()
 
                 if enrollment:

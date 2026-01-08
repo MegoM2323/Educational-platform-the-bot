@@ -283,16 +283,27 @@ def create_forum_chat_on_enrollment(
                     tutor_participants.append(student_profile.parent)
 
                 # Add participants to M2M relation (idempotent)
-                tutor_chat.participants.add(*tutor_participants)
+                # Wrap in transaction.atomic() to ensure both M2M and ChatParticipant are synchronized
+                with transaction.atomic():
+                    tutor_chat.participants.add(*tutor_participants)
 
-                # Create ChatParticipant records using bulk_create with ignore_conflicts
-                tutor_participant_records = [
-                    ChatParticipant(room=tutor_chat, user=user)
-                    for user in tutor_participants
-                ]
-                ChatParticipant.objects.bulk_create(
-                    tutor_participant_records, ignore_conflicts=True
-                )
+                    # Create ChatParticipant records using bulk_create with ignore_conflicts
+                    tutor_participant_records = [
+                        ChatParticipant(room=tutor_chat, user=user)
+                        for user in tutor_participants
+                    ]
+                    ChatParticipant.objects.bulk_create(
+                        tutor_participant_records, ignore_conflicts=True
+                    )
+
+                    # Fallback: If ignore_conflicts skipped any, create them with get_or_create
+                    # This ensures all participants are in both M2M and ChatParticipant
+                    for user in tutor_participants:
+                        ChatParticipant.objects.get_or_create(
+                            room=tutor_chat,
+                            user=user,
+                            defaults={'created_at': timezone.now()}
+                        )
 
                 # Verify student was actually added (critical logging)
                 try:

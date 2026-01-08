@@ -145,7 +145,7 @@ export interface MuteResponse {
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
     const response = await unifiedAPI.request<ForumChatsResponse>(
-      '/chat/forum/'
+      '/api/chat/'
     );
 
     if (response.error) {
@@ -255,7 +255,7 @@ export const forumAPI = {
     console.debug('[forumAPI] getAvailableContacts called');
 
     const response = await unifiedAPI.request<ContactsResponse>(
-      '/chat/available-contacts/'
+      '/api/chat/contacts/'
     );
 
     console.debug('[forumAPI] getAvailableContacts response:', {
@@ -302,7 +302,7 @@ export const forumAPI = {
     }
 
     const response = await unifiedAPI.request<InitiateChatResponse>(
-      '/chat/initiate-chat/',
+      '/api/chat/',
       {
         method: 'POST',
         body: JSON.stringify(requestBody),

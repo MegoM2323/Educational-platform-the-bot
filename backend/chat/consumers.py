@@ -63,6 +63,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if self.authenticated:
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
+            rooms_key = f"chat_rooms_limit:{self.user.id}"
+            current = cache.get(rooms_key, 0)
+            if current > 0:
+                cache.set(rooms_key, current - 1, CHAT_RATE_WINDOW)
+                logger.debug(f"[ChatConsumer] Decremented room limit for user {self.user.id}: {current - 1}/{CHAT_ROOMS_LIMIT}")
+
     async def _wait_for_auth(self):
         """Ждать auth сообщение (используется в connect с timeout)"""
         while not self.authenticated:
@@ -124,11 +130,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self._send_error("ERROR", str(e))
             return
 
-        if not message.get("is_deleted", False):
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {"type": "chat_message", "message": message},
-            )
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {"type": "chat_message", "message": message},
+        )
 
     async def _handle_typing(self):
         """Обработать индикатор печати"""
@@ -186,14 +191,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({"type": "error", "code": code, "message": message}))
 
     async def _check_message_rate_limit(self, user):
-        """Проверить rate limit на сообщения (Redis-based, per-user)"""
+        """Проверить rate limit на сообщения (Redis-based, per-user, АТОМАРНО через cache.incr)"""
         rate_key = f"chat_rate_limit:{user.id}"
-        current_count = cache.get(rate_key, 0)
 
-        if current_count >= CHAT_RATE_LIMIT:
+        try:
+            count = cache.incr(rate_key)
+        except ValueError:
+            cache.set(rate_key, 1, CHAT_RATE_WINDOW)
+            return True
+
+        if count == 1:
+            cache.expire(rate_key, CHAT_RATE_WINDOW)
+
+        if count > CHAT_RATE_LIMIT:
             return False
 
-        cache.set(rate_key, current_count + 1, CHAT_RATE_WINDOW)
         return True
 
     async def _check_room_limit(self, user):
@@ -232,7 +244,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _save_message(self, content):
-        """Сохранить сообщение и вернуть данные для broadcast"""
+        """Сохранить сообщение и вернуть данные для broadcast.
+        Messages are filtered at DB level (is_deleted=False in Message model)."""
         room = ChatRoom.objects.get(id=self.room_id)
         service = MessageService()
         message = service.send_message(self.user, room, content)

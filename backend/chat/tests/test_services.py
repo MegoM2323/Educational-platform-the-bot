@@ -12,6 +12,8 @@ from chat.models import ChatRoom, ChatParticipant, Message
 from chat.services.chat_service import ChatService
 from chat.services.message_service import MessageService
 from chat.permissions import can_initiate_chat
+from accounts.models import StudentProfile, TeacherProfile
+from materials.models import Subject, SubjectEnrollment
 
 User = get_user_model()
 
@@ -22,8 +24,8 @@ class TestChatServiceGetOrCreate:
 
     def test_get_or_create_chat_new_room(self):
         """Test creating a new chat between two users"""
-        user1 = User.objects.create(username='student1', role='student')
-        user2 = User.objects.create(username='teacher1', role='teacher')
+        user1 = User.objects.create(username="student1", role="student")
+        user2 = User.objects.create(username="teacher1", role="teacher")
 
         # ChatService correctly uses 'participants' related_name
         room = ChatRoom.objects.create(is_active=True)
@@ -35,8 +37,8 @@ class TestChatServiceGetOrCreate:
 
     def test_get_or_create_chat_existing_room(self):
         """Test that same users in same room can be retrieved"""
-        user1 = User.objects.create(username='student2', role='student')
-        user2 = User.objects.create(username='teacher2', role='teacher')
+        user1 = User.objects.create(username="student2", role="student")
+        user2 = User.objects.create(username="teacher2", role="teacher")
 
         room1 = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room1, user=user1)
@@ -48,8 +50,8 @@ class TestChatServiceGetOrCreate:
 
     def test_get_or_create_chat_bidirectional(self):
         """Test that chat participants are bidirectional"""
-        user1 = User.objects.create(username='student3', role='student')
-        user2 = User.objects.create(username='teacher3', role='teacher')
+        user1 = User.objects.create(username="student3", role="student")
+        user2 = User.objects.create(username="teacher3", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -61,15 +63,17 @@ class TestChatServiceGetOrCreate:
 
     def test_get_or_create_chat_same_user_fails(self):
         """Test that creating chat with self raises ValueError"""
-        user = User.objects.create(username='user1', role='student')
+        user = User.objects.create(username="user1", role="student")
 
         with pytest.raises(ValueError, match="Cannot create direct chat with yourself"):
             ChatService.get_or_create_chat(user, user)
 
     def test_get_or_create_chat_inactive_user_fails(self):
         """Test that creating chat with inactive user raises ValueError"""
-        user1 = User.objects.create(username='student4', is_active=True, role='student')
-        user2 = User.objects.create(username='teacher4', is_active=False, role='teacher')
+        user1 = User.objects.create(username="student4", is_active=True, role="student")
+        user2 = User.objects.create(
+            username="teacher4", is_active=False, role="teacher"
+        )
 
         with pytest.raises(ValueError, match="Both users must be active"):
             ChatService.get_or_create_chat(user1, user2)
@@ -81,8 +85,21 @@ class TestChatServiceAccess:
 
     def test_can_access_chat_owner(self):
         """Test that chat participant can access their chat"""
-        user1 = User.objects.create(username='user2', role='student')
-        user2 = User.objects.create(username='user3', role='teacher')
+        user1 = User.objects.create(username="user2", role="student")
+        user2 = User.objects.create(username="user3", role="teacher")
+
+        # Create profiles
+        StudentProfile.objects.create(user=user1)
+        TeacherProfile.objects.create(user=user2)
+
+        # Create subject and ACTIVE enrollment (required for can_initiate_chat)
+        subject = Subject.objects.create(name="Math")
+        SubjectEnrollment.objects.create(
+            student=user1,
+            teacher=user2,
+            subject=subject,
+            status=SubjectEnrollment.Status.ACTIVE,
+        )
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -93,9 +110,9 @@ class TestChatServiceAccess:
 
     def test_can_access_chat_admin(self):
         """Test that admin can access any chat"""
-        admin = User.objects.create(username='admin1', role='admin')
-        user1 = User.objects.create(username='user4', role='student')
-        user2 = User.objects.create(username='user5', role='teacher')
+        admin = User.objects.create(username="admin1", role="admin")
+        user1 = User.objects.create(username="user4", role="student")
+        user2 = User.objects.create(username="user5", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -105,9 +122,9 @@ class TestChatServiceAccess:
 
     def test_cannot_access_chat_not_participant(self):
         """Test that non-participant cannot access chat"""
-        user1 = User.objects.create(username='user6', role='student')
-        user2 = User.objects.create(username='user7', role='teacher')
-        user3 = User.objects.create(username='user8', role='student')
+        user1 = User.objects.create(username="user6", role="student")
+        user2 = User.objects.create(username="user7", role="teacher")
+        user3 = User.objects.create(username="user8", role="student")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -122,8 +139,8 @@ class TestChatServiceRead:
 
     def test_mark_chat_as_read(self):
         """Test marking chat as read updates last_read_at"""
-        user1 = User.objects.create(username='user9', role='student')
-        user2 = User.objects.create(username='user10', role='teacher')
+        user1 = User.objects.create(username="user9", role="student")
+        user2 = User.objects.create(username="user10", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         participant = ChatParticipant.objects.create(room=room, user=user1)
@@ -139,8 +156,8 @@ class TestChatServiceRead:
 
     def test_mark_chat_as_read_updates_time(self):
         """Test that subsequent reads update the timestamp"""
-        user1 = User.objects.create(username='user11', role='student')
-        user2 = User.objects.create(username='user12', role='teacher')
+        user1 = User.objects.create(username="user11", role="student")
+        user2 = User.objects.create(username="user12", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -163,9 +180,9 @@ class TestChatServiceGetChats:
 
     def test_get_user_chats_returns_user_chats(self):
         """Test that user can be retrieved from chats"""
-        user1 = User.objects.create(username='user13', role='student')
-        user2 = User.objects.create(username='user14', role='teacher')
-        user3 = User.objects.create(username='user15', role='student')
+        user1 = User.objects.create(username="user13", role="student")
+        user2 = User.objects.create(username="user14", role="teacher")
+        user3 = User.objects.create(username="user15", role="student")
 
         # Create chat between user1 and user2
         room1 = ChatRoom.objects.create(is_active=True)
@@ -184,8 +201,8 @@ class TestChatServiceGetChats:
 
     def test_get_user_chats_admin_sees_all(self):
         """Test that multiple chats can be queried"""
-        user1 = User.objects.create(username='user16', role='student')
-        user2 = User.objects.create(username='user17', role='teacher')
+        user1 = User.objects.create(username="user16", role="student")
+        user2 = User.objects.create(username="user17", role="teacher")
 
         room1 = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room1, user=user1)
@@ -201,8 +218,8 @@ class TestChatServiceGetChats:
 
     def test_get_user_chats_excludes_inactive(self):
         """Test that inactive chats can be filtered out"""
-        user1 = User.objects.create(username='user18', role='student')
-        user2 = User.objects.create(username='user19', role='teacher')
+        user1 = User.objects.create(username="user18", role="student")
+        user2 = User.objects.create(username="user19", role="teacher")
 
         room1 = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room1, user=user1)
@@ -225,8 +242,8 @@ class TestMessageServiceSend:
 
     def test_send_message(self):
         """Test sending a message to chat"""
-        user1 = User.objects.create(username='sender1', role='student')
-        user2 = User.objects.create(username='receiver1', role='teacher')
+        user1 = User.objects.create(username="sender1", role="student")
+        user2 = User.objects.create(username="receiver1", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -241,8 +258,8 @@ class TestMessageServiceSend:
 
     def test_send_message_strips_whitespace(self):
         """Test that message content is stripped of leading/trailing whitespace"""
-        user1 = User.objects.create(username='sender2', role='student')
-        user2 = User.objects.create(username='receiver2', role='teacher')
+        user1 = User.objects.create(username="sender2", role="student")
+        user2 = User.objects.create(username="receiver2", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -254,8 +271,8 @@ class TestMessageServiceSend:
 
     def test_send_empty_message_fails(self):
         """Test that sending empty message raises ValueError"""
-        user1 = User.objects.create(username='sender3', role='student')
-        user2 = User.objects.create(username='receiver3', role='teacher')
+        user1 = User.objects.create(username="sender3", role="student")
+        user2 = User.objects.create(username="receiver3", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -266,8 +283,8 @@ class TestMessageServiceSend:
 
     def test_send_message_to_inactive_chat_fails(self):
         """Test that sending message to inactive chat raises ValueError"""
-        user1 = User.objects.create(username='sender4', role='student')
-        user2 = User.objects.create(username='receiver4', role='teacher')
+        user1 = User.objects.create(username="sender4", role="student")
+        user2 = User.objects.create(username="receiver4", role="teacher")
 
         room = ChatRoom.objects.create(is_active=False)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -278,8 +295,8 @@ class TestMessageServiceSend:
 
     def test_send_message_updates_room_timestamp(self):
         """Test that sending message updates room's updated_at"""
-        user1 = User.objects.create(username='sender5', role='student')
-        user2 = User.objects.create(username='receiver5', role='teacher')
+        user1 = User.objects.create(username="sender5", role="student")
+        user2 = User.objects.create(username="receiver5", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -299,8 +316,8 @@ class TestMessageServiceEdit:
 
     def test_edit_message(self):
         """Test editing a message by author"""
-        user1 = User.objects.create(username='editor1', role='student')
-        user2 = User.objects.create(username='watcher1', role='teacher')
+        user1 = User.objects.create(username="editor1", role="student")
+        user2 = User.objects.create(username="watcher1", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -314,8 +331,8 @@ class TestMessageServiceEdit:
 
     def test_edit_message_not_author_fails(self):
         """Test that non-author cannot edit message"""
-        user1 = User.objects.create(username='author1', role='student')
-        user2 = User.objects.create(username='other1', role='teacher')
+        user1 = User.objects.create(username="author1", role="student")
+        user2 = User.objects.create(username="other1", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -328,8 +345,8 @@ class TestMessageServiceEdit:
 
     def test_edit_deleted_message_fails(self):
         """Test that deleted message cannot be edited"""
-        user1 = User.objects.create(username='editor2', role='student')
-        user2 = User.objects.create(username='watcher2', role='teacher')
+        user1 = User.objects.create(username="editor2", role="student")
+        user2 = User.objects.create(username="watcher2", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -343,8 +360,8 @@ class TestMessageServiceEdit:
 
     def test_edit_to_empty_fails(self):
         """Test that editing to empty content fails"""
-        user1 = User.objects.create(username='editor3', role='student')
-        user2 = User.objects.create(username='watcher3', role='teacher')
+        user1 = User.objects.create(username="editor3", role="student")
+        user2 = User.objects.create(username="watcher3", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -362,8 +379,8 @@ class TestMessageServiceDelete:
 
     def test_delete_message_by_author(self):
         """Test deleting message by author (soft delete)"""
-        user1 = User.objects.create(username='deleter1', role='student')
-        user2 = User.objects.create(username='observer1', role='teacher')
+        user1 = User.objects.create(username="deleter1", role="student")
+        user2 = User.objects.create(username="observer1", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -378,9 +395,9 @@ class TestMessageServiceDelete:
 
     def test_delete_message_by_admin(self):
         """Test that admin can delete any message"""
-        admin = User.objects.create(username='admin3', role='admin')
-        user1 = User.objects.create(username='user20', role='student')
-        user2 = User.objects.create(username='user21', role='teacher')
+        admin = User.objects.create(username="admin3", role="admin")
+        user1 = User.objects.create(username="user20", role="student")
+        user2 = User.objects.create(username="user21", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -394,8 +411,8 @@ class TestMessageServiceDelete:
 
     def test_delete_message_not_author_fails(self):
         """Test that non-author cannot delete message"""
-        user1 = User.objects.create(username='author2', role='student')
-        user2 = User.objects.create(username='other2', role='teacher')
+        user1 = User.objects.create(username="author2", role="student")
+        user2 = User.objects.create(username="other2", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -413,8 +430,8 @@ class TestMessageServiceGet:
 
     def test_get_messages_cursor_pagination(self):
         """Test cursor-based pagination of messages"""
-        user1 = User.objects.create(username='user22', role='student')
-        user2 = User.objects.create(username='user23', role='teacher')
+        user1 = User.objects.create(username="user22", role="student")
+        user2 = User.objects.create(username="user23", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -430,7 +447,13 @@ class TestMessageServiceGet:
         batch1 = MessageService.get_messages(room, limit=5)
         assert len(batch1) == 5
         # Should get messages 5-9 (latest) in order 5,6,7,8,9
-        assert batch1[0].content in ["Message 5", "Message 6", "Message 7", "Message 8", "Message 9"]
+        assert batch1[0].content in [
+            "Message 5",
+            "Message 6",
+            "Message 7",
+            "Message 8",
+            "Message 9",
+        ]
 
         # All messages are there
         assert Message.objects.filter(room=room).count() == 10
@@ -442,8 +465,8 @@ class TestMessageServiceGet:
 
     def test_get_messages_excludes_deleted(self):
         """Test that deleted messages are excluded"""
-        user1 = User.objects.create(username='user24', role='student')
-        user2 = User.objects.create(username='user25', role='teacher')
+        user1 = User.objects.create(username="user24", role="student")
+        user2 = User.objects.create(username="user25", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -464,8 +487,8 @@ class TestMessageServiceGet:
 
     def test_get_messages_orders_chronologically(self):
         """Test that messages are ordered from oldest to newest"""
-        user1 = User.objects.create(username='user26', role='student')
-        user2 = User.objects.create(username='user27', role='teacher')
+        user1 = User.objects.create(username="user26", role="student")
+        user2 = User.objects.create(username="user27", role="teacher")
 
         room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=room, user=user1)
@@ -488,23 +511,23 @@ class TestPermissions:
 
     def test_admin_can_initiate_chat_with_anyone(self):
         """Test that admin can initiate chat with anyone"""
-        admin = User.objects.create(username='admin4', role='admin')
-        user = User.objects.create(username='user28', role='student')
+        admin = User.objects.create(username="admin4", role="admin")
+        user = User.objects.create(username="user28", role="student")
 
         assert can_initiate_chat(admin, user) is True
 
     def test_students_cannot_chat_each_other(self):
         """Test that students cannot chat with each other"""
-        student1 = User.objects.create(username='student10', role='student')
-        student2 = User.objects.create(username='student11', role='student')
+        student1 = User.objects.create(username="student10", role="student")
+        student2 = User.objects.create(username="student11", role="student")
 
         assert can_initiate_chat(student1, student2) is False
         assert can_initiate_chat(student2, student1) is False
 
     def test_students_cannot_chat_tutors_without_profile(self):
         """Test that students cannot chat with tutors without StudentProfile"""
-        student = User.objects.create(username='student12', role='student')
-        tutor = User.objects.create(username='tutor1', role='tutor')
+        student = User.objects.create(username="student12", role="student")
+        tutor = User.objects.create(username="tutor1", role="tutor")
 
         # Without StudentProfile linking them
         assert can_initiate_chat(student, tutor) is False
@@ -538,7 +561,7 @@ class TestChatParticipantModel:
 
     def test_participant_unique_together(self):
         """Test that (room, user) is unique"""
-        user = User.objects.create(username='user29', role='student')
+        user = User.objects.create(username="user29", role="student")
         room = ChatRoom.objects.create(is_active=True)
 
         ChatParticipant.objects.create(room=room, user=user)
@@ -548,8 +571,8 @@ class TestChatParticipantModel:
 
     def test_participant_cascade_delete(self):
         """Test that participants are deleted with room"""
-        user1 = User.objects.create(username='user30', role='student')
-        user2 = User.objects.create(username='user31', role='teacher')
+        user1 = User.objects.create(username="user30", role="student")
+        user2 = User.objects.create(username="user31", role="teacher")
         room = ChatRoom.objects.create(is_active=True)
 
         ChatParticipant.objects.create(room=room, user=user1)
@@ -566,14 +589,10 @@ class TestMessageModel:
 
     def test_message_creation(self):
         """Test basic Message creation"""
-        user = User.objects.create(username='user32', role='student')
+        user = User.objects.create(username="user32", role="student")
         room = ChatRoom.objects.create(is_active=True)
 
-        message = Message.objects.create(
-            room=room,
-            sender=user,
-            content="Test message"
-        )
+        message = Message.objects.create(room=room, sender=user, content="Test message")
 
         assert message.content == "Test message"
         assert message.is_edited is False
@@ -581,7 +600,7 @@ class TestMessageModel:
 
     def test_message_cascade_delete(self):
         """Test that messages are deleted with room"""
-        user = User.objects.create(username='user33', role='student')
+        user = User.objects.create(username="user33", role="student")
         room = ChatRoom.objects.create(is_active=True)
 
         Message.objects.create(room=room, sender=user, content="Test")

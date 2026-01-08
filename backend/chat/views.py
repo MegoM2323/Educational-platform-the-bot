@@ -415,17 +415,6 @@ class MessageViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if message.is_deleted:
-            return Response(
-                {
-                    "error": {
-                        "code": "MESSAGE_DELETED",
-                        "message": "Cannot edit deleted message",
-                    }
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
         if message.sender_id != request.user.id:
             return Response(
                 {

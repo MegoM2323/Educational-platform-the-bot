@@ -59,21 +59,29 @@ class ChatService:
 
         existing_room = ChatService._find_existing_chat(user1, user2)
         if existing_room:
-            logger.debug(f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}")
+            logger.debug(
+                f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}"
+            )
             return existing_room, False
 
         with transaction.atomic():
-            existing_room = ChatService._find_existing_chat(user1, user2, for_update=True)
+            existing_room = ChatService._find_existing_chat(
+                user1, user2, for_update=True
+            )
             if existing_room:
                 logger.debug(f"Found existing chat {existing_room.id} after lock")
                 return existing_room, False
 
             room = ChatService._create_chat(user1, user2)
-            logger.info(f"Created new chat {room.id} between users {user1.id} and {user2.id}")
+            logger.info(
+                f"Created new chat {room.id} between users {user1.id} and {user2.id}"
+            )
             return room, True
 
     @staticmethod
-    def _find_existing_chat(user1: User, user2: User, for_update: bool = False) -> Optional[ChatRoom]:
+    def _find_existing_chat(
+        user1: User, user2: User, for_update: bool = False
+    ) -> Optional[ChatRoom]:
         """
         Найти существующий direct чат между двумя пользователями.
 
@@ -137,6 +145,29 @@ class ChatService:
         return room
 
     @staticmethod
+    def _validate_chat_permissions(user1: User, user2: User) -> bool:
+        """
+        Проверить актуальные permissions между двумя пользователями.
+        Использует can_initiate_chat() для проверки ТЕКУЩИХ прав.
+
+        Проверяет все связи через:
+        - SubjectEnrollment.status=ACTIVE
+        - StudentProfile.tutor
+        - Ролевую матрицу permissions
+
+        Args:
+            user1: Первый пользователь
+            user2: Второй пользователь
+
+        Returns:
+            bool: True если permission актуален в обе стороны
+        """
+        from chat.permissions import can_initiate_chat
+
+        # Проверить в обе стороны (чат bidirectional)
+        return can_initiate_chat(user1, user2) or can_initiate_chat(user2, user1)
+
+    @staticmethod
     def get_user_chats(user: User):
         """
         Получить все чаты пользователя с дополнительной информацией.
@@ -167,7 +198,9 @@ class ChatService:
             base_qs = ChatRoom.objects.filter(participants__user=user, is_active=True)
 
         last_message_subquery = (
-            Message.objects.filter(room=OuterRef("id"), is_deleted=False).order_by("-created_at").values("content")[:1]
+            Message.objects.filter(room=OuterRef("id"), is_deleted=False)
+            .order_by("-created_at")
+            .values("content")[:1]
         )
 
         last_message_time_subquery = (
@@ -176,9 +209,9 @@ class ChatService:
             .values("created_at")[:1]
         )
 
-        participant_last_read_subquery = ChatParticipant.objects.filter(room=OuterRef("id"), user=user).values(
-            "last_read_at"
-        )[:1]
+        participant_last_read_subquery = ChatParticipant.objects.filter(
+            room=OuterRef("id"), user=user
+        ).values("last_read_at")[:1]
 
         is_admin = hasattr(user, "role") and user.role == "admin"
 
@@ -210,7 +243,9 @@ class ChatService:
             base_qs.annotate(
                 last_message_content=Subquery(last_message_subquery),
                 last_message_time=Subquery(last_message_time_subquery),
-                unread_count=Subquery(unread_count_subquery, output_field=IntegerField()),
+                unread_count=Subquery(
+                    unread_count_subquery, output_field=IntegerField()
+                ),
             )
             .prefetch_related("participants__user")
             .distinct()
@@ -224,11 +259,19 @@ class ChatService:
         """
         Проверить может ли пользователь получить доступ к чату.
 
+        CRITICAL: Проверяет не только существование ChatParticipant,
+        но и АКТУАЛЬНЫЕ permissions через can_initiate_chat().
+
+        Если permissions истек (enrollment INACTIVE, tutor removed, и т.д.),
+        доступ блокируется.
+
         Логика:
-        1. Если user.is_active == False → False (неактивные пользователи не имеют доступа)
+        1. Если user.is_active == False → False
         2. Если user.role == 'admin' → True (админы видят все)
-        3. Если user в ChatParticipant.objects.filter(room=room, user=user) → True
-        4. Иначе → False
+        3. Если user НЕ в ChatParticipant → False
+        4. Получить other_participant (собеседника)
+        5. Проверить что собеседник активен
+        6. Проверить _validate_chat_permissions(user, other_participant)
 
         Args:
             user: Пользователь
@@ -245,10 +288,46 @@ class ChatService:
             logger.debug(f"Admin user {user.id} has access to chat {room.id}")
             return True
 
-        has_access = ChatParticipant.objects.filter(room=room, user=user).exists()
+        # Проверить что user является участником
+        try:
+            participant = ChatParticipant.objects.get(room=room, user=user)
+        except ChatParticipant.DoesNotExist:
+            logger.debug(f"User {user.id} is not participant in chat {room.id}")
+            return False
 
-        logger.debug(f"User {user.id} access to chat {room.id}: {has_access}")
-        return has_access
+        # Получить собеседника (other_participant)
+        participants = list(
+            ChatParticipant.objects.filter(room=room)
+            .exclude(user=user)
+            .select_related("user")[:2]  # Direct chat имеет ровно 2 участника
+        )
+
+        if len(participants) == 0:
+            # Чат только с самим собой (не должно быть)
+            logger.warning(f"Chat {room.id} has only one participant {user.id}")
+            return False
+
+        other_participant = participants[0].user
+
+        # Проверить что собеседник активен
+        if not other_participant.is_active:
+            logger.debug(
+                f"Other participant {other_participant.id} in chat {room.id} is inactive"
+            )
+            return False
+
+        # Проверить АКТУАЛЬНЫЕ permissions
+        has_permission = ChatService._validate_chat_permissions(user, other_participant)
+
+        if not has_permission:
+            logger.debug(
+                f"User {user.id} lost permission to chat with {other_participant.id} "
+                f"(enrollment changed, tutor removed, etc.)"
+            )
+            return False
+
+        logger.debug(f"User {user.id} has valid access to chat {room.id}")
+        return True
 
     @staticmethod
     def mark_chat_as_read(user: User, room: ChatRoom) -> None:
@@ -268,7 +347,9 @@ class ChatService:
             participant.save(update_fields=["last_read_at"])
             logger.debug(f"Marked chat {room.id} as read for user {user.id}")
         except ChatParticipant.DoesNotExist:
-            logger.debug(f"No ChatParticipant found for user {user.id} in chat {room.id}")
+            logger.debug(
+                f"No ChatParticipant found for user {user.id} in chat {room.id}"
+            )
             pass
 
     @staticmethod
@@ -288,7 +369,9 @@ class ChatService:
         User = get_user_model()
         all_users = User.objects.filter(is_active=True).exclude(id=user.id)
 
-        my_rooms = ChatParticipant.objects.filter(user=user).values_list("room_id", flat=True)
+        my_rooms = ChatParticipant.objects.filter(user=user).values_list(
+            "room_id", flat=True
+        )
         existing_chats = {}
 
         for cp in ChatParticipant.objects.filter(

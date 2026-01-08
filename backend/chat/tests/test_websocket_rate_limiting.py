@@ -6,12 +6,21 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from channels.testing import WebsocketCommunicator
 from channels.layers import get_channel_layer
+from channels.db import database_sync_to_async
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from chat.consumers import ChatConsumer
-from chat.models import ChatRoom
+from chat.models import ChatRoom, ChatParticipant
 
 User = get_user_model()
+
+
+def create_communicator(room_id):
+    """Create WebsocketCommunicator with proper scope setup"""
+    application = ChatConsumer.as_asgi()
+    communicator = WebsocketCommunicator(application, f"/ws/chat/{room_id}/")
+    communicator.scope["url_route"] = {"kwargs": {"room_id": str(room_id)}}
+    return communicator
 
 
 @pytest.fixture
@@ -31,15 +40,20 @@ def second_user():
 
 
 @pytest.fixture
-def chat_room():
-    """Create test chat room"""
-    return ChatRoom.objects.create(name="Test Room")
+def chat_room(user):
+    """Create test chat room with participant"""
+    room = ChatRoom.objects.create()
+    ChatParticipant.objects.create(room=room, user=user)
+    return room
 
 
 @pytest.fixture
-def second_chat_room():
-    """Create second test chat room"""
-    return ChatRoom.objects.create(name="Test Room 2")
+def second_chat_room(user, second_user):
+    """Create second test chat room with participants"""
+    room = ChatRoom.objects.create()
+    ChatParticipant.objects.create(room=room, user=user)
+    ChatParticipant.objects.create(room=room, user=second_user)
+    return room
 
 
 @pytest.fixture
@@ -62,9 +76,7 @@ class TestRateLimitingT014:
     @pytest.mark.asyncio
     async def test_message_rate_limit_single_connection(self, user, chat_room, access_token):
         """Verify that rate limit prevents sending >10 messages per minute on single connection"""
-        communicator = WebsocketCommunicator(
-            ChatConsumer.as_asgi(), f"/ws/chat/{chat_room.id}/"
-        )
+        communicator = create_communicator(chat_room.id)
         connected, subprotocol = await communicator.connect()
         assert connected
 
@@ -99,11 +111,11 @@ class TestRateLimitingT014:
         Verify that rate limit works across multiple connections from same user.
         This is the core security fix for T014.
         """
-        comm1 = WebsocketCommunicator(ChatConsumer.as_asgi(), f"/ws/chat/{chat_room.id}/")
+        comm1 = create_communicator(chat_room.id)
         conn1, _ = await comm1.connect()
         assert conn1
 
-        comm2 = WebsocketCommunicator(ChatConsumer.as_asgi(), f"/ws/chat/{chat_room.id}/")
+        comm2 = create_communicator(chat_room.id)
         conn2, _ = await comm2.connect()
         assert conn2
 
@@ -160,15 +172,16 @@ class TestRoomLimitT015:
         rooms = []
 
         for i in range(7):
-            room = ChatRoom.objects.create(name=f"Room {i}")
+            room = ChatRoom.objects.create()
             rooms.append(room)
             room_ids.append(room.id)
+            ChatParticipant.objects.create(room=room, user=user)
 
         conns = []
         successful_connections = 0
 
         for i, room_id in enumerate(room_ids):
-            comm = WebsocketCommunicator(ChatConsumer.as_asgi(), f"/ws/chat/{room_id}/")
+            comm = create_communicator(room_id)
             connected, _ = await comm.connect()
             assert connected
 
@@ -201,17 +214,21 @@ class TestRoomLimitT015:
 
         rooms = [chat_room, second_chat_room]
         for i in range(4):
-            rooms.append(ChatRoom.objects.create(name=f"Room {i}"))
+            rooms.append(ChatRoom.objects.create())
+
+        for room in rooms:
+            ChatParticipant.objects.create(room=room, user=user)
+            ChatParticipant.objects.create(room=room, user=second_user)
 
         user1_conns = []
         user2_conns = []
 
         for i, room in enumerate(rooms[:6]):
-            comm1 = WebsocketCommunicator(ChatConsumer.as_asgi(), f"/ws/chat/{room.id}/")
+            comm1 = create_communicator(room.id)
             connected1, _ = await comm1.connect()
             assert connected1
 
-            comm2 = WebsocketCommunicator(ChatConsumer.as_asgi(), f"/ws/chat/{room.id}/")
+            comm2 = create_communicator(room.id)
             connected2, _ = await comm2.connect()
             assert connected2
 

@@ -175,6 +175,15 @@ class TestChatAPIDetail:
         self.student = User.objects.create(username="api_student3", role="student")
         self.teacher = User.objects.create(username="api_teacher3", role="teacher")
 
+        # Create enrollment for permissions
+        subject = Subject.objects.create(name="Test Subject 3")
+        SubjectEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher,
+            subject=subject,
+            status=SubjectEnrollment.Status.ACTIVE,
+        )
+
         self.room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=self.room, user=self.student)
         ChatParticipant.objects.create(room=self.room, user=self.teacher)
@@ -216,6 +225,15 @@ class TestChatAPIMessages:
         self.client = APIClient()
         self.student = User.objects.create(username="api_student4", role="student")
         self.teacher = User.objects.create(username="api_teacher4", role="teacher")
+
+        # Create enrollment for permissions
+        subject = Subject.objects.create(name="Test Subject 4")
+        SubjectEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher,
+            subject=subject,
+            status=SubjectEnrollment.Status.ACTIVE,
+        )
 
         self.room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=self.room, user=self.student)
@@ -293,6 +311,15 @@ class TestChatAPIMessageEdit:
         self.student = User.objects.create(username="api_student5", role="student")
         self.teacher = User.objects.create(username="api_teacher5", role="teacher")
 
+        # Create enrollment for permissions
+        subject = Subject.objects.create(name="Test Subject 5")
+        SubjectEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher,
+            subject=subject,
+            status=SubjectEnrollment.Status.ACTIVE,
+        )
+
         self.room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=self.room, user=self.student)
         ChatParticipant.objects.create(room=self.room, user=self.teacher)
@@ -338,6 +365,15 @@ class TestChatAPIMessageDelete:
         self.student = User.objects.create(username="api_student6", role="student")
         self.teacher = User.objects.create(username="api_teacher6", role="teacher")
 
+        # Create enrollment for permissions
+        subject = Subject.objects.create(name="Test Subject 6")
+        SubjectEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher,
+            subject=subject,
+            status=SubjectEnrollment.Status.ACTIVE,
+        )
+
         self.room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=self.room, user=self.student)
         ChatParticipant.objects.create(room=self.room, user=self.teacher)
@@ -381,6 +417,15 @@ class TestChatAPIRead:
         self.client = APIClient()
         self.student = User.objects.create(username="api_student7", role="student")
         self.teacher = User.objects.create(username="api_teacher7", role="teacher")
+
+        # Create enrollment for permissions
+        subject = Subject.objects.create(name="Test Subject 7")
+        SubjectEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher,
+            subject=subject,
+            status=SubjectEnrollment.Status.ACTIVE,
+        )
 
         self.room = ChatRoom.objects.create(is_active=True)
         ChatParticipant.objects.create(room=self.room, user=self.student)

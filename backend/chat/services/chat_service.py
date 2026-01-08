@@ -39,6 +39,11 @@ class ChatService:
         """
         Получить существующий или создать новый чат между двумя пользователями.
 
+        ВАЖНО: Использует детерминированный порядок блокировки для избежания deadlock.
+        user1 и user2 сортируются по user.id для гарантии одинакового порядка блокировок.
+        Даже при параллельном вызове get_or_create_chat(A, B) и get_or_create_chat(B, A)
+        обе операции будут блокировать в порядке (min(A,B), max(A,B)), предотвращая deadlock.
+
         Args:
             user1: Первый пользователь
             user2: Второй пользователь
@@ -57,21 +62,26 @@ class ChatService:
         if not user1.is_active or not user2.is_active:
             raise ValueError("Both users must be active")
 
-        existing_room = ChatService._find_existing_chat(user1, user2)
+        # ✅ ИСПРАВЛЕНИЕ DEADLOCK: детерминированный порядок
+        # Всегда блокируем в порядке меньший user.id → больший user.id
+        # Это гарантирует что Thread A и Thread B блокируют в одном порядке
+        ordered_users = sorted([user1, user2], key=lambda u: u.id)
+        user_min, user_max = ordered_users[0], ordered_users[1]
+
+        # Первая проверка БЕЗ блокировки (fast path)
+        existing_room = ChatService._find_existing_chat(user_min, user_max, for_update=False)
         if existing_room:
-            logger.debug(
-                f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}"
-            )
+            logger.debug(f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}")
             return existing_room, False
 
+        # Вторая проверка С блокировкой (slow path)
         with transaction.atomic():
-            existing_room = ChatService._find_existing_chat(
-                user1, user2, for_update=True
-            )
+            existing_room = ChatService._find_existing_chat(user_min, user_max, for_update=True)
             if existing_room:
                 logger.debug(f"Found existing chat {existing_room.id} after lock")
                 return existing_room, False
 
+            # Создаем чат (порядок user1, user2 не важен, т.к. уже в транзакции)
             room = ChatService._create_chat(user1, user2)
             logger.info(
                 f"Created new chat {room.id} between users {user1.id} and {user2.id}"

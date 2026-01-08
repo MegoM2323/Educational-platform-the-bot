@@ -23,6 +23,16 @@ def create_communicator(room_id):
     return communicator
 
 
+@database_sync_to_async
+def create_room_with_participants(user, second_user=None):
+    """Create a room with participants (async-safe)"""
+    room = ChatRoom.objects.create()
+    ChatParticipant.objects.create(room=room, user=user)
+    if second_user:
+        ChatParticipant.objects.create(room=room, user=second_user)
+    return room
+
+
 @pytest.fixture
 def user():
     """Create test user"""
@@ -69,12 +79,14 @@ def get_token_for_user(user):
     return str(refresh.access_token)
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 class TestRateLimitingT014:
     """Test T014: Per-user rate limiting on message sends"""
 
     @pytest.mark.asyncio
-    async def test_message_rate_limit_single_connection(self, user, chat_room, access_token):
+    async def test_message_rate_limit_single_connection(
+        self, user, chat_room, access_token
+    ):
         """Verify that rate limit prevents sending >10 messages per minute on single connection"""
         communicator = create_communicator(chat_room.id)
         connected, subprotocol = await communicator.connect()
@@ -133,7 +145,9 @@ class TestRateLimitingT014:
         rate_limited_count = 0
 
         for i in range(8):
-            await comm1.send_json_to({"type": "message", "content": f"Msg from conn1: {i}"})
+            await comm1.send_json_to(
+                {"type": "message", "content": f"Msg from conn1: {i}"}
+            )
             resp = await comm1.receive_json_from()
             if resp["type"] == "message":
                 messages_count += 1
@@ -141,7 +155,9 @@ class TestRateLimitingT014:
                 rate_limited_count += 1
 
         for i in range(6):
-            await comm2.send_json_to({"type": "message", "content": f"Msg from conn2: {i}"})
+            await comm2.send_json_to(
+                {"type": "message", "content": f"Msg from conn2: {i}"}
+            )
             resp = await comm2.receive_json_from()
             if resp["type"] == "message":
                 messages_count += 1
@@ -156,7 +172,7 @@ class TestRateLimitingT014:
         await comm2.disconnect()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 class TestRoomLimitT015:
     """Test T015: Protection against room enumeration via connection attempts"""
 
@@ -172,10 +188,9 @@ class TestRoomLimitT015:
         rooms = []
 
         for i in range(7):
-            room = ChatRoom.objects.create()
+            room = await create_room_with_participants(user)
             rooms.append(room)
             room_ids.append(room.id)
-            ChatParticipant.objects.create(room=room, user=user)
 
         conns = []
         successful_connections = 0
@@ -214,11 +229,8 @@ class TestRoomLimitT015:
 
         rooms = [chat_room, second_chat_room]
         for i in range(4):
-            rooms.append(ChatRoom.objects.create())
-
-        for room in rooms:
-            ChatParticipant.objects.create(room=room, user=user)
-            ChatParticipant.objects.create(room=room, user=second_user)
+            room = await create_room_with_participants(user, second_user)
+            rooms.append(room)
 
         user1_conns = []
         user2_conns = []
@@ -248,14 +260,18 @@ class TestRoomLimitT015:
             else:
                 await comm2.disconnect()
 
-        assert len(user1_conns) == 5, f"User1 should have 5 connections, got {len(user1_conns)}"
-        assert len(user2_conns) == 5, f"User2 should have 5 connections, got {len(user2_conns)}"
+        assert (
+            len(user1_conns) == 5
+        ), f"User1 should have 5 connections, got {len(user1_conns)}"
+        assert (
+            len(user2_conns) == 5
+        ), f"User2 should have 5 connections, got {len(user2_conns)}"
 
         for comm in user1_conns + user2_conns:
             await comm.disconnect()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 class TestRateLimitCacheExpiration:
     """Test that rate limit counters expire correctly"""
 

@@ -61,13 +61,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         """При отключении WebSocket"""
         if self.authenticated:
-            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+            await self.channel_layer.group_discard(
+                self.room_group_name, self.channel_name
+            )
 
             rooms_key = f"chat_rooms_limit:{self.user.id}"
             current = cache.get(rooms_key, 0)
             if current > 0:
                 cache.set(rooms_key, current - 1, CHAT_RATE_WINDOW)
-                logger.debug(f"[ChatConsumer] Decremented room limit for user {self.user.id}: {current - 1}/{CHAT_ROOMS_LIMIT}")
+                logger.debug(
+                    f"[ChatConsumer] Decremented room limit for user {self.user.id}: {current - 1}/{CHAT_ROOMS_LIMIT}"
+                )
 
     async def _wait_for_auth(self):
         """Ждать auth сообщение (используется в connect с timeout)"""
@@ -103,12 +107,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
-        await self.send(text_data=json.dumps({"type": "auth_success", "user_id": user.id}))
+        await self.send(
+            text_data=json.dumps({"type": "auth_success", "user_id": user.id})
+        )
 
     async def _handle_message(self, data):
         """Обработать отправку сообщения"""
         if not self.user.is_active:
             await self._send_error("UNAUTHORIZED", "User is inactive")
+            return
+
+        # НОВАЯ ПРОВЕРКА: актуальные permissions
+        has_permission = await self._check_current_permissions(self.user)
+        if not has_permission:
+            await self._send_error(
+                "PERMISSION_DENIED",
+                "You no longer have permission to access this chat"
+            )
+            await self.close(code=4003)
             return
 
         content = data.get("content", "").strip()
@@ -137,6 +153,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def _handle_typing(self):
         """Обработать индикатор печати"""
+        if not self.user.is_active:
+            await self._send_error("UNAUTHORIZED", "User is inactive")
+            await self.close(code=4003)
+            return
+
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -148,11 +169,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def _handle_read(self):
         """Обработать отметку чата как прочитанного"""
+        if not self.user.is_active:
+            await self._send_error("UNAUTHORIZED", "User is inactive")
+            await self.close(code=4003)
+            return
+
         await self._mark_as_read()
 
     async def chat_message(self, event):
         """Broadcast сообщения клиентам"""
-        await self.send(text_data=json.dumps({"type": "message", "message": event["message"]}))
+        await self.send(
+            text_data=json.dumps({"type": "message", "message": event["message"]})
+        )
 
     async def chat_typing(self, event):
         """Broadcast typing индикатора"""
@@ -186,9 +214,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
         )
 
+    @database_sync_to_async
+    def _check_current_permissions(self, user):
+        """
+        Проверить актуальные permissions для доступа к чату.
+
+        CRITICAL: Вызывается при каждом action для проверки что permissions
+        всё ещё актуальны (enrollment не стал INACTIVE, tutor не изменился, и т.д.)
+
+        Returns:
+            bool: True если permission актуален
+        """
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
+            service = ChatService()
+            return service.can_access_chat(user, room)
+        except Exception as e:
+            logger.error(f"[ChatConsumer] Permission check error: {e}")
+            return False
+
     async def _send_error(self, code, message):
         """Отправить ошибку клиенту"""
-        await self.send(text_data=json.dumps({"type": "error", "code": code, "message": message}))
+        await self.send(
+            text_data=json.dumps({"type": "error", "code": code, "message": message})
+        )
 
     async def _check_message_rate_limit(self, user):
         """Проверить rate limit на сообщения (Redis-based, per-user, АТОМАРНО через cache.incr)"""

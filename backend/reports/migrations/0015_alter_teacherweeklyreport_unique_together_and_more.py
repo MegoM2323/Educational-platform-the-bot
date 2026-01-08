@@ -17,6 +17,12 @@ class Migration(migrations.Migration):
             name="teacherweeklyreport",
             unique_together=set(),
         ),
+        # Remove old IntegerField subject_id first
+        migrations.RemoveField(
+            model_name="teacherweeklyreport",
+            name="subject_id",
+        ),
+        # Add new ForeignKey subject field
         migrations.AddField(
             model_name="teacherweeklyreport",
             name="subject",
@@ -32,9 +38,5 @@ class Migration(migrations.Migration):
         migrations.AlterUniqueTogether(
             name="teacherweeklyreport",
             unique_together={("teacher", "student", "subject", "week_start")},
-        ),
-        migrations.RemoveField(
-            model_name="teacherweeklyreport",
-            name="subject_id",
         ),
     ]

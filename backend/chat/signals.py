@@ -31,6 +31,9 @@ User = get_user_model()
 # Thread-local storage for tracking parent changes
 _parent_changes = threading.local()
 
+# Thread-local storage for tracking tutor changes
+_tutor_changes = threading.local()
+
 
 @receiver(pre_save, sender=StudentProfile)
 def capture_parent_change(sender, instance: StudentProfile, **kwargs) -> None:
@@ -59,6 +62,35 @@ def get_old_parent_id() -> int | None:
 def clear_old_parent_id() -> None:
     """Clear the old parent ID from thread-local storage."""
     _parent_changes.old_parent_id = None
+
+
+@receiver(pre_save, sender=StudentProfile)
+def capture_tutor_change(sender, instance: StudentProfile, **kwargs) -> None:
+    """
+    Capture the old tutor before StudentProfile is saved.
+    This allows post_save handler to know if tutor changed.
+    """
+    try:
+        if instance.pk:
+            old_instance = StudentProfile.objects.get(pk=instance.pk)
+            _tutor_changes.old_tutor_id = old_instance.tutor_id
+        else:
+            _tutor_changes.old_tutor_id = None
+    except StudentProfile.DoesNotExist:
+        _tutor_changes.old_tutor_id = None
+    except Exception as e:
+        logger.debug(f"Error capturing tutor change: {str(e)}")
+        _tutor_changes.old_tutor_id = None
+
+
+def get_old_tutor_id() -> int | None:
+    """Get the old tutor ID from thread-local storage."""
+    return getattr(_tutor_changes, "old_tutor_id", None)
+
+
+def clear_old_tutor_id() -> None:
+    """Clear the old tutor ID from thread-local storage."""
+    _tutor_changes.old_tutor_id = None
 
 
 @receiver(post_save, sender=SubjectEnrollment)
@@ -669,3 +701,148 @@ def add_user_to_general_chat(sender, instance: User, created: bool, **kwargs) ->
             },
         )
         # Don't raise - allow user creation to succeed
+
+
+@receiver(post_save, sender=StudentProfile)
+def create_direct_chat_on_tutor_assignment(
+    sender, instance: StudentProfile, created: bool, **kwargs
+) -> None:
+    """
+    Create a DIRECT chat between student and tutor when tutor is assigned.
+
+    Triggers when:
+    - StudentProfile.tutor changes from None to a User
+    - StudentProfile.tutor changes from one User to another
+
+    Uses DirectChatService.get_or_create_direct_chat() to prevent duplicates.
+
+    Args:
+        sender: StudentProfile model class
+        instance: The StudentProfile instance being saved
+        created: Boolean indicating if instance was just created
+        **kwargs: Additional keyword arguments from signal
+    """
+    try:
+        new_tutor = instance.tutor
+        old_tutor_id = get_old_tutor_id()
+
+        if not new_tutor:
+            clear_old_tutor_id()
+            return
+
+        tutor_changed = old_tutor_id != new_tutor.id
+
+        if not tutor_changed and not created:
+            clear_old_tutor_id()
+            return
+
+        from chat.services.direct_chat_service import DirectChatService
+
+        student_user = instance.user
+        room, room_created = DirectChatService.get_or_create_direct_chat(
+            student_user, new_tutor
+        )
+
+        if room_created:
+            logger.info(
+                f"Created direct chat {room.id} for student {student_user.id} "
+                f"and tutor {new_tutor.id} on tutor assignment",
+                extra={
+                    "chat_room_id": room.id,
+                    "student_id": student_user.id,
+                    "tutor_id": new_tutor.id,
+                    "student_profile_id": instance.id,
+                },
+            )
+        else:
+            logger.debug(
+                f"Direct chat already exists between student {student_user.id} "
+                f"and tutor {new_tutor.id}"
+            )
+
+    except Exception as e:
+        logger.error(
+            f"Error creating direct chat on tutor assignment for StudentProfile {instance.id}: {str(e)}",
+            exc_info=True,
+            extra={
+                "student_profile_id": instance.id,
+                "tutor_id": instance.tutor_id,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
+        )
+    finally:
+        clear_old_tutor_id()
+
+
+@receiver(post_save, sender=SubjectEnrollment)
+def create_direct_chat_on_enrollment(
+    sender, instance: SubjectEnrollment, created: bool, **kwargs
+) -> None:
+    """
+    Create a DIRECT chat between student and teacher when enrollment is created.
+
+    Only triggers when:
+    - A new SubjectEnrollment is created (not on updates)
+    - The enrollment has a teacher assigned
+
+    Uses DirectChatService.get_or_create_direct_chat() to prevent duplicates.
+
+    Args:
+        sender: SubjectEnrollment model class
+        instance: The SubjectEnrollment instance being saved
+        created: Boolean indicating if instance was just created
+        **kwargs: Additional keyword arguments from signal
+    """
+    if not created:
+        return
+
+    if SubjectEnrollment is None or not isinstance(instance, SubjectEnrollment):
+        return
+
+    if not instance.teacher:
+        logger.debug(
+            f"SubjectEnrollment {instance.id} has no teacher, skipping direct chat creation"
+        )
+        return
+
+    try:
+        from chat.services.direct_chat_service import DirectChatService
+
+        student_user = instance.student
+        teacher_user = instance.teacher
+
+        room, room_created = DirectChatService.get_or_create_direct_chat(
+            student_user, teacher_user
+        )
+
+        if room_created:
+            logger.info(
+                f"Created direct chat {room.id} for student {student_user.id} "
+                f"and teacher {teacher_user.id} on enrollment {instance.id}",
+                extra={
+                    "chat_room_id": room.id,
+                    "student_id": student_user.id,
+                    "teacher_id": teacher_user.id,
+                    "enrollment_id": instance.id,
+                    "subject_id": instance.subject_id,
+                },
+            )
+        else:
+            logger.debug(
+                f"Direct chat already exists between student {student_user.id} "
+                f"and teacher {teacher_user.id}"
+            )
+
+    except Exception as e:
+        logger.error(
+            f"Error creating direct chat on enrollment {instance.id}: {str(e)}",
+            exc_info=True,
+            extra={
+                "enrollment_id": instance.id,
+                "student_id": instance.student_id,
+                "teacher_id": instance.teacher_id,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
+        )

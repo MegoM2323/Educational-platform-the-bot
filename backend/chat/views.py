@@ -1,666 +1,85 @@
-import logging
-from rest_framework import viewsets, status, permissions, filters
+from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
-from django_filters.rest_framework import DjangoFilterBackend
-from django.db import transaction
-from django.db import models as db_models
-from django.db.models import Q, Count, Prefetch, Sum, F, OuterRef, Subquery
+from rest_framework.views import APIView
+from django.contrib.auth.models import User
+from django.db.models import Q, Count, Case, When, IntegerField, OuterRef, Subquery
 from django.utils import timezone
 
-from .models import ChatRoom, Message, MessageRead, ChatParticipant, MessageThread
+from .models import ChatRoom, Message, ChatParticipant
 from .serializers import (
     ChatRoomListSerializer,
     ChatRoomDetailSerializer,
-    ChatRoomCreateSerializer,
     MessageSerializer,
-    MessageCreateSerializer,
-    MessageUpdateSerializer,
-    MessageReadSerializer,
-    ChatParticipantSerializer,
-    ChatRoomStatsSerializer,
-    MessageThreadSerializer,
-    MessageThreadCreateSerializer,
 )
-from .permissions import (
-    IsMessageAuthor,
-    CanModerateChat,
-    IsParticipantPermission,
-    CanDeleteMessage,
-)
-from .general_chat_service import GeneralChatService
-from .services.direct_chat_service import DirectChatService
+from .services.chat_service_new import ChatServiceNew
+from .permissions import can_initiate_chat
 
 
-class ChatRoomViewSet(viewsets.ModelViewSet):
+class ChatRoomViewSet(viewsets.ViewSet):
     """
-    ViewSet для чат-комнат
-    """
-
-    queryset = ChatRoom.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [
-        DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    ]
-    filterset_fields = ["type", "is_active"]
-    search_fields = ["name", "description"]
-    ordering_fields = ["created_at", "updated_at", "name"]
-    ordering = ["-updated_at"]
-
-    def get_serializer_class(self):
-        if self.action == "list":
-            return ChatRoomListSerializer
-        elif self.action == "create":
-            return ChatRoomCreateSerializer
-        return ChatRoomDetailSerializer
-
-    def get_queryset(self):
-        """
-        Пользователи видят только чаты, в которых они участвуют
-        """
-        user = self.request.user
-        queryset = ChatRoom.objects.filter(participants=user)
-
-        if self.action == "list":
-            queryset = queryset.select_related("enrollment__subject").prefetch_related(
-                "participants"
-            )
-        elif self.action in ["retrieve"]:
-            queryset = queryset.select_related("enrollment__subject").prefetch_related(
-                "participants"
-            )
-
-        return queryset
-
-    def perform_create(self, serializer):
-        # Wrap in transaction to ensure room creation and participant addition are atomic
-        with transaction.atomic():
-            room = serializer.save()
-            # Добавляем создателя в участники
-            room.participants.add(self.request.user)
-            # Create ChatParticipant record for consistency
-            ChatParticipant.objects.get_or_create(room=room, user=self.request.user)
-
-    @action(detail=True, methods=["post"])
-    def join(self, request, pk=None):
-        """
-        Присоединиться к чату
-        """
-        room = self.get_object()
-        user = request.user
-
-        if room.participants.filter(id=user.id).exists():
-            return Response(
-                {"error": "Вы уже участвуете в этом чате"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        room.participants.add(user)
-        return Response({"message": "Вы присоединились к чату"})
-
-    @action(detail=True, methods=["post"])
-    def leave(self, request, pk=None):
-        """
-        Покинуть чат
-        """
-        room = self.get_object()
-        user = request.user
-
-        if not room.participants.filter(id=user.id).exists():
-            return Response(
-                {"error": "Вы не участвуете в этом чате"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        room.participants.remove(user)
-
-        # Remove ChatParticipant record
-        ChatParticipant.objects.filter(room=room, user=user).delete()
-
-        return Response({"message": "Вы покинули чат"})
-
-    @action(detail=True, methods=["post"])
-    def mark_read(self, request, pk=None):
-        """
-        Отметить все сообщения в чате как прочитанные
-        """
-        room = self.get_object()
-        user = request.user
-
-        messages = Message.objects.filter(room=room, is_deleted=False)
-        for message in messages:
-            MessageRead.objects.get_or_create(message=message, user=user)
-
-        return Response({"message": "Все сообщения отмечены как прочитанные"})
-
-    @action(detail=False, methods=["get"])
-    def stats(self, request):
-        """
-        Получить статистику по чатам
-        """
-        logger = logging.getLogger(__name__)
-
-        try:
-            user = request.user
-            total_rooms = ChatRoom.objects.filter(participants=user).count()
-            active_rooms = ChatRoom.objects.filter(
-                participants=user, is_active=True
-            ).count()
-
-            user_rooms = ChatRoom.objects.filter(participants=user)
-            total_messages = Message.objects.filter(room__in=user_rooms).count()
-
-            # Use aggregate instead of iteration to prevent N+1
-            unread_messages = (
-                ChatParticipant.with_unread_count()
-                .filter(room__in=user_rooms, user=user)
-                .aggregate(total=Sum("_annotated_unread_count"))["total"]
-                or 0
-            )
-
-            participants_count = (
-                ChatRoom.objects.filter(participants=user)
-                .annotate(p_count=Count("participants"))
-                .aggregate(total=Sum("p_count"))["total"]
-                or 0
-            )
-
-            stats_data = {
-                "total_rooms": total_rooms,
-                "active_rooms": active_rooms,
-                "total_messages": total_messages,
-                "unread_messages": unread_messages,
-                "participants_count": participants_count,
-            }
-
-            serializer = ChatRoomStatsSerializer(stats_data)
-            return Response(serializer.data)
-        except Exception as e:
-            logger.error(f"Error: {e}")
-            return Response(
-                {"error": "Ошибка при получении статистики"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @action(detail=True, methods=["post"])
-    def archive(self, request, pk=None):
-        """
-        Архивировать чат-комнату
-        """
-        room = self.get_object()
-        room.is_active = False
-        room.save()
-        serializer = self.get_serializer(room)
-        return Response(serializer.data)
-
-
-class MessageViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet для сообщений
-    """
-
-    queryset = Message.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["room", "sender", "message_type"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
-
-    def get_serializer_class(self):
-        if self.action in ["update", "partial_update"]:
-            return MessageUpdateSerializer
-        elif self.action == "create":
-            return MessageCreateSerializer
-        return MessageSerializer
-
-    def get_permissions(self):
-        if self.action in ["update", "partial_update"]:
-            return [permissions.IsAuthenticated(), IsMessageAuthor()]
-        if self.action == "destroy":
-            return [permissions.IsAuthenticated(), CanDeleteMessage()]
-        if self.action == "create":
-            return [permissions.IsAuthenticated(), IsParticipantPermission()]
-        return [permissions.IsAuthenticated()]
-
-    def get_queryset(self):
-        """
-        Пользователи видят только сообщения из чатов, в которых они участвуют.
-        Удалённые сообщения (soft delete) исключаются из выборки.
-
-        Оптимизация N+1 queries:
-        - select_related для sender, thread, reply_to
-        - prefetch_related для replies, read_by
-        - annotate для replies_count
-        """
-        user = self.request.user
-        user_rooms = ChatRoom.objects.filter(participants=user)
-        return (
-            Message.objects.filter(room__in=user_rooms, is_deleted=False)
-            .select_related("sender", "thread", "reply_to__sender")
-            .prefetch_related(
-                Prefetch(
-                    "replies",
-                    queryset=Message.objects.filter(is_deleted=False).only(
-                        "id", "is_deleted"
-                    ),
-                ),
-                "read_by",
-            )
-            .annotate(
-                annotated_replies_count=Count(
-                    "replies", filter=Q(replies__is_deleted=False)
-                )
-            )
-        )
-
-    def perform_create(self, serializer):
-        logger = logging.getLogger(__name__)
-        try:
-            room_id = self.request.data.get("room")
-            if not room_id:
-                raise PermissionDenied("room ID is required")
-
-            room = ChatRoom.objects.get(id=room_id)
-            user = self.request.user
-
-            if not room.participants.filter(id=user.id).exists():
-                logger.warning(
-                    f"[MessageViewSet.perform_create] IDOR attempt: "
-                    f"User {user.id} tried to create message in room {room.id} "
-                    f"where they are not a participant"
-                )
-                raise PermissionDenied("Вы не участник этой комнаты")
-
-            serializer.save(sender=user)
-            logger.info(
-                f"[MessageViewSet.perform_create] Message created by user {user.id} "
-                f"in room {room.id}"
-            )
-        except ChatRoom.DoesNotExist:
-            logger.error(f"[MessageViewSet.perform_create] Room {room_id} not found")
-            raise PermissionDenied("Комната не найдена")
-        except PermissionDenied:
-            raise
-        except Exception as e:
-            logger.error(f"[MessageViewSet.perform_create] Unexpected error: {str(e)}")
-            raise
-
-    @action(detail=True, methods=["post"])
-    def mark_read(self, request, pk=None):
-        """
-        Отметить сообщение как прочитанное
-        """
-        message = self.get_object()
-        MessageRead.objects.get_or_create(message=message, user=request.user)
-        return Response({"message": "Сообщение отмечено как прочитанное"})
-
-    @action(detail=True, methods=["post"])
-    def react(self, request, pk=None):
-        """
-        Добавить реакцию на сообщение (emoji)
-        """
-        message = self.get_object()
-        emoji = request.data.get("emoji")
-
-        if not emoji:
-            return Response(
-                {"error": "emoji is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not hasattr(message, "reactions"):
-            message.reactions = {}
-        if not isinstance(message.reactions, dict):
-            message.reactions = {}
-
-        user_id_str = str(request.user.id)
-        if emoji not in message.reactions:
-            message.reactions[emoji] = []
-
-        if user_id_str not in message.reactions[emoji]:
-            message.reactions[emoji].append(user_id_str)
-
-        message.save()
-        return Response(message.reactions)
-
-
-class ChatParticipantViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet для участников чата
-    """
-
-    queryset = ChatParticipant.objects.all()
-    serializer_class = ChatParticipantSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["room", "user", "is_muted", "is_admin"]
-    ordering_fields = ["joined_at", "last_read_at"]
-    ordering = ["-joined_at"]
-
-    def get_queryset(self):
-        """
-        Пользователи видят только участников чатов, в которых они участвуют.
-        Используем with_unread_count() для аннотации unread_count.
-        """
-        user = self.request.user
-        user_rooms = ChatRoom.objects.filter(participants=user)
-        return ChatParticipant.with_unread_count().filter(room__in=user_rooms)
-
-    @action(detail=True, methods=["post"])
-    def mute(self, request, pk=None):
-        """Заблокировать отправку сообщений участнику"""
-        participant = self.get_object()
-
-        # Check moderation permission
-        if not CanModerateChat().has_object_permission(request, self, participant):
-            return Response(
-                {"error": "Недостаточно прав для модерации"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        participant.is_muted = True
-        participant.save(update_fields=["is_muted"])
-
-        return Response(
-            {
-                "success": True,
-                "message": f"Пользователь {participant.user.get_full_name()} заглушен",
-            }
-        )
-
-    @action(detail=True, methods=["post"])
-    def unmute(self, request, pk=None):
-        """Разблокировать отправку сообщений участнику"""
-        participant = self.get_object()
-
-        if not CanModerateChat().has_object_permission(request, self, participant):
-            return Response(
-                {"error": "Недостаточно прав для модерации"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        participant.is_muted = False
-        participant.save(update_fields=["is_muted"])
-
-        return Response(
-            {
-                "success": True,
-                "message": f"Пользователь {participant.user.get_full_name()} разглушен",
-            }
-        )
-
-    @action(detail=True, methods=["post"])
-    def set_admin(self, request, pk=None):
-        """Назначить/снять права администратора чата"""
-        participant = self.get_object()
-
-        # Only staff/superuser or room admin can set admin
-        if not (request.user.is_staff or request.user.is_superuser):
-            try:
-                requester_participant = ChatParticipant.objects.get(
-                    room=participant.room, user=request.user
-                )
-                if not requester_participant.is_admin:
-                    return Response(
-                        {"error": "Недостаточно прав"}, status=status.HTTP_403_FORBIDDEN
-                    )
-            except ChatParticipant.DoesNotExist:
-                return Response(
-                    {"error": "Вы не участник чата"}, status=status.HTTP_403_FORBIDDEN
-                )
-
-        is_admin = request.data.get("is_admin", False)
-        participant.is_admin = is_admin
-        participant.save(update_fields=["is_admin"])
-
-        action_text = (
-            "назначен администратором" if is_admin else "снят с администратора"
-        )
-        return Response(
-            {
-                "success": True,
-                "message": f"Пользователь {participant.user.get_full_name()} {action_text}",
-            }
-        )
-
-
-class GeneralChatViewSet(viewsets.ViewSet):
-    """
-    ViewSet для общего чата-форума
+    ViewSet для управления чат-комнатами.
+    Endpoints:
+    - GET /api/chat/ - список чатов
+    - POST /api/chat/ - создать/получить чат
+    - GET /api/chat/{id}/ - детали чата
+    - GET /api/chat/{id}/messages/ - сообщения с cursor-based пагинацией
+    - POST /api/chat/{id}/messages/ - отправить сообщение
+    - PATCH /api/chat/{id}/messages/{msg_id}/ - редактировать сообщение
+    - DELETE /api/chat/{id}/messages/{msg_id}/ - удалить сообщение
+    - POST /api/chat/{id}/read/ - отметить как прочитанное
     """
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=False, methods=["get"])
-    def general(self, request):
+    def list(self, request):
         """
-        Получить основной форум и темы
+        GET /api/chat/ - список чатов текущего пользователя с пагинацией
+        Query params:
+        - page (int, default=1)
+        - page_size (int, default=20, max=50)
         """
-        # Logic for getting general chat/forum
-        return Response({"message": "Основной форум"})
+        page = int(request.query_params.get("page", 1))
+        page_size = min(int(request.query_params.get("page_size", 20)), 50)
 
+        service = ChatServiceNew()
+        all_chats = service.get_user_chats(request.user)
 
-class MessageThreadViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet для тредов сообщений в форуме
-    """
-
-    queryset = MessageThread.objects.all()
-    serializer_class = MessageThreadSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [
-        DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    ]
-    filterset_fields = ["room", "is_pinned", "is_locked"]
-    search_fields = ["title", "description"]
-    ordering_fields = ["created_at", "updated_at", "reply_count"]
-    ordering = ["-updated_at"]
-
-    def get_serializer_class(self):
-        if self.action == "create":
-            return MessageThreadCreateSerializer
-        return MessageThreadSerializer
-
-    def get_queryset(self):
-        """
-        Пользователи видят только треды в чатах, в которых они участвуют
-        """
-        user = self.request.user
-        user_rooms = ChatRoom.objects.filter(participants=user)
-        return (
-            MessageThread.objects.filter(room__in=user_rooms)
-            .select_related("room", "created_by")
-            .prefetch_related("messages")
-            .annotate(
-                annotated_reply_count=Count(
-                    "messages", filter=Q(messages__is_deleted=False)
-                )
-            )
-        )
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-
-    @action(detail=True, methods=["post"])
-    def pin(self, request, pk=None):
-        """
-        Закрепить тред
-        """
-        try:
-            thread = self.get_object()
-            GeneralChatService.pin_thread(thread, request.user)
-            serializer = MessageThreadSerializer(thread, context={"request": request})
-            return Response(serializer.data)
-        except PermissionError as e:
-            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=True, methods=["post"])
-    def unpin(self, request, pk=None):
-        """
-        Открепить тред
-        """
-        try:
-            thread = self.get_object()
-            GeneralChatService.unpin_thread(thread, request.user)
-            serializer = MessageThreadSerializer(thread, context={"request": request})
-            return Response(serializer.data)
-        except PermissionError as e:
-            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=True, methods=["post"])
-    def lock(self, request, pk=None):
-        """
-        Заблокировать тред
-        """
-        try:
-            thread = self.get_object()
-            GeneralChatService.lock_thread(thread, request.user)
-            serializer = MessageThreadSerializer(thread, context={"request": request})
-            return Response(serializer.data)
-        except PermissionError as e:
-            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=True, methods=["post"])
-    def unlock(self, request, pk=None):
-        """
-        Разблокировать тред
-        """
-        try:
-            thread = self.get_object()
-            GeneralChatService.unlock_thread(thread, request.user)
-            serializer = MessageThreadSerializer(thread, context={"request": request})
-            return Response(serializer.data)
-        except PermissionError as e:
-            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-from rest_framework.views import APIView
-
-
-class ParentChatView(APIView):
-    """
-    ViewSet для родительского чата - список чатов и создание сообщений.
-
-    GET /api/chat/ - список чатов родителя
-    POST /api/chat/ - отправить сообщение
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        """Получить список чатов пользователя"""
-        from django.core.paginator import Paginator
-
-        user = request.user
-
-        try:
-            page = int(request.query_params.get("page", 1))
-        except (ValueError, TypeError):
-            page = 1
-
-        try:
-            page_size = int(request.query_params.get("page_size", 20))
-        except (ValueError, TypeError):
-            page_size = 20
-
-        page_size = min(max(page_size, 1), 100)
-
-        chat_type = request.query_params.get("type")
-
-        base_queryset = (
-            ChatRoom.objects.filter(participants=user, is_active=True)
-            .select_related("created_by")
-            .prefetch_related("participants")
-            .distinct()
-        )
-
-        if chat_type:
-            base_queryset = base_queryset.filter(type=chat_type)
-
-        participant_last_read_subquery = ChatParticipant.objects.filter(
-            room=OuterRef("pk"), user=user
-        ).values("last_read_at")[:1]
-
-        messages_prefetch = Prefetch(
-            "messages",
-            queryset=Message.objects.select_related("sender").order_by("-created_at")[:1],
-        )
-
-        queryset = (
-            base_queryset.prefetch_related(messages_prefetch)
-            .annotate(
-                annotated_participants_count=Count("participants", distinct=True),
-                _user_last_read_at=Subquery(participant_last_read_subquery),
-                annotated_unread_count=Count(
-                    "messages",
-                    filter=(
-                        Q(messages__is_deleted=False)
-                        & ~Q(messages__sender=user)
-                        & (
-                            Q(messages__created_at__gt=F("_user_last_read_at"))
-                            | Q(_user_last_read_at__isnull=True)
-                        )
-                    ),
-                ),
-            )
-            .order_by("-updated_at")
-        )
-
-        paginator = Paginator(queryset, page_size)
-        page_obj = paginator.get_page(page)
+        offset = (page - 1) * page_size
+        paginated = all_chats[offset : offset + page_size]
 
         serializer = ChatRoomListSerializer(
-            page_obj.object_list, many=True, context={"request": request}
+            paginated, many=True, context={"request": request}
         )
 
         return Response(
             {
-                "count": paginator.count,
-                "results": serializer.data,
+                "count": all_chats.count(),
                 "page": page,
                 "page_size": page_size,
-                "total_pages": paginator.num_pages,
+                "total_pages": (all_chats.count() + page_size - 1) // page_size,
+                "results": serializer.data,
             }
         )
 
-    def post(self, request):
-        """Создать новое сообщение"""
-        from django.contrib.auth import get_user_model
-
-        User = get_user_model()
-
+    def create(self, request):
+        """
+        POST /api/chat/ - создать или получить чат с пользователем
+        Request body:
+        {
+            "recipient_id": 456
+        }
+        """
         recipient_id = request.data.get("recipient_id")
-        message_text = request.data.get("message")
-
-        if not message_text:
-            return Response(
-                {"error": "message is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
 
         if not recipient_id:
             return Response(
-                {"error": "recipient_id is required"},
+                {
+                    "error": {
+                        "code": "INVALID_REQUEST",
+                        "message": "recipient_id required",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -668,18 +87,472 @@ class ParentChatView(APIView):
             recipient = User.objects.get(id=recipient_id)
         except User.DoesNotExist:
             return Response(
-                {"error": "Recipient not found"}, status=status.HTTP_404_NOT_FOUND
+                {
+                    "error": {
+                        "code": "USER_NOT_FOUND",
+                        "message": "User not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Получаем или создаем комнату между пользователями
-        room, created = DirectChatService.get_or_create_direct_chat(
-            request.user, recipient
+        if not can_initiate_chat(request.user, recipient):
+            return Response(
+                {
+                    "error": {
+                        "code": "CANNOT_CHAT",
+                        "message": "Cannot chat with this user",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        service = ChatServiceNew()
+        try:
+            room, created = service.get_or_create_chat(request.user, recipient)
+        except ValueError as e:
+            return Response(
+                {
+                    "error": {
+                        "code": "INVALID_REQUEST",
+                        "message": str(e),
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+
+        return Response(
+            {
+                "id": room.id,
+                "created": created,
+                "other_participant": {
+                    "id": recipient.id,
+                    "full_name": f"{recipient.first_name} {recipient.last_name}".strip(),
+                    "role": getattr(recipient, "role", "user"),
+                },
+            },
+            status=http_status,
         )
 
-        # Создаем сообщение
+    def retrieve(self, request, pk=None):
+        """
+        GET /api/chat/{id}/ - детали чата с участниками
+        """
+        try:
+            room = ChatRoom.objects.prefetch_related("participants__user").get(id=pk)
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "CHAT_NOT_FOUND",
+                        "message": "Chat not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = ChatServiceNew()
+        if not service.can_access_chat(request.user, room):
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = ChatRoomDetailSerializer(room, context={"request": request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["get"])
+    def messages(self, request, pk=None):
+        """
+        GET /api/chat/{id}/messages/ - сообщения с cursor-based пагинацией
+        Query params:
+        - before (int, optional) - ID сообщения для получения более старых
+        - limit (int, default=50, max=100)
+        """
+        try:
+            room = ChatRoom.objects.get(id=pk)
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "CHAT_NOT_FOUND",
+                        "message": "Chat not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = ChatServiceNew()
+        if not service.can_access_chat(request.user, room):
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        before_id = request.query_params.get("before")
+        limit = min(int(request.query_params.get("limit", 50)), 100)
+
+        qs = Message.objects.filter(room=room, is_deleted=False).select_related(
+            "sender"
+        )
+
+        if before_id:
+            qs = qs.filter(id__lt=int(before_id))
+
+        messages = list(qs.order_by("-created_at")[:limit])
+        messages.reverse()
+
+        oldest_id = messages[0].id if messages else None
+        has_more = before_id is not None and len(messages) == limit
+
+        serializer = MessageSerializer(messages, many=True)
+
+        return Response(
+            {
+                "messages": serializer.data,
+                "has_more": has_more,
+                "oldest_id": oldest_id,
+            }
+        )
+
+    @action(detail=True, methods=["post"])
+    def send_message(self, request, pk=None):
+        """
+        POST /api/chat/{id}/messages/ - отправить сообщение
+        Request body:
+        {
+            "content": "Текст сообщения"
+        }
+        """
+        try:
+            room = ChatRoom.objects.get(id=pk)
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "CHAT_NOT_FOUND",
+                        "message": "Chat not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = ChatServiceNew()
+        if not service.can_access_chat(request.user, room):
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        content = request.data.get("content", "").strip()
+
+        if not content:
+            return Response(
+                {
+                    "error": {
+                        "code": "EMPTY_MESSAGE",
+                        "message": "Message content cannot be empty",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not room.is_active:
+            return Response(
+                {
+                    "error": {
+                        "code": "CHAT_INACTIVE",
+                        "message": "Chat is inactive",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         message = Message.objects.create(
-            room=room, sender=request.user, content=message_text, message_type="text"
+            room=room,
+            sender=request.user,
+            content=content,
+        )
+        room.updated_at = timezone.now()
+        room.save(update_fields=["updated_at"])
+
+        serializer = MessageSerializer(message)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch"])
+    def edit_message(self, request, pk=None):
+        """
+        PATCH /api/chat/{id}/messages/ - редактировать сообщение
+        Требует query parameter: message_id
+        Request body:
+        {
+            "content": "Новый текст"
+        }
+        """
+        message_id = request.data.get("message_id") or request.query_params.get(
+            "message_id"
         )
 
-        serializer = MessageSerializer(message, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if not message_id:
+            return Response(
+                {
+                    "error": {
+                        "code": "INVALID_REQUEST",
+                        "message": "message_id required",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            room = ChatRoom.objects.get(id=pk)
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "CHAT_NOT_FOUND",
+                        "message": "Chat not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = ChatServiceNew()
+        if not service.can_access_chat(request.user, room):
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            message = Message.objects.get(id=message_id, room=room)
+        except Message.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "MESSAGE_NOT_FOUND",
+                        "message": "Message not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if message.is_deleted:
+            return Response(
+                {
+                    "error": {
+                        "code": "MESSAGE_DELETED",
+                        "message": "Cannot edit deleted message",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if message.sender_id != request.user.id:
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Only author can edit message",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        content = request.data.get("content", "").strip()
+
+        if not content:
+            return Response(
+                {
+                    "error": {
+                        "code": "EMPTY_MESSAGE",
+                        "message": "Message content cannot be empty",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        message.content = content
+        message.is_edited = True
+        message.updated_at = timezone.now()
+        message.save(update_fields=["content", "is_edited", "updated_at"])
+
+        serializer = MessageSerializer(message)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["delete"])
+    def delete_message(self, request, pk=None):
+        """
+        DELETE /api/chat/{id}/messages/ - удалить сообщение (soft delete)
+        Требует query parameter: message_id
+        """
+        message_id = request.query_params.get("message_id")
+
+        if not message_id:
+            return Response(
+                {
+                    "error": {
+                        "code": "INVALID_REQUEST",
+                        "message": "message_id required",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            room = ChatRoom.objects.get(id=pk)
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "CHAT_NOT_FOUND",
+                        "message": "Chat not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = ChatServiceNew()
+        if not service.can_access_chat(request.user, room):
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            message = Message.objects.get(id=message_id, room=room)
+        except Message.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "MESSAGE_NOT_FOUND",
+                        "message": "Message not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        can_delete = (
+            message.sender_id == request.user.id
+            or getattr(request.user, "role", None) == "admin"
+        )
+
+        if not can_delete:
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Only author or admin can delete message",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        message.is_deleted = True
+        message.deleted_at = timezone.now()
+        message.save(update_fields=["is_deleted", "deleted_at"])
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"])
+    def mark_as_read(self, request, pk=None):
+        """
+        POST /api/chat/{id}/read/ - отметить чат как прочитанный
+        """
+        try:
+            room = ChatRoom.objects.get(id=pk)
+        except ChatRoom.DoesNotExist:
+            return Response(
+                {
+                    "error": {
+                        "code": "CHAT_NOT_FOUND",
+                        "message": "Chat not found",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = ChatServiceNew()
+        if not service.can_access_chat(request.user, room):
+            return Response(
+                {
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        now = timezone.now()
+        service.mark_chat_as_read(request.user, room)
+
+        return Response({"last_read_at": now.isoformat()})
+
+
+class ChatContactsView(APIView):
+    """
+    GET /api/chat/contacts/ - список доступных контактов для создания чата
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """
+        Возвращает список пользователей, с которыми текущий пользователь может общаться.
+        Проверяется через can_initiate_chat().
+        """
+        allowed_users = []
+        for user in User.objects.filter(is_active=True).exclude(id=request.user.id):
+            if can_initiate_chat(request.user, user):
+                allowed_users.append(user)
+
+        existing_chats = {}
+        for cp in (
+            ChatParticipant.objects.filter(room__participants__user=request.user)
+            .filter(user_id__in=[u.id for u in allowed_users])
+            .select_related("room")
+        ):
+            if cp.user_id not in existing_chats:
+                existing_chats[cp.user_id] = cp.room_id
+
+        contacts = []
+        for user in allowed_users:
+            contacts.append(
+                {
+                    "id": user.id,
+                    "full_name": f"{user.first_name} {user.last_name}".strip(),
+                    "role": getattr(user, "role", "user"),
+                    "has_existing_chat": user.id in existing_chats,
+                    "existing_chat_id": existing_chats.get(user.id),
+                }
+            )
+
+        return Response({"contacts": contacts})

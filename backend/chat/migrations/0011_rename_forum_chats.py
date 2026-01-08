@@ -27,13 +27,15 @@ def rename_forum_chats(apps, schema_editor):
             if chat.enrollment:
                 subject_name = chat.enrollment.subject.name
                 teacher = chat.enrollment.teacher
-                teacher_name = teacher.get_full_name() or teacher.email or 'Unknown'
+                teacher_name = (f"{teacher.first_name} {teacher.last_name}".strip()
+                               or teacher.email or 'Unknown')
                 new_name = f"{subject_name}: {teacher_name}"
 
         elif chat.type == 'forum_tutor':
             if chat.enrollment:
                 student = chat.enrollment.student
-                student_name = student.get_full_name() or student.email or 'Unknown'
+                student_name = (f"{student.first_name} {student.last_name}".strip()
+                               or student.email or 'Unknown')
                 new_name = student_name
 
         if new_name and new_name != old_name:

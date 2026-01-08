@@ -14,6 +14,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Drop old M2M table first (for permission issues on production)
+        migrations.RunSQL(
+            sql="DROP TABLE IF EXISTS chat_chatroom_participants CASCADE;",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         # Delete old tables
         migrations.DeleteModel(
             name='ChatRoom',

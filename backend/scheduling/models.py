@@ -114,6 +114,7 @@ class Lesson(models.Model):
         verbose_name_plural = "Lessons"
         ordering = ["date", "start_time"]
         indexes = [
+            models.Index(fields=["date"]),
             models.Index(fields=["teacher", "date"]),
             models.Index(fields=["student", "date"]),
             models.Index(fields=["subject", "date"]),

@@ -4,7 +4,9 @@ API views for lesson management.
 Endpoints for creating, retrieving, updating, and deleting lessons.
 """
 
+from datetime import timedelta
 from django.utils import timezone
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -61,36 +63,42 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         from accounts.models import User as UserModel
 
-        if user.role == UserModel.Role.TEACHER:
+        if not user.is_active:
+            return Lesson.objects.none()
+
+        if user.is_staff or user.is_superuser or user.role == UserModel.Role.ADMIN:
+            # Admins see all lessons
+            queryset = Lesson.objects.all()
+        elif user.role == UserModel.Role.TEACHER:
             queryset = Lesson.objects.filter(teacher=user)
         elif user.role == UserModel.Role.STUDENT:
+            six_months_ago = timezone.now().date() - timedelta(days=180)
             queryset = Lesson.objects.filter(
                 student=user,
-                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
+                date__gte=six_months_ago,
             )
         elif user.role == UserModel.Role.TUTOR:
             from accounts.models import StudentProfile
 
+            six_months_ago = timezone.now().date() - timedelta(days=180)
             student_ids = StudentProfile.objects.filter(tutor=user).values_list(
                 "user_id", flat=True
             )
             queryset = Lesson.objects.filter(
                 student_id__in=student_ids,
-                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
+                date__gte=six_months_ago,
             )
         elif user.role == UserModel.Role.PARENT:
             from accounts.models import StudentProfile
 
+            six_months_ago = timezone.now().date() - timedelta(days=180)
             children_ids = StudentProfile.objects.filter(parent=user).values_list(
                 "user_id", flat=True
             )
             queryset = Lesson.objects.filter(
                 student_id__in=children_ids,
-                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
+                date__gte=six_months_ago,
             )
-        elif user.is_staff or user.is_superuser:
-            # Admins see all lessons
-            queryset = Lesson.objects.all()
         else:
             queryset = Lesson.objects.none()
 
@@ -533,9 +541,10 @@ class LessonViewSet(viewsets.ModelViewSet):
                         {"error": "You can only view schedules for your children"},
                         status=status.HTTP_403_FORBIDDEN,
                     )
+                six_months_ago = timezone.now().date() - timedelta(days=180)
                 queryset = Lesson.objects.filter(
                     student_id=student_id_int,
-                    status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
+                    date__gte=six_months_ago,
                 ).select_related("teacher", "student", "subject")
 
             # Apply filters

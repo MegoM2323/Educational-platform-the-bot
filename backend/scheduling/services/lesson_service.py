@@ -301,7 +301,9 @@ class LessonService:
             .order_by("date", "start_time")
         )
 
-        # По умолчанию исключаем отменённые уроки для консистентности с get_upcoming_lessons
+        six_months_ago = timezone.now().date() - timedelta(days=180)
+        queryset = queryset.filter(date__gte=six_months_ago)
+
         if not include_cancelled:
             queryset = queryset.exclude(status=Lesson.Status.CANCELLED)
 
@@ -357,11 +359,11 @@ class LessonService:
             .order_by("date", "start_time")
         )
 
-        # По умолчанию возвращаем только активные уроки (pending + confirmed)
+        six_months_ago = timezone.now().date() - timedelta(days=180)
+        queryset = queryset.filter(date__gte=six_months_ago)
+
         if not include_cancelled:
-            queryset = queryset.filter(
-                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]
-            )
+            queryset = queryset.exclude(status=Lesson.Status.CANCELLED)
 
         return queryset
 

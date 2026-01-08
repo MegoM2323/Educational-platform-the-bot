@@ -6,7 +6,19 @@ import logging
 from typing import Tuple, Optional
 
 from django.db import transaction, models
-from django.db.models import Count, Q, OuterRef, Subquery, Prefetch, Max, IntegerField
+from django.db.models import (
+    Count,
+    Q,
+    OuterRef,
+    Subquery,
+    Prefetch,
+    Max,
+    IntegerField,
+    Case,
+    When,
+    Value,
+    F,
+)
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -178,17 +190,31 @@ class ChatService:
             room=OuterRef("id"), user=user
         ).values("last_read_at")[:1]
 
-        unread_count_subquery = (
-            Message.objects.filter(
-                room=OuterRef("id"),
-                is_deleted=False,
-                created_at__gt=Subquery(participant_last_read_subquery),
+        is_admin = hasattr(user, "role") and user.role == "admin"
+
+        if is_admin:
+            unread_count_subquery = (
+                Message.objects.filter(
+                    room=OuterRef("id"),
+                    is_deleted=False,
+                )
+                .exclude(sender=user)
+                .values("room")
+                .annotate(count=Count("id"))
+                .values("count")
             )
-            .exclude(sender=user)
-            .values("room")
-            .annotate(count=Count("id"))
-            .values("count")
-        )
+        else:
+            unread_count_subquery = (
+                Message.objects.filter(
+                    room=OuterRef("id"),
+                    is_deleted=False,
+                    created_at__gt=Subquery(participant_last_read_subquery),
+                )
+                .exclude(sender=user)
+                .values("room")
+                .annotate(count=Count("id"))
+                .values("count")
+            )
 
         qs = (
             base_qs.annotate(
@@ -211,9 +237,10 @@ class ChatService:
         Проверить может ли пользователь получить доступ к чату.
 
         Логика:
-        1. Если user.role == 'admin' → True (админы видят все)
-        2. Если user в ChatParticipant.objects.filter(room=room, user=user) → True
-        3. Иначе → False
+        1. Если user.is_active == False → False (неактивные пользователи не имеют доступа)
+        2. Если user.role == 'admin' → True (админы видят все)
+        3. Если user в ChatParticipant.objects.filter(room=room, user=user) → True
+        4. Иначе → False
 
         Args:
             user: Пользователь
@@ -222,6 +249,10 @@ class ChatService:
         Returns:
             bool: True если доступ разрешен
         """
+        if not user.is_active:
+            logger.debug(f"Inactive user {user.id} denied access to chat {room.id}")
+            return False
+
         if hasattr(user, "role") and user.role == "admin":
             logger.debug(f"Admin user {user.id} has access to chat {room.id}")
             return True

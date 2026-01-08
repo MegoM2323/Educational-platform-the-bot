@@ -1,29 +1,35 @@
 #!/bin/bash
 
 ################################################################################
-# THE_BOT Platform - Native Deployment Script
+# THE_BOT Platform - Native Deployment Script (Production)
 #
-# Полный редеплой на production с нативным systemd (без Docker)
-# Копирует локальные файлы на production (БЕЗ git операций)
-# Сохраняет БД на production
+# Full native systemd deployment with database backup and credentials preservation
+# Copies local files to production (NO git operations)
 #
-# Использование:
-#   ./safe-deploy-native.sh              # Интерактивный
-#   ./safe-deploy-native.sh --force      # Без подтверждения (быстро!)
-#   ./safe-deploy-native.sh --dry-run    # Симуляция
+# Usage:
+#   ./safe-deploy-native.sh                    # Interactive full deploy
+#   ./safe-deploy-native.sh --force            # No confirmation
+#   ./safe-deploy-native.sh --dry-run          # Simulation mode
+#   ./safe-deploy-native.sh --no-backup        # Skip DB backup (dangerous)
+#   ./safe-deploy-native.sh --skip-migrations  # Skip migrations (hotfix)
+#   ./safe-deploy-native.sh --verbose          # Detailed logging
+#   ./safe-deploy-native.sh --help             # Show help
 #
 ################################################################################
 
-set -e
+set -euo pipefail
 
 # ===== CONFIG =====
 SSH_HOST="${SSH_HOST:-mg@5.129.249.206}"
-REMOTE_PATH="${REMOTE_PATH:-/home/mg/THE_BOT_platform}"
+REMOTE_DIR="${REMOTE_DIR:-/home/mg/THE_BOT_platform}"
 VENV_PATH="${VENV_PATH:-/home/mg/venv}"
 BACKUP_DIR="${BACKUP_DIR:-/home/mg/backups}"
 LOCAL_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DEPLOY_LOG="/tmp/deploy_${TIMESTAMP}.log"
+
+# Systemd services
+SERVICES=("the-bot-celery-worker.service" "the-bot-celery-beat.service" "the-bot-daphne.service")
 
 # Colors
 RED='\033[0;31m'
@@ -36,143 +42,553 @@ NC='\033[0m'
 # Options
 DRY_RUN=false
 FORCE_DEPLOY=false
+NO_BACKUP=false
+SKIP_MIGRATIONS=false
+ROLLBACK_ON_ERROR=true
+KEEP_BACKUPS=7
+VERBOSE=false
+
+# Parse arguments
+show_help() {
+    cat << EOF
+THE_BOT Platform - Native Deployment Script
+
+USAGE:
+    $0 [OPTIONS]
+
+OPTIONS:
+    --dry-run             Simulation mode (no actual changes)
+    --force               Skip confirmation prompts
+    --no-backup           Skip database backup (DANGEROUS!)
+    --skip-migrations     Skip database migrations (for hotfixes)
+    --rollback-on-error   Auto-rollback on error (default: true)
+    --keep-backups N      Keep last N days of backups (default: 7)
+    --verbose             Detailed logging
+    --help                Show this help message
+
+EXAMPLES:
+    $0                           # Full interactive deploy
+    $0 --dry-run                 # Preview changes
+    $0 --force                   # Quick deploy without prompts
+    $0 --skip-migrations --force # Hotfix deploy
+    $0 --verbose                 # Debug mode
+
+EOF
+    exit 0
+}
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --dry-run) DRY_RUN=true; shift ;;
         --force) FORCE_DEPLOY=true; shift ;;
-        *) echo "Unknown option: $1"; exit 1 ;;
+        --no-backup) NO_BACKUP=true; shift ;;
+        --skip-migrations) SKIP_MIGRATIONS=true; shift ;;
+        --rollback-on-error) ROLLBACK_ON_ERROR=true; shift ;;
+        --no-rollback) ROLLBACK_ON_ERROR=false; shift ;;
+        --keep-backups) KEEP_BACKUPS="$2"; shift 2 ;;
+        --verbose) VERBOSE=true; shift ;;
+        --help) show_help ;;
+        *) echo "Unknown option: $1. Use --help for usage."; exit 1 ;;
     esac
 done
 
+# Logging functions
 log() { echo -e "${BLUE}[$(date +'%H:%M:%S')]${NC} $1" | tee -a "$DEPLOY_LOG"; }
 success() { echo -e "${GREEN}✓${NC} $1" | tee -a "$DEPLOY_LOG"; }
 error() { echo -e "${RED}✗${NC} $1" | tee -a "$DEPLOY_LOG"; }
 warning() { echo -e "${YELLOW}⚠${NC} $1" | tee -a "$DEPLOY_LOG"; }
 info() { echo -e "${CYAN}ℹ${NC} $1" | tee -a "$DEPLOY_LOG"; }
 
+# Sanitize sensitive data in logs
+sanitize_log() {
+    sed -E 's/(PASSWORD|SECRET_KEY|TOKEN|API_KEY)=[^ ]*/\1=***REDACTED***/gi'
+}
+
+# Execute command with dry-run support
+execute() {
+    local cmd="$1"
+    local description="${2:-Executing command}"
+
+    if [ "$VERBOSE" = true ]; then
+        log "$description: $cmd"
+    fi
+
+    if [ "$DRY_RUN" = true ]; then
+        info "[DRY-RUN] Would execute: $cmd"
+        return 0
+    fi
+
+    eval "$cmd"
+}
+
+# Error handler
+trap 'error "Deployment failed at line $LINENO. Check log: $DEPLOY_LOG"; exit 1' ERR
+
 # ===== PHASE 0: PRE-CHECKS =====
 log "========== PHASE 0: PRE-CHECKS =========="
 
-# Check SSH
+# Check SSH connection
 if ! ssh -o ConnectTimeout=5 "$SSH_HOST" "echo OK" > /dev/null 2>&1; then
     error "SSH connection failed to $SSH_HOST"
     exit 1
 fi
 success "SSH connection OK"
 
+# Check remote disk space
+log "Checking remote disk space..."
+DISK_USAGE=$(ssh "$SSH_HOST" "df -h / | tail -1 | awk '{print \$5}' | tr -d '%'")
+if [ "$DISK_USAGE" -gt 95 ]; then
+    error "Disk usage critical: ${DISK_USAGE}%. Free up space before deployment!"
+    exit 1
+elif [ "$DISK_USAGE" -gt 90 ]; then
+    warning "Disk usage high: ${DISK_USAGE}%. Consider cleanup."
+else
+    success "Disk usage OK: ${DISK_USAGE}%"
+fi
+
+# Check remote services exist
+log "Checking remote systemd services..."
+for service in "${SERVICES[@]}"; do
+    if ssh "$SSH_HOST" "systemctl list-unit-files | grep -q $service" 2>/dev/null; then
+        success "Service $service exists"
+    else
+        warning "Service $service not found (will be created later)"
+    fi
+done
+
+# Check PostgreSQL accessibility
+log "Checking PostgreSQL service..."
+if ssh "$SSH_HOST" "systemctl is-active postgresql > /dev/null 2>&1" 2>/dev/null; then
+    success "PostgreSQL is active"
+else
+    warning "PostgreSQL service not active. Check manually if database is accessible."
+fi
+
+# Check local git status
+log "Checking local git status..."
+if [ -d "$LOCAL_PATH/.git" ]; then
+    GIT_STATUS=$(git -C "$LOCAL_PATH" status --porcelain)
+    if [ -n "$GIT_STATUS" ]; then
+        warning "Uncommitted changes detected:"
+        echo "$GIT_STATUS" | head -5
+        if [ "$FORCE_DEPLOY" = false ]; then
+            read -p "Auto-commit changes? [y/N]: " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                git -C "$LOCAL_PATH" add -A
+                git -C "$LOCAL_PATH" commit -m "Auto-commit перед deployment ${TIMESTAMP}"
+                success "Changes committed"
+            fi
+        fi
+    else
+        success "Git working directory clean"
+    fi
+fi
+
+# Confirmation prompt
+if [ "$FORCE_DEPLOY" = false ] && [ "$DRY_RUN" = false ]; then
+    echo ""
+    warning "Ready to deploy to PRODUCTION:"
+    echo "  Target: $SSH_HOST:$REMOTE_DIR"
+    echo "  Backup: $([ "$NO_BACKUP" = true ] && echo 'NO (DANGEROUS!)' || echo 'YES')"
+    echo "  Migrations: $([ "$SKIP_MIGRATIONS" = true ] && echo 'SKIP' || echo 'YES')"
+    echo ""
+    read -p "Continue? [y/N]: " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        info "Deployment cancelled by user"
+        exit 0
+    fi
+fi
+
 # ===== PHASE 1: DATABASE BACKUP =====
 log ""
 log "========== PHASE 1: DATABASE BACKUP =========="
 
-if [ "$DRY_RUN" = false ]; then
-    log "Creating database backup on production..."
-    ssh "$SSH_HOST" /bin/bash << 'BACKUP_SCRIPT'
-set -e
+if [ "$NO_BACKUP" = true ]; then
+    warning "Database backup SKIPPED (--no-backup flag)"
+else
+    if [ "$DRY_RUN" = false ]; then
+        log "Creating database backup on production..."
+
+        BACKUP_OUTPUT=$(ssh "$SSH_HOST" /bin/bash << 'BACKUP_SCRIPT'
+set -euo pipefail
+
+REMOTE_DIR="/home/mg/THE_BOT_platform"
 BACKUP_DIR="/home/mg/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
 mkdir -p "$BACKUP_DIR"
 
-echo "Backing up PostgreSQL database..."
-PGPASSWORD="postgres" pg_dump -h localhost -U postgres thebot_db > "$BACKUP_DIR/db_backup_${TIMESTAMP}.sql" 2>/dev/null || {
-    PGPASSWORD="postgres" pg_dump -h localhost -U thebot_user thebot_db > "$BACKUP_DIR/db_backup_${TIMESTAMP}.sql" 2>/dev/null || true
-}
-
-if [ -f "$BACKUP_DIR/db_backup_${TIMESTAMP}.sql" ]; then
-    SIZE=$(du -h "$BACKUP_DIR/db_backup_${TIMESTAMP}.sql" | cut -f1)
-    echo "✓ DB backup created: db_backup_${TIMESTAMP}.sql ($SIZE)"
-    # Keep last 7 days
-    find "$BACKUP_DIR" -name "db_backup_*.sql" -mtime +7 -delete 2>/dev/null || true
-else
-    echo "⚠ Warning: Backup may not have been created"
+# Read database credentials from production .env
+if [ ! -f "$REMOTE_DIR/.env" ]; then
+    echo "ERROR: Production .env file not found at $REMOTE_DIR/.env"
+    exit 1
 fi
+
+DB_USER=$(grep "^DB_USER=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "postgres")
+DB_PASSWORD=$(grep "^DB_PASSWORD=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "postgres")
+DB_NAME=$(grep "^DB_NAME=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "thebot_db")
+DB_HOST="localhost"
+
+echo "Using DB credentials: user=$DB_USER, database=$DB_NAME"
+
+# Test database connection
+if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT 1;" > /dev/null 2>&1; then
+    echo "ERROR: Cannot connect to database"
+    exit 1
+fi
+echo "Database connection OK"
+
+# Create backup
+BACKUP_FILE="$BACKUP_DIR/db_backup_${TIMESTAMP}.sql"
+echo "Creating backup: $BACKUP_FILE"
+
+PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
+    --no-owner \
+    --no-privileges \
+    > "$BACKUP_FILE" 2>/dev/null
+
+# Verify backup is not empty
+if [ ! -f "$BACKUP_FILE" ] || [ ! -s "$BACKUP_FILE" ]; then
+    echo "ERROR: Backup file is empty or was not created"
+    rm -f "$BACKUP_FILE"
+    exit 1
+fi
+
+BACKUP_SIZE=$(stat -c%s "$BACKUP_FILE")
+if [ "$BACKUP_SIZE" -lt 1000 ]; then
+    echo "ERROR: Backup file too small (${BACKUP_SIZE} bytes), possibly corrupted"
+    rm -f "$BACKUP_FILE"
+    exit 1
+fi
+
+# Compress backup
+echo "Compressing backup..."
+gzip -9 "$BACKUP_FILE"
+BACKUP_FILE_GZ="${BACKUP_FILE}.gz"
+
+# Verify compressed backup
+if [ ! -f "$BACKUP_FILE_GZ" ] || [ ! -s "$BACKUP_FILE_GZ" ]; then
+    echo "ERROR: Compressed backup failed"
+    exit 1
+fi
+
+COMPRESSED_SIZE=$(du -h "$BACKUP_FILE_GZ" | cut -f1)
+echo "SUCCESS: Backup created: $(basename $BACKUP_FILE_GZ) ($COMPRESSED_SIZE)"
+
+# Save backup path for rollback
+echo "$BACKUP_FILE_GZ" > "$REMOTE_DIR/.last_backup"
+
+# Apply retention policy (keep last N days)
+KEEP_DAYS=7
+echo "Applying retention policy (keep last $KEEP_DAYS days)..."
+DELETED=$(find "$BACKUP_DIR" -name "db_backup_*.sql.gz" -mtime +$KEEP_DAYS -delete -print | wc -l)
+if [ "$DELETED" -gt 0 ]; then
+    echo "Deleted $DELETED old backup(s)"
+fi
+
+# Show backup statistics
+BACKUP_COUNT=$(ls -1 "$BACKUP_DIR"/db_backup_*.sql.gz 2>/dev/null | wc -l)
+TOTAL_SIZE=$(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1 || echo "0")
+echo "Total backups: $BACKUP_COUNT ($TOTAL_SIZE)"
+
+echo "BACKUP_PATH=$BACKUP_FILE_GZ"
 BACKUP_SCRIPT
-    success "Database backup completed"
-else
-    info "[DRY-RUN] Database backup skipped"
+)
+
+        if echo "$BACKUP_OUTPUT" | grep -q "SUCCESS:"; then
+            BACKUP_PATH=$(echo "$BACKUP_OUTPUT" | grep "BACKUP_PATH=" | cut -d'=' -f2)
+            success "Database backup completed: $(basename $BACKUP_PATH)"
+        else
+            error "Database backup failed:"
+            echo "$BACKUP_OUTPUT" | sanitize_log
+            if [ "$ROLLBACK_ON_ERROR" = true ]; then
+                exit 1
+            fi
+        fi
+    else
+        info "[DRY-RUN] Would create database backup"
+    fi
 fi
 
-# ===== PHASE 2: COPY FILES =====
+# ===== PHASE 2: CREDENTIALS PRESERVATION =====
 log ""
-log "========== PHASE 2: COPY FILES =========="
+log "========== PHASE 2: CREDENTIALS PRESERVATION =========="
 
 if [ "$DRY_RUN" = false ]; then
+    log "Preserving production credentials..."
+
+    ssh "$SSH_HOST" /bin/bash << 'PRESERVE_SCRIPT'
+set -euo pipefail
+
+REMOTE_DIR="/home/mg/THE_BOT_platform"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+# Download existing .env from production
+if [ -f "$REMOTE_DIR/.env" ]; then
+    # Backup old .env
+    cp "$REMOTE_DIR/.env" "$REMOTE_DIR/.env.backup.$TIMESTAMP"
+
+    # Keep only last 3 .env backups
+    ls -t "$REMOTE_DIR"/.env.backup.* 2>/dev/null | tail -n +4 | xargs -r rm
+
+    # Extract critical secrets
+    echo "Extracting credentials..."
+    cat "$REMOTE_DIR/.env" | grep -E "^(DB_PASSWORD|SECRET_KEY|REDIS_PASSWORD|TELEGRAM_BOT_TOKEN|YOOKASSA_SECRET_KEY|OPENROUTER_API_KEY|PACHCA_FORUM_API_TOKEN)=" > "$REMOTE_DIR/.env.secrets" 2>/dev/null || true
+
+    # Set secure permissions
+    chmod 600 "$REMOTE_DIR/.env.secrets"
+
+    echo "SUCCESS: Credentials preserved"
+else
+    echo "INFO: No existing .env file (first deployment)"
+fi
+PRESERVE_SCRIPT
+
+    success "Production credentials preserved"
+else
+    info "[DRY-RUN] Would preserve production credentials"
+fi
+
+# ===== PHASE 3: CODE DEPLOYMENT =====
+log ""
+log "========== PHASE 3: CODE DEPLOYMENT =========="
+
+if [ "$DRY_RUN" = false ]; then
+    # Save current git commit for rollback
+    if [ -d "$LOCAL_PATH/.git" ]; then
+        CURRENT_COMMIT=$(git -C "$LOCAL_PATH" rev-parse HEAD)
+        ssh "$SSH_HOST" "echo '$CURRENT_COMMIT' > $REMOTE_DIR/.last_deploy_commit"
+    fi
+
     log "Copying backend code..."
     rsync -av --delete \
         --exclude='__pycache__' \
         --exclude='*.pyc' \
+        --exclude='*.pyo' \
         --exclude='*.log' \
         --exclude='.env' \
+        --exclude='.env.*' \
         --exclude='dump.rdb' \
         --exclude='.venv' \
         --exclude='venv' \
-        "$LOCAL_PATH/backend/" "$SSH_HOST:$REMOTE_PATH/backend/" > /dev/null 2>&1
+        --exclude='node_modules' \
+        --exclude='.git' \
+        "$LOCAL_PATH/backend/" "$SSH_HOST:$REMOTE_DIR/backend/" > /dev/null 2>&1
     success "Backend code copied"
 
     log "Copying scripts..."
-    rsync -av "$LOCAL_PATH/scripts/" "$SSH_HOST:$REMOTE_PATH/scripts/" > /dev/null 2>&1
+    rsync -av \
+        --exclude='__pycache__' \
+        --exclude='*.pyc' \
+        "$LOCAL_PATH/scripts/" "$SSH_HOST:$REMOTE_DIR/scripts/" > /dev/null 2>&1
     success "Scripts copied"
+
+    # Restore credentials
+    log "Restoring production credentials..."
+    ssh "$SSH_HOST" /bin/bash << 'RESTORE_SCRIPT'
+set -euo pipefail
+
+REMOTE_DIR="/home/mg/THE_BOT_platform"
+
+if [ -f "$REMOTE_DIR/.env.secrets" ]; then
+    # Restore secrets to .env using awk
+    if [ -f "$REMOTE_DIR/.env" ]; then
+        # Merge secrets back into .env
+        while IFS='=' read -r key value; do
+            if [ -n "$key" ] && [ -n "$value" ]; then
+                # Escape special characters for sed
+                escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')
+                sed -i "s|^${key}=.*|${key}=${escaped_value}|" "$REMOTE_DIR/.env"
+            fi
+        done < "$REMOTE_DIR/.env.secrets"
+        echo "SUCCESS: Credentials restored"
+    else
+        echo "WARNING: .env file not found, cannot restore credentials"
+    fi
+
+    # Remove temporary secrets file (security)
+    rm -f "$REMOTE_DIR/.env.secrets"
+    echo "Temporary secrets file removed"
 else
-    info "[DRY-RUN] Would copy: backend/ and scripts/"
+    echo "INFO: No secrets file to restore"
 fi
 
-# ===== PHASE 3: MIGRATIONS =====
-log ""
-log "========== PHASE 3: DATABASE MIGRATIONS =========="
+# Ensure .env has correct permissions
+if [ -f "$REMOTE_DIR/.env" ]; then
+    chmod 600 "$REMOTE_DIR/.env"
+fi
+RESTORE_SCRIPT
 
-if [ "$DRY_RUN" = false ]; then
-    log "Running database migrations..."
-    ssh "$SSH_HOST" /bin/bash << MIGRATE_SCRIPT
+    success "Production credentials restored"
+else
+    info "[DRY-RUN] Would copy: backend/, scripts/ and restore credentials"
+fi
+
+# ===== PHASE 4: DATABASE MIGRATIONS =====
+log ""
+log "========== PHASE 4: DATABASE MIGRATIONS =========="
+
+if [ "$SKIP_MIGRATIONS" = true ]; then
+    warning "Database migrations SKIPPED (--skip-migrations flag)"
+else
+    if [ "$DRY_RUN" = false ]; then
+        log "Checking pending migrations..."
+
+        MIGRATION_OUTPUT=$(ssh "$SSH_HOST" /bin/bash << MIGRATE_SCRIPT
 set -e
-cd $REMOTE_PATH/backend
+
+cd $REMOTE_DIR/backend
 source $VENV_PATH/bin/activate
 
-echo "Running Django migrate..."
-python manage.py migrate --noinput 2>&1 | tail -5
+# Check for pending migrations
+echo "=== Checking pending migrations ==="
+PENDING=\$(python manage.py showmigrations 2>/dev/null | grep -c "\[ \]" || echo "0")
+echo "Pending migrations: \$PENDING"
 
-echo "Collecting static files..."
-python manage.py collectstatic --noinput 2>&1 | tail -3
+if [ "\$PENDING" -gt 0 ]; then
+    echo ""
+    echo "=== Running migrations (verbosity 2) ==="
+    python manage.py migrate --noinput --verbosity 2 2>&1 || {
+        echo ""
+        echo "ERROR: Migration failed. Troubleshooting:"
+        echo "  1. Try: python manage.py migrate --fake-initial"
+        echo "  2. Try: python manage.py migrate --run-syncdb"
+        echo "  3. Check for conflicting migrations"
+        exit 1
+    }
+else
+    echo "No pending migrations"
+fi
 
-echo "✓ Migrations completed"
+echo ""
+echo "=== Collecting static files ==="
+python manage.py collectstatic --noinput --clear 2>&1 | tail -3
+
+echo ""
+echo "=== Creating cache table (if needed) ==="
+python manage.py createcachetable 2>/dev/null || echo "Cache table already exists or not configured"
+
+echo ""
+echo "SUCCESS: Database operations completed"
 MIGRATE_SCRIPT
-    success "Database migrations completed"
-else
-    info "[DRY-RUN] Would run: migrate, collectstatic"
+)
+
+        echo "$MIGRATION_OUTPUT"
+
+        if echo "$MIGRATION_OUTPUT" | grep -q "SUCCESS:"; then
+            success "Database migrations completed"
+        else
+            error "Database migrations failed"
+            if [ "$ROLLBACK_ON_ERROR" = true ]; then
+                exit 1
+            fi
+        fi
+    else
+        info "[DRY-RUN] Would run: showmigrations, migrate, collectstatic, createcachetable"
+    fi
 fi
 
-# ===== PHASE 4: RESTART SERVICES =====
+# ===== PHASE 5: SERVICE RESTART =====
 log ""
-log "========== PHASE 4: RESTART SERVICES =========="
+log "========== PHASE 5: SERVICE RESTART =========="
 
 if [ "$DRY_RUN" = false ]; then
-    log "Restarting services..."
-    ssh "$SSH_HOST" /bin/bash << RESTART_SCRIPT
+    log "Stopping services (reverse order)..."
+
+    # Stop in reverse order: daphne -> beat -> worker
+    ssh "$SSH_HOST" /bin/bash << 'STOP_SCRIPT'
 set -e
-echo "Restarting Daphne (WebSocket/HTTP)..."
-echo "fstpass" | sudo -S systemctl restart the-bot-daphne.service 2>&1 | grep -v "password" || true
 
-echo "Restarting Celery worker..."
-echo "fstpass" | sudo -S systemctl restart the-bot-celery-worker.service 2>&1 | grep -v "password" || true
+echo "Stopping the-bot-daphne.service..."
+sudo systemctl stop the-bot-daphne.service 2>/dev/null || true
 
+echo "Stopping the-bot-celery-beat.service..."
+sudo systemctl stop the-bot-celery-beat.service 2>/dev/null || true
+
+echo "Stopping the-bot-celery-worker.service..."
+sudo systemctl stop the-bot-celery-worker.service 2>/dev/null || true
+
+echo "Waiting for graceful shutdown..."
 sleep 3
+STOP_SCRIPT
 
-echo "Service status:"
-systemctl is-active the-bot-daphne.service && echo "✓ Daphne active" || echo "✗ Daphne failed"
-systemctl is-active the-bot-celery-worker.service && echo "✓ Celery active" || echo "✗ Celery may be starting"
-RESTART_SCRIPT
-    success "Services restarted"
+    success "Services stopped"
+
+    log "Starting services (correct order)..."
+
+    # Start in correct order: worker -> beat -> daphne
+    ssh "$SSH_HOST" /bin/bash << 'START_SCRIPT'
+set -e
+
+echo "Starting the-bot-celery-worker.service..."
+sudo systemctl start the-bot-celery-worker.service
+
+echo "Starting the-bot-celery-beat.service..."
+sudo systemctl start the-bot-celery-beat.service
+
+echo "Starting the-bot-daphne.service..."
+sudo systemctl start the-bot-daphne.service
+
+echo "Waiting for stabilization..."
+sleep 5
+
+echo ""
+echo "=== Service Status ==="
+for service in the-bot-celery-worker.service the-bot-celery-beat.service the-bot-daphne.service; do
+    if systemctl is-active "$service" > /dev/null 2>&1; then
+        echo "✓ $service: active"
+    else
+        echo "✗ $service: FAILED"
+        systemctl status "$service" --no-pager -l | tail -10
+        exit 1
+    fi
+done
+START_SCRIPT
+
+    success "All services started and active"
 else
-    info "[DRY-RUN] Would restart: the-bot-daphne, the-bot-celery-worker"
+    info "[DRY-RUN] Would restart: the-bot-celery-worker, the-bot-celery-beat, the-bot-daphne"
 fi
 
-# ===== PHASE 5: VERIFICATION =====
+# ===== PHASE 6: VERIFICATION =====
 log ""
-log "========== PHASE 5: VERIFICATION =========="
+log "========== PHASE 6: VERIFICATION =========="
 
 if [ "$DRY_RUN" = false ]; then
-    sleep 2
-    log "Verifying API is responding..."
+    sleep 3
 
+    # Verify database integrity
+    log "Verifying database integrity..."
+    DB_CHECK=$(ssh "$SSH_HOST" /bin/bash << 'DB_CHECK_SCRIPT'
+set -e
+
+REMOTE_DIR="/home/mg/THE_BOT_platform"
+
+DB_USER=$(grep "^DB_USER=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "postgres")
+DB_PASSWORD=$(grep "^DB_PASSWORD=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "postgres")
+DB_NAME=$(grep "^DB_NAME=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "thebot_db")
+
+MIGRATION_COUNT=$(PGPASSWORD="$DB_PASSWORD" psql -h localhost -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM django_migrations;" 2>/dev/null | tr -d ' ')
+
+if [ -n "$MIGRATION_COUNT" ] && [ "$MIGRATION_COUNT" -gt 0 ]; then
+    echo "SUCCESS: Database accessible ($MIGRATION_COUNT migrations applied)"
+else
+    echo "ERROR: Database query failed"
+    exit 1
+fi
+DB_CHECK_SCRIPT
+)
+
+    if echo "$DB_CHECK" | grep -q "SUCCESS:"; then
+        success "Database integrity verified"
+    else
+        warning "Database verification failed (non-critical)"
+    fi
+
+    # Verify API health
+    log "Verifying API health..."
     RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://the-bot.ru/api/auth/login/ \
         -X POST \
         -H "Content-Type: application/json" \
@@ -183,31 +599,105 @@ if [ "$DRY_RUN" = false ]; then
     else
         warning "API response: HTTP $RESPONSE (check logs if problematic)"
     fi
+
+    # Check service logs for errors
+    log "Checking service logs for recent errors..."
+    LOG_CHECK=$(ssh "$SSH_HOST" /bin/bash << 'LOG_CHECK_SCRIPT'
+set -e
+
+ERROR_COUNT=$(journalctl -u the-bot-daphne.service --since "2 minutes ago" -p err --no-pager | grep -c "error" || echo "0")
+
+if [ "$ERROR_COUNT" -gt 0 ]; then
+    echo "WARNING: Found $ERROR_COUNT error(s) in logs"
+    echo "Last 5 error lines:"
+    journalctl -u the-bot-daphne.service --since "2 minutes ago" -p err --no-pager | tail -5
 else
-    info "[DRY-RUN] Would verify API"
+    echo "SUCCESS: No errors in recent logs"
+fi
+LOG_CHECK_SCRIPT
+)
+
+    echo "$LOG_CHECK"
+    if echo "$LOG_CHECK" | grep -q "SUCCESS:"; then
+        success "No errors in service logs"
+    else
+        warning "Errors found in logs (review manually)"
+    fi
+else
+    info "[DRY-RUN] Would verify: services, database, API, logs"
 fi
 
-# ===== SUMMARY =====
+# ===== PHASE 7: CLEANUP & REPORT =====
+log ""
+log "========== PHASE 7: CLEANUP & REPORT =========="
+
+if [ "$DRY_RUN" = false ]; then
+    # Backup statistics
+    BACKUP_STATS=$(ssh "$SSH_HOST" /bin/bash << 'STATS_SCRIPT'
+BACKUP_DIR="/home/mg/backups"
+BACKUP_COUNT=$(ls -1 "$BACKUP_DIR"/db_backup_*.sql.gz 2>/dev/null | wc -l)
+TOTAL_SIZE=$(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1 || echo "0")
+echo "BACKUPS=$BACKUP_COUNT SIZE=$TOTAL_SIZE"
+STATS_SCRIPT
+)
+
+    BACKUP_COUNT=$(echo "$BACKUP_STATS" | grep -oP 'BACKUPS=\K\d+')
+    BACKUP_SIZE=$(echo "$BACKUP_STATS" | grep -oP 'SIZE=\K\S+')
+
+    success "Backup statistics: $BACKUP_COUNT backup(s), total size: $BACKUP_SIZE"
+fi
+
+# Deployment summary
 log ""
 log "========== DEPLOYMENT COMPLETE =========="
 success "Native deployment finished successfully!"
 
 echo ""
-echo "Summary:"
-echo "  Server: $SSH_HOST"
-echo "  Remote path: $REMOTE_PATH"
-echo "  Timestamp: $TIMESTAMP"
-echo "  Mode: $([ "$DRY_RUN" = true ] && echo 'DRY-RUN' || echo 'LIVE')"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  DEPLOYMENT SUMMARY"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "What was deployed:"
-echo "  • Backend code (latest local version)"
-echo "  • Database migrations"
-echo "  • Static files"
+echo "Date/Time:        $(date +'%Y-%m-%d %H:%M:%S')"
+echo "SSH Host:         $SSH_HOST"
+echo "Remote Path:      $REMOTE_DIR"
+echo "Backup Created:   $([ "$NO_BACKUP" = true ] && echo 'NO (skipped)' || echo "YES ($BACKUP_SIZE)")"
+echo "Migrations Run:   $([ "$SKIP_MIGRATIONS" = true ] && echo 'NO (skipped)' || echo 'YES')"
+echo "Dry Run:          $([ "$DRY_RUN" = true ] && echo 'YES (simulation)' || echo 'NO (live)')"
 echo ""
-echo "Available commands:"
-echo "  View logs: ssh $SSH_HOST journalctl -u the-bot-daphne.service -f"
-echo "  Check status: ssh $SSH_HOST systemctl status the-bot-daphne.service"
+
+if [ "$DRY_RUN" = false ]; then
+    echo "Services Status:"
+    ssh "$SSH_HOST" /bin/bash << 'STATUS_SCRIPT'
+for service in the-bot-celery-worker.service the-bot-celery-beat.service the-bot-daphne.service; do
+    status=$(systemctl is-active "$service" 2>/dev/null || echo "inactive")
+    if [ "$status" = "active" ]; then
+        echo "  ✓ $service: active"
+    else
+        echo "  ✗ $service: $status"
+    fi
+done
+STATUS_SCRIPT
+    echo ""
+fi
+
+echo "Next Steps:"
+echo "  1. Verify site: https://the-bot.ru"
+echo "  2. Check logs: ssh $SSH_HOST journalctl -u the-bot-daphne.service -f"
+echo "  3. Monitor errors: ssh $SSH_HOST journalctl -p err --since '5 minutes ago'"
 echo ""
-echo "Production URL: https://the-bot.ru"
-echo "Log file: $DEPLOY_LOG"
+
+if [ "$NO_BACKUP" = false ] && [ "$DRY_RUN" = false ]; then
+    echo "Rollback Instructions (if needed):"
+    echo "  1. SSH to server: ssh $SSH_HOST"
+    echo "  2. Go to backups: cd $BACKUP_DIR"
+    echo "  3. List backups: ls -lh db_backup_*.sql.gz"
+    echo "  4. Restore database:"
+    echo "     gunzip -c db_backup_XXXXXXXX_XXXXXX.sql.gz | \\"
+    echo "       PGPASSWORD='***' psql -h localhost -U postgres -d thebot_db"
+    echo "  5. Restart services: sudo systemctl restart the-bot-*.service"
+    echo ""
+fi
+
+echo "Log File: $DEPLOY_LOG"
 echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -6,6 +6,7 @@ from collections import deque
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import ChatRoom, Message, ChatParticipant
@@ -14,6 +15,10 @@ from .services.message_service import MessageService
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+CHAT_RATE_LIMIT = 10
+CHAT_RATE_WINDOW = 60
+CHAT_ROOMS_LIMIT = 5
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -25,9 +30,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f"chat_{self.room_id}"
         self.user = None
         self.authenticated = False
-        self.message_timestamps = deque(maxlen=10)
-        self.rate_limit_per_minute = 10
-        self.rate_limit_window = 60
 
         await self.accept()
 
@@ -61,9 +63,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         """При отключении WebSocket"""
         if self.authenticated:
-            await self.channel_layer.group_discard(
-                self.room_group_name, self.channel_name
-            )
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def _wait_for_auth(self):
         """Ждать auth сообщение (используется в connect с timeout)"""
@@ -87,14 +87,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close(code=4003)
             return
 
+        if not await self._check_room_limit(user):
+            logger.warning(
+                f"[ChatConsumer] Room limit exceeded for user {user.id} (room {self.room_id})"
+            )
+            await self.close(code=4029)
+            return
+
         self.user = user
         self.authenticated = True
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
-        await self.send(
-            text_data=json.dumps({"type": "auth_success", "user_id": user.id})
-        )
+        await self.send(text_data=json.dumps({"type": "auth_success", "user_id": user.id}))
 
     async def _handle_message(self, data):
         """Обработать отправку сообщения"""
@@ -103,22 +108,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self._send_error("EMPTY_MESSAGE", "Message cannot be empty")
             return
 
-        current_time = time.time()
-
-        while (
-            self.message_timestamps
-            and current_time - self.message_timestamps[0] > self.rate_limit_window
-        ):
-            self.message_timestamps.popleft()
-
-        if len(self.message_timestamps) >= self.rate_limit_per_minute:
+        if not await self._check_message_rate_limit(self.user):
             await self._send_error(
                 "RATE_LIMIT_EXCEEDED",
-                f"Too many messages. Max {self.rate_limit_per_minute} per minute.",
+                f"Too many messages. Max {CHAT_RATE_LIMIT} per minute.",
             )
             return
-
-        self.message_timestamps.append(current_time)
 
         try:
             message = await self._save_message(content)
@@ -149,9 +144,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         """Broadcast сообщения клиентам"""
-        await self.send(
-            text_data=json.dumps({"type": "message", "message": event["message"]})
-        )
+        await self.send(text_data=json.dumps({"type": "message", "message": event["message"]}))
 
     async def chat_typing(self, event):
         """Broadcast typing индикатора"""
@@ -187,9 +180,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def _send_error(self, code, message):
         """Отправить ошибку клиенту"""
-        await self.send(
-            text_data=json.dumps({"type": "error", "code": code, "message": message})
-        )
+        await self.send(text_data=json.dumps({"type": "error", "code": code, "message": message}))
+
+    async def _check_message_rate_limit(self, user):
+        """Проверить rate limit на сообщения (Redis-based, per-user)"""
+        rate_key = f"chat_rate_limit:{user.id}"
+        current_count = cache.get(rate_key, 0)
+
+        if current_count >= CHAT_RATE_LIMIT:
+            return False
+
+        cache.set(rate_key, current_count + 1, CHAT_RATE_WINDOW)
+        return True
+
+    async def _check_room_limit(self, user):
+        """Проверить лимит на количество разных чатов в минуту (Redis-based)"""
+        rooms_key = f"chat_rooms_limit:{user.id}"
+        current_count = cache.get(rooms_key, 0)
+
+        if current_count >= CHAT_ROOMS_LIMIT:
+            return False
+
+        cache.set(rooms_key, current_count + 1, CHAT_RATE_WINDOW)
+        return True
 
     @database_sync_to_async
     def _validate_token(self, token):
@@ -205,6 +218,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def _check_access(self, user):
         """Проверить доступ к комнате"""
         try:
+            if not user.is_active:
+                return False
+
             room = ChatRoom.objects.get(id=self.room_id)
             service = ChatService()
             return service.can_access_chat(user, room)

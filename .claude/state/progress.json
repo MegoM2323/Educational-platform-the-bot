@@ -236,7 +236,38 @@
         "logging_added": true,
         "http_status_correct": true
       }
+    },
+    {
+      "id": "T013",
+      "name": "Исправить unread_count для админа",
+      "status": "DONE",
+      "duration_sec": 15,
+      "changes": [
+        "Добавлены импорты Case, When, Value, F из django.db.models (строка 9)",
+        "Добавлена проверка is_admin перед вычислением unread_count_subquery (строка 193)",
+        "Для админа: unread_count = количество всех неудалённых сообщений в чате (кроме отправленных админом) (строки 195-205)",
+        "Для обычного пользователя: сохранена текущая логика с participant_last_read_at (строки 207-217)",
+        "Проблема: participant_last_read_subquery возвращал NULL для админа (админ не в ChatParticipant)",
+        "Решение: для админа теперь считаем все сообщения (как необходимые), для обычных пользователей используем last_read_at"
+      ],
+      "implementation_details": {
+        "admin_detection": "is_admin = hasattr(user, 'role') and user.role == 'admin'",
+        "admin_unread_logic": "Считаем все сообщения в чате кроме отправленных админом (exclude(sender=user))",
+        "user_unread_logic": "Считаем сообщения после last_read_at участника (created_at__gt=Subquery(participant_last_read_subquery))",
+        "null_handling": "NULL для обычного пользователя не в ChatParticipant остаётся 0 (django ORM по умолчанию)"
+      },
+      "files_modified": [
+        "/backend/chat/services/chat_service.py"
+      ],
+      "verification": {
+        "syntax_valid": true,
+        "imports_correct": true,
+        "black_formatted": true,
+        "logic_correct": true,
+        "admin_handling": "Специальная логика для админа добавлена",
+        "user_handling": "Исходная логика сохранена для обычных пользователей"
+      }
     }
   ],
-  "total_time_sec": 495
+  "total_time_sec": 510
 }

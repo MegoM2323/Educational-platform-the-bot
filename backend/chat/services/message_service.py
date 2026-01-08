@@ -33,8 +33,11 @@ class MessageService:
             Message: Созданное сообщение
 
         Raises:
-            ValueError: Если сообщение пусто или чат неактивен
+            ValueError: Если сообщение пусто, пользователь неактивен или чат неактивен
         """
+        if not user.is_active:
+            raise ValueError("User is inactive")
+
         if not content or not content.strip():
             raise ValueError("Message content cannot be empty")
 

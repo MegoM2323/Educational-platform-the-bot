@@ -7257,3 +7257,29 @@ Traceback (most recent call last):
     ...<5 lines>...
     )
 AttributeError: Manager isn't available; 'auth.User' has been swapped for 'accounts.User'
+[ERROR] 2026-01-08 22:13:03 django.request log_response:241 - Internal Server Error: /api/chat/1997/messages/2034/
+Traceback (most recent call last):
+  File "/home/mego/.local/lib/python3.13/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/mego/.local/lib/python3.13/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/mego/.local/lib/python3.13/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/mego/.local/lib/python3.13/site-packages/rest_framework/viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/.local/lib/python3.13/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/mego/.local/lib/python3.13/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/home/mego/.local/lib/python3.13/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/home/mego/.local/lib/python3.13/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/chat/views.py", line 535, in destroy
+    message_service.delete_message(request.user, message)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mego/Python Projects/THE_BOT_platform/backend/chat/services/message_service.py", line 132, in delete_message
+    raise ValueError("Only author or admin can delete message")
+ValueError: Only author or admin can delete message

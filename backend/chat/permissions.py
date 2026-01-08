@@ -11,12 +11,27 @@ def can_initiate_chat(user1: "User", user2: "User") -> bool:
     """
     Check if user1 can initiate a chat with user2.
 
-    Implements permission matrix from CHAT_ARCHITECTURE_SIMPLIFIED.md:
-    - admin: can chat with anyone
-    - student + teacher: need active SubjectEnrollment
-    - student + tutor: need StudentProfile.tutor == tutor
-    - teacher + tutor: need common student
-    - students cannot chat with each other
+    Unified permission matrix for all role combinations:
+
+    ALLOWED (CAN initiate chat):
+    1.  Admin -> Anyone (always allowed)
+    2.  Student -> Teacher (if ACTIVE SubjectEnrollment exists)
+    3.  Student -> Tutor (if StudentProfile.tutor is set and tutor is_active)
+    4.  Teacher -> Student (if ACTIVE SubjectEnrollment exists)
+    5.  Teacher -> Parent (if parent has child with ACTIVE enrollment with this teacher)
+    6.  Teacher -> Tutor (if common student with ACTIVE enrollment)
+    7.  Tutor -> Student (if StudentProfile.tutor is set and tutor is_active)
+    8.  Tutor -> Teacher (if common student with ACTIVE enrollment)
+    9.  Tutor -> Parent (if parent has child with this tutor and tutor is_active)
+    10. Parent -> Teacher (ONLY if parent has child with ACTIVE enrollment with this teacher)
+    11. Parent -> Tutor (ONLY if parent has child with this tutor and tutor is_active)
+
+    FORBIDDEN (CANNOT initiate chat):
+    - Student ↔ Student (mutual)
+    - Student ↔ Parent (mutual)
+    - Teacher ↔ Teacher (mutual)
+    - Parent ↔ Parent (mutual)
+    - Tutor ↔ Tutor (mutual)
 
     Args:
         user1: User initiating the chat
@@ -26,105 +41,182 @@ def can_initiate_chat(user1: "User", user2: "User") -> bool:
         bool: True if chat can be initiated, False otherwise
     """
     try:
-        # 1. Admin can always initiate chat
+        if not user1.is_active or not user2.is_active:
+            return False
+
         if user1.role == "admin":
             return True
 
-        # 2. Students cannot chat with each other
-        if user1.role == "student" and user2.role == "student":
-            return False
+        if user2.role == "admin":
+            return True
 
-        # 3. Student + Teacher (bidirectional)
-        if (user1.role == "student" and user2.role == "teacher") or (
-            user1.role == "teacher" and user2.role == "student"
-        ):
-            student = user1 if user1.role == "student" else user2
-            teacher = user1 if user1.role == "teacher" else user2
+        if user1.role == "student":
+            return _check_student_can_chat_with(user1, user2)
 
-            from materials.models import SubjectEnrollment
+        if user1.role == "teacher":
+            return _check_teacher_can_chat_with(user1, user2)
 
-            return SubjectEnrollment.objects.filter(
-                student=student,
-                teacher=teacher,
-                status=SubjectEnrollment.Status.ACTIVE,
-            ).exists()
+        if user1.role == "tutor":
+            return _check_tutor_can_chat_with(user1, user2)
 
-        # 4. Student + Tutor (bidirectional)
-        if (user1.role == "student" and user2.role == "tutor") or (
-            user1.role == "tutor" and user2.role == "student"
-        ):
-            student = user1 if user1.role == "student" else user2
-            tutor = user1 if user1.role == "tutor" else user2
-
-            from accounts.models import StudentProfile
-
-            return StudentProfile.objects.filter(
-                user=student,
-                tutor=tutor,
-            ).exists()
-
-        # 5. Teacher + Tutor (bidirectional)
-        if (user1.role == "teacher" and user2.role == "tutor") or (
-            user1.role == "tutor" and user2.role == "teacher"
-        ):
-            teacher = user1 if user1.role == "teacher" else user2
-            tutor = user1 if user1.role == "tutor" else user2
-
-            from materials.models import SubjectEnrollment
-            from accounts.models import StudentProfile
-
-            tutor_students = StudentProfile.objects.filter(
-                tutor=tutor,
-            ).values_list("user_id", flat=True)
-
-            return SubjectEnrollment.objects.filter(
-                student_id__in=tutor_students,
-                teacher=teacher,
-                status=SubjectEnrollment.Status.ACTIVE,
-            ).exists()
-
-        # 6. Parent + Teacher (bidirectional)
-        if (user1.role == "parent" and user2.role == "teacher") or (
-            user1.role == "teacher" and user2.role == "parent"
-        ):
-            parent = user1 if user1.role == "parent" else user2
-            teacher = user1 if user1.role == "teacher" else user2
-
-            from accounts.models import StudentProfile
-            from materials.models import SubjectEnrollment
-
-            parent_children = StudentProfile.objects.filter(parent=parent).values_list(
-                "user_id", flat=True
-            )
-
-            return SubjectEnrollment.objects.filter(
-                student_id__in=parent_children,
-                teacher=teacher,
-                status=SubjectEnrollment.Status.ACTIVE,
-            ).exists()
-
-        # 7. Parent + Tutor (bidirectional)
-        if (user1.role == "parent" and user2.role == "tutor") or (
-            user1.role == "tutor" and user2.role == "parent"
-        ):
-            parent = user1 if user1.role == "parent" else user2
-            tutor = user1 if user1.role == "tutor" else user2
-
-            from accounts.models import StudentProfile
-
-            return StudentProfile.objects.filter(
-                parent=parent,
-                tutor=tutor,
-            ).exists()
-
-        # 8. Parent + Student - FORBIDDEN
-        if (user1.role == "parent" and user2.role == "student") or (
-            user1.role == "student" and user2.role == "parent"
-        ):
-            return False
+        if user1.role == "parent":
+            return _check_parent_can_chat_with(user1, user2)
 
         return False
 
     except Exception as e:
         logger.debug(f"[can_initiate_chat] Error checking chat initiation: {e}")
         return False
+
+
+def _check_student_can_chat_with(student: "User", other: "User") -> bool:
+    if other.role == "student":
+        return False
+
+    if other.role == "parent":
+        return False
+
+    if other.role == "teacher":
+        from materials.models import SubjectEnrollment
+
+        return SubjectEnrollment.objects.filter(
+            student=student,
+            teacher=other,
+            status=SubjectEnrollment.Status.ACTIVE,
+        ).exists()
+
+    if other.role == "tutor":
+        if not other.is_active:
+            return False
+
+        from accounts.models import StudentProfile
+
+        return StudentProfile.objects.filter(
+            user=student,
+            tutor=other,
+            tutor__is_active=True,
+        ).exists()
+
+    return False
+
+
+def _check_teacher_can_chat_with(teacher: "User", other: "User") -> bool:
+    if other.role == "teacher":
+        return False
+
+    if other.role == "student":
+        from materials.models import SubjectEnrollment
+
+        return SubjectEnrollment.objects.filter(
+            student=other,
+            teacher=teacher,
+            status=SubjectEnrollment.Status.ACTIVE,
+        ).exists()
+
+    if other.role == "parent":
+        from accounts.models import StudentProfile
+        from materials.models import SubjectEnrollment
+
+        parent_children = StudentProfile.objects.filter(
+            parent=other,
+            parent__is_active=True,
+        ).values_list("user_id", flat=True)
+
+        return SubjectEnrollment.objects.filter(
+            student_id__in=parent_children,
+            teacher=teacher,
+            status=SubjectEnrollment.Status.ACTIVE,
+        ).exists()
+
+    if other.role == "tutor":
+        from materials.models import SubjectEnrollment
+        from accounts.models import StudentProfile
+
+        tutor_students = StudentProfile.objects.filter(
+            tutor=other,
+            tutor__is_active=True,
+        ).values_list("user_id", flat=True)
+
+        return SubjectEnrollment.objects.filter(
+            student_id__in=tutor_students,
+            teacher=teacher,
+            status=SubjectEnrollment.Status.ACTIVE,
+        ).exists()
+
+    return False
+
+
+def _check_tutor_can_chat_with(tutor: "User", other: "User") -> bool:
+    if other.role == "tutor":
+        return False
+
+    if other.role == "student":
+        from accounts.models import StudentProfile
+
+        return StudentProfile.objects.filter(
+            user=other,
+            tutor=tutor,
+            tutor__is_active=True,
+        ).exists()
+
+    if other.role == "teacher":
+        from materials.models import SubjectEnrollment
+        from accounts.models import StudentProfile
+
+        tutor_students = StudentProfile.objects.filter(
+            tutor=tutor,
+            tutor__is_active=True,
+        ).values_list("user_id", flat=True)
+
+        return SubjectEnrollment.objects.filter(
+            student_id__in=tutor_students,
+            teacher=other,
+            status=SubjectEnrollment.Status.ACTIVE,
+        ).exists()
+
+    if other.role == "parent":
+        from accounts.models import StudentProfile
+
+        return StudentProfile.objects.filter(
+            parent=other,
+            tutor=tutor,
+            parent__is_active=True,
+            tutor__is_active=True,
+        ).exists()
+
+    return False
+
+
+def _check_parent_can_chat_with(parent: "User", other: "User") -> bool:
+    if other.role == "parent":
+        return False
+
+    if other.role == "student":
+        return False
+
+    if other.role == "teacher":
+        from accounts.models import StudentProfile
+        from materials.models import SubjectEnrollment
+
+        parent_children = StudentProfile.objects.filter(
+            parent=parent,
+            parent__is_active=True,
+        ).values_list("user_id", flat=True)
+
+        return SubjectEnrollment.objects.filter(
+            student_id__in=parent_children,
+            teacher=other,
+            status=SubjectEnrollment.Status.ACTIVE,
+        ).exists()
+
+    if other.role == "tutor":
+        from accounts.models import StudentProfile
+
+        return StudentProfile.objects.filter(
+            parent=parent,
+            tutor=other,
+            parent__is_active=True,
+            tutor__is_active=True,
+        ).exists()
+
+    return False

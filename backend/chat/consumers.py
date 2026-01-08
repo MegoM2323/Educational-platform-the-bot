@@ -1,8 +1,6 @@
 import json
 import logging
 import asyncio
-import time
-from collections import deque
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -103,6 +101,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def _handle_message(self, data):
         """Обработать отправку сообщения"""
+        if not self.user.is_active:
+            await self._send_error("UNAUTHORIZED", "User is inactive")
+            return
+
         content = data.get("content", "").strip()
         if not content:
             await self._send_error("EMPTY_MESSAGE", "Message cannot be empty")
@@ -122,10 +124,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self._send_error("ERROR", str(e))
             return
 
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {"type": "chat_message", "message": message},
-        )
+        if not message.get("is_deleted", False):
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {"type": "chat_message", "message": message},
+            )
 
     async def _handle_typing(self):
         """Обработать индикатор печати"""

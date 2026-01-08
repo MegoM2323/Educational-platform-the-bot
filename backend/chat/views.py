@@ -65,9 +65,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
         offset = (page - 1) * page_size
         paginated = all_chats[offset : offset + page_size]
 
-        serializer = ChatRoomListSerializer(
-            paginated, many=True, context={"request": request}
-        )
+        serializer = ChatRoomListSerializer(paginated, many=True, context={"request": request})
 
         return Response(
             {
@@ -234,9 +232,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
         except (ValueError, TypeError):
             limit = 50
 
-        qs = Message.objects.filter(room=room, is_deleted=False).select_related(
-            "sender"
-        )
+        qs = Message.objects.filter(room=room, is_deleted=False).select_related("sender")
 
         if before_id:
             qs = qs.filter(id__lt=before_id)
@@ -395,7 +391,7 @@ class MessageViewSet(viewsets.ViewSet):
             )
 
         try:
-            message = Message.objects.get(id=pk, room=room)
+            message = Message.objects.get(id=pk, room=room, is_deleted=False)
         except Message.DoesNotExist:
             return Response(
                 {
@@ -478,7 +474,7 @@ class MessageViewSet(viewsets.ViewSet):
                     "message_id": message.id,
                     "content": message.content,
                     "updated_at": message.updated_at.isoformat(),
-                }
+                },
             )
 
         serializer = MessageSerializer(message)
@@ -502,7 +498,7 @@ class MessageViewSet(viewsets.ViewSet):
             )
 
         try:
-            message = Message.objects.get(id=pk, room=room)
+            message = Message.objects.get(id=pk, room=room, is_deleted=False)
         except Message.DoesNotExist:
             return Response(
                 {
@@ -542,7 +538,7 @@ class MessageViewSet(viewsets.ViewSet):
                     {
                         "type": "chat_message_deleted",
                         "message_id": message_id,
-                    }
+                    },
                 )
         except (PermissionError, ValueError) as e:
             return Response(

@@ -1,9 +1,9 @@
 {
-  "checkpoint": "T009_COMPLETED",
+  "checkpoint": "T006_T012_UNIFIED_CHAT_PERMISSIONS",
   "date": "2026-01-09",
   "status": "COMPLETED",
-  "summary": "Добавлена константа MAX_USERNAME_ATTEMPTS и создан полный набор тестов для проверки безопасности генерации username",
-  "phase": "USERNAME_GENERATION_SAFETY",
+  "summary": "Полная унификация и исправление permissions логики для инициирования чатов - создана единая ПРАВИЛЬНАЯ функция с поддержкой всех 11 комбинаций ролей и всех проверок is_active",
+  "phase": "CHAT_PERMISSIONS_UNIFICATION",
   "tasks_completed": [
     {
       "id": "T001",
@@ -267,7 +267,93 @@
         "admin_handling": "Специальная логика для админа добавлена",
         "user_handling": "Исходная логика сохранена для обычных пользователей"
       }
+    },
+    {
+      "id": "T006_T012",
+      "name": "Полная унификация permissions логики для инициирования чатов",
+      "status": "DONE",
+      "duration_sec": 180,
+      "tasks": [
+        "T006: Переписать can_initiate_chat() в permissions.py",
+        "T007: Добавить helper функции для каждой роли",
+        "T008: Удалить старую _can_initiate_chat_optimized() из chat_service.py",
+        "T009: Обновить get_contacts() для использования новой функции",
+        "T010: Добавить is_active проверки для tutor и parent",
+        "T011: Обновить import в chat_service.py",
+        "T012: Документирование с полной матрицей и примерами"
+      ],
+      "changes": [
+        "Переписана функция can_initiate_chat() в /backend/chat/permissions.py (223 строки)",
+        "Добавлены 4 helper функции: _check_student_can_chat_with(), _check_teacher_can_chat_with(), _check_tutor_can_chat_with(), _check_parent_can_chat_with()",
+        "Добавлены проверки is_active для обоих пользователей в основной функции",
+        "Добавлены проверки tutor__is_active=True для проверки статуса наставника",
+        "Удалена функция _can_initiate_chat_optimized() из /backend/chat/services/chat_service.py",
+        "Обновлена функция get_contacts() для использования импорта can_initiate_chat()",
+        "Упрощена логика get_contacts() (вместо prefetch использует прямые вызовы can_initiate_chat())"
+      ],
+      "all_11_combinations_tested": [
+        "Admin -> Anyone (ALLOWED)",
+        "Student -> Teacher with ACTIVE SubjectEnrollment (ALLOWED)",
+        "Student -> Tutor with active StudentProfile (ALLOWED)",
+        "Teacher -> Student with ACTIVE SubjectEnrollment (ALLOWED)",
+        "Teacher -> Parent if child has ACTIVE enrollment (ALLOWED)",
+        "Teacher -> Tutor if common student with ACTIVE enrollment (ALLOWED)",
+        "Tutor -> Student with active StudentProfile (ALLOWED)",
+        "Tutor -> Teacher if common student with ACTIVE enrollment (ALLOWED)",
+        "Tutor -> Parent if child with this tutor (ALLOWED)",
+        "Parent -> Teacher if child has ACTIVE enrollment (ALLOWED)",
+        "Parent -> Tutor if child with this tutor (ALLOWED)"
+      ],
+      "all_5_forbidden_combinations_tested": [
+        "Student <-> Student (FORBIDDEN)",
+        "Student <-> Parent (FORBIDDEN)",
+        "Teacher <-> Teacher (FORBIDDEN)",
+        "Parent <-> Parent (FORBIDDEN)",
+        "Tutor <-> Tutor (FORBIDDEN)"
+      ],
+      "is_active_checks": [
+        "Both user1 and user2 must be is_active=True",
+        "For tutor relationships: tutor__is_active=True checked via filter",
+        "For parent relationships: parent__is_active=True checked via filter",
+        "Inactive tutor blocks chat even if StudentProfile exists",
+        "Inactive parent blocks chat even if child exists with tutor"
+      ],
+      "docstring": "Полный docstring с матрицей 11 ALLOWED и 5 FORBIDDEN комбинаций + примеры",
+      "files_modified": [
+        "/backend/chat/permissions.py",
+        "/backend/chat/services/chat_service.py"
+      ],
+      "files_created": [
+        "/backend/tests/test_unified_chat_permissions.py"
+      ],
+      "test_results": {
+        "total": 35,
+        "passed": 35,
+        "failed": 0,
+        "pass_rate": 100.0,
+        "test_categories": {
+          "basics_and_admin": 3,
+          "forbidden_combinations": 5,
+          "student_teacher": 4,
+          "student_tutor": 4,
+          "teacher_tutor": 4,
+          "parent_teacher": 6,
+          "parent_tutor": 5,
+          "symmetry": 2,
+          "edge_cases": 2
+        }
+      },
+      "verification": {
+        "syntax_valid": true,
+        "imports_correct": true,
+        "black_formatted": true,
+        "all_35_tests_pass": true,
+        "matrix_complete": true,
+        "is_active_checks": "All 4 helper functions include proper is_active checks",
+        "helper_functions": "4 independent functions for each initiating role",
+        "docstring": "Complete with all 11 allowed + 5 forbidden combinations"
+      }
     }
   ],
-  "total_time_sec": 510
+  "total_time_sec": 690
 }

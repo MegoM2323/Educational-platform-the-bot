@@ -139,11 +139,7 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
             last_read = participant.last_read_at
 
             if not last_read:
-                return (
-                    obj.messages.filter(is_deleted=False)
-                    .exclude(sender=request.user)
-                    .count()
-                )
+                return obj.messages.filter(is_deleted=False).exclude(sender=request.user).count()
 
             return (
                 obj.messages.filter(

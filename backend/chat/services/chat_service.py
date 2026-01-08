@@ -59,29 +59,21 @@ class ChatService:
 
         existing_room = ChatService._find_existing_chat(user1, user2)
         if existing_room:
-            logger.debug(
-                f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}"
-            )
+            logger.debug(f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}")
             return existing_room, False
 
         with transaction.atomic():
-            existing_room = ChatService._find_existing_chat(
-                user1, user2, for_update=True
-            )
+            existing_room = ChatService._find_existing_chat(user1, user2, for_update=True)
             if existing_room:
                 logger.debug(f"Found existing chat {existing_room.id} after lock")
                 return existing_room, False
 
             room = ChatService._create_chat(user1, user2)
-            logger.info(
-                f"Created new chat {room.id} between users {user1.id} and {user2.id}"
-            )
+            logger.info(f"Created new chat {room.id} between users {user1.id} and {user2.id}")
             return room, True
 
     @staticmethod
-    def _find_existing_chat(
-        user1: User, user2: User, for_update: bool = False
-    ) -> Optional[ChatRoom]:
+    def _find_existing_chat(user1: User, user2: User, for_update: bool = False) -> Optional[ChatRoom]:
         """
         Найти существующий direct чат между двумя пользователями.
 
@@ -175,9 +167,7 @@ class ChatService:
             base_qs = ChatRoom.objects.filter(participants__user=user, is_active=True)
 
         last_message_subquery = (
-            Message.objects.filter(room=OuterRef("id"), is_deleted=False)
-            .order_by("-created_at")
-            .values("content")[:1]
+            Message.objects.filter(room=OuterRef("id"), is_deleted=False).order_by("-created_at").values("content")[:1]
         )
 
         last_message_time_subquery = (
@@ -186,9 +176,9 @@ class ChatService:
             .values("created_at")[:1]
         )
 
-        participant_last_read_subquery = ChatParticipant.objects.filter(
-            room=OuterRef("id"), user=user
-        ).values("last_read_at")[:1]
+        participant_last_read_subquery = ChatParticipant.objects.filter(room=OuterRef("id"), user=user).values(
+            "last_read_at"
+        )[:1]
 
         is_admin = hasattr(user, "role") and user.role == "admin"
 
@@ -220,9 +210,7 @@ class ChatService:
             base_qs.annotate(
                 last_message_content=Subquery(last_message_subquery),
                 last_message_time=Subquery(last_message_time_subquery),
-                unread_count=Subquery(
-                    unread_count_subquery, output_field=IntegerField()
-                ),
+                unread_count=Subquery(unread_count_subquery, output_field=IntegerField()),
             )
             .prefetch_related("participants__user")
             .distinct()
@@ -280,9 +268,7 @@ class ChatService:
             participant.save(update_fields=["last_read_at"])
             logger.debug(f"Marked chat {room.id} as read for user {user.id}")
         except ChatParticipant.DoesNotExist:
-            logger.debug(
-                f"No ChatParticipant found for user {user.id} in chat {room.id}"
-            )
+            logger.debug(f"No ChatParticipant found for user {user.id} in chat {room.id}")
             pass
 
     @staticmethod
@@ -290,30 +276,19 @@ class ChatService:
         """
         Получить список пользователей, с которыми может общаться current user.
 
-        Оптимизация: prefetch все данные одним запросом, затем проверять в Python без SQL.
-
-        Логика:
-        - Все активные пользователи кроме себя
-        - Prefetch всех enrollments и tutor pairs одним запросом
-        - Проверить permissions в Python используя prefetched data
-        - Вернуть с информацией о существующих чатах
+        Использует can_initiate_chat() из permissions для проверки прав.
 
         Returns:
             list[dict]: Список контактов с полями:
                 - id, full_name, role
                 - has_existing_chat, existing_chat_id
         """
-        from django.contrib.auth import get_user_model
-        from materials.models import SubjectEnrollment
-        from accounts.models import StudentProfile
+        from chat.permissions import can_initiate_chat
 
         User = get_user_model()
         all_users = User.objects.filter(is_active=True).exclude(id=user.id)
 
-        # 1. Получить existing chats одним запросом
-        my_rooms = ChatParticipant.objects.filter(user=user).values_list(
-            "room_id", flat=True
-        )
+        my_rooms = ChatParticipant.objects.filter(user=user).values_list("room_id", flat=True)
         existing_chats = {}
 
         for cp in ChatParticipant.objects.filter(
@@ -322,25 +297,9 @@ class ChatService:
             if cp.user_id not in existing_chats:
                 existing_chats[cp.user_id] = cp.room_id
 
-        # 2. Prefetch все permissions data ОДИН раз (не в цикле!)
-        active_enrollments = set(
-            SubjectEnrollment.objects.filter(
-                status=SubjectEnrollment.Status.ACTIVE
-            ).values_list("student_id", "teacher_id")
-        )
-
-        student_tutor_pairs = set(
-            StudentProfile.objects.filter(tutor__isnull=False).values_list(
-                "user_id", "tutor_id"
-            )
-        )
-
-        # 3. В цикле проверять используя prefetched data (БЕЗ SQL)
         contacts = []
         for other_user in all_users:
-            if ChatService._can_initiate_chat_optimized(
-                user, other_user, active_enrollments, student_tutor_pairs
-            ):
+            if can_initiate_chat(user, other_user):
                 contacts.append(
                     {
                         "id": other_user.id,
@@ -352,63 +311,3 @@ class ChatService:
                 )
 
         return contacts
-
-    @staticmethod
-    def _can_initiate_chat_optimized(
-        user1, user2, active_enrollments, student_tutor_pairs
-    ):
-        """
-        Проверка can_initiate_chat БЕЗ SQL запросов (используя prefetched наборы).
-
-        Args:
-            user1: User initiating chat
-            user2: User receiving chat invitation
-            active_enrollments: set of (student_id, teacher_id) tuples
-            student_tutor_pairs: set of (student_id, tutor_id) tuples
-
-        Returns:
-            bool: True if chat can be initiated
-        """
-        # 1. Admin может всегда
-        if user1.role == "admin":
-            return True
-
-        # 2. Студенты не могут писать друг другу
-        if user1.role == "student" and user2.role == "student":
-            return False
-
-        # 3. Student + Teacher (bidirectional)
-        if (user1.role == "student" and user2.role == "teacher") or (
-            user1.role == "teacher" and user2.role == "student"
-        ):
-            student_id = user1.id if user1.role == "student" else user2.id
-            teacher_id = user1.id if user1.role == "teacher" else user2.id
-            return (student_id, teacher_id) in active_enrollments
-
-        # 4. Student + Tutor (bidirectional)
-        if (user1.role == "student" and user2.role == "tutor") or (
-            user1.role == "tutor" and user2.role == "student"
-        ):
-            student_id = user1.id if user1.role == "student" else user2.id
-            tutor_id = user1.id if user1.role == "tutor" else user2.id
-            return (student_id, tutor_id) in student_tutor_pairs
-
-        # 5. Teacher + Tutor - найти общих студентов (в prefetched данных)
-        if (user1.role == "teacher" and user2.role == "tutor") or (
-            user1.role == "tutor" and user2.role == "teacher"
-        ):
-            teacher_id = user1.id if user1.role == "teacher" else user2.id
-            tutor_id = user1.id if user1.role == "tutor" else user2.id
-
-            # Найти студентов репетитора
-            tutor_students = {
-                pair[0] for pair in student_tutor_pairs if pair[1] == tutor_id
-            }
-
-            # Проверить есть ли enrollment с teacher
-            for student_id in tutor_students:
-                if (student_id, teacher_id) in active_enrollments:
-                    return True
-            return False
-
-        return False

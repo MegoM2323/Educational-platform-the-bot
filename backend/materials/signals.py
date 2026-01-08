@@ -450,14 +450,21 @@ def create_subject_forum_chat(
             )
             return
 
-        # Build chat name: "{subject_name} - {student_name} ↔ {teacher_name}"
+        # Build chat name: "{subject_name}: {teacher_name}"
         student_name = instance.student.get_full_name()
+        if not student_name:
+            student_name = instance.student.email or "Unknown"
+
         subject_name = (
             instance.get_subject_name()
         )  # Respects custom_subject_name if set
-        teacher_name = instance.teacher.get_full_name()
 
-        chat_name = f"{subject_name} - {student_name} ↔ {teacher_name}"
+        teacher_name = instance.teacher.get_full_name()
+        if not teacher_name:
+            teacher_name = instance.teacher.email or "Unknown"
+
+        # Format: "{Subject}: {Teacher}"
+        chat_name = f"{subject_name}: {teacher_name}"
 
         # Create FORUM_SUBJECT chat
         forum_chat = ChatRoom.objects.create(
@@ -465,7 +472,7 @@ def create_subject_forum_chat(
             type=ChatRoom.Type.FORUM_SUBJECT,
             enrollment=instance,
             created_by=instance.student,
-            description=f"Forum for {subject_name} between {student_name} and teacher {teacher_name}",
+            description=f"Forum for {subject_name} with {teacher_name}",
         )
 
         # Collect all participants: student + teacher + parent (if exists)

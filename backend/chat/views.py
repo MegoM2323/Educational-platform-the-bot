@@ -99,7 +99,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
 
         try:
             recipient = User.objects.get(id=recipient_id)
-        except User.DoesNotExist:
+        except (User.DoesNotExist, ValueError, TypeError):
             return Response(
                 {
                     "error": {
@@ -535,35 +535,61 @@ class ChatContactsView(APIView):
         Возвращает список пользователей, с которыми текущий пользователь может общаться.
         Проверяется через can_initiate_chat().
         """
-        all_users = User.objects.filter(is_active=True).exclude(id=request.user.id)
+        import logging
 
-        if not all_users.exists():
-            return Response({"contacts": []})
+        logger = logging.getLogger(__name__)
 
-        user_ids = list(all_users.values_list("id", flat=True))
+        try:
+            all_users = User.objects.filter(is_active=True).exclude(id=request.user.id)
 
-        existing_chats = {}
-        for cp in (
-            ChatParticipant.objects.filter(
-                room__participants__user=request.user, user_id__in=user_ids
-            )
-            .select_related("room")
-            .distinct()
-        ):
-            if cp.user_id not in existing_chats:
-                existing_chats[cp.user_id] = cp.room_id
+            if not all_users.exists():
+                return Response({"contacts": []})
 
-        contacts = []
-        for user in all_users:
-            if can_initiate_chat(request.user, user):
-                contacts.append(
-                    {
-                        "id": user.id,
-                        "full_name": f"{user.first_name} {user.last_name}".strip(),
-                        "role": getattr(user, "role", "user"),
-                        "has_existing_chat": user.id in existing_chats,
-                        "existing_chat_id": existing_chats.get(user.id),
-                    }
+            user_ids = list(all_users.values_list("id", flat=True))
+
+            existing_chats = {}
+            try:
+                # Get all ChatRooms where current user is a participant
+                my_rooms = ChatParticipant.objects.filter(
+                    user=request.user
+                ).values_list("room_id", flat=True)
+
+                # Get all ChatParticipants in those rooms from other users
+                for cp in (
+                    ChatParticipant.objects.filter(user_id__in=user_ids)
+                    .filter(room_id__in=my_rooms)
+                    .select_related("room")
+                ):
+                    if cp.user_id not in existing_chats:
+                        existing_chats[cp.user_id] = cp.room_id
+            except Exception as e:
+                logger.warning(
+                    f"Error loading existing chats for user {request.user.id}: {str(e)}"
                 )
+                existing_chats = {}
 
-        return Response({"contacts": contacts})
+            contacts = []
+            for user in all_users:
+                try:
+                    if can_initiate_chat(request.user, user):
+                        contacts.append(
+                            {
+                                "id": user.id,
+                                "full_name": f"{user.first_name} {user.last_name}".strip(),
+                                "role": getattr(user, "role", "user"),
+                                "has_existing_chat": user.id in existing_chats,
+                                "existing_chat_id": existing_chats.get(user.id),
+                            }
+                        )
+                except Exception as e:
+                    logger.warning(f"Error checking chat with user {user.id}: {str(e)}")
+                    continue
+
+            return Response({"contacts": contacts})
+
+        except Exception as e:
+            logger.error(f"ChatContactsView error: {str(e)}")
+            return Response(
+                {"error": {"code": "ERROR", "message": "Failed to load contacts"}},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

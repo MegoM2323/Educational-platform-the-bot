@@ -22,6 +22,7 @@ export default function ParentChatPage(): JSX.Element {
   const [selectedChat, setSelectedChat] = useState<ForumChat | null>(null);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [messageText, setMessageText] = useState('');
 
   const { data: chatListData, isLoading: chatsLoading } = useChatList();
   const { data: messagesData, isLoading: messagesLoading } = useChatMessages(selectedChat?.id || 0);
@@ -146,7 +147,13 @@ export default function ParentChatPage(): JSX.Element {
                     isConnected={wsConnected}
                     renderMessageInput={() => (
                       <MessageInput
-                        onSend={handleSendMessage}
+                        value={messageText}
+                        onChange={setMessageText}
+                        onSend={async () => {
+                          if (!messageText.trim()) return;
+                          await handleSendMessage(messageText);
+                          setMessageText('');
+                        }}
                         isLoading={sendMutation.isPending}
                       />
                     )}
@@ -195,7 +202,13 @@ export default function ParentChatPage(): JSX.Element {
                     isConnected={wsConnected}
                     renderMessageInput={() => (
                       <MessageInput
-                        onSend={handleSendMessage}
+                        value={messageText}
+                        onChange={setMessageText}
+                        onSend={async () => {
+                          if (!messageText.trim()) return;
+                          await handleSendMessage(messageText);
+                          setMessageText('');
+                        }}
                         isLoading={sendMutation.isPending}
                       />
                     )}

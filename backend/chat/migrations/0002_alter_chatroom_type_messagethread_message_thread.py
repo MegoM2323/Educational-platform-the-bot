@@ -6,39 +6,89 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('chat', '0001_initial'),
+        ("chat", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='chatroom',
-            name='type',
-            field=models.CharField(choices=[('direct', 'Личный чат'), ('group', 'Групповой чат'), ('support', 'Поддержка'), ('class', 'Класс'), ('general', 'Общий форум')], default='direct', max_length=20, verbose_name='Тип'),
+            model_name="chatroom",
+            name="type",
+            field=models.CharField(
+                choices=[
+                    ("direct", "Личный чат"),
+                    ("group", "Групповой чат"),
+                    ("support", "Поддержка"),
+                    ("class", "Класс"),
+                    ("general", "Общий форум"),
+                ],
+                default="direct",
+                max_length=20,
+                verbose_name="Тип",
+            ),
         ),
         migrations.CreateModel(
-            name='MessageThread',
+            name="MessageThread",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=200, verbose_name='Заголовок треда')),
-                ('is_pinned', models.BooleanField(default=False, verbose_name='Закреплен')),
-                ('is_locked', models.BooleanField(default=False, verbose_name='Заблокирован')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('created_by', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='created_threads', to=settings.AUTH_USER_MODEL, verbose_name='Создатель')),
-                ('room', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='threads', to='chat.chatroom', verbose_name='Комната')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "title",
+                    models.CharField(max_length=200, verbose_name="Заголовок треда"),
+                ),
+                (
+                    "is_pinned",
+                    models.BooleanField(default=False, verbose_name="Закреплен"),
+                ),
+                (
+                    "is_locked",
+                    models.BooleanField(default=False, verbose_name="Заблокирован"),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="created_threads",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Создатель",
+                    ),
+                ),
+                (
+                    "room",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="threads",
+                        to="chat.chatroom",
+                        verbose_name="Комната",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Тред сообщений',
-                'verbose_name_plural': 'Треды сообщений',
-                'ordering': ['-is_pinned', '-updated_at'],
+                "verbose_name": "Тред сообщений",
+                "verbose_name_plural": "Треды сообщений",
+                "ordering": ["-is_pinned", "-updated_at"],
             },
         ),
         migrations.AddField(
-            model_name='message',
-            name='thread',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='messages', to='chat.messagethread', verbose_name='Тред'),
+            model_name="message",
+            name="thread",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="messages",
+                to="chat.messagethread",
+                verbose_name="Тред",
+            ),
         ),
     ]

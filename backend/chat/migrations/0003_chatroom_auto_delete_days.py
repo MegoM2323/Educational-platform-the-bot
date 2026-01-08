@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('chat', '0002_alter_chatroom_type_messagethread_message_thread'),
+        ("chat", "0002_alter_chatroom_type_messagethread_message_thread"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='chatroom',
-            name='auto_delete_days',
-            field=models.PositiveIntegerField(default=7, help_text='Сообщения старше указанного количества дней будут автоматически удалены', verbose_name='Дни до автоудаления сообщений'),
+            model_name="chatroom",
+            name="auto_delete_days",
+            field=models.PositiveIntegerField(
+                default=7,
+                help_text="Сообщения старше указанного количества дней будут автоматически удалены",
+                verbose_name="Дни до автоудаления сообщений",
+            ),
         ),
     ]

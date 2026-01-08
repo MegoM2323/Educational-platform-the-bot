@@ -97,8 +97,7 @@ class TestForumMessageVisibilityE2E:
         )
 
         assert response.status_code == 200, (
-            f"Failed to get forum list: {response.status_code} - "
-            f"{response.text}"
+            f"Failed to get forum list: {response.status_code} - " f"{response.text}"
         )
 
         forums = response.json()
@@ -299,9 +298,9 @@ class TestForumMessageVisibilityE2E:
         if isinstance(forum_list, dict):
             forum_list = forum_list.get("results", [])
 
-        assert len(forum_list) > 0, (
-            "Parent has no forums - check parent assignment to student"
-        )
+        assert (
+            len(forum_list) > 0
+        ), "Parent has no forums - check parent assignment to student"
 
         # Step 2: Get messages from first forum
         forum = forum_list[0]
@@ -326,9 +325,9 @@ class TestForumMessageVisibilityE2E:
         else:
             total_count = len(messages)
 
-        assert total_count > 0, (
-            "Parent message list is empty - messages not visible to parent"
-        )
+        assert (
+            total_count > 0
+        ), "Parent message list is empty - messages not visible to parent"
 
     def test_integration_all_roles_see_messages(
         self,

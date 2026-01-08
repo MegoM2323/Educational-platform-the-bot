@@ -36,7 +36,7 @@ class PachcaService:
         self,
         api_token: Optional[str] = None,
         channel_id: Optional[str] = None,
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
     ) -> None:
         """
         Initialize Pachca service with credentials from environment or parameters.
@@ -46,19 +46,18 @@ class PachcaService:
             channel_id: Pachca channel ID (defaults to PACHCA_FORUM_CHANNEL_ID env var)
             base_url: Pachca API base URL (defaults to PACHCA_FORUM_BASE_URL or official API)
         """
-        self.api_token = api_token or os.getenv('PACHCA_FORUM_API_TOKEN', '')
-        self.channel_id = channel_id or os.getenv('PACHCA_FORUM_CHANNEL_ID', '')
-        self.base_url = (
-            base_url or
-            os.getenv('PACHCA_FORUM_BASE_URL', 'https://api.pachca.com/api/shared/v1')
+        self.api_token = api_token or os.getenv("PACHCA_FORUM_API_TOKEN", "")
+        self.channel_id = channel_id or os.getenv("PACHCA_FORUM_CHANNEL_ID", "")
+        self.base_url = base_url or os.getenv(
+            "PACHCA_FORUM_BASE_URL", "https://api.pachca.com/api/shared/v1"
         )
 
         # Setup headers with authorization if token exists
         self.headers = {}
         if self.api_token:
             self.headers = {
-                'Authorization': f'Bearer {self.api_token}',
-                'Content-Type': 'application/json'
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json",
             }
 
     def is_configured(self) -> bool:
@@ -78,30 +77,30 @@ class PachcaService:
             True if token is valid, False otherwise
         """
         if not self.is_configured():
-            logger.warning('Pachca service not configured')
+            logger.warning("Pachca service not configured")
             return False
 
         try:
-            url = f'{self.base_url}/users/me'
+            url = f"{self.base_url}/users/me"
             response = httpx.get(url, headers=self.headers, timeout=10.0)
 
             if response.status_code == 200:
                 user_data = response.json()
-                logger.info(f'Pachca token valid. User ID: {user_data.get("data", {}).get("id")}')
+                logger.info(
+                    f'Pachca token valid. User ID: {user_data.get("data", {}).get("id")}'
+                )
                 return True
             else:
-                logger.error(f'Pachca token validation failed: {response.status_code} - {response.text}')
+                logger.error(
+                    f"Pachca token validation failed: {response.status_code} - {response.text}"
+                )
                 return False
 
         except Exception as e:
-            logger.error(f'Pachca token validation error: {str(e)}')
+            logger.error(f"Pachca token validation error: {str(e)}")
             return False
 
-    def notify_new_forum_message(
-        self,
-        message,
-        chat_room
-    ) -> None:
+    def notify_new_forum_message(self, message, chat_room) -> None:
         """
         Send notification to Pachca when new forum message is created.
 
@@ -140,7 +139,7 @@ class PachcaService:
         except Exception as e:
             logger.error(
                 f"Error sending Pachca forum notification for message {message.id}: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
             # Don't raise - let message creation succeed even if Pachca fails
 
@@ -160,7 +159,9 @@ class PachcaService:
             if chat_room.enrollment:
                 return chat_room.enrollment.get_subject_name()
         except Exception as e:
-            logger.warning(f"Error getting subject name for chat {chat_room.id}: {str(e)}")
+            logger.warning(
+                f"Error getting subject name for chat {chat_room.id}: {str(e)}"
+            )
 
         return "Subject"
 
@@ -180,7 +181,9 @@ class PachcaService:
             names = [u.get_full_name() for u in recipients]
             return ", ".join(names) or "Others"
         except Exception as e:
-            logger.warning(f"Error getting recipient names for chat {chat_room.id}: {str(e)}")
+            logger.warning(
+                f"Error getting recipient names for chat {chat_room.id}: {str(e)}"
+            )
             return "Others"
 
     @staticmethod
@@ -196,7 +199,7 @@ class PachcaService:
             Truncated content with ellipsis if needed
         """
         if len(content) > max_length:
-            return content[:max_length - 3] + "..."
+            return content[: max_length - 3] + "..."
         return content
 
     def _send_message(self, text: str, max_retries: int = 3) -> bool:
@@ -213,32 +216,30 @@ class PachcaService:
             True if message was sent successfully, False otherwise
         """
         if not self.headers:
-            logger.warning("Pachca service not properly configured, cannot send message")
+            logger.warning(
+                "Pachca service not properly configured, cannot send message"
+            )
             return False
 
         url = f"{self.base_url}/messages"
-        payload = {
-            "channels": [self.channel_id],
-            "content": text
-        }
+        payload = {"channels": [self.channel_id], "content": text}
 
         for attempt in range(max_retries):
             try:
                 response = httpx.post(
-                    url,
-                    json=payload,
-                    headers=self.headers,
-                    timeout=10.0
+                    url, json=payload, headers=self.headers, timeout=10.0
                 )
 
                 if response.status_code in (200, 201):
-                    logger.info(f"Successfully sent Pachca forum notification: {text[:50]}...")
+                    logger.info(
+                        f"Successfully sent Pachca forum notification: {text[:50]}..."
+                    )
                     return True
 
                 if response.status_code >= 500:
                     # Server error - retry
                     if attempt < max_retries - 1:
-                        wait_time = 2 ** attempt
+                        wait_time = 2**attempt
                         logger.warning(
                             f"Pachca server error ({response.status_code}), "
                             f"retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})"
@@ -255,7 +256,7 @@ class PachcaService:
             except httpx.RequestError as e:
                 # Network error - retry
                 if attempt < max_retries - 1:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.warning(
                         f"Network error sending to Pachca: {str(e)}, "
                         f"retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})"

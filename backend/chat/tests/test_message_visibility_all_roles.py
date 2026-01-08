@@ -133,12 +133,14 @@ def forum_chat(db, enrollment, teacher_user, student_user):
             "name": f"Forum: {enrollment.subject.name}",
             "created_by": teacher_user,
             "is_active": True,
-        }
+        },
     )
     # Ensure participants are in M2M
     forum.participants.add(teacher_user, student_user)
     # Ensure ChatParticipant records exist
-    ChatParticipant.objects.get_or_create(room=forum, user=teacher_user, defaults={"is_admin": True})
+    ChatParticipant.objects.get_or_create(
+        room=forum, user=teacher_user, defaults={"is_admin": True}
+    )
     ChatParticipant.objects.get_or_create(room=forum, user=student_user)
     return forum
 
@@ -153,12 +155,14 @@ def tutor_forum_chat(db, tutor_enrollment, tutor_user, student_user):
             "name": f"Tutor Forum: {student_user.first_name}",
             "created_by": tutor_user,
             "is_active": True,
-        }
+        },
     )
     # Ensure participants are in M2M
     forum.participants.add(tutor_user, student_user)
     # Ensure ChatParticipant records exist
-    ChatParticipant.objects.get_or_create(room=forum, user=tutor_user, defaults={"is_admin": True})
+    ChatParticipant.objects.get_or_create(
+        room=forum, user=tutor_user, defaults={"is_admin": True}
+    )
     ChatParticipant.objects.get_or_create(room=forum, user=student_user)
     return forum
 
@@ -347,7 +351,9 @@ class TestMessageVisibilityAllRoles:
         if isinstance(messages, dict):
             messages = messages.get("results", [])
 
-        assert len(messages) > 0, "Teacher should still see messages after enrollment deactivation"
+        assert (
+            len(messages) > 0
+        ), "Teacher should still see messages after enrollment deactivation"
         assert any(
             m.get("content") == message_text for m in messages
         ), f"Teacher should see the message sent before deactivation: {message_text}"
@@ -428,9 +434,15 @@ class TestCrossRoleMessageVisibility:
             )
 
         # Get messages from all roles
-        student_response = student_client.get(f"/api/chat/forum/{forum_chat.id}/messages/")
-        teacher_response = teacher_client.get(f"/api/chat/forum/{forum_chat.id}/messages/")
-        parent_response = parent_client.get(f"/api/chat/forum/{forum_chat.id}/messages/")
+        student_response = student_client.get(
+            f"/api/chat/forum/{forum_chat.id}/messages/"
+        )
+        teacher_response = teacher_client.get(
+            f"/api/chat/forum/{forum_chat.id}/messages/"
+        )
+        parent_response = parent_client.get(
+            f"/api/chat/forum/{forum_chat.id}/messages/"
+        )
 
         assert student_response.status_code == status.HTTP_200_OK
         assert teacher_response.status_code == status.HTTP_200_OK
@@ -447,12 +459,12 @@ class TestCrossRoleMessageVisibility:
         teacher_count = extract_count(teacher_response)
         parent_count = extract_count(parent_response)
 
-        assert student_count == teacher_count, (
-            f"Student ({student_count}) and teacher ({teacher_count}) see different counts"
-        )
-        assert teacher_count == parent_count, (
-            f"Teacher ({teacher_count}) and parent ({parent_count}) see different counts"
-        )
+        assert (
+            student_count == teacher_count
+        ), f"Student ({student_count}) and teacher ({teacher_count}) see different counts"
+        assert (
+            teacher_count == parent_count
+        ), f"Teacher ({teacher_count}) and parent ({parent_count}) see different counts"
 
     def test_tutor_and_student_bidirectional_visibility(
         self, student_client, tutor_client, tutor_forum_chat

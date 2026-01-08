@@ -4,7 +4,8 @@ Services for chat system.
 Includes:
 - pachca_service: Pachca API integration for forum message notifications
 - file_validation: File validation for forum attachments
-- direct_chat_service: Direct chat management
+- chat_service: Main chat service with business logic
+- chat_service_new: New chat service architecture
 """
 
 from .pachca_service import PachcaService
@@ -14,7 +15,8 @@ from .file_validation import (
     ALLOWED_EXTENSIONS,
     MAX_FILE_SIZE,
 )
-from .direct_chat_service import DirectChatService
+from .chat_service import ChatService
+from .chat_service_new import ChatServiceNew
 
 __all__ = [
     "PachcaService",
@@ -22,5 +24,6 @@ __all__ = [
     "ForumAttachmentValidator",
     "ALLOWED_EXTENSIONS",
     "MAX_FILE_SIZE",
-    "DirectChatService",
+    "ChatService",
+    "ChatServiceNew",
 ]

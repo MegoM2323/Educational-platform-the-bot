@@ -104,7 +104,9 @@ class TestParentSyncIssues:
         )
         return forum
 
-    def test_01_scenario_parent_added_after_enrollment(self, student, teacher, subject, parent1):
+    def test_01_scenario_parent_added_after_enrollment(
+        self, student, teacher, subject, parent1
+    ):
         """
         Scenario 1: Enrollment exists BEFORE parent is assigned
         ---
@@ -129,9 +131,7 @@ class TestParentSyncIssues:
 
         # Verify parent is NOT in forum initially
         assert parent1 not in forum.participants.all()
-        assert not ChatParticipant.objects.filter(
-            room=forum, user=parent1
-        ).exists()
+        assert not ChatParticipant.objects.filter(room=forum, user=parent1).exists()
 
         # Now assign parent to student
         student_profile = student.student_profile
@@ -140,16 +140,16 @@ class TestParentSyncIssues:
 
         # Verify parent was added to forum
         forum.refresh_from_db()
-        assert parent1 in forum.participants.all(), (
-            "FAIL: Parent not added to forum after assignment"
-        )
+        assert (
+            parent1 in forum.participants.all()
+        ), "FAIL: Parent not added to forum after assignment"
         assert ChatParticipant.objects.filter(
             room=forum, user=parent1
-        ).exists(), (
-            "FAIL: ChatParticipant record not created for parent"
-        )
+        ).exists(), "FAIL: ChatParticipant record not created for parent"
 
-    def test_02_scenario_parent_removed_from_chats(self, student, parent1, teacher, subject):
+    def test_02_scenario_parent_removed_from_chats(
+        self, student, parent1, teacher, subject
+    ):
         """
         Scenario 2: Parent is REMOVED from chats when unassigned
         ---
@@ -179,9 +179,7 @@ class TestParentSyncIssues:
 
         # Verify parent is in forum
         assert parent1 in forum.participants.all()
-        assert ChatParticipant.objects.filter(
-            room=forum, user=parent1
-        ).exists()
+        assert ChatParticipant.objects.filter(room=forum, user=parent1).exists()
 
         # Now REMOVE parent from student
         student_profile = student.student_profile
@@ -198,11 +196,11 @@ class TestParentSyncIssues:
         )
         assert not ChatParticipant.objects.filter(
             room=forum, user=parent1
-        ).exists(), (
-            "FAIL: ChatParticipant record not deleted for removed parent"
-        )
+        ).exists(), "FAIL: ChatParticipant record not deleted for removed parent"
 
-    def test_03_scenario_parent_changed_to_different_parent(self, student, parent1, parent2, teacher, subject):
+    def test_03_scenario_parent_changed_to_different_parent(
+        self, student, parent1, parent2, teacher, subject
+    ):
         """
         Scenario 3: Parent is CHANGED to different parent
         ---
@@ -244,12 +242,12 @@ class TestParentSyncIssues:
         participants_count_after = forum.participants.count()
 
         # This will FAIL - parent1 not removed
-        assert parent1 not in forum.participants.all(), (
-            "FAIL: Old parent1 not removed from forum when changed to parent2"
-        )
-        assert parent2 in forum.participants.all(), (
-            "FAIL: New parent2 not added to forum"
-        )
+        assert (
+            parent1 not in forum.participants.all()
+        ), "FAIL: Old parent1 not removed from forum when changed to parent2"
+        assert (
+            parent2 in forum.participants.all()
+        ), "FAIL: New parent2 not added to forum"
         # If parent1 was properly removed, count should stay same
         # But since removal doesn't work, count will increase
         assert participants_count_after == participants_count_before, (
@@ -257,7 +255,9 @@ class TestParentSyncIssues:
             "(old parent not removed)"
         )
 
-    def test_04_multiple_enrollments_parent_sync(self, student, parent1, teacher, subject):
+    def test_04_multiple_enrollments_parent_sync(
+        self, student, parent1, teacher, subject
+    ):
         """
         Scenario 4: Parent is added to ALL student chats (multiple enrollments)
         ---
@@ -306,14 +306,12 @@ class TestParentSyncIssues:
         # Verify parent is in BOTH forums
         forum1.refresh_from_db()
         forum2.refresh_from_db()
-        assert parent1 in forum1.participants.all(), (
-            "FAIL: Parent not added to forum1"
-        )
-        assert parent1 in forum2.participants.all(), (
-            "FAIL: Parent not added to forum2"
-        )
+        assert parent1 in forum1.participants.all(), "FAIL: Parent not added to forum1"
+        assert parent1 in forum2.participants.all(), "FAIL: Parent not added to forum2"
 
-    def test_05_concurrent_enrollment_and_parent_assignment(self, student, parent1, teacher, subject):
+    def test_05_concurrent_enrollment_and_parent_assignment(
+        self, student, parent1, teacher, subject
+    ):
         """
         Scenario 5: Enrollment and parent assignment happen at same time
         ---
@@ -348,9 +346,9 @@ class TestParentSyncIssues:
         parent_participant_count = ChatParticipant.objects.filter(
             room=forum, user=parent1
         ).count()
-        assert parent_participant_count == 1, (
-            f"FAIL: Duplicate ChatParticipant records (count={parent_participant_count})"
-        )
+        assert (
+            parent_participant_count == 1
+        ), f"FAIL: Duplicate ChatParticipant records (count={parent_participant_count})"
 
 
 class TestParentSyncDjangoTest(TestCase):
@@ -422,7 +420,7 @@ class TestParentSyncDjangoTest(TestCase):
         self.assertNotIn(
             self.parent1,
             forum.participants.all(),
-            "Parent not removed from forum when unassigned"
+            "Parent not removed from forum when unassigned",
         )
 
     def test_parent_change_updates_chats(self):
@@ -453,10 +451,6 @@ class TestParentSyncDjangoTest(TestCase):
         self.assertNotIn(
             self.parent1,
             forum.participants.all(),
-            "Old parent not removed when changed"
+            "Old parent not removed when changed",
         )
-        self.assertIn(
-            self.parent2,
-            forum.participants.all(),
-            "New parent not added"
-        )
+        self.assertIn(self.parent2, forum.participants.all(), "New parent not added")

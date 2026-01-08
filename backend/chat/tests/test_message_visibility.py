@@ -153,9 +153,7 @@ class TestMessageVisibility:
         assert message_data["content"] == message_text
         assert message_data["sender"]["id"] == student.id
 
-    def test_student_can_receive_own_message(
-        self, student_client, forum_chat, student
-    ):
+    def test_student_can_receive_own_message(self, student_client, forum_chat, student):
         """Student can see their own message in message list"""
         message_text = "Test message from student"
 
@@ -172,7 +170,11 @@ class TestMessageVisibility:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        messages = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        messages = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert len(messages) > 0
         assert any(m["content"] == message_text for m in messages)
 
@@ -196,7 +198,11 @@ class TestMessageVisibility:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        messages = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        messages = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert len(messages) > 0, "Teacher message list is empty"
         assert any(
             m["content"] == message_text for m in messages
@@ -222,7 +228,11 @@ class TestMessageVisibility:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        messages = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        messages = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert len(messages) > 0, "Student message list is empty"
         assert any(
             m["content"] == message_text for m in messages
@@ -233,7 +243,11 @@ class TestMessageVisibility:
         response = parent_client.get("/api/chat/forum/")
 
         assert response.status_code == status.HTTP_200_OK
-        forums = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        forums = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert len(forums) > 0, "Parent has no forums"
 
     def test_parent_can_see_forum_messages(
@@ -260,7 +274,11 @@ class TestMessageVisibility:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        messages = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        messages = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert len(messages) > 0, "Parent message list is empty"
         assert any(
             m["content"] == message_text for m in messages
@@ -282,7 +300,7 @@ class TestMessageVisibility:
         forum, _ = ChatRoom.objects.get_or_create(
             type=ChatRoom.Type.FORUM_SUBJECT,
             enrollment=enrollment,
-            defaults={"name": f"Forum: {subject.name}", "created_by": teacher}
+            defaults={"name": f"Forum: {subject.name}", "created_by": teacher},
         )
 
         # Ensure student and teacher are in forum
@@ -302,9 +320,7 @@ class TestMessageVisibility:
 
         assert parent_in_chat, "Parent not added to chat after assignment"
 
-    def test_multiple_students_dont_see_each_other_messages(
-        self, teacher, subject
-    ):
+    def test_multiple_students_dont_see_each_other_messages(self, teacher, subject):
         """Different students shouldn't see each other's forum messages"""
         # Create two students and enrollments
         student1 = User.objects.create_user(
@@ -341,12 +357,12 @@ class TestMessageVisibility:
         forum1, _ = ChatRoom.objects.get_or_create(
             type=ChatRoom.Type.FORUM_SUBJECT,
             enrollment=enroll1,
-            defaults={"name": f"Forum: {subject.name}", "created_by": teacher}
+            defaults={"name": f"Forum: {subject.name}", "created_by": teacher},
         )
         forum2, _ = ChatRoom.objects.get_or_create(
             type=ChatRoom.Type.FORUM_SUBJECT,
             enrollment=enroll2,
-            defaults={"name": f"Forum: {subject.name}", "created_by": teacher}
+            defaults={"name": f"Forum: {subject.name}", "created_by": teacher},
         )
 
         # Ensure participants are added
@@ -373,7 +389,11 @@ class TestMessageVisibility:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        messages = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        messages = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
 
         # Student2 shouldn't see Student1's message
         assert not any(

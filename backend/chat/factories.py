@@ -13,10 +13,9 @@ class ChatRoomFactory(factory.django.DjangoModelFactory):
     description = "Test room"
     type = ChatRoom.Type.DIRECT
     created_by = factory.LazyFunction(
-        lambda: User.objects.filter(is_active=True).first() or
-        User.objects.create_user(
-            username=f"user_{id(object())}",
-            email=f"user_{id(object())}@test.com"
+        lambda: User.objects.filter(is_active=True).first()
+        or User.objects.create_user(
+            username=f"user_{id(object())}", email=f"user_{id(object())}@test.com"
         )
     )
     is_active = True
@@ -29,10 +28,9 @@ class MessageFactory(factory.django.DjangoModelFactory):
 
     room = factory.SubFactory(ChatRoomFactory)
     sender = factory.LazyFunction(
-        lambda: User.objects.filter(is_active=True).first() or
-        User.objects.create_user(
-            username=f"user_{id(object())}",
-            email=f"user_{id(object())}@test.com"
+        lambda: User.objects.filter(is_active=True).first()
+        or User.objects.create_user(
+            username=f"user_{id(object())}", email=f"user_{id(object())}@test.com"
         )
     )
     content = "Test message"
@@ -48,10 +46,9 @@ class MessageThreadFactory(factory.django.DjangoModelFactory):
     room = factory.SubFactory(ChatRoomFactory)
     title = factory.Sequence(lambda n: f"Thread {n}")
     created_by = factory.LazyFunction(
-        lambda: User.objects.filter(is_active=True).first() or
-        User.objects.create_user(
-            username=f"user_{id(object())}",
-            email=f"user_{id(object())}@test.com"
+        lambda: User.objects.filter(is_active=True).first()
+        or User.objects.create_user(
+            username=f"user_{id(object())}", email=f"user_{id(object())}@test.com"
         )
     )
     is_pinned = False
@@ -64,10 +61,9 @@ class ChatParticipantFactory(factory.django.DjangoModelFactory):
 
     room = factory.SubFactory(ChatRoomFactory)
     user = factory.LazyFunction(
-        lambda: User.objects.filter(is_active=True).last() or
-        User.objects.create_user(
-            username=f"user_{id(object())}",
-            email=f"user_{id(object())}@test.com"
+        lambda: User.objects.filter(is_active=True).last()
+        or User.objects.create_user(
+            username=f"user_{id(object())}", email=f"user_{id(object())}@test.com"
         )
     )
     is_muted = False
@@ -80,9 +76,8 @@ class MessageReadFactory(factory.django.DjangoModelFactory):
 
     message = factory.SubFactory(MessageFactory)
     user = factory.LazyFunction(
-        lambda: User.objects.filter(is_active=True).last() or
-        User.objects.create_user(
-            username=f"user_{id(object())}",
-            email=f"user_{id(object())}@test.com"
+        lambda: User.objects.filter(is_active=True).last()
+        or User.objects.create_user(
+            username=f"user_{id(object())}", email=f"user_{id(object())}@test.com"
         )
     )

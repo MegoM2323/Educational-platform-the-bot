@@ -14,9 +14,9 @@ import mimetypes
 
 # Разрешенные расширения по категориям
 ALLOWED_EXTENSIONS = {
-    'image': ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-    'document': ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
-    'archive': ['zip', 'rar', '7z']
+    "image": ["jpg", "jpeg", "png", "gif", "webp"],
+    "document": ["pdf", "doc", "docx", "xls", "xlsx", "txt"],
+    "archive": ["zip", "rar", "7z"],
 }
 
 # Плоский список всех разрешенных расширений
@@ -30,22 +30,22 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 # Соответствие расширений MIME типам
 MIME_TYPE_MAP = {
     # Изображения
-    'jpg': ['image/jpeg'],
-    'jpeg': ['image/jpeg'],
-    'png': ['image/png'],
-    'gif': ['image/gif'],
-    'webp': ['image/webp'],
+    "jpg": ["image/jpeg"],
+    "jpeg": ["image/jpeg"],
+    "png": ["image/png"],
+    "gif": ["image/gif"],
+    "webp": ["image/webp"],
     # Документы
-    'pdf': ['application/pdf'],
-    'doc': ['application/msword'],
-    'docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-    'xls': ['application/vnd.ms-excel'],
-    'xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-    'txt': ['text/plain'],
+    "pdf": ["application/pdf"],
+    "doc": ["application/msword"],
+    "docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    "xls": ["application/vnd.ms-excel"],
+    "xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+    "txt": ["text/plain"],
     # Архивы
-    'zip': ['application/zip', 'application/x-zip-compressed'],
-    'rar': ['application/x-rar-compressed', 'application/vnd.rar'],
-    '7z': ['application/x-7z-compressed'],
+    "zip": ["application/zip", "application/x-zip-compressed"],
+    "rar": ["application/x-rar-compressed", "application/vnd.rar"],
+    "7z": ["application/x-7z-compressed"],
 }
 
 
@@ -61,9 +61,9 @@ def get_file_extension(filename: str) -> str | None:
     """
     if not filename:
         return None
-    if '.' not in filename:
+    if "." not in filename:
         return None
-    return filename.rsplit('.', 1)[-1].lower()
+    return filename.rsplit(".", 1)[-1].lower()
 
 
 def get_file_type(extension: str) -> str | None:
@@ -107,7 +107,7 @@ def validate_file_extension(filename: str) -> str:
         )
 
     if extension not in ALL_ALLOWED_EXTENSIONS:
-        allowed_str = ', '.join(sorted(ALL_ALLOWED_EXTENSIONS))
+        allowed_str = ", ".join(sorted(ALL_ALLOWED_EXTENSIONS))
         raise ValidationError(
             f"Неподдерживаемый тип файла: .{extension}. "
             f"Разрешенные форматы: {allowed_str}"
@@ -126,7 +126,7 @@ def validate_file_size(file_obj) -> None:
     Raises:
         ValidationError: Если размер превышает лимит
     """
-    if not hasattr(file_obj, 'size'):
+    if not hasattr(file_obj, "size"):
         return
 
     if file_obj.size > MAX_FILE_SIZE:
@@ -149,7 +149,7 @@ def validate_mime_type(file_obj, extension: str) -> None:
     Raises:
         ValidationError: Если MIME тип не соответствует расширению
     """
-    if not hasattr(file_obj, 'content_type') or not file_obj.content_type:
+    if not hasattr(file_obj, "content_type") or not file_obj.content_type:
         return
 
     if extension not in MIME_TYPE_MAP:
@@ -160,7 +160,7 @@ def validate_mime_type(file_obj, extension: str) -> None:
 
     # Проверяем точное соответствие или начало (для типов с параметрами)
     mime_matches = any(
-        content_type == mime or content_type.startswith(mime + ';')
+        content_type == mime or content_type.startswith(mime + ";")
         for mime in allowed_mimes
     )
 
@@ -192,7 +192,7 @@ def validate_attachment(file_obj) -> str:
     if not file_obj:
         raise ValidationError("Файл не предоставлен")
 
-    if not hasattr(file_obj, 'name') or not file_obj.name:
+    if not hasattr(file_obj, "name") or not file_obj.name:
         raise ValidationError("Имя файла не определено")
 
     # Валидация размера
@@ -289,4 +289,4 @@ class ForumAttachmentValidator:
         Returns:
             Строка с расширениями через запятую
         """
-        return ', '.join(sorted(cls.ALL_ALLOWED_EXTENSIONS))
+        return ", ".join(sorted(cls.ALL_ALLOWED_EXTENSIONS))

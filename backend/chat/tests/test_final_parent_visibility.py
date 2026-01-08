@@ -118,16 +118,14 @@ class TestParentMessageVisibilityE2E:
         )
 
         # Test: Parent should be in forum participants
-        assert parent in forum.participants.all(), (
-            "FAIL: Parent not in forum participants after enrollment"
-        )
+        assert (
+            parent in forum.participants.all()
+        ), "FAIL: Parent not in forum participants after enrollment"
 
         # Test: ChatParticipant record should exist
         assert ChatParticipant.objects.filter(
             room=forum, user=parent
-        ).exists(), (
-            "FAIL: ChatParticipant record missing for parent"
-        )
+        ).exists(), "FAIL: ChatParticipant record missing for parent"
 
     def test_02_parent_sees_forum_list(self, student, teacher, subject, parent):
         """
@@ -160,9 +158,9 @@ class TestParentMessageVisibilityE2E:
         response = client.get("/api/chat/forum/")
 
         # Test: Request should succeed
-        assert response.status_code == status.HTTP_200_OK, (
-            f"FAIL: API returned {response.status_code}, response: {response.data}"
-        )
+        assert (
+            response.status_code == status.HTTP_200_OK
+        ), f"FAIL: API returned {response.status_code}, response: {response.data}"
 
         # Test: Forum should be in response (response.data might be a dict with 'results' for paginated)
         if isinstance(response.data, dict):
@@ -176,9 +174,7 @@ class TestParentMessageVisibilityE2E:
 
         # Find our forum in response
         forum_ids = [chat["id"] for chat in chat_list]
-        assert forum.id in forum_ids, (
-            "FAIL: Forum not found in parent's chat list"
-        )
+        assert forum.id in forum_ids, "FAIL: Forum not found in parent's chat list"
 
     def test_03_parent_gets_messages_from_forum(
         self, student, teacher, subject, parent
@@ -218,9 +214,9 @@ class TestParentMessageVisibilityE2E:
         response = client.get(f"/api/chat/forum/{forum.id}/messages/")
 
         # Test: Request should succeed
-        assert response.status_code == status.HTTP_200_OK, (
-            f"FAIL: API returned {response.status_code}, response: {response.data}"
-        )
+        assert (
+            response.status_code == status.HTTP_200_OK
+        ), f"FAIL: API returned {response.status_code}, response: {response.data}"
 
         # Test: Message should be in response (handle paginated or direct list)
         if isinstance(response.data, dict):
@@ -228,15 +224,11 @@ class TestParentMessageVisibilityE2E:
         else:
             message_list = response.data
 
-        assert len(message_list) > 0, (
-            "FAIL: No messages returned for parent"
-        )
+        assert len(message_list) > 0, "FAIL: No messages returned for parent"
 
         # Verify message content
         message_ids = [msg["id"] for msg in message_list]
-        assert message.id in message_ids, (
-            "FAIL: Message not found in parent's view"
-        )
+        assert message.id in message_ids, "FAIL: Message not found in parent's view"
 
     def test_04_parent_removed_from_chat_when_unassigned(
         self, student, teacher, subject, parent
@@ -272,16 +264,14 @@ class TestParentMessageVisibilityE2E:
         forum.refresh_from_db()
 
         # Test: Parent should be removed
-        assert parent not in forum.participants.all(), (
-            "FAIL: Parent not removed from forum after unassignment"
-        )
+        assert (
+            parent not in forum.participants.all()
+        ), "FAIL: Parent not removed from forum after unassignment"
 
         # Test: ChatParticipant should be deleted
         assert not ChatParticipant.objects.filter(
             room=forum, user=parent
-        ).exists(), (
-            "FAIL: ChatParticipant record not deleted"
-        )
+        ).exists(), "FAIL: ChatParticipant record not deleted"
 
     def test_05_parent_cannot_see_chat_when_unassigned(
         self, student, teacher, subject, parent
@@ -311,7 +301,11 @@ class TestParentMessageVisibilityE2E:
         client.force_authenticate(user=parent)
 
         response_before = client.get("/api/chat/forum/")
-        chat_list_before = response_before.data if isinstance(response_before.data, list) else response_before.data.get("results", [])
+        chat_list_before = (
+            response_before.data
+            if isinstance(response_before.data, list)
+            else response_before.data.get("results", [])
+        )
         forum_ids_before = [chat["id"] for chat in chat_list_before]
         assert forum.id in forum_ids_before
 
@@ -322,13 +316,17 @@ class TestParentMessageVisibilityE2E:
         # Re-authenticate and check
         client.force_authenticate(user=parent)
         response_after = client.get("/api/chat/forum/")
-        chat_list_after = response_after.data if isinstance(response_after.data, list) else response_after.data.get("results", [])
+        chat_list_after = (
+            response_after.data
+            if isinstance(response_after.data, list)
+            else response_after.data.get("results", [])
+        )
         forum_ids_after = [chat["id"] for chat in chat_list_after]
 
         # Test: Forum should NOT be in list
-        assert forum.id not in forum_ids_after, (
-            "FAIL: Parent still sees forum after unassignment"
-        )
+        assert (
+            forum.id not in forum_ids_after
+        ), "FAIL: Parent still sees forum after unassignment"
 
 
 class TestParentMessageVisibilityDjangoTest:
@@ -399,13 +397,21 @@ class TestParentMessageVisibilityDjangoTest:
 
         response = client.get("/api/chat/forum/")
         assert response.status_code == status.HTTP_200_OK
-        chat_list = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        chat_list = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert forum.id in [c["id"] for c in chat_list]
 
         # API check - parent can see message
         response = client.get(f"/api/chat/forum/{forum.id}/messages/")
         assert response.status_code == status.HTTP_200_OK
-        msg_list = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        msg_list = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert message.id in [m["id"] for m in msg_list]
 
         # Unassign parent
@@ -419,5 +425,9 @@ class TestParentMessageVisibilityDjangoTest:
         # API check - parent cannot see forum anymore
         client.force_authenticate(user=parent)
         response = client.get("/api/chat/forum/")
-        chat_list = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        chat_list = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert forum.id not in [c["id"] for c in chat_list]

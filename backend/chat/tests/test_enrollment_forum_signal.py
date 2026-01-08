@@ -29,6 +29,7 @@ pytestmark = pytest.mark.unit
 def _imports_fixture():
     from materials.models import SubjectEnrollment
     from chat.models import ChatRoom, ChatParticipant
+
     return SubjectEnrollment, ChatRoom, ChatParticipant
 
 
@@ -42,7 +43,11 @@ class TestForumChatCreation:
 
     def test_creates_forum_subject_chat_on_enrollment(self):
         """При создании SubjectEnrollment создается FORUM_SUBJECT чат"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         student = StudentFactory()
         StudentProfileFactory(user=student, grade="10")
@@ -68,7 +73,11 @@ class TestForumChatCreation:
 
     def test_forum_chat_has_correct_participants(self):
         """FORUM_SUBJECT чат содержит student и teacher как участников"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         student = StudentFactory()
         StudentProfileFactory(user=student, grade="10")
@@ -96,7 +105,11 @@ class TestForumChatCreation:
 
     def test_forum_chat_name_format(self):
         """Имя FORUM_SUBJECT чата имеет правильный формат"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory(first_name="John", last_name="Doe")
         student = StudentFactory(first_name="Jane", last_name="Smith")
         StudentProfileFactory(user=student, grade="10")
@@ -111,12 +124,18 @@ class TestForumChatCreation:
         )
 
         # Format: "{Subject} - {Student} ↔ {Teacher}"
-        expected_name = f"{subject.name} - {student.get_full_name()} ↔ {teacher.get_full_name()}"
+        expected_name = (
+            f"{subject.name} - {student.get_full_name()} ↔ {teacher.get_full_name()}"
+        )
         assert forum_chat.name == expected_name
 
     def test_forum_chat_idempotent(self):
         """Повторное создание enrollment не создает дубликаты чатов"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         student = StudentFactory()
         StudentProfileFactory(user=student, grade="10")
@@ -153,7 +172,11 @@ class TestForumTutorChatCreation:
 
     def test_creates_forum_tutor_chat_if_student_has_tutor(self):
         """Создается FORUM_TUTOR чат если у студента есть tutor"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         tutor = TutorFactory()
         student = StudentFactory()
@@ -176,7 +199,11 @@ class TestForumTutorChatCreation:
 
     def test_forum_tutor_chat_has_student_and_tutor(self):
         """FORUM_TUTOR чат содержит student и tutor как участников"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         tutor = TutorFactory()
         student = StudentFactory()
@@ -202,7 +229,11 @@ class TestForumTutorChatCreation:
 
     def test_no_forum_tutor_chat_if_no_tutor(self):
         """Не создается FORUM_TUTOR чат если у студента нет tutor"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         student = StudentFactory()
         StudentProfileFactory(user=student, grade="10", tutor=None)
@@ -220,7 +251,11 @@ class TestForumTutorChatCreation:
 
     def test_forum_tutor_chat_name_format(self):
         """Имя FORUM_TUTOR чата имеет правильный формат"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory(first_name="John", last_name="Doe")
         tutor = TutorFactory(first_name="Bob", last_name="Tutor")
         student = StudentFactory(first_name="Jane", last_name="Smith")
@@ -241,7 +276,11 @@ class TestForumTutorChatCreation:
 
     def test_forum_tutor_chat_with_created_by_tutor(self):
         """FORUM_TUTOR чат создается если student.created_by_tutor установлен"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         tutor = TutorFactory()
         student = StudentFactory()
@@ -273,7 +312,11 @@ class TestEnrollmentSignalEdgeCases:
 
     def test_signal_skips_if_enrollment_updated_not_created(self):
         """Signal не триггерится при update enrollment"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         student = StudentFactory()
         StudentProfileFactory(user=student, grade="10")
@@ -295,7 +338,11 @@ class TestEnrollmentSignalEdgeCases:
 
     def test_signal_handles_student_without_profile(self):
         """Signal работает если у студента нет StudentProfile"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         student = StudentFactory()
         # Не создаем StudentProfile
@@ -319,7 +366,11 @@ class TestEnrollmentSignalEdgeCases:
 
     def test_creates_both_forum_chats_correctly(self):
         """Создаются оба чата (FORUM_SUBJECT + FORUM_TUTOR) при наличии tutor"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         tutor = TutorFactory()
         student = StudentFactory()
@@ -349,7 +400,11 @@ class TestEnrollmentSignalEdgeCases:
 
     def test_multiple_enrollments_create_separate_chats(self):
         """Разные enrollments создают отдельные чаты"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         student = StudentFactory()
         StudentProfileFactory(user=student, grade="10")
@@ -379,7 +434,11 @@ class TestEnrollmentSignalEdgeCases:
 
     def test_chat_participant_unread_count_initialized(self):
         """ChatParticipant записи создаются с unread_count=0"""
-        SubjectEnrollment, ChatRoom, ChatParticipant = self.SubjectEnrollment, self.ChatRoom, self.ChatParticipant
+        SubjectEnrollment, ChatRoom, ChatParticipant = (
+            self.SubjectEnrollment,
+            self.ChatRoom,
+            self.ChatParticipant,
+        )
         teacher = TeacherFactory()
         student = StudentFactory()
         StudentProfileFactory(user=student, grade="10")

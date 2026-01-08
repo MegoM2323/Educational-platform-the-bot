@@ -38,7 +38,9 @@ class TokenAuthMiddleware(BaseMiddleware):
         try:
             # Debug full scope (only in DEBUG mode)
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'[TokenAuthMiddleware] Full path: {scope.get("path", "")}')
+                logger.debug(
+                    f'[TokenAuthMiddleware] Full path: {scope.get("path", "")}'
+                )
                 logger.debug(
                     f'[TokenAuthMiddleware] Raw query_string bytes: {scope.get("query_string", b"")}'
                 )
@@ -50,12 +52,16 @@ class TokenAuthMiddleware(BaseMiddleware):
             token = token_list[0] if token_list else None
 
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"[TokenAuthMiddleware] Decoded query string: {query_string}")
+                logger.debug(
+                    f"[TokenAuthMiddleware] Decoded query string: {query_string}"
+                )
                 logger.debug(f"[TokenAuthMiddleware] Token present: {bool(token)}")
 
             if token:
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"[TokenAuthMiddleware] Token from query: {token[:20]}...")
+                    logger.debug(
+                        f"[TokenAuthMiddleware] Token from query: {token[:20]}..."
+                    )
             else:
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug("[TokenAuthMiddleware] No token in query parameters")
@@ -78,7 +84,9 @@ class TokenAuthMiddleware(BaseMiddleware):
                 # No token provided, let AuthMiddlewareStack try session auth
                 scope["user"] = AnonymousUser()
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"[TokenAuthMiddleware] No token - trying session auth")
+                    logger.debug(
+                        f"[TokenAuthMiddleware] No token - trying session auth"
+                    )
 
         except Exception as e:
             logger.error(f"[TokenAuthMiddleware] Error in __call__: {e}", exc_info=True)

@@ -82,9 +82,9 @@ class TestParentMessagesAccess:
         forum.refresh_from_db()
 
         # Verify parent is in participants
-        assert parent in forum.participants.all(), (
-            "Parent not added to forum after assignment"
-        )
+        assert (
+            parent in forum.participants.all()
+        ), "Parent not added to forum after assignment"
 
         # 9. Create some messages by teacher and student
         msg1 = Message.objects.create(
@@ -114,9 +114,9 @@ class TestParentMessagesAccess:
         data = response.json()
         assert data.get("success") is True
         assert "results" in data
-        assert len(data["results"]) >= 2, (
-            f"Expected at least 2 messages, got {len(data.get('results', []))}"
-        )
+        assert (
+            len(data["results"]) >= 2
+        ), f"Expected at least 2 messages, got {len(data.get('results', []))}"
 
         # 13. Verify message content
         message_contents = [msg["content"] for msg in data["results"]]
@@ -264,4 +264,6 @@ class TestParentMessagesAccess:
         forum.refresh_from_db()
         assert parent in forum.participants.all()
 
-        print("✓ Parent is properly added to forum participants and can access messages")
+        print(
+            "✓ Parent is properly added to forum participants and can access messages"
+        )

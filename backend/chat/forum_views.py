@@ -604,6 +604,14 @@ class ForumChatViewSet(viewsets.ViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
+            # Ensure sender is in M2M participants (sync fix)
+            if not chat.participants.filter(id=user.id).exists():
+                chat.participants.add(user)
+                ChatParticipant.objects.get_or_create(room=chat, user=user)
+                logger.info(
+                    f"[send_message] User {user.id} synced to participants for room {chat.id}"
+                )
+
             # Block admin/staff from sending messages (read-only oversight)
             # Parent role CAN send messages - they are NOT blocked
             if user.is_staff or user.is_superuser:
@@ -710,11 +718,27 @@ class ForumChatViewSet(viewsets.ViewSet):
                     # Update chat's updated_at timestamp
                     chat.save(update_fields=["updated_at"])
 
-                # FIX A7: Removed WebSocket broadcast from REST endpoint
-                # Reason: REST response is already sent via onSuccess handler (optimistic update)
-                # Other clients will receive message via WebSocket broadcast from consumer
-                # (when other users send messages via WebSocket directly)
-                # Sender gets message in REST response, avoiding duplicate
+                # Broadcast to WebSocket group for real-time delivery
+                # ВАЖНО: broadcast ПОСЛЕ transaction.atomic() чтобы избежать
+                # рассылки несуществующего сообщения при откате транзакции
+                try:
+                    channel_layer = get_channel_layer()
+                    if channel_layer:
+                        async_to_sync(channel_layer.group_send)(
+                            f"chat_{chat.id}",
+                            {
+                                "type": "chat_message",
+                                "message": MessageSerializer(
+                                    message, context={"request": request}
+                                ).data,
+                            },
+                        )
+                        logger.debug(
+                            f"[send_message] WebSocket broadcast sent for message {message.id}"
+                        )
+                except Exception as e:
+                    # Don't fail the request if broadcast fails
+                    logger.warning(f"[send_message] WebSocket broadcast failed: {e}")
 
                 return Response(
                     {
@@ -1411,7 +1435,10 @@ class AvailableContactsView(APIView):
                 )
                 # Return early to avoid broken transaction errors
                 return Response(
-                    {"error": "Database error", "detail": "Failed to load contacts. Please try again."},
+                    {
+                        "error": "Database error",
+                        "detail": "Failed to load contacts. Please try again.",
+                    },
                     status=status.HTTP_503_SERVICE_UNAVAILABLE,
                 )
 

@@ -15,7 +15,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, Plus } from 'lucide-react';
 import { logger } from '@/utils/logger';
-import { ForumChat } from '@/integrations/api/forumAPI';
+import { ForumChat } from '@/integrations/api/forumAPICompat';
 
 export default function TutorChatPage(): JSX.Element {
   const { user } = useAuth();

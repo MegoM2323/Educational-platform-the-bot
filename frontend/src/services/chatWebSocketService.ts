@@ -67,11 +67,16 @@ export class ChatWebSocketService {
   private connectionUnsubscribe: (() => void) | null = null;
   private authErrorUnsubscribe: (() => void) | null = null;
   private activeSubscriptions = new Map<number, string>();
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectTimeout?: NodeJS.Timeout;
+  private lastRoomId?: number;
 
   constructor() {
     // Подписываемся на системные события WebSocket
     this.connectionUnsubscribe = websocketService.onConnectionChange((connected) => {
       if (connected) {
+        this.reconnectAttempts = 0;
         this.setConnectionStatus('connected');
         this.resubscribeAll();
         // Уведомляем обработчик onConnect
@@ -79,7 +84,7 @@ export class ChatWebSocketService {
           this.eventHandlers.onConnect();
         }
       } else {
-        this.setConnectionStatus('disconnected');
+        this.onDisconnect();
       }
     });
 
@@ -203,9 +208,8 @@ export class ChatWebSocketService {
       // Устанавливаем статус "подключение"
       this.setConnectionStatus('connecting');
 
-      // Формируем URL для WebSocket подключения
-      const tokenParam = `?token=${token}`;
-      const fullUrl = `${baseUrl}/chat/general/${tokenParam}`;
+      // Формируем URL для WebSocket подключения БЕЗ токена
+      const fullUrl = `${baseUrl}/chat/general/`;
 
       logger.info('[ChatWebSocket] Connecting to general chat:', {
         hasToken: !!token,
@@ -214,6 +218,16 @@ export class ChatWebSocketService {
       });
 
       websocketService.connect(fullUrl);
+
+      // Отправляем токен после подключения через auth message
+      setTimeout(() => {
+        if (websocketService.isConnected()) {
+          websocketService.send({
+            type: 'auth',
+            data: { token: token }
+          });
+        }
+      }, 100);
     }
   }
 
@@ -224,6 +238,7 @@ export class ChatWebSocketService {
    */
   async connectToRoom(roomId: number, handlers: ChatEventHandlers): Promise<boolean> {
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
+    this.lastRoomId = roomId;
 
     const channel = `chat_${roomId}`;
 
@@ -250,10 +265,9 @@ export class ChatWebSocketService {
     this.subscriptions.set(channel, subscriptionId);
     this.activeSubscriptions.set(roomId, subscriptionId);
 
-    // Формируем URL для WebSocket подключения
+    // Формируем URL для WebSocket подключения БЕЗ токена
     const baseUrl = getWebSocketBaseUrl();
-    const tokenParam = `?token=${token}`;
-    const fullUrl = `${baseUrl}/chat/${roomId}/${tokenParam}`;
+    const fullUrl = `${baseUrl}/chat/${roomId}/`;
 
     logger.info('[ChatWebSocket] Connecting to room:', {
       roomId,
@@ -300,6 +314,17 @@ export class ChatWebSocketService {
 
       try {
         websocketService.connect(fullUrl);
+
+        // Отправляем токен после подключения через auth message
+        setTimeout(() => {
+          if (websocketService.isConnected()) {
+            websocketService.send({
+              type: 'auth',
+              data: { token: token }
+            });
+          }
+        }, 100);
+
         // Check if already connected (synchronous connect)
         checkConnection();
       } catch (error) {
@@ -360,6 +385,12 @@ export class ChatWebSocketService {
    * Очищает все подписки, таймеры и закрывает соединение
    */
   disconnect(): void {
+    // Очищаем reconnect timeout
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = undefined;
+    }
+
     // Очищаем все таймеры печати перед отключением
     this.clearAllTypingTimeouts();
 
@@ -389,6 +420,36 @@ export class ChatWebSocketService {
 
     // Сбрасываем статус
     this.setConnectionStatus('disconnected');
+  }
+
+  /**
+   * Обработка разрыва соединения
+   */
+  private onDisconnect(): void {
+    this.setConnectionStatus('disconnected');
+    this.scheduleReconnect();
+  }
+
+  /**
+   * Планирование переподключения с exponential backoff
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      logger.error('[ChatWebSocket] Max reconnect attempts reached');
+      this.setConnectionStatus('error');
+      return;
+    }
+
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+
+    logger.info(`[ChatWebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+
+    this.reconnectTimeout = setTimeout(() => {
+      if (this.lastRoomId !== undefined) {
+        this.connectToRoom(this.lastRoomId, this.eventHandlers);
+      }
+    }, delay);
   }
 
   /**
@@ -425,7 +486,7 @@ export class ChatWebSocketService {
   sendTyping(roomId?: number): void {
     websocketService.send({
       type: 'typing',
-      data: { room_id: roomId }
+      data: roomId ? { room_id: roomId } : undefined
     });
   }
 
@@ -435,7 +496,7 @@ export class ChatWebSocketService {
   sendTypingStop(roomId?: number): void {
     websocketService.send({
       type: 'typing_stop',
-      data: { room_id: roomId }
+      data: roomId ? { room_id: roomId } : undefined
     });
   }
 
@@ -455,8 +516,10 @@ export class ChatWebSocketService {
   sendPinMessage(roomId: number, messageId: number): void {
     websocketService.send({
       type: 'pin_message',
-      room_id: roomId,
-      message_id: messageId,
+      data: {
+        room_id: roomId,
+        message_id: messageId,
+      }
     });
   }
 
@@ -466,7 +529,9 @@ export class ChatWebSocketService {
   sendLockChat(roomId: number): void {
     websocketService.send({
       type: 'lock_chat',
-      room_id: roomId,
+      data: {
+        room_id: roomId,
+      }
     });
   }
 
@@ -476,8 +541,10 @@ export class ChatWebSocketService {
   sendMuteUser(roomId: number, userId: number): void {
     websocketService.send({
       type: 'mute_user',
-      room_id: roomId,
-      user_id: userId,
+      data: {
+        room_id: roomId,
+        user_id: userId,
+      }
     });
   }
 
@@ -671,16 +738,10 @@ export class ChatWebSocketService {
       case 'message_edited':
         logger.debug('[ChatWebSocketService] Message edited event:', {
           messageId: message.message_id || message.data?.message_id,
-          content: message.content || message.data?.content
+          content: message.data?.content
         });
-        if (this.eventHandlers.onMessageEdited) {
-          const editData = message.data || {
-            message_id: message.message_id,
-            content: message.content,
-            is_edited: message.is_edited,
-            edited_at: message.edited_at
-          };
-          this.eventHandlers.onMessageEdited(editData);
+        if (this.eventHandlers.onMessageEdited && message.data) {
+          this.eventHandlers.onMessageEdited(message.data);
         }
         break;
 

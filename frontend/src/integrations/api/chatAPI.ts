@@ -120,6 +120,34 @@ export const chatAPI = {
     }
   },
 
+  async createOrGetChat(contactUserId: number, subjectId?: number): Promise<Chat> {
+    try {
+      const requestBody: { contact_user_id: number; subject_id?: number } = {
+        contact_user_id: contactUserId,
+      };
+
+      if (subjectId !== undefined) {
+        requestBody.subject_id = subjectId;
+      }
+
+      const response = await unifiedAPI.request<Chat>('/chat/', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      });
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      return response.data!;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ошибка создания чата';
+      logger.error('[Chat API] createOrGetChat error:', error);
+      toast.error(message);
+      throw error;
+    }
+  },
+
   async getChatById(chatId: number): Promise<Chat> {
     try {
       const response = await unifiedAPI.request<Chat>(`/chat/${chatId}/`);
@@ -167,7 +195,7 @@ export const chatAPI = {
       }
 
       const response = await unifiedAPI.request<ChatMessage>(
-        `/chat/${chatId}/messages/`,
+        `/chat/${chatId}/send_message/`,
         {
           method: 'POST',
           body: JSON.stringify(data),
@@ -182,6 +210,30 @@ export const chatAPI = {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Ошибка отправки сообщения';
       logger.error('[Chat API] sendMessage error:', error);
+      toast.error(message);
+      throw error;
+    }
+  },
+
+  async editMessage(chatId: number, messageId: number, content: string): Promise<ChatMessage> {
+    try {
+      const response = await unifiedAPI.request<ChatMessage>(
+        `/chat/${chatId}/messages/${messageId}/`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ content }),
+        }
+      );
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      toast.success('Сообщение отредактировано');
+      return response.data!;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ошибка редактирования сообщения';
+      logger.error('[Chat API] editMessage error:', error);
       toast.error(message);
       throw error;
     }
@@ -209,27 +261,20 @@ export const chatAPI = {
     }
   },
 
-  async updateMessageStatus(
-    chatId: number,
-    messageId: number,
-    data: MessageStatusUpdate
-  ): Promise<ChatMessage> {
+  async markAsRead(chatId: number): Promise<void> {
     try {
-      const response = await unifiedAPI.request<ChatMessage>(
-        `/chat/${chatId}/messages/${messageId}/`,
+      const response = await unifiedAPI.request(
+        `/chat/${chatId}/mark_as_read/`,
         {
-          method: 'PUT',
-          body: JSON.stringify(data),
+          method: 'POST',
         }
       );
 
       if (response.error) {
         throw new Error(response.error);
       }
-
-      return response.data!;
     } catch (error) {
-      logger.error('[Chat API] updateMessageStatus error:', error);
+      logger.error('[Chat API] markAsRead error:', error);
       throw error;
     }
   },

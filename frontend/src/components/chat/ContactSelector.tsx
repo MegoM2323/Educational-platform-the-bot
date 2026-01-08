@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { Contact, forumAPI, ForumChat } from '@/integrations/api/forumAPI';
+import { Contact, forumAPI, ForumChat } from '@/integrations/api/forumAPICompat';
 import { logger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
 

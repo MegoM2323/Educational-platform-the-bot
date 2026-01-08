@@ -823,8 +823,14 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
         fields = ("grade", "goal", "tutor", "parent")
 
     def validate_tutor(self, value):
-        """Валидация что tutor является активным тьютором."""
+        """Валидация что tutor является активным тьютором и не является самим студентом."""
         _validate_role_for_assignment(value, User.Role.TUTOR, "тьютор")
+
+        if value and self.instance and value.id == self.instance.user.id:
+            raise serializers.ValidationError(
+                "Студент не может быть назначен тьютором самому себе"
+            )
+
         return value
 
     def validate_parent(self, value):
@@ -1482,6 +1488,18 @@ class StudentCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Родитель не найден")
 
         return value
+
+    def validate(self, data):
+        """Валидация на уровне объекта"""
+        tutor_id = data.get("tutor_id")
+        parent_id = data.get("parent_id")
+
+        if tutor_id and parent_id and tutor_id == parent_id:
+            raise serializers.ValidationError(
+                "Тьютор и родитель не могут быть одним и тем же пользователем"
+            )
+
+        return data
 
 
 class ParentCreateSerializer(serializers.Serializer):

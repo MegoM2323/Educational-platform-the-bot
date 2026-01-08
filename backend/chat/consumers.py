@@ -1,6 +1,8 @@
 import json
 import logging
 import asyncio
+import time
+from collections import deque
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -23,6 +25,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f"chat_{self.room_id}"
         self.user = None
         self.authenticated = False
+        self.message_timestamps = deque(maxlen=10)
+        self.rate_limit_per_minute = 10
+        self.rate_limit_window = 60
 
         await self.accept()
 
@@ -97,6 +102,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not content:
             await self._send_error("EMPTY_MESSAGE", "Message cannot be empty")
             return
+
+        current_time = time.time()
+
+        while (
+            self.message_timestamps
+            and current_time - self.message_timestamps[0] > self.rate_limit_window
+        ):
+            self.message_timestamps.popleft()
+
+        if len(self.message_timestamps) >= self.rate_limit_per_minute:
+            await self._send_error(
+                "RATE_LIMIT_EXCEEDED",
+                f"Too many messages. Max {self.rate_limit_per_minute} per minute.",
+            )
+            return
+
+        self.message_timestamps.append(current_time)
 
         try:
             message = await self._save_message(content)

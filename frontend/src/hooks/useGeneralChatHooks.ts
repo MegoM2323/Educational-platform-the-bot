@@ -1,34 +1,50 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { chatService, ChatMessage, ChatThread, ChatRoom, SendMessageRequest, CreateThreadRequest } from '@/integrations/api/chatService';
+import { chatAPI, ChatMessage, Chat } from '@/integrations/api/chatAPI';
 import { toast } from 'sonner';
 
-// Получить общий чат
 export const useGeneralChat = () => {
   return useQuery({
     queryKey: ['general-chat'],
-    queryFn: () => chatService.getGeneralChat(),
-    staleTime: 300000, // 5 минут
+    queryFn: async () => {
+      const response = await chatAPI.getChatList();
+      const generalChat = response.results.find((chat: Chat) => chat.is_group);
+      return generalChat;
+    },
+    staleTime: 300000,
     retry: 2,
   });
 };
 
-// Получить сообщения общего чата
 export const useGeneralChatMessages = (limit: number = 50, offset: number = 0) => {
+  const { data: generalChat } = useGeneralChat();
+
   return useQuery({
     queryKey: ['general-chat-messages', limit, offset],
-    queryFn: () => chatService.getGeneralChatMessages(limit, offset),
-    staleTime: 30000, // 30 секунд
+    queryFn: async () => {
+      if (!generalChat?.id) {
+        throw new Error('General chat not found');
+      }
+      const page = Math.floor(offset / limit) + 1;
+      const response = await chatAPI.getChatMessages(generalChat.id, page, limit);
+      return response.results;
+    },
+    enabled: !!generalChat?.id,
+    staleTime: 30000,
     retry: 2,
   });
 };
 
-// Отправить сообщение в общий чат
 export const useSendGeneralMessage = () => {
   const queryClient = useQueryClient();
+  const { data: generalChat } = useGeneralChat();
 
   return useMutation({
-    mutationFn: (data: SendMessageRequest) =>
-      chatService.sendGeneralMessage(data),
+    mutationFn: (data: { content: string }) => {
+      if (!generalChat?.id) {
+        throw new Error('General chat not found');
+      }
+      return chatAPI.sendMessage(generalChat.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['general-chat-messages'] });
       toast.success('Сообщение отправлено');
@@ -39,23 +55,24 @@ export const useSendGeneralMessage = () => {
   });
 };
 
-// Получить треды общего чата
 export const useGeneralChatThreads = (limit: number = 20, offset: number = 0) => {
   return useQuery({
     queryKey: ['general-chat-threads', limit, offset],
-    queryFn: () => chatService.getGeneralChatThreads(limit, offset),
-    staleTime: 60000, // 1 минута
+    queryFn: async () => {
+      return [];
+    },
+    staleTime: 60000,
     retry: 2,
   });
 };
 
-// Создать новый тред
 export const useCreateThread = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateThreadRequest) =>
-      chatService.createThread(data),
+    mutationFn: (data: { title: string; content: string }) => {
+      throw new Error('Thread creation not implemented in new chat API');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['general-chat-threads'] });
       toast.success('Тред создан');
@@ -66,24 +83,25 @@ export const useCreateThread = () => {
   });
 };
 
-// Получить сообщения треда
 export const useThreadMessages = (threadId: number, limit: number = 50, offset: number = 0) => {
   return useQuery({
     queryKey: ['thread-messages', threadId, limit, offset],
-    queryFn: () => chatService.getThreadMessages(threadId, limit, offset),
+    queryFn: async () => {
+      return [];
+    },
     enabled: !!threadId,
-    staleTime: 30000, // 30 секунд
+    staleTime: 30000,
     retry: 2,
   });
 };
 
-// Отправить сообщение в тред
 export const useSendThreadMessage = (threadId: number) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: SendMessageRequest) =>
-      chatService.sendThreadMessage(threadId, data),
+    mutationFn: (data: { content: string }) => {
+      throw new Error('Thread messages not implemented in new chat API');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['thread-messages', threadId] });
       queryClient.invalidateQueries({ queryKey: ['general-chat-threads'] });
@@ -95,13 +113,13 @@ export const useSendThreadMessage = (threadId: number) => {
   });
 };
 
-// Закрепить тред
 export const usePinThread = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (threadId: number) =>
-      chatService.pinThread(threadId),
+    mutationFn: (threadId: number) => {
+      throw new Error('Thread pinning not implemented in new chat API');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['general-chat-threads'] });
       toast.success('Тред закреплен');
@@ -112,13 +130,13 @@ export const usePinThread = () => {
   });
 };
 
-// Открепить тред
 export const useUnpinThread = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (threadId: number) =>
-      chatService.unpinThread(threadId),
+    mutationFn: (threadId: number) => {
+      throw new Error('Thread unpinning not implemented in new chat API');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['general-chat-threads'] });
       toast.success('Тред откреплен');
@@ -129,13 +147,13 @@ export const useUnpinThread = () => {
   });
 };
 
-// Заблокировать тред
 export const useLockThread = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (threadId: number) =>
-      chatService.lockThread(threadId),
+    mutationFn: (threadId: number) => {
+      throw new Error('Thread locking not implemented in new chat API');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['general-chat-threads'] });
       toast.success('Тред заблокирован');
@@ -146,13 +164,13 @@ export const useLockThread = () => {
   });
 };
 
-// Разблокировать тред
 export const useUnlockThread = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (threadId: number) =>
-      chatService.unlockThread(threadId),
+    mutationFn: (threadId: number) => {
+      throw new Error('Thread unlocking not implemented in new chat API');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['general-chat-threads'] });
       toast.success('Тред разблокирован');

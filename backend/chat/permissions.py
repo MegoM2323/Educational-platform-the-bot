@@ -83,6 +83,46 @@ def can_initiate_chat(user1: "User", user2: "User") -> bool:
                 status=SubjectEnrollment.Status.ACTIVE,
             ).exists()
 
+        # 6. Parent + Teacher (bidirectional)
+        if (user1.role == "parent" and user2.role == "teacher") or (
+            user1.role == "teacher" and user2.role == "parent"
+        ):
+            parent = user1 if user1.role == "parent" else user2
+            teacher = user1 if user1.role == "teacher" else user2
+
+            from accounts.models import StudentProfile
+            from materials.models import SubjectEnrollment
+
+            parent_children = StudentProfile.objects.filter(parent=parent).values_list(
+                "user_id", flat=True
+            )
+
+            return SubjectEnrollment.objects.filter(
+                student_id__in=parent_children,
+                teacher=teacher,
+                status=SubjectEnrollment.Status.ACTIVE,
+            ).exists()
+
+        # 7. Parent + Tutor (bidirectional)
+        if (user1.role == "parent" and user2.role == "tutor") or (
+            user1.role == "tutor" and user2.role == "parent"
+        ):
+            parent = user1 if user1.role == "parent" else user2
+            tutor = user1 if user1.role == "tutor" else user2
+
+            from accounts.models import StudentProfile
+
+            return StudentProfile.objects.filter(
+                parent=parent,
+                tutor=tutor,
+            ).exists()
+
+        # 8. Parent + Student - FORBIDDEN
+        if (user1.role == "parent" and user2.role == "student") or (
+            user1.role == "student" and user2.role == "parent"
+        ):
+            return False
+
         return False
 
     except Exception as e:

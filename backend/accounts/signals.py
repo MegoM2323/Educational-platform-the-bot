@@ -15,6 +15,7 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.apps import apps
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from .models import StudentProfile, TeacherProfile, TutorProfile, ParentProfile
 
 User = get_user_model()
@@ -248,6 +249,15 @@ def _create_profile_safe(profile_model, user_instance: User, profile_type: str) 
             user=user_instance
         )
         if profile_created:
+            try:
+                profile.full_clean()
+            except ValidationError as ve:
+                profile.delete()
+                logger.error(
+                    f"[Signal] {profile_type} validation failed for user_id={user_instance.id}: {ve}"
+                )
+                raise
+
             logger.info(
                 f"[Signal] {profile_type} auto-created for user_id={user_instance.id} "
                 f"email={user_instance.email}"

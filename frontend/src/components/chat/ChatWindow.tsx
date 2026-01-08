@@ -14,7 +14,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ForumChat, ForumMessage, TypingUser } from '@/integrations/api/forumAPI';
+import { ForumChat, ForumMessage, TypingUser } from '@/integrations/api/forumAPICompat';
 
 interface ChatWindowProps {
   chat: ForumChat | null;

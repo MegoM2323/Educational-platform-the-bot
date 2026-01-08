@@ -1469,6 +1469,13 @@ def create_user_with_profile(request):
                 tutor_id = validated_data.get("tutor_id")
                 parent_id = validated_data.get("parent_id")
 
+                if tutor_id and tutor_id == django_user.id:
+                    django_user.delete()
+                    return Response(
+                        {"detail": "Студент не может быть назначен тьютором самому себе"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 tutor = None
                 parent = None
                 if tutor_id:
@@ -1688,6 +1695,13 @@ def create_student(request):
             )
             django_user.set_password(password)
             django_user.save()
+
+            if tutor_id and tutor_id == django_user.id:
+                django_user.delete()
+                return Response(
+                    {"detail": "Студент не может быть назначен тьютором самому себе"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Обновляем данные пользователя
             django_user.first_name = first_name

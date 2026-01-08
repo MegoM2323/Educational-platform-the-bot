@@ -544,7 +544,7 @@ class MessageViewSet(viewsets.ViewSet):
                         "message_id": message_id,
                     }
                 )
-        except PermissionError as e:
+        except (PermissionError, ValueError) as e:
             return Response(
                 {"error": {"code": "ACCESS_DENIED", "message": str(e)}},
                 status=status.HTTP_403_FORBIDDEN,

@@ -94,8 +94,8 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         if not request:
             return None
 
-        participants = list(obj.participants.all())
-        if len(participants) != 2:
+        participants = obj.participants.all()
+        if participants.count() != 2:
             return None
 
         other_user = None

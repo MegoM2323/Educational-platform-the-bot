@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { forumAPI, ForumMessage, EditMessageRequest } from '../integrations/api/forumAPI';
+import { chatAPI, ChatMessage } from '../integrations/api/chatAPI';
 import { toast } from 'sonner';
 
 interface UseForumMessageUpdateOptions {
   chatId: number;
-  onSuccess?: (message: ForumMessage) => void;
+  onSuccess?: (message: ChatMessage) => void;
   onError?: (error: Error) => void;
 }
 
@@ -12,20 +12,17 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ messageId, data }: { messageId: number; data: EditMessageRequest }) =>
-      forumAPI.editForumMessage(chatId, messageId, data),
+    mutationFn: ({ messageId, data }: { messageId: number; data: { content: string } }) =>
+      chatAPI.editMessage(chatId, messageId, data.content),
 
     onMutate: async ({ messageId, data }) => {
-      // Cancel outgoing refetches for all queries matching this chatId
       await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
 
-      // Snapshot previous value - get ALL matching queries using pattern matching
-      const previousQueries = queryClient.getQueriesData<ForumMessage[]>({
+      const previousQueries = queryClient.getQueriesData<ChatMessage[]>({
         queryKey: ['forum-messages', chatId],
       });
 
-      // Optimistically update ALL queries for this chat
-      queryClient.setQueriesData<ForumMessage[]>(
+      queryClient.setQueriesData<ChatMessage[]>(
         { queryKey: ['forum-messages', chatId], exact: false },
         (old) =>
           old?.map((msg) =>
@@ -39,7 +36,6 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
     },
 
     onError: (error, variables, context) => {
-      // Rollback on error - restore ALL previous queries
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
@@ -55,10 +51,8 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
     },
 
     onSettled: () => {
-      // Invalidate messages cache to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId] });
 
-      // Update forum chats to show edited last_message if needed
       queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
     },
   });

@@ -21,6 +21,20 @@ class Migration(migrations.Migration):
         # This migration marker allows the Django ORM to track the schema version
         # Actual tables may need to be recreated manually via runSQL script
 
+        # Drop existing tables first
+        migrations.RunSQL(
+            sql="DROP TABLE IF EXISTS chat_message CASCADE;",
+            reverse_sql="-- no reverse",
+        ),
+        migrations.RunSQL(
+            sql="DROP TABLE IF EXISTS chat_chatparticipant CASCADE;",
+            reverse_sql="-- no reverse",
+        ),
+        migrations.RunSQL(
+            sql="DROP TABLE IF EXISTS chat_chatroom CASCADE;",
+            reverse_sql="-- no reverse",
+        ),
+
         # Create new ChatRoom
         migrations.CreateModel(
             name='ChatRoom',

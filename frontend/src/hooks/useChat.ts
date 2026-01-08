@@ -1,406 +1,489 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   chatAPI,
-  ChatRoom,
-  ChatMessage,
-  SendMessageRequest,
-  MessageThread,
   Chat,
+  ChatMessage,
   ChatContact,
-  ChatListResponse,
-  ChatMessagesResponse,
-} from '../integrations/api/chat';
-import { getChatSocket, initChatSocket, type ChatSocketMessage } from '../integrations/websocket/chatSocket';
-import { toast } from 'sonner';
-import { logger } from '../utils/logger';
+} from "../integrations/api/chatAPI";
+import {
+  chatWebSocketService,
+  ConnectionStatus,
+} from "../services/chatWebSocketService";
+import { logger } from "../utils/logger";
 
-// Get general chat room
-export const useGeneralChat = () => {
-  return useQuery({
-    queryKey: ['general-chat'],
-    queryFn: () => chatAPI.getGeneralChat(),
-    staleTime: 300000, // 5 minutes - chat room info doesn't change often
-    retry: 2,
-  });
-};
+export type ChatRoom = Chat;
 
-// Get general chat messages with pagination
-export const useGeneralMessages = (page: number = 1, pageSize: number = 50) => {
-  return useQuery({
-    queryKey: ['general-messages', page, pageSize],
-    queryFn: () => chatAPI.getGeneralMessages(page, pageSize),
-    staleTime: 30000, // 30 seconds - messages update frequently
-    retry: 2,
-    refetchInterval: 10000, // Refetch every 10 seconds for new messages
-  });
-};
-
-// Send message
-export const useSendMessage = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (data: SendMessageRequest) =>
-      chatAPI.sendMessage(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-messages'] });
-      toast.success('Сообщение отправлено');
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка отправки сообщения: ${error.message}`);
-    },
-  });
-};
-
-// Create thread (reply to message)
-export const useCreateThread = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: ({ messageId, data }: { messageId: number; data: SendMessageRequest }) =>
-      chatAPI.createThread(messageId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-messages'] });
-      queryClient.invalidateQueries({ queryKey: ['threads'] });
-      toast.success('Ответ отправлен');
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка отправки ответа: ${error.message}`);
-    },
-  });
-};
-
-// Get threads for a message
-export const useThreads = (parentMessageId: number) => {
-  return useQuery({
-    queryKey: ['threads', parentMessageId],
-    queryFn: () => chatAPI.getThreads(parentMessageId),
-    enabled: !!parentMessageId,
-    staleTime: 60000,
-    retry: 2,
-  });
-};
-
-// Get thread messages
-export const useThreadMessages = (threadId: number) => {
-  return useQuery({
-    queryKey: ['thread-messages', threadId],
-    queryFn: () => chatAPI.getThreadMessages(threadId),
-    enabled: !!threadId,
-    staleTime: 30000,
-    retry: 2,
-    refetchInterval: 10000, // Refetch every 10 seconds for new messages
-  });
-};
-
-// Update message
-export const useUpdateMessage = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: ({ messageId, content }: { messageId: number; content: string }) =>
-      chatAPI.updateMessage(messageId, content),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-messages'] });
-      queryClient.invalidateQueries({ queryKey: ['thread-messages'] });
-      toast.success('Сообщение обновлено');
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка обновления сообщения: ${error.message}`);
-    },
-  });
-};
-
-// Delete message
-export const useDeleteMessage = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (messageId: number) =>
-      chatAPI.deleteMessage(messageId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-messages'] });
-      queryClient.invalidateQueries({ queryKey: ['thread-messages'] });
-      toast.success('Сообщение удалено');
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка удаления сообщения: ${error.message}`);
-    },
-  });
-};
-
-// Get all chat rooms
-export const useChatRooms = () => {
-  return useQuery({
-    queryKey: ['chat-rooms'],
-    queryFn: () => chatAPI.getChatRooms(),
-    staleTime: 300000,
-    retry: 2,
-  });
-};
-
-// Get room messages
-export const useRoomMessages = (roomId: number) => {
-  return useQuery({
-    queryKey: ['room-messages', roomId],
-    queryFn: () => chatAPI.getRoomMessages(roomId),
-    enabled: !!roomId,
-    staleTime: 30000,
-    retry: 2,
-    refetchInterval: 10000,
-  });
-};
-
-// NEW HOOKS FOR CHAT API
-
-export const useChatList = (page: number = 1, pageSize: number = 20) => {
-  return useQuery({
-    queryKey: ['chat-list', page, pageSize],
-    queryFn: () => chatAPI.getChatList(page, pageSize),
-    staleTime: 60000,
-    retry: 2,
-    placeholderData: { count: 0, results: [] },
-  });
-};
-
-export const useChat = (chatId: number) => {
-  return useQuery({
-    queryKey: ['chat', chatId],
-    queryFn: () => chatAPI.getChatById(chatId),
-    enabled: !!chatId,
-    staleTime: 180000,
-    retry: 2,
-  });
-};
-
-export const useChatMessages = (chatId: number, page: number = 1, pageSize: number = 50) => {
-  return useQuery({
-    queryKey: ['chat-messages', chatId, page, pageSize],
-    queryFn: () => chatAPI.getChatMessages(chatId, page, pageSize),
-    enabled: !!chatId,
-    staleTime: 30000,
-    retry: 2,
-    placeholderData: { count: 0, results: [] },
-  });
-};
-
-export const useSendChatMessage = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ chatId, data }: { chatId: number; data: SendMessageRequest }) =>
-      chatAPI.sendMessage(chatId, data),
-    onSuccess: (_, { chatId }) => {
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', chatId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-list'] });
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка отправки сообщения: ${error.message}`);
-    },
-  });
-};
-
-export const useDeleteChatMessage = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ chatId, messageId }: { chatId: number; messageId: number }) =>
-      chatAPI.deleteMessage(chatId, messageId),
-    onSuccess: (_, { chatId }) => {
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', chatId] });
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка удаления сообщения: ${error.message}`);
-    },
-  });
-};
-
-export const useUpdateMessageStatus = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ chatId, messageId }: { chatId: number; messageId: number }) =>
-      chatAPI.updateMessageStatus(chatId, messageId, { read_at: new Date().toISOString() }),
-    onSuccess: (_, { chatId }) => {
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', chatId] });
-    },
-  });
-};
-
-export const useChatContacts = () => {
-  return useQuery({
-    queryKey: ['chat-contacts'],
-    queryFn: () => chatAPI.getContacts(),
-    staleTime: 300000,
-    retry: 2,
-    placeholderData: [],
-  });
-};
-
-interface CreateChatData {
-  participant_ids: number[];
-  name?: string;
-  description?: string;
+export interface UseChatOptions {
+  roomId?: number;
+  enableWebSocket?: boolean;
+  onNewMessage?: (message: ChatMessage) => void;
+  onMessageEdited?: (data: { message_id: number; content: string }) => void;
+  onMessageDeleted?: (data: { message_id: number }) => void;
 }
 
-export const useCreateChat = () => {
-  const queryClient = useQueryClient();
+export interface UseChatReturn {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  error: string | null;
+  hasMore: boolean;
+  connectionStatus: ConnectionStatus;
 
-  return useMutation({
-    mutationFn: (data: CreateChatData) => chatAPI.createChat(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-list'] });
-      toast.success('Чат создан');
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка создания чата: ${error.message}`);
-    },
-  });
-};
+  sendMessage: (content: string) => Promise<void>;
+  editMessage: (messageId: number, content: string) => Promise<void>;
+  deleteMessage: (messageId: number) => Promise<void>;
+  loadMoreMessages: () => Promise<void>;
+  markAsRead: () => Promise<void>;
+  sendTyping: () => void;
 
-export const useDeleteChat = () => {
-  const queryClient = useQueryClient();
+  connect: () => Promise<void>;
+  disconnect: () => void;
+}
 
-  return useMutation({
-    mutationFn: (chatId: number) => chatAPI.deleteChat(chatId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-list'] });
-    },
-    onError: (error: Error) => {
-      toast.error(`Ошибка удаления чата: ${error.message}`);
-    },
-  });
-};
+export function useChat(options: UseChatOptions = {}): UseChatReturn {
+  const {
+    roomId,
+    enableWebSocket = true,
+    onNewMessage,
+    onMessageEdited,
+    onMessageDeleted,
+  } = options;
 
-export const useWebSocketChat = (chatId: number, enabled: boolean = true) => {
-  const [isConnected, setIsConnected] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const socketRef = useRef(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("disconnected");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    if (!enabled || !chatId) return;
+  const isConnectedRef = useRef(false);
+  const unsubscribeStatusRef = useRef<(() => void) | null>(null);
+  const isInitialLoadRef = useRef(true);
 
-    const setupSocket = async () => {
-      try {
-        const socket = initChatSocket();
-        socketRef.current = socket;
+  const loadMessages = useCallback(async () => {
+    if (!roomId) {
+      logger.warn("[useChat] Cannot load messages: roomId is not provided");
+      return;
+    }
 
-        socket.onConnectionChange((connected) => {
-          setIsConnected(connected);
-          if (connected) {
-            setError(null);
-            logger.info('[useWebSocketChat] Connected to socket', { chatId });
-          }
-        });
+    setIsLoading(true);
+    setError(null);
 
-        if (socket.isConnected()) {
-          socket.disconnect();
-          logger.info('[useWebSocketChat] Disconnecting from previous room');
-        }
+    try {
+      const response = await chatAPI.getChatMessages(roomId, 1, 50);
 
-        await socket.connect(chatId);
-        logger.info('[useWebSocketChat] Connected to room', { chatId });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Ошибка подключения WebSocket';
-        setError(message);
-        logger.error('[useWebSocketChat] Setup error:', err);
-      }
-    };
+      const newMessages = response.results.map((msg) => ({
+        id: msg.id,
+        chat_id: msg.chat_id,
+        sender_id: msg.sender_id,
+        sender_name: msg.sender_name,
+        sender_avatar: msg.sender_avatar,
+        content: msg.content,
+        created_at: msg.created_at,
+        updated_at: msg.updated_at,
+        is_edited: msg.is_edited,
+        is_deleted: msg.is_deleted,
+        read_by: msg.read_by,
+      }));
 
-    setupSocket();
+      setMessages(newMessages);
+      setHasMore(!!response.next);
+      setCurrentPage(1);
 
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [chatId, enabled]);
+      logger.info("[useChat] Messages loaded successfully", {
+        roomId,
+        count: newMessages.length,
+        hasMore: !!response.next,
+      });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Ошибка загрузки сообщений";
+      setError(errorMessage);
+      logger.error("[useChat] Failed to load messages:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [roomId]);
 
-  const subscribe = useCallback(
-    (callback: (msg: ChatSocketMessage) => void) => {
-      if (!socketRef.current) return () => {};
-      return socketRef.current.subscribeToChat(chatId, callback);
-    },
-    [chatId]
-  );
+  const loadMoreMessages = useCallback(async () => {
+    if (!roomId || isLoadingMore || !hasMore) {
+      return;
+    }
 
-  const send = useCallback(
-    (message: string) => {
-      if (!socketRef.current) {
-        setError('WebSocket не подключен');
+    setIsLoadingMore(true);
+    setError(null);
+
+    try {
+      const nextPage = currentPage + 1;
+      const response = await chatAPI.getChatMessages(roomId, nextPage, 50);
+
+      const newMessages = response.results.map((msg) => ({
+        id: msg.id,
+        chat_id: msg.chat_id,
+        sender_id: msg.sender_id,
+        sender_name: msg.sender_name,
+        sender_avatar: msg.sender_avatar,
+        content: msg.content,
+        created_at: msg.created_at,
+        updated_at: msg.updated_at,
+        is_edited: msg.is_edited,
+        is_deleted: msg.is_deleted,
+        read_by: msg.read_by,
+      }));
+
+      setMessages((prev) => [...prev, ...newMessages]);
+      setHasMore(!!response.next);
+      setCurrentPage(nextPage);
+
+      logger.info("[useChat] More messages loaded", {
+        roomId,
+        page: nextPage,
+        count: newMessages.length,
+        hasMore: !!response.next,
+      });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Ошибка загрузки сообщений";
+      setError(errorMessage);
+      logger.error("[useChat] Failed to load more messages:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [roomId, currentPage, hasMore, isLoadingMore]);
+
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!roomId) {
+        const errorMsg = "Cannot send message: roomId is not provided";
+        logger.error("[useChat]", errorMsg);
+        setError(errorMsg);
         return;
       }
-      socketRef.current.send(chatId, message);
+
+      if (!content.trim()) {
+        logger.warn("[useChat] Attempt to send empty message");
+        return;
+      }
+
+      try {
+        if (enableWebSocket && chatWebSocketService.isConnected()) {
+          chatWebSocketService.sendRoomMessage(roomId, content);
+          logger.debug("[useChat] Message sent via WebSocket", {
+            roomId,
+            contentLength: content.length,
+          });
+        } else {
+          const message = await chatAPI.sendMessage(roomId, { content });
+
+          setMessages((prev) => {
+            const exists = prev.some((m) => m.id === message.id);
+            if (exists) return prev;
+            return [message, ...prev];
+          });
+
+          logger.debug("[useChat] Message sent via REST API", {
+            roomId,
+            messageId: message.id,
+          });
+        }
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Ошибка отправки сообщения";
+        setError(errorMessage);
+        logger.error("[useChat] Failed to send message:", err);
+        throw err;
+      }
     },
-    [chatId]
+    [roomId, enableWebSocket],
   );
 
-  return {
-    isConnected,
-    error,
-    subscribe,
-    send,
-  };
-};
+  const editMessage = useCallback(
+    async (messageId: number, content: string) => {
+      if (!roomId) {
+        const errorMsg = "Cannot edit message: roomId is not provided";
+        logger.error("[useChat]", errorMsg);
+        setError(errorMsg);
+        return;
+      }
 
-export const useTypingIndicator = (chatId: number) => {
-  const socketRef = useRef(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
+      try {
+        const updatedMessage = await chatAPI.editMessage(
+          roomId,
+          messageId,
+          content,
+        );
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId
+              ? {
+                  ...msg,
+                  content,
+                  is_edited: true,
+                  updated_at: updatedMessage.updated_at,
+                }
+              : msg,
+          ),
+        );
+
+        logger.debug("[useChat] Message edited", { roomId, messageId });
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Ошибка редактирования сообщения";
+        setError(errorMessage);
+        logger.error("[useChat] Failed to edit message:", err);
+        throw err;
+      }
+    },
+    [roomId],
+  );
+
+  const deleteMessage = useCallback(
+    async (messageId: number) => {
+      if (!roomId) {
+        const errorMsg = "Cannot delete message: roomId is not provided";
+        logger.error("[useChat]", errorMsg);
+        setError(errorMsg);
+        return;
+      }
+
+      try {
+        await chatAPI.deleteMessage(roomId, messageId);
+
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+
+        logger.debug("[useChat] Message deleted", { roomId, messageId });
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Ошибка удаления сообщения";
+        setError(errorMessage);
+        logger.error("[useChat] Failed to delete message:", err);
+        throw err;
+      }
+    },
+    [roomId],
+  );
+
+  const markAsRead = useCallback(async () => {
+    if (!roomId) {
+      logger.warn("[useChat] Cannot mark as read: roomId is not provided");
+      return;
+    }
+
+    try {
+      await chatAPI.markAsRead(roomId);
+      logger.debug("[useChat] Chat marked as read", { roomId });
+    } catch (err) {
+      logger.error("[useChat] Failed to mark as read:", err);
+    }
+  }, [roomId]);
+
+  const sendTyping = useCallback(() => {
+    if (!roomId || !enableWebSocket || !chatWebSocketService.isConnected()) {
+      return;
+    }
+
+    chatWebSocketService.sendTyping(roomId);
+    chatWebSocketService.startTypingTimer(roomId);
+  }, [roomId, enableWebSocket]);
+
+  const connect = useCallback(async () => {
+    if (!roomId || !enableWebSocket) {
+      logger.warn(
+        "[useChat] Cannot connect: roomId not provided or WebSocket disabled",
+      );
+      return;
+    }
+
+    if (isConnectedRef.current) {
+      logger.debug("[useChat] Already connected to room", { roomId });
+      return;
+    }
+
+    try {
+      await chatWebSocketService.connectToRoom(roomId, {
+        onMessage: (message) => {
+          logger.debug("[useChat] WebSocket message received", {
+            messageId: message.id,
+            roomId,
+          });
+
+          setMessages((prev) => {
+            const exists = prev.some((m) => m.id === message.id);
+            if (exists) {
+              logger.debug("[useChat] Duplicate message ignored", {
+                messageId: message.id,
+              });
+              return prev;
+            }
+
+            const chatMessage: ChatMessage = {
+              id: message.id,
+              chat_id: message.room,
+              sender_id: message.sender.id,
+              sender_name:
+                `${message.sender.first_name} ${message.sender.last_name}`.trim() ||
+                message.sender.username,
+              sender_avatar: message.sender.avatar,
+              content: message.content,
+              created_at: message.created_at,
+              updated_at: message.updated_at,
+              is_edited: message.is_edited,
+              is_deleted: false,
+              read_by: message.is_read ? [message.sender.id] : [],
+            };
+
+            if (onNewMessage) {
+              onNewMessage(chatMessage);
+            }
+
+            return [chatMessage, ...prev];
+          });
+        },
+        onMessageEdited: (data) => {
+          logger.debug("[useChat] WebSocket message edited", data);
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === data.message_id
+                ? { ...msg, content: data.content, is_edited: true }
+                : msg,
+            ),
+          );
+
+          if (onMessageEdited) {
+            onMessageEdited(data);
+          }
+        },
+        onMessageDeleted: (data) => {
+          logger.debug("[useChat] WebSocket message deleted", data);
+
+          setMessages((prev) =>
+            prev.filter((msg) => msg.id !== data.message_id),
+          );
+
+          if (onMessageDeleted) {
+            onMessageDeleted(data);
+          }
+        },
+        onError: (errorMsg, code) => {
+          logger.error("[useChat] WebSocket error:", {
+            errorMsg,
+            code,
+            roomId,
+          });
+          setError(errorMsg);
+        },
+        onConnect: () => {
+          logger.info("[useChat] WebSocket connected", { roomId });
+          isConnectedRef.current = true;
+        },
+      });
+
+      logger.info("[useChat] Successfully initiated connection", { roomId });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Ошибка подключения WebSocket";
+      setError(errorMessage);
+      logger.error("[useChat] Failed to connect:", err);
+      throw err;
+    }
+  }, [
+    roomId,
+    enableWebSocket,
+    onNewMessage,
+    onMessageEdited,
+    onMessageDeleted,
+  ]);
+
+  const disconnect = useCallback(() => {
+    if (!roomId) {
+      return;
+    }
+
+    if (unsubscribeStatusRef.current) {
+      unsubscribeStatusRef.current();
+      unsubscribeStatusRef.current = null;
+    }
+
+    if (isConnectedRef.current) {
+      chatWebSocketService.disconnectFromRoom(roomId);
+      isConnectedRef.current = false;
+      logger.info("[useChat] Disconnected from room", { roomId });
+    }
+  }, [roomId]);
 
   useEffect(() => {
-    try {
-      socketRef.current = getChatSocket();
-    } catch (error) {
-      logger.warn('[useTypingIndicator] Socket not initialized');
+    if (!roomId) {
+      return;
+    }
+
+    const unsubscribe = chatWebSocketService.onConnectionStatusChange(
+      (status) => {
+        setConnectionStatus(status);
+
+        if (status === "connected" && !isConnectedRef.current) {
+          isConnectedRef.current = true;
+        } else if (
+          status === "disconnected" ||
+          status === "error" ||
+          status === "auth_error"
+        ) {
+          isConnectedRef.current = false;
+        }
+      },
+    );
+
+    unsubscribeStatusRef.current = unsubscribe;
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!roomId) {
+      return;
+    }
+
+    if (isInitialLoadRef.current) {
+      loadMessages();
+      isInitialLoadRef.current = false;
+    }
+
+    if (enableWebSocket) {
+      connect();
     }
 
     return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
+      disconnect();
     };
-  }, []);
+  }, [roomId, enableWebSocket]);
 
-  const startTyping = useCallback(() => {
-    if (!socketRef.current || !socketRef.current.isConnected()) return;
+  return {
+    messages,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    connectionStatus,
 
-    if (!isTyping) {
-      setIsTyping(true);
-      socketRef.current.sendTypingIndicator(chatId, true);
-    }
+    sendMessage,
+    editMessage,
+    deleteMessage,
+    loadMoreMessages,
+    markAsRead,
+    sendTyping,
 
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+    connect,
+    disconnect,
+  };
+}
 
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      socketRef.current?.sendTypingIndicator(chatId, false);
-    }, 3000);
-  }, [chatId, isTyping]);
-
-  const stopTyping = useCallback(() => {
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    setIsTyping(false);
-    if (socketRef.current?.isConnected()) {
-      socketRef.current.sendTypingIndicator(chatId, false);
-    }
-  }, [chatId]);
-
-  return { startTyping, stopTyping, isTyping };
-};
-
-export const useUnreadCount = (chatId?: number) => {
-  const { data: chatList } = useChatList();
-
-  const unreadCount = chatId
-    ? chatList?.results.find((chat) => chat.id === chatId)?.unread_count || 0
-    : chatList?.results.reduce((sum, chat) => sum + chat.unread_count, 0) || 0;
-
-  return unreadCount;
-};
+export { Chat, ChatMessage, ChatContact };

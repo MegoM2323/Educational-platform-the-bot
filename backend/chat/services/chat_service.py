@@ -249,3 +249,48 @@ class ChatService:
                 f"No ChatParticipant found for user {user.id} in chat {room.id}"
             )
             pass
+
+    @staticmethod
+    def get_contacts(user):
+        """
+        Получить список пользователей, с которыми может общаться current user.
+
+        Логика:
+        - Все активные пользователи кроме себя
+        - Проверить can_initiate_chat() для каждого
+        - Вернуть с информацией о существующих чатах
+
+        Returns:
+            list[dict]: Список контактов с полями:
+                - id, full_name, role
+                - has_existing_chat, existing_chat_id
+        """
+        from ..permissions import can_initiate_chat
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        all_users = User.objects.filter(is_active=True).exclude(id=user.id)
+
+        # Получить existing chats одним запросом
+        my_rooms = ChatParticipant.objects.filter(user=user).values_list("room_id", flat=True)
+        existing_chats = {}
+
+        for cp in ChatParticipant.objects.filter(
+            user_id__in=all_users.values_list("id", flat=True),
+            room_id__in=my_rooms
+        ).select_related("room"):
+            if cp.user_id not in existing_chats:
+                existing_chats[cp.user_id] = cp.room_id
+
+        contacts = []
+        for other_user in all_users:
+            if can_initiate_chat(user, other_user):
+                contacts.append({
+                    "id": other_user.id,
+                    "full_name": f"{other_user.first_name} {other_user.last_name}".strip(),
+                    "role": getattr(other_user, "role", "user"),
+                    "has_existing_chat": other_user.id in existing_chats,
+                    "existing_chat_id": existing_chats.get(other_user.id),
+                })
+
+        return contacts

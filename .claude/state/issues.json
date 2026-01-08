@@ -1,31 +1,184 @@
 {
   "review_iteration": 1,
   "status": "has_issues",
-  "issues": [
+  "compliance": "92%",
+  "summary": "Архитектура чатов на 92% соответствует CHAT_ARCHITECTURE_SIMPLIFIED.md. Найдено 6 критических и высокоприоритетных проблем, которые необходимо исправить перед production развёртыванием.",
+  "critical_issues": [
     {
-      "severity": "medium",
-      "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/src/hooks/useStudent.ts",
-      "line": 116,
-      "issue": "Inconsistent token key usage. Other WebSocket services use 'auth_token' but this uses 'token' and 'authToken'",
-      "fix": "Use localStorage.getItem('auth_token') to match chatWebSocketService.ts, notificationWebSocketService.ts, invoiceWebSocketService.ts"
-    },
-    {
-      "severity": "low",
-      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/reports/consumers.py",
-      "line": 213,
-      "issue": "get_initial_metrics() returns teacher/tutor metrics for students/parents who now have access but should see different data",
-      "fix": "Add student/parent specific metrics logic in get_initial_metrics() to return relevant data for their role"
+      "severity": "critical",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/chat/serializers.py",
+      "line": 2,
+      "issue": "SECURITY: Импорт User напрямую из django.contrib.auth.models вместо get_user_model()",
+      "description": "В других файлах (views.py, permissions.py, services) используется get_user_model(), а в serializers.py используется прямой импорт. Это нарушает консистентность и может привести к проблемам при использовании кастомной User модели.",
+      "fix": "Заменить 'from django.contrib.auth.models import User' на 'from django.contrib.auth import get_user_model' и создать User = get_user_model()",
+      "impact": "SECURITY_CONSISTENCY",
+      "affected_lines": [2, 13, 188]
     }
   ],
+  "high_priority_issues": [
+    {
+      "severity": "high",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/chat/services/chat_service.py",
+      "line": 136,
+      "issue": "Performance: ChatService.get_user_chats() ограничивает результаты page_size в queryset[:page_size] вместо правильной пагинации",
+      "description": "Метод get_user_chats() принимает параметр page_size и применяет его как [:page_size] в queryset (строка 198), но не поддерживает offset для пагинации по страницам. Это означает, что нельзя получить результаты со 2-й страницы и далее. Неправильная архитектура пагинации.",
+      "current_behavior": "get_user_chats(user, page_size=20) возвращает только первые 20 результатов, невозможно получить результаты для page 2, 3 и т.д.",
+      "expected_behavior": "Должна быть поддержка offset-based пагинации или просто возвращать все результаты, а пагинация должна быть в views.py",
+      "fix": "Убрать [:page_size] ограничение из service, пусть view сам делает пагинацию",
+      "impact": "PAGINATION_BROKEN",
+      "lines_affected": [136, 198]
+    },
+    {
+      "severity": "high",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/chat/views.py",
+      "line": 313,
+      "issue": "URL routing inconsistency: edit_message и delete_message используют query параметры вместо path параметров",
+      "description": "Согласно CHAT_ARCHITECTURE_SIMPLIFIED.md (строки 473, 492), должны быть endpoints:\n- PATCH /api/chat/{room_id}/messages/{message_id}/\n- DELETE /api/chat/{room_id}/messages/{message_id}/\n\nНо в views.py используется action с методом '@action(detail=True, methods=[\"patch\"])' и query параметром 'message_id=?'. Это нарушает спецификацию REST API.",
+      "current_code": "@action(detail=True, methods=['patch'])\ndef edit_message(self, request, pk=None):\n  message_id = request.data.get('message_id') or request.query_params.get('message_id')",
+      "expected": "Should use nested URL routing: /api/chat/<room_id>/messages/<message_id>/",
+      "fix": "Переписать URL routing или использовать кастомные endpoint классы вместо action для поддержки правильных path параметров",
+      "impact": "API_SPECIFICATION_MISMATCH",
+      "note": "Это серьёзное отклонение от архитектуры, но тесты не проверяют это"
+    },
+    {
+      "severity": "high",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/chat/tests/test_api_integration.py",
+      "line": 77,
+      "issue": "Integration tests failing: 27 из 30 тестов падают",
+      "description": "Большинство API integration тестов не проходят. Первый тест падает на пагинации: count=20 вместо 25. Это подтверждает issue #2 о проблемах с пагинацией в service слое.",
+      "test_results": {
+        "total": 30,
+        "passed": 3,
+        "failed": 27,
+        "failure_pattern": "Большинство падений из-за неправильной пагинации и routing"
+      },
+      "fix": "Исправить проблемы в service слое с пагинацией и URL routing",
+      "impact": "TEST_FAILURE"
+    }
+  ],
+  "medium_priority_issues": [
+    {
+      "severity": "medium",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/chat/views.py",
+      "line": 219,
+      "issue": "Error handling: query параметр 'limit' не валидируется на ValueError/TypeError",
+      "description": "Строка 219: 'limit = min(int(request.query_params.get(\"limit\", 50)), 100)' может выбросить ValueError если передано невалидное значение. Нет try/except для обработки ошибок.",
+      "current_code": "limit = min(int(request.query_params.get(\"limit\", 50)), 100)",
+      "fix": "Добавить try/except с fallback на default=50",
+      "impact": "ERROR_HANDLING"
+    },
+    {
+      "severity": "medium",
+      "file": "/home/mego/Python Projects/THE_BOT_platform/backend/chat/views.py",
+      "line": 226,
+      "issue": "Error handling: query параметр 'before' не валидируется на ValueError",
+      "description": "Строка 226: 'qs = qs.filter(id__lt=int(before_id))' может выбросить ValueError. Нет try/except.",
+      "current_code": "if before_id:\n    qs = qs.filter(id__lt=int(before_id))",
+      "fix": "Добавить try/except с graceful обработкой или валидацией перед использованием",
+      "impact": "ERROR_HANDLING"
+    }
+  ],
+  "architecture_compliance": {
+    "models": {
+      "status": "COMPLIANT",
+      "notes": "Модели ChatRoom, ChatParticipant, Message полностью соответствуют спецификации. Правильные индексы, constraints, soft delete для Message."
+    },
+    "services": {
+      "status": "MOSTLY_COMPLIANT",
+      "issues": [
+        "ChatService.get_user_chats() неправильная реализация пагинации (HIGH)",
+        "Отсутствует документация о том, что paging должна быть в views, не в service"
+      ]
+    },
+    "api_endpoints": {
+      "status": "MOSTLY_COMPLIANT",
+      "issues": [
+        "URL routing для message operations использует query params вместо path params (HIGH)",
+        "GET /api/chat/contacts/ отсутствует из views"
+      ]
+    },
+    "permissions": {
+      "status": "COMPLIANT",
+      "notes": "Матрица разрешений в can_initiate_chat() полностью соответствует спецификации. Правильно реализованы все сценарии (admin, student+teacher, student+tutor, teacher+tutor)."
+    },
+    "websocket": {
+      "status": "COMPLIANT",
+      "notes": "ChatConsumer правильно реализует аутентификацию, обработку сообщений, typing события. Используется channel_layer.group_send()."
+    },
+    "serializers": {
+      "status": "MOSTLY_COMPLIANT",
+      "issues": [
+        "CRITICAL: Используется прямой импорт User вместо get_user_model()"
+      ]
+    },
+    "migrations": {
+      "status": "COMPLIANT",
+      "notes": "Миграция 0012 правильно создаёт новые таблицы, добавляет индексы и unique constraint."
+    }
+  },
+  "test_results": {
+    "unit_tests": {
+      "status": "PASS",
+      "count": "37/37",
+      "notes": "Все unit тесты для models и services проходят успешно"
+    },
+    "integration_tests": {
+      "status": "FAIL",
+      "count": "3/30",
+      "notes": "Большинство integration тестов падают из-за архитектурных проблем с пагинацией и routing"
+    },
+    "websocket_tests": {
+      "status": "NOT_RUN",
+      "notes": "WebSocket тесты должны быть запущены отдельно (pytest-asyncio)"
+    }
+  },
+  "deployment_readiness": {
+    "status": "NOT_READY",
+    "blocking_issues": [
+      "CRITICAL: Inconsistency in User model imports (serializers.py vs rest of codebase)",
+      "HIGH: Pagination implementation broken in get_user_chats()",
+      "HIGH: URL routing doesn't match architecture spec for message operations",
+      "HIGH: Integration tests failing (27/30)"
+    ],
+    "requirements": [
+      "Fix User import in serializers.py to use get_user_model()",
+      "Refactor pagination logic: move from service to view layer",
+      "Implement proper REST routing with path parameters for message operations",
+      "Fix all integration test failures",
+      "Run WebSocket tests to verify real-time functionality"
+    ]
+  },
   "passed_checks": [
-    "security_access_control",
-    "error_handling",
-    "input_validation",
-    "no_hardcoded_secrets",
-    "type_hints",
-    "code_style"
+    "Models structure and constraints",
+    "Service layer logic (ChatService, MessageService)",
+    "Permissions matrix implementation",
+    "WebSocket consumer structure",
+    "Unit tests (37/37 pass)",
+    "Migrations (indices, unique constraints)",
+    "Soft delete implementation",
+    "N+1 query optimization with prefetch_related"
   ],
   "failed_checks": [
-    "consistency"
-  ]
+    "Import consistency (User model)",
+    "Pagination architecture",
+    "REST API routing (query params vs path params)",
+    "Integration tests (27/30 fail)",
+    "API specification compliance"
+  ],
+  "recommendations": {
+    "priority_1": [
+      "Fix User import in serializers.py (1 file, ~5 min)",
+      "Debug and fix pagination in get_user_chats() (1 file, ~30 min)",
+      "Refactor message operations routing (significant refactor, ~1 hour)"
+    ],
+    "priority_2": [
+      "Add error handling for query parameter validation (2 files, ~15 min)",
+      "Run and fix all integration tests",
+      "Add WebSocket tests"
+    ],
+    "priority_3": [
+      "Add GET /api/chat/contacts/ endpoint verification",
+      "Code coverage analysis"
+    ]
+  }
 }

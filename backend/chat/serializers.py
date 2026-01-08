@@ -114,20 +114,22 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         }
 
     def get_last_message(self, obj):
-        """Получить последнее сообщение"""
-        last_msg = obj.messages.filter(is_deleted=False).order_by("-created_at").first()
-        if not last_msg:
-            return None
-
-        return {
-            "id": last_msg.id,
-            "content": last_msg.content[:100],
-            "sender_id": last_msg.sender_id,
-            "created_at": last_msg.created_at,
-        }
+        """Использует аннотацию last_message_content из ChatService.get_user_chats()"""
+        # Проверяем наличие аннотаций из сервиса (которые добавляет get_user_chats)
+        if hasattr(obj, "last_message_content") and obj.last_message_content:
+            return {
+                "content": obj.last_message_content[:100],
+                "created_at": getattr(obj, "last_message_time", None),
+            }
+        return None
 
     def get_unread_count(self, obj):
-        """Получить количество непрочитанных сообщений"""
+        """Использует аннотацию unread_count из ChatService.get_user_chats()"""
+        # Используем аннотацию из сервиса если есть
+        if hasattr(obj, "unread_count"):
+            return obj.unread_count or 0
+
+        # Fallback для случаев когда аннотации нет
         request = self.context.get("request")
         if not request:
             return 0

@@ -297,10 +297,11 @@ except ImproperlyConfigured as e:
     sys.stderr.write(f"ERROR: {e}\n")
     raise
 
-# Add daphne only if not in test mode (to avoid Twisted SSL issues during testing)
-# ВРЕМЕННО ОТКЛЮЧЕНО: проблема совместимости pyOpenSSL 25.3.0 с Python 3.13
-# if environment != 'test':
-#     INSTALLED_APPS.insert(0, 'daphne')  # ASGI server для WebSocket
+# Add ASGI server for WebSocket support (using Uvicorn instead of Daphne)
+# Uvicorn does not require pyOpenSSL and works with Python 3.13
+# Daphne is kept in INSTALLED_APPS for compatibility with Django Channels
+if environment != 'test':
+    INSTALLED_APPS.insert(0, 'daphne')  # ASGI server для WebSocket
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",

@@ -123,17 +123,22 @@ echo -e "${BLUE}Starting services...${NC}"
 echo ""
 
 # Kill any existing processes on the ports
-pkill -f "python manage.py runserver" 2>/dev/null || true
+pkill -f "uvicorn" 2>/dev/null || true
 pkill -f "celery worker" 2>/dev/null || true
 pkill -f "celery beat" 2>/dev/null || true
 
-# Start Django development server in background
-echo -e "${BLUE}Starting Django backend (port 8000)...${NC}"
+# Start Uvicorn ASGI server (WebSocket support) in background
+echo -e "${BLUE}Starting Uvicorn ASGI server (port 8000)...${NC}"
 cd "$PROJECT_ROOT/backend"
-python manage.py runserver 0.0.0.0:8000 > "$PROJECT_ROOT/logs/django.log" 2>&1 &
-DJANGO_PID=$!
+uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --reload > "$PROJECT_ROOT/logs/uvicorn.log" 2>&1 &
+UVICORN_PID=$!
 sleep 2
-echo -e "${GREEN}✓ Django started (PID: $DJANGO_PID)${NC}"
+if kill -0 $UVICORN_PID 2>/dev/null; then
+    echo -e "${GREEN}✓ Uvicorn started (PID: $UVICORN_PID)${NC}"
+else
+    echo -e "${RED}✗ Uvicorn failed to start${NC}"
+    exit 1
+fi
 
 # Start Celery worker in background (optional for development)
 echo -e "${BLUE}Starting Celery worker...${NC}"

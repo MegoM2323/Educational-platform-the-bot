@@ -1,40 +1,59 @@
-# План: Исправить 405 Method Not Allowed ошибки в assignment endpoints
+# План: Финальная исправка 6 критических проблем архитектуры
 
-## Проблема
-Тесты ожидают list-level endpoints (без pk), но ViewSets используют неправильные @action decorators или маршрутизацию.
+## Фаза 0: Предварительная подготовка
+- ✓ Проверка состояния проекта
+- [ ] Анализ текущих ошибок
 
-## Failin Endpoints
-1. `POST /api/assignments/assign/` → должна быть detail=False или собственный path
-2. `POST /api/assignments/grading-rubric/` → должна быть detail=False
-3. `POST /api/assignments/apply-template/` → должна быть detail=False
-4. `POST /api/assignments/submissions/` → используется router.register, должен работать
-5. `POST /api/assignments/questions/` → используется router.register, должен работать
+## Параллельная группа 1: Исправки User imports и пагинации (независимые)
+- [ ] Task 1: Исправить User import в serializers.py (CRITICAL - 5 мин)
+  - Файл: `/backend/chat/serializers.py` строка 2
+  - Текущий: `from django.contrib.auth.models import User`
+  - Требуемый: `from django.contrib.auth import get_user_model; User = get_user_model()`
+  - Зависимостей: нет
 
-## Текущая ситуация
-- AssignmentViewSet.assign() имеет detail=True (строка 146) → это /api/assignments/{pk}/assign/
-- AssignmentSubmissionViewSet зарегистрирован как router.register(r"submissions", ...) → должен работать с POST
-- AssignmentQuestionViewSet зарегистрирован как router.register(r"questions", ...) → должен работать с POST
+- [ ] Task 2: Переделать пагинацию в chat_service.py и views.py (HIGH - 20 мин)
+  - Файл: `/backend/chat/services/chat_service.py`
+  - Файл: `/backend/chat/views.py` list()
+  - Проблема: get_user_chats() возвращает QuerySet без пагинации, слайсинг на view уровне неоптимален
+  - Решение: service возвращает raw QuerySet, view делает пагинацию через QuerySet slicing
+  - Зависимостей: нет
 
-## Решение
-### Task 1: Анализ и исправление AssignmentViewSet endpoints
-- Проверить @action decorators для assign(), assign_grades(), grading_rubric(), apply_template()
-- Изменить detail=True на detail=False для list-level endpoints
-- Или создать собственные path в urls.py для этих endpoints
-- Файлы: backend/assignments/views_main.py, backend/assignments/urls.py
+- [ ] Task 3: Добавить error handling для query параметров (MEDIUM - 15 мин)
+  - Файл: `/backend/chat/views.py`
+  - Проблема: page, limit, before_id парсятся без обработки ошибок
+  - Решение: try/except для всех int() конверсий, валидация границ
+  - Зависимостей: нет
 
-### Task 2: Проверить AssignmentSubmissionViewSet
-- Убедиться что ModelViewSet правильно наследует create() метод
-- Проверить get_permissions() и validate в create()
-- Файл: backend/assignments/views_main.py
+## Параллельная группа 2: REST routing для сообщений (HIGH - 30 мин)
+- [ ] Task 4: Создать MessageViewSet для правильного routing (HIGH - 30 мин)
+  - Файл: `/backend/chat/views.py` - добавить новый ViewSet
+  - Требуемые endpoints:
+    - PATCH /api/chat/{room_id}/messages/{message_id}/ - редактировать
+    - DELETE /api/chat/{room_id}/messages/{message_id}/ - удалить
+  - Обновить urls.py для path параметров
+  - Зависимостей: нет
 
-### Task 3: Проверить AssignmentQuestionViewSet
-- Убедиться что ModelViewSet правильно наследует create() метод
-- Проверить get_permissions() и validate в create()
-- Файл: backend/assignments/views_main.py
+## Параллельная группа 3: Проверка и завершение (HIGH - 5 мин)
+- [ ] Task 5: Проверить ChatContactsView GET /api/chat/contacts/ (MEDIUM - 5 мин)
+  - Файл: `/backend/chat/views.py`
+  - Требуемый endpoint: GET /api/chat/contacts/ - список доступных контактов
+  - Проверить что endpoint существует и зарегистрирован в urls.py
+  - Зависимостей: нет
+
+## Фаза финального контроля: Тестирование и запуск
+- [ ] Task 6: Запустить Django check и тесты (MEDIUM - 10 мин)
+  - Проверка синтаксиса и импортов
+  - pytest для всех chat тестов
+  - Валидация что все 6 проблем исправлены
 
 ## Success Criteria
-- POST /api/assignments/assign/ → 200/201 (не 405)
-- POST /api/assignments/grading-rubric/ → 200/201 (не 405)
-- POST /api/assignments/apply-template/ → 200/201 (не 405)
-- POST /api/assignments/submissions/ → 201 (не 405)
-- POST /api/assignments/questions/ → 201 (не 405)
+- ✓ User import исправлен во всех местах
+- ✓ Пагинация оптимизирована через QuerySet slicing
+- ✓ Query параметры валидируются с error handling
+- ✓ MessageViewSet создан с path параметрами
+- ✓ ChatContactsView существует и зарегистрирован
+- ✓ Django check: 0 issues
+- ✓ Все тесты pass
+
+## Estimated Time
+- Total: 85 минут (все задачи могут идти параллельно в группах)

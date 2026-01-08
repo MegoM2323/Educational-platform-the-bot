@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 from .models import ChatRoom, Message, ChatParticipant
 from .serializers import (
@@ -12,6 +14,7 @@ from .serializers import (
     MessageSerializer,
 )
 from .services.chat_service import ChatService
+from .services.message_service import MessageService
 from .permissions import can_initiate_chat
 
 User = get_user_model()
@@ -312,13 +315,14 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        message = Message.objects.create(
-            room=room,
-            sender=request.user,
-            content=content,
-        )
-        room.updated_at = timezone.now()
-        room.save(update_fields=["updated_at"])
+        message_service = MessageService()
+        try:
+            message = message_service.send_message(request.user, room, content)
+        except ValueError as e:
+            return Response(
+                {"error": {"code": "INVALID_REQUEST", "message": str(e)}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         serializer = MessageSerializer(message)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -450,10 +454,32 @@ class MessageViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        message.content = content
-        message.is_edited = True
-        message.updated_at = timezone.now()
-        message.save(update_fields=["content", "is_edited", "updated_at"])
+        message_service = MessageService()
+        try:
+            message = message_service.edit_message(request.user, message, content)
+        except PermissionError as e:
+            return Response(
+                {"error": {"code": "ACCESS_DENIED", "message": str(e)}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except ValueError as e:
+            return Response(
+                {"error": {"code": "INVALID_REQUEST", "message": str(e)}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Broadcast to WebSocket group
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{message.room_id}",
+                {
+                    "type": "chat_message_edited",
+                    "message_id": message.id,
+                    "content": message.content,
+                    "updated_at": message.updated_at.isoformat(),
+                }
+            )
 
         serializer = MessageSerializer(message)
         return Response(serializer.data)
@@ -500,25 +526,29 @@ class MessageViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        can_delete = (
-            message.sender_id == request.user.id
-            or getattr(request.user, "role", None) == "admin"
-        )
+        message_service = MessageService()
+        try:
+            # Store room_id and message_id before deletion
+            room_id = message.room_id
+            message_id = message.id
 
-        if not can_delete:
-            return Response(
-                {
-                    "error": {
-                        "code": "ACCESS_DENIED",
-                        "message": "Only author or admin can delete message",
+            message_service.delete_message(request.user, message)
+
+            # Broadcast to WebSocket group
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{room_id}",
+                    {
+                        "type": "chat_message_deleted",
+                        "message_id": message_id,
                     }
-                },
+                )
+        except PermissionError as e:
+            return Response(
+                {"error": {"code": "ACCESS_DENIED", "message": str(e)}},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
-        message.is_deleted = True
-        message.deleted_at = timezone.now()
-        message.save(update_fields=["is_deleted", "deleted_at"])
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -533,60 +563,15 @@ class ChatContactsView(APIView):
     def get(self, request):
         """
         Возвращает список пользователей, с которыми текущий пользователь может общаться.
-        Проверяется через can_initiate_chat().
         """
         import logging
 
         logger = logging.getLogger(__name__)
 
         try:
-            all_users = User.objects.filter(is_active=True).exclude(id=request.user.id)
-
-            if not all_users.exists():
-                return Response({"contacts": []})
-
-            user_ids = list(all_users.values_list("id", flat=True))
-
-            existing_chats = {}
-            try:
-                # Get all ChatRooms where current user is a participant
-                my_rooms = ChatParticipant.objects.filter(
-                    user=request.user
-                ).values_list("room_id", flat=True)
-
-                # Get all ChatParticipants in those rooms from other users
-                for cp in (
-                    ChatParticipant.objects.filter(user_id__in=user_ids)
-                    .filter(room_id__in=my_rooms)
-                    .select_related("room")
-                ):
-                    if cp.user_id not in existing_chats:
-                        existing_chats[cp.user_id] = cp.room_id
-            except Exception as e:
-                logger.warning(
-                    f"Error loading existing chats for user {request.user.id}: {str(e)}"
-                )
-                existing_chats = {}
-
-            contacts = []
-            for user in all_users:
-                try:
-                    if can_initiate_chat(request.user, user):
-                        contacts.append(
-                            {
-                                "id": user.id,
-                                "full_name": f"{user.first_name} {user.last_name}".strip(),
-                                "role": getattr(user, "role", "user"),
-                                "has_existing_chat": user.id in existing_chats,
-                                "existing_chat_id": existing_chats.get(user.id),
-                            }
-                        )
-                except Exception as e:
-                    logger.warning(f"Error checking chat with user {user.id}: {str(e)}")
-                    continue
-
+            service = ChatService()
+            contacts = service.get_contacts(request.user)
             return Response({"contacts": contacts})
-
         except Exception as e:
             logger.error(f"ChatContactsView error: {str(e)}")
             return Response(

@@ -992,18 +992,39 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             if user.role == UserModel.Role.TEACHER:
                 from django.db.models import Q
+                from scheduling.models import SubjectEnrollment as SchedulingEnrollment
 
                 if room.type in [
                     ChatRoom.Type.FORUM_SUBJECT,
                     ChatRoom.Type.FORUM_TUTOR,
                 ]:
+                    # FIXED: Synchronize with REST API logic in forum_views.py (lines 385-407)
+
+                    # Check 1: M2M participants
                     has_access = room.participants.filter(id=user_id).exists()
-                    if (
-                        not has_access
-                        and room.enrollment
-                        and room.enrollment.teacher_id == user_id
-                    ):
-                        has_access = True
+
+                    # Check 2: ChatParticipant fallback
+                    if not has_access:
+                        from .models import ChatParticipant
+                        has_access = ChatParticipant.objects.filter(
+                            room=room, user_id=user_id
+                        ).exists()
+
+                    # Check 3: Teacher access logic (same as check_teacher_access_to_room)
+                    if not has_access and room.enrollment:
+                        if room.type == ChatRoom.Type.FORUM_SUBJECT:
+                            # FORUM_SUBJECT: enrollment.teacher = user
+                            has_access = room.enrollment.teacher_id == user_id
+                        elif room.type == ChatRoom.Type.FORUM_TUTOR:
+                            # FORUM_TUTOR: teacher teaches students in chat
+                            student_participants = room.participants.filter(
+                                role=UserModel.Role.STUDENT
+                            ).values_list("id", flat=True)
+                            has_access = SchedulingEnrollment.objects.filter(
+                                teacher_id=user_id,
+                                student_id__in=student_participants
+                            ).exists()
+
                     if has_access:
                         logger.info(
                             f"[check_room_access] Teacher {user_id} accessing room {self.room_id}"

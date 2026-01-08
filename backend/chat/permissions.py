@@ -112,8 +112,9 @@ def check_teacher_access_to_room(
         student_participants = room.participants.filter(
             role=User.Role.STUDENT
         ).values_list("id", flat=True)
+        # FIXED: Removed is_active=True filter - teacher should see their chats regardless of enrollment status
         has_enrollment = SubjectEnrollment.objects.filter(
-            teacher=teacher_user, student_id__in=student_participants, is_active=True
+            teacher=teacher_user, student_id__in=student_participants
         ).exists()
 
         if has_enrollment:

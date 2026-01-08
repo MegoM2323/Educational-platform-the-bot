@@ -136,16 +136,27 @@ def create_forum_chat_on_enrollment(
                 participants_to_add.append(student_profile.parent)
 
             # Add participants to M2M relation (idempotent - duplicates ignored)
-            forum_chat.participants.add(*participants_to_add)
+            # Wrap in transaction.atomic() to ensure both M2M and ChatParticipant are synchronized
+            with transaction.atomic():
+                forum_chat.participants.add(*participants_to_add)
 
-            # Create ChatParticipant records using bulk_create with ignore_conflicts
-            participant_records = [
-                ChatParticipant(room=forum_chat, user=user)
-                for user in participants_to_add
-            ]
-            ChatParticipant.objects.bulk_create(
-                participant_records, ignore_conflicts=True
-            )
+                # Create ChatParticipant records using bulk_create with ignore_conflicts
+                participant_records = [
+                    ChatParticipant(room=forum_chat, user=user)
+                    for user in participants_to_add
+                ]
+                ChatParticipant.objects.bulk_create(
+                    participant_records, ignore_conflicts=True
+                )
+
+                # Fallback: If ignore_conflicts skipped any, create them with get_or_create
+                # This ensures all participants are in both M2M and ChatParticipant
+                for user in participants_to_add:
+                    ChatParticipant.objects.get_or_create(
+                        room=forum_chat,
+                        user=user,
+                        defaults={'created_at': timezone.now()}
+                    )
 
             # Verify student was actually added (critical logging)
             try:
@@ -164,17 +175,37 @@ def create_forum_chat_on_enrollment(
                     f"Student addition verification failed for {forum_chat.name}: {str(e)}"
                 )
 
-            # Verify teacher was actually added (critical logging)
+            # Verify teacher was actually added (critical logging - CHECK BOTH M2M AND ChatParticipant)
             try:
-                if not forum_chat.participants.filter(id=instance.teacher.id).exists():
+                # Check 1: M2M participants
+                teacher_in_m2m = forum_chat.participants.filter(
+                    id=instance.teacher.id
+                ).exists()
+
+                # Check 2: ChatParticipant model (for fallback access checks)
+                teacher_in_cp = ChatParticipant.objects.filter(
+                    room=forum_chat, user=instance.teacher
+                ).exists()
+
+                if not teacher_in_m2m:
                     logger.warning(
-                        f"Teacher {instance.teacher.username} ({instance.teacher.id}) failed to be added to "
+                        f"Teacher {instance.teacher.username} ({instance.teacher.id}) NOT in M2M for "
                         f"forum {forum_chat.name} ({forum_chat.id})"
+                    )
+                elif not teacher_in_cp:
+                    logger.warning(
+                        f"Teacher {instance.teacher.username} ({instance.teacher.id}) NOT in ChatParticipant for "
+                        f"forum {forum_chat.name} ({forum_chat.id}) - syncing..."
+                    )
+                    # Sync: create ChatParticipant if missing (shouldn't happen with fix above)
+                    ChatParticipant.objects.get_or_create(
+                        room=forum_chat,
+                        user=instance.teacher
                     )
                 else:
                     logger.debug(
                         f"Added teacher {instance.teacher.username} ({instance.teacher.id}) to forum "
-                        f"{forum_chat.name} ({forum_chat.id})"
+                        f"{forum_chat.name} ({forum_chat.id}) - M2M and ChatParticipant OK"
                     )
             except Exception as e:
                 logger.warning(

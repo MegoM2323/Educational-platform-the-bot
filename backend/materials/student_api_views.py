@@ -1,6 +1,12 @@
 from rest_framework import permissions, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+)
 from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
@@ -25,6 +31,7 @@ def _ensure_student(user: User):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def list_student_subjects(request):
     """
@@ -66,6 +73,7 @@ def list_student_subjects(request):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def list_subject_materials(request, subject_id: int):
     """
@@ -103,6 +111,7 @@ def list_subject_materials(request, subject_id: int):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def get_subject_teacher(request, subject_id: int):
     """
@@ -138,6 +147,7 @@ def get_subject_teacher(request, subject_id: int):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def submit_material_submission(request, material_id: int):
     """
@@ -191,6 +201,7 @@ def submit_material_submission(request, material_id: int):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def list_student_submissions(request):
     """
@@ -213,6 +224,7 @@ def list_student_submissions(request):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def get_submission_feedback(request, submission_id: int):
     """
@@ -244,6 +256,7 @@ def get_submission_feedback(request, submission_id: int):
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def get_student_progress(request):
     """

@@ -126,13 +126,18 @@ class ForumChatViewSet(viewsets.ViewSet):
                 ).order_by("-updated_at")
 
             elif user.role == "teacher":
-                # Teacher sees FORUM_SUBJECT chats where they are assigned teacher
-                # OR chat creator (but only if enrollment has no other teacher assigned)
+                # Teacher sees:
+                # 1. FORUM_SUBJECT chats where they are assigned teacher
+                # 2. FORUM_TUTOR chats where they are a participant
                 chats = (
-                    base_queryset.filter(type=ChatRoom.Type.FORUM_SUBJECT)
-                    .filter(
-                        Q(enrollment__teacher=user)
-                        | Q(created_by=user, enrollment__teacher__isnull=True)
+                    base_queryset.filter(
+                        Q(type=ChatRoom.Type.FORUM_SUBJECT, enrollment__teacher=user)
+                        | Q(
+                            type=ChatRoom.Type.FORUM_SUBJECT,
+                            created_by=user,
+                            enrollment__teacher__isnull=True,
+                        )
+                        | Q(type=ChatRoom.Type.FORUM_TUTOR)
                     )
                     .order_by("-updated_at")
                 )

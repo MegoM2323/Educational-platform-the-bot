@@ -5,7 +5,9 @@ API endpoints для прохождения уроков студентом
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import transaction
@@ -27,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated, IsStudent])
 def get_student_lesson(request, graph_lesson_id):
     """
@@ -192,6 +195,7 @@ def get_student_lesson(request, graph_lesson_id):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated, IsStudent])
 def start_element(request, element_id):
     """
@@ -283,6 +287,7 @@ def start_element(request, element_id):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated, IsStudent])
 def submit_element_answer(request, element_id):
     """
@@ -423,6 +428,7 @@ def submit_element_answer(request, element_id):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated, IsStudent])
 def complete_lesson(request, graph_lesson_id):
     """

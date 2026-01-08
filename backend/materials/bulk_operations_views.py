@@ -4,7 +4,13 @@ Provides endpoints for bulk assign, bulk unassign, and bulk operations.
 """
 import logging
 from rest_framework import status, permissions
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+)
 from rest_framework.response import Response
 from django.db import transaction
 
@@ -14,7 +20,8 @@ from .serializers import BulkAssignmentAuditLogSerializer
 logger = logging.getLogger(__name__)
 
 
-@api_view(['POST'])
+@api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def bulk_assign_endpoint(request):
     """
@@ -47,16 +54,16 @@ def bulk_assign_endpoint(request):
     }
     """
     try:
-        material_id = request.data.get('material_id')
-        student_ids = request.data.get('student_ids', [])
-        skip_existing = request.data.get('skip_existing', True)
-        notify = request.data.get('notify', True)
+        material_id = request.data.get("material_id")
+        student_ids = request.data.get("student_ids", [])
+        skip_existing = request.data.get("skip_existing", True)
+        notify = request.data.get("notify", True)
 
         # Validate required fields
         if not material_id or not student_ids:
             return Response(
-                {'error': 'material_id and student_ids are required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "material_id and student_ids are required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Initialize service
@@ -64,18 +71,17 @@ def bulk_assign_endpoint(request):
 
         # Pre-flight validation
         preflight_result = service.preflight_check(
-            material_id=material_id,
-            student_ids=student_ids
+            material_id=material_id, student_ids=student_ids
         )
 
-        if not preflight_result['valid']:
+        if not preflight_result["valid"]:
             return Response(
                 {
-                    'preflight_valid': False,
-                    'preflight': preflight_result,
-                    'error': 'Preflight validation failed'
+                    "preflight_valid": False,
+                    "preflight": preflight_result,
+                    "error": "Preflight validation failed",
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Execute bulk assignment
@@ -85,39 +91,37 @@ def bulk_assign_endpoint(request):
                     material_id=material_id,
                     student_ids=student_ids,
                     skip_existing=skip_existing,
-                    notify=notify
+                    notify=notify,
                 )
 
             return Response(
                 {
-                    'preflight_valid': True,
-                    'preflight': preflight_result,
-                    'result': result,
-                    'success': True
+                    "preflight_valid": True,
+                    "preflight": preflight_result,
+                    "result": result,
+                    "success": True,
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             logger.error(f"Bulk assign failed: {str(e)}")
             return Response(
                 {
-                    'preflight_valid': True,
-                    'preflight': preflight_result,
-                    'error': str(e),
-                    'success': False
+                    "preflight_valid": True,
+                    "preflight": preflight_result,
+                    "error": str(e),
+                    "success": False,
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     except Exception as e:
         logger.error(f"Bulk assign endpoint error: {str(e)}")
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
+@api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def bulk_unassign_endpoint(request):
     """
@@ -144,14 +148,14 @@ def bulk_unassign_endpoint(request):
     }
     """
     try:
-        material_ids = request.data.get('material_ids')
-        student_ids = request.data.get('student_ids')
+        material_ids = request.data.get("material_ids")
+        student_ids = request.data.get("student_ids")
 
         # Validate at least one is provided
         if not material_ids and not student_ids:
             return Response(
-                {'error': 'At least one of material_ids or student_ids is required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "At least one of material_ids or student_ids is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Initialize service
@@ -159,46 +163,39 @@ def bulk_unassign_endpoint(request):
 
         # Pre-flight validation
         preflight_result = service.preflight_check(
-            material_ids=material_ids,
-            student_ids=student_ids
+            material_ids=material_ids, student_ids=student_ids
         )
 
         # Execute bulk remove (don't fail on preflight for remove operations)
         try:
             with transaction.atomic():
                 result = service.bulk_remove(
-                    material_ids=material_ids,
-                    student_ids=student_ids
+                    material_ids=material_ids, student_ids=student_ids
                 )
 
             return Response(
                 {
-                    'preflight_valid': preflight_result.get('valid', True),
-                    'preflight': preflight_result,
-                    'result': result,
-                    'success': True
+                    "preflight_valid": preflight_result.get("valid", True),
+                    "preflight": preflight_result,
+                    "result": result,
+                    "success": True,
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             logger.error(f"Bulk unassign failed: {str(e)}")
             return Response(
-                {
-                    'error': str(e),
-                    'success': False
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e), "success": False},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     except Exception as e:
         logger.error(f"Bulk unassign endpoint error: {str(e)}")
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
+@api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def bulk_assign_class_endpoint(request):
     """
@@ -231,16 +228,16 @@ def bulk_assign_class_endpoint(request):
     }
     """
     try:
-        material_ids = request.data.get('material_ids', [])
-        class_id = request.data.get('class_id')
-        skip_existing = request.data.get('skip_existing', True)
-        notify = request.data.get('notify', True)
+        material_ids = request.data.get("material_ids", [])
+        class_id = request.data.get("class_id")
+        skip_existing = request.data.get("skip_existing", True)
+        notify = request.data.get("notify", True)
 
         # Validate required fields
         if not material_ids or not class_id:
             return Response(
-                {'error': 'material_ids and class_id are required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "material_ids and class_id are required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Initialize service
@@ -248,18 +245,17 @@ def bulk_assign_class_endpoint(request):
 
         # Pre-flight validation
         preflight_result = service.preflight_check(
-            material_ids=material_ids,
-            class_id=class_id
+            material_ids=material_ids, class_id=class_id
         )
 
-        if not preflight_result['valid']:
+        if not preflight_result["valid"]:
             return Response(
                 {
-                    'preflight_valid': False,
-                    'preflight': preflight_result,
-                    'error': 'Preflight validation failed'
+                    "preflight_valid": False,
+                    "preflight": preflight_result,
+                    "error": "Preflight validation failed",
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Execute bulk assignment
@@ -269,39 +265,37 @@ def bulk_assign_class_endpoint(request):
                     material_ids=material_ids,
                     class_id=class_id,
                     skip_existing=skip_existing,
-                    notify=notify
+                    notify=notify,
                 )
 
             return Response(
                 {
-                    'preflight_valid': True,
-                    'preflight': preflight_result,
-                    'result': result,
-                    'success': True
+                    "preflight_valid": True,
+                    "preflight": preflight_result,
+                    "result": result,
+                    "success": True,
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             logger.error(f"Bulk assign class failed: {str(e)}")
             return Response(
                 {
-                    'preflight_valid': True,
-                    'preflight': preflight_result,
-                    'error': str(e),
-                    'success': False
+                    "preflight_valid": True,
+                    "preflight": preflight_result,
+                    "error": str(e),
+                    "success": False,
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     except Exception as e:
         logger.error(f"Bulk assign class endpoint error: {str(e)}")
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
+@api_view(["POST"])
+@authentication_classes([JWTAuthentication, TokenAuthentication, SessionAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def bulk_assign_materials_endpoint(request):
     """
@@ -334,16 +328,16 @@ def bulk_assign_materials_endpoint(request):
     }
     """
     try:
-        material_ids = request.data.get('material_ids', [])
-        student_id = request.data.get('student_id')
-        skip_existing = request.data.get('skip_existing', True)
-        notify = request.data.get('notify', True)
+        material_ids = request.data.get("material_ids", [])
+        student_id = request.data.get("student_id")
+        skip_existing = request.data.get("skip_existing", True)
+        notify = request.data.get("notify", True)
 
         # Validate required fields
         if not material_ids or not student_id:
             return Response(
-                {'error': 'material_ids and student_id are required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "material_ids and student_id are required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Initialize service
@@ -351,18 +345,17 @@ def bulk_assign_materials_endpoint(request):
 
         # Pre-flight validation
         preflight_result = service.preflight_check(
-            material_ids=material_ids,
-            student_id=student_id
+            material_ids=material_ids, student_id=student_id
         )
 
-        if not preflight_result['valid']:
+        if not preflight_result["valid"]:
             return Response(
                 {
-                    'preflight_valid': False,
-                    'preflight': preflight_result,
-                    'error': 'Preflight validation failed'
+                    "preflight_valid": False,
+                    "preflight": preflight_result,
+                    "error": "Preflight validation failed",
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Execute bulk assignment
@@ -372,33 +365,30 @@ def bulk_assign_materials_endpoint(request):
                     material_ids=material_ids,
                     student_id=student_id,
                     skip_existing=skip_existing,
-                    notify=notify
+                    notify=notify,
                 )
 
             return Response(
                 {
-                    'preflight_valid': True,
-                    'preflight': preflight_result,
-                    'result': result,
-                    'success': True
+                    "preflight_valid": True,
+                    "preflight": preflight_result,
+                    "result": result,
+                    "success": True,
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             logger.error(f"Bulk assign materials failed: {str(e)}")
             return Response(
                 {
-                    'preflight_valid': True,
-                    'preflight': preflight_result,
-                    'error': str(e),
-                    'success': False
+                    "preflight_valid": True,
+                    "preflight": preflight_result,
+                    "error": str(e),
+                    "success": False,
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     except Exception as e:
         logger.error(f"Bulk assign materials endpoint error: {str(e)}")
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

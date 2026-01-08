@@ -101,7 +101,7 @@ info() { echo -e "${CYAN}ℹ${NC} $1" | tee -a "$DEPLOY_LOG"; }
 
 # Sanitize sensitive data in logs
 sanitize_log() {
-    sed -E 's/(PASSWORD|SECRET_KEY|TOKEN|API_KEY)=[^ ]*/\1=***REDACTED***/gi'
+    sed -E 's/([A-Z_]*(PASSWORD|SECRET|TOKEN|API_KEY|REDIS_PASSWORD)[A-Z_]*)=[^[:space:]]*/\1=***REDACTED***/gi'
 }
 
 # Execute command with dry-run support
@@ -226,9 +226,24 @@ if [ ! -f "$REMOTE_DIR/.env" ]; then
     exit 1
 fi
 
-DB_USER=$(grep "^DB_USER=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "postgres")
-DB_PASSWORD=$(grep "^DB_PASSWORD=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "postgres")
-DB_NAME=$(grep "^DB_NAME=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "thebot_db")
+DB_USER=$(grep "^DB_USER=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+if [ -z "$DB_USER" ]; then
+    echo "ERROR: DB_USER not found in .env - file may be corrupted"
+    exit 1
+fi
+
+DB_PASSWORD=$(grep "^DB_PASSWORD=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+if [ -z "$DB_PASSWORD" ]; then
+    echo "ERROR: DB_PASSWORD not found or empty in .env - file may be corrupted"
+    exit 1
+fi
+
+DB_NAME=$(grep "^DB_NAME=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+if [ -z "$DB_NAME" ]; then
+    echo "ERROR: DB_NAME not found in .env - file may be corrupted"
+    exit 1
+fi
+
 DB_HOST="localhost"
 
 echo "Using DB credentials: user=$DB_USER, database=$DB_NAME"
@@ -335,7 +350,17 @@ if [ -f "$REMOTE_DIR/.env" ]; then
 
     # Extract critical secrets
     echo "Extracting credentials..."
-    cat "$REMOTE_DIR/.env" | grep -E "^(DB_PASSWORD|SECRET_KEY|REDIS_PASSWORD|TELEGRAM_BOT_TOKEN|YOOKASSA_SECRET_KEY|OPENROUTER_API_KEY|PACHCA_FORUM_API_TOKEN)=" > "$REMOTE_DIR/.env.secrets" 2>/dev/null || true
+    grep -E "^(DB_PASSWORD|SECRET_KEY|REDIS_PASSWORD|TELEGRAM_BOT_TOKEN|YOOKASSA_SECRET_KEY|OPENROUTER_API_KEY|PACHCA_FORUM_API_TOKEN)=" "$REMOTE_DIR/.env" > "$REMOTE_DIR/.env.secrets" 2>/dev/null
+
+    # Verify critical credentials were extracted
+    if ! grep -q "^DB_PASSWORD=" "$REMOTE_DIR/.env.secrets" 2>/dev/null; then
+        echo "ERROR: DB_PASSWORD not found in .env during extraction"
+        exit 1
+    fi
+    if ! grep -q "^SECRET_KEY=" "$REMOTE_DIR/.env.secrets" 2>/dev/null; then
+        echo "ERROR: SECRET_KEY not found in .env during extraction"
+        exit 1
+    fi
 
     # Set secure permissions
     chmod 600 "$REMOTE_DIR/.env.secrets"
@@ -363,7 +388,7 @@ if [ "$DRY_RUN" = false ]; then
     fi
 
     log "Copying backend code..."
-    rsync -av --delete \
+    rsync -av --delete --delete-delay \
         --exclude='__pycache__' \
         --exclude='*.pyc' \
         --exclude='*.pyo' \
@@ -376,13 +401,23 @@ if [ "$DRY_RUN" = false ]; then
         --exclude='node_modules' \
         --exclude='.git' \
         "$LOCAL_PATH/backend/" "$SSH_HOST:$REMOTE_DIR/backend/" > /dev/null 2>&1
+
+    if [ $? -ne 0 ]; then
+        error "Backend code rsync failed"
+        exit 1
+    fi
     success "Backend code copied"
 
     log "Copying scripts..."
-    rsync -av \
+    rsync -av --delete-delay \
         --exclude='__pycache__' \
         --exclude='*.pyc' \
         "$LOCAL_PATH/scripts/" "$SSH_HOST:$REMOTE_DIR/scripts/" > /dev/null 2>&1
+
+    if [ $? -ne 0 ]; then
+        error "Scripts rsync failed"
+        exit 1
+    fi
     success "Scripts copied"
 
     # Restore credentials
@@ -393,26 +428,51 @@ set -euo pipefail
 REMOTE_DIR="/home/mg/THE_BOT_platform"
 
 if [ -f "$REMOTE_DIR/.env.secrets" ]; then
-    # Restore secrets to .env using awk
+    # Restore secrets to .env using awk (safer than sed for special chars)
     if [ -f "$REMOTE_DIR/.env" ]; then
-        # Merge secrets back into .env
-        while IFS='=' read -r key value; do
-            if [ -n "$key" ] && [ -n "$value" ]; then
-                # Escape special characters for sed
-                escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')
-                sed -i "s|^${key}=.*|${key}=${escaped_value}|" "$REMOTE_DIR/.env"
-            fi
-        done < "$REMOTE_DIR/.env.secrets"
+        # Create temporary file for merge
+        TMP_ENV=$(mktemp)
+
+        # Merge secrets back into .env using awk
+        awk -F'=' 'NR==FNR { secrets[$1]=$2; next }
+                   { if ($1 in secrets) print $1"="secrets[$1]; else print }' \
+            "$REMOTE_DIR/.env.secrets" "$REMOTE_DIR/.env" > "$TMP_ENV"
+
+        # Verify merge succeeded
+        if [ ! -s "$TMP_ENV" ]; then
+            echo "ERROR: Credential merge failed - temporary file empty"
+            rm -f "$TMP_ENV"
+            exit 1
+        fi
+
+        # Verify critical credentials exist in merged file
+        if ! grep -q "^DB_PASSWORD=" "$TMP_ENV" 2>/dev/null; then
+            echo "ERROR: DB_PASSWORD missing after merge"
+            rm -f "$TMP_ENV"
+            exit 1
+        fi
+        if ! grep -q "^SECRET_KEY=" "$TMP_ENV" 2>/dev/null; then
+            echo "ERROR: SECRET_KEY missing after merge"
+            rm -f "$TMP_ENV"
+            exit 1
+        fi
+
+        # Replace .env with merged version
+        mv "$TMP_ENV" "$REMOTE_DIR/.env"
+        chmod 600 "$REMOTE_DIR/.env"
+
         echo "SUCCESS: Credentials restored"
     else
-        echo "WARNING: .env file not found, cannot restore credentials"
+        echo "ERROR: .env file not found, cannot restore credentials"
+        exit 1
     fi
 
     # Remove temporary secrets file (security)
     rm -f "$REMOTE_DIR/.env.secrets"
     echo "Temporary secrets file removed"
 else
-    echo "INFO: No secrets file to restore"
+    echo "ERROR: No secrets file to restore - credentials may be lost"
+    exit 1
 fi
 
 # Ensure .env has correct permissions
@@ -525,23 +585,50 @@ set -e
 echo "Starting the-bot-celery-worker.service..."
 sudo systemctl start the-bot-celery-worker.service
 
+# Wait and verify worker started
+sleep 2
+if ! systemctl is-active the-bot-celery-worker.service > /dev/null 2>&1; then
+    echo "✗ the-bot-celery-worker.service FAILED to start"
+    journalctl -u the-bot-celery-worker.service --no-pager -n 20
+    exit 1
+fi
+echo "✓ the-bot-celery-worker.service started"
+
 echo "Starting the-bot-celery-beat.service..."
 sudo systemctl start the-bot-celery-beat.service
+
+# Wait and verify beat started
+sleep 2
+if ! systemctl is-active the-bot-celery-beat.service > /dev/null 2>&1; then
+    echo "✗ the-bot-celery-beat.service FAILED to start"
+    journalctl -u the-bot-celery-beat.service --no-pager -n 20
+    exit 1
+fi
+echo "✓ the-bot-celery-beat.service started"
 
 echo "Starting the-bot-daphne.service..."
 sudo systemctl start the-bot-daphne.service
 
+# Wait and verify daphne started
+sleep 2
+if ! systemctl is-active the-bot-daphne.service > /dev/null 2>&1; then
+    echo "✗ the-bot-daphne.service FAILED to start"
+    journalctl -u the-bot-daphne.service --no-pager -n 20
+    exit 1
+fi
+echo "✓ the-bot-daphne.service started"
+
 echo "Waiting for stabilization..."
-sleep 5
+sleep 3
 
 echo ""
-echo "=== Service Status ==="
+echo "=== Final Service Status ==="
 for service in the-bot-celery-worker.service the-bot-celery-beat.service the-bot-daphne.service; do
     if systemctl is-active "$service" > /dev/null 2>&1; then
         echo "✓ $service: active"
     else
-        echo "✗ $service: FAILED"
-        systemctl status "$service" --no-pager -l | tail -10
+        echo "✗ $service: FAILED (crashed after start)"
+        journalctl -u "$service" --no-pager -n 20
         exit 1
     fi
 done
@@ -566,9 +653,23 @@ set -e
 
 REMOTE_DIR="/home/mg/THE_BOT_platform"
 
-DB_USER=$(grep "^DB_USER=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "postgres")
-DB_PASSWORD=$(grep "^DB_PASSWORD=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "postgres")
-DB_NAME=$(grep "^DB_NAME=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "thebot_db")
+DB_USER=$(grep "^DB_USER=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+if [ -z "$DB_USER" ]; then
+    echo "ERROR: DB_USER not found in .env during verification"
+    exit 1
+fi
+
+DB_PASSWORD=$(grep "^DB_PASSWORD=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+if [ -z "$DB_PASSWORD" ]; then
+    echo "ERROR: DB_PASSWORD not found in .env during verification"
+    exit 1
+fi
+
+DB_NAME=$(grep "^DB_NAME=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+if [ -z "$DB_NAME" ]; then
+    echo "ERROR: DB_NAME not found in .env during verification"
+    exit 1
+fi
 
 MIGRATION_COUNT=$(PGPASSWORD="$DB_PASSWORD" psql -h localhost -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM django_migrations;" 2>/dev/null | tr -d ' ')
 

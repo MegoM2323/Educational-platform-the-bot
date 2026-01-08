@@ -43,6 +43,9 @@ from .permissions import IsStaffOrAdmin
 from payments.models import Payment
 
 
+MAX_USERNAME_ATTEMPTS = 100
+
+
 class StudentPagination(PageNumberPagination):
     """
     Пагинация для списка студентов
@@ -1492,8 +1495,17 @@ def create_user_with_profile(request):
                 base = email.split("@")[0]
                 i = 1
                 username = f"{base}{i}@local"
+                attempts = 1
                 while User.objects.filter(username=username).exists():
+                    if attempts >= MAX_USERNAME_ATTEMPTS:
+                        return Response(
+                            {
+                                "detail": f"Не удалось сгенерировать уникальный username после {MAX_USERNAME_ATTEMPTS} попыток"
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                     i += 1
+                    attempts += 1
                     username = f"{base}{i}@local"
 
             django_user = User.objects.create(
@@ -1726,8 +1738,17 @@ def create_student(request):
                 base = email.split("@")[0]
                 i = 1
                 username = f"{base}{i}@local"
+                attempts = 1
                 while User.objects.filter(username=username).exists():
+                    if attempts >= MAX_USERNAME_ATTEMPTS:
+                        return Response(
+                            {
+                                "detail": f"Не удалось сгенерировать уникальный username после {MAX_USERNAME_ATTEMPTS} попыток"
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                     i += 1
+                    attempts += 1
                     username = f"{base}{i}@local"
 
             django_user = User.objects.create(
@@ -1919,8 +1940,17 @@ def create_parent(request):
                 base = email.split("@")[0]
                 i = 1
                 username = f"{base}{i}@local"
+                attempts = 1
                 while User.objects.filter(username=username).exists():
+                    if attempts >= MAX_USERNAME_ATTEMPTS:
+                        return Response(
+                            {
+                                "detail": f"Не удалось сгенерировать уникальный username после {MAX_USERNAME_ATTEMPTS} попыток"
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                     i += 1
+                    attempts += 1
                     username = f"{base}{i}@local"
 
             django_user = User.objects.create(
@@ -2519,13 +2549,21 @@ class UserManagementView(APIView):
                     if parent_id:
                         parent = User.objects.get(id=parent_id, role=User.Role.PARENT)
 
-                    profile = StudentProfile.objects.create(
+                    profile, created = StudentProfile.objects.get_or_create(
                         user=django_user,
-                        grade=grade,
-                        goal=goal,
-                        tutor=tutor,
-                        parent=parent,
+                        defaults={
+                            "grade": grade,
+                            "goal": goal,
+                            "tutor": tutor,
+                            "parent": parent,
+                        },
                     )
+                    if not created:
+                        profile.grade = grade
+                        profile.goal = goal
+                        profile.tutor = tutor
+                        profile.parent = parent
+                        profile.save(update_fields=["grade", "goal", "tutor", "parent"])
                     profile_data = StudentProfileSerializer(profile).data
 
                 elif role == User.Role.TEACHER:
@@ -2533,12 +2571,21 @@ class UserManagementView(APIView):
                     experience_years = validated_data.get("experience_years", 0)
                     bio = validated_data.get("bio", "")
 
-                    profile = TeacherProfile.objects.create(
+                    profile, created = TeacherProfile.objects.get_or_create(
                         user=django_user,
-                        subject=subject,
-                        experience_years=experience_years,
-                        bio=bio,
+                        defaults={
+                            "subject": subject,
+                            "experience_years": experience_years,
+                            "bio": bio,
+                        },
                     )
+                    if not created:
+                        profile.subject = subject
+                        profile.experience_years = experience_years
+                        profile.bio = bio
+                        profile.save(
+                            update_fields=["subject", "experience_years", "bio"]
+                        )
 
                     profile_data = TeacherProfileSerializer(profile).data
 
@@ -2547,12 +2594,21 @@ class UserManagementView(APIView):
                     experience_years = validated_data.get("experience_years", 0)
                     bio = validated_data.get("bio", "")
 
-                    profile = TutorProfile.objects.create(
+                    profile, created = TutorProfile.objects.get_or_create(
                         user=django_user,
-                        specialization=specialization,
-                        experience_years=experience_years,
-                        bio=bio,
+                        defaults={
+                            "specialization": specialization,
+                            "experience_years": experience_years,
+                            "bio": bio,
+                        },
                     )
+                    if not created:
+                        profile.specialization = specialization
+                        profile.experience_years = experience_years
+                        profile.bio = bio
+                        profile.save(
+                            update_fields=["specialization", "experience_years", "bio"]
+                        )
                     profile_data = TutorProfileSerializer(profile).data
 
                 elif role == User.Role.PARENT:

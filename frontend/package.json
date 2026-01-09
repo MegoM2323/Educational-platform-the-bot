@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/build-monitor.js",
+    "build": "vite build",
     "build:docker": "vite build",
-    "build:dev": "vite build --mode development && node scripts/build-monitor.js",
-    "build:analyze": "ANALYZE=true vite build && node scripts/build-monitor.js",
+    "build:dev": "vite build --mode development",
+    "build:analyze": "ANALYZE=true vite build",
     "build:report": "vite build --mode production && npm run build:stats",
     "build:stats": "echo 'Bundle stats available in dist/stats.html'",
     "type-check": "tsc --noEmit",

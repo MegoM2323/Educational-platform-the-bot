@@ -14,8 +14,6 @@ vi.mock('@/integrations/api/forumAPI', () => ({
     getForumMessages: vi.fn(),
     sendForumMessage: vi.fn(),
     deleteForumMessage: vi.fn(),
-    pinMessage: vi.fn(),
-    lockChat: vi.fn(),
   },
 }));
 

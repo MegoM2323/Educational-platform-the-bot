@@ -443,64 +443,6 @@ function Forum() {
     }
   };
 
-  const handlePinMessage = useCallback(
-    async (messageId: number) => {
-      if (!selectedChat) return;
-
-      try {
-        const response = await forumAPI.pinMessage(selectedChat.id, messageId);
-
-        toast({
-          title: response.action === 'pinned' ? 'Сообщение закреплено' : 'Сообщение откреплено',
-          description:
-            response.action === 'pinned'
-              ? 'Сообщение закреплено в верхней части чата'
-              : 'Сообщение откреплено',
-        });
-
-        queryClient.invalidateQueries({ queryKey: ['forum-messages', selectedChat.id] });
-      } catch (error: unknown) {
-        toast({
-          variant: 'destructive',
-          title: 'Ошибка',
-          description: getErrorMessage(error),
-        });
-      }
-    },
-    [selectedChat, queryClient, toast]
-  );
-
-  const handleLockChat = useCallback(
-    async (chatId: number) => {
-      try {
-        const response = await forumAPI.lockChat(chatId);
-
-        toast({
-          title: response.action === 'locked' ? 'Чат заблокирован' : 'Чат разблокирован',
-          description:
-            response.action === 'locked'
-              ? 'Участники не могут отправлять сообщения'
-              : 'Чат снова активен',
-        });
-
-        if (selectedChat?.id === chatId) {
-          setSelectedChat({
-            ...selectedChat,
-            is_active: response.action === 'unlocked',
-          });
-        }
-
-        queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
-      } catch (error: unknown) {
-        toast({
-          variant: 'destructive',
-          title: 'Ошибка',
-          description: getErrorMessage(error),
-        });
-      }
-    },
-    [selectedChat, queryClient, toast]
-  );
 
   const handleTypingIndicator = useCallback(() => {
     if (isConnected && selectedChat) {
@@ -568,8 +510,6 @@ function Forum() {
                 onRetryConnection={handleRetryConnection}
                 onEditMessage={handleEditMessage}
                 onDeleteMessage={handleDeleteMessage}
-                onPinMessage={handlePinMessage}
-                onLockChat={handleLockChat}
                 isEditingOrDeleting={editMessageMutation.isPending || deleteMessageMutation.isPending}
                 currentUserId={user?.id || 0}
                 currentUserRole={user?.role || ''}

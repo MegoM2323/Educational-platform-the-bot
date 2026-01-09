@@ -3,52 +3,30 @@
   "status": "has_issues",
   "issues": [
     {
-      "severity": "high",
-      "file": "frontend/src/hooks/useGeneralChatHooks.ts",
-      "line": 14,
-      "issue": "Logic error: Using index [0] assumes first chat is the general chat, but no verification. Frontend hook returns arbitrary first chat from list instead of validating it's the general/group chat. May return wrong chat.",
-      "fix": "Add validation: check response.results[0].is_group === true OR filter for specific chat name/type before returning"
-    },
-    {
       "severity": "medium",
-      "file": "backend/chat/serializers.py",
-      "line": 172-174,
-      "issue": "N+1 query risk: get_is_group() calls obj.participants.count() for EACH chat in list. With prefetch_related present, count still executes SQL query (prefetch doesn't optimize .count()). For 20 chats = 20 extra queries.",
-      "fix": "Add participant count annotation in ChatService.get_user_chats() and reuse it, OR use len(obj.participants.all()) with prefetched data"
-    },
-    {
-      "severity": "medium",
-      "file": "frontend/src/hooks/useGeneralChatHooks.ts",
-      "line": 9-15,
-      "issue": "Inadequate null/empty handling: Function checks response?.results length but doesn't distinguish between API error, no chats, vs actual empty response. console.warn on null but continues to useQuery which may retry 2 times on null return.",
-      "fix": "Return explicit error from queryFn when no chats found instead of returning null (null triggers retries). Use enabled flag or throw error."
+      "file": "frontend/src/integrations/api/forumAPI.ts",
+      "line": 378,
+      "issue": "Legacy file forumAPI.ts contains obsolete pinMessage/lockChat/muteParticipant functions that are not used in production code but remain in codebase",
+      "fix": "forumAPI.ts is only used in tests. Either: (1) Update tests to use forumAPICompat OR (2) Remove Pin/Lock/Mute from forumAPI.ts as well. Since forumAPICompat is the production API layer, tests should mock that file."
     },
     {
       "severity": "low",
-      "file": "frontend/src/pages/dashboard/student/ChatPage.tsx, teacher/ChatPage.tsx, parent/ChatPage.tsx, tutor/ChatPage.tsx",
-      "line": "85 (all 4 files)",
-      "issue": "Inconsistent optional chaining: Code uses msg.created_at without null check. If API returns message without created_at field (null), toLocaleTimeString() will fail with TypeError.",
-      "fix": "Use optional chaining: {new Date(msg.created_at || new Date()).toLocaleTimeString()} OR add fallback timestamp"
-    },
-    {
-      "severity": "low",
-      "file": "backend/chat/serializers.py",
-      "line": 172-174,
-      "issue": "Edge case: is_group definition (> 2 participants) assumes exactly 2 = direct chat. If system creates corrupted chats with 1 or 0 participants, is_group will still return false. No validation on minimum participants.",
-      "fix": "Add validation: ensure chats always have >= 2 participants OR adjust is_group logic to >= 2 for explicit group detection"
+      "file": "frontend/src/components/chat/ChatRoom/MessageItem.tsx",
+      "line": 1,
+      "issue": "Import Pin icon from lucide-react but component does not use Pin functionality (only visual indicator for is_pinned)",
+      "fix": "This is acceptable - component renders pin icon for already-pinned messages (read-only). No action required."
     }
   ],
   "passed_checks": [
-    "field_name_consistency",
-    "serializer_field_definition",
-    "timestamp_field_update",
-    "null_response_handling",
-    "type_correctness"
+    "MessageActions.tsx: Pin/Lock/Mute buttons removed",
+    "Forum.tsx: handlePinMessage/handleLockChat removed",
+    "forumAPICompat.ts: pinMessage/lockChat/muteParticipant removed",
+    "chat/index.ts: exports cleaned up",
+    "TypeScript compilation: SUCCESS",
+    "Production build: SUCCESS",
+    "No orphaned imports of removed functions"
   ],
   "failed_checks": [
-    "n_plus_one_queries",
-    "logic_validation",
-    "error_handling_completeness",
-    "null_safety"
+    "forumAPI.ts still contains legacy Pin/Lock/Mute functions (not used in production)"
   ]
 }

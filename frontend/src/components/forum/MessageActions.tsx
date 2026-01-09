@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
-import { MoreVertical, Pencil, Trash2, Pin } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 
 interface MessageActionsProps {
   messageId: number;
@@ -15,8 +15,6 @@ interface MessageActionsProps {
   canModerate?: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onPin?: () => void;
-  isPinned?: boolean;
   disabled?: boolean;
 }
 
@@ -26,8 +24,6 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
   canModerate = false,
   onEdit,
   onDelete,
-  onPin,
-  isPinned = false,
   disabled = false,
 }) => {
   // Only show if user can perform any action
@@ -54,16 +50,6 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
             <Pencil className="mr-2 h-4 w-4" />
             Редактировать
           </DropdownMenuItem>
-        )}
-        {/* T048: Pin/Unpin action for moderators */}
-        {canModerate && onPin && (
-          <>
-            {isOwner && <DropdownMenuSeparator />}
-            <DropdownMenuItem onClick={onPin}>
-              <Pin className="mr-2 h-4 w-4" />
-              {isPinned ? 'Открепить' : 'Закрепить'}
-            </DropdownMenuItem>
-          </>
         )}
         {(isOwner || canModerate) && (
           <>

@@ -16,14 +16,6 @@ vi.mock('@/components/layout/ParentSidebar', () => ({
   ParentSidebar: () => <div data-testid="parent-sidebar">Sidebar</div>
 }))
 
-vi.mock('@/components/ChatWindow', () => ({
-  ChatWindow: ({ messages }: any) => (
-    <div data-testid="chat-window">
-      {messages?.map((m: any) => <div key={m.id}>{m.content}</div>)}
-    </div>
-  )
-}))
-
 describe('ChatPage', () => {
   let queryClient: QueryClient
 

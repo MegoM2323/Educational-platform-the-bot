@@ -38,25 +38,6 @@ export interface InitiateChatResponse {
   created: boolean;
 }
 
-export interface PinResponse {
-  success: boolean;
-  action: 'pinned' | 'unpinned';
-  message_id: number;
-  thread_id?: number;
-}
-
-export interface LockResponse {
-  success: boolean;
-  action: 'locked' | 'unlocked';
-  chat_id: number;
-}
-
-export interface MuteResponse {
-  success: boolean;
-  action: 'muted' | 'unmuted';
-  user_id: number;
-  muted_until?: string;
-}
 
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
@@ -112,17 +93,5 @@ export const forumAPI = {
 
   markChatAsRead: async (chatId: number): Promise<void> => {
     await chatAPI.markAsRead(chatId);
-  },
-
-  pinMessage: async (chatId: number, messageId: number): Promise<PinResponse> => {
-    throw new Error('Pin message not yet implemented in new chat API');
-  },
-
-  lockChat: async (chatId: number): Promise<LockResponse> => {
-    throw new Error('Lock chat not yet implemented in new chat API');
-  },
-
-  muteParticipant: async (chatId: number, userId: number): Promise<MuteResponse> => {
-    throw new Error('Mute participant not yet implemented in new chat API');
   },
 };

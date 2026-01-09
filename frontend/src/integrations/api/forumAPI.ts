@@ -122,26 +122,6 @@ export interface InitiateChatResponse {
   created: boolean;
 }
 
-export interface PinResponse {
-  success: boolean;
-  action: 'pinned' | 'unpinned';
-  message_id: number;
-  thread_id?: number;
-}
-
-export interface LockResponse {
-  success: boolean;
-  action: 'locked' | 'unlocked';
-  chat_id: number;
-}
-
-export interface MuteResponse {
-  success: boolean;
-  action: 'muted' | 'unmuted';
-  user_id: number;
-  muted_until?: string;
-}
-
 export const forumAPI = {
   getForumChats: async (): Promise<ForumChat[]> => {
     const response = await unifiedAPI.request<ForumChatsResponse>(
@@ -373,62 +353,5 @@ export const forumAPI = {
     if (response.error) {
       throw new Error(response.error);
     }
-  },
-
-  pinMessage: async (chatId: number, messageId: number): Promise<PinResponse> => {
-    const response = await unifiedAPI.request<PinResponse>(
-      `/chat/forum/${chatId}/messages/${messageId}/pin/`,
-      {
-        method: 'POST',
-      }
-    );
-
-    if (response.error) {
-      throw new Error(response.error);
-    }
-
-    if (!response.data) {
-      throw new Error('Invalid response from server: missing data');
-    }
-
-    return response.data;
-  },
-
-  lockChat: async (chatId: number): Promise<LockResponse> => {
-    const response = await unifiedAPI.request<LockResponse>(
-      `/chat/forum/${chatId}/lock/`,
-      {
-        method: 'POST',
-      }
-    );
-
-    if (response.error) {
-      throw new Error(response.error);
-    }
-
-    if (!response.data) {
-      throw new Error('Invalid response from server: missing data');
-    }
-
-    return response.data;
-  },
-
-  muteParticipant: async (chatId: number, userId: number): Promise<MuteResponse> => {
-    const response = await unifiedAPI.request<MuteResponse>(
-      `/chat/forum/${chatId}/participants/${userId}/mute/`,
-      {
-        method: 'POST',
-      }
-    );
-
-    if (response.error) {
-      throw new Error(response.error);
-    }
-
-    if (!response.data) {
-      throw new Error('Invalid response from server: missing data');
-    }
-
-    return response.data;
   },
 };

@@ -1,119 +1,88 @@
 {
-  "checkpoint": "CHATPAGE_NULL_CHECKS_ADDED",
+  "checkpoint": "CLEANUP_FORUMAPI",
   "date": "2026-01-09",
   "status": "COMPLETED",
-  "summary": "Добавлены null checks для msg.created_at в 4 ChatPage компонентах для предотвращения крашей при null timestamp.",
+  "summary": "Очищен forumAPI.ts: удалены старые функции pinMessage, lockChat, muteParticipant и интерфейсы PinResponse, LockResponse, MuteResponse для консистентности с удаленным функционалом модерации.",
   "tasks": [
     {
-      "id": "URL_PATTERN_ORDERING_FIX",
-      "task_name": "Исправление порядка URL-паттернов в chat/urls.py",
+      "id": "T2.1.1",
+      "task_name": "Удаление Pin кнопки из MessageActions.tsx",
       "agent": "coder",
       "status": "done",
-      "description": "Переставлены URL-паттерны так чтобы явные пути (contacts/, message detail, custom actions) обрабатывались ДО пустого паттерна router.urls. Это предотвращает ошибку 'Field id expected a number but got contacts' при запросе к /api/chat/contacts/",
+      "description": "Удалены onPin и isPinned props из интерфейса MessageActionsProps. Удален импорт Pin иконки. Удалена логика рендеринга Pin/Unpin кнопки для модераторов. Оставлены только Edit и Delete кнопки.",
       "changes": {
-        "chat/urls.py": "Переставлены urlpatterns: все явные пути теперь перед path('', include(router.urls))"
-      },
-      "files_modified": [
-        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/urls.py"
-      ]
-    },
-    {
-      "id": "URL_ROUTING_FIX_TESTS",
-      "task_name": "Написание тестов для проверки URL routing fix",
-      "agent": "tester",
-      "status": "done",
-      "description": "Создан набор из 24 тестов для проверки работы всех API endpoints после исправления URL паттернов",
-      "test_results": {
-        "total": 24,
-        "passed": 24,
-        "failed": 0,
-        "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/chat/tests/test_url_routing_fix.py"
-      },
-      "test_coverage": {
-        "ChatContactsEndpoint": {
-          "tests": 7,
-          "status": "PASSED",
-          "description": "GET /api/chat/contacts/ endpoint - все тесты пройдены, что подтверждает исправление 500 ошибки"
-        },
-        "SendMessageEndpoint": {
-          "tests": 6,
-          "status": "PASSED",
-          "description": "POST /api/chat/{room_id}/send_message/ endpoint"
-        },
-        "ListMessagesEndpoint": {
-          "tests": 8,
-          "status": "PASSED",
-          "description": "GET /api/chat/{room_id}/messages/ endpoint"
-        },
-        "ChatListEndpoint": {
-          "tests": 3,
-          "status": "PASSED",
-          "description": "GET /api/chat/ endpoint - проверка что router.urls остается функциональным"
-        }
-      },
-      "files_created": [
-        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/tests/test_url_routing_fix.py"
-      ]
-    },
-    {
-      "id": "CHAT_SERIALIZER_IS_GROUP_FIELD",
-      "task_name": "Добавление поля is_group в ChatRoomListSerializer",
-      "agent": "coder",
-      "status": "done",
-      "description": "Добавлено поле is_group в ChatRoomListSerializer для определения является ли чат групповым (более 2 участников). Поле возвращает True если участников > 2, False в противном случае.",
-      "changes": {
-        "chat/serializers.py": [
-          "Добавлено поле is_group = serializers.SerializerMethodField()",
-          "Добавлено 'is_group' в fields кортеж Meta класса",
-          "Реализован метод get_is_group(self, obj) который возвращает obj.participants.count() > 2"
+        "MessageActions.tsx": [
+          "Удалены props: onPin?: () => void, isPinned?: boolean",
+          "Удален импорт Pin из lucide-react",
+          "Удален блок рендеринга Pin/Unpin кнопки (строки 58-67)"
         ]
       },
       "files_modified": [
-        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/serializers.py"
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/forum/MessageActions.tsx"
       ],
       "duration_sec": 2
     },
     {
-      "id": "CHATPAGE_NULL_CHECKS",
-      "task_name": "Добавление null checks для msg.created_at в ChatPage компонентах",
+      "id": "T2.1.2",
+      "task_name": "Удаление обработчиков модерации из Forum.tsx",
       "agent": "coder",
       "status": "done",
-      "description": "Добавлены условные проверки для msg.created_at в 4 ChatPage компонентах (student, teacher, parent, tutor). Если timestamp null/undefined, отображается 'Unknown time' вместо краша.",
+      "description": "Удалены handlePinMessage и handleLockChat функции из компонента Forum. Удалены props onPinMessage и onLockChat из компонента ChatRoom. Эти функции выбрасывали ошибки 'not yet implemented'.",
       "changes": {
-        "student/ChatPage.tsx": "Изменена строка 85: {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}",
-        "teacher/ChatPage.tsx": "Изменена строка 82: {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}",
-        "parent/ChatPage.tsx": "Изменена строка 85: {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}",
-        "tutor/ChatPage.tsx": "Изменена строка 85: {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}"
-      },
-      "files_modified": [
-        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/student/ChatPage.tsx",
-        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/teacher/ChatPage.tsx",
-        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/parent/ChatPage.tsx",
-        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/tutor/ChatPage.tsx"
-      ],
-      "duration_sec": 1
-    },
-    {
-      "id": "N_PLUS_1_QUERY_FIX",
-      "task_name": "Исправление N+1 query проблемы в ChatRoomListSerializer.get_is_group()",
-      "agent": "coder",
-      "status": "done",
-      "description": "Замена obj.participants.count() на len(obj.participants.all()) для устранения N+1 проблемы. count() вызывает отдельный query для каждого чата в списке. len() использует prefetch_related данные если они загружены, или вызывает один query на объект. Метод get_is_group() определяет является ли чат групповым (более 2 участников).",
-      "optimization": {
-        "before": "obj.participants.count() > 2 - вызывает query для каждого чата",
-        "after": "len(obj.participants.all()) > 2 - использует cached prefetch_related данные",
-        "impact": "Значительное улучшение производительности при выводе списка чатов (от N+1 к N запросам максимум)"
-      },
-      "changes": {
-        "chat/serializers.py": [
-          "Строка 174: заменено obj.participants.count() > 2 на len(obj.participants.all()) > 2",
-          "Добавлена расширенная документация метода с объяснением оптимизации"
+        "Forum.tsx": [
+          "Удалена функция handlePinMessage (строки 446-471)",
+          "Удалена функция handleLockChat (строки 473-503)",
+          "Удалены props onPinMessage={handlePinMessage} и onLockChat={handleLockChat} из ChatRoom компонента"
         ]
       },
       "files_modified": [
-        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/serializers.py"
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/Forum.tsx"
       ],
+      "duration_sec": 2
+    },
+    {
+      "id": "T2.1.3",
+      "task_name": "Удаление not implemented функций из forumAPICompat.ts",
+      "agent": "coder",
+      "status": "done",
+      "description": "Удалены интерфейсы PinResponse, LockResponse, MuteResponse и соответствующие функции pinMessage, lockChat, muteParticipant которые выбрасывали ошибки 'not yet implemented'.",
+      "changes": {
+        "forumAPICompat.ts": [
+          "Удалены интерфейсы: PinResponse, LockResponse, MuteResponse (строки 41-59)",
+          "Удалены функции: pinMessage(), lockChat(), muteParticipant() (строки 117-127)"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/integrations/api/forumAPICompat.ts"
+      ],
+      "verification": {
+        "typescript_check": "passed"
+      },
       "duration_sec": 1
+    },
+    {
+      "id": "T2.1.4",
+      "task_name": "Удаление старых функций из forumAPI.ts",
+      "agent": "coder",
+      "status": "done",
+      "description": "Удалены интерфейсы PinResponse, LockResponse, MuteResponse и соответствующие функции pinMessage, lockChat, muteParticipant из основного forumAPI.ts файла для консистентности.",
+      "changes": {
+        "forumAPI.ts": [
+          "Удалены интерфейсы: PinResponse, LockResponse, MuteResponse (строки 125-143)",
+          "Удалены функции: pinMessage(), lockChat(), muteParticipant() (строки 378-433)",
+          "Оставлены функции: getForumChats, getForumMessages, sendForumMessage, getAvailableContacts, initiateChat, editForumMessage, deleteForumMessage, markChatAsRead"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/integrations/api/forumAPI.ts",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/__tests__/Forum.chat-state.test.tsx"
+      ],
+      "verification": {
+        "typescript_check": "passed",
+        "orphaned_imports": "none",
+        "test_file_updated": true
+      },
+      "duration_sec": 3
     }
   ]
 }

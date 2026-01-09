@@ -534,10 +534,17 @@ class ChatService:
             contacts.append(
                 {
                     "id": other_user.id,
-                    "full_name": f"{other_user.first_name} {other_user.last_name}".strip(),
+                    "user_id": other_user.id,
+                    "first_name": other_user.first_name or "",
+                    "last_name": other_user.last_name or "",
+                    "name": f"{other_user.first_name} {other_user.last_name}".strip()
+                    or other_user.username,
+                    "email": other_user.email or "",
                     "role": getattr(other_user, "role", "user"),
-                    "has_existing_chat": other_user.id in existing_chats,
-                    "existing_chat_id": existing_chats.get(other_user.id),
+                    "avatar": getattr(other_user, "avatar", None),
+                    "is_online": False,
+                    "has_active_chat": other_user.id in existing_chats,
+                    "chat_id": existing_chats.get(other_user.id),
                 }
             )
 

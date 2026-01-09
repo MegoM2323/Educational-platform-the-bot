@@ -65,7 +65,9 @@ class ChatRoomViewSet(viewsets.ViewSet):
         offset = (page - 1) * page_size
         paginated = all_chats[offset : offset + page_size]
 
-        serializer = ChatRoomListSerializer(paginated, many=True, context={"request": request})
+        serializer = ChatRoomListSerializer(
+            paginated, many=True, context={"request": request}
+        )
 
         return Response(
             {
@@ -232,7 +234,9 @@ class ChatRoomViewSet(viewsets.ViewSet):
         except (ValueError, TypeError):
             limit = 50
 
-        qs = Message.objects.filter(room=room, is_deleted=False).select_related("sender")
+        qs = Message.objects.filter(room=room, is_deleted=False).select_related(
+            "sender"
+        )
 
         if before_id:
             qs = qs.filter(id__lt=before_id)
@@ -556,7 +560,7 @@ class ChatContactsView(APIView):
         try:
             service = ChatService()
             contacts = service.get_contacts(request.user)
-            return Response({"contacts": contacts})
+            return Response(contacts)
         except Exception as e:
             logger.error(f"ChatContactsView error: {str(e)}")
             return Response(

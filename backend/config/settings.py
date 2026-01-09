@@ -300,8 +300,8 @@ except ImproperlyConfigured as e:
 # Add ASGI server for WebSocket support (using Uvicorn instead of Daphne)
 # Uvicorn does not require pyOpenSSL and works with Python 3.13
 # Daphne is kept in INSTALLED_APPS for compatibility with Django Channels
-if environment != 'test':
-    INSTALLED_APPS.insert(0, 'daphne')  # ASGI server для WebSocket
+if environment != "test":
+    INSTALLED_APPS.insert(0, "daphne")  # ASGI server для WebSocket
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -636,6 +636,19 @@ else:
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# JWT Configuration
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
 # Custom user model
 AUTH_USER_MODEL = "accounts.User"
 
@@ -932,12 +945,7 @@ if USE_REDIS_CHANNELS:
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [
-                    (
-                        os.getenv("REDIS_HOST", "127.0.0.1"),
-                        int(os.getenv("REDIS_PORT", "6379")),
-                    )
-                ],
+                "hosts": [os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")],
                 "capacity": 5000,
                 "expiry": 60,
             },
@@ -956,6 +964,7 @@ else:
 # Development: frequent heartbeats, longer timeouts
 # Production: less frequent heartbeats, stricter timeouts
 
+
 def _parse_int_env(key, default, min_val=None, max_val=None):
     """Parse integer environment variable with optional range validation"""
     try:
@@ -968,19 +977,36 @@ def _parse_int_env(key, default, min_val=None, max_val=None):
     except (ValueError, TypeError):
         return default
 
+
 WEBSOCKET_CONFIG = {
-    'HEARTBEAT_INTERVAL': _parse_int_env('WEBSOCKET_HEARTBEAT_INTERVAL', 30, min_val=5, max_val=300),
-    'HEARTBEAT_TIMEOUT': _parse_int_env('WEBSOCKET_HEARTBEAT_TIMEOUT', 15, min_val=3, max_val=120),
-    'AUTH_TIMEOUT': _parse_int_env('WEBSOCKET_AUTH_TIMEOUT', 15, min_val=5, max_val=120),
-    'MESSAGE_SIZE_LIMIT': _parse_int_env('WEBSOCKET_MESSAGE_SIZE_LIMIT', 10000, min_val=100, max_val=1000000),
-    'MAX_CONNECTIONS_PER_USER': _parse_int_env('WEBSOCKET_MAX_CONNECTIONS_PER_USER', 5, min_val=1, max_val=100),
-    'RECONNECT_BACKOFF_MULTIPLIER': float(os.getenv('WEBSOCKET_RECONNECT_BACKOFF_MULTIPLIER', '2.0')),
-    'RECONNECT_MAX_DELAY': _parse_int_env('WEBSOCKET_RECONNECT_MAX_DELAY', 32000, min_val=1000, max_val=300000),
+    "HEARTBEAT_INTERVAL": _parse_int_env(
+        "WEBSOCKET_HEARTBEAT_INTERVAL", 30, min_val=5, max_val=300
+    ),
+    "HEARTBEAT_TIMEOUT": _parse_int_env(
+        "WEBSOCKET_HEARTBEAT_TIMEOUT", 15, min_val=3, max_val=120
+    ),
+    "AUTH_TIMEOUT": _parse_int_env(
+        "WEBSOCKET_AUTH_TIMEOUT", 15, min_val=5, max_val=120
+    ),
+    "MESSAGE_SIZE_LIMIT": _parse_int_env(
+        "WEBSOCKET_MESSAGE_SIZE_LIMIT", 10000, min_val=100, max_val=1000000
+    ),
+    "MAX_CONNECTIONS_PER_USER": _parse_int_env(
+        "WEBSOCKET_MAX_CONNECTIONS_PER_USER", 5, min_val=1, max_val=100
+    ),
+    "RECONNECT_BACKOFF_MULTIPLIER": float(
+        os.getenv("WEBSOCKET_RECONNECT_BACKOFF_MULTIPLIER", "2.0")
+    ),
+    "RECONNECT_MAX_DELAY": _parse_int_env(
+        "WEBSOCKET_RECONNECT_MAX_DELAY", 32000, min_val=1000, max_val=300000
+    ),
 }
 
 # WebSocket settings - environment-aware
 WEBSOCKET_URL = env_config.get_websocket_url()
-WEBSOCKET_AUTHENTICATION_TIMEOUT = WEBSOCKET_CONFIG['AUTH_TIMEOUT']  # Derived from config
+WEBSOCKET_AUTHENTICATION_TIMEOUT = WEBSOCKET_CONFIG[
+    "AUTH_TIMEOUT"
+]  # Derived from config
 WEBSOCKET_MESSAGE_MAX_LENGTH = 1024 * 1024  # 1MB
 
 # Payment settings
@@ -1303,26 +1329,33 @@ import logging.handlers
 # WebSocket Configuration Validation
 # =============================================================================
 
+
 def validate_websocket_config():
     """
     Validate WebSocket configuration on Django startup.
     Ensures all timeout and limit values are sensible.
     """
     import logging
-    logger = logging.getLogger('django')
+
+    logger = logging.getLogger("django")
 
     config = WEBSOCKET_CONFIG
 
     try:
-        assert config['HEARTBEAT_INTERVAL'] > 0, "HEARTBEAT_INTERVAL must be > 0"
-        assert config['HEARTBEAT_TIMEOUT'] > 0, "HEARTBEAT_TIMEOUT must be > 0"
-        assert config['HEARTBEAT_TIMEOUT'] < config['HEARTBEAT_INTERVAL'], \
-            f"HEARTBEAT_TIMEOUT ({config['HEARTBEAT_TIMEOUT']}s) must be < HEARTBEAT_INTERVAL ({config['HEARTBEAT_INTERVAL']}s)"
-        assert config['AUTH_TIMEOUT'] > 0, "AUTH_TIMEOUT must be > 0"
-        assert config['MESSAGE_SIZE_LIMIT'] > 0, "MESSAGE_SIZE_LIMIT must be > 0"
-        assert config['MAX_CONNECTIONS_PER_USER'] > 0, "MAX_CONNECTIONS_PER_USER must be > 0"
-        assert config['RECONNECT_BACKOFF_MULTIPLIER'] > 0, "RECONNECT_BACKOFF_MULTIPLIER must be > 0"
-        assert config['RECONNECT_MAX_DELAY'] > 0, "RECONNECT_MAX_DELAY must be > 0"
+        assert config["HEARTBEAT_INTERVAL"] > 0, "HEARTBEAT_INTERVAL must be > 0"
+        assert config["HEARTBEAT_TIMEOUT"] > 0, "HEARTBEAT_TIMEOUT must be > 0"
+        assert (
+            config["HEARTBEAT_TIMEOUT"] < config["HEARTBEAT_INTERVAL"]
+        ), f"HEARTBEAT_TIMEOUT ({config['HEARTBEAT_TIMEOUT']}s) must be < HEARTBEAT_INTERVAL ({config['HEARTBEAT_INTERVAL']}s)"
+        assert config["AUTH_TIMEOUT"] > 0, "AUTH_TIMEOUT must be > 0"
+        assert config["MESSAGE_SIZE_LIMIT"] > 0, "MESSAGE_SIZE_LIMIT must be > 0"
+        assert (
+            config["MAX_CONNECTIONS_PER_USER"] > 0
+        ), "MAX_CONNECTIONS_PER_USER must be > 0"
+        assert (
+            config["RECONNECT_BACKOFF_MULTIPLIER"] > 0
+        ), "RECONNECT_BACKOFF_MULTIPLIER must be > 0"
+        assert config["RECONNECT_MAX_DELAY"] > 0, "RECONNECT_MAX_DELAY must be > 0"
 
         if DEBUG:
             logger.info(
@@ -1341,6 +1374,7 @@ def validate_websocket_config():
     except AssertionError as e:
         logger.error(f"WebSocket configuration error: {str(e)}")
         raise ImproperlyConfigured(f"WebSocket configuration error: {str(e)}")
+
 
 # Run validation on startup
 try:

@@ -164,6 +164,29 @@ else
     warning "PostgreSQL service not active. Check manually if database is accessible."
 fi
 
+# Check Redis service
+log "Checking Redis service..."
+if ssh "$SSH_HOST" "systemctl is-active redis > /dev/null 2>&1" 2>/dev/null; then
+    success "Redis is active"
+
+    # Test Redis connection with password
+    REDIS_PASS=$(grep REDIS_PASSWORD "$LOCAL_PATH/.env.production.native" 2>/dev/null | cut -d'=' -f2 || echo "")
+    if [ -z "$REDIS_PASS" ]; then
+        error "REDIS_PASSWORD not found in .env.production.native"
+        exit 1
+    fi
+
+    if ssh "$SSH_HOST" "redis-cli -a '$REDIS_PASS' ping 2>/dev/null | grep -q PONG"; then
+        success "Redis connection OK (authentication passed)"
+    else
+        error "Redis connection failed or authentication error"
+        exit 1
+    fi
+else
+    error "Redis service is not active. Start it with: sudo systemctl start redis"
+    exit 1
+fi
+
 # Check local git status
 log "Checking local git status..."
 if [ -d "$LOCAL_PATH/.git" ]; then

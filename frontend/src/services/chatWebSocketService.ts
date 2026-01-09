@@ -1,11 +1,17 @@
 /**
  * Chat WebSocket Service - специализированный сервис для чата
- * Обеспечивает real-time обмен сообщениями, индикаторы печати и уведомления
+ * Обеспечивает real-time обмен сообщениями, индикаторы печати, уведомления и graceful degradation
  */
 
-import { websocketService, WebSocketMessage, getWebSocketBaseUrl } from './websocketService';
-import { tokenStorage } from './tokenStorage';
-import { logger } from '../utils/logger';
+import {
+  websocketService,
+  WebSocketMessage,
+  getWebSocketBaseUrl,
+  ReconnectInfo,
+} from "./websocketService";
+import { tokenStorage } from "./tokenStorage";
+import { logger } from "../utils/logger";
+import { toast } from "sonner";
 
 export interface ChatMessage {
   id: number;
@@ -21,7 +27,7 @@ export interface ChatMessage {
     avatar?: string;
   };
   content: string;
-  message_type: 'text' | 'image' | 'file' | 'system';
+  message_type: "text" | "image" | "file" | "system";
   file?: string;
   image?: string;
   is_edited: boolean;
@@ -49,100 +55,498 @@ export interface ChatEventHandlers {
   onError?: (error: string, code?: string) => void;
   onConnect?: () => void;
   onMessageDelivered?: (messageId: number) => void;
-  onMessagePinned?: (data: { message_id: number; is_pinned: boolean; thread_id?: number }) => void;
+  onMessagePinned?: (data: {
+    message_id: number;
+    is_pinned: boolean;
+    thread_id?: number;
+  }) => void;
   onChatLocked?: (data: { chat_id: number; is_active: boolean }) => void;
   onUserMuted?: (data: { user_id: number; is_muted: boolean }) => void;
-  onMessageEdited?: (data: { message_id: number; content: string; is_edited: boolean; edited_at: string }) => void;
+  onMessageEdited?: (data: {
+    message_id: number;
+    content: string;
+    is_edited: boolean;
+    edited_at: string;
+  }) => void;
   onMessageDeleted?: (data: { message_id: number }) => void;
 }
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'auth_error' | 'error';
+export type ConnectionStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "auth_error"
+  | "error";
 
 export class ChatWebSocketService {
   private subscriptions = new Map<string, string>();
   private typingTimeouts = new Map<number, NodeJS.Timeout>();
   private eventHandlers: ChatEventHandlers = {};
-  private connectionStatus: ConnectionStatus = 'disconnected';
-  private connectionStatusCallbacks: ((status: ConnectionStatus) => void)[] = [];
+  private connectionStatus: ConnectionStatus = "disconnected";
+  private connectionStatusCallbacks: ((status: ConnectionStatus) => void)[] =
+    [];
   private connectionUnsubscribe: (() => void) | null = null;
   private authErrorUnsubscribe: (() => void) | null = null;
+  private reconnectAttemptUnsubscribe: (() => void) | null = null;
+  private reconnectSuccessUnsubscribe: (() => void) | null = null;
+  private reconnectFailedUnsubscribe: (() => void) | null = null;
   private activeSubscriptions = new Map<number, string>();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectTimeout?: NodeJS.Timeout;
   private lastRoomId?: number;
+  private isOfflineMode = false;
+  private offlineModeStartTime: number | null = null;
+  private lastError: string | null = null;
+  private pollingInterval: NodeJS.Timeout | null = null;
+  private offlineModeTimeout: NodeJS.Timeout | null = null;
+  private pollingMessageIds = new Set<number>();
+  private offlineModeThreshold = 5 * 60 * 1000;
+  private lastSuccessfulWsConnection = 0;
+  private configuredPollingInterval = 3000;
+  private pollingAttempts = 0;
+  private messagesSyncedCount = 0;
+
+  private chatLogger = {
+    debug: (msg: string, data?: any) => {
+      logger.debug(`[ChatWebSocket] ${msg}`, data || "");
+    },
+    info: (msg: string, data?: any) => {
+      logger.info(`[ChatWebSocket] ${msg}`, data || "");
+    },
+    warn: (msg: string, data?: any) => {
+      logger.warn(`[ChatWebSocket] ${msg}`, data || "");
+    },
+    error: (msg: string, error?: any) => {
+      logger.error(`[ChatWebSocket] ${msg}`, error || "");
+    },
+  };
 
   constructor() {
     // Подписываемся на системные события WebSocket
-    this.connectionUnsubscribe = websocketService.onConnectionChange((connected) => {
-      if (connected) {
-        this.reconnectAttempts = 0;
-        this.setConnectionStatus('connected');
-        this.resubscribeAll();
-        // Уведомляем обработчик onConnect
-        if (this.eventHandlers.onConnect) {
-          this.eventHandlers.onConnect();
+    this.connectionUnsubscribe = websocketService.onConnectionChange(
+      async (connected) => {
+        if (connected) {
+          this.reconnectAttempts = 0;
+          this.setConnectionStatus("connected");
+          this.stopOfflineModeTimeoutIfNeeded();
+          try {
+            await this.recoverFromOfflineMode();
+          } catch (error) {
+            this.eventHandlers.error(
+              "[ChatWebSocket] Failed to recover from offline mode",
+              error
+            );
+          }
+          this.resubscribeAll();
+          if (this.eventHandlers.onConnect) {
+            this.eventHandlers.onConnect();
+          }
+        } else {
+          this.onDisconnect();
         }
-      } else {
-        this.onDisconnect();
-      }
-    });
+      },
+    );
 
     // Подписываемся на ошибки аутентификации
     this.authErrorUnsubscribe = websocketService.onAuthError((code, reason) => {
-      logger.error('[ChatWebSocket] Auth error received:', { code, reason });
+      logger.error("[ChatWebSocket] Auth error received:", { code, reason });
       this.handleAuthError(code, reason);
+    });
+
+    // Подписываемся на события переподключения
+    this.reconnectAttemptUnsubscribe = websocketService.onReconnectAttempt(
+      (info: ReconnectInfo) => {
+        logger.info("[ChatWebSocket] Reconnect attempt:", info);
+        this.setConnectionStatus("connecting");
+        this.startOfflineModeCountdown();
+        toast.loading("Reconnecting...", { id: "ws-reconnect" });
+      },
+    );
+
+    this.reconnectSuccessUnsubscribe = websocketService.onReconnectSuccess(
+      () => {
+        logger.info("[ChatWebSocket] Successfully reconnected");
+        toast.success("Connected", { id: "ws-reconnect" });
+      },
+    );
+
+    this.reconnectFailedUnsubscribe = websocketService.onReconnectFailed(() => {
+      logger.error("[ChatWebSocket] Failed to reconnect after max attempts");
+      toast.error("Connection failed, switching to offline mode", {
+        id: "ws-reconnect",
+      });
+      this.initiateGracefulDegradation();
     });
   }
 
-
   /**
    * Обработка ошибок аутентификации
-   * Вызывается при получении close codes 4001 (auth error) или 4002 (access denied)
+   * Вызывается при получении close codes 4001 (auth error), 4002 (access denied), 4003 (forbidden)
    */
-  private handleAuthError(code: number, reason: string): void {
-    // Устанавливаем статус auth_error
-    this.setConnectionStatus('auth_error');
+  private handleAuthError(code: number, reason?: string): void {
+    this.chatLogger.error("Authentication error received", {
+      code,
+      reason,
+      currentStatus: this.connectionStatus,
+    });
 
-    // Формируем сообщение об ошибке
-    let errorMessage = reason;
-    if (code === 4001) {
-      errorMessage = 'Authentication failed. Please log in again.';
-    } else if (code === 4002) {
-      errorMessage = 'Access denied. You do not have permission to access this resource.';
+    this.setConnectionStatus("auth_error");
+
+    let errorMessage = reason || "Authentication error";
+    let toastMessage = "";
+
+    switch (code) {
+      case 4001:
+        errorMessage = "Session expired. Please log in again.";
+        toastMessage = "Session expired, redirecting...";
+        this.lastError = "Session expired";
+        this.chatLogger.warn(
+          "Session expired, clearing tokens and redirecting to login",
+          {
+            code,
+          },
+        );
+        if (typeof window !== "undefined") {
+          tokenStorage.clearTokens();
+          toast.error(toastMessage, { id: "ws-auth" });
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 1000);
+        }
+        break;
+
+      case 4002:
+        errorMessage = "You do not have access to this chat.";
+        toastMessage = "You don't have access to this chat";
+        this.lastError = "Access denied";
+        this.chatLogger.warn("Access denied to chat", { code });
+        toast.error(toastMessage, { id: "ws-auth" });
+        break;
+
+      case 4003:
+        errorMessage =
+          "Chat access denied. This chat may have been deleted or restricted.";
+        toastMessage = "Chat access denied";
+        this.lastError = "Forbidden";
+        this.chatLogger.warn("Chat forbidden (deleted or restricted)", {
+          code,
+        });
+        toast.error(toastMessage, { id: "ws-auth" });
+        break;
+
+      default:
+        this.lastError = errorMessage;
+        this.chatLogger.error("Unknown auth error code", { code, reason });
+        toast.error(errorMessage, { id: "ws-auth" });
     }
 
-    // Вызываем обработчик ошибки если есть
     if (this.eventHandlers.onError) {
       this.eventHandlers.onError(errorMessage, code.toString());
     }
+  }
 
-    // Опционально: редирект на страницу логина для 4001
-    if (code === 4001 && typeof window !== 'undefined') {
-      logger.info('[ChatWebSocket] Redirecting to login due to auth error');
-      // Очищаем токены
-      tokenStorage.clearTokens();
-      // Редирект на страницу логина (опционально, можно убрать если не нужно)
-      // window.location.href = '/login';
+  /**
+   * Запуск обратного отсчета для включения offline mode (5 минут)
+   */
+  private startOfflineModeCountdown(): void {
+    this.stopOfflineModeTimeoutIfNeeded();
+
+    if (this.offlineModeStartTime === null) {
+      this.offlineModeStartTime = Date.now();
+    }
+
+    this.offlineModeTimeout = setTimeout(() => {
+      const elapsed = Date.now() - (this.offlineModeStartTime || 0);
+      if (elapsed >= this.offlineModeThreshold && !this.isOfflineMode) {
+        logger.warn(
+          "[ChatWebSocket] Offline for 5+ minutes, switching to polling mode",
+        );
+        this.initiateGracefulDegradation();
+      }
+    }, this.offlineModeThreshold);
+  }
+
+  /**
+   * Остановка таймера offline mode если нужно
+   */
+  private stopOfflineModeTimeoutIfNeeded(): void {
+    if (this.offlineModeTimeout) {
+      clearTimeout(this.offlineModeTimeout);
+      this.offlineModeTimeout = null;
+    }
+    this.offlineModeStartTime = null;
+  }
+
+  /**
+   * Инициирование graceful degradation - переход на polling mode
+   */
+  private initiateGracefulDegradation(): void {
+    if (this.isOfflineMode) {
+      this.chatLogger.debug(
+        "Already in offline mode, skipping graceful degradation",
+      );
+      return;
+    }
+
+    this.chatLogger.warn("Initiating graceful degradation to polling mode", {
+      currentStatus: this.connectionStatus,
+      lastRoomId: this.lastRoomId,
+      pollingInterval: this.configuredPollingInterval,
+    });
+
+    this.isOfflineMode = true;
+    this.notifyOfflineMode(true);
+    this.stopPolling();
+    this.startPolling();
+  }
+
+  /**
+   * UI уведомления при переходе в offline mode и обратно
+   */
+  private notifyOfflineMode(isOffline: boolean): void {
+    if (isOffline) {
+      this.chatLogger.warn("Entering offline mode, switching to polling", {
+        pollingIntervalMs: this.configuredPollingInterval,
+        reason: "WebSocket connection lost",
+      });
+      toast.warning("Connection lost. Switching to offline mode (polling)");
+    } else {
+      this.chatLogger.info("Exiting offline mode, WebSocket recovered", {
+        messagesSyncedDuringOfflineMode: this.messagesSyncedCount,
+        offlineDurationMs:
+          Date.now() - (this.offlineModeStartTime || Date.now()),
+      });
+      toast.success("Back online!");
     }
   }
+
+  /**
+   * Восстановление из offline mode - переход обратно на WebSocket
+   * После успешного reconnect синхронизирует полную историю сообщений
+   */
+  private async recoverFromOfflineMode(): Promise<void> {
+    if (!this.isOfflineMode) {
+      return;
+    }
+
+    const offlineDuration =
+      Date.now() - (this.offlineModeStartTime || Date.now());
+    this.chatLogger.info("Recovering from offline mode", {
+      offlineDurationMs: offlineDuration,
+      offlineDurationMin: Math.round(offlineDuration / 60000),
+      lastRoomId: this.lastRoomId,
+      messagesSynced: this.messagesSyncedCount,
+    });
+
+    this.isOfflineMode = false;
+    this.lastSuccessfulWsConnection = Date.now();
+    this.messagesSyncedCount = 0;
+    this.notifyOfflineMode(false);
+    this.stopPolling();
+
+    if (this.lastRoomId !== undefined) {
+      try {
+        const startTime = Date.now();
+        const messages = await this.fetchMessagesViaRest();
+        const syncDuration = Date.now() - startTime;
+
+        this.pollingMessageIds.clear();
+        messages.forEach((msg) => {
+          this.pollingMessageIds.add(msg.id);
+        });
+
+        this.chatLogger.info("Message history synced after recovery", {
+          messageCount: messages.length,
+          syncDurationMs: syncDuration,
+          roomId: this.lastRoomId,
+        });
+
+        if (this.eventHandlers.onRoomHistory) {
+          this.eventHandlers.onRoomHistory(messages);
+        }
+      } catch (error) {
+        this.chatLogger.error("Failed to sync messages during recovery", {
+          error: error instanceof Error ? error.message : String(error),
+          roomId: this.lastRoomId,
+        });
+      }
+    }
+
+    this.offlineModeStartTime = null;
+  }
+
+  /**
+   * Запуск polling для получения сообщений через API (fallback режим)
+   * Интервал: 3 сек по умолчанию (конфигурируется через configuredPollingInterval)
+   */
+  private startPolling(): void {
+    if (this.pollingInterval) {
+      this.chatLogger.debug("Polling already running, skipping start");
+      return;
+    }
+
+    this.chatLogger.info("Starting polling for messages", {
+      intervalMs: this.configuredPollingInterval,
+      roomId: this.lastRoomId,
+      offlineMode: this.isOfflineMode,
+    });
+
+    this.pollingAttempts = 0;
+    this.pollingInterval = setInterval(() => {
+      if (this.lastRoomId !== undefined) {
+        this.pollingAttempts++;
+        this.syncMessagesFromPolling();
+      }
+    }, this.configuredPollingInterval);
+  }
+
+  /**
+   * Остановка polling
+   */
+  private stopPolling(): void {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+
+      this.chatLogger.info("Polling stopped", {
+        totalAttempts: this.pollingAttempts,
+        messagesSynced: this.messagesSyncedCount,
+        pollingDuration: this.pollingAttempts * this.configuredPollingInterval,
+      });
+    }
+  }
+
+  /**
+   * Синхронизация сообщений через polling API (удаляет дубликаты)
+   * Получает последние 10 сообщений и проверяет на дубликаты
+   */
+  private async syncMessagesFromPolling(): Promise<void> {
+    if (this.lastRoomId === undefined) {
+      return;
+    }
+
+    try {
+      const startTime = Date.now();
+      const messages = await this.fetchMessagesViaRest();
+      const syncDuration = Date.now() - startTime;
+
+      this.chatLogger.debug("Polling sync completed", {
+        roomId: this.lastRoomId,
+        messagesReceived: messages.length,
+        syncDurationMs: syncDuration,
+        pollingAttempt: this.pollingAttempts,
+      });
+
+      this.mergePollMessages(messages);
+    } catch (error) {
+      if ((error as any)?.status === 401) {
+        this.chatLogger.error("Token expired during polling", {
+          pollingAttempt: this.pollingAttempts,
+        });
+        this.handleAuthError(4001, "Token expired during polling");
+      } else {
+        this.chatLogger.error("Polling sync error", {
+          error: error instanceof Error ? error.message : String(error),
+          roomId: this.lastRoomId,
+          pollingAttempt: this.pollingAttempts,
+        });
+      }
+    }
+  }
+
+  /**
+   * Получение сообщений через REST API (fallback при offline mode)
+   */
+  private async fetchMessagesViaRest(): Promise<ChatMessage[]> {
+    if (this.lastRoomId === undefined) {
+      return [];
+    }
+
+    const token = tokenStorage.getTokens().accessToken;
+    if (!token) {
+      throw new Error("No authentication token available");
+    }
+
+    const response = await fetch(
+      `/api/chat/${this.lastRoomId}/messages/?limit=50`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const error = new Error(`REST API error: ${response.status}`);
+      (error as any).status = response.status;
+      throw error;
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : data.results || [];
+  }
+
+  /**
+   * Объединение сообщений из polling с дедупликацией по ID
+   * Использует Set для быстрой проверки дубликатов
+   */
+  private mergePollMessages(newMessages: ChatMessage[]): void {
+    let newMessageCount = 0;
+    let duplicateCount = 0;
+
+    newMessages.forEach((message: ChatMessage) => {
+      if (!this.pollingMessageIds.has(message.id)) {
+        this.pollingMessageIds.add(message.id);
+        newMessageCount++;
+        this.messagesSyncedCount++;
+
+        if (this.eventHandlers.onMessage) {
+          this.chatLogger.debug("New message from polling", {
+            messageId: message.id,
+            senderId: message.sender.id,
+            senderName: message.sender.username,
+            contentLength: message.content.length,
+          });
+          this.eventHandlers.onMessage(message);
+        }
+      } else {
+        duplicateCount++;
+      }
+    });
+
+    if (newMessageCount > 0 || duplicateCount > 0) {
+      this.chatLogger.debug("Polling message merge result", {
+        newMessages: newMessageCount,
+        duplicates: duplicateCount,
+        totalInCache: this.pollingMessageIds.size,
+      });
+    }
+  }
+
   /**
    * Установка статуса подключения и уведомление подписчиков
    */
   private setConnectionStatus(status: ConnectionStatus): void {
     if (this.connectionStatus !== status) {
       this.connectionStatus = status;
-      this.connectionStatusCallbacks.forEach(callback => callback(status));
+      this.connectionStatusCallbacks.forEach((callback) => callback(status));
     }
   }
 
   /**
    * Подписка на изменения статуса подключения
    */
-  onConnectionStatusChange(callback: (status: ConnectionStatus) => void): () => void {
+  onConnectionStatusChange(
+    callback: (status: ConnectionStatus) => void,
+  ): () => void {
     this.connectionStatusCallbacks.push(callback);
     return () => {
-      this.connectionStatusCallbacks = this.connectionStatusCallbacks.filter(cb => cb !== callback);
+      this.connectionStatusCallbacks = this.connectionStatusCallbacks.filter(
+        (cb) => cb !== callback,
+      );
     };
   }
 
@@ -160,18 +564,20 @@ export class ChatWebSocketService {
     // Попытка получить токен из tokenStorage
     const { accessToken } = tokenStorage.getTokens();
     if (accessToken) {
-      logger.debug('[ChatWebSocket] Using token from tokenStorage');
+      logger.debug("[ChatWebSocket] Using token from tokenStorage");
       return accessToken;
     }
 
     // Fallback: прямой доступ к localStorage
-    const localStorageToken = localStorage.getItem('auth_token');
+    const localStorageToken = localStorage.getItem("auth_token");
     if (localStorageToken) {
-      logger.debug('[ChatWebSocket] Using token from localStorage (fallback)');
+      logger.debug("[ChatWebSocket] Using token from localStorage (fallback)");
       return localStorageToken;
     }
 
-    logger.error('[ChatWebSocket] No authentication token found in any storage');
+    logger.error(
+      "[ChatWebSocket] No authentication token found in any storage",
+    );
     return null;
   }
 
@@ -180,54 +586,56 @@ export class ChatWebSocketService {
    * CRITICAL: Ensures auth token is available before establishing WebSocket connection
    */
   connectToGeneralChat(handlers: ChatEventHandlers): void {
-    this.eventHandlers = { ...this.eventHandlers, ...handlers };
-
-    const subscriptionId = websocketService.subscribe('general_chat', (message: WebSocketMessage) => {
-      this.handleChatMessage(message);
+    this.chatLogger.info("Connecting to general chat", {
+      handlersProvided: !!handlers,
+      alreadyConnected: websocketService.isConnected(),
     });
 
-    this.subscriptions.set('general_chat', subscriptionId);
+    this.eventHandlers = { ...this.eventHandlers, ...handlers };
 
-    // Подключаемся к WebSocket если еще не подключены
+    const subscriptionId = websocketService.subscribe(
+      "general_chat",
+      (message: WebSocketMessage) => {
+        this.handleChatMessage(message);
+      },
+    );
+
+    this.subscriptions.set("general_chat", subscriptionId);
+
     if (!websocketService.isConnected()) {
       const baseUrl = getWebSocketBaseUrl();
-
-      // Получаем токен через централизованный метод
       const token = this.getAuthToken();
 
       if (!token) {
-        const errorMsg = 'Authentication token not found. Please log in again.';
-        logger.error('[ChatWebSocket] ' + errorMsg);
-        this.setConnectionStatus('auth_error');
+        const errorMsg = "Authentication token not found. Please log in again.";
+        this.chatLogger.error("Token not found for general chat connection", {
+          error: errorMsg,
+        });
+        this.setConnectionStatus("auth_error");
         if (this.eventHandlers.onError) {
           this.eventHandlers.onError(errorMsg);
         }
         return;
       }
 
-      // Устанавливаем статус "подключение"
-      this.setConnectionStatus('connecting');
-
-      // Формируем URL для WebSocket подключения БЕЗ токена
+      this.setConnectionStatus("connecting");
       const fullUrl = `${baseUrl}/chat/general/`;
 
-      logger.info('[ChatWebSocket] Connecting to general chat:', {
-        hasToken: !!token,
+      this.chatLogger.info("Initiating WebSocket connection to general chat", {
+        url: fullUrl,
         tokenLength: token.length,
-        fullUrl
       });
 
-      websocketService.connect(fullUrl);
-
-      // Отправляем токен после подключения через auth message
-      setTimeout(() => {
-        if (websocketService.isConnected()) {
-          websocketService.send({
-            type: 'auth',
-            data: { token: token }
-          });
-        }
-      }, 100);
+      websocketService.connect(fullUrl, token);
+    } else {
+      this.chatLogger.info(
+        "WebSocket already connected, skipping reconnection",
+        {
+          currentUrl: websocketService.isConnected()
+            ? "connected"
+            : "disconnected",
+        },
+      );
     }
   }
 
@@ -236,76 +644,105 @@ export class ChatWebSocketService {
    * CRITICAL: Ensures auth token is available before establishing WebSocket connection
    * @returns Promise<boolean> - true если подключение установлено, false при ошибке
    */
-  async connectToRoom(roomId: number, handlers: ChatEventHandlers): Promise<boolean> {
+  async connectToRoom(
+    roomId: number,
+    handlers: ChatEventHandlers,
+  ): Promise<boolean> {
+    const connectStartTime = Date.now();
+
+    this.chatLogger.info("Connecting to chat room", {
+      roomId,
+      handlersProvided: !!handlers,
+      alreadyConnected: websocketService.isConnected(),
+    });
+
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
     this.lastRoomId = roomId;
 
     const channel = `chat_${roomId}`;
-
-    // Получаем токен через централизованный метод
     const token = this.getAuthToken();
 
     if (!token) {
-      const errorMsg = 'Authentication token not found. Please log in again.';
-      logger.error('[ChatWebSocket] ' + errorMsg);
-      this.setConnectionStatus('auth_error');
+      const errorMsg = "Authentication token not found. Please log in again.";
+      this.chatLogger.error("Token not found for room connection", {
+        roomId,
+        error: errorMsg,
+      });
+      this.setConnectionStatus("auth_error");
       if (handlers.onError) {
         handlers.onError(errorMsg);
       }
       return Promise.reject(new Error(errorMsg));
     }
 
-    // Устанавливаем статус "подключение"
-    this.setConnectionStatus('connecting');
+    this.setConnectionStatus("connecting");
 
-    const subscriptionId = websocketService.subscribe(channel, (message: WebSocketMessage) => {
-      this.handleChatMessage(message);
-    });
+    const subscriptionId = websocketService.subscribe(
+      channel,
+      (message: WebSocketMessage) => {
+        this.handleChatMessage(message);
+      },
+    );
 
     this.subscriptions.set(channel, subscriptionId);
     this.activeSubscriptions.set(roomId, subscriptionId);
 
-    // Формируем URL для WebSocket подключения БЕЗ токена
     const baseUrl = getWebSocketBaseUrl();
     const fullUrl = `${baseUrl}/chat/${roomId}/`;
 
-    logger.info('[ChatWebSocket] Connecting to room:', {
+    this.chatLogger.info("Initiating WebSocket connection to room", {
       roomId,
-      hasToken: !!token,
+      url: fullUrl,
       tokenLength: token.length,
-      fullUrl
     });
 
     return new Promise((resolve, reject) => {
       let unsubscribe: (() => void) | null = null;
+      const connectionTimeoutMs = 5000;
 
       const timeout = setTimeout(() => {
         if (unsubscribe) unsubscribe();
-        logger.warn('[ChatWebSocket] Connection timeout');
-        this.setConnectionStatus('error');
-        reject(new Error('Connection timeout'));
-      }, 5000);
+        this.chatLogger.warn("Room connection timeout", {
+          roomId,
+          timeoutMs: connectionTimeoutMs,
+          elapsedMs: Date.now() - connectStartTime,
+        });
+        this.setConnectionStatus("error");
+        reject(new Error("Connection timeout"));
+      }, connectionTimeoutMs);
 
       const checkConnection = () => {
         const status = this.getConnectionStatus();
-        if (status === 'connected') {
+        if (status === "connected") {
           clearTimeout(timeout);
           if (unsubscribe) unsubscribe();
+
+          const duration = Date.now() - connectStartTime;
+          this.chatLogger.info("Room connection established", {
+            roomId,
+            durationMs: duration,
+          });
+
           resolve(true);
-        } else if (status === 'error' || status === 'auth_error') {
+        } else if (status === "error" || status === "auth_error") {
           clearTimeout(timeout);
           if (unsubscribe) unsubscribe();
           reject(new Error(`Connection failed with status: ${status}`));
         }
       };
 
-      // Subscribe to status changes
       unsubscribe = this.onConnectionStatusChange((status) => {
-        if (status === 'connected') {
+        if (status === "connected") {
+          const duration = Date.now() - connectStartTime;
+          this.chatLogger.info("Room connection ready (status changed)", {
+            roomId,
+            durationMs: duration,
+          });
+
           clearTimeout(timeout);
           if (unsubscribe) unsubscribe();
           resolve(true);
-        } else if (status === 'error' || status === 'auth_error') {
+        } else if (status === "error" || status === "auth_error") {
           clearTimeout(timeout);
           if (unsubscribe) unsubscribe();
           reject(new Error(`Connection failed with status: ${status}`));
@@ -313,26 +750,21 @@ export class ChatWebSocketService {
       });
 
       try {
-        websocketService.connect(fullUrl);
-
-        // Отправляем токен после подключения через auth message
-        setTimeout(() => {
-          if (websocketService.isConnected()) {
-            websocketService.send({
-              type: 'auth',
-              data: { token: token }
-            });
-          }
-        }, 100);
-
-        // Check if already connected (synchronous connect)
+        websocketService.connect(fullUrl, token);
         checkConnection();
       } catch (error) {
         clearTimeout(timeout);
         if (unsubscribe) unsubscribe();
-        logger.error('[ChatWebSocket] Failed to connect:', error);
-        this.setConnectionStatus('error');
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+
+        this.chatLogger.error("Failed to initiate room connection", {
+          roomId,
+          error: error instanceof Error ? error.message : String(error),
+          elapsedMs: Date.now() - connectStartTime,
+        });
+
+        this.setConnectionStatus("error");
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
         if (handlers.onError) {
           handlers.onError(errorMsg);
         }
@@ -346,7 +778,7 @@ export class ChatWebSocketService {
    */
   disconnectFromRoom(roomId: number): void {
     if (!this.activeSubscriptions.has(roomId)) {
-      logger.warn('[ChatWebSocket] Already disconnected from room', roomId);
+      logger.warn("[ChatWebSocket] Already disconnected from room", roomId);
       return;
     }
 
@@ -391,6 +823,13 @@ export class ChatWebSocketService {
       this.reconnectTimeout = undefined;
     }
 
+    // Очищаем offline mode timeout
+    this.stopOfflineModeTimeoutIfNeeded();
+
+    // Остаиавливаем polling
+    this.stopPolling();
+    this.pollingMessageIds.clear();
+
     // Очищаем все таймеры печати перед отключением
     this.clearAllTypingTimeouts();
 
@@ -412,21 +851,38 @@ export class ChatWebSocketService {
       this.authErrorUnsubscribe = null;
     }
 
+    if (this.reconnectAttemptUnsubscribe) {
+      this.reconnectAttemptUnsubscribe();
+      this.reconnectAttemptUnsubscribe = null;
+    }
+
+    if (this.reconnectSuccessUnsubscribe) {
+      this.reconnectSuccessUnsubscribe();
+      this.reconnectSuccessUnsubscribe = null;
+    }
+
+    if (this.reconnectFailedUnsubscribe) {
+      this.reconnectFailedUnsubscribe();
+      this.reconnectFailedUnsubscribe = null;
+    }
+
     // Очищаем обработчики событий
     this.eventHandlers = {};
 
     // Отключаемся от WebSocket
     websocketService.disconnect();
 
-    // Сбрасываем статус
-    this.setConnectionStatus('disconnected');
+    // Сбрасываем статусы
+    this.setConnectionStatus("disconnected");
+    this.isOfflineMode = false;
+    this.lastError = null;
   }
 
   /**
    * Обработка разрыва соединения
    */
   private onDisconnect(): void {
-    this.setConnectionStatus('disconnected');
+    this.setConnectionStatus("disconnected");
     this.scheduleReconnect();
   }
 
@@ -435,15 +891,17 @@ export class ChatWebSocketService {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      logger.error('[ChatWebSocket] Max reconnect attempts reached');
-      this.setConnectionStatus('error');
+      logger.error("[ChatWebSocket] Max reconnect attempts reached");
+      this.setConnectionStatus("error");
       return;
     }
 
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
     this.reconnectAttempts++;
 
-    logger.info(`[ChatWebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    logger.info(
+      `[ChatWebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`,
+    );
 
     this.reconnectTimeout = setTimeout(() => {
       if (this.lastRoomId !== undefined) {
@@ -457,12 +915,18 @@ export class ChatWebSocketService {
    */
   sendGeneralMessage(content: string): void {
     if (!content || content.trim().length === 0) {
-      logger.warn('[ChatWebSocketService] Attempt to send empty message');
+      this.chatLogger.warn("Attempt to send empty message to general chat");
       return;
     }
+
+    this.chatLogger.debug("Sending message to general chat", {
+      contentLength: content.length,
+      contentPreview: content.substring(0, 50),
+    });
+
     websocketService.send({
-      type: 'chat_message',
-      data: { content }
+      type: "chat_message",
+      data: { content },
     });
   }
 
@@ -471,12 +935,21 @@ export class ChatWebSocketService {
    */
   sendRoomMessage(roomId: number, content: string): void {
     if (!content || content.trim().length === 0) {
-      logger.warn('[ChatWebSocketService] Attempt to send empty message');
+      this.chatLogger.warn("Attempt to send empty message to room", {
+        roomId,
+      });
       return;
     }
+
+    this.chatLogger.debug("Sending message to room", {
+      roomId,
+      contentLength: content.length,
+      contentPreview: content.substring(0, 50),
+    });
+
     websocketService.send({
-      type: 'chat_message',
-      data: { content }
+      type: "chat_message",
+      data: { content },
     });
   }
 
@@ -484,9 +957,13 @@ export class ChatWebSocketService {
    * Отправка индикатора печати
    */
   sendTyping(roomId?: number): void {
+    this.chatLogger.debug("Sending typing indicator", {
+      roomId: roomId || "general",
+    });
+
     websocketService.send({
-      type: 'typing',
-      data: roomId ? { room_id: roomId } : undefined
+      type: "typing",
+      data: roomId ? { room_id: roomId } : undefined,
     });
   }
 
@@ -494,9 +971,13 @@ export class ChatWebSocketService {
    * Отправка остановки печати
    */
   sendTypingStop(roomId?: number): void {
+    this.chatLogger.debug("Sending typing stop", {
+      roomId: roomId || "general",
+    });
+
     websocketService.send({
-      type: 'typing_stop',
-      data: roomId ? { room_id: roomId } : undefined
+      type: "typing_stop",
+      data: roomId ? { room_id: roomId } : undefined,
     });
   }
 
@@ -505,8 +986,8 @@ export class ChatWebSocketService {
    */
   markMessageAsRead(messageId: number): void {
     websocketService.send({
-      type: 'mark_read',
-      data: { message_id: messageId }
+      type: "mark_read",
+      data: { message_id: messageId },
     });
   }
 
@@ -515,11 +996,11 @@ export class ChatWebSocketService {
    */
   sendPinMessage(roomId: number, messageId: number): void {
     websocketService.send({
-      type: 'pin_message',
+      type: "pin_message",
       data: {
         room_id: roomId,
         message_id: messageId,
-      }
+      },
     });
   }
 
@@ -528,10 +1009,10 @@ export class ChatWebSocketService {
    */
   sendLockChat(roomId: number): void {
     websocketService.send({
-      type: 'lock_chat',
+      type: "lock_chat",
       data: {
         room_id: roomId,
-      }
+      },
     });
   }
 
@@ -540,68 +1021,96 @@ export class ChatWebSocketService {
    */
   sendMuteUser(roomId: number, userId: number): void {
     websocketService.send({
-      type: 'mute_user',
+      type: "mute_user",
       data: {
         room_id: roomId,
         user_id: userId,
-      }
+      },
     });
   }
 
   /**
    * Валидация структуры входящего сообщения
    */
-  private validateMessage(message: WebSocketMessage): { valid: boolean; error?: string } {
-    if (!message || typeof message !== 'object') {
-      return { valid: false, error: 'Message is not an object' };
+  private validateMessage(message: WebSocketMessage): {
+    valid: boolean;
+    error?: string;
+  } {
+    if (!message || typeof message !== "object") {
+      return { valid: false, error: "Message is not an object" };
     }
 
-    if (!message.type || typeof message.type !== 'string') {
-      return { valid: false, error: 'Message type is missing or invalid' };
+    if (!message.type || typeof message.type !== "string") {
+      return { valid: false, error: "Message type is missing or invalid" };
     }
 
     // Валидация специфичных типов сообщений
     switch (message.type) {
-      case 'chat_message':
-        if (!message.message || typeof message.message !== 'object') {
-          return { valid: false, error: 'chat_message must contain message object' };
+      case "chat_message":
+        if (!message.message || typeof message.message !== "object") {
+          return {
+            valid: false,
+            error: "chat_message must contain message object",
+          };
         }
         if (!message.message.id) {
-          return { valid: false, error: 'chat_message.message must have id' };
+          return { valid: false, error: "chat_message.message must have id" };
         }
         // Allow empty content for file/image messages
-        if (!message.message.content && !message.message.file && !message.message.image) {
-          return { valid: false, error: 'chat_message.message must have content, file, or image' };
+        if (
+          !message.message.content &&
+          !message.message.file &&
+          !message.message.image
+        ) {
+          return {
+            valid: false,
+            error: "chat_message.message must have content, file, or image",
+          };
         }
         break;
 
-      case 'typing':
-      case 'typing_stop':
-      case 'user_joined':
-      case 'user_left':
-        if (!message.user || typeof message.user !== 'object') {
-          return { valid: false, error: `${message.type} must contain user object` };
+      case "typing":
+      case "typing_stop":
+      case "user_joined":
+      case "user_left":
+        if (!message.user || typeof message.user !== "object") {
+          return {
+            valid: false,
+            error: `${message.type} must contain user object`,
+          };
         }
         break;
 
-      case 'room_history':
+      case "room_history":
         if (!Array.isArray(message.messages)) {
-          return { valid: false, error: 'room_history must contain messages array' };
+          return {
+            valid: false,
+            error: "room_history must contain messages array",
+          };
         }
         break;
 
-      case 'error':
-        if (!message.error || typeof message.error !== 'string') {
-          return { valid: false, error: 'error message must contain error string' };
+      case "error":
+        if (!message.error || typeof message.error !== "string") {
+          return {
+            valid: false,
+            error: "error message must contain error string",
+          };
         }
         break;
 
-      case 'message_sent':
-        if (typeof message.message_id !== 'number') {
-          return { valid: false, error: 'message_sent must contain numeric message_id' };
+      case "message_sent":
+        if (typeof message.message_id !== "number") {
+          return {
+            valid: false,
+            error: "message_sent must contain numeric message_id",
+          };
         }
-        if (message.status !== 'delivered') {
-          return { valid: false, error: 'message_sent must have status "delivered"' };
+        if (message.status !== "delivered") {
+          return {
+            valid: false,
+            error: 'message_sent must have status "delivered"',
+          };
         }
         break;
     }
@@ -613,141 +1122,171 @@ export class ChatWebSocketService {
    * Обработка входящих сообщений чата
    */
   private handleChatMessage(message: WebSocketMessage): void {
-    logger.debug('[ChatWebSocketService] Received message:', {
+    this.chatLogger.debug("Processing received chat message", {
       type: message.type,
-      hasMessage: !!message.message,
       messageId: message.message?.id,
-      hasHandler: !!this.eventHandlers.onMessage
+      hasHandler:
+        !!this.eventHandlers[
+          `on${message.type.charAt(0).toUpperCase()}${message.type.slice(1)}`
+        ],
     });
 
     // Валидация структуры сообщения
     const validation = this.validateMessage(message);
     if (!validation.valid) {
-      logger.error('[ChatWebSocketService] Invalid message structure:', {
+      this.chatLogger.error("Invalid message structure received", {
         error: validation.error,
-        message
+        messageType: message.type,
       });
       if (this.eventHandlers.onError) {
         this.eventHandlers.onError(
           `Invalid message: ${validation.error}`,
-          'validation_error'
+          "validation_error",
         );
       }
       return;
     }
 
     switch (message.type) {
-      case 'chat_message':
+      case "chat_message":
         if (message.message && this.eventHandlers.onMessage) {
-          logger.debug('[ChatWebSocketService] Calling onMessage handler for message ID:', message.message.id);
+          this.chatLogger.info(
+            "Chat message received and delivered to handler",
+            {
+              messageId: message.message.id,
+              senderId: message.message.sender.id,
+              senderName: message.message.sender.username,
+              contentLength: message.message.content.length,
+              isEdited: message.message.is_edited,
+            },
+          );
           this.eventHandlers.onMessage(message.message);
         } else {
-          logger.warn('[ChatWebSocketService] chat_message received but no handler or message data:', {
+          this.chatLogger.warn("Chat message received but cannot process", {
             hasMessage: !!message.message,
-            hasHandler: !!this.eventHandlers.onMessage
+            hasHandler: !!this.eventHandlers.onMessage,
           });
         }
         break;
 
-      case 'typing':
+      case "typing":
         if (message.user && this.eventHandlers.onTyping) {
+          this.chatLogger.debug("User typing indicator", {
+            userId: message.user.id,
+            username: message.user.username,
+          });
           this.eventHandlers.onTyping(message.user);
         }
         break;
 
-      case 'typing_stop':
+      case "typing_stop":
         if (message.user && this.eventHandlers.onTypingStop) {
+          this.chatLogger.debug("User typing stop", {
+            userId: message.user.id,
+            username: message.user.username,
+          });
           this.eventHandlers.onTypingStop(message.user);
         }
         break;
 
-      case 'user_joined':
+      case "user_joined":
         if (message.user && this.eventHandlers.onUserJoined) {
+          this.chatLogger.info("User joined chat", {
+            userId: message.user.id,
+            username: message.user.username,
+          });
           this.eventHandlers.onUserJoined(message.user);
         }
         break;
 
-      case 'user_left':
+      case "user_left":
         if (message.user && this.eventHandlers.onUserLeft) {
+          this.chatLogger.info("User left chat", {
+            userId: message.user.id,
+            username: message.user.username,
+          });
           this.eventHandlers.onUserLeft(message.user);
         }
         break;
 
-      case 'room_history':
+      case "room_history":
         if (message.messages && this.eventHandlers.onRoomHistory) {
+          this.chatLogger.info("Room history received", {
+            messagesCount: message.messages.length,
+          });
           this.eventHandlers.onRoomHistory(message.messages);
         }
         break;
 
-      case 'error':
-        logger.error('[ChatWebSocketService] Server error received:', {
+      case "error":
+        this.chatLogger.error("Server error message received", {
           error: message.error,
-          code: message.code
+          code: message.code,
         });
         if (message.error && this.eventHandlers.onError) {
           this.eventHandlers.onError(message.error, message.code);
         }
 
         // Специальная обработка ошибок авторизации
-        if (message.code === 'auth_error' || message.code === 'access_denied') {
-          this.setConnectionStatus('auth_error');
+        if (message.code === "auth_error" || message.code === "access_denied") {
+          this.setConnectionStatus("auth_error");
         }
         break;
 
-      case 'message_sent':
-        logger.debug('[ChatWebSocketService] Message delivery confirmation:', {
+      case "message_sent":
+        this.chatLogger.debug("Message delivery confirmation received", {
           messageId: message.message_id,
-          status: message.status
+          status: message.status,
         });
         if (message.message_id && this.eventHandlers.onMessageDelivered) {
           this.eventHandlers.onMessageDelivered(message.message_id);
         }
         break;
 
-      case 'message_pinned':
-        logger.debug('[ChatWebSocketService] Message pinned event:', {
+      case "message_pinned":
+        this.chatLogger.info("Message pinned event", {
           messageId: message.data?.message_id,
           isPinned: message.data?.is_pinned,
-          threadId: message.data?.thread_id
+          threadId: message.data?.thread_id,
         });
         if (message.data && this.eventHandlers.onMessagePinned) {
           this.eventHandlers.onMessagePinned(message.data);
         }
         break;
 
-      case 'chat_locked':
-        logger.debug('[ChatWebSocketService] Chat locked event:', {
+      case "chat_locked":
+        this.chatLogger.info("Chat locked event", {
           chatId: message.data?.chat_id,
-          isActive: message.data?.is_active
+          isActive: message.data?.is_active,
         });
         if (message.data && this.eventHandlers.onChatLocked) {
           this.eventHandlers.onChatLocked(message.data);
         }
         break;
 
-      case 'user_muted':
-        logger.debug('[ChatWebSocketService] User muted event:', {
+      case "user_muted":
+        this.chatLogger.info("User muted event", {
           userId: message.data?.user_id,
-          isMuted: message.data?.is_muted
+          isMuted: message.data?.is_muted,
         });
         if (message.data && this.eventHandlers.onUserMuted) {
           this.eventHandlers.onUserMuted(message.data);
         }
         break;
 
-      case 'message_edited':
-        logger.debug('[ChatWebSocketService] Message edited event:', {
+      case "message_edited":
+        this.chatLogger.info("Message edited event", {
           messageId: message.message_id || message.data?.message_id,
-          content: message.data?.content
+          contentLength: message.data?.content?.length,
         });
         if (this.eventHandlers.onMessageEdited && message.data) {
           this.eventHandlers.onMessageEdited(message.data);
         }
         break;
 
-      case 'message_deleted':
-        logger.debug('[ChatWebSocketService] Message deleted event:', {
-          messageId: message.message_id || message.data?.message_id
+      case "message_deleted":
+        this.chatLogger.info("Message deleted event", {
+          messageId: message.message_id || message.data?.message_id,
         });
         if (this.eventHandlers.onMessageDeleted) {
           const deleteData = message.data || { message_id: message.message_id };
@@ -756,11 +1295,13 @@ export class ChatWebSocketService {
         break;
 
       default:
-        logger.warn('[ChatWebSocketService] Unknown message type:', message.type);
+        this.chatLogger.warn("Unknown message type received", {
+          messageType: message.type,
+        });
         if (this.eventHandlers.onError) {
           this.eventHandlers.onError(
             `Unknown message type: ${message.type}`,
-            'unknown_type'
+            "unknown_type",
           );
         }
     }
@@ -771,9 +1312,12 @@ export class ChatWebSocketService {
    */
   private resubscribeAll(): void {
     this.subscriptions.forEach((subscriptionId, channel) => {
-      const newSubscriptionId = websocketService.subscribe(channel, (message: WebSocketMessage) => {
-        this.handleChatMessage(message);
-      });
+      const newSubscriptionId = websocketService.subscribe(
+        channel,
+        (message: WebSocketMessage) => {
+          this.handleChatMessage(message);
+        },
+      );
       this.subscriptions.set(channel, newSubscriptionId);
     });
   }
@@ -838,8 +1382,48 @@ export class ChatWebSocketService {
    * Ручная повторная попытка подключения
    */
   retryConnection(): void {
-    logger.info('[ChatWebSocket] Manual retry connection requested');
+    logger.info("[ChatWebSocket] Manual retry connection requested");
     websocketService.retryConnection();
+  }
+
+  /**
+   * Конфигурирование интервала polling (в миллисекундах)
+   * По умолчанию: 3000ms
+   */
+  setPollingInterval(intervalMs: number): void {
+    if (intervalMs < 1000) {
+      logger.warn(
+        "[ChatWebSocket] Polling interval too low, setting to 1000ms minimum",
+      );
+      this.configuredPollingInterval = 1000;
+    } else if (intervalMs > 60000) {
+      logger.warn(
+        "[ChatWebSocket] Polling interval too high, setting to 60000ms maximum",
+      );
+      this.configuredPollingInterval = 60000;
+    } else {
+      this.configuredPollingInterval = intervalMs;
+      logger.info("[ChatWebSocket] Polling interval set to", { intervalMs });
+    }
+
+    if (this.pollingInterval) {
+      this.stopPolling();
+      this.startPolling();
+    }
+  }
+
+  /**
+   * Получение текущего интервала polling
+   */
+  getPollingInterval(): number {
+    return this.configuredPollingInterval;
+  }
+
+  /**
+   * Проверка статуса offline mode
+   */
+  isInOfflineMode(): boolean {
+    return this.isOfflineMode;
   }
 }
 

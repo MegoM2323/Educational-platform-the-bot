@@ -321,9 +321,11 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
               return prev;
             }
 
+            // Преобразование WebSocket ChatMessage (room, sender object)
+            // в REST API ChatMessage (chat_id, flat fields)
             const chatMessage: ChatMessage = {
               id: message.id,
-              chat_id: message.room,
+              chat_id: message.room, // WebSocket использует 'room', REST API использует 'chat_id'
               sender_id: message.sender.id,
               sender_name:
                 `${message.sender.first_name} ${message.sender.last_name}`.trim() ||
@@ -332,9 +334,9 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
               content: message.content,
               created_at: message.created_at,
               updated_at: message.updated_at,
-              is_edited: message.is_edited,
-              is_deleted: false,
-              read_by: message.is_read ? [message.sender.id] : [],
+              is_edited: message.is_edited ?? false, // Защита от undefined
+              is_deleted: false, // Новые сообщения через WS никогда не deleted
+              read_by: [], // read_by обновляется через отдельный механизм mark_as_read
             };
 
             if (onNewMessage) {

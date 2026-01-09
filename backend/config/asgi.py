@@ -1,5 +1,7 @@
 import os
 import sys
+import signal
+import logging
 
 from django.core.asgi import get_asgi_application
 
@@ -17,8 +19,12 @@ from channels.security.websocket import AllowedHostsOriginValidator
 from chat.routing import websocket_urlpatterns as chat_websocket_urlpatterns
 from invoices.routing import websocket_urlpatterns as invoice_websocket_urlpatterns
 from reports.routing import websocket_urlpatterns as reports_websocket_urlpatterns
-from notifications.routing import websocket_urlpatterns as notifications_websocket_urlpatterns
+from notifications.routing import (
+    websocket_urlpatterns as notifications_websocket_urlpatterns,
+)
 from chat.middleware import TokenAuthMiddleware
+
+logger = logging.getLogger(__name__)
 
 # Объединяем все WebSocket роуты
 websocket_urlpatterns = (
@@ -27,6 +33,34 @@ websocket_urlpatterns = (
     + reports_websocket_urlpatterns
     + notifications_websocket_urlpatterns
 )
+
+
+def setup_signal_handlers():
+    """Setup SIGTERM handler for graceful shutdown"""
+    import asyncio
+
+    def sigterm_handler(signum, frame):
+        logger.info("SIGTERM received, initiating graceful shutdown...")
+        try:
+            from chat.signals import shutdown_all_connections
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(shutdown_all_connections())
+                else:
+                    asyncio.run(shutdown_all_connections())
+            except RuntimeError:
+                logger.error("No event loop available for graceful shutdown")
+        except Exception as e:
+            logger.error(
+                f"Error in SIGTERM handler: {type(e).__name__}: {str(e)}",
+                exc_info=True,
+            )
+
+    signal.signal(signal.SIGTERM, sigterm_handler)
+    logger.debug("SIGTERM handler registered for graceful shutdown")
+
 
 application = ProtocolTypeRouter(
     {
@@ -41,9 +75,7 @@ application = ProtocolTypeRouter(
     }
 )
 
-import logging
-
-logger = logging.getLogger(__name__)
+setup_signal_handlers()
 
 try:
     from config.sentry import init_sentry

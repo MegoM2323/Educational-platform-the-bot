@@ -1,4 +1,4 @@
-import { logger } from '@/utils/logger';
+import { logger } from "@/utils/logger";
 
 /**
  * WebSocket Service для real-time коммуникации
@@ -31,6 +31,13 @@ export interface Subscription {
   id: string;
 }
 
+export interface ReconnectInfo {
+  attempt: number;
+  maxAttempts: number;
+  nextDelay: number;
+  lastDelay: number;
+}
+
 export class WebSocketService {
   private ws: WebSocket | null = null;
   private config: WebSocketConfig;
@@ -40,10 +47,38 @@ export class WebSocketService {
   private subscriptions = new Map<string, Subscription>();
   private messageQueue: WebSocketMessage[] = [];
   private isConnecting = false;
-  private connectionState: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
+  private connectionState: "disconnected" | "connecting" | "connected" =
+    "disconnected";
   private connectionCallbacks: ((connected: boolean) => void)[] = [];
   private currentUrl: string | null = null;
   private authErrorCallbacks: ((code: number, reason: string) => void)[] = [];
+  private maxReconnectDelay = 32000;
+  private isReconnecting = false;
+  private lastConnectTime = 0;
+  private reconnectAttemptCallbacks: ((info: ReconnectInfo) => void)[] = [];
+  private reconnectSuccessCallbacks: (() => void)[] = [];
+  private reconnectFailedCallbacks: (() => void)[] = [];
+  private lastSuccessfulConnection = 0;
+  private heartbeatStartTime = 0;
+  private lastHeartbeatTime = 0;
+  private messageCount = 0;
+
+  private wsLogger = {
+    debug: (msg: string, data?: any) => {
+      if (typeof window !== "undefined" && (window as any).__WS_DEBUG) {
+        console.debug(`[WebSocket] ${msg}`, data || "");
+      }
+    },
+    info: (msg: string, data?: any) => {
+      console.info(`[WebSocket] ${msg}`, data || "");
+    },
+    warn: (msg: string, data?: any) => {
+      console.warn(`[WebSocket] ${msg}`, data || "");
+    },
+    error: (msg: string, error?: any) => {
+      console.error(`[WebSocket] ${msg}`, error || "");
+    },
+  };
 
   constructor(config: WebSocketConfig) {
     this.config = {
@@ -51,74 +86,164 @@ export class WebSocketService {
       maxReconnectAttempts: 10,
       heartbeatInterval: 30000,
       messageQueueSize: 100,
-      ...config
+      ...config,
     };
     this.currentUrl = config.url;
+    this.lastSuccessfulConnection = Date.now();
+  }
+
+  private log(
+    level: "debug" | "info" | "warn" | "error",
+    msg: string,
+    context?: Record<string, any>,
+  ): void {
+    const timestamp = new Date().toISOString();
+    const state = {
+      connected: this.connectionState === "connected",
+      connecting: this.connectionState === "connecting",
+      reconnecting: this.isReconnecting,
+      reconnect_attempts: this.reconnectAttempts,
+      subscriptions_count: this.subscriptions.size,
+      message_queue_size: this.messageQueue.length,
+      uptime_ms: Date.now() - this.lastSuccessfulConnection,
+    };
+
+    const logEntry = {
+      timestamp,
+      level: level.toUpperCase(),
+      message: msg,
+      context: context || {},
+      state,
+    };
+
+    if (level === "error") {
+      this.wsLogger.error(msg, { ...context, state, timestamp });
+      this.sendToMonitoring(logEntry);
+    } else if (level === "warn") {
+      this.wsLogger.warn(msg, { ...context, state, timestamp });
+    } else if (level === "info") {
+      this.wsLogger.info(msg, { ...context, state, timestamp });
+    } else {
+      this.wsLogger.debug(msg, { ...context, state, timestamp });
+    }
+  }
+
+  private sendToMonitoring(logEntry: any): void {
+    if (typeof window !== "undefined" && (window as any).__SENTRY) {
+      try {
+        (window as any).__SENTRY.captureException(new Error(logEntry.message), {
+          extra: logEntry,
+        });
+      } catch (err) {
+        // Silently fail monitoring
+      }
+    }
   }
 
   /**
-   * Подключение к WebSocket серверу с опциональным URL
+   * Подключение к WebSocket серверу с опциональным URL и токеном
    * @param url - Опциональный URL для подключения. Если не указан, используется текущий URL
+   * @param token - Опциональный JWT токен для отправки в первом сообщении
    */
-  async connect(url?: string): Promise<void> {
+  async connect(url?: string, token?: string): Promise<void> {
     // If URL provided, disconnect first if connected to different URL
     if (url && this.currentUrl !== url) {
-      logger.debug(`[WebSocket] Switching URL from ${this.currentUrl} to ${url}`);
+      this.log("debug", "URL switching", {
+        from: this.currentUrl,
+        to: url,
+      });
       this.disconnect();
       this.currentUrl = url;
     }
 
     const targetUrl = this.currentUrl || this.config.url;
+    const cleanUrl = targetUrl.split("?")[0];
 
-    if (this.isConnecting || this.connectionState === 'connected') {
-      logger.debug('[WebSocket] Already connecting or connected to:', targetUrl);
+    if (this.isConnecting || this.connectionState === "connected") {
+      this.log("debug", "Connection already in progress or established", {
+        isConnecting: this.isConnecting,
+        connectionState: this.connectionState,
+      });
       return;
     }
 
     this.isConnecting = true;
-    this.connectionState = 'connecting';
+    this.connectionState = "connecting";
     this.notifyConnectionChange(false);
 
-    // CRITICAL DEBUG: Log full WebSocket URL with token
-    const urlParts = targetUrl.split('?');
-    const hasQueryParams = urlParts.length > 1;
-    const queryParams = hasQueryParams ? urlParts[1] : 'no-params';
-
-    logger.info('[WebSocket] Connection attempt:', {
-      fullUrl: targetUrl,
-      basePath: urlParts[0],
-      queryParams,
-      hasToken: queryParams.includes('token='),
-      tokenPreview: queryParams.includes('token=')
-        ? queryParams.split('token=')[1]?.substring(0, 10) + '...'
-        : 'NO-TOKEN'
+    this.log("info", "Attempting WebSocket connection", {
+      url: cleanUrl,
+      attempt: this.reconnectAttempts + 1,
+      maxAttempts: this.config.maxReconnectAttempts,
+      hasToken: !!token,
+      tokenLength: token?.length || 0,
     });
 
     try {
-      this.ws = new WebSocket(targetUrl);
+      this.ws = new WebSocket(cleanUrl);
 
       this.ws.onopen = () => {
-        logger.debug('[WebSocket] Connected successfully to:', targetUrl);
-        this.connectionState = 'connected';
-        this.reconnectAttempts = 0;
+        this.log("info", "WebSocket connection established", {
+          url: cleanUrl,
+          connectedAt: new Date().toISOString(),
+          reconnectionSuccess: this.reconnectAttempts > 0,
+        });
+
+        this.connectionState = "connected";
+        this.lastConnectTime = Date.now();
+        this.lastSuccessfulConnection = Date.now();
         this.isConnecting = false;
+        this.isReconnecting = false;
         this.notifyConnectionChange(true);
+
+        if (this.reconnectAttempts > 0) {
+          this.log("info", "Successfully reconnected", {
+            attemptsTaken: this.reconnectAttempts,
+            recoveryTime: Date.now() - (this.lastConnectTime || Date.now()),
+          });
+          this.notifyReconnectSuccess();
+        }
+
+        this.reconnectAttempts = 0;
         this.startHeartbeat();
+
+        if (token) {
+          this.log("debug", "Sending authentication message", {
+            tokenLength: token.length,
+            type: "auth",
+          });
+          this.send({
+            type: "auth",
+            token: token,
+          });
+        }
+
         this.processMessageQueue();
       };
 
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          logger.debug('[WebSocketService] Raw WebSocket message received:', {
-            type: message.type,
-            hasMessage: !!message.message,
-            messageId: message.message?.id,
-            fullPayload: message
-          });
-          // Тестовая интеграция: сохраняем сообщения в window.__wsMessages для Playwright-тестов
+          this.messageCount++;
+
+          // Only log details for special messages, not every message
+          if (message.type === "pong") {
+            const now = Date.now();
+            const latency = now - this.lastHeartbeatTime;
+            this.log("debug", "Pong received (heartbeat)", {
+              latency_ms: latency,
+              messageNumber: this.messageCount,
+            });
+          } else {
+            this.log("debug", "Message received from server", {
+              type: message.type,
+              messageCount: this.messageCount,
+              payloadSize: event.data.length,
+            });
+          }
+
           try {
-            if (typeof window !== 'undefined') {
+            if (typeof window !== "undefined") {
               const w = window as any;
               if (!Array.isArray(w.__wsMessages)) {
                 w.__wsMessages = [];
@@ -128,43 +253,71 @@ export class WebSocketService {
           } catch {}
           this.handleMessage(message);
         } catch (error) {
-          logger.error('[WebSocket] Error parsing message:', error);
+          this.log("error", "Failed to parse WebSocket message", {
+            error: error instanceof Error ? error.message : String(error),
+            dataLength: event.data.length,
+          });
         }
       };
 
       this.ws.onclose = (event) => {
-        logger.debug('[WebSocket] Disconnected:', event.code, event.reason);
-        this.connectionState = 'disconnected';
+        this.log("info", "WebSocket connection closed", {
+          code: event.code,
+          reason: event.reason,
+          wasConnected: this.connectionState === "connected",
+          connectionDuration: Date.now() - this.lastConnectTime,
+        });
+
+        this.connectionState = "disconnected";
         this.isConnecting = false;
         this.notifyConnectionChange(false);
         this.stopHeartbeat();
 
-        // Проверка на permanent errors (не пытаемся переподключиться)
         if (event.code === 4001) {
-          // 4001: Authentication error
-          logger.error('[WebSocket] Authentication error - token invalid or expired');
-          this.notifyAuthError(event.code, event.reason || 'Authentication failed');
+          this.log("error", "Authentication error - token invalid or expired", {
+            code: event.code,
+            reason: event.reason,
+          });
+          this.notifyAuthError(
+            event.code,
+            event.reason || "Authentication failed",
+          );
         } else if (event.code === 4002) {
-          // 4002: Access denied
-          logger.error('[WebSocket] Access denied - insufficient permissions');
-          this.notifyAuthError(event.code, event.reason || 'Access denied');
+          this.log("error", "Access denied - insufficient permissions", {
+            code: event.code,
+            reason: event.reason,
+          });
+          this.notifyAuthError(event.code, event.reason || "Access denied");
+        } else if (event.code === 4003) {
+          this.log("error", "Forbidden - chat access denied or chat deleted", {
+            code: event.code,
+            reason: event.reason,
+          });
+          this.notifyAuthError(
+            event.code,
+            event.reason || "Chat access forbidden",
+          );
         } else {
-          // Другие ошибки - пытаемся переподключиться
           this.scheduleReconnect();
         }
       };
 
-      this.ws.onerror = (error) => {
-        logger.error('[WebSocket] Connection error:', error);
+      this.ws.onerror = (event) => {
+        this.log("error", "WebSocket connection error", {
+          readyState: this.ws?.readyState,
+          url: cleanUrl,
+        });
         this.isConnecting = false;
-        this.connectionState = 'disconnected';
+        this.connectionState = "disconnected";
         this.notifyConnectionChange(false);
       };
-
     } catch (error) {
-      logger.error('[WebSocket] Failed to create connection:', error);
+      this.log("error", "Failed to create WebSocket connection", {
+        error: error instanceof Error ? error.message : String(error),
+        url: cleanUrl,
+      });
       this.isConnecting = false;
-      this.connectionState = 'disconnected';
+      this.connectionState = "disconnected";
       this.notifyConnectionChange(false);
       this.scheduleReconnect();
     }
@@ -178,11 +331,11 @@ export class WebSocketService {
     this.clearReconnectTimer();
 
     if (this.ws) {
-      this.ws.close(1000, 'Client disconnect');
+      this.ws.close(1000, "Client disconnect");
       this.ws = null;
     }
 
-    this.connectionState = 'disconnected';
+    this.connectionState = "disconnected";
     this.isConnecting = false;
     this.notifyConnectionChange(false);
   }
@@ -191,7 +344,7 @@ export class WebSocketService {
    * Ручная повторная попытка подключения (сброс счетчика попыток)
    */
   retryConnection(): void {
-    logger.info('[WebSocket] Manual retry connection requested');
+    logger.info("[WebSocket] Manual retry connection requested");
     this.clearReconnectTimer();
     this.reconnectAttempts = 0;
     this.connect();
@@ -203,12 +356,34 @@ export class WebSocketService {
   send(message: WebSocketMessage): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
+        const startTime = Date.now();
         this.ws.send(JSON.stringify(message));
+        const duration = Date.now() - startTime;
+
+        this.log("debug", "Message sent", {
+          type: message.type,
+          payloadSize: JSON.stringify(message).length,
+          duration_ms: duration,
+        });
+
+        if (duration > 100) {
+          this.log("warn", "Slow message send", {
+            type: message.type,
+            duration_ms: duration,
+          });
+        }
       } catch (error) {
-        logger.error('Error sending WebSocket message:', error);
+        this.log("error", "Failed to send WebSocket message", {
+          type: message.type,
+          error: error instanceof Error ? error.message : String(error),
+        });
         this.queueMessage(message);
       }
     } else {
+      this.log("debug", "Message queued (connection not open)", {
+        type: message.type,
+        queueSize: this.messageQueue.length + 1,
+      });
       this.queueMessage(message);
     }
   }
@@ -218,17 +393,23 @@ export class WebSocketService {
    */
   subscribe(channel: string, callback: (data: any) => void): string {
     const subscriptionId = `${channel}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     this.subscriptions.set(subscriptionId, {
       channel,
       callback,
-      id: subscriptionId
+      id: subscriptionId,
+    });
+
+    this.log("debug", "Subscribed to channel", {
+      channel,
+      subscriptionId: subscriptionId.substring(0, 20) + "...",
+      totalSubscriptions: this.subscriptions.size,
     });
 
     // Отправляем сообщение о подписке на сервер
     this.send({
-      type: 'subscribe',
-      data: { channel }
+      type: "subscribe",
+      data: { channel },
     });
 
     return subscriptionId;
@@ -241,12 +422,26 @@ export class WebSocketService {
     const subscription = this.subscriptions.get(subscriptionId);
     if (subscription) {
       this.subscriptions.delete(subscriptionId);
-      
+
+      this.log("debug", "Unsubscribed from channel", {
+        channel: subscription.channel,
+        subscriptionId: subscriptionId.substring(0, 20) + "...",
+        remainingSubscriptions: this.subscriptions.size,
+      });
+
       // Отправляем сообщение об отписке на сервер
       this.send({
-        type: 'unsubscribe',
-        data: { channel: subscription.channel }
+        type: "unsubscribe",
+        data: { channel: subscription.channel },
       });
+    } else {
+      this.log(
+        "warn",
+        "Attempted to unsubscribe from non-existent subscription",
+        {
+          subscriptionId: subscriptionId.substring(0, 20) + "...",
+        },
+      );
     }
   }
 
@@ -254,8 +449,10 @@ export class WebSocketService {
    * Проверка состояния соединения
    */
   isConnected(): boolean {
-    return this.connectionState === 'connected' && 
-           this.ws?.readyState === WebSocket.OPEN;
+    return (
+      this.connectionState === "connected" &&
+      this.ws?.readyState === WebSocket.OPEN
+    );
   }
 
   /**
@@ -294,6 +491,112 @@ export class WebSocketService {
   }
 
   /**
+   * Подписка на события попытки переподключения
+   */
+  onReconnectAttempt(callback: (info: ReconnectInfo) => void): () => void {
+    this.reconnectAttemptCallbacks.push(callback);
+    return () => {
+      this.reconnectAttemptCallbacks = this.reconnectAttemptCallbacks.filter(
+        (cb) => cb !== callback,
+      );
+    };
+  }
+
+  /**
+   * Подписка на успешное переподключение
+   */
+  onReconnectSuccess(callback: () => void): () => void {
+    this.reconnectSuccessCallbacks.push(callback);
+    return () => {
+      this.reconnectSuccessCallbacks = this.reconnectSuccessCallbacks.filter(
+        (cb) => cb !== callback,
+      );
+    };
+  }
+
+  /**
+   * Подписка на неудачное переподключение (исчерпаны попытки)
+   */
+  onReconnectFailed(callback: () => void): () => void {
+    this.reconnectFailedCallbacks.push(callback);
+    return () => {
+      this.reconnectFailedCallbacks = this.reconnectFailedCallbacks.filter(
+        (cb) => cb !== callback,
+      );
+    };
+  }
+
+  /**
+   * Уведомление о попытке переподключения
+   */
+  private notifyReconnectAttempt(): void {
+    const lastDelay = this.getReconnectDelay();
+    const nextDelay =
+      this.reconnectAttempts < (this.config.maxReconnectAttempts || 10)
+        ? Math.min(
+            1000 * Math.pow(2, this.reconnectAttempts),
+            this.maxReconnectDelay,
+          )
+        : 0;
+
+    const info: ReconnectInfo = {
+      attempt: this.reconnectAttempts,
+      maxAttempts: this.config.maxReconnectAttempts || 10,
+      nextDelay,
+      lastDelay,
+    };
+
+    this.reconnectAttemptCallbacks.forEach((callback) => {
+      try {
+        callback(info);
+      } catch (error) {
+        this.log("error", "Error in reconnect attempt callback", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+  }
+
+  /**
+   * Уведомление об успешном переподключении
+   */
+  private notifyReconnectSuccess(): void {
+    this.log("info", "Notifying reconnect success", {
+      callbackCount: this.reconnectSuccessCallbacks.length,
+    });
+
+    this.reconnectSuccessCallbacks.forEach((callback) => {
+      try {
+        callback();
+      } catch (error) {
+        this.log("error", "Error in reconnect success callback", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+  }
+
+  /**
+   * Уведомление о неудачном переподключении
+   */
+  private notifyReconnectFailed(): void {
+    this.log("error", "Notifying reconnect failed", {
+      callbackCount: this.reconnectFailedCallbacks.length,
+      attemptsMade: this.reconnectAttempts,
+    });
+
+    this.reconnectFailedCallbacks.forEach((callback) => {
+      try {
+        callback();
+      } catch (error) {
+        this.log("error", "Error in reconnect failed callback", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+  }
+
+  /**
    * Подписка на ошибки аутентификации
    * @param callback - Функция обработчик, принимающая код ошибки и описание
    */
@@ -315,11 +618,11 @@ export class WebSocketService {
    * Уведомление об ошибке аутентификации
    */
   private notifyAuthError(code: number, reason: string): void {
-    this.authErrorCallbacks.forEach(callback => {
+    this.authErrorCallbacks.forEach((callback) => {
       try {
         callback(code, reason);
       } catch (error) {
-        logger.error('Error in auth error callback:', error);
+        logger.error("Error in auth error callback:", error);
       }
     });
   }
@@ -329,23 +632,32 @@ export class WebSocketService {
    */
   private handleMessage(message: WebSocketMessage): void {
     // Обрабатываем системные сообщения
-    if (message.type === 'pong') {
-      return; // Heartbeat response
+    if (message.type === "pong") {
+      return; // Heartbeat response - уже залогирована в onmessage
     }
 
-    if (message.type === 'error') {
-      logger.error('WebSocket server error:', message.error);
+    if (message.type === "error") {
+      this.log("error", "Server error received", {
+        error: message.error,
+        code: message.code,
+      });
       return;
     }
 
-    logger.debug('[WebSocketService] Broadcasting to', this.subscriptions.size, 'subscriptions');
     // Уведомляем подписчиков
+    this.log("debug", "Broadcasting message to subscriptions", {
+      messageType: message.type,
+      subscriptionCount: this.subscriptions.size,
+    });
+
     this.subscriptions.forEach((subscription) => {
       try {
-        logger.debug('[WebSocketService] Calling subscription callback for channel:', subscription.channel);
         subscription.callback(message);
       } catch (error) {
-        logger.error('Error in subscription callback:', error);
+        this.log("error", "Error in subscription callback", {
+          channel: subscription.channel,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     });
   }
@@ -377,18 +689,35 @@ export class WebSocketService {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts!) {
-      logger.error(`[WebSocket] Max reconnection attempts (${this.config.maxReconnectAttempts}) reached`);
+      this.log("error", "Max reconnection attempts exceeded", {
+        attemptsMade: this.reconnectAttempts,
+        maxAttempts: this.config.maxReconnectAttempts,
+        url: this.currentUrl?.split("?")[0],
+      });
+      this.isReconnecting = false;
+      this.notifyReconnectFailed();
       this.notifyConnectionChange(false);
       return;
     }
 
     this.reconnectAttempts++;
+    this.isReconnecting = true;
     const delay = this.getReconnectDelay();
 
-    logger.info(`[WebSocket] Scheduling reconnection attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts} in ${delay}ms`);
+    this.log("warn", "Scheduling reconnection", {
+      attempt: this.reconnectAttempts,
+      maxAttempts: this.config.maxReconnectAttempts,
+      delayMs: delay,
+      url: this.currentUrl?.split("?")[0],
+    });
+
+    this.notifyReconnectAttempt();
 
     this.reconnectTimer = setTimeout(() => {
-      logger.info(`[WebSocket] Executing reconnection attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts}`);
+      this.log("info", "Executing scheduled reconnection", {
+        attempt: this.reconnectAttempts,
+        maxAttempts: this.config.maxReconnectAttempts,
+      });
       this.connect();
     }, delay);
   }
@@ -408,10 +737,19 @@ export class WebSocketService {
    */
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    
+
+    this.heartbeatStartTime = Date.now();
+    this.log("debug", "Heartbeat started", {
+      interval_ms: this.config.heartbeatInterval,
+    });
+
     this.heartbeatTimer = setInterval(() => {
       if (this.isConnected()) {
-        this.send({ type: 'ping' });
+        this.lastHeartbeatTime = Date.now();
+        this.log("debug", "Ping sent", {
+          timestamp: new Date().toISOString(),
+        });
+        this.send({ type: "ping" });
       }
     }, this.config.heartbeatInterval);
   }
@@ -444,9 +782,14 @@ export class WebSocketService {
       return;
     }
 
-    logger.info(`[WebSocket] Processing message queue: ${this.messageQueue.length} messages`);
+    const initialQueueSize = this.messageQueue.length;
+    this.log("info", "Processing message queue", {
+      queueSize: initialQueueSize,
+    });
 
     let processedCount = 0;
+    const startTime = Date.now();
+
     while (this.messageQueue.length > 0 && this.isConnected()) {
       const message = this.messageQueue.shift();
       if (message) {
@@ -454,7 +797,10 @@ export class WebSocketService {
           this.send(message);
           processedCount++;
         } catch (error) {
-          logger.error('[WebSocket] Error processing queued message:', error);
+          this.log("error", "Error processing queued message", {
+            messageType: message.type,
+            error: error instanceof Error ? error.message : String(error),
+          });
           // Если ошибка при отправке, возвращаем сообщение в очередь
           this.messageQueue.unshift(message);
           break;
@@ -462,18 +808,31 @@ export class WebSocketService {
       }
     }
 
-    logger.info(`[WebSocket] Processed ${processedCount} queued messages, ${this.messageQueue.length} remaining`);
+    const duration = Date.now() - startTime;
+    this.log("info", "Message queue processing completed", {
+      processed: processedCount,
+      remaining: this.messageQueue.length,
+      duration_ms: duration,
+      avgPerMessage: duration / (processedCount || 1),
+    });
   }
 
   /**
    * Уведомление об изменении состояния соединения
    */
   private notifyConnectionChange(connected: boolean): void {
-    this.connectionCallbacks.forEach(callback => {
+    this.log("debug", "Connection state changed", {
+      connected,
+      callbackCount: this.connectionCallbacks.length,
+    });
+
+    this.connectionCallbacks.forEach((callback) => {
       try {
         callback(connected);
       } catch (error) {
-        logger.error('Error in connection change callback:', error);
+        this.log("error", "Error in connection change callback", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     });
   }
@@ -485,24 +844,31 @@ export class WebSocketService {
  */
 export function getWebSocketBaseUrl(): string {
   // Priority 1: Environment variable
-  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSOCKET_URL);
-  if (envUrl && envUrl !== 'undefined') {
-    const url = envUrl.replace(/\/$/, '');
-    logger.debug('[WebSocket Config] Using base URL from VITE_WEBSOCKET_URL env var:', url);
+  const envUrl =
+    typeof import.meta !== "undefined" && import.meta.env?.VITE_WEBSOCKET_URL;
+  if (envUrl && envUrl !== "undefined") {
+    const url = envUrl.replace(/\/$/, "");
+    logger.debug(
+      "[WebSocket Config] Using base URL from VITE_WEBSOCKET_URL env var:",
+      url,
+    );
     return url;
   }
 
   // Priority 2: Auto-detect from current location
-  if (typeof window !== 'undefined') {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  if (typeof window !== "undefined") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${protocol}//${window.location.host}/ws`;
-    logger.debug('[WebSocket Config] Using auto-detected base URL from window.location:', url);
+    logger.debug(
+      "[WebSocket Config] Using auto-detected base URL from window.location:",
+      url,
+    );
     return url;
   }
 
   // Fallback 3: SSR or build-time only
-  logger.debug('[WebSocket Config] Using fallback base URL (SSR/build-time)');
-  return 'ws://localhost:8000/ws';
+  logger.debug("[WebSocket Config] Using fallback base URL (SSR/build-time)");
+  return "ws://localhost:8000/ws";
 }
 
 // Initialize with a placeholder URL - actual URL will be provided when connecting
@@ -513,8 +879,8 @@ export const websocketService = new WebSocketService({
   reconnectInterval: 1000,
   maxReconnectAttempts: 10,
   heartbeatInterval: 30000,
-  messageQueueSize: 100
+  messageQueueSize: 100,
 });
 
 // Экспортируем типы для использования в других модулях
-export type { WebSocketMessage, WebSocketConfig, Subscription };
+export type { WebSocketMessage, WebSocketConfig, Subscription, ReconnectInfo };

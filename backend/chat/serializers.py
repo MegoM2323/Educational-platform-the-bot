@@ -34,14 +34,28 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class MessageCreateSerializer(serializers.Serializer):
-    """Сериализатор для создания сообщения"""
+    """Сериализатор для создания сообщения через WebSocket.
 
-    content = serializers.CharField(max_length=10000, min_length=1)
+    Примечание: message_type не поддерживается в текущей версии.
+    Все сообщения обрабатываются как текст.
+    """
+
+    content = serializers.CharField(
+        max_length=10000,
+        min_length=1,
+        trim_whitespace=True,
+        error_messages={
+            "required": "Message content is required.",
+            "blank": "Message content cannot be empty.",
+            "max_length": "Message content cannot exceed 10000 characters.",
+            "min_length": "Message content must be at least 1 character.",
+        },
+    )
 
     def validate_content(self, value):
-        if not value.strip():
-            raise serializers.ValidationError("Message content cannot be empty")
-        return value.strip()
+        if not value or not value.strip():
+            raise serializers.ValidationError("Message content cannot be empty.")
+        return value
 
 
 class MessageUpdateSerializer(serializers.Serializer):
@@ -115,7 +129,6 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
 
     def get_last_message(self, obj):
         """Использует аннотацию last_message_content из ChatService.get_user_chats()"""
-        # Проверяем наличие аннотаций из сервиса (которые добавляет get_user_chats)
         if hasattr(obj, "last_message_content") and obj.last_message_content:
             return {
                 "content": obj.last_message_content[:100],
@@ -125,11 +138,9 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
 
     def get_unread_count(self, obj):
         """Использует аннотацию unread_count из ChatService.get_user_chats()"""
-        # Используем аннотацию из сервиса если есть
         if hasattr(obj, "unread_count"):
             return obj.unread_count or 0
 
-        # Fallback для случаев когда аннотации нет
         request = self.context.get("request")
         if not request:
             return 0
@@ -139,7 +150,11 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
             last_read = participant.last_read_at
 
             if not last_read:
-                return obj.messages.filter(is_deleted=False).exclude(sender=request.user).count()
+                return (
+                    obj.messages.filter(is_deleted=False)
+                    .exclude(sender=request.user)
+                    .count()
+                )
 
             return (
                 obj.messages.filter(

@@ -380,7 +380,7 @@ else
             error "Failed to change to frontend directory: $LOCAL_PATH/frontend"
             exit 1
         fi
-        npm install --production 2>/dev/null || {
+        npm install --legacy-peer-deps || {
             error "npm install failed"
             exit 1
         }
@@ -393,10 +393,10 @@ else
             error "Failed to change to frontend directory: $LOCAL_PATH/frontend"
             exit 1
         fi
-        npm run build 2>/dev/null || {
+        if ! npm run build; then
             error "Frontend build failed (npm run build)"
             exit 1
-        }
+        fi
         if [ ! -d "dist" ]; then
             error "frontend/dist/ was not created after build"
             exit 1

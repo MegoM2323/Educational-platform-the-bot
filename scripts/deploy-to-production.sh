@@ -95,16 +95,49 @@ log_success "All tests passed!"
 
 cd ..
 
-# Step 3: Push to production branch
-print_header "STEP 3: PUSHING TO PRODUCTION BRANCH"
+# Step 3: Build frontend
+print_header "STEP 3: BUILDING FRONTEND"
+log_info "Building frontend CSS and JavaScript..."
+
+cd frontend
+
+# Check if npm is installed
+if ! command -v npm &> /dev/null; then
+    log_error "npm is not installed! Cannot build frontend."
+    exit 1
+fi
+
+# Check if node_modules exists
+if [ ! -d "node_modules" ]; then
+    log_info "Installing npm dependencies..."
+    npm install
+    if [ $? -ne 0 ]; then
+        log_error "Failed to install npm dependencies!"
+        exit 1
+    fi
+fi
+
+# Run the build
+npm run build
+if [ $? -ne 0 ]; then
+    log_error "Frontend build failed!"
+    exit 1
+fi
+
+log_success "Frontend build completed successfully!"
+
+cd ..
+
+# Step 4: Push to production branch
+print_header "STEP 4: PUSHING TO PRODUCTION BRANCH"
 log_info "Pushing changes to origin/$PROD_BRANCH..."
 
 git push origin $PROD_BRANCH
 
 log_success "Code pushed successfully!"
 
-# Step 4: Connect to production server
-print_header "STEP 4: DEPLOYING TO PRODUCTION SERVER"
+# Step 5: Connect to production server
+print_header "STEP 5: DEPLOYING TO PRODUCTION SERVER"
 log_info "Server: $PROD_SERVER"
 log_info "Home: $PROD_HOME"
 
@@ -127,8 +160,8 @@ fi
 
 log_success "SSH connection successful!"
 
-# Step 5: Create backup
-print_header "STEP 5: CREATING BACKUP ON PRODUCTION"
+# Step 6: Create backup
+print_header "STEP 6: CREATING BACKUP ON PRODUCTION"
 log_info "Creating database and code backup..."
 
 ssh "$PROD_SERVER" bash << 'BACKUP_SCRIPT'
@@ -155,8 +188,8 @@ BACKUP_SCRIPT
 
 log_success "Backup completed!"
 
-# Step 6: Pull code on production
-print_header "STEP 6: UPDATING CODE ON PRODUCTION"
+# Step 7: Pull code on production
+print_header "STEP 7: UPDATING CODE ON PRODUCTION"
 log_info "Pulling latest code..."
 
 ssh "$PROD_SERVER" bash << DEPLOY_SCRIPT
@@ -176,8 +209,8 @@ DEPLOY_SCRIPT
 
 log_success "Code updated!"
 
-# Step 7: Run migrations
-print_header "STEP 7: RUNNING DATABASE MIGRATIONS"
+# Step 8: Run migrations
+print_header "STEP 8: RUNNING DATABASE MIGRATIONS"
 log_info "Applying Django migrations..."
 
 ssh "$PROD_SERVER" bash << MIGRATE_SCRIPT
@@ -199,8 +232,8 @@ MIGRATE_SCRIPT
 
 log_success "Migrations completed!"
 
-# Step 8: Restart services
-print_header "STEP 8: RESTARTING SERVICES"
+# Step 9: Restart services
+print_header "STEP 9: RESTARTING SERVICES"
 log_info "Restarting backend services..."
 
 ssh "$PROD_SERVER" bash << RESTART_SCRIPT
@@ -221,8 +254,8 @@ RESTART_SCRIPT
 
 log_success "Services restarted!"
 
-# Step 9: Run smoke tests
-print_header "STEP 9: RUNNING SMOKE TESTS"
+# Step 10: Run smoke tests
+print_header "STEP 10: RUNNING SMOKE TESTS"
 log_info "Running basic chat tests on production..."
 
 ssh "$PROD_SERVER" bash << SMOKE_TEST_SCRIPT
@@ -245,8 +278,8 @@ SMOKE_TEST_SCRIPT
 
 log_success "Smoke tests completed!"
 
-# Step 10: Verify deployment
-print_header "STEP 10: VERIFYING DEPLOYMENT"
+# Step 11: Verify deployment
+print_header "STEP 11: VERIFYING DEPLOYMENT"
 log_info "Checking production status..."
 
 ssh "$PROD_SERVER" bash << VERIFY_SCRIPT

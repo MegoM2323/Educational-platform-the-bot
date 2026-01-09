@@ -7,7 +7,11 @@ export const useGeneralChat = () => {
     queryKey: ['general-chat'],
     queryFn: async () => {
       const response = await chatAPI.getChatList();
-      const generalChat = response.results.find((chat: Chat) => chat.is_group);
+      if (!response?.results || response.results.length === 0) {
+        console.warn('[useGeneralChat] No chats available');
+        return null;
+      }
+      const generalChat = response.results?.find((chat: Chat) => chat.is_group) || response.results?.[0] || null;
       return generalChat;
     },
     staleTime: 300000,

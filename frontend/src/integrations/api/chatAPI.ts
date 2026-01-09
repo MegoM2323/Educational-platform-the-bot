@@ -82,7 +82,7 @@ const CHAT_CACHE_TTL = 10 * 60 * 1000;
 export const chatAPI = {
   async getChatList(page: number = 1, pageSize: number = 20): Promise<ChatListResponse> {
     try {
-      const response = await unifiedAPI.request<ChatListResponse>(
+      const response = await unifiedAPI.request<any>(
         `/chat/?page=${page}&page_size=${pageSize}`
       );
 
@@ -90,7 +90,20 @@ export const chatAPI = {
         throw new Error(response.error);
       }
 
-      return response.data || { count: 0, results: [] };
+      // Transform API response to match Chat interface
+      const transformedResults = (response.data?.results || []).map((chat: any) => ({
+        ...chat,
+        name: chat.name || chat.other_participant?.full_name || `Чат ${chat.id}`,
+        is_group: chat.is_group || false,
+        participant_count: chat.participant_count || 2,
+      }));
+
+      return {
+        count: response.data?.count || 0,
+        next: response.data?.next,
+        previous: response.data?.previous,
+        results: transformedResults,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Ошибка загрузки чатов';
       logger.error('[Chat API] getChatList error:', error);

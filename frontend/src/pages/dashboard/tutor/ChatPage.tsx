@@ -82,7 +82,7 @@ export default function TutorChatPage(): JSX.Element {
                       <p className="text-sm font-medium">{msg.sender?.full_name || 'Аноним'}</p>
                       <p className="text-sm">{msg.content}</p>
                       <p className="text-xs opacity-70 mt-1">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
+                        {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}
                       </p>
                     </div>
                   </div>

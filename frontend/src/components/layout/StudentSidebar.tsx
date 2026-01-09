@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge";
+// import { ChatNotificationBadge } from "@/components/chat/ChatNotificationBadge"; // Disabled until WebSocket is fixed
 
 const items = [
   { title: "Главная", url: "/dashboard/student", icon: Home },
@@ -54,7 +54,8 @@ export function StudentSidebar() {
                       {state === "expanded" && (
                         <div className="flex items-center justify-between w-full">
                           <span>{item.title}</span>
-                          {item.title === "Форум" && <ChatNotificationBadge />}
+                          {/* ChatNotificationBadge disabled until WebSocket auth is fixed */}
+                          {/* item.title === "Форум" && <ChatNotificationBadge /> */}
                         </div>
                       )}
                     </NavLink>

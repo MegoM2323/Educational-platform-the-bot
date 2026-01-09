@@ -89,6 +89,7 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
     other_participant = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
+    is_group = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatRoom
@@ -97,6 +98,7 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
             "other_participant",
             "last_message",
             "unread_count",
+            "is_group",
             "updated_at",
             "created_at",
         )
@@ -166,6 +168,15 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
             )
         except ChatParticipant.DoesNotExist:
             return 0
+
+    def get_is_group(self, obj):
+        """Определить, является ли чат групповым (более 2 участников).
+
+        Использует len() вместо count() для работы с prefetch_related.
+        Если prefetch_related не был использован, len() все равно работает,
+        но может вызвать дополнительный запрос. Это нормально для edge cases.
+        """
+        return len(obj.participants.all()) > 2
 
 
 class ChatRoomDetailSerializer(serializers.ModelSerializer):

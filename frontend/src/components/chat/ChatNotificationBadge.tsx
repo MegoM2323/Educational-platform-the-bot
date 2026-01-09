@@ -19,20 +19,29 @@ export function ChatNotificationBadge({ className, showZero = false }: ChatNotif
   // Подключение к WebSocket уведомлениям
   useEffect(() => {
     if (user) {
-      notificationWebSocketService.connectToNotifications(user.id, {
-        onNotification: (notification: Notification) => {
-          if (!notification.is_read) {
-            setRealTimeUnreadCount(prev => prev + 1);
+      try {
+        notificationWebSocketService.connectToNotifications(user.id, {
+          onNotification: (notification: Notification) => {
+            if (!notification.is_read) {
+              setRealTimeUnreadCount(prev => prev + 1);
+            }
+          },
+          onError: (error) => {
+            logger.error('WebSocket notification error:', error);
           }
-        },
-        onError: (error) => {
-          logger.error('WebSocket notification error:', error);
-        }
-      });
+        });
 
-      return () => {
-        notificationWebSocketService.disconnectFromNotifications();
-      };
+        return () => {
+          try {
+            notificationWebSocketService.disconnectFromNotifications();
+          } catch (e) {
+            logger.debug('Error disconnecting notifications:', e);
+          }
+        };
+      } catch (error) {
+        logger.warn('Failed to connect to notifications:', error);
+        // Continue without notifications
+      }
     }
   }, [user]);
 

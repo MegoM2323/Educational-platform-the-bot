@@ -44,14 +44,13 @@ class TokenAuthMiddleware(BaseMiddleware):
             return await super().__call__(scope, receive, send)
 
         try:
-            # Debug full scope (only in DEBUG mode)
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    f'[TokenAuthMiddleware] Full path: {scope.get("path", "")}'
-                )
-                logger.debug(
-                    f'[TokenAuthMiddleware] Raw query_string bytes: {scope.get("query_string", b"")}'
-                )
+            # Always log WebSocket connection attempt
+            logger.info(
+                f'[TokenAuthMiddleware] WebSocket connection attempt: {scope.get("path", "")}'
+            )
+            logger.info(
+                f'[TokenAuthMiddleware] Raw query_string bytes: {scope.get("query_string", b"")}'
+            )
 
             token = None
             token_source = None

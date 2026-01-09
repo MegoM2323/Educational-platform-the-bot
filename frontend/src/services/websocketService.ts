@@ -157,7 +157,9 @@ export class WebSocketService {
     }
 
     const targetUrl = this.currentUrl || this.config.url;
-    const cleanUrl = targetUrl.split("?")[0];
+    // Keep query string for authentication token passed in URL
+    const wsUrl = targetUrl;
+    const displayUrl = targetUrl.split("?")[0]; // For logging only
 
     if (this.isConnecting || this.connectionState === "connected") {
       this.log("debug", "Connection already in progress or established", {
@@ -172,7 +174,8 @@ export class WebSocketService {
     this.notifyConnectionChange(false);
 
     this.log("info", "Attempting WebSocket connection", {
-      url: cleanUrl,
+      url: displayUrl,
+      hasQueryString: targetUrl.includes("?"),
       attempt: this.reconnectAttempts + 1,
       maxAttempts: this.config.maxReconnectAttempts,
       hasToken: !!token,
@@ -180,11 +183,11 @@ export class WebSocketService {
     });
 
     try {
-      this.ws = new WebSocket(cleanUrl);
+      this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
         this.log("info", "WebSocket connection established", {
-          url: cleanUrl,
+          url: displayUrl,
           connectedAt: new Date().toISOString(),
           reconnectionSuccess: this.reconnectAttempts > 0,
         });
@@ -207,7 +210,9 @@ export class WebSocketService {
         this.reconnectAttempts = 0;
         this.startHeartbeat();
 
-        if (token) {
+        // Only send auth message if token was provided separately (not in URL)
+        // If token was in URL query string, middleware already authenticated
+        if (token && !this.currentUrl?.includes('token=')) {
           this.log("debug", "Sending authentication message", {
             tokenLength: token.length,
             type: "auth",
@@ -273,7 +278,13 @@ export class WebSocketService {
         this.notifyConnectionChange(false);
         this.stopHeartbeat();
 
-        if (event.code === 4001) {
+        if (event.code === 4000) {
+          this.log("error", "Bad request - invalid WebSocket parameters", {
+            code: event.code,
+            reason: event.reason,
+          });
+          this.notifyAuthError(event.code, event.reason || "Invalid request parameters");
+        } else if (event.code === 4001) {
           this.log("error", "Authentication error - token invalid or expired", {
             code: event.code,
             reason: event.reason,

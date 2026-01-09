@@ -69,11 +69,14 @@ class TokenAuthMiddleware(BaseMiddleware):
             else:
                 # Priority 2: Fallback to query string (deprecated)
                 query_string = scope.get("query_string", b"").decode()
+                logger.info(f"[TokenAuthMiddleware] Raw query_string: {query_string}")
                 query_params = parse_qs(query_string)
                 token_list = query_params.get("token", [])
+                logger.info(f"[TokenAuthMiddleware] Parsed query params: {list(query_params.keys())}")
                 if token_list:
                     token = token_list[0]
                     token_source = "query string (legacy)"
+                    logger.info(f"[TokenAuthMiddleware] Token extracted from query string: {token[:30]}...")
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(
                             f"[TokenAuthMiddleware] Token extracted from query string (legacy): {token[:20]}..."
@@ -86,9 +89,13 @@ class TokenAuthMiddleware(BaseMiddleware):
 
             # Authenticate user if token provided
             if token:
+                logger.info(f"[TokenAuthMiddleware] Attempting to validate token from {token_source}")
                 user = await self.get_user_from_token(token)
                 if user:
                     scope["user"] = user
+                    logger.info(
+                        f"[TokenAuthMiddleware] ✓ Authenticated: {user.email} (role: {user.role}) from {token_source}"
+                    )
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(
                             f"[TokenAuthMiddleware] ✓ Authenticated: {user.email} (role: {user.role}) from {token_source}"
@@ -96,7 +103,7 @@ class TokenAuthMiddleware(BaseMiddleware):
                 else:
                     scope["user"] = AnonymousUser()
                     logger.warning(
-                        f"[TokenAuthMiddleware] ✗ Token invalid from {token_source}: {token[:20]}"
+                        f"[TokenAuthMiddleware] ✗ Token validation failed from {token_source}: {token[:30]}..."
                     )
             else:
                 # No token provided, let AuthMiddlewareStack try session auth

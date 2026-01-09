@@ -1,141 +1,59 @@
 {
-  "checkpoint": "CHAT_TESTS_VALIDATION_COMPLETE",
+  "checkpoint": "CHAT_URLS_FIX_TESTED_AND_VERIFIED",
   "date": "2026-01-09",
   "status": "COMPLETED",
-  "summary": "Все 99 критических тестов для модуля chat PASS - удалены 2 несовместимых теста (test_enrollment_forum_signal.py, test_parent_sync_issues_T002.py), которые использовали устаревшую архитектуру ChatRoom с полем Type",
-  "phase": "CHAT_MODULE_FINALIZATION",
-  "test_results": {
-    "total_tests_run": 99,
-    "passed": 99,
-    "failed": 0,
-    "errors": 0,
-    "pass_rate": 100.0,
-    "duration_sec": 68.316,
-    "timestamp": "2026-01-09T07:27:21Z"
-  },
-  "test_categories": [
+  "summary": "Исправлен порядок URL-паттернов: явные пути теперь перед router.urls. Все тесты пройдены (24/24).",
+  "tasks": [
     {
-      "name": "test_can_initiate_chat_all_roles.py",
-      "tests": "TestCanInitiateChatAllRoles - все комбинации ролей и is_active проверки",
-      "status": "PASS"
+      "id": "URL_PATTERN_ORDERING_FIX",
+      "task_name": "Исправление порядка URL-паттернов в chat/urls.py",
+      "agent": "coder",
+      "status": "done",
+      "description": "Переставлены URL-паттерны так чтобы явные пути (contacts/, message detail, custom actions) обрабатывались ДО пустого паттерна router.urls. Это предотвращает ошибку 'Field id expected a number but got contacts' при запросе к /api/chat/contacts/",
+      "changes": {
+        "chat/urls.py": "Переставлены urlpatterns: все явные пути теперь перед path('', include(router.urls))"
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/urls.py"
+      ]
     },
     {
-      "name": "test_websocket_chat_roles.py",
-      "tests": "TestWebSocketChatRoles - WebSocket подключения и ограничения",
-      "status": "PASS"
-    },
-    {
-      "name": "test_edge_cases.py",
-      "tests": "TestEdgeCases - граничные случаи (null, empty, invalid inputs)",
-      "status": "PASS"
-    },
-    {
-      "name": "test_services.py",
-      "tests": "TestChatService - сервис функции и оптимизация",
-      "status": "PASS"
-    },
-    {
-      "name": "test_message_visibility.py",
-      "tests": "TestMessageVisibility - видимость сообщений по ролям",
-      "status": "PASS"
-    },
-    {
-      "name": "test_message_visibility_all_roles.py",
-      "tests": "TestMessageVisibilityAllRoles - полное покрытие всех ролей",
-      "status": "PASS"
-    },
-    {
-      "name": "test_api_integration.py",
-      "tests": "TestChatApiIntegration - API endpoints интеграция",
-      "status": "PASS"
-    },
-    {
-      "name": "test_tutor_cabinet_messaging.py",
-      "tests": "TestTutorCabinetMessaging - функционал туторского кабинета",
-      "status": "PASS"
-    },
-    {
-      "name": "test_parent_chat_api.py",
-      "tests": "TestParentChatApi - родительский API чатов",
-      "status": "PASS"
-    },
-    {
-      "name": "test_websocket_rate_limiting.py",
-      "tests": "TestWebSocketRateLimiting - rate limiting механизмы",
-      "status": "PASS"
-    },
-    {
-      "name": "test_rate_limiting_bypass.py",
-      "tests": "TestRateLimitingBypass - проверка защиты от обхода",
-      "status": "PASS"
-    },
-    {
-      "name": "test_final_parent_visibility.py",
-      "tests": "TestFinalParentVisibility - финальная проверка видимости родителей",
-      "status": "PASS"
-    },
-    {
-      "name": "test_e2e_forum_messages_visibility.py",
-      "tests": "TestE2EForumMessagesVisibility - E2E форум видимость",
-      "status": "PASS"
-    },
-    {
-      "name": "test_inactive_users_security.py",
-      "tests": "TestInactiveUsersSecurity - безопасность неактивных пользователей",
-      "status": "PASS"
-    },
-    {
-      "name": "test_t005_parent_messages_access.py",
-      "tests": "TestT005ParentMessagesAccess - T005 родительский доступ",
-      "status": "PASS"
-    }
-  ],
-  "removed_tests": [
-    {
-      "file": "chat/tests/test_enrollment_forum_signal.py",
-      "reason": "Использует ChatRoom.Type.FORUM_SUBJECT - архитектура изменена на упрощённую модель без поля Type",
-      "removal_date": "2026-01-09"
-    },
-    {
-      "file": "chat/tests/test_parent_sync_issues_T002.py",
-      "reason": "Использует ChatRoom.Type.FORUM_SUBJECT - несовместимо с текущей архитектурой",
-      "removal_date": "2026-01-09"
-    }
-  ],
-  "edge_cases_covered": [
-    "Null значения в FK (parent, tutor)",
-    "Empty результаты запросов",
-    "Неактивные пользователи (is_active=False)",
-    "Несуществующие или невалидные chatroom IDs",
-    "Race conditions в параллельном доступе",
-    "Rate limiting (>10 сообщений в минуту)",
-    "Room enumeration attacks",
-    "Participant uniqueness constraints",
-    "WebSocket disconnection и reconnection",
-    "Message visibility по ролям (Student, Teacher, Tutor, Parent, Admin)",
-    "Frozen enrollments (завершённые курсы)",
-    "Inactive tutors и parents"
-  ],
-  "verification_checklist": [
-    {
-      "item": "Все 99 тестов PASS",
-      "status": "PASS"
-    },
-    {
-      "item": "Нет новых failures после оптимизации get_contacts()",
-      "status": "PASS"
-    },
-    {
-      "item": "Все edge cases покрыты",
-      "status": "PASS"
-    },
-    {
-      "item": "Удалены несовместимые тесты",
-      "status": "PASS"
-    },
-    {
-      "item": "Время выполнения оптимально (~68 сек)",
-      "status": "PASS"
+      "id": "URL_ROUTING_FIX_TESTS",
+      "task_name": "Написание тестов для проверки URL routing fix",
+      "agent": "tester",
+      "status": "done",
+      "description": "Создан набор из 24 тестов для проверки работы всех API endpoints после исправления URL паттернов",
+      "test_results": {
+        "total": 24,
+        "passed": 24,
+        "failed": 0,
+        "test_file": "/home/mego/Python Projects/THE_BOT_platform/backend/chat/tests/test_url_routing_fix.py"
+      },
+      "test_coverage": {
+        "ChatContactsEndpoint": {
+          "tests": 7,
+          "status": "PASSED",
+          "description": "GET /api/chat/contacts/ endpoint - все тесты пройдены, что подтверждает исправление 500 ошибки"
+        },
+        "SendMessageEndpoint": {
+          "tests": 6,
+          "status": "PASSED",
+          "description": "POST /api/chat/{room_id}/send_message/ endpoint"
+        },
+        "ListMessagesEndpoint": {
+          "tests": 8,
+          "status": "PASSED",
+          "description": "GET /api/chat/{room_id}/messages/ endpoint"
+        },
+        "ChatListEndpoint": {
+          "tests": 3,
+          "status": "PASSED",
+          "description": "GET /api/chat/ endpoint - проверка что router.urls остается функциональным"
+        }
+      },
+      "files_created": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/tests/test_url_routing_fix.py"
+      ]
     }
   ]
 }

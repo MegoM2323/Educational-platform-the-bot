@@ -14,12 +14,19 @@ export function useChatNotifications() {
     queryFn: async (): Promise<ChatNotification> => {
       const response = await unifiedAPI.request<ChatNotification>('/chat/notifications/');
       if (response.error) {
-        throw new Error(response.error);
+        // Return default values if endpoint not available or returns error
+        console.warn('[useChatNotifications] API error, using defaults:', response.error);
+        return {
+          unread_messages: 0,
+          unread_threads: 0,
+          has_new_messages: false
+        };
       }
       return response.data!;
     },
     refetchInterval: 30 * 1000, // Обновлять каждые 30 секунд
     staleTime: 10 * 1000, // 10 секунд
+    retry: 1, // Retry once before giving up
   });
 }
 

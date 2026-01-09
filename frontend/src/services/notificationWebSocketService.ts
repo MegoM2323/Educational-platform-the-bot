@@ -72,15 +72,24 @@ export class NotificationWebSocketService {
         return;
       }
 
-      const fullUrl = `${baseUrl}/notifications/${userId}/`;
+      const fullUrl = `${baseUrl}/notifications/${userId}/?token=${encodeURIComponent(token)}`;
 
       logger.info('[NotificationWebSocket] Connecting to notifications:', {
         userId,
         hasToken: !!token,
-        tokenLength: token.length
+        tokenLength: token.length,
+        fullUrl: fullUrl.substring(0, 100) + '...',
+        baseUrl: baseUrl,
+        tokenStart: token.substring(0, 20) + '...',
       });
 
-      websocketService.connect(fullUrl, token);
+      // Log to window for debugging
+      if (typeof window !== 'undefined') {
+        (window as any).__WS_DEBUG_URL = fullUrl;
+        console.log('[DEBUG] WebSocket URL:', fullUrl);
+      }
+
+      websocketService.connect(fullUrl);
     }
   }
 
@@ -112,15 +121,24 @@ export class NotificationWebSocketService {
         return;
       }
 
-      const fullUrl = `${baseUrl}/notifications/${userId}/`;
+      const fullUrl = `${baseUrl}/notifications/${userId}/?token=${encodeURIComponent(token)}`;
 
       logger.info('[NotificationWebSocket] Connecting to dashboard updates:', {
         userId,
         hasToken: !!token,
-        tokenLength: token.length
+        tokenLength: token.length,
+        fullUrl: fullUrl.substring(0, 100) + '...',
+        baseUrl: baseUrl,
+        tokenStart: token.substring(0, 20) + '...',
       });
 
-      websocketService.connect(fullUrl, token);
+      // Log to window for debugging
+      if (typeof window !== 'undefined') {
+        (window as any).__WS_DEBUG_URL_DASHBOARD = fullUrl;
+        console.log('[DEBUG] WebSocket Dashboard URL:', fullUrl);
+      }
+
+      websocketService.connect(fullUrl);
     }
   }
 

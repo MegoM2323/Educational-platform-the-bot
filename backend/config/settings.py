@@ -951,9 +951,36 @@ else:
         },
     }
 
+# WebSocket Configuration
+# Configure WebSocket behavior via environment variables for different environments
+# Development: frequent heartbeats, longer timeouts
+# Production: less frequent heartbeats, stricter timeouts
+
+def _parse_int_env(key, default, min_val=None, max_val=None):
+    """Parse integer environment variable with optional range validation"""
+    try:
+        value = int(os.getenv(key, str(default)))
+        if min_val is not None and value < min_val:
+            value = min_val
+        if max_val is not None and value > max_val:
+            value = max_val
+        return value
+    except (ValueError, TypeError):
+        return default
+
+WEBSOCKET_CONFIG = {
+    'HEARTBEAT_INTERVAL': _parse_int_env('WEBSOCKET_HEARTBEAT_INTERVAL', 30, min_val=5, max_val=300),
+    'HEARTBEAT_TIMEOUT': _parse_int_env('WEBSOCKET_HEARTBEAT_TIMEOUT', 15, min_val=3, max_val=120),
+    'AUTH_TIMEOUT': _parse_int_env('WEBSOCKET_AUTH_TIMEOUT', 15, min_val=5, max_val=120),
+    'MESSAGE_SIZE_LIMIT': _parse_int_env('WEBSOCKET_MESSAGE_SIZE_LIMIT', 10000, min_val=100, max_val=1000000),
+    'MAX_CONNECTIONS_PER_USER': _parse_int_env('WEBSOCKET_MAX_CONNECTIONS_PER_USER', 5, min_val=1, max_val=100),
+    'RECONNECT_BACKOFF_MULTIPLIER': float(os.getenv('WEBSOCKET_RECONNECT_BACKOFF_MULTIPLIER', '2.0')),
+    'RECONNECT_MAX_DELAY': _parse_int_env('WEBSOCKET_RECONNECT_MAX_DELAY', 32000, min_val=1000, max_val=300000),
+}
+
 # WebSocket settings - environment-aware
 WEBSOCKET_URL = env_config.get_websocket_url()
-WEBSOCKET_AUTHENTICATION_TIMEOUT = 30  # seconds
+WEBSOCKET_AUTHENTICATION_TIMEOUT = WEBSOCKET_CONFIG['AUTH_TIMEOUT']  # Derived from config
 WEBSOCKET_MESSAGE_MAX_LENGTH = 1024 * 1024  # 1MB
 
 # Payment settings
@@ -1270,6 +1297,56 @@ LOGGING = {
 
 # Создаем директорию для логов если её нет
 import logging.handlers
+
+
+# =============================================================================
+# WebSocket Configuration Validation
+# =============================================================================
+
+def validate_websocket_config():
+    """
+    Validate WebSocket configuration on Django startup.
+    Ensures all timeout and limit values are sensible.
+    """
+    import logging
+    logger = logging.getLogger('django')
+
+    config = WEBSOCKET_CONFIG
+
+    try:
+        assert config['HEARTBEAT_INTERVAL'] > 0, "HEARTBEAT_INTERVAL must be > 0"
+        assert config['HEARTBEAT_TIMEOUT'] > 0, "HEARTBEAT_TIMEOUT must be > 0"
+        assert config['HEARTBEAT_TIMEOUT'] < config['HEARTBEAT_INTERVAL'], \
+            f"HEARTBEAT_TIMEOUT ({config['HEARTBEAT_TIMEOUT']}s) must be < HEARTBEAT_INTERVAL ({config['HEARTBEAT_INTERVAL']}s)"
+        assert config['AUTH_TIMEOUT'] > 0, "AUTH_TIMEOUT must be > 0"
+        assert config['MESSAGE_SIZE_LIMIT'] > 0, "MESSAGE_SIZE_LIMIT must be > 0"
+        assert config['MAX_CONNECTIONS_PER_USER'] > 0, "MAX_CONNECTIONS_PER_USER must be > 0"
+        assert config['RECONNECT_BACKOFF_MULTIPLIER'] > 0, "RECONNECT_BACKOFF_MULTIPLIER must be > 0"
+        assert config['RECONNECT_MAX_DELAY'] > 0, "RECONNECT_MAX_DELAY must be > 0"
+
+        if DEBUG:
+            logger.info(
+                f"WebSocket configuration validated:\n"
+                f"  - HEARTBEAT_INTERVAL: {config['HEARTBEAT_INTERVAL']}s\n"
+                f"  - HEARTBEAT_TIMEOUT: {config['HEARTBEAT_TIMEOUT']}s\n"
+                f"  - AUTH_TIMEOUT: {config['AUTH_TIMEOUT']}s\n"
+                f"  - MESSAGE_SIZE_LIMIT: {config['MESSAGE_SIZE_LIMIT']} chars\n"
+                f"  - MAX_CONNECTIONS_PER_USER: {config['MAX_CONNECTIONS_PER_USER']}\n"
+                f"  - RECONNECT_BACKOFF_MULTIPLIER: {config['RECONNECT_BACKOFF_MULTIPLIER']}\n"
+                f"  - RECONNECT_MAX_DELAY: {config['RECONNECT_MAX_DELAY']}ms"
+            )
+        else:
+            logger.info("WebSocket configuration validated")
+
+    except AssertionError as e:
+        logger.error(f"WebSocket configuration error: {str(e)}")
+        raise ImproperlyConfigured(f"WebSocket configuration error: {str(e)}")
+
+# Run validation on startup
+try:
+    validate_websocket_config()
+except ImproperlyConfigured:
+    raise
 
 
 # =============================================================================

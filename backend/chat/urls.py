@@ -7,15 +7,14 @@ router = SimpleRouter()
 router.register(r"", views.ChatRoomViewSet, basename="chat")
 
 urlpatterns = [
-    path("", include(router.urls)),
+    # Contacts endpoint (explicit path - must come before router)
+    path("contacts/", views.ChatContactsView.as_view(), name="chat-contacts"),
     # Message endpoints with path parameters
     path(
         "<int:room_id>/messages/<int:pk>/",
         views.MessageViewSet.as_view({"patch": "update", "delete": "destroy"}),
         name="message-detail",
     ),
-    # Contacts endpoint
-    path("contacts/", views.ChatContactsView.as_view(), name="chat-contacts"),
     # Custom action endpoints
     path(
         "<int:pk>/send_message/",
@@ -32,4 +31,6 @@ urlpatterns = [
         views.ChatRoomViewSet.as_view({"post": "mark_as_read"}),
         name="mark-as-read",
     ),
+    # Router with empty pattern (must come last)
+    path("", include(router.urls)),
 ]

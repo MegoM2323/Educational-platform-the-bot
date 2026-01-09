@@ -40,7 +40,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 logger.warning(
                     f"[NotificationConsumer] Connection rejected: user not authenticated"
                 )
-                await self.close()
+                await self.accept()
+                await self.close(code=4001)  # 4001 = Unauthorized
                 return
 
             # Группа пользователя для отправки уведомлений
@@ -64,6 +65,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 f"[NotificationConsumer] Error during connection: {str(e)}",
                 exc_info=True,
             )
+            try:
+                await self.accept()
+            except Exception:
+                pass
             try:
                 await self.send(
                     text_data=json.dumps(

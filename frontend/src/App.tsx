@@ -59,8 +59,6 @@ const ParentChildren = lazy(() => import('./pages/dashboard/parent/Children'));
 const ParentChildDetail = lazy(() => import('./pages/dashboard/parent/ChildDetail'));
 const ParentStatistics = lazy(() => import('./pages/dashboard/parent/Statistics'));
 const ParentReports = lazy(() => import('./pages/dashboard/parent/Reports'));
-const Chat = lazy(() => import('./pages/dashboard/Chat'));
-
 // Scheduling components
 const StudentSchedulePage = lazy(() => import('./pages/dashboard/StudentSchedulePage'));
 const TeacherSchedulePage = lazy(() => import('./pages/dashboard/TeacherSchedulePage'));
@@ -71,10 +69,10 @@ const ParentSchedulePage = lazy(() => import('./pages/dashboard/ParentSchedulePa
 const Forum = lazy(() => import('./pages/dashboard/Forum'));
 
 // Chat pages
-const StudentChatPage = lazy(() => import('./pages/dashboard/student/ChatPage').then(m => ({ default: m.StudentChatPage })));
-const TeacherChatPage = lazy(() => import('./pages/dashboard/teacher/ChatPage').then(m => ({ default: m.TeacherChatPage })));
-const ParentChatPage = lazy(() => import('./pages/dashboard/parent/ChatPage').then(m => ({ default: m.ParentChatPage })));
-const TutorChatPage = lazy(() => import('./pages/dashboard/tutor/ChatPage').then(m => ({ default: m.TutorChatPage })));
+const StudentChatPage = lazy(() => import('./pages/dashboard/student/ChatPage').then(m => ({ default: m.default })));
+const TeacherChatPage = lazy(() => import('./pages/dashboard/teacher/ChatPage').then(m => ({ default: m.default })));
+const ParentChatPage = lazy(() => import('./pages/dashboard/parent/ChatPage').then(m => ({ default: m.default })));
+const TutorChatPage = lazy(() => import('./pages/dashboard/tutor/ChatPage').then(m => ({ default: m.default })));
 
 // Lesson Viewer
 const LessonViewer = lazy(() => import('./pages/lessons/LessonViewer'));

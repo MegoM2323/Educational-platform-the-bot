@@ -1,238 +1,127 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { ParentSidebar } from '@/components/layout/ParentSidebar';
-import { ChatList, ChatWindow, ContactSelector, MessageInput } from '@/components/chat';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
-import {
-  useChatList,
-  useChatMessages,
-  useSendChatMessage,
-  useWebSocketChat,
-  useUnreadCount,
-} from '@/hooks/useChat';
+import { useGeneralChat, useGeneralChatMessages, useSendGeneralMessage } from '@/hooks/useGeneralChatHooks';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Plus } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { logger } from '@/utils/logger';
-import { ForumChat } from '@/integrations/api/forumAPICompat';
 
 export default function ParentChatPage(): JSX.Element {
   const { user } = useAuth();
-  const [selectedChat, setSelectedChat] = useState<ForumChat | null>(null);
-  const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [messageText, setMessageText] = useState('');
 
-  const { data: chatListData, isLoading: chatsLoading } = useChatList();
-  const { data: messagesData, isLoading: messagesLoading } = useChatMessages(selectedChat?.id || 0);
-  const sendMutation = useSendChatMessage();
-  const unreadCount = useUnreadCount();
+  // Get general chat data
+  const { data: generalChat, isLoading: generalChatLoading } = useGeneralChat();
+  const { data: messages, isLoading: messagesLoading } = useGeneralChatMessages();
+  const sendMutation = useSendGeneralMessage();
 
-  const { isConnected: wsConnected, error: wsError } = useWebSocketChat(
-    selectedChat?.id || 0,
-    !!selectedChat?.id
-  );
-
-  if (user?.role !== 'parent') {
+  if (!user || user.role !== 'parent') {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const chats = chatListData?.results || [];
-
-  const filteredChats = searchQuery.trim()
-    ? chats.filter((chat) => {
-        const displayName =
-          chat.name ||
-          chat.participants
-            .filter((p) => p.id !== user.id)
-            .map((p) => p.full_name)
-            .join(', ');
-        return displayName.toLowerCase().includes(searchQuery.toLowerCase());
-      })
-    : chats;
-
-  const handleSelectChat = (chat: ForumChat) => {
-    setSelectedChat(chat);
-    setSearchQuery('');
-  };
-
-  const handleSendMessage = async (content: string, attachments?: File[]) => {
-    if (!selectedChat || !content.trim()) return;
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !generalChat?.id) return;
 
     try {
       await sendMutation.mutateAsync({
-        chatId: selectedChat.id,
-        data: {
-          content,
-          attachments: attachments || [],
-        },
+        content: messageText,
       });
+      setMessageText('');
     } catch (error) {
       logger.error('Failed to send message:', error);
     }
   };
 
-  const handleCreateNewChat = (contactId: number) => {
-    const existingChat = chats.find(
-      (chat) => chat.participants.some((p) => p.id === contactId) && chat.participants.length === 2
-    );
-
-    if (existingChat) {
-      setSelectedChat(existingChat);
-    }
-
-    setShowNewChatModal(false);
-  };
-
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <ParentSidebar />
-        <SidebarInset className="flex-1">
+      <ParentSidebar />
+      <SidebarInset>
+        <div className="flex flex-col h-screen bg-background">
           {/* Header */}
-          <header className="sticky top-0 z-10 flex h-16 items-center border-b bg-background px-6">
-            <SidebarTrigger />
-            <h1 className="ml-4 text-xl font-semibold flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
-              Сообщения
-            </h1>
-            {unreadCount > 0 && (
-              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2.5 py-0.5 text-xs font-medium text-destructive-foreground">
-                {unreadCount}
-              </span>
-            )}
-          </header>
-
-          {/* Main Content */}
-          <main className="flex-1 overflow-hidden">
-            <div className="flex h-[calc(100vh-4rem)] gap-4 p-4">
-              {/* Chat List - Always visible on mobile, left side on desktop */}
-              <div className="w-full md:w-1/3 flex flex-col">
-                <Card className="flex flex-col flex-1">
-                  {/* Header with New Chat Button */}
-                  <div className="flex items-center justify-between border-b p-4">
-                    <h2 className="font-semibold">Чаты</h2>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowNewChatModal(true)}
-                      className="gap-1"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span className="hidden sm:inline">Новый</span>
-                    </Button>
-                  </div>
-
-                  {/* Chat List */}
-                  <ChatList
-                    chats={filteredChats}
-                    selectedChat={selectedChat}
-                    onSelectChat={handleSelectChat}
-                    searchQuery={searchQuery}
-                    onSearchChange={setSearchQuery}
-                    isLoading={chatsLoading}
-                    currentUserId={user?.id || 0}
-                  />
-                </Card>
+          <div className="flex items-center justify-between border-b p-4">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger />
+              <div>
+                <h1 className="text-xl font-semibold flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Сообщения
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {generalChat?.name || 'Общий чат'}
+                </p>
               </div>
-
-              {/* Chat Window - Hidden on mobile, visible on desktop */}
-              <div className="hidden md:flex w-2/3 flex-col">
-                {selectedChat ? (
-                  <ChatWindow
-                    chatId={selectedChat.id}
-                    messages={messagesData?.results || []}
-                    isLoading={messagesLoading}
-                    isConnected={wsConnected}
-                    renderMessageInput={() => (
-                      <MessageInput
-                        value={messageText}
-                        onChange={setMessageText}
-                        onSend={async () => {
-                          if (!messageText.trim()) return;
-                          await handleSendMessage(messageText);
-                          setMessageText('');
-                        }}
-                        isLoading={sendMutation.isPending}
-                      />
-                    )}
-                  />
-                ) : (
-                  <Card className="flex flex-1 items-center justify-center">
-                    <div className="text-center">
-                      <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground opacity-50" />
-                      <p className="text-lg font-medium">Выберите чат для начала переписки</p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Нажмите на чат в списке слева или создайте новый
-                      </p>
-                      <Button onClick={() => setShowNewChatModal(true)} className="mt-4 gap-2">
-                        <Plus className="w-4 h-4" />
-                        Создать новый чат
-                      </Button>
-                    </div>
-                  </Card>
-                )}
-              </div>
-
-              {/* Mobile Chat Window - Visible when chat selected on mobile */}
-              {selectedChat && (
-                <div className="absolute inset-0 z-50 flex flex-col md:hidden bg-background">
-                  <header className="flex h-16 items-center border-b bg-background px-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedChat(null)}
-                      className="mr-2"
-                    >
-                      ←
-                    </Button>
-                    <h2 className="font-semibold">
-                      {selectedChat.name ||
-                        selectedChat.participants
-                          .filter((p) => p.id !== user?.id)
-                          .map((p) => p.full_name)
-                          .join(', ')}
-                    </h2>
-                  </header>
-                  <ChatWindow
-                    chatId={selectedChat.id}
-                    messages={messagesData?.results || []}
-                    isLoading={messagesLoading}
-                    isConnected={wsConnected}
-                    renderMessageInput={() => (
-                      <MessageInput
-                        value={messageText}
-                        onChange={setMessageText}
-                        onSend={async () => {
-                          if (!messageText.trim()) return;
-                          await handleSendMessage(messageText);
-                          setMessageText('');
-                        }}
-                        isLoading={sendMutation.isPending}
-                      />
-                    )}
-                  />
-                </div>
-              )}
             </div>
-          </main>
+          </div>
 
-          {/* New Chat Modal */}
-          {showNewChatModal && (
-            <ContactSelector
-              isOpen={showNewChatModal}
-              onClose={() => setShowNewChatModal(false)}
-              onChatInitiated={(chatId) => {
-                setSelectedChat(chatListData?.results.find(c => c.id === chatId) || null);
-                setShowNewChatModal(false);
-              }}
-            />
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {generalChatLoading ? (
+              <div className="text-center text-muted-foreground py-8">Загрузка чата...</div>
+            ) : !generalChat ? (
+              <Card className="p-8 text-center">
+                <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">Чата не найдено</p>
+              </Card>
+            ) : messages && messages.length > 0 ? (
+              <div className="space-y-4">
+                {messages.map((msg: any) => (
+                  <div
+                    key={msg.id}
+                    className={`flex gap-3 ${msg.sender?.id === user.id ? 'justify-end' : ''}`}
+                  >
+                    <div
+                      className={`max-w-xs px-4 py-2 rounded-lg ${
+                        msg.sender?.id === user.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{msg.sender?.full_name || 'Аноним'}</p>
+                      <p className="text-sm">{msg.content}</p>
+                      <p className="text-xs opacity-70 mt-1">
+                        {new Date(msg.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">Нет сообщений</div>
+            )}
+          </div>
+
+          {/* Message Input */}
+          {generalChat && (
+            <div className="border-t p-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Напишите сообщение..."
+                  className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-sm"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={sendMutation.isPending || !messageText.trim()}
+                  className="px-6"
+                >
+                  {sendMutation.isPending ? 'Отправка...' : 'Отправить'}
+                </Button>
+              </div>
+            </div>
           )}
-        </SidebarInset>
-      </div>
+        </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
-
-export { ParentChatPage };

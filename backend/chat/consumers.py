@@ -32,7 +32,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
         try:
-            await asyncio.wait_for(self._wait_for_auth(), timeout=5.0)
+            await asyncio.wait_for(self._wait_for_auth(), timeout=15.0)
         except asyncio.TimeoutError:
             logger.warning(f"[ChatConsumer] Auth timeout for room {self.room_id}")
             await self.close(code=4001)

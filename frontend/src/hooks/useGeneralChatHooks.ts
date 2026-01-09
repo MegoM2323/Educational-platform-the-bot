@@ -8,17 +8,27 @@ export const useGeneralChat = () => {
     queryFn: async () => {
       const response = await chatAPI.getChatList();
 
+      console.log('[useGeneralChat] API Response:', response);
+
       // If no chats found, return null
       if (!response?.results || response.results.length === 0) {
         console.warn('[useGeneralChat] No chats available for user');
         return null;
       }
 
+      console.log('[useGeneralChat] Available chats:', response.results.map((c: Chat) => ({
+        id: c.id,
+        name: c.name,
+        is_group: c.is_group,
+        participant_count: c.participant_count
+      })));
+
       // Try to find a group chat first, then use first chat as fallback
-      const generalChat = response.results.find((chat: Chat) => chat.is_group === true) || response.results[0] || null;
+      const groupChat = response.results.find((chat: Chat) => chat.is_group === true);
+      const generalChat = groupChat || response.results[0] || null;
 
       if (generalChat) {
-        console.log(`[useGeneralChat] Selected chat ${generalChat.id}: ${generalChat.name}`);
+        console.log(`[useGeneralChat] Selected chat ${generalChat.id}: ${generalChat.name} (is_group: ${generalChat.is_group})`);
       } else {
         console.warn('[useGeneralChat] Could not select any chat from results');
       }

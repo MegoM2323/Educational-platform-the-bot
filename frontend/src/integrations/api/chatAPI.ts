@@ -86,24 +86,35 @@ export const chatAPI = {
         `/chat/?page=${page}&page_size=${pageSize}`
       );
 
+      console.log('[chatAPI.getChatList] Raw response:', response);
+
       if (response.error) {
         throw new Error(response.error);
       }
 
       // Transform API response to match Chat interface
-      const transformedResults = (response.data?.results || []).map((chat: any) => ({
+      const rawResults = response.data?.results || [];
+      console.log('[chatAPI.getChatList] Raw results count:', rawResults.length);
+      console.log('[chatAPI.getChatList] Raw results:', rawResults);
+
+      const transformedResults = rawResults.map((chat: any) => ({
         ...chat,
         name: chat.name || chat.other_participant?.full_name || `Чат ${chat.id}`,
         is_group: chat.is_group || false,
         participant_count: chat.participant_count || 2,
       }));
 
-      return {
+      console.log('[chatAPI.getChatList] Transformed results:', transformedResults);
+
+      const result = {
         count: response.data?.count || 0,
         next: response.data?.next,
         previous: response.data?.previous,
         results: transformedResults,
       };
+
+      console.log('[chatAPI.getChatList] Final response:', result);
+      return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Ошибка загрузки чатов';
       logger.error('[Chat API] getChatList error:', error);

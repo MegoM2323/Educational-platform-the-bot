@@ -307,11 +307,11 @@ class ChatService:
             logger.debug(f"User {user.id} is not participant in chat {room.id}")
             return False
 
-        # Получить собеседника (other_participant)
+        # Получить всех участников чата (кроме текущего пользователя)
         participants = list(
             ChatParticipant.objects.filter(room=room)
             .exclude(user=user)
-            .select_related("user")[:2]  # Direct chat имеет ровно 2 участника
+            .select_related("user")
         )
 
         if len(participants) == 0:
@@ -319,16 +319,21 @@ class ChatService:
             logger.warning(f"Chat {room.id} has only one participant {user.id}")
             return False
 
+        # Проверить что все участники активны
+        for participant in participants:
+            if not participant.user.is_active:
+                logger.debug(
+                    f"Participant {participant.user.id} in chat {room.id} is inactive"
+                )
+                return False
+
+        # Для group chats (3+ участников) - просто проверить что участник в ChatParticipant достаточно
+        if len(participants) >= 2:  # 3+ всего (user + 2+ others)
+            logger.debug(f"User {user.id} has valid access to group chat {room.id}")
+            return True
+
+        # Для direct chats (2 участников всего) - проверить permissions
         other_participant = participants[0].user
-
-        # Проверить что собеседник активен
-        if not other_participant.is_active:
-            logger.debug(
-                f"Other participant {other_participant.id} in chat {room.id} is inactive"
-            )
-            return False
-
-        # Проверить АКТУАЛЬНЫЕ permissions
         has_permission = ChatService._validate_chat_permissions(user, other_participant)
 
         if not has_permission:
@@ -338,7 +343,7 @@ class ChatService:
             )
             return False
 
-        logger.debug(f"User {user.id} has valid access to chat {room.id}")
+        logger.debug(f"User {user.id} has valid access to direct chat {room.id}")
         return True
 
     @staticmethod

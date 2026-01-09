@@ -536,6 +536,16 @@ class ChatService:
 
         contacts = []
         for other_user in allowed_contacts_qs:
+            # Получить URL аватара безопасно (без исключений если файл не существует)
+            avatar_url = None
+            try:
+                avatar = getattr(other_user, "avatar", None)
+                if avatar and hasattr(avatar, "url"):
+                    avatar_url = avatar.url
+            except (ValueError, AttributeError):
+                # Если файл не существует или другая ошибка, просто пропустить
+                avatar_url = None
+
             contacts.append(
                 {
                     "id": other_user.id,
@@ -546,7 +556,7 @@ class ChatService:
                     or other_user.username,
                     "email": other_user.email or "",
                     "role": getattr(other_user, "role", "user"),
-                    "avatar": getattr(other_user, "avatar", None),
+                    "avatar": avatar_url,
                     "is_online": False,
                     "has_active_chat": other_user.id in existing_chats,
                     "chat_id": existing_chats.get(other_user.id),

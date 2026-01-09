@@ -5,13 +5,13 @@ import { test, expect, Page, BrowserContext } from '@playwright/test';
  * Проверяет: отправка, получение, редактирование, удаление сообщений в реальном времени
  */
 
-const BASE_URL = 'https://the-bot.ru';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 
 // Test credentials
 const CREDENTIALS = {
-  student: { email: 'test_student@example.com', password: 'TestPassword123!' },
-  teacher: { email: 'test_teacher@example.com', password: 'TestPassword123!' },
-  parent: { email: 'test_parent@example.com', password: 'TestPassword123!' },
+  student: { email: 'test_student@test.local', password: 'TestPassword123!' },
+  teacher: { email: 'test_teacher@test.local', password: 'TestPassword123!' },
+  parent: { email: 'test_parent@test.local', password: 'TestPassword123!' },
 };
 
 /**

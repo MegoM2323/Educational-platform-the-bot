@@ -300,8 +300,10 @@ except ImproperlyConfigured as e:
 # Add ASGI server for WebSocket support (using Uvicorn instead of Daphne)
 # Uvicorn does not require pyOpenSSL and works with Python 3.13
 # Daphne is kept in INSTALLED_APPS for compatibility with Django Channels
-if environment != "test":
-    INSTALLED_APPS.insert(0, "daphne")  # ASGI server для WebSocket
+# Daphne отключен для разработки (проблема с OpenSSL в Python 3.13)
+# На production используется отдельный Daphne процесс через systemd
+# if environment != "test":
+#     INSTALLED_APPS.insert(0, "daphne")  # ASGI server для WebSocket
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",

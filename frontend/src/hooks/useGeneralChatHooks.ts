@@ -7,15 +7,27 @@ export const useGeneralChat = () => {
     queryKey: ['general-chat'],
     queryFn: async () => {
       const response = await chatAPI.getChatList();
+
+      // If no chats found, return null
       if (!response?.results || response.results.length === 0) {
-        console.warn('[useGeneralChat] No chats available');
+        console.warn('[useGeneralChat] No chats available for user');
         return null;
       }
-      const generalChat = response.results?.find((chat: Chat) => chat.is_group) || response.results?.[0] || null;
+
+      // Try to find a group chat first, then use first chat as fallback
+      const generalChat = response.results.find((chat: Chat) => chat.is_group === true) || response.results[0] || null;
+
+      if (generalChat) {
+        console.log(`[useGeneralChat] Selected chat ${generalChat.id}: ${generalChat.name}`);
+      } else {
+        console.warn('[useGeneralChat] Could not select any chat from results');
+      }
+
       return generalChat;
     },
-    staleTime: 300000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
+    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   });
 };
 

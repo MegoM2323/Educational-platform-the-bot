@@ -1,8 +1,8 @@
 {
-  "checkpoint": "CHAT_URLS_FIX_TESTED_AND_VERIFIED",
+  "checkpoint": "CHATPAGE_NULL_CHECKS_ADDED",
   "date": "2026-01-09",
   "status": "COMPLETED",
-  "summary": "Исправлен порядок URL-паттернов: явные пути теперь перед router.urls. Все тесты пройдены (24/24).",
+  "summary": "Добавлены null checks для msg.created_at в 4 ChatPage компонентах для предотвращения крашей при null timestamp.",
   "tasks": [
     {
       "id": "URL_PATTERN_ORDERING_FIX",
@@ -54,6 +54,66 @@
       "files_created": [
         "/home/mego/Python Projects/THE_BOT_platform/backend/chat/tests/test_url_routing_fix.py"
       ]
+    },
+    {
+      "id": "CHAT_SERIALIZER_IS_GROUP_FIELD",
+      "task_name": "Добавление поля is_group в ChatRoomListSerializer",
+      "agent": "coder",
+      "status": "done",
+      "description": "Добавлено поле is_group в ChatRoomListSerializer для определения является ли чат групповым (более 2 участников). Поле возвращает True если участников > 2, False в противном случае.",
+      "changes": {
+        "chat/serializers.py": [
+          "Добавлено поле is_group = serializers.SerializerMethodField()",
+          "Добавлено 'is_group' в fields кортеж Meta класса",
+          "Реализован метод get_is_group(self, obj) который возвращает obj.participants.count() > 2"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/serializers.py"
+      ],
+      "duration_sec": 2
+    },
+    {
+      "id": "CHATPAGE_NULL_CHECKS",
+      "task_name": "Добавление null checks для msg.created_at в ChatPage компонентах",
+      "agent": "coder",
+      "status": "done",
+      "description": "Добавлены условные проверки для msg.created_at в 4 ChatPage компонентах (student, teacher, parent, tutor). Если timestamp null/undefined, отображается 'Unknown time' вместо краша.",
+      "changes": {
+        "student/ChatPage.tsx": "Изменена строка 85: {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}",
+        "teacher/ChatPage.tsx": "Изменена строка 82: {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}",
+        "parent/ChatPage.tsx": "Изменена строка 85: {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}",
+        "tutor/ChatPage.tsx": "Изменена строка 85: {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : 'Unknown time'}"
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/student/ChatPage.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/teacher/ChatPage.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/parent/ChatPage.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/tutor/ChatPage.tsx"
+      ],
+      "duration_sec": 1
+    },
+    {
+      "id": "N_PLUS_1_QUERY_FIX",
+      "task_name": "Исправление N+1 query проблемы в ChatRoomListSerializer.get_is_group()",
+      "agent": "coder",
+      "status": "done",
+      "description": "Замена obj.participants.count() на len(obj.participants.all()) для устранения N+1 проблемы. count() вызывает отдельный query для каждого чата в списке. len() использует prefetch_related данные если они загружены, или вызывает один query на объект. Метод get_is_group() определяет является ли чат групповым (более 2 участников).",
+      "optimization": {
+        "before": "obj.participants.count() > 2 - вызывает query для каждого чата",
+        "after": "len(obj.participants.all()) > 2 - использует cached prefetch_related данные",
+        "impact": "Значительное улучшение производительности при выводе списка чатов (от N+1 к N запросам максимум)"
+      },
+      "changes": {
+        "chat/serializers.py": [
+          "Строка 174: заменено obj.participants.count() > 2 на len(obj.participants.all()) > 2",
+          "Добавлена расширенная документация метода с объяснением оптимизации"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/serializers.py"
+      ],
+      "duration_sec": 1
     }
   ]
 }

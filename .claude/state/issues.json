@@ -1,44 +1,54 @@
 {
-  "review_iteration": 2,
-  "status": "lgtm",
-  "issues": [],
-  "passed_checks": [
-    "django_url_pattern_ordering",
-    "syntax_validation",
-    "import_correctness",
-    "endpoint_mapping",
-    "router_placement",
-    "no_regex_conflicts"
+  "review_iteration": 1,
+  "status": "has_issues",
+  "issues": [
+    {
+      "severity": "high",
+      "file": "frontend/src/hooks/useGeneralChatHooks.ts",
+      "line": 14,
+      "issue": "Logic error: Using index [0] assumes first chat is the general chat, but no verification. Frontend hook returns arbitrary first chat from list instead of validating it's the general/group chat. May return wrong chat.",
+      "fix": "Add validation: check response.results[0].is_group === true OR filter for specific chat name/type before returning"
+    },
+    {
+      "severity": "medium",
+      "file": "backend/chat/serializers.py",
+      "line": 172-174,
+      "issue": "N+1 query risk: get_is_group() calls obj.participants.count() for EACH chat in list. With prefetch_related present, count still executes SQL query (prefetch doesn't optimize .count()). For 20 chats = 20 extra queries.",
+      "fix": "Add participant count annotation in ChatService.get_user_chats() and reuse it, OR use len(obj.participants.all()) with prefetched data"
+    },
+    {
+      "severity": "medium",
+      "file": "frontend/src/hooks/useGeneralChatHooks.ts",
+      "line": 9-15,
+      "issue": "Inadequate null/empty handling: Function checks response?.results length but doesn't distinguish between API error, no chats, vs actual empty response. console.warn on null but continues to useQuery which may retry 2 times on null return.",
+      "fix": "Return explicit error from queryFn when no chats found instead of returning null (null triggers retries). Use enabled flag or throw error."
+    },
+    {
+      "severity": "low",
+      "file": "frontend/src/pages/dashboard/student/ChatPage.tsx, teacher/ChatPage.tsx, parent/ChatPage.tsx, tutor/ChatPage.tsx",
+      "line": "85 (all 4 files)",
+      "issue": "Inconsistent optional chaining: Code uses msg.created_at without null check. If API returns message without created_at field (null), toLocaleTimeString() will fail with TypeError.",
+      "fix": "Use optional chaining: {new Date(msg.created_at || new Date()).toLocaleTimeString()} OR add fallback timestamp"
+    },
+    {
+      "severity": "low",
+      "file": "backend/chat/serializers.py",
+      "line": 172-174,
+      "issue": "Edge case: is_group definition (> 2 participants) assumes exactly 2 = direct chat. If system creates corrupted chats with 1 or 0 participants, is_group will still return false. No validation on minimum participants.",
+      "fix": "Add validation: ensure chats always have >= 2 participants OR adjust is_group logic to >= 2 for explicit group detection"
+    }
   ],
-  "failed_checks": [],
-  "summary": {
-    "chat/urls.py": "LGTM - URL pattern ordering is correct and follows Django best practices"
-  },
-  "verification": {
-    "explicit_paths_before_router": "PASS - contacts/ and all custom actions listed before path('', include(router.urls))",
-    "import_statements": "PASS - all imports present and correct (path, include, re_path, SimpleRouter, views)",
-    "router_registration": "PASS - SimpleRouter correctly registers ChatRoomViewSet with empty basename 'chat'",
-    "endpoints_mapped": [
-      "contacts/ → ChatContactsView (GET)",
-      "<int:room_id>/messages/<int:pk>/ → MessageViewSet.update/destroy (PATCH/DELETE)",
-      "<int:pk>/send_message/ → ChatRoomViewSet.send_message (POST)",
-      "<int:pk>/messages/ → ChatRoomViewSet.messages (GET)",
-      "<int:pk>/mark_as_read/ → ChatRoomViewSet.mark_as_read (POST)",
-      "Router patterns (list, create, retrieve, etc.) handled by path('', include(router.urls))"
-    ],
-    "routing_order": "CORRECT - Explicit paths (with integer parameters) are before catch-all router pattern",
-    "error_prevention": "FIXED - contacts/ no longer caught by router's empty pattern; prevents 'Field id expected a number but got contacts' error"
-  },
-  "code_review": {
-    "syntax": "Valid Python - no issues",
-    "imports": "All required: path, include, SimpleRouter, views module",
-    "naming": "Consistent - routes are clearly named with descriptive names (chat-contacts, message-detail, send-message, etc.)",
-    "comments": "Helpful inline comments explain pattern ordering rationale"
-  },
-  "notes": [
-    "URL pattern ordering fix resolves the critical bug where /api/chat/contacts/ was being caught by the router's empty pattern",
-    "The fix properly implements Django routing best practices: specific patterns before generic patterns",
-    "All endpoint actions are correctly mapped to their corresponding view methods",
-    "Router-generated endpoints (list, create, retrieve, delete) are still functional via the catch-all pattern at the end"
+  "passed_checks": [
+    "field_name_consistency",
+    "serializer_field_definition",
+    "timestamp_field_update",
+    "null_response_handling",
+    "type_correctness"
+  ],
+  "failed_checks": [
+    "n_plus_one_queries",
+    "logic_validation",
+    "error_handling_completeness",
+    "null_safety"
   ]
 }

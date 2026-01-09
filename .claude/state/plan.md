@@ -1,60 +1,66 @@
-# План: T005 - Backend JWT Header Support
+# План: Исправление rsync-deploy-native.sh
 
 ## Обзор
-Обновление TokenAuthMiddleware для поддержки JWT в Authorization header с сохранением backward compatibility для query string метода.
+Исправление 12 критических и высоких проблем в deployment скрипте, найденных reviewer.
 
-## Текущее состояние
-- TokenAuthMiddleware: парсит JWT только из query_string (?token=<token>)
-- Нужно добавить поддержку Authorization header: `Authorization: Bearer <token>`
-- Оба метода должны работать (для backward compatibility)
+## Файл
+`/home/mego/Python Projects/THE_BOT_platform/scripts/deployment/rsync-deploy-native.sh`
 
-## Задача T005: TokenAuthMiddleware JWT Header Support
+## Задачи
 
-Файл: `/home/mego/Python Projects/THE_BOT_platform/backend/chat/middleware.py`
+### PHASE 1: Критические проблемы (исправляются в одной итерации)
 
-**Что обновить:**
+1. **exit 0 перед PHASE 6-8 (линия ~590)**
+   - Переместить `exit 0` в конец скрипта (после Phase 8)
+   - Удалить преждевременный exit
 
-1. Логика извлечения токена (приоритет):
-   - **Приоритет 1:** Authorization header: `Authorization: Bearer <token>`
-   - **Приоритет 2:** Query string: `?token=<token>` (legacy, deprecated)
+2. **migrate --check перед migrate (линия ~473)**
+   - Добавить `python manage.py migrate --check` ДО `python manage.py migrate`
+   - В PHASE 5 Database Migrations
 
-2. Обновить `__call__` метод:
-   ```
-   - Получить headers из scope
-   - Проверить Authorization header (ищем "Bearer <token>")
-   - Если нет - fallback на query string
-   - Валидировать токен и добавить user в scope
-   - Логировать какой способ был использован
-   ```
+3. **Двойной exit в trap (линия ~259)**
+   - Оставить только один `exit 1` в trap handler
+   - Удалить exit из cleanup функции
 
-3. Добавить новый приватный метод:
-   ```python
-   def _extract_token_from_headers(self, headers: dict) -> str | None:
-       """Extract token from Authorization header"""
-       auth_header = headers.get(b"authorization", b"").decode()
-       if auth_header.startswith("Bearer "):
-           return auth_header[7:]
-       return None
-   ```
+4. **Hardcoded пути в heredoc (линии ~482, ~520)**
+   - Экспортировать PROD_HOME, PROD_USER, BACKUP_DIR в SSH heredoc
+   - Заменить hardcoded `/home/mg/backups` на `${BACKUP_DIR}`
 
-4. Обновить docstring класса:
-   ```
-   Поддержка двух методов:
-   1. Authorization header: Authorization: Bearer <token>
-   2. Query string: ?token=<token> (deprecated, для backward compatibility)
-   ```
+5. **Database backup без chmod 600 (линия ~300+)**
+   - Добавить `chmod 600 *.sql` после pg_dump, перед gzip
+   - Защитить файлы с паролями
 
-5. Логирование:
-   - При извлечении из header: `[TokenAuthMiddleware] Token extracted from Authorization header: user_id={user_id}`
-   - При извлечении из query: `[TokenAuthMiddleware] Token extracted from query string (legacy): user_id={user_id}`
-   - При отсутствии токена: `[TokenAuthMiddleware] No token provided in either header or query`
+6. **Отсутствует проверка cd перед npm install (линия ~250+)**
+   - Добавить `cd frontend || exit 1` с проверкой успеха
+   - Логировать ошибку если cd упал
+
+7. **LOCAL_PATH использует ${BASH_SOURCE[0]} неправильно (линия ~190+)**
+   - Использовать: `LOCAL_PATH="$(cd "$(dirname "$0")" && pwd)"`
+   - Или передать как параметр функции
+
+8. **Health check маскирует ошибки через || true (линия ~673)**
+   - Удалить `|| true` из curl
+   - Логировать warning если health check упал
+   - Не считать это ошибкой, но информировать
+
+9. **Отсутствуют кавычки вокруг $PROD_HOME в SSH (линия ~283+)**
+   - Заменить `${PROD_HOME}` на `"${PROD_HOME}"` везде в SSH блоках
+   - Защитить от пробелов в пути
+
+10. **Дублирование кода в PHASE 5 (линия ~320+)**
+    - Объединить два блока (с условием SKIP_MIGRATIONS и без) в один
+    - Использовать if/else для SKIP_MIGRATIONS
+
+11. **Database backup failure логируется как warning (линия ~340+)**
+    - Изменить на log_error
+    - Добавить `exit 1` если pg_dump упал
+
+12. **DEPLOY_LOG в /tmp может быть удален (линия ~175+)**
+    - Перенести логирование в `$PROD_HOME/logs/` или в journalctl
+    - Убедиться что директория существует и имеет права
 
 ## Verification
-- Authorization header парсится корректно
-- Query string fallback работает
-- Оба способа логируются правильно
-- AnonymousUser используется при отсутствии валидного токена
-- Все исключения обрабатываются gracefully
-- Black formatter проходит
-- Syntax проверяется
-
+- `bash -n scripts/deployment/rsync-deploy-native.sh` - синтаксис проходит
+- Все 12 проблем исправлены
+- Логирование детальное
+- Error handling на месте

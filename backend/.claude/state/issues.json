@@ -1,106 +1,99 @@
 {
-  "review_iteration": 1,
-  "status": "no_issues",
-  "total_files_reviewed": 2,
-  "issues": [],
-  "file_checks": [
+  "review_iteration": 3,
+  "status": "has_issues",
+  "total_files_reviewed": 1,
+  "issues": [
     {
-      "file": "backend/accounts/views.py",
-      "status": "pass",
-      "checks": [
-        {
-          "check": "Import csrf_exempt",
-          "result": "pass",
-          "line": 15,
-          "detail": "from django.views.decorators.csrf import csrf_exempt"
-        },
-        {
-          "check": "Decorator order (@csrf_exempt before @api_view)",
-          "result": "pass",
-          "line": 51,
-          "detail": "@csrf_exempt at line 51, @api_view at line 53"
-        },
-        {
-          "check": "Decorator stack integrity",
-          "result": "pass",
-          "detail": "@csrf_exempt → @ratelimit → @api_view → @permission_classes → @authentication_classes"
-        },
-        {
-          "check": "Function login_view unchanged (except decorators)",
-          "result": "pass",
-          "detail": "Function body from line 56+ remains intact with all original logic"
-        },
-        {
-          "check": "Security: TokenAuth with CSRF exempt",
-          "result": "pass",
-          "detail": "@authentication_classes([]) + @permission_classes([AllowAny]) make CSRF exempt correct"
-        }
-      ]
+      "severity": "critical",
+      "file": "backend/chat/services/chat_service.py",
+      "line": 363,
+      "issue": "Student contacts: Missing is_active check on teachers - violates permissions.py",
+      "code": "teacher_ids = SubjectEnrollment.objects.filter(\n    student=student,\n    status=SubjectEnrollment.Status.ACTIVE,\n).values_list('teacher_id', flat=True)",
+      "fix": "Add .filter(teacher__is_active=True) to ensure only active teachers are included",
+      "impact": "Students can initiate chats with INACTIVE teachers - SECURITY VIOLATION"
     },
     {
-      "file": "backend/accounts/serializers.py",
-      "status": "pass",
-      "checks": [
-        {
-          "check": "UserSerializer.get_role_display as SerializerMethodField",
-          "result": "pass",
-          "line": 139,
-          "detail": "role_display = serializers.SerializerMethodField()"
-        },
-        {
-          "check": "get_role_display logic: is_superuser check",
-          "result": "pass",
-          "line": 161,
-          "detail": "if obj.is_superuser: return 'Администратор' (correct)"
-        },
-        {
-          "check": "get_role_display logic: fallback to obj.get_role_display()",
-          "result": "pass",
-          "line": 164,
-          "detail": "else: return obj.get_role_display() (correct)"
-        },
-        {
-          "check": "UserPublicSerializer.get_role_display synchronized",
-          "result": "pass",
-          "line": 952,
-          "detail": "Identical logic: is_superuser check then fallback"
-        },
-        {
-          "check": "UserSerializer fields consistency",
-          "result": "pass",
-          "detail": "role_display in Meta.fields at line 150, read_only logic correct"
-        },
-        {
-          "check": "UserPublicSerializer fields consistency",
-          "result": "pass",
-          "detail": "role_display in Meta.fields at line 945, read_only logic correct"
-        },
-        {
-          "check": "No conflicts with existing fields",
-          "result": "pass",
-          "detail": "role_display is new field, role remains unchanged"
-        },
-        {
-          "check": "Method naming consistency",
-          "result": "pass",
-          "detail": "Both serializers use get_role_display() method name convention"
-        }
-      ]
+      "severity": "critical",
+      "file": "backend/chat/services/chat_service.py",
+      "line": 383,
+      "issue": "Teacher contacts: Missing is_active check on students - violates permissions.py",
+      "code": "student_ids = SubjectEnrollment.objects.filter(\n    teacher=teacher,\n    status=SubjectEnrollment.Status.ACTIVE,\n).values_list('student_id', flat=True)",
+      "fix": "Add .filter(student__is_active=True) to exclude inactive students",
+      "impact": "Teachers can initiate chats with INACTIVE students - SECURITY VIOLATION"
+    },
+    {
+      "severity": "critical",
+      "file": "backend/chat/services/chat_service.py",
+      "line": 410,
+      "issue": "Tutor contacts: Inverted logic - checks tutor field is_active instead of student",
+      "code": "student_ids = StudentProfile.objects.filter(\n    tutor=tutor,\n    tutor__is_active=True,  # WRONG: checks tutor field not student\n).values_list('user_id', flat=True)",
+      "fix": "Should be: filter(tutor=tutor, user__is_active=True) to check if STUDENTS are active",
+      "impact": "Tutors can see INACTIVE students assigned to them - SECURITY VIOLATION"
+    },
+    {
+      "severity": "critical",
+      "file": "backend/chat/services/chat_service.py",
+      "line": 414,
+      "issue": "Tutor contacts: Missing is_active check on teachers - violates permissions.py",
+      "code": "teacher_ids = SubjectEnrollment.objects.filter(\n    student_id__in=student_ids,\n    status=SubjectEnrollment.Status.ACTIVE,\n).values_list('teacher_id', flat=True)",
+      "fix": "Add .filter(teacher__is_active=True) to exclude inactive teachers",
+      "impact": "Tutors can initiate chats with INACTIVE teachers - SECURITY VIOLATION"
+    },
+    {
+      "severity": "critical",
+      "file": "backend/chat/services/chat_service.py",
+      "line": 433,
+      "issue": "Parent contacts: Logically incorrect filter - checks parent is_active when parent is already the parameter",
+      "code": "child_ids = StudentProfile.objects.filter(\n    parent=parent,\n    parent__is_active=True,  # WRONG: redundant - parent is already the method parameter\n).values_list('user_id', flat=True)",
+      "fix": "Should be: filter(parent=parent, user__is_active=True) to check if CHILDREN are active",
+      "impact": "Parent method broken - returns wrong child_ids, potentially no children or filtered incorrectly"
+    },
+    {
+      "severity": "critical",
+      "file": "backend/chat/services/chat_service.py",
+      "line": 438,
+      "issue": "Parent contacts: Missing is_active check on teachers - violates permissions.py",
+      "code": "teacher_ids = SubjectEnrollment.objects.filter(\n    student_id__in=child_ids,\n    status=SubjectEnrollment.Status.ACTIVE,\n).values_list('teacher_id', flat=True)",
+      "fix": "Add .filter(teacher__is_active=True) to exclude inactive teachers",
+      "impact": "Parents can initiate chats with INACTIVE teachers - SECURITY VIOLATION"
+    },
+    {
+      "severity": "high",
+      "file": "backend/chat/services/chat_service.py",
+      "line": 476,
+      "issue": "Final filter applied AFTER role-specific methods - inconsistent pattern",
+      "code": "return User.objects.filter(id__in=contact_ids, is_active=True)",
+      "fix": "Role-specific methods should include is_active checks themselves (at source), not at the end",
+      "impact": "Inconsistent permission enforcement - some checks done in methods, others at router level"
     }
   ],
+  "permissions_comparison": {
+    "status": "CRITICAL_MISMATCHES",
+    "violations": [
+      "Student->Teacher: Missing teacher__is_active check (line 363)",
+      "Teacher->Student: Missing student__is_active check (line 383)", 
+      "Tutor->Student: Wrong filter - checks tutor__is_active instead of user__is_active (line 410)",
+      "Tutor->Teacher: Missing teacher__is_active check (line 414)",
+      "Parent->Children: Wrong filter - checks parent__is_active instead of user__is_active (line 433)",
+      "Parent->Teacher: Missing teacher__is_active check (line 438)"
+    ]
+  },
   "passed_checks": [
-    "import_statement",
-    "decorator_order",
-    "decorator_stack",
-    "function_integrity",
-    "security_assessment",
-    "serializer_method_field",
-    "superuser_logic",
-    "fallback_logic",
-    "field_synchronization",
-    "no_field_conflicts"
+    "syntax_valid",
+    "black_formatting",
+    "indentation_correct",
+    "static_methods_declared",
+    "imports_present"
   ],
-  "failed_checks": [],
-  "summary": "All checks passed. Both files are correct and safe for deployment.",
-  "recommendation": "LGTM - Ready to merge and deploy"
+  "failed_checks": [
+    "permissions_py_alignment",
+    "is_active_checks_student_method",
+    "is_active_checks_teacher_method",
+    "is_active_checks_tutor_method",
+    "is_active_checks_parent_method",
+    "tutor_filter_logic",
+    "parent_filter_logic"
+  ],
+  "summary": "CRITICAL: All four role-specific contact methods have MISSING or INCORRECT is_active checks that directly violate permissions.py requirements. This is a SECURITY-CRITICAL code review that MUST be fixed before merge.",
+  "recommendation": "HANDOFF:coder - REJECT. Do not merge. Fix all is_active checks to align with permissions.py logic."
 }

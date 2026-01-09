@@ -44,11 +44,24 @@ class ChatParticipant(models.Model):
 
 
 class Message(models.Model):
+    MESSAGE_TYPE_CHOICES = [
+        ("text", "Текст"),
+        ("image", "Изображение"),
+        ("file", "Файл"),
+        ("system", "Системное"),
+    ]
+
     room = models.ForeignKey(
         ChatRoom, on_delete=models.CASCADE, related_name="messages"
     )
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     content = models.TextField()
+    message_type = models.CharField(
+        max_length=20,
+        choices=MESSAGE_TYPE_CHOICES,
+        default="text",
+        verbose_name="Тип сообщения"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_edited = models.BooleanField(default=False)

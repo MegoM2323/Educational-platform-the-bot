@@ -57,39 +57,27 @@ export class InvoiceWebSocketService {
 
     this.subscriptions.set('invoices', subscriptionId);
 
-    // Подключаемся к WebSocket если еще не подключены
     if (!websocketService.isConnected()) {
       const baseUrl = getWebSocketBaseUrl();
-
-      // CRITICAL: Get token from tokenStorage (primary source)
       const { accessToken } = tokenStorage.getTokens();
-
-      // Fallback: Try direct localStorage access if tokenStorage returns null
       const token = accessToken || localStorage.getItem('auth_token');
 
       if (!token) {
-        logger.error('[InvoiceWebSocket] ERROR: No auth token available for WebSocket connection!', {
-          tokenStorageResult: accessToken,
-          localStorageToken: localStorage.getItem('auth_token'),
-          allLocalStorageKeys: Object.keys(localStorage)
-        });
-
-        // Notify error handler
+        logger.error('[InvoiceWebSocket] No auth token available for WebSocket connection');
         if (this.eventHandlers.onError) {
           this.eventHandlers.onError('Authentication token not found. Please log in again.');
         }
         return;
       }
 
-      // CRITICAL FIX: Correctly form WebSocket URL with token
-      const tokenParam = `?token=${token}`;
-      const fullUrl = `${baseUrl}/invoices/${tokenParam}`;
+      const fullUrl = `${baseUrl}/invoices/`;
 
       logger.info('[InvoiceWebSocket] Connecting to invoice updates:', {
-        hasToken: !!token
+        hasToken: !!token,
+        tokenLength: token.length
       });
 
-      websocketService.connect(fullUrl);
+      websocketService.connect(fullUrl, token);
       this.reconnectAttempts = 0;
     }
   }

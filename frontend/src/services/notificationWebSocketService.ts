@@ -59,44 +59,28 @@ export class NotificationWebSocketService {
 
     this.subscriptions.set(channel, subscriptionId);
 
-    // Подключаемся к WebSocket если еще не подключены
     if (!websocketService.isConnected()) {
       const baseUrl = getWebSocketBaseUrl();
-
-      // CRITICAL: Get token from tokenStorage (primary source)
       const { accessToken } = tokenStorage.getTokens();
-
-      // Fallback: Try direct localStorage access if tokenStorage returns null
       const token = accessToken || localStorage.getItem('auth_token');
 
       if (!token) {
-        logger.error('[NotificationWebSocket] ERROR: No auth token available for WebSocket connection!', {
-          userId,
-          tokenStorageResult: accessToken,
-          localStorageToken: localStorage.getItem('auth_token'),
-          allLocalStorageKeys: Object.keys(localStorage)
-        });
-
-        // Notify error handler
+        logger.error('[NotificationWebSocket] No auth token available for WebSocket connection', { userId });
         if (this.eventHandlers.onError) {
           this.eventHandlers.onError('Authentication token not found. Please log in again.');
         }
         return;
       }
 
-      // CRITICAL FIX: Correctly form WebSocket URL with token
-      const tokenParam = `?token=${token}`;
-      const fullUrl = `${baseUrl}/notifications/${userId}/${tokenParam}`;
+      const fullUrl = `${baseUrl}/notifications/${userId}/`;
 
       logger.info('[NotificationWebSocket] Connecting to notifications:', {
         userId,
         hasToken: !!token,
-        tokenLength: token.length,
-        tokenStart: token.substring(0, 10),
-        fullUrl
+        tokenLength: token.length
       });
 
-      websocketService.connect(fullUrl);
+      websocketService.connect(fullUrl, token);
     }
   }
 
@@ -115,44 +99,28 @@ export class NotificationWebSocketService {
 
     this.subscriptions.set(channel, subscriptionId);
 
-    // Подключаемся к WebSocket если еще не подключены
     if (!websocketService.isConnected()) {
       const baseUrl = getWebSocketBaseUrl();
-
-      // CRITICAL: Get token from tokenStorage (primary source)
       const { accessToken } = tokenStorage.getTokens();
-
-      // Fallback: Try direct localStorage access if tokenStorage returns null
       const token = accessToken || localStorage.getItem('auth_token');
 
       if (!token) {
-        logger.error('[NotificationWebSocket] ERROR: No auth token available for dashboard WebSocket connection!', {
-          userId,
-          tokenStorageResult: accessToken,
-          localStorageToken: localStorage.getItem('auth_token'),
-          allLocalStorageKeys: Object.keys(localStorage)
-        });
-
-        // Notify error handler
+        logger.error('[NotificationWebSocket] No auth token available for dashboard WebSocket connection', { userId });
         if (this.eventHandlers.onError) {
           this.eventHandlers.onError('Authentication token not found. Please log in again.');
         }
         return;
       }
 
-      // CRITICAL FIX: Correctly form WebSocket URL with token
-      const tokenParam = `?token=${token}`;
-      const fullUrl = `${baseUrl}/notifications/${userId}/${tokenParam}`;
+      const fullUrl = `${baseUrl}/notifications/${userId}/`;
 
       logger.info('[NotificationWebSocket] Connecting to dashboard updates:', {
         userId,
         hasToken: !!token,
-        tokenLength: token.length,
-        tokenStart: token.substring(0, 10),
-        fullUrl
+        tokenLength: token.length
       });
 
-      websocketService.connect(fullUrl);
+      websocketService.connect(fullUrl, token);
     }
   }
 

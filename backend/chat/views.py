@@ -65,13 +65,6 @@ class ChatRoomViewSet(viewsets.ViewSet):
 
         service = ChatService()
         all_chats = service.get_user_chats(request.user)
-        all_chats = all_chats.prefetch_related(
-            Prefetch(
-                "participants",
-                queryset=ChatParticipant.objects.select_related("user"),
-                to_attr="_prefetched_participants"
-            )
-        )
 
         total_count = all_chats.count()
         offset = (page - 1) * page_size

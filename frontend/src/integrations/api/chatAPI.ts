@@ -147,8 +147,8 @@ export const chatAPI = {
 
   async createOrGetChat(contactUserId: number, subjectId?: number): Promise<Chat> {
     try {
-      const requestBody: { contact_user_id: number; subject_id?: number } = {
-        contact_user_id: contactUserId,
+      const requestBody: { recipient_id: number; subject_id?: number } = {
+        recipient_id: contactUserId,
       };
 
       if (subjectId !== undefined) {

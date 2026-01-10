@@ -12,6 +12,7 @@ from django.db.models import (
     OuterRef,
     Subquery,
     IntegerField,
+    Prefetch,
 )
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -259,7 +260,13 @@ class ChatService:
                     unread_count_subquery, output_field=IntegerField()
                 ),
             )
-            .prefetch_related("participants__user")
+            .prefetch_related(
+                Prefetch(
+                    "participants",
+                    queryset=ChatParticipant.objects.select_related("user"),
+                    to_attr="_prefetched_participants"
+                )
+            )
             .distinct()
             .order_by("-updated_at")
         )

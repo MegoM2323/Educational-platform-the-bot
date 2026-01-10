@@ -30,7 +30,7 @@ export const MessageItem = ({
       >
         {!isOwn && (
           <p className="text-xs font-medium mb-1 opacity-75 flex items-center gap-1">
-            {message.sender.full_name}
+            {message.sender_name}
             {message.is_pinned && (
               <Pin className="h-3 w-3 text-yellow-500" title="Закрепленное сообщение" />
             )}

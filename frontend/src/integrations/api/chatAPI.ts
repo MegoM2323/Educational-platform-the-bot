@@ -14,7 +14,7 @@ export interface Chat {
   unread_count: number;
   created_at: string;
   updated_at: string;
-  participants?: ChatParticipant[];
+  participants: ChatParticipant[];
 }
 
 export interface ChatParticipant {
@@ -102,6 +102,7 @@ export const chatAPI = {
         name: chat.name || chat.other_participant?.full_name || `Чат ${chat.id}`,
         is_group: chat.is_group || false,
         participant_count: chat.participant_count || 2,
+        participants: chat.participants || (chat.other_participant ? [chat.other_participant] : []),
       }));
 
       console.log('[chatAPI.getChatList] Transformed results:', transformedResults);

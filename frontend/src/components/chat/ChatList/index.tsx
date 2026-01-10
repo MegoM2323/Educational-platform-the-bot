@@ -33,7 +33,7 @@ export const ChatList = ({
       (chat) =>
         chat.name.toLowerCase().includes(query) ||
         chat.subject?.name?.toLowerCase().includes(query) ||
-        chat.participants.some((p) => p.full_name.toLowerCase().includes(query))
+        chat.participants.some((p) => p.user_name.toLowerCase().includes(query))
     );
   }, [chats, searchQuery]);
 

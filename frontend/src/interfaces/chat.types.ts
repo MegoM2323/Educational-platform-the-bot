@@ -9,7 +9,7 @@ export interface Chat {
   unread_count: number;
   created_at: string;
   updated_at: string;
-  participants?: ChatParticipant[];
+  participants: ChatParticipant[];
   avatar?: string;
 }
 

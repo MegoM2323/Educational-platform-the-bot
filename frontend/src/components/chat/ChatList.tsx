@@ -27,15 +27,15 @@ interface ChatListItemProps {
 }
 
 const ChatListItem = ({ chat, selected, onClick, currentUserId }: ChatListItemProps) => {
-  const initials = chat.participants
+  const initials = (chat.participants || [])
     .filter((p) => p.id !== currentUserId)
-    .map((p) => p.full_name.charAt(0))
+    .map((p) => p.user_name.charAt(0))
     .join('')
     .toUpperCase() || 'C';
 
-  const otherParticipants = chat.participants
+  const otherParticipants = (chat.participants || [])
     .filter((p) => p.id !== currentUserId)
-    .map((p) => p.full_name)
+    .map((p) => p.user_name)
     .join(', ');
 
   const displayName = chat.name || otherParticipants || 'Чат';
@@ -109,7 +109,7 @@ export const ChatList = ({
       (chat) =>
         chat.name.toLowerCase().includes(query) ||
         chat.subject?.name?.toLowerCase().includes(query) ||
-        chat.participants.some((p) => p.full_name.toLowerCase().includes(query))
+        (chat.participants || []).some((p) => p.user_name.toLowerCase().includes(query))
     );
   }, [chats, searchQuery]);
 

@@ -13,13 +13,13 @@ export const ChatListItem = ({ chat, selected, onClick, currentUserId }: ChatLis
   const initials =
     chat.participants
       .filter((p) => p.id !== currentUserId)
-      .map((p) => p.full_name.charAt(0))
+      .map((p) => p.user_name.charAt(0))
       .join('')
       .toUpperCase() || 'C';
 
   const otherParticipants = chat.participants
     .filter((p) => p.id !== currentUserId)
-    .map((p) => p.full_name)
+    .map((p) => p.user_name)
     .join(', ');
 
   const displayName = chat.name || otherParticipants || 'Чат';

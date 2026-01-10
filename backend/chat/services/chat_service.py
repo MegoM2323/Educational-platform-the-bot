@@ -553,21 +553,59 @@ class ChatService:
                 # Если файл не существует или другая ошибка, просто пропустить
                 avatar_url = None
 
-            contacts.append(
-                {
-                    "id": other_user.id,
-                    "user_id": other_user.id,
-                    "first_name": other_user.first_name or "",
-                    "last_name": other_user.last_name or "",
-                    "name": f"{other_user.first_name} {other_user.last_name}".strip()
-                    or other_user.username,
-                    "email": other_user.email or "",
-                    "role": getattr(other_user, "role", "user"),
-                    "avatar": avatar_url,
-                    "is_online": False,
-                    "has_active_chat": other_user.id in existing_chats,
-                    "chat_id": existing_chats.get(other_user.id),
-                }
-            )
+            # Получить subject для учителя (если это student->teacher или parent->teacher чат)
+            subject_info = None
+            user_role = getattr(user, "role", None)
+            other_role = getattr(other_user, "role", "user")
+
+            if other_role == "teacher":
+                # Найти первый ACTIVE SubjectEnrollment
+                if user_role == "student":
+                    # Student -> Teacher
+                    enrollment = SubjectEnrollment.objects.filter(
+                        student=user,
+                        teacher=other_user,
+                        status=SubjectEnrollment.Status.ACTIVE
+                    ).select_related("subject").first()
+                elif user_role == "parent":
+                    # Parent -> Teacher (через детей)
+                    from accounts.models import StudentProfile
+                    parent_children = StudentProfile.objects.filter(
+                        parent=user,
+                        parent__is_active=True,
+                    ).values_list("user_id", flat=True)
+
+                    enrollment = SubjectEnrollment.objects.filter(
+                        student_id__in=parent_children,
+                        teacher=other_user,
+                        status=SubjectEnrollment.Status.ACTIVE
+                    ).select_related("subject").first()
+
+                if enrollment:
+                    subject_info = {
+                        "id": enrollment.subject.id,
+                        "name": enrollment.subject.name,
+                    }
+
+            contact_dict = {
+                "id": other_user.id,
+                "user_id": other_user.id,
+                "first_name": other_user.first_name or "",
+                "last_name": other_user.last_name or "",
+                "name": f"{other_user.first_name} {other_user.last_name}".strip()
+                or other_user.username,
+                "email": other_user.email or "",
+                "role": getattr(other_user, "role", "user"),
+                "avatar": avatar_url,
+                "is_online": False,
+                "has_active_chat": other_user.id in existing_chats,
+                "chat_id": existing_chats.get(other_user.id),
+            }
+
+            # Добавить subject если он есть
+            if subject_info:
+                contact_dict["subject"] = subject_info
+
+            contacts.append(contact_dict)
 
         return contacts

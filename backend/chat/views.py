@@ -89,7 +89,8 @@ class ChatRoomViewSet(viewsets.ViewSet):
         POST /api/chat/ - создать или получить чат с пользователем
         Request body:
         {
-            "recipient_id": 456
+            "recipient_id": 456,
+            "subject_id": 123  (optional, required if recipient is teacher)
         }
         """
         recipient_id = request.data.get("recipient_id")
@@ -107,16 +108,108 @@ class ChatRoomViewSet(viewsets.ViewSet):
 
         try:
             recipient = User.objects.get(id=recipient_id)
-        except (User.DoesNotExist, ValueError, TypeError):
+        except (User.DoesNotExist, ValueError, TypeError) as e:
+            logger.warning(
+                f"[Chat.create] User not found: recipient_id={recipient_id}, error={str(e)}"
+            )
             return Response(
                 {
                     "error": {
                         "code": "USER_NOT_FOUND",
-                        "message": "User not found",
+                        "message": f"User {recipient_id} not found",
                     }
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        # Валидация subject_id если recipient - это teacher
+        if getattr(recipient, "role", None) == "teacher":
+            from materials.models import SubjectEnrollment, Subject
+
+            subject_id = request.data.get("subject_id")
+            user_role = getattr(request.user, "role", None)
+            enrollment = None
+
+            # Если subject_id передан, проверить его
+            if subject_id:
+                try:
+                    subject = Subject.objects.get(id=subject_id)
+                except Subject.DoesNotExist:
+                    return Response(
+                        {
+                            "error": {
+                                "code": "SUBJECT_NOT_FOUND",
+                                "message": f"Subject {subject_id} not found",
+                            }
+                        },
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                # Проверить что есть ACTIVE enrollment для этого subject и teacher
+                if user_role == "student":
+                    enrollment = SubjectEnrollment.objects.filter(
+                        student=request.user,
+                        teacher=recipient,
+                        subject=subject,
+                        status=SubjectEnrollment.Status.ACTIVE,
+                    ).first()
+                elif user_role == "parent":
+                    from accounts.models import StudentProfile
+
+                    parent_children = StudentProfile.objects.filter(
+                        parent=request.user,
+                        parent__is_active=True,
+                    ).values_list("user_id", flat=True)
+
+                    enrollment = SubjectEnrollment.objects.filter(
+                        student_id__in=parent_children,
+                        teacher=recipient,
+                        subject=subject,
+                        status=SubjectEnrollment.Status.ACTIVE,
+                    ).first()
+
+                if not enrollment:
+                    return Response(
+                        {
+                            "error": {
+                                "code": "NO_ENROLLMENT",
+                                "message": f"No active enrollment for subject {subject.name}",
+                            }
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+            else:
+                # Если subject_id не передан, найти первый ACTIVE SubjectEnrollment
+                if user_role == "student":
+                    enrollment = SubjectEnrollment.objects.filter(
+                        student=request.user,
+                        teacher=recipient,
+                        status=SubjectEnrollment.Status.ACTIVE,
+                    ).select_related("subject").first()
+                elif user_role == "parent":
+                    from accounts.models import StudentProfile
+
+                    parent_children = StudentProfile.objects.filter(
+                        parent=request.user,
+                        parent__is_active=True,
+                    ).values_list("user_id", flat=True)
+
+                    enrollment = SubjectEnrollment.objects.filter(
+                        student_id__in=parent_children,
+                        teacher=recipient,
+                        status=SubjectEnrollment.Status.ACTIVE,
+                    ).select_related("subject").first()
+
+                if not enrollment:
+                    return Response(
+                        {
+                            "error": {
+                                "code": "NO_ENROLLMENT",
+                                "message": "No active enrollment with this teacher",
+                            }
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
 
         if not can_initiate_chat(request.user, recipient):
             return Response(

@@ -112,9 +112,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             f"[CONSUMER: auth_wait] Entering _wait_for_auth(), auth_timeout={self.auth_timeout}s"
         )
         try:
-            await asyncio.wait_for(
-                self._wait_for_auth(), timeout=float(self.auth_timeout)
-            )
+            await asyncio.wait_for(self._wait_for_auth(), timeout=float(self.auth_timeout))
         except asyncio.TimeoutError:
             logger.warning(
                 f"[CONSUMER: auth_timeout] "
@@ -137,9 +135,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         user_id = self.user.id if self.user else "unknown"
 
         try:
-            logger.info(
-                f"Graceful shutdown initiated: user_id={user_id}, room_id={self.room_id}"
-            )
+            logger.info(f"Graceful shutdown initiated: user_id={user_id}, room_id={self.room_id}")
 
             await self.send(
                 text_data=json.dumps(
@@ -154,9 +150,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await asyncio.sleep(0.5)
 
             if self.user and self.room_id:
-                logger.info(
-                    f"Graceful shutdown: user_id={user_id}, room_id={self.room_id}"
-                )
+                logger.info(f"Graceful shutdown: user_id={user_id}, room_id={self.room_id}")
 
             await self.close(code=1001, reason="Server shutdown")
 
@@ -239,9 +233,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if self.authenticated:
             try:
-                await self.channel_layer.group_discard(
-                    self.room_group_name, self.channel_name
-                )
+                await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
                 logger.debug(
                     f"WebSocket disconnected: user_id={user_id}, room_id={self.room_id}, code={close_code}"
                 )
@@ -350,9 +342,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             f"self.authenticated={self.authenticated}, room_id={self.room_id}"
         )
 
-        await self.send(
-            text_data=json.dumps({"type": "auth_success", "user_id": user.id})
-        )
+        await self.send(text_data=json.dumps({"type": "auth_success", "user_id": user.id}))
 
         await self.start_heartbeat()
 
@@ -378,9 +368,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         if not await self._check_message_rate_limit(self.user):
-            logger.warning(
-                f"Rate limit exceeded: user_id={self.user.id}, scope=chat_message"
-            )
+            logger.warning(f"Rate limit exceeded: user_id={self.user.id}, scope=chat_message")
             await self._send_error(
                 "RATE_LIMIT_EXCEEDED",
                 "Rate limit exceeded. Please wait before sending more messages.",
@@ -400,9 +388,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             logger.warning(
                 f"Message validation failed: user_id={self.user.id}, room_id={self.room_id}, errors={serializer.errors}"
             )
-            await self._send_error(
-                4000, "Invalid message format", errors=serializer.errors
-            )
+            await self._send_error(4000, "Invalid message format", errors=serializer.errors)
             return
 
         validated_data = serializer.validated_data
@@ -432,9 +418,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def _handle_typing(self):
         """Обработать индикатор печати"""
-        logger.debug(
-            f"Typing indicator sent: user_id={self.user.id}, room_id={self.room_id}"
-        )
+        logger.debug(f"Typing indicator sent: user_id={self.user.id}, room_id={self.room_id}")
 
         if not self.user.is_active:
             logger.warning(
@@ -455,9 +439,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def _handle_read(self):
         """Обработать отметку чата как прочитанного"""
-        logger.debug(
-            f"Chat marked as read: user_id={self.user.id}, room_id={self.room_id}"
-        )
+        logger.debug(f"Chat marked as read: user_id={self.user.id}, room_id={self.room_id}")
 
         if not self.user.is_active:
             logger.warning(
@@ -469,9 +451,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         try:
             await self._mark_as_read()
-            logger.info(
-                f"Chat marked as read: user_id={self.user.id}, room_id={self.room_id}"
-            )
+            logger.info(f"Chat marked as read: user_id={self.user.id}, room_id={self.room_id}")
         except Exception as e:
             logger.error(
                 f"Error marking chat as read: user_id={self.user.id}, room_id={self.room_id}, error={type(e).__name__}: {str(e)}",
@@ -481,9 +461,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event):
         """Broadcast сообщения клиентам"""
         try:
-            await self.send(
-                text_data=json.dumps({"type": "message", "message": event["message"]})
-            )
+            await self.send(text_data=json.dumps({"type": "message", "message": event["message"]}))
         except Exception as e:
             logger.error(
                 f"Error broadcasting message: user_id={self.user.id if self.user else 'unknown'}, room_id={self.room_id}, error={type(e).__name__}: {str(e)}",
@@ -548,20 +526,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def _heartbeat_loop(self):
-        """Основной loop для отправки ping каждые N секунд"""
+        """Основной loop для отправки ping каждые N секунд с periodic permission check"""
+        last_permission_check = time.time()
+
         while True:
             try:
                 await asyncio.sleep(self.heartbeat_interval)
                 current_time = time.time()
+
+                # Periodic permission recheck (каждые 5 минут)
+                if current_time - last_permission_check > 300:
+                    has_permission = await self._check_current_permissions(self.user)
+                    if not has_permission:
+                        logger.warning(
+                            f"Permission revoked during heartbeat: user_id={self.user.id}, room_id={self.room_id}"
+                        )
+                        await self.close(code=4003, reason="Permissions changed")
+                        return
+                    last_permission_check = current_time
+
                 if current_time - self.last_pong_time > self.heartbeat_timeout:
                     logger.warning(
                         f"Heartbeat timeout: room_id={self.room_id}, user_id={self.user.id if self.user else 'unknown'}, last_pong_delta={current_time - self.last_pong_time:.1f}s"
                     )
                     await self.close(code=1000, reason="Heartbeat timeout")
                     break
-                await self.send(
-                    text_data=json.dumps({"type": "ping", "timestamp": current_time})
-                )
+                await self.send(text_data=json.dumps({"type": "ping", "timestamp": current_time}))
             except asyncio.CancelledError:
                 logger.debug(
                     f"Heartbeat loop cancelled: room_id={self.room_id}, user_id={self.user.id if self.user else 'unknown'}"
@@ -660,9 +650,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 f"Rate limit exceeded: user_id={user.id}, scope=chat_message, threshold=60/minute"
             )
         else:
-            logger.debug(
-                f"Rate limit check passed: user_id={user.id}, scope=chat_message"
-            )
+            logger.debug(f"Rate limit check passed: user_id={user.id}, scope=chat_message")
 
         return allowed
 
@@ -772,9 +760,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             room = ChatRoom.objects.get(id=self.room_id)
             service = ChatService()
             service.mark_chat_as_read(self.user, room)
-            logger.debug(
-                f"Chat marked as read: user_id={self.user.id}, room_id={self.room_id}"
-            )
+            logger.debug(f"Chat marked as read: user_id={self.user.id}, room_id={self.room_id}")
         except Exception as e:
             logger.error(
                 f"Mark as read failed: user_id={self.user.id}, room_id={self.room_id}, error={type(e).__name__}: {str(e)}",

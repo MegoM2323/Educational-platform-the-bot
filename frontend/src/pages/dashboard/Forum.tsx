@@ -1,8 +1,12 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { logger } from '@/utils/logger';
-import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { logger } from "@/utils/logger";
+import { useQueryClient, InfiniteData } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,33 +16,40 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useForumChats } from '@/hooks/useForumChats';
-import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
-import { Chat, ChatMessage, chatAPI } from '@/integrations/api/chatAPI';
-import { chatWebSocketService, ChatMessage as WSChatMessage, TypingUser } from '@/services/chatWebSocketService';
-import { useAuth } from '@/contexts/AuthContext';
-import { StudentSidebar } from '@/components/layout/StudentSidebar';
-import { TeacherSidebar } from '@/components/layout/TeacherSidebar';
-import { TutorSidebar } from '@/components/layout/TutorSidebar';
-import { ParentSidebar } from '@/components/layout/ParentSidebar';
-import { useToast } from '@/hooks/use-toast';
-import { EditMessageDialog } from '@/components/forum/EditMessageDialog';
-import { useForumMessageUpdate } from '@/hooks/useForumMessageUpdate';
-import { useForumMessageDelete } from '@/hooks/useForumMessageDelete';
-import { ChatList, ChatRoom, ContactsList } from '@/components/chat';
+} from "@/components/ui/alert-dialog";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useForumChats } from "@/hooks/useForumChats";
+import {
+  useForumMessages,
+  useSendForumMessage,
+} from "@/hooks/useForumMessages";
+import { Chat, ChatMessage, chatAPI } from "@/integrations/api/chatAPI";
+import {
+  chatWebSocketService,
+  ChatMessage as WSChatMessage,
+  TypingUser,
+} from "@/services/chatWebSocketService";
+import { useAuth } from "@/contexts/AuthContext";
+import { StudentSidebar } from "@/components/layout/StudentSidebar";
+import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
+import { TutorSidebar } from "@/components/layout/TutorSidebar";
+import { ParentSidebar } from "@/components/layout/ParentSidebar";
+import { useToast } from "@/hooks/use-toast";
+import { EditMessageDialog } from "@/components/forum/EditMessageDialog";
+import { useForumMessageUpdate } from "@/hooks/useForumMessageUpdate";
+import { useForumMessageDelete } from "@/hooks/useForumMessageDelete";
+import { ChatList, ChatRoom, ContactsList } from "@/components/chat";
 
 const getSidebarComponent = (role: string) => {
   switch (role) {
-    case 'student':
+    case "student":
       return StudentSidebar;
-    case 'teacher':
+    case "teacher":
       return TeacherSidebar;
-    case 'tutor':
+    case "tutor":
       return TutorSidebar;
-    case 'parent':
+    case "parent":
       return ParentSidebar;
     default:
       return null;
@@ -47,11 +58,11 @@ const getSidebarComponent = (role: string) => {
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  if (error && typeof error === 'object' && 'message' in error) {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
     return String(error.message);
   }
-  return 'Произошла ошибка';
+  return "Произошла ошибка";
 };
 
 function Forum() {
@@ -59,7 +70,7 @@ function Forum() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -68,10 +79,16 @@ function Forum() {
   const queryClient = useQueryClient();
   const typingTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
   const switchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousChatIdRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
 
-  const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(null);
-  const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{
+    id: number;
+    content: string;
+  } | null>(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<number | null>(
+    null,
+  );
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -102,9 +119,10 @@ function Forum() {
     onError: (error) => {
       setEditingMessage(null);
       toast({
-        variant: 'destructive',
-        title: 'Ошибка редактирования',
-        description: getErrorMessage(error) || 'Не удалось отредактировать сообщение',
+        variant: "destructive",
+        title: "Ошибка редактирования",
+        description:
+          getErrorMessage(error) || "Не удалось отредактировать сообщение",
       });
     },
   });
@@ -120,9 +138,9 @@ function Forum() {
       setDeletingMessageId(null);
       setIsDeleteConfirmOpen(false);
       toast({
-        variant: 'destructive',
-        title: 'Ошибка удаления',
-        description: getErrorMessage(error) || 'Не удалось удалить сообщение',
+        variant: "destructive",
+        title: "Ошибка удаления",
+        description: getErrorMessage(error) || "Не удалось удалить сообщение",
       });
     },
   });
@@ -130,15 +148,18 @@ function Forum() {
   const handleWebSocketMessage = useCallback(
     (wsMessage: WSChatMessage) => {
       try {
-        logger.debug('[Forum] WebSocket message received in component handler:', {
-          messageId: wsMessage.id,
-          content: wsMessage.content.substring(0, 50),
-          senderId: wsMessage.sender.id,
-          selectedChatId: selectedChat?.id,
-        });
+        logger.debug(
+          "[Forum] WebSocket message received in component handler:",
+          {
+            messageId: wsMessage.id,
+            content: wsMessage.content.substring(0, 50),
+            senderId: wsMessage.sender.id,
+            selectedChatId: selectedChat?.id,
+          },
+        );
 
         if (!selectedChat) {
-          logger.warn('[Forum] Received message but no chat selected');
+          logger.warn("[Forum] Received message but no chat selected");
           return;
         }
 
@@ -159,12 +180,17 @@ function Forum() {
           message_type: wsMessage.message_type,
         };
 
-        logger.debug('[Forum] Updating TanStack Query cache for chat:', selectedChat.id);
+        logger.debug(
+          "[Forum] Updating TanStack Query cache for chat:",
+          selectedChat.id,
+        );
         queryClient.setQueriesData<InfiniteData<ChatMessage[]>>(
-          { queryKey: ['forum-messages', selectedChat.id], exact: false },
+          { queryKey: ["forum-messages", selectedChat.id], exact: false },
           (oldData) => {
             if (!oldData || !oldData.pages) {
-              logger.debug('[Forum] No existing data, creating new InfiniteData with message');
+              logger.debug(
+                "[Forum] No existing data, creating new InfiniteData with message",
+              );
               return {
                 pages: [[chatMessage]],
                 pageParams: [0],
@@ -172,15 +198,17 @@ function Forum() {
             }
 
             const exists = oldData.pages.some((page) =>
-              page.some((msg) => msg.id === chatMessage.id)
+              page.some((msg) => msg.id === chatMessage.id),
             );
 
             if (exists) {
-              logger.debug('[Forum] Message already exists in cache, skipping');
+              logger.debug("[Forum] Message already exists in cache, skipping");
               return oldData;
             }
 
-            logger.debug('[Forum] Adding new message to last page of InfiniteData');
+            logger.debug(
+              "[Forum] Adding new message to last page of InfiniteData",
+            );
             const newPages = [...oldData.pages];
             const lastPageIndex = newPages.length - 1;
             newPages[lastPageIndex] = [...newPages[lastPageIndex], chatMessage];
@@ -189,22 +217,22 @@ function Forum() {
               ...oldData,
               pages: newPages,
             };
-          }
+          },
         );
 
-        queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+        queryClient.invalidateQueries({ queryKey: ["forum", "chats"] });
         setError(null);
       } catch (err) {
-        logger.error('[Forum] WebSocket handler error:', err);
+        logger.error("[Forum] WebSocket handler error:", err);
         toast({
-          variant: 'destructive',
-          title: 'Ошибка обработки сообщения',
-          description: 'Не удалось обработать полученное сообщение',
+          variant: "destructive",
+          title: "Ошибка обработки сообщения",
+          description: "Не удалось обработать полученное сообщение",
         });
-        setError('Ошибка обработки сообщения');
+        setError("Ошибка обработки сообщения");
       }
     },
-    [selectedChat, queryClient]
+    [selectedChat, queryClient],
   );
 
   const handleTyping = useCallback((user: TypingUser, roomId?: number) => {
@@ -213,7 +241,7 @@ function Forum() {
       return [...filtered, user];
     });
 
-    const timeoutKey = roomId?.toString() || 'general';
+    const timeoutKey = roomId?.toString() || "general";
 
     const existingTimeout = typingTimeoutsRef.current.get(user.id);
     if (existingTimeout) {
@@ -239,7 +267,7 @@ function Forum() {
   }, []);
 
   const handleError = useCallback((errorMessage: string) => {
-    logger.error('WebSocket error:', errorMessage);
+    logger.error("WebSocket error:", errorMessage);
     setError(errorMessage);
   }, []);
 
@@ -249,7 +277,10 @@ function Forum() {
     const chatId = selectedChat.id;
     let isEffectActive = true;
 
-    logger.debug('[Forum] Chat selected, setting up WebSocket for chat:', chatId);
+    logger.debug(
+      "[Forum] Chat selected, setting up WebSocket for chat:",
+      chatId,
+    );
 
     const handlers = {
       onMessage: handleWebSocketMessage,
@@ -258,39 +289,56 @@ function Forum() {
       onError: handleError,
     };
 
+    // Disconnect from previous chat if it exists
+    if (previousChatIdRef.current && previousChatIdRef.current !== chatId) {
+      logger.debug(
+        "[Forum] Disconnecting from previous chat:",
+        previousChatIdRef.current,
+      );
+      chatWebSocketService.disconnectFromRoom(previousChatIdRef.current);
+    }
+
     (async () => {
       try {
         if (!isEffectActive) {
-          logger.debug('[Forum] Effect unmounted, skipping WebSocket connection');
+          logger.debug(
+            "[Forum] Effect unmounted, skipping WebSocket connection",
+          );
           return;
         }
 
-        logger.debug('[Forum] Connecting to chat room:', chatId);
-        const connectionSuccess = await chatWebSocketService.connectToRoom(chatId, handlers);
+        logger.debug("[Forum] Connecting to chat room:", chatId);
+        const connectionSuccess = await chatWebSocketService.connectToRoom(
+          chatId,
+          handlers,
+        );
 
         if (!connectionSuccess) {
-          logger.error('[Forum] Failed to connect to chat room:', chatId);
+          logger.error("[Forum] Failed to connect to chat room:", chatId);
           if (isEffectActive) {
-            setError('Не удалось подключиться к чату. Проверьте авторизацию.');
+            setError("Не удалось подключиться к чату. Проверьте авторизацию.");
             setIsSwitchingChat(false);
           }
         } else {
-          logger.debug('[Forum] Successfully connected to chat room:', chatId);
+          logger.debug("[Forum] Successfully connected to chat room:", chatId);
           if (isEffectActive) {
             setIsSwitchingChat(false);
           }
         }
       } catch (error) {
-        logger.error('[Forum] WebSocket connection failed:', error);
+        logger.error("[Forum] WebSocket connection failed:", error);
         if (isEffectActive) {
           setIsSwitchingChat(false);
-          setError('Не удалось подключиться к чату');
+          setError("Не удалось подключиться к чату");
         }
       }
     })();
 
+    // Update the previous chat ID ref
+    previousChatIdRef.current = chatId;
+
     const initiallyConnected = chatWebSocketService.isConnected();
-    logger.debug('[Forum] Initial connection state:', initiallyConnected);
+    logger.debug("[Forum] Initial connection state:", initiallyConnected);
     if (isEffectActive) {
       setIsConnected(initiallyConnected);
       if (initiallyConnected) {
@@ -299,11 +347,11 @@ function Forum() {
     }
 
     const connectionCallback = (connected: boolean) => {
-      logger.debug('[Forum] Connection state changed to:', connected);
+      logger.debug("[Forum] Connection state changed to:", connected);
       if (isEffectActive) {
         setIsConnected(connected);
         if (!connected) {
-          setError('Соединение потеряно. Попытка переподключения...');
+          setError("Соединение потеряно. Попытка переподключения...");
         } else {
           setError(null);
         }
@@ -315,14 +363,23 @@ function Forum() {
     return () => {
       isEffectActive = false;
 
-      logger.debug('[Forum] Cleaning up WebSocket for chat:', chatId);
-      chatWebSocketService.disconnectFromRoom(chatId);
+      logger.debug("[Forum] Cleaning up WebSocket for chat:", chatId);
+      if (previousChatIdRef.current) {
+        chatWebSocketService.disconnectFromRoom(previousChatIdRef.current);
+      }
       setTypingUsers([]);
 
       typingTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
       typingTimeoutsRef.current.clear();
     };
-  }, [selectedChat, user, handleWebSocketMessage, handleTyping, handleTypingStop, handleError]);
+  }, [
+    selectedChat,
+    user,
+    handleWebSocketMessage,
+    handleTyping,
+    handleTypingStop,
+    handleError,
+  ]);
 
   const handleSelectChat = async (chat: Chat) => {
     if (switchTimeoutRef.current) {
@@ -336,26 +393,35 @@ function Forum() {
 
       const previousChatId = selectedChat?.id;
       if (previousChatId && previousChatId !== chat.id) {
-        logger.debug('[Forum] Clearing message cache for previous chat:', previousChatId);
-        queryClient.removeQueries({ queryKey: ['forum-messages', previousChatId] });
+        logger.debug(
+          "[Forum] Clearing message cache for previous chat:",
+          previousChatId,
+        );
+        queryClient.removeQueries({
+          queryKey: ["forum-messages", previousChatId],
+        });
       }
 
       setSelectedChat(chat);
-      setSearchQuery('');
+      setSearchQuery("");
 
       if (previousChatId && previousChatId !== chat.id) {
-        await queryClient.cancelQueries({ queryKey: ['forum-messages', previousChatId] });
+        await queryClient.cancelQueries({
+          queryKey: ["forum-messages", previousChatId],
+        });
       }
 
       if (chat.unread_count > 0) {
         try {
           await chatAPI.markAsRead(chat.id);
-          queryClient.setQueryData<Chat[]>(['forum', 'chats'], (oldChats) => {
+          queryClient.setQueryData<Chat[]>(["forum", "chats"], (oldChats) => {
             if (!oldChats) return oldChats;
-            return oldChats.map((c) => (c.id === chat.id ? { ...c, unread_count: 0 } : c));
+            return oldChats.map((c) =>
+              c.id === chat.id ? { ...c, unread_count: 0 } : c,
+            );
           });
         } catch (error) {
-          logger.error('Failed to mark chat as read:', error);
+          logger.error("Failed to mark chat as read:", error);
         }
       }
 
@@ -370,9 +436,9 @@ function Forum() {
   const handleSendMessage = (content: string, file?: File) => {
     if (!selectedChat) {
       toast({
-        variant: 'destructive',
-        title: 'Ошибка',
-        description: 'Чат не выбран',
+        variant: "destructive",
+        title: "Ошибка",
+        description: "Чат не выбран",
       });
       return;
     }
@@ -399,23 +465,30 @@ function Forum() {
 
   const handleChatInitiated = useCallback(
     (chatId: number) => {
-      logger.debug('[Forum] Chat initiated, selecting chat:', chatId);
+      logger.debug("[Forum] Chat initiated, selecting chat:", chatId);
 
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] }).then(() => {
-        if (!isMountedRef.current) {
-          logger.debug('[Forum] Component unmounted, skipping chat selection');
-          return;
-        }
+      queryClient
+        .invalidateQueries({ queryKey: ["forum", "chats"] })
+        .then(() => {
+          if (!isMountedRef.current) {
+            logger.debug(
+              "[Forum] Component unmounted, skipping chat selection",
+            );
+            return;
+          }
 
-        const updatedChats = queryClient.getQueryData<Chat[]>(['forum', 'chats']);
-        const newChat = updatedChats?.find((chat) => chat.id === chatId);
+          const updatedChats = queryClient.getQueryData<Chat[]>([
+            "forum",
+            "chats",
+          ]);
+          const newChat = updatedChats?.find((chat) => chat.id === chatId);
 
-        if (newChat) {
-          setSelectedChat(newChat);
-        }
-      });
+          if (newChat) {
+            setSelectedChat(newChat);
+          }
+        });
     },
-    [queryClient]
+    [queryClient],
   );
 
   const handleEditMessage = (messageId: number, content: string) => {
@@ -442,7 +515,6 @@ function Forum() {
     }
   };
 
-
   const handleTypingIndicator = useCallback(() => {
     if (isConnected && selectedChat) {
       chatWebSocketService.sendTyping(selectedChat.id);
@@ -450,7 +522,7 @@ function Forum() {
     }
   }, [isConnected, selectedChat]);
 
-  const SidebarComponent = getSidebarComponent(user?.role || '');
+  const SidebarComponent = getSidebarComponent(user?.role || "");
 
   if (!SidebarComponent) {
     return (
@@ -469,7 +541,7 @@ function Forum() {
             <SidebarTrigger />
             <h1 className="text-2xl font-bold ml-4">Форум</h1>
             <div className="flex-1" />
-            {user?.role !== 'admin' && (
+            {user?.role !== "admin" && (
               <Button
                 type="button"
                 variant="default"
@@ -484,7 +556,9 @@ function Forum() {
           </header>
           <main className="flex-1 overflow-hidden flex flex-col p-6 min-h-0">
             <div className="flex-shrink-0 mb-4">
-              <p className="text-muted-foreground">Общайтесь с преподавателями и тьюторами</p>
+              <p className="text-muted-foreground">
+                Общайтесь с преподавателями и тьюторами
+              </p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-6 flex-1 overflow-hidden min-h-0">
@@ -509,9 +583,12 @@ function Forum() {
                 onRetryConnection={handleRetryConnection}
                 onEditMessage={handleEditMessage}
                 onDeleteMessage={handleDeleteMessage}
-                isEditingOrDeleting={editMessageMutation.isPending || deleteMessageMutation.isPending}
+                isEditingOrDeleting={
+                  editMessageMutation.isPending ||
+                  deleteMessageMutation.isPending
+                }
                 currentUserId={user?.id || 0}
-                currentUserRole={user?.role || ''}
+                currentUserRole={user?.role || ""}
                 isSwitchingChat={isSwitchingChat}
                 fetchNextPage={fetchNextPage}
                 hasNextPage={hasNextPage}
@@ -532,7 +609,7 @@ function Forum() {
       <EditMessageDialog
         isOpen={editingMessage !== null}
         onClose={() => setEditingMessage(null)}
-        messageContent={editingMessage?.content || ''}
+        messageContent={editingMessage?.content || ""}
         onSave={handleSaveEdit}
         isLoading={editMessageMutation.isPending}
       />
@@ -566,7 +643,7 @@ function Forum() {
               onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteMessageMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteMessageMutation.isPending ? "Удаление..." : "Удалить"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

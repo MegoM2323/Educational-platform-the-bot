@@ -1,6 +1,8 @@
 import logging
 from typing import TYPE_CHECKING
 
+from django.core.cache import cache
+
 if TYPE_CHECKING:
     from accounts.models import User
 
@@ -40,33 +42,36 @@ def can_initiate_chat(user1: "User", user2: "User") -> bool:
     Returns:
         bool: True if chat can be initiated, False otherwise
     """
+    cache_key = f"chat_permission:{min(user1.id, user2.id)}:{max(user1.id, user2.id)}"
+
+    result = cache.get(cache_key)
+    if result is not None:
+        return result
+
     try:
         if not user1.is_active or not user2.is_active:
-            return False
-
-        if user1.role == "admin":
-            return True
-
-        if user2.role == "admin":
-            return True
-
-        if user1.role == "student":
-            return _check_student_can_chat_with(user1, user2)
-
-        if user1.role == "teacher":
-            return _check_teacher_can_chat_with(user1, user2)
-
-        if user1.role == "tutor":
-            return _check_tutor_can_chat_with(user1, user2)
-
-        if user1.role == "parent":
-            return _check_parent_can_chat_with(user1, user2)
-
-        return False
+            result = False
+        elif user1.role == "admin":
+            result = True
+        elif user2.role == "admin":
+            result = True
+        elif user1.role == "student":
+            result = _check_student_can_chat_with(user1, user2)
+        elif user1.role == "teacher":
+            result = _check_teacher_can_chat_with(user1, user2)
+        elif user1.role == "tutor":
+            result = _check_tutor_can_chat_with(user1, user2)
+        elif user1.role == "parent":
+            result = _check_parent_can_chat_with(user1, user2)
+        else:
+            result = False
 
     except Exception as e:
         logger.debug(f"[can_initiate_chat] Error checking chat initiation: {e}")
-        return False
+        result = False
+
+    cache.set(cache_key, result, timeout=300)
+    return result
 
 
 def _check_student_can_chat_with(student: "User", other: "User") -> bool:

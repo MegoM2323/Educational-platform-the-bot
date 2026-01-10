@@ -4,7 +4,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Prefetch, Subquery, OuterRef, Sum
+from django.db.models.functions import Coalesce
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
@@ -64,14 +65,15 @@ class ChatRoomViewSet(viewsets.ViewSet):
 
         service = ChatService()
         all_chats = service.get_user_chats(request.user)
+        all_chats = all_chats.prefetch_related(
+            Prefetch("participants", queryset=ChatParticipant.objects.select_related("user"))
+        )
 
         total_count = all_chats.count()
         offset = (page - 1) * page_size
         paginated = all_chats[offset : offset + page_size]
 
-        serializer = ChatRoomListSerializer(
-            paginated, many=True, context={"request": request}
-        )
+        serializer = ChatRoomListSerializer(paginated, many=True, context={"request": request})
 
         return Response(
             {
@@ -162,7 +164,12 @@ class ChatRoomViewSet(viewsets.ViewSet):
         GET /api/chat/{id}/ - детали чата с участниками
         """
         try:
-            room = ChatRoom.objects.prefetch_related("participants__user").get(id=pk)
+            room = ChatRoom.objects.prefetch_related(
+                Prefetch(
+                    "participants",
+                    queryset=ChatParticipant.objects.select_related("user"),
+                )
+            ).get(id=pk)
         except ChatRoom.DoesNotExist:
             return Response(
                 {
@@ -238,9 +245,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
         except (ValueError, TypeError):
             limit = 50
 
-        qs = Message.objects.filter(room=room, is_deleted=False).select_related(
-            "sender"
-        )
+        qs = Message.objects.filter(room=room, is_deleted=False).select_related("sender")
 
         if before_id:
             qs = qs.filter(id__lt=before_id)
@@ -579,48 +584,44 @@ class ChatNotificationsView(APIView):
     def get(self, request):
         """Get unread chat notifications count"""
         try:
-            from django.db.models import Subquery
-
             user = request.user
 
-            # Get participant record to access last_read_at
-            unread_messages = 0
-            unread_threads = 0
-
-            # Get all chat rooms where user is participant
-            user_participants = ChatParticipant.objects.filter(user=user).select_related('room')
-
-            for participant in user_participants:
-                room = participant.room
-                # Count messages created after last_read_at that are not from the user
-                query = Message.objects.filter(
-                    room=room,
-                    is_deleted=False
-                ).exclude(
-                    sender=user
+            unread_subquery = (
+                Message.objects.filter(
+                    room=OuterRef("room_id"),
+                    created_at__gt=OuterRef("last_read_at"),
+                    is_deleted=False,
                 )
+                .exclude(sender=user)
+                .values("room")
+                .annotate(cnt=Count("id"))
+                .values("cnt")
+            )
 
-                if participant.last_read_at:
-                    # Only count messages created AFTER last_read_at
-                    query = query.filter(created_at__gt=participant.last_read_at)
+            participants = ChatParticipant.objects.filter(user=user, room__is_active=True).annotate(
+                unread_count=Coalesce(Subquery(unread_subquery), 0)
+            )
 
-                unread_in_chat = query.count()
-                if unread_in_chat > 0:
-                    unread_messages += unread_in_chat
-                    unread_threads += 1
+            total_unread = participants.aggregate(total=Sum("unread_count"))["total"] or 0
+            unread_threads = participants.filter(unread_count__gt=0).count()
+            has_new_messages = total_unread > 0
 
-            has_new_messages = unread_messages > 0
-
-            return Response({
-                'unread_messages': unread_messages,
-                'unread_threads': unread_threads,
-                'has_new_messages': has_new_messages,
-            })
+            return Response(
+                {
+                    "unread_messages": total_unread,
+                    "unread_threads": unread_threads,
+                    "has_new_messages": has_new_messages,
+                }
+            )
         except Exception as e:
-            logger.error(f'[ChatNotificationsView] Error getting notifications: {str(e)}', exc_info=True)
-            # Return safe defaults if error occurs
-            return Response({
-                'unread_messages': 0,
-                'unread_threads': 0,
-                'has_new_messages': False,
-            })
+            logger.error(
+                f"[ChatNotificationsView] Error getting notifications: {str(e)}",
+                exc_info=True,
+            )
+            return Response(
+                {
+                    "unread_messages": 0,
+                    "unread_threads": 0,
+                    "has_new_messages": False,
+                }
+            )

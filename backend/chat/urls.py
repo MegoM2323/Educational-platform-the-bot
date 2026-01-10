@@ -3,7 +3,25 @@ from rest_framework.routers import SimpleRouter
 from . import views
 
 
-router = SimpleRouter()
+class IntOnlyRouter(SimpleRouter):
+    """
+    Router that only matches numeric IDs for pk lookups.
+    Prevents conflicts with static endpoints like 'contacts/', 'notifications/'.
+
+    Since ChatRoom.id is IntegerField (AutoField), restricting pk regex to \d+
+    is architecturally correct and prevents routing conflicts.
+    """
+    def get_lookup_regex(self, viewset, lookup_prefix=''):
+        """
+        Override to return regex that only matches digits.
+
+        Default SimpleRouter returns: r'(?P<pk>[^/.]+)'
+        IntOnlyRouter returns:        r'(?P<pk>\d+)'
+        """
+        return r'(?P<pk>\d+)'
+
+
+router = IntOnlyRouter()
 router.register(r"", views.ChatRoomViewSet, basename="chat")
 
 urlpatterns = [

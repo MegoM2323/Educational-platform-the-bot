@@ -70,7 +70,9 @@ class ChatRoomViewSet(viewsets.ViewSet):
         offset = (page - 1) * page_size
         paginated = all_chats[offset : offset + page_size]
 
-        serializer = ChatRoomListSerializer(paginated, many=True, context={"request": request})
+        serializer = ChatRoomListSerializer(
+            paginated, many=True, context={"request": request}
+        )
 
         return Response(
             {
@@ -243,7 +245,9 @@ class ChatRoomViewSet(viewsets.ViewSet):
         except (ValueError, TypeError):
             limit = 50
 
-        qs = Message.objects.filter(room=room, is_deleted=False).select_related("sender")
+        qs = Message.objects.filter(room=room, is_deleted=False).select_related(
+            "sender"
+        )
 
         if before_id:
             qs = qs.filter(id__lt=before_id)
@@ -426,7 +430,7 @@ class MessageViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if message.sender_id != request.user.id:
+        if not message.sender_id or message.sender_id != request.user.id:
             return Response(
                 {
                     "error": {
@@ -596,11 +600,13 @@ class ChatNotificationsView(APIView):
                 .values("cnt")
             )
 
-            participants = ChatParticipant.objects.filter(user=user, room__is_active=True).annotate(
-                unread_count=Coalesce(Subquery(unread_subquery), 0)
-            )
+            participants = ChatParticipant.objects.filter(
+                user=user, room__is_active=True
+            ).annotate(unread_count=Coalesce(Subquery(unread_subquery), 0))
 
-            total_unread = participants.aggregate(total=Sum("unread_count"))["total"] or 0
+            total_unread = (
+                participants.aggregate(total=Sum("unread_count"))["total"] or 0
+            )
             unread_threads = participants.filter(unread_count__gt=0).count()
             has_new_messages = total_unread > 0
 

@@ -128,8 +128,11 @@ class PachcaService:
             message_preview = self._truncate_message(message.content, max_length=100)
 
             # Build notification text
+            sender_name = (
+                message.sender.get_full_name() if message.sender else "Deleted User"
+            )
             notification_text = (
-                f"[Forum] {subject_name}: {message.sender.get_full_name()} → "
+                f"[Forum] {subject_name}: {sender_name} → "
                 f"{recipient_names}: {message_preview}"
             )
 

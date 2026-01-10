@@ -87,4 +87,5 @@ class Message(models.Model):
         ]
 
     def __str__(self):
-        return f"Message {self.id} by {self.sender.username}"
+        sender_name = self.sender.username if self.sender else "(Deleted User)"
+        return f"Message {self.id} by {sender_name}"

@@ -44,6 +44,10 @@ class LessonAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.select_related("teacher", "student", "subject")
 
+    def save_model(self, request, obj, form, change):
+        obj.full_clean()
+        super().save_model(request, obj, form, change)
+
     fieldsets = (
         ("Main information", {"fields": ("teacher", "student", "subject", "status")}),
         ("Schedule", {"fields": ("date", "start_time", "end_time")}),
@@ -110,11 +114,7 @@ class LessonAdmin(admin.ModelAdmin):
     def description_short(self, obj):
         """Short description."""
         if obj.description:
-            return (
-                obj.description[:50] + "..."
-                if len(obj.description) > 50
-                else obj.description
-            )
+            return obj.description[:50] + "..." if len(obj.description) > 50 else obj.description
         return "-"
 
     description_short.short_description = "Description"
@@ -167,9 +167,7 @@ class LessonHistoryAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related(
-            "lesson", "lesson__teacher", "lesson__student", "performed_by"
-        )
+        return qs.select_related("lesson", "lesson__teacher", "lesson__student", "performed_by")
 
     def lesson_short(self, obj):
         """Short lesson info."""

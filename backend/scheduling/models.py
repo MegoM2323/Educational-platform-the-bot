@@ -101,7 +101,9 @@ class Lesson(models.Model):
 
     notes = models.TextField(blank=True, default="", verbose_name="Lesson notes")
 
-    telemost_link = models.URLField(blank=True, max_length=500, verbose_name="Yandex Telemost link")
+    telemost_link = models.URLField(
+        blank=True, max_length=500, verbose_name="Yandex Telemost link"
+    )
 
     status = models.CharField(
         max_length=20,
@@ -218,8 +220,14 @@ class Lesson(models.Model):
             if self.date < now.date():
                 raise ValidationError("Cannot create lesson in the past")
             # Validate start_time for today's date
-            if self.date == now.date() and self.start_time and self.start_time < now.time():
-                raise ValidationError("Cannot create lesson with start time in the past for today")
+            if (
+                self.date == now.date()
+                and self.start_time
+                and self.start_time < now.time()
+            ):
+                raise ValidationError(
+                    "Cannot create lesson with start time in the past for today"
+                )
 
         # Validate teacher teaches subject to student (via SubjectEnrollment)
         if self.teacher and self.student and self.subject:
@@ -258,7 +266,9 @@ class Lesson(models.Model):
             try:
                 old_instance = Lesson.objects.get(pk=self.pk)
                 if old_instance.status != self.status:  # Статус изменился
-                    allowed_transitions = STATUS_TRANSITIONS.get(old_instance.status, set())
+                    allowed_transitions = STATUS_TRANSITIONS.get(
+                        old_instance.status, set()
+                    )
                     if self.status not in allowed_transitions:
                         raise ValidationError(
                             f"Invalid status transition: {old_instance.status} -> {self.status}. "
@@ -293,7 +303,9 @@ class LessonHistory(models.Model):
         Lesson, on_delete=models.CASCADE, related_name="history", verbose_name="Lesson"
     )
 
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="Action")
+    action = models.CharField(
+        max_length=20, choices=ACTION_CHOICES, verbose_name="Action"
+    )
 
     performed_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, verbose_name="Performed by"

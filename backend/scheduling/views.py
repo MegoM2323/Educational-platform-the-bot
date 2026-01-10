@@ -8,6 +8,7 @@ from datetime import timedelta
 from uuid import UUID
 from django.utils import timezone
 from django.db.models import Q
+from django.db import transaction
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -175,12 +176,16 @@ class LessonViewSet(viewsets.ModelViewSet):
         elif user.role == "tutor":
             from accounts.models import StudentProfile
 
-            has_access = StudentProfile.objects.filter(user=lesson.student, tutor=user).exists()
+            has_access = StudentProfile.objects.filter(
+                user=lesson.student, tutor=user
+            ).exists()
         # Parent доступ к детям
         elif user.role == "parent":
             from accounts.models import StudentProfile
 
-            has_access = StudentProfile.objects.filter(user=lesson.student, parent=user).exists()
+            has_access = StudentProfile.objects.filter(
+                user=lesson.student, parent=user
+            ).exists()
 
         if not has_access:
             raise PermissionDenied("You cannot view this lesson")
@@ -221,7 +226,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonCreateSerializer(data=request.data, context={"request": request})
+        serializer = LessonCreateSerializer(
+            data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -307,7 +314,9 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonUpdateSerializer(data=request.data, context={"lesson": lesson})
+        serializer = LessonUpdateSerializer(
+            data=request.data, context={"lesson": lesson}
+        )
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -538,7 +547,9 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         student_id = request.query_params.get("student_id")
         if not student_id:
-            return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Валидация формата student_id (должен быть целым числом)
         try:
@@ -615,7 +626,9 @@ class LessonViewSet(viewsets.ModelViewSet):
         # Teacher, student, tutor, or parent of student
         from accounts.models import User as UserModel
 
-        has_permission = lesson.teacher == request.user or lesson.student == request.user
+        has_permission = (
+            lesson.teacher == request.user or lesson.student == request.user
+        )
 
         # Check if tutor has access to this lesson (manages the student)
         if not has_permission and request.user.role == UserModel.Role.TUTOR:
@@ -669,6 +682,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @transaction.atomic
     @action(detail=False, methods=["get", "post"], url_path="check-conflicts")
     def check_conflicts(self, request):
         """
@@ -790,16 +804,22 @@ class LessonViewSet(viewsets.ModelViewSet):
                 end_time = end_dt.time()
         except ValueError:
             return Response(
-                {"error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"},
+                {
+                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Get all lessons for teacher on that date (not cancelled/completed)
-        lessons_on_date = Lesson.objects.filter(
-            teacher=teacher,
-            date=date,
-            status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
-        ).select_related("student", "subject")
+        lessons_on_date = (
+            Lesson.objects.select_for_update()
+            .filter(
+                teacher=teacher,
+                date=date,
+                status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED],
+            )
+            .select_related("student", "subject")
+        )
 
         # Check for time conflicts
         conflicts = []

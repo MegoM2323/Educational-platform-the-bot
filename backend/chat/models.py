@@ -65,7 +65,7 @@ class Message(models.Model):
         max_length=20,
         choices=MESSAGE_TYPE_CHOICES,
         default="text",
-        verbose_name="Тип сообщения"
+        verbose_name="Тип сообщения",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

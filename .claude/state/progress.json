@@ -1,8 +1,8 @@
 {
-  "checkpoint": "CHAT_NOTIFICATIONS_FIX_AND_E2E_TEST",
+  "checkpoint": "PHASE_1_CRITICAL_ISSUES",
   "date": "2026-01-10",
   "status": "IN_PROGRESS",
-  "summary": "Исправлена критическая ошибка в ChatNotificationsView (HTTP 500). Переписана логика подсчета непрочитанных сообщений для использования ChatParticipant.last_read_at вместо несуществующего поля read_by. Выполнено end-to-end тестирование chat функционала на production.",
+  "summary": "Реализована ФАЗА 1 - Critical Issues (C1-C5): защита от CASCADE удаления, исправление race conditions в check-conflicts endpoint и обновление constraint для re-enrollment. Все 3 миграции (0016 scheduling, 0039 materials, 0022 chat) успешно применены. Добавлены @transaction.atomic и select_for_update() в check_conflicts.",
   "tasks": [
     {
       "id": "T002",
@@ -1428,6 +1428,59 @@
         "dry_run_mode": "Протестирован, все операции показываются без выполнения"
       },
       "duration_sec": 18
+    },
+    {
+      "id": "PHASE_1",
+      "task_name": "ФАЗА 1: Critical Issues (C1-C5)",
+      "agent": "coder",
+      "status": "done",
+      "description": "Реализована полная ФАЗА 1 исправления критических проблем в системе расписания. Включает защиту от случайного каскадного удаления, исправление race conditions, и обновление constraints для повторной регистрации.",
+      "changes": {
+        "C1_Lesson_subject_PROTECT": {
+          "file": "backend/scheduling/models.py:91",
+          "change": "on_delete=models.CASCADE → on_delete=models.PROTECT",
+          "migration": "0016_alter_lesson_subject"
+        },
+        "C2_SubjectEnrollment_PROTECT": {
+          "file": "backend/materials/models.py:103,110,117",
+          "change": "student, subject, teacher: on_delete=CASCADE → PROTECT",
+          "migration": "0039_alter_subjectenrollment_fields_and_constraint"
+        },
+        "C3_Chat_models_PROTECT_SET_NULL": {
+          "file": "backend/chat/models.py:27,57",
+          "change": "ChatParticipant.user: CASCADE → PROTECT, Message.sender: CASCADE → SET_NULL with null=True",
+          "migration": "0022_alter_chatparticipant_user_alter_message_sender"
+        },
+        "C4_check_conflicts_race_condition": {
+          "file": "backend/scheduling/views.py:673,802",
+          "changes": [
+            "Добавлен импорт: from django.db import transaction",
+            "Добавлен декоратор: @transaction.atomic перед check_conflicts",
+            "Добавлен select_for_update() к queryset уроков для блокировки"
+          ]
+        },
+        "C5_enrollment_constraint": {
+          "file": "backend/materials/models.py:162-165",
+          "change": "unique_student_subject_teacher → unique_active_student_subject_teacher с condition=models.Q(is_active=True)"
+        }
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/scheduling/models.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/materials/models.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/models.py",
+        "/home/mego/Python Projects/THE_BOT_platform/backend/scheduling/views.py"
+      ],
+      "migrations_applied": [
+        "scheduling.0016_alter_lesson_subject",
+        "materials.0039_alter_subjectenrollment_fields_and_constraint",
+        "chat.0022_alter_chatparticipant_user_alter_message_sender"
+      ],
+      "verification": {
+        "django_check": "System check identified no issues (0 silenced)",
+        "black_formatting": "All files reformatted",
+        "migrations_status": "All 3 migrations applied successfully [X]"
+      },
+      "duration_sec": 95
     }
   ]
 }

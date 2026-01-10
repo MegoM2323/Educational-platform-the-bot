@@ -128,9 +128,7 @@ def admin_schedule_view(request):
 
         # Fallback если пагинация отключена (например, для совместимости)
         serializer = AdminLessonSerializer(lessons, many=True)
-        return Response(
-            {"success": True, "count": total_count, "results": serializer.data}
-        )
+        return Response({"success": True, "count": total_count, "results": serializer.data})
 
     except Exception as e:
         return Response(
@@ -234,6 +232,13 @@ def admin_create_lesson_view(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Validate student is required
+        if not student_id:
+            return Response(
+                {"success": False, "error": "Student ID is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Get teacher
         try:
             teacher = User.objects.get(id=teacher_id, role="teacher")
@@ -243,19 +248,17 @@ def admin_create_lesson_view(request):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Get student if provided, otherwise None
-        student = None
-        if student_id:
-            try:
-                student = User.objects.get(id=student_id, role="student")
-            except User.DoesNotExist:
-                return Response(
-                    {
-                        "success": False,
-                        "error": f"Student with id {student_id} not found",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
+        # Get student (already validated above that it's required)
+        try:
+            student = User.objects.get(id=student_id, role="student")
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "error": f"Student with id {student_id} not found",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         # Get subject
         try:

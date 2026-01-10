@@ -15,6 +15,15 @@ from django.utils import timezone
 User = get_user_model()
 
 
+# Допустимые переходы статусов
+STATUS_TRANSITIONS = {
+    "pending": {"confirmed", "cancelled"},
+    "confirmed": {"completed", "cancelled"},
+    "completed": set(),  # Финальное состояние
+    "cancelled": set(),  # Финальное состояние
+}
+
+
 class LessonManager(models.Manager):
     """
     Кастомный менеджер для модели Lesson.
@@ -62,14 +71,14 @@ class Lesson(models.Model):
 
     teacher = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="taught_lessons",
         verbose_name="Teacher",
     )
 
     student = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="student_lessons",
         limit_choices_to={"role": "student"},
         verbose_name="Student",
@@ -92,9 +101,7 @@ class Lesson(models.Model):
 
     notes = models.TextField(blank=True, default="", verbose_name="Lesson notes")
 
-    telemost_link = models.URLField(
-        blank=True, max_length=500, verbose_name="Yandex Telemost link"
-    )
+    telemost_link = models.URLField(blank=True, max_length=500, verbose_name="Yandex Telemost link")
 
     status = models.CharField(
         max_length=20,
@@ -120,6 +127,8 @@ class Lesson(models.Model):
             models.Index(fields=["subject", "date"]),
             models.Index(fields=["status"]),
             models.Index(fields=["teacher", "student", "status"]),
+            models.Index(fields=["teacher", "date", "status"]),
+            models.Index(fields=["student", "date", "status"]),
         ]
 
     def __str__(self):
@@ -131,27 +140,34 @@ class Lesson(models.Model):
 
     @property
     def datetime_start(self):
-        """Full datetime of lesson start."""
+        """Full datetime of lesson start (always timezone-aware)."""
         dt = datetime.datetime.combine(self.date, self.start_time)
         if timezone.is_aware(dt):
             return dt
+        # Гарантировать timezone-aware datetime
         try:
-            return timezone.make_aware(dt)
-        except Exception:
-            # Если не удалось сделать datetime aware, возвращаем naive datetime
-            return dt
+            return timezone.make_aware(dt, timezone=timezone.get_current_timezone())
+        except (ValueError, AttributeError):
+            # Fallback на UTC если текущая timezone недоступна
+            return timezone.make_aware(dt, timezone=datetime.timezone.utc)
 
     @property
     def datetime_end(self):
-        """Full datetime of lesson end."""
+        """Full datetime of lesson end (always timezone-aware, handles midnight crossing)."""
         dt = datetime.datetime.combine(self.date, self.end_time)
+
+        # Если конец раньше начала, урок пересекает полночь
+        if self.end_time < self.start_time:
+            dt += timedelta(days=1)
+
         if timezone.is_aware(dt):
             return dt
+        # Гарантировать timezone-aware datetime
         try:
-            return timezone.make_aware(dt)
-        except Exception:
-            # Если не удалось сделать datetime aware, возвращаем naive datetime
-            return dt
+            return timezone.make_aware(dt, timezone=timezone.get_current_timezone())
+        except (ValueError, AttributeError):
+            # Fallback на UTC если текущая timezone недоступна
+            return timezone.make_aware(dt, timezone=datetime.timezone.utc)
 
     @property
     def is_upcoming(self):
@@ -174,14 +190,21 @@ class Lesson(models.Model):
                 f"Teacher must have role 'teacher' or 'tutor', got '{self.teacher.role}'"
             )
 
-        # Validate time range
+        # Validate time range - allow midnight crossing
         if self.start_time and self.end_time:
-            if self.start_time >= self.end_time:
-                raise ValidationError("Start time must be before end time")
+            # Разрешить: 23:00 -> 01:00 (через полночь)
+            # Запретить: start_time равен end_time
+            if self.start_time == self.end_time:
+                raise ValidationError("Start time and end time cannot be the same")
 
             duration = datetime.datetime.combine(
                 datetime.date.today(), self.end_time
             ) - datetime.datetime.combine(datetime.date.today(), self.start_time)
+
+            # Если duration отрицательная (midnight crossing), добавить 1 день
+            if duration.total_seconds() < 0:
+                duration += datetime.timedelta(days=1)
+
             min_duration = timedelta(minutes=30)
             max_duration = timedelta(hours=4)
             if duration < min_duration:
@@ -195,14 +218,8 @@ class Lesson(models.Model):
             if self.date < now.date():
                 raise ValidationError("Cannot create lesson in the past")
             # Validate start_time for today's date
-            if (
-                self.date == now.date()
-                and self.start_time
-                and self.start_time < now.time()
-            ):
-                raise ValidationError(
-                    "Cannot create lesson with start time in the past for today"
-                )
+            if self.date == now.date() and self.start_time and self.start_time < now.time():
+                raise ValidationError("Cannot create lesson with start time in the past for today")
 
         # Validate teacher teaches subject to student (via SubjectEnrollment)
         if self.teacher and self.student and self.subject:
@@ -236,6 +253,20 @@ class Lesson(models.Model):
         Args:
             skip_validation: If True, skip full_clean() (only for testing past dates)
         """
+        # Проверка переходов статусов перед сохранением
+        if self.pk:  # Это обновление (update)
+            try:
+                old_instance = Lesson.objects.get(pk=self.pk)
+                if old_instance.status != self.status:  # Статус изменился
+                    allowed_transitions = STATUS_TRANSITIONS.get(old_instance.status, set())
+                    if self.status not in allowed_transitions:
+                        raise ValidationError(
+                            f"Invalid status transition: {old_instance.status} -> {self.status}. "
+                            f"Allowed transitions: {allowed_transitions}"
+                        )
+            except Lesson.DoesNotExist:
+                pass  # Новый объект, пропускаем проверку
+
         # Запускаем полную валидацию перед сохранением, если не пропущена
         if not skip_validation:
             self.full_clean()
@@ -262,9 +293,7 @@ class LessonHistory(models.Model):
         Lesson, on_delete=models.CASCADE, related_name="history", verbose_name="Lesson"
     )
 
-    action = models.CharField(
-        max_length=20, choices=ACTION_CHOICES, verbose_name="Action"
-    )
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="Action")
 
     performed_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, verbose_name="Performed by"

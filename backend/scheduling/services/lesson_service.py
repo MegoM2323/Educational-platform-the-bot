@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from uuid import UUID
 
 from scheduling.models import Lesson, LessonHistory
@@ -21,6 +22,8 @@ except ImportError:
 
 User = get_user_model()
 
+# Minimum advance booking time (15 minutes)
+MIN_ADVANCE_BOOKING = timedelta(minutes=15)
 
 STATUS_TRANSITIONS = {
     Lesson.Status.PENDING: {Lesson.Status.CONFIRMED, Lesson.Status.CANCELLED},
@@ -34,6 +37,20 @@ class LessonService:
     """Service layer for lesson management with business logic."""
 
     @staticmethod
+    def _invalidate_upcoming_cache(user_ids: List[int]) -> None:
+        """
+        Invalidate upcoming lessons cache for given user IDs.
+
+        Args:
+            user_ids: List of user IDs to invalidate cache for
+        """
+        for user_id in user_ids:
+            if user_id:
+                for limit in [3, 10]:
+                    cache.delete(f"upcoming_lessons_{user_id}_{limit}")
+
+    @staticmethod
+    @transaction.atomic
     def _check_time_conflicts(
         date: date,
         start_time: time,
@@ -58,15 +75,12 @@ class LessonService:
         # Combine datetime для точной проверки пересечений
         # Используем timezone-aware datetime для корректного сравнения
         current_tz = timezone.get_current_timezone()
-        dt_start = timezone.make_aware(
-            datetime.combine(date, start_time), timezone=current_tz
-        )
-        dt_end = timezone.make_aware(
-            datetime.combine(date, end_time), timezone=current_tz
-        )
+        dt_start = timezone.make_aware(datetime.combine(date, start_time), timezone=current_tz)
+        dt_end = timezone.make_aware(datetime.combine(date, end_time), timezone=current_tz)
 
         # Base queryset - уроки в тот же день, не отменённые
-        base_qs = Lesson.objects.filter(
+        # select_for_update() блокирует строки для предотвращения race condition
+        base_qs = Lesson.objects.select_for_update().filter(
             date=date, status__in=[Lesson.Status.PENDING, Lesson.Status.CONFIRMED]
         )
         if exclude_lesson_id:
@@ -150,33 +164,33 @@ class LessonService:
         """
         # Validate teacher/tutor/admin role
         if teacher.role not in ("teacher", "tutor", "admin"):
-            raise ValidationError(
-                "Only teachers, tutors, and admins can create lessons"
-            )
+            raise ValidationError("Only teachers, tutors, and admins can create lessons")
 
         # Validate student role
         if student is not None and student.role != "student":
-            raise ValidationError(
-                "Only users with student role can be enrolled in lessons"
-            )
+            raise ValidationError("Only users with student role can be enrolled in lessons")
 
-        # Validate time range
-        if start_time >= end_time:
-            raise ValidationError("Start time must be before end time")
+        # Validate time range - allow midnight crossing (e.g., 23:00-01:00)
+        if start_time == end_time:
+            raise ValidationError("Start time must be different from end time")
 
         # Validate date not in past
         if date < timezone.now().date():
             raise ValidationError("Cannot create lesson in the past")
 
-        # Validate start_time for today is not in the past
+        # Validate start_time with advance booking buffer
         now = timezone.now()
-        if date == now.date() and start_time <= now.time():
-            raise ValidationError(
-                "Cannot create lesson with start time in the past for today"
-            )
+        if date == now.date():
+            lesson_datetime = timezone.make_aware(datetime.combine(date, start_time))
+            if lesson_datetime < now + MIN_ADVANCE_BOOKING:
+                raise ValidationError(
+                    f"Cannot create lesson less than {MIN_ADVANCE_BOOKING.total_seconds() / 60:.0f} minutes in advance"
+                )
 
         # Validate enrollment: Teacher/Tutor must have SubjectEnrollment (admins can bypass)
         # Only check enrollment if student is assigned
+        bypass_enrollment_check = False
+
         if student is not None and teacher.role in ("teacher", "tutor"):
             try:
                 SubjectEnrollment.objects.get(
@@ -187,6 +201,17 @@ class LessonService:
                     f"Teacher {teacher.get_full_name()} does not teach "
                     f"{subject.name} to student {student.get_full_name()}"
                 )
+        elif student is not None and teacher.role == "admin":
+            # Admin может создавать без enrollment, но это логируется
+            enrollment = SubjectEnrollment.objects.filter(
+                teacher=teacher,
+                subject=subject,
+                student=student,
+                is_active=True,
+            ).exists()
+
+            if not enrollment:
+                bypass_enrollment_check = True
 
         # Check for time conflicts
         LessonService._check_time_conflicts(
@@ -222,8 +247,16 @@ class LessonService:
                 "end_time": str(end_time),
                 "student": student_name,
                 "subject": subject.name,
+                "bypass_enrollment_check": bypass_enrollment_check,
             },
         )
+
+        # Invalidate cache for affected users
+        cache.delete(f"upcoming_lessons_{teacher.id}_3")
+        cache.delete(f"upcoming_lessons_{teacher.id}_10")
+        if student:
+            cache.delete(f"upcoming_lessons_{student.id}_3")
+            cache.delete(f"upcoming_lessons_{student.id}_10")
 
         return lesson
 
@@ -386,11 +419,12 @@ class LessonService:
         Raises:
             ValidationError: If update is not allowed
         """
+        # Lock row for concurrent update protection
+        lesson = Lesson.objects.select_for_update().get(pk=lesson.pk)
+
         # Verify user is the teacher who created the lesson
         if lesson.teacher != user:
-            raise ValidationError(
-                "Only the teacher who created the lesson can update it"
-            )
+            raise ValidationError("Only the teacher who created the lesson can update it")
 
         # Can't edit past or current lessons (before start time + some buffer)
         if lesson.date < timezone.now().date():
@@ -422,15 +456,17 @@ class LessonService:
         if "student" in updates:
             new_student = updates["student"]
             if new_student is not None and lesson.subject:
-                enrollment = SubjectEnrollment.objects.filter(
-                    teacher=user,
-                    subject=lesson.subject,
-                    student=new_student,
-                    is_active=True,
-                ).first()
-                if not enrollment:
+                try:
+                    enrollment = SubjectEnrollment.objects.get(
+                        teacher=user,
+                        subject=lesson.subject,
+                        student=new_student,
+                        is_active=True,
+                    )
+                except SubjectEnrollment.DoesNotExist:
                     raise ValidationError(
-                        "Teacher not enrolled to teach this subject to this student"
+                        f"Teacher {user.get_full_name()} does not have active enrollment "
+                        f"for {new_student.get_full_name()} in {lesson.subject.name}"
                     )
 
         # Валидация перехода статуса перед применением изменений
@@ -446,9 +482,7 @@ class LessonService:
                 )
 
         # Check if date/time changed for conflict detection
-        date_time_changed = any(
-            field in updates for field in ["date", "start_time", "end_time"]
-        )
+        date_time_changed = any(field in updates for field in ["date", "start_time", "end_time"])
 
         for field, value in updates.items():
             if field not in allowed_fields:
@@ -485,6 +519,13 @@ class LessonService:
                 new_values=new_values,
             )
 
+        # Invalidate cache for affected users
+        cache.delete(f"upcoming_lessons_{lesson.teacher.id}_3")
+        cache.delete(f"upcoming_lessons_{lesson.teacher.id}_10")
+        if lesson.student:
+            cache.delete(f"upcoming_lessons_{lesson.student.id}_3")
+            cache.delete(f"upcoming_lessons_{lesson.student.id}_10")
+
         return lesson
 
     @staticmethod
@@ -504,15 +545,11 @@ class LessonService:
         """
         # Verify user is the teacher who created the lesson
         if lesson.teacher != user:
-            raise ValidationError(
-                "Only the teacher who created the lesson can cancel it"
-            )
+            raise ValidationError("Only the teacher who created the lesson can cancel it")
 
         # Check 2-hour rule
         if not lesson.can_cancel:
-            raise ValidationError(
-                "Lessons cannot be cancelled less than 2 hours before start time"
-            )
+            raise ValidationError("Lessons cannot be cancelled less than 2 hours before start time")
 
         # Mark as cancelled and record history
         old_status = lesson.status
@@ -527,18 +564,30 @@ class LessonService:
             new_values={"status": Lesson.Status.CANCELLED},
         )
 
+        # Invalidate cache for affected users
+        cache.delete(f"upcoming_lessons_{lesson.teacher.id}_3")
+        cache.delete(f"upcoming_lessons_{lesson.teacher.id}_10")
+        if lesson.student:
+            cache.delete(f"upcoming_lessons_{lesson.student.id}_3")
+            cache.delete(f"upcoming_lessons_{lesson.student.id}_10")
+
     @staticmethod
     def get_upcoming_lessons(user: User, limit: int = 3) -> "QuerySet[Lesson]":
         """
-        Get upcoming lessons for a user (role-aware).
+        Get upcoming lessons for a user (role-aware) with caching.
 
         Args:
             user: User instance
             limit: Max number of lessons to return
 
         Returns:
-            QuerySet of upcoming lessons
+            QuerySet of upcoming lessons (cached for 5 minutes)
         """
+        cache_key = f"upcoming_lessons_{user.id}_{limit}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         now = timezone.now()
 
         if user.role == "teacher":
@@ -582,6 +631,8 @@ class LessonService:
         else:
             return Lesson.objects.none()
 
-        return queryset.select_related("teacher", "student", "subject").order_by(
+        queryset = queryset.select_related("teacher", "student", "subject").order_by(
             "date", "start_time"
         )[:limit]
+        cache.set(cache_key, queryset, timeout=300)  # 5 minutes
+        return queryset

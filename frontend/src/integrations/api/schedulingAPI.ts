@@ -54,10 +54,9 @@ export const schedulingAPI = {
   },
 
   getStudentSchedule: async (studentId: string, filters?: Record<string, any>): Promise<Lesson[]> => {
-    // Конвертируем studentId в число для backend
-    const numericStudentId = parseInt(studentId, 10);
-    if (isNaN(numericStudentId)) {
-      throw new Error(`Invalid studentId: ${studentId}. Expected a numeric value.`);
+    // Validate studentId is non-empty string (UUID format expected)
+    if (!studentId || typeof studentId !== 'string') {
+      throw new Error(`Invalid studentId: must be non-empty string (UUID)`);
     }
 
     const response = await unifiedAPI.get<{
@@ -65,7 +64,7 @@ export const schedulingAPI = {
       lessons: any[];
       total_lessons: number
     }>(
-      `/scheduling/tutor/students/${numericStudentId}/schedule/`,
+      `/scheduling/tutor/students/${studentId}/schedule/`,
       { params: filters }
     );
     if (response.error) {
@@ -122,10 +121,9 @@ export const schedulingAPI = {
     lessons: Lesson[];
     total_lessons: number;
   }> => {
-    // Конвертируем childId в число для backend
-    const numericChildId = parseInt(childId, 10);
-    if (isNaN(numericChildId)) {
-      throw new Error(`Invalid childId: ${childId}. Expected a numeric value.`);
+    // Validate childId is non-empty string (UUID format expected)
+    if (!childId || typeof childId !== 'string') {
+      throw new Error(`Invalid childId: must be non-empty string (UUID)`);
     }
 
     // Backend endpoint: GET /api/scheduling/parent/children/{child_id}/schedule/
@@ -134,7 +132,7 @@ export const schedulingAPI = {
       lessons: any[];
       total_lessons: number
     }>(
-      `/scheduling/parent/children/${numericChildId}/schedule/`,
+      `/scheduling/parent/children/${childId}/schedule/`,
       { params: filters }
     );
     if (response.error) {

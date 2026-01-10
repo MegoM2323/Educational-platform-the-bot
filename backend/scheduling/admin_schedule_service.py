@@ -28,7 +28,7 @@ class AdminScheduleService:
         student_id: Optional[int] = None,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
     ) -> QuerySet:
         """
         Get all lessons with optional filtering.
@@ -45,11 +45,9 @@ class AdminScheduleService:
             Filtered queryset of lessons
         """
         # Start with all lessons, optimize queries
-        queryset = Lesson.objects.select_related(
-            'teacher',
-            'student',
-            'subject'
-        ).order_by('date', 'start_time')
+        queryset = Lesson.objects.select_related("teacher", "student", "subject").order_by(
+            "date", "start_time"
+        )
 
         # Apply filters
         if teacher_id:
@@ -96,21 +94,17 @@ class AdminScheduleService:
         week_ahead = today + timedelta(days=7)
 
         return {
-            'total_lessons': Lesson.objects.count(),
-            'today_lessons': Lesson.objects.filter(date=today).count(),
+            "total_lessons": Lesson.objects.count(),
+            "today_lessons": Lesson.objects.filter(date=today).count(),
             # week_ahead_lessons НЕ включает сегодня (date__gt вместо date__gte)
-            'week_ahead_lessons': Lesson.objects.filter(
-                date__gt=today,
-                date__lte=week_ahead
+            "week_ahead_lessons": Lesson.objects.filter(
+                date__gt=today, date__lte=week_ahead
             ).count(),
             # Используем week_ago для статистики прошедшей недели
-            'week_ago_lessons': Lesson.objects.filter(
-                date__gte=week_ago,
-                date__lt=today
-            ).count(),
-            'pending_lessons': Lesson.objects.filter(status='pending').count(),
-            'completed_lessons': Lesson.objects.filter(status='completed').count(),
-            'cancelled_lessons': Lesson.objects.filter(status='cancelled').count(),
+            "week_ago_lessons": Lesson.objects.filter(date__gte=week_ago, date__lt=today).count(),
+            "pending_lessons": Lesson.objects.filter(status="pending").count(),
+            "completed_lessons": Lesson.objects.filter(status="completed").count(),
+            "cancelled_lessons": Lesson.objects.filter(status="cancelled").count(),
         }
 
     @staticmethod
@@ -121,11 +115,13 @@ class AdminScheduleService:
         Returns:
             List of teacher data with id and name
         """
-        teachers = User.objects.filter(role='teacher').values('id', 'first_name', 'last_name', 'email')
+        teachers = User.objects.filter(role="teacher").values(
+            "id", "first_name", "last_name", "email"
+        )
         return [
             {
-                'id': t['id'],
-                'name': f"{t['first_name']} {t['last_name']}".strip() or t['email']
+                "id": t["id"],
+                "name": f"{t['first_name']} {t['last_name']}".strip() or t["email"],
             }
             for t in teachers
         ]
@@ -140,7 +136,7 @@ class AdminScheduleService:
         """
         from materials.models import Subject
 
-        subjects = Subject.objects.all().values('id', 'name')
+        subjects = Subject.objects.all().values("id", "name")
         return list(subjects)
 
     @staticmethod
@@ -151,11 +147,13 @@ class AdminScheduleService:
         Returns:
             List of student data with id and name
         """
-        students = User.objects.filter(role='student').values('id', 'first_name', 'last_name', 'email')
+        students = User.objects.filter(role="student").values(
+            "id", "first_name", "last_name", "email"
+        )
         return [
             {
-                'id': s['id'],
-                'name': f"{s['first_name']} {s['last_name']}".strip() or s['email']
+                "id": s["id"],
+                "name": f"{s['first_name']} {s['last_name']}".strip() or s["email"],
             }
             for s in students
         ]

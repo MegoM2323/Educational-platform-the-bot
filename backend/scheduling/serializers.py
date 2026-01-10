@@ -8,6 +8,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.apps import apps
 from django.utils import timezone
+from django.utils.html import escape
 from datetime import timedelta, time
 
 from scheduling.models import Lesson, LessonHistory
@@ -116,6 +117,7 @@ class LessonSerializer(serializers.ModelSerializer):
             "description",
             "telemost_link",
             "status",
+            "notes",
             "is_upcoming",
             "can_cancel",
             "datetime_start",
@@ -137,19 +139,17 @@ class LessonSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate lesson data."""
-        # Validate time range
+        # Validate time range - allow midnight crossing (23:00 -> 01:00)
         if "start_time" in data and "end_time" in data:
-            if data["start_time"] >= data["end_time"]:
+            if data["start_time"] == data["end_time"]:
                 raise serializers.ValidationError(
-                    {"end_time": "End time must be after start time"}
+                    {"end_time": "Start time and end time cannot be the same"}
                 )
 
         # Validate date not in past
         if "date" in data:
             if data["date"] < timezone.now().date():
-                raise serializers.ValidationError(
-                    {"date": "Cannot create lesson in the past"}
-                )
+                raise serializers.ValidationError({"date": "Cannot create lesson in the past"})
 
         return data
 
@@ -185,6 +185,26 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
             raise serializers.ValidationError("Subject not found or invalid ID")
         return value
 
+    def validate_description(self, value):
+        """Sanitize description to prevent XSS."""
+        if value:
+            return escape(value)
+        return value
+
+    def validate_telemost_link(self, value):
+        """Validate URL and sanitize."""
+        if value:
+            # Check allowed domains
+            allowed_domains = [
+                "https://telemost.yandex.ru/",
+                "https://meet.google.com/",
+            ]
+            if not any(value.startswith(domain) for domain in allowed_domains):
+                raise serializers.ValidationError(
+                    "Only Yandex Telemost or Google Meet links are allowed"
+                )
+        return value
+
     def validate(self, data):
         """Validate lesson creation."""
         # Проверяем наличие request в контексте
@@ -193,24 +213,47 @@ class LessonCreateSerializer(TimeFormatValidationMixin, serializers.Serializer):
                 {"non_field_errors": "Request context is required for validation"}
             )
 
-        # Validate time range
-        if data["start_time"] >= data["end_time"]:
+        # Validate time range - allow midnight crossing (23:00 -> 01:00)
+        if data["start_time"] == data["end_time"]:
             raise serializers.ValidationError(
-                {"end_time": "End time must be after start time"}
+                {"end_time": "Start time and end time cannot be the same"}
+            )
+
+        # Validate duration (minimum 30 minutes, maximum 4 hours)
+        start_time = data["start_time"]
+        end_time = data["end_time"]
+
+        # Compute duration
+        from datetime import datetime, date as date_obj
+
+        duration = datetime.combine(date_obj.today(), end_time) - datetime.combine(
+            date_obj.today(), start_time
+        )
+
+        # If duration is negative (midnight crossing), add 1 day
+        if duration.total_seconds() < 0:
+            duration += timedelta(days=1)
+
+        # Check minimum duration
+        if duration < timedelta(minutes=30):
+            raise serializers.ValidationError(
+                {"end_time": "Lesson duration must be at least 30 minutes"}
+            )
+
+        # Check maximum duration
+        if duration > timedelta(hours=4):
+            raise serializers.ValidationError(
+                {"end_time": "Lesson duration must not exceed 4 hours"}
             )
 
         # Validate date not in past
         if data["date"] < timezone.now().date():
-            raise serializers.ValidationError(
-                {"date": "Cannot create lesson in the past"}
-            )
+            raise serializers.ValidationError({"date": "Cannot create lesson in the past"})
 
         # Validate that start_time today is not in the past
         now = timezone.now()
         if data["date"] == now.date() and data["start_time"] <= now.time():
-            raise serializers.ValidationError(
-                {"start_time": "Start time cannot be in the past"}
-            )
+            raise serializers.ValidationError({"start_time": "Start time cannot be in the past"})
 
         # Check for time conflicts (only if student is assigned)
         if data.get("student"):
@@ -257,9 +300,7 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
         try:
             user = User.objects.get(id=value, role="teacher")
         except User.DoesNotExist:
-            raise serializers.ValidationError(
-                "Teacher not found or does not have teacher role"
-            )
+            raise serializers.ValidationError("Teacher not found or does not have teacher role")
         return value
 
     def validate_student_id(self, value):
@@ -269,9 +310,7 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
         try:
             user = User.objects.get(id=value, role="student")
         except User.DoesNotExist:
-            raise serializers.ValidationError(
-                "Student not found or does not have student role"
-            )
+            raise serializers.ValidationError("Student not found or does not have student role")
         return value
 
     def validate_subject_id(self, value):
@@ -295,9 +334,7 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
                 try:
                     ret["student"] = User.objects.get(id=student_id, role="student")
                 except User.DoesNotExist:
-                    raise serializers.ValidationError(
-                        {"student_id": "Student not found"}
-                    )
+                    raise serializers.ValidationError({"student_id": "Student not found"})
             else:
                 ret["student"] = None
 
@@ -308,9 +345,7 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
                 try:
                     ret["teacher"] = User.objects.get(id=teacher_id, role="teacher")
                 except User.DoesNotExist:
-                    raise serializers.ValidationError(
-                        {"teacher_id": "Teacher not found"}
-                    )
+                    raise serializers.ValidationError({"teacher_id": "Teacher not found"})
             else:
                 ret["teacher"] = None
 
@@ -321,9 +356,7 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
                 try:
                     ret["subject"] = get_subject_model().objects.get(id=subject_id)
                 except get_subject_model().DoesNotExist:
-                    raise serializers.ValidationError(
-                        {"subject_id": "Subject not found"}
-                    )
+                    raise serializers.ValidationError({"subject_id": "Subject not found"})
             else:
                 ret["subject"] = None
 
@@ -331,31 +364,25 @@ class LessonUpdateSerializer(TimeFormatValidationMixin, serializers.Serializer):
 
     def validate(self, data):
         """Validate update data."""
-        # Validate time range if both provided
+        # Validate time range if both provided - allow midnight crossing (23:00 -> 01:00)
         if "start_time" in data and "end_time" in data:
-            if data["start_time"] >= data["end_time"]:
+            if data["start_time"] == data["end_time"]:
                 raise serializers.ValidationError(
-                    {"end_time": "End time must be after start time"}
+                    {"end_time": "Start time and end time cannot be the same"}
                 )
 
         # Validate date not in past
         if "date" in data:
             if data["date"] < timezone.now().date():
-                raise serializers.ValidationError(
-                    {"date": "Cannot set lesson to the past"}
-                )
+                raise serializers.ValidationError({"date": "Cannot set lesson to the past"})
 
         # Get lesson from context for conflict checking
         lesson = self.context.get("lesson")
         if not lesson:
             # Only needed if checking conflicts
-            if any(
-                field in data for field in ["date", "start_time", "end_time", "student"]
-            ):
+            if any(field in data for field in ["date", "start_time", "end_time", "student"]):
                 raise serializers.ValidationError(
-                    {
-                        "non_field_errors": "Lesson context is required for conflict validation"
-                    }
+                    {"non_field_errors": "Lesson context is required for conflict validation"}
                 )
         else:
             from scheduling.services.lesson_service import LessonService
@@ -419,9 +446,7 @@ class LessonHistorySerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Ensure performed_by can be null in output."""
         ret = super().to_representation(instance)
-        ret["performed_by"] = (
-            instance.performed_by_id if instance.performed_by else None
-        )
+        ret["performed_by"] = instance.performed_by_id if instance.performed_by else None
         return ret
 
 

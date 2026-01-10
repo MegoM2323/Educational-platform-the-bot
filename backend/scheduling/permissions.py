@@ -28,14 +28,13 @@ class IsParentOfStudent(permissions.BasePermission):
     Проверяет, что пользователь является родителем и имеет право
     доступа к данным конкретного ребёнка (студента).
     """
+
     message = "You can only view your own children's data."
 
     def has_permission(self, request, view):
         """Проверяет, что пользователь является родителем."""
         return (
-            request.user and
-            request.user.is_authenticated and
-            request.user.role == User.Role.PARENT
+            request.user and request.user.is_authenticated and request.user.role == User.Role.PARENT
         )
 
     def has_object_permission(self, request, view, obj):
@@ -66,7 +65,7 @@ class IsTeacherOrStudent(permissions.BasePermission):
     def has_permission(self, request, view):
         """Check if user is teacher or student."""
         return (
-            request.user and
-            request.user.is_authenticated and
-            request.user.role in [User.Role.TEACHER, User.Role.STUDENT]
+            request.user
+            and request.user.is_authenticated
+            and request.user.role in [User.Role.TEACHER, User.Role.STUDENT]
         )

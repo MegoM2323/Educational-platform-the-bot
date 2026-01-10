@@ -5,6 +5,7 @@ Endpoints for creating, retrieving, updating, and deleting lessons.
 """
 
 from datetime import timedelta
+from uuid import UUID
 from django.utils import timezone
 from django.db.models import Q
 from rest_framework import viewsets, status
@@ -12,6 +13,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.throttling import UserRateThrottle
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 from scheduling.models import Lesson, LessonHistory
@@ -28,6 +31,12 @@ try:
     from materials.models import Subject
 except ImportError:
     Subject = None
+
+
+class LessonCreateThrottle(UserRateThrottle):
+    """Rate limiting for lesson creation: max 10 lessons per minute."""
+
+    rate = "10/minute"
 
 
 class LessonPagination(PageNumberPagination):
@@ -56,6 +65,7 @@ class LessonViewSet(viewsets.ModelViewSet):
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = LessonPagination
+    throttle_classes = [LessonCreateThrottle]
 
     def get_queryset(self):
         """Get lessons filtered by user role."""
@@ -87,7 +97,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             queryset = Lesson.objects.filter(
                 student_id__in=student_ids,
                 date__gte=six_months_ago,
-            )
+            ).select_related("teacher", "student", "subject")
         elif user.role == UserModel.Role.PARENT:
             from accounts.models import StudentProfile
 
@@ -98,13 +108,11 @@ class LessonViewSet(viewsets.ModelViewSet):
             queryset = Lesson.objects.filter(
                 student_id__in=children_ids,
                 date__gte=six_months_ago,
-            )
+            ).select_related("teacher", "student", "subject")
         else:
             queryset = Lesson.objects.none()
 
-        queryset = queryset.select_related("teacher", "student", "subject").order_by(
-            "date", "start_time"
-        )
+        queryset = queryset.order_by("date", "start_time")
 
         return queryset
 
@@ -139,7 +147,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, pk=None):
         """
-        Get a specific lesson by ID (role-aware).
+        Get a specific lesson by ID (role-aware) with explicit permission check.
 
         GET /api/scheduling/lessons/{id}/
 
@@ -152,6 +160,31 @@ class LessonViewSet(viewsets.ModelViewSet):
         - Returns 404 if lesson not in user's queryset
         """
         lesson = self.get_object()
+        user = request.user
+
+        # Explicit permission check
+        has_access = False
+
+        # Проверка прямого доступа
+        if lesson.teacher == user or lesson.student == user:
+            has_access = True
+        # Admin/staff доступ
+        elif user.is_staff or user.role in ("admin", "superuser"):
+            has_access = True
+        # Tutor доступ к студентам
+        elif user.role == "tutor":
+            from accounts.models import StudentProfile
+
+            has_access = StudentProfile.objects.filter(user=lesson.student, tutor=user).exists()
+        # Parent доступ к детям
+        elif user.role == "parent":
+            from accounts.models import StudentProfile
+
+            has_access = StudentProfile.objects.filter(user=lesson.student, parent=user).exists()
+
+        if not has_access:
+            raise PermissionDenied("You cannot view this lesson")
+
         serializer = self.get_serializer(lesson)
         return Response(serializer.data)
 
@@ -188,9 +221,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonCreateSerializer(
-            data=request.data, context={"request": request}
-        )
+        serializer = LessonCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -276,9 +307,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             )
 
         # Validate input
-        serializer = LessonUpdateSerializer(
-            data=request.data, context={"lesson": lesson}
-        )
+        serializer = LessonUpdateSerializer(data=request.data, context={"lesson": lesson})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -375,8 +404,8 @@ class LessonViewSet(viewsets.ModelViewSet):
         for attr, value in update_data.items():
             setattr(lesson, attr, value)
 
-        # Save with skipped validation to avoid ForeignKey re-validation
-        lesson.save(skip_validation=True)
+        # Save without skipped validation
+        lesson.save()
         return lesson
 
     def destroy(self, request, pk=None):
@@ -509,9 +538,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
         student_id = request.query_params.get("student_id")
         if not student_id:
-            return Response(
-                {"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Валидация формата student_id (должен быть целым числом)
         try:
@@ -588,9 +615,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         # Teacher, student, tutor, or parent of student
         from accounts.models import User as UserModel
 
-        has_permission = (
-            lesson.teacher == request.user or lesson.student == request.user
-        )
+        has_permission = lesson.teacher == request.user or lesson.student == request.user
 
         # Check if tutor has access to this lesson (manages the student)
         if not has_permission and request.user.role == UserModel.Role.TUTOR:
@@ -625,13 +650,22 @@ class LessonViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def upcoming(self, request):
         """
-        Get next upcoming lessons for current user (role-aware).
+        Get next upcoming lessons for current user (role-aware) with pagination.
 
         GET /api/scheduling/lessons/upcoming/
+        GET /api/scheduling/lessons/upcoming/?limit=20
 
-        Returns up to 10 upcoming lessons.
+        Returns upcoming lessons with pagination support.
         """
-        queryset = LessonService.get_upcoming_lessons(request.user, limit=10)
+        limit = int(request.query_params.get("limit", 10))
+        queryset = LessonService.get_upcoming_lessons(request.user, limit=limit)
+
+        # Apply pagination
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -696,15 +730,34 @@ class LessonViewSet(viewsets.ModelViewSet):
         end_time_str = data.get("end_time")
         duration_minutes = data.get("duration_minutes")
 
-        # If teacher_id not provided, use current user
+        # Валидация teacher_id
+        teacher = None
         if not teacher_id:
             teacher = request.user
         else:
+            # Валидировать формат (integer или UUID string)
             try:
-                teacher = User.objects.get(id=teacher_id, role__in=["teacher", "tutor"])
-            except User.DoesNotExist:
+                # Попробовать интерпретировать как integer (если pk integer)
+                try:
+                    teacher_id_int = int(teacher_id)
+                    teacher = User.objects.filter(
+                        id=teacher_id_int, role__in=["teacher", "tutor"]
+                    ).first()
+                except (ValueError, TypeError):
+                    # Может быть UUID string
+                    try:
+                        uuid_obj = UUID(str(teacher_id))
+                        teacher = User.objects.filter(
+                            id=uuid_obj, role__in=["teacher", "tutor"]
+                        ).first()
+                    except (ValueError, TypeError):
+                        raise ValidationError("Invalid teacher_id format")
+
+                if not teacher:
+                    raise ValidationError("Teacher/Tutor not found with given ID")
+            except ValidationError as e:
                 return Response(
-                    {"error": "Teacher/Tutor not found"},
+                    {"error": f"Invalid teacher_id: {str(e)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -737,9 +790,7 @@ class LessonViewSet(viewsets.ModelViewSet):
                 end_time = end_dt.time()
         except ValueError:
             return Response(
-                {
-                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
-                },
+                {"error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -795,100 +846,32 @@ class LessonViewSet(viewsets.ModelViewSet):
         """
         lesson = self.get_object()
 
-        # Only teacher can reschedule
-        if lesson.teacher != request.user:
-            return Response(
-                {"error": "Only the teacher who created this lesson can reschedule it"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Cannot reschedule completed or cancelled lessons
-        if lesson.status in [Lesson.Status.COMPLETED, Lesson.Status.CANCELLED]:
-            return Response(
-                {"error": f"Cannot reschedule a {lesson.status} lesson"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         # Validate input
         data = request.data
-        date_str = data.get("date")
-        start_time_str = data.get("start_time")
-        end_time_str = data.get("end_time")
+        new_date = data.get("date")
+        new_start_time = data.get("start_time")
+        new_end_time = data.get("end_time")
 
-        if not all([date_str, start_time_str, end_time_str]):
+        if not all([new_date, new_start_time, new_end_time]):
             return Response(
                 {"error": "date, start_time, and end_time are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Parse date and times
         try:
-            from datetime import datetime
-
-            new_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            new_start_time = datetime.strptime(start_time_str, "%H:%M").time()
-            new_end_time = datetime.strptime(end_time_str, "%H:%M").time()
-        except ValueError:
-            return Response(
-                {
-                    "error": "Invalid date/time format. Use YYYY-MM-DD for date and HH:MM for times"
+            updated_lesson = LessonService.update_lesson(
+                lesson=lesson,
+                updates={
+                    "date": new_date,
+                    "start_time": new_start_time,
+                    "end_time": new_end_time,
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                user=request.user,
             )
-
-        # Validate time range
-        if new_start_time >= new_end_time:
-            return Response(
-                {"error": "start_time must be before end_time"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Validate date not in past
-        if new_date < timezone.now().date():
-            return Response(
-                {"error": "Cannot reschedule lesson to the past"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Check for time conflicts with other lessons
-        try:
-            LessonService._check_time_conflicts(
-                date=new_date,
-                start_time=new_start_time,
-                end_time=new_end_time,
-                teacher=lesson.teacher,
-                student=lesson.student,
-                exclude_lesson_id=lesson.id,
-            )
+            serializer = self.get_serializer(updated_lesson)
+            return Response(serializer.data)
         except DjangoValidationError as e:
             return Response(
-                {"error": f"Time conflict: {str(e)}"},
-                status=status.HTTP_409_CONFLICT,
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # Update lesson
-        lesson.date = new_date
-        lesson.start_time = new_start_time
-        lesson.end_time = new_end_time
-        lesson.save(skip_validation=True)
-
-        # Record in history
-        LessonHistory.objects.create(
-            lesson=lesson,
-            action="updated",
-            performed_by=request.user,
-            old_values={
-                "date": str(lesson.date),
-                "start_time": str(lesson.start_time),
-                "end_time": str(lesson.end_time),
-            },
-            new_values={
-                "date": str(new_date),
-                "start_time": str(new_start_time),
-                "end_time": str(new_end_time),
-            },
-        )
-
-        # Return updated lesson
-        output_serializer = LessonSerializer(lesson)
-        return Response(output_serializer.data)

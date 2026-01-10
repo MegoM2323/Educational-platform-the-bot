@@ -235,7 +235,7 @@ class TestLessonsViewFilterExport:
 
         # Create lessons
         for i in range(5):
-            lesson_date = (timezone.now() + timedelta(days=i)).replace(hour=10, minute=0)
+            lesson_date = (timezone.now() + timedelta(days=i+1)).replace(hour=10, minute=0)
             Lesson.objects.create(
                 teacher=self.tutor,
                 student=self.student1 if i % 2 == 0 else self.student2,
@@ -467,7 +467,7 @@ class TestScheduleViewsWeekMonthDay:
         )
 
         # Create time slots for the week
-        base_time = timezone.now().replace(hour=9, minute=0, second=0, microsecond=0)
+        base_time = (timezone.now() + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
         for i in range(7):
             for j in range(3):  # 3 slots per day
                 slot_time = base_time + timedelta(days=i, hours=j*2)

@@ -7,6 +7,9 @@ from django.utils import timezone
 from django.db.models import Count, Q
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import ChatRoom, Message, ChatParticipant
 from .serializers import (
@@ -575,40 +578,49 @@ class ChatNotificationsView(APIView):
 
     def get(self, request):
         """Get unread chat notifications count"""
-        from django.db.models import Subquery
+        try:
+            from django.db.models import Subquery
 
-        user = request.user
+            user = request.user
 
-        # Get participant record to access last_read_at
-        unread_messages = 0
-        unread_threads = 0
+            # Get participant record to access last_read_at
+            unread_messages = 0
+            unread_threads = 0
 
-        # Get all chat rooms where user is participant
-        user_participants = ChatParticipant.objects.filter(user=user).select_related('room')
+            # Get all chat rooms where user is participant
+            user_participants = ChatParticipant.objects.filter(user=user).select_related('room')
 
-        for participant in user_participants:
-            room = participant.room
-            # Count messages created after last_read_at that are not from the user
-            query = Message.objects.filter(
-                room=room,
-                is_deleted=False
-            ).exclude(
-                sender=user
-            )
+            for participant in user_participants:
+                room = participant.room
+                # Count messages created after last_read_at that are not from the user
+                query = Message.objects.filter(
+                    room=room,
+                    is_deleted=False
+                ).exclude(
+                    sender=user
+                )
 
-            if participant.last_read_at:
-                # Only count messages created AFTER last_read_at
-                query = query.filter(created_at__gt=participant.last_read_at)
+                if participant.last_read_at:
+                    # Only count messages created AFTER last_read_at
+                    query = query.filter(created_at__gt=participant.last_read_at)
 
-            unread_in_chat = query.count()
-            if unread_in_chat > 0:
-                unread_messages += unread_in_chat
-                unread_threads += 1
+                unread_in_chat = query.count()
+                if unread_in_chat > 0:
+                    unread_messages += unread_in_chat
+                    unread_threads += 1
 
-        has_new_messages = unread_messages > 0
+            has_new_messages = unread_messages > 0
 
-        return Response({
-            'unread_messages': unread_messages,
-            'unread_threads': unread_threads,
-            'has_new_messages': has_new_messages,
-        })
+            return Response({
+                'unread_messages': unread_messages,
+                'unread_threads': unread_threads,
+                'has_new_messages': has_new_messages,
+            })
+        except Exception as e:
+            logger.error(f'[ChatNotificationsView] Error getting notifications: {str(e)}', exc_info=True)
+            # Return safe defaults if error occurs
+            return Response({
+                'unread_messages': 0,
+                'unread_threads': 0,
+                'has_new_messages': False,
+            })

@@ -66,7 +66,11 @@ class ChatRoomViewSet(viewsets.ViewSet):
         service = ChatService()
         all_chats = service.get_user_chats(request.user)
         all_chats = all_chats.prefetch_related(
-            Prefetch("participants", queryset=ChatParticipant.objects.select_related("user"))
+            Prefetch(
+                "participants",
+                queryset=ChatParticipant.objects.select_related("user"),
+                to_attr="_prefetched_participants"
+            )
         )
 
         total_count = all_chats.count()
@@ -168,6 +172,7 @@ class ChatRoomViewSet(viewsets.ViewSet):
                 Prefetch(
                     "participants",
                     queryset=ChatParticipant.objects.select_related("user"),
+                    to_attr="_prefetched_participants",
                 )
             ).get(id=pk)
         except ChatRoom.DoesNotExist:

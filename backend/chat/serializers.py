@@ -125,8 +125,8 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         if not request:
             return None
 
-        participants = obj.participants.all()
-        if participants.count() != 2:
+        participants = getattr(obj, "_prefetched_participants", obj.participants.all())
+        if len(participants) != 2:
             return None
 
         other_user = None
@@ -163,7 +163,16 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
             return 0
 
         try:
-            participant = obj.participants.get(user=request.user)
+            participants = getattr(obj, "_prefetched_participants", [])
+            participant = None
+            for p in participants:
+                if p.user_id == request.user.id:
+                    participant = p
+                    break
+
+            if not participant:
+                participant = obj.participants.get(user=request.user)
+
             last_read = participant.last_read_at
 
             if not last_read:
@@ -191,11 +200,12 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         Если prefetch_related не был использован, len() все равно работает,
         но может вызвать дополнительный запрос. Это нормально для edge cases.
         """
-        return len(obj.participants.all()) > 2
+        participants = getattr(obj, "_prefetched_participants", obj.participants.all())
+        return len(participants) > 2
 
     def get_name(self, obj):
         """Получить имя чата. Для direct чата - имя другого участника, для группового - 'Групповой чат {id}'"""
-        participants = obj.participants.all()
+        participants = getattr(obj, "_prefetched_participants", obj.participants.all())
         if len(participants) == 2:
             request = self.context.get("request")
             if not request:
@@ -217,7 +227,8 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
 
     def get_type(self, obj):
         """Получить тип чата: 'direct' для 2 участников, 'group' для остальных"""
-        participants_count = len(obj.participants.all())
+        participants = getattr(obj, "_prefetched_participants", obj.participants.all())
+        participants_count = len(participants)
         return "direct" if participants_count == 2 else "group"
 
     def get_subject(self, obj):
@@ -240,13 +251,14 @@ class ChatRoomDetailSerializer(serializers.ModelSerializer):
 
     def get_participants(self, obj):
         """Получить список участников"""
+        participants = getattr(obj, "_prefetched_participants", obj.participants.all())
         return [
             {
                 "id": p.user.id,
                 "full_name": f"{p.user.first_name} {p.user.last_name}".strip(),
                 "role": getattr(p.user, "role", "user"),
             }
-            for p in obj.participants.all()
+            for p in participants
         ]
 
 

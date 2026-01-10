@@ -100,21 +100,21 @@ class SubjectEnrollment(models.Model):
 
     student = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="subject_enrollments",
         verbose_name="Студент",
     )
 
     subject = models.ForeignKey(
         Subject,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="enrollments",
         verbose_name="Предмет",
     )
 
     teacher = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="taught_subjects",
         verbose_name="Преподаватель",
     )

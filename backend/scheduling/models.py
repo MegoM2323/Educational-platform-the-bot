@@ -88,7 +88,7 @@ class Lesson(models.Model):
 
     subject = models.ForeignKey(
         "materials.Subject",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="lessons",
         verbose_name="Subject",
     )

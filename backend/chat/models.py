@@ -24,7 +24,7 @@ class ChatParticipant(models.Model):
     room = models.ForeignKey(
         ChatRoom, on_delete=models.CASCADE, related_name="participants"
     )
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     joined_at = models.DateTimeField(auto_now_add=True)
     last_read_at = models.DateTimeField(null=True, blank=True)
 
@@ -54,7 +54,12 @@ class Message(models.Model):
     room = models.ForeignKey(
         ChatRoom, on_delete=models.CASCADE, related_name="messages"
     )
-    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     content = models.TextField()
     message_type = models.CharField(
         max_length=20,

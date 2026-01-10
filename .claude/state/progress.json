@@ -1365,6 +1365,69 @@
         "heartbeat_preservation": "Все исходная heartbeat логика сохранена"
       },
       "duration_sec": 5
+    },
+    {
+      "id": "T2",
+      "task_name": "Создать shell скрипт для автоматизации production deployment + user setup",
+      "agent": "coder",
+      "status": "done",
+      "description": "Создан полнофункциональный shell скрипт setup_production.sh для автоматизации production deployment и user setup. Скрипт выполняет все требуемые фазы: валидация git статуса, push кода, развертывание, создание пользователей, перезапуск сервисов и верификация. Поддерживает различные режимы: --dry-run, --force, --skip-deploy, --skip-users, --verbose.",
+      "changes": {
+        "scripts/setup_production.sh": [
+          "Полная реализация 6 фаз deployment процесса",
+          "PHASE 1: Pre-flight checks - валидация git, SSH, deployment скрипта, production окружения",
+          "PHASE 2: Code deployment - push к origin/main и запуск rsync-deploy-native.sh",
+          "PHASE 3: User setup - создание 7 production users через management command",
+          "PHASE 4: Service management - перезапуск systemd сервисов и проверка их статуса",
+          "PHASE 5: Verification - API health check и login test",
+          "PHASE 6: Reporting - status report сервисов, список пользователей, итоговый summary",
+          "Поддержка опций: --dry-run, --force, --skip-deploy, --skip-users, --verbose",
+          "Цветной вывод с индикаторами успеха/ошибки",
+          "Детальное логирование каждого шага",
+          "Error handling с информативными сообщениями"
+        ]
+      },
+      "files_created": [
+        "/home/mego/Python Projects/THE_BOT_platform/scripts/setup_production.sh"
+      ],
+      "features": {
+        "git_validation": "Проверка clean status, main branch, вывод последнего коммита",
+        "ssh_validation": "Тест SSH доступа к mg@5.129.249.206 с timeout 5 сек",
+        "dry_run_mode": "Полный preview всех операций без реальных изменений",
+        "parallel_phases": "Независимые операции (валидация) выполняются параллельно",
+        "service_verification": "Проверка статуса thebot-daphne, thebot-celery-worker, thebot-celery-beat",
+        "api_health_check": "curl к https://the-bot.ru/api/health/",
+        "login_test": "Проверка логина alexander@master.com / bangbang",
+        "progress_tracking": "Счетчик выполненных шагов и успешных операций",
+        "time_tracking": "Общее время выполнения в минутах и секундах"
+      },
+      "options": {
+        "--force": "Пропуск confirmations, автоматический запуск всех операций",
+        "--dry-run": "Предпросмотр всех операций без реальных изменений",
+        "--skip-deploy": "Только user setup, без кода development",
+        "--skip-users": "Только deployment кода, без создания пользователей",
+        "--verbose": "Детальное логирование всех операций",
+        "--help": "Показать справку с примерами"
+      },
+      "error_handling": {
+        "set_euo_pipefail": "Ошибка в любой команде прерывает скрипт",
+        "validation_checks": "Каждая фаза проверяется перед выполнением",
+        "informative_messages": "Каждая ошибка содержит рекомендации для исправления",
+        "ssh_timeout": "30 сек timeout для SSH команд"
+      },
+      "output_format": {
+        "colored_output": "GREEN для успехов, RED для ошибок, YELLOW для предупреждений, CYAN для информации",
+        "progress_indicators": "ASCII символы: ✓ ✗ ⚠ ℹ □",
+        "separators": "Визуальные разделители между фазами",
+        "summary": "Итоговый отчет с количеством успешных шагов и временем"
+      },
+      "verification": {
+        "bash_syntax": "passed (bash -n validation)",
+        "script_executable": "chmod +x applied",
+        "help_output": "Работает и показывает полную справку",
+        "dry_run_mode": "Протестирован, все операции показываются без выполнения"
+      },
+      "duration_sec": 18
     }
   ]
 }

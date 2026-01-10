@@ -39,16 +39,65 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.authenticated = False
         self.heartbeat_task = None
         self.last_pong_time = time.time()
+        self.connect_time = time.time()
 
-        logger.info(f"WebSocket connect attempt: room_id={self.room_id}, user=anonymous")
+        logger.debug(f"[CONSUMER: connect_start] room_id={self.room_id}, timestamp={self.connect_time}")
         await self.accept()
 
         register_consumer(self)
 
+        logger.debug(f"[CONSUMER: scope_check_initial] scope['user'] type: {type(self.scope['user'])}, value: {self.scope['user']}")
+        if hasattr(self.scope['user'], 'id'):
+            logger.debug(f"[CONSUMER: scope_check_initial] Authenticated user: {self.scope['user'].id}, {self.scope['user'].email}")
+        else:
+            logger.debug(f"[CONSUMER: scope_check_initial] AnonymousUser detected")
+
+        # Check if user is already authenticated by TokenAuthMiddleware
+        initial_user = self.scope.get("user")
+        logger.debug(f"[CONSUMER: scope_check_comparison] scope['user'] object id: {id(initial_user)}")
+
+        scope_user = self.scope.get("user")
+        scope_user_type = type(scope_user).__name__
+        scope_user_authenticated = getattr(scope_user, 'is_authenticated', False)
+
+        logger.debug(f"[CONSUMER: scope_check_comparison] extracted scope_user id: {id(scope_user)}, same object: {id(initial_user) == id(scope_user)}")
+
+        logger.debug(
+            f"[CONSUMER: scope_check] scope_user_type={scope_user_type}, "
+            f"is_authenticated={scope_user_authenticated}, room_id={self.room_id}"
+        )
+
+        logger.debug(f"[CONSUMER: scope_user_extraction] scope_user type: {type(scope_user).__name__}, is_authenticated: {scope_user_authenticated}, same as initial: {id(scope_user) == id(initial_user)}")
+
+        if scope_user and scope_user_authenticated:
+            self.user = scope_user
+            self.authenticated = True
+            logger.debug(
+                f"[CONSUMER: authentication_decision] scope_user is authenticated - user_id={self.user.id}, email={self.user.email}"
+            )
+            logger.debug(
+                f"[CONSUMER: scope_check] user_authenticated=True, user_id={self.user.id}, "
+                f"email={self.user.email}, is_active={self.user.is_active}, "
+                f"self.authenticated={self.authenticated}"
+            )
+            return
+        else:
+            logger.debug(
+                f"[CONSUMER: authentication_decision] scope_user is AnonymousUser or not authenticated"
+            )
+            logger.debug(
+                f"[CONSUMER: scope_check] user_authenticated=False, "
+                f"scope_user={scope_user}, self.authenticated={self.authenticated}"
+            )
+
+        logger.debug(f"[CONSUMER: auth_wait] Entering _wait_for_auth(), auth_timeout={self.auth_timeout}s")
         try:
             await asyncio.wait_for(self._wait_for_auth(), timeout=float(self.auth_timeout))
         except asyncio.TimeoutError:
-            logger.warning(f"Auth timeout: room_id={self.room_id}, timeout={self.auth_timeout}s")
+            logger.warning(
+                f"[CONSUMER: auth_failure] Auth timeout after {self.auth_timeout}s, "
+                f"room_id={self.room_id}, closing with code=4001"
+            )
             await self.close(code=4001)
 
     async def graceful_shutdown(self):
@@ -119,6 +168,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         """При отключении WebSocket"""
         user_id = self.user.id if self.user else "unknown"
+        connection_duration = time.time() - self.connect_time
+
+        disconnect_reason = "normal" if close_code == 1000 else "error"
+        if close_code == 1001:
+            disconnect_reason = "server_shutdown"
+
+        logger.debug(
+            f"[CONSUMER: disconnect] Disconnect received, "
+            f"close_code={close_code}, reason={disconnect_reason}, "
+            f"user_id={user_id}, room_id={self.room_id}, "
+            f"duration={connection_duration:.2f}s"
+        )
 
         if close_code == 1001:
             logger.info(
@@ -156,35 +217,55 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def _wait_for_auth(self):
         """Ждать auth сообщение (используется в connect с timeout)"""
+        logger.debug(f"[CONSUMER: auth_wait] Waiting for explicit auth message... room_id={self.room_id}")
         while not self.authenticated:
             await asyncio.sleep(0.1)
 
     async def _handle_auth(self, data):
         """Обработать аутентификацию"""
-        logger.info(f"Auth started: room_id={self.room_id}")
+        message_type = data.get("type")
+        logger.debug(
+            f"[CONSUMER: auth_message] Received auth message, "
+            f"type={message_type}, room_id={self.room_id}"
+        )
 
         token = data.get("token")
         if not token:
-            logger.warning(f"Auth failed: missing token, room_id={self.room_id}")
+            logger.warning(
+                f"[CONSUMER: auth_failure] Auth failed: no token, "
+                f"room_id={self.room_id}, closing with code=4001"
+            )
             await self.close(code=4001)
             return
 
+        logger.debug(
+            f"[CONSUMER: auth_message] Token extracted, "
+            f"token_preview={token[:10]}..., room_id={self.room_id}"
+        )
+
         user = await self._validate_token(token)
         if not user:
-            logger.warning(f"Auth failed: invalid token, room_id={self.room_id}")
+            logger.warning(
+                f"[CONSUMER: auth_failure] Auth failed: invalid token, "
+                f"room_id={self.room_id}, closing with code=4001"
+            )
             await self.close(code=4001)
             return
 
         has_access = await self._check_access(user)
         if not has_access:
             logger.warning(
-                f"Auth failed: permission denied, user_id={user.id}, room_id={self.room_id}"
+                f"[CONSUMER: auth_failure] Auth failed: access denied, "
+                f"user_id={user.id}, room_id={self.room_id}, closing with code=4003"
             )
             await self.close(code=4003)
             return
 
         if not await self._check_room_limit(user):
-            logger.warning(f"Room limit exceeded: user_id={user.id}, room_id={self.room_id}")
+            logger.warning(
+                f"[CONSUMER: auth_failure] Auth failed: room limit exceeded, "
+                f"user_id={user.id}, room_id={self.room_id}, closing with code=4029"
+            )
             await self.close(code=4029)
             return
 
@@ -193,7 +274,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
-        logger.info(f"Auth successful: user_id={user.id}, room_id={self.room_id}")
+        logger.debug(
+            f"[CONSUMER: auth_success] Auth successful, "
+            f"user_id={self.user.id}, email={self.user.email}, "
+            f"self.authenticated={self.authenticated}, room_id={self.room_id}"
+        )
 
         await self.send(text_data=json.dumps({"type": "auth_success", "user_id": user.id}))
 

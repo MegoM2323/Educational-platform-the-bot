@@ -158,7 +158,7 @@ export class WebSocketService {
 
     const targetUrl = this.currentUrl || this.config.url;
     // Keep query string for authentication token passed in URL
-    const wsUrl = targetUrl;
+    const wsUrl = token ? `${targetUrl}?token=${encodeURIComponent(token)}` : targetUrl;
     const displayUrl = targetUrl.split("?")[0]; // For logging only
 
     if (this.isConnecting || this.connectionState === "connected") {

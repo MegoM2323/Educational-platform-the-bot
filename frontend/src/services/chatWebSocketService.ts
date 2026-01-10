@@ -101,7 +101,7 @@ export class ChatWebSocketService {
   private pollingInterval: NodeJS.Timeout | null = null;
   private offlineModeTimeout: NodeJS.Timeout | null = null;
   private pollingMessageIds = new Set<number>();
-  private offlineModeThreshold = 5 * 60 * 1000;
+  private offlineModeThreshold = 10 * 1000; // 10 seconds for testing, normally 5 minutes
   private lastSuccessfulWsConnection = 0;
   private configuredPollingInterval = 3000;
   private pollingAttempts = 0;
@@ -185,10 +185,14 @@ export class ChatWebSocketService {
    * Вызывается при получении close codes 4001 (auth error), 4002 (access denied), 4003 (forbidden)
    */
   private handleAuthError(code: number, reason?: string): void {
-    this.chatLogger.error("Authentication error received", {
-      code,
+    const errorCodeMeaning = this.getErrorCodeMeaning(code);
+
+    this.chatLogger.error("[WEBSOCKET: error_handling]", {
+      closeCode: code,
+      errorCodeMeaning: errorCodeMeaning,
       reason,
       currentStatus: this.connectionStatus,
+      handlingAuthError: true,
     });
 
     this.setConnectionStatus("auth_error");
@@ -247,6 +251,24 @@ export class ChatWebSocketService {
   }
 
   /**
+   * Определение значения кода ошибки WebSocket
+   */
+  private getErrorCodeMeaning(code: number): string {
+    switch (code) {
+      case 4001:
+        return "auth_error (token expired or invalid)";
+      case 4002:
+        return "access_denied (insufficient permissions)";
+      case 4003:
+        return "forbidden (resource deleted or restricted)";
+      case 4029:
+        return "rate_limit (too many requests)";
+      default:
+        return "unknown";
+    }
+  }
+
+  /**
    * Запуск обратного отсчета для включения offline mode (5 минут)
    */
   private startOfflineModeCountdown(): void {
@@ -289,15 +311,27 @@ export class ChatWebSocketService {
       return;
     }
 
-    this.chatLogger.warn("Initiating graceful degradation to polling mode", {
+    const fallbackStartTime = Date.now();
+    this.offlineModeStartTime = fallbackStartTime;
+
+    this.chatLogger.warn("[WEBSOCKET: fallback_triggered]", {
       currentStatus: this.connectionStatus,
       lastRoomId: this.lastRoomId,
       pollingInterval: this.configuredPollingInterval,
+      reason: "max_reconnect_attempts_or_timeout",
+      fallbackMode: "REST_API_polling",
     });
 
     this.isOfflineMode = true;
     this.notifyOfflineMode(true);
     this.stopPolling();
+
+    this.chatLogger.info("[WEBSOCKET: fallback_triggered]", {
+      action: "starting_REST_API_polling",
+      roomId: this.lastRoomId,
+      pollingIntervalMs: this.configuredPollingInterval,
+    });
+
     this.startPolling();
   }
 
@@ -386,10 +420,15 @@ export class ChatWebSocketService {
       return;
     }
 
-    this.chatLogger.info("Starting polling for messages", {
+    this.chatLogger.info("[WEBSOCKET: fallback_triggered]", {
+      action: "REST_API_polling_started",
       intervalMs: this.configuredPollingInterval,
       roomId: this.lastRoomId,
       offlineMode: this.isOfflineMode,
+      timeSinceOfflineStartMs:
+        this.offlineModeStartTime !== null
+          ? Date.now() - this.offlineModeStartTime
+          : "unknown",
     });
 
     this.pollingAttempts = 0;
@@ -431,7 +470,8 @@ export class ChatWebSocketService {
       const messages = await this.fetchMessagesViaRest();
       const syncDuration = Date.now() - startTime;
 
-      this.chatLogger.debug("Polling sync completed", {
+      this.chatLogger.debug("[WEBSOCKET: fallback_triggered]", {
+        action: "REST_API_polling_sync",
         roomId: this.lastRoomId,
         messagesReceived: messages.length,
         syncDurationMs: syncDuration,
@@ -441,12 +481,17 @@ export class ChatWebSocketService {
       this.mergePollMessages(messages);
     } catch (error) {
       if ((error as any)?.status === 401) {
-        this.chatLogger.error("Token expired during polling", {
+        this.chatLogger.error("[WEBSOCKET: error_handling]", {
+          source: "polling_fallback",
+          closeCode: 4001,
+          errorCodeMeaning: "auth_error (token expired)",
           pollingAttempt: this.pollingAttempts,
+          handlingAuthError: true,
         });
         this.handleAuthError(4001, "Token expired during polling");
       } else {
-        this.chatLogger.error("Polling sync error", {
+        this.chatLogger.error("[WEBSOCKET: error_handling]", {
+          source: "polling_fallback",
           error: error instanceof Error ? error.message : String(error),
           roomId: this.lastRoomId,
           pollingAttempt: this.pollingAttempts,
@@ -465,8 +510,21 @@ export class ChatWebSocketService {
 
     const token = tokenStorage.getTokens().accessToken;
     if (!token) {
+      this.chatLogger.error("[WEBSOCKET: fallback_triggered]", {
+        action: "REST_API_fetch",
+        error: "No authentication token available",
+        roomId: this.lastRoomId,
+      });
       throw new Error("No authentication token available");
     }
+
+    const tokenPreview = this.getTokenPreview(token);
+    this.chatLogger.debug("[WEBSOCKET: fallback_triggered]", {
+      action: "REST_API_fetch_attempt",
+      roomId: this.lastRoomId,
+      tokenPreview: tokenPreview,
+      endpoint: `/api/chat/${this.lastRoomId}/messages/?limit=50`,
+    });
 
     const response = await fetch(
       `/api/chat/${this.lastRoomId}/messages/?limit=50`,
@@ -482,6 +540,13 @@ export class ChatWebSocketService {
     if (!response.ok) {
       const error = new Error(`REST API error: ${response.status}`);
       (error as any).status = response.status;
+
+      this.chatLogger.error("[WEBSOCKET: error_handling]", {
+        source: "REST_API_fetch",
+        httpStatus: response.status,
+        roomId: this.lastRoomId,
+      });
+
       throw error;
     }
 
@@ -564,21 +629,60 @@ export class ChatWebSocketService {
     // Попытка получить токен из tokenStorage
     const { accessToken } = tokenStorage.getTokens();
     if (accessToken) {
-      logger.debug("[ChatWebSocket] Using token from tokenStorage");
+      const tokenFormat = this.detectTokenFormat(accessToken);
+      const tokenPreview = this.getTokenPreview(accessToken);
+      logger.debug("[WEBSOCKET: token_retrieval]", {
+        source: "tokenStorage",
+        format: tokenFormat,
+        length: accessToken.length,
+        preview: tokenPreview,
+        found: true,
+      });
       return accessToken;
     }
 
     // Fallback: прямой доступ к localStorage
     const localStorageToken = localStorage.getItem("auth_token");
     if (localStorageToken) {
-      logger.debug("[ChatWebSocket] Using token from localStorage (fallback)");
+      const tokenFormat = this.detectTokenFormat(localStorageToken);
+      const tokenPreview = this.getTokenPreview(localStorageToken);
+      logger.debug("[WEBSOCKET: token_retrieval]", {
+        source: "localStorage",
+        format: tokenFormat,
+        length: localStorageToken.length,
+        preview: tokenPreview,
+        found: true,
+      });
       return localStorageToken;
     }
 
-    logger.error(
-      "[ChatWebSocket] No authentication token found in any storage",
-    );
+    logger.error("[WEBSOCKET: token_retrieval]", {
+      source: "none",
+      format: "unknown",
+      length: 0,
+      found: false,
+      message: "No authentication token found in any storage",
+    });
     return null;
+  }
+
+  /**
+   * Определение формата токена (JWT vs DRF Token)
+   */
+  private detectTokenFormat(token: string): string {
+    if (!token) return "invalid";
+    if (token.startsWith("eyJ")) return "JWT";
+    if (/^[a-f0-9]{40}$/.test(token)) return "DRF_Token";
+    return "unknown";
+  }
+
+  /**
+   * Получение предпросмотра токена без раскрытия полного значения
+   */
+  private getTokenPreview(token: string | null): string {
+    if (!token) return "null";
+    if (token.length <= 10) return token;
+    return `${token.substring(0, 10)}...`;
   }
 
   /**
@@ -608,7 +712,9 @@ export class ChatWebSocketService {
 
       if (!token) {
         const errorMsg = "Authentication token not found. Please log in again.";
-        this.chatLogger.error("Token not found for general chat connection", {
+        this.chatLogger.error("[WEBSOCKET: connect_attempt]", {
+          room: "general",
+          tokenFound: false,
           error: errorMsg,
         });
         this.setConnectionStatus("auth_error");
@@ -620,10 +726,21 @@ export class ChatWebSocketService {
 
       this.setConnectionStatus("connecting");
       const fullUrl = `${baseUrl}/chat/general/`;
+      const tokenPreview = this.getTokenPreview(token);
+      const hasTokenParam = fullUrl.includes("?token=");
 
-      this.chatLogger.info("Initiating WebSocket connection to general chat", {
+      this.chatLogger.info("[WEBSOCKET: connect_attempt]", {
+        room: "general",
         url: fullUrl,
-        tokenLength: token.length,
+        tokenFound: true,
+        tokenPreview: tokenPreview,
+        hasTokenParam: hasTokenParam,
+      });
+
+      logger.debug("[WEBSOCKET: websocket_service_call]", {
+        method: "websocketService.connect",
+        room: "general",
+        tokenPreview: tokenPreview,
       });
 
       websocketService.connect(fullUrl, token);
@@ -664,8 +781,9 @@ export class ChatWebSocketService {
 
     if (!token) {
       const errorMsg = "Authentication token not found. Please log in again.";
-      this.chatLogger.error("Token not found for room connection", {
+      this.chatLogger.error("[WEBSOCKET: connect_attempt]", {
         roomId,
+        tokenFound: false,
         error: errorMsg,
       });
       this.setConnectionStatus("auth_error");
@@ -689,11 +807,15 @@ export class ChatWebSocketService {
 
     const baseUrl = getWebSocketBaseUrl();
     const fullUrl = `${baseUrl}/chat/${roomId}/`;
+    const tokenPreview = this.getTokenPreview(token);
+    const hasTokenParam = fullUrl.includes("?token=");
 
-    this.chatLogger.info("Initiating WebSocket connection to room", {
+    this.chatLogger.info("[WEBSOCKET: connect_attempt]", {
       roomId,
       url: fullUrl,
-      tokenLength: token.length,
+      tokenFound: true,
+      tokenPreview: tokenPreview,
+      hasTokenParam: hasTokenParam,
     });
 
     return new Promise((resolve, reject) => {
@@ -702,10 +824,12 @@ export class ChatWebSocketService {
 
       const timeout = setTimeout(() => {
         if (unsubscribe) unsubscribe();
-        this.chatLogger.warn("Room connection timeout", {
+        this.chatLogger.warn("[WEBSOCKET: fallback_triggered]", {
           roomId,
+          reason: "connection_timeout",
           timeoutMs: connectionTimeoutMs,
           elapsedMs: Date.now() - connectStartTime,
+          fallbackMode: "REST_API_polling",
         });
         this.setConnectionStatus("error");
         reject(new Error("Connection timeout"));
@@ -750,6 +874,12 @@ export class ChatWebSocketService {
       });
 
       try {
+        logger.debug("[WEBSOCKET: websocket_service_call]", {
+          method: "websocketService.connect",
+          roomId,
+          tokenPreview: tokenPreview,
+        });
+
         websocketService.connect(fullUrl, token);
         checkConnection();
       } catch (error) {

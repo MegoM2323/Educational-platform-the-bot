@@ -26,10 +26,11 @@ class MessageSerializer(serializers.ModelSerializer):
     """Сериализатор для сообщений"""
 
     sender = UserSimpleSerializer(read_only=True)
+    message_type = serializers.CharField(read_only=True)
 
     class Meta:
         model = Message
-        fields = ("id", "sender", "content", "created_at", "updated_at", "is_edited")
+        fields = ("id", "sender", "message_type", "content", "created_at", "updated_at", "is_edited")
         read_only_fields = ("id", "sender", "created_at", "updated_at", "is_edited")
 
 

@@ -1022,6 +1022,22 @@ class UnifiedAPIClient {
         localStorage.setItem('userData', JSON.stringify(response.data.user));
 
         logger.debug('[UnifiedClient.login] Tokens saved to storage');
+
+        // Verify tokens were actually saved to localStorage
+        const savedToken = tokenStorage.getAccessToken();
+        if (!savedToken) {
+          logger.error('[UnifiedClient.login] Token verification FAILED - token not found in localStorage after save!');
+          // Попытка сохранить еще раз
+          tokenStorage.saveTokens(response.data.token, response.data.refresh_token);
+          const retryToken = tokenStorage.getAccessToken();
+          if (!retryToken) {
+            logger.error('[UnifiedClient.login] CRITICAL: Token still not in localStorage after retry!');
+          } else {
+            logger.info('[UnifiedClient.login] Token successfully saved on retry');
+          }
+        } else {
+          logger.info('[UnifiedClient.login] ✓ Token verified in localStorage');
+        }
       } else {
         logger.error('[UnifiedClient.login] Login failed:', response.error);
       }

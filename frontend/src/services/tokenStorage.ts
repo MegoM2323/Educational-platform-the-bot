@@ -35,18 +35,38 @@ export const tokenStorage = {
    * Сохранить токены
    */
   saveTokens(token: string, refreshToken?: string): void {
-    if (typeof window === 'undefined') return;
-
-    localStorage.setItem(TOKEN_KEY, token);
-    if (refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    if (typeof window === 'undefined') {
+      logger.warn('[tokenStorage.saveTokens] window is undefined, skipping save');
+      return;
     }
 
-    logger.debug('[tokenStorage.saveTokens]', {
-      tokenLength: token.length,
-      hasRefreshToken: !!refreshToken,
-      refreshTokenLength: refreshToken?.length || 0
-    });
+    try {
+      localStorage.setItem(TOKEN_KEY, token);
+      if (refreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      }
+
+      // Verify save was successful
+      const verifyToken = localStorage.getItem(TOKEN_KEY);
+      if (verifyToken !== token) {
+        logger.error('[tokenStorage.saveTokens] CRITICAL: Token verification failed!', {
+          expectedLength: token.length,
+          actualLength: verifyToken?.length || 0
+        });
+      }
+
+      logger.debug('[tokenStorage.saveTokens]', {
+        tokenLength: token.length,
+        hasRefreshToken: !!refreshToken,
+        refreshTokenLength: refreshToken?.length || 0,
+        verified: verifyToken === token
+      });
+    } catch (error) {
+      logger.error('[tokenStorage.saveTokens] Failed to save tokens:', {
+        error: String(error),
+        errorType: error instanceof Error ? error.name : 'unknown'
+      });
+    }
   },
 
   /**

@@ -43,11 +43,19 @@ export interface ChatMessage {
 export interface ChatContact {
   id: number;
   user_id: number;
+  first_name: string;
+  last_name: string;
   name: string;
   email: string;
   avatar?: string;
   role: string;
   is_online: boolean;
+  has_active_chat: boolean;
+  chat_id: number | null;
+  subject?: {
+    id: number;
+    name: string;
+  };
 }
 
 export interface CreateChatRequest {

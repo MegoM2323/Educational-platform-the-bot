@@ -5,6 +5,7 @@ import logging
 from typing import List, Optional
 from django.db import transaction
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 
 from ..models import ChatRoom, Message
@@ -24,6 +25,15 @@ class MessageService:
         """
         Отправить сообщение в чат.
 
+        RACE CONDITION PROTECTION:
+        - Базовая проверка: user.is_active, room.is_active (быстрые проверки)
+        - CRITICAL CHECK: повторная проверка can_access_chat() перед сохранением
+        - Это предотвращает сценарий:
+          1. View проверяет can_access_chat() → True
+          2. Учитель меняет enrollment на INACTIVE
+          3. Но Message.create() уже был вызван
+        - С этой проверкой: Message.create() происходит только если access все еще активен
+
         Args:
             user: Пользователь, отправляющий сообщение
             room: Чат-комната
@@ -34,6 +44,7 @@ class MessageService:
 
         Raises:
             ValueError: Если сообщение пусто, пользователь неактивен или чат неактивен
+            PermissionDenied: Если доступ был отозван (enrollment изменился, и т.д.)
         """
         if not user.is_active:
             raise ValueError("User is inactive")
@@ -44,9 +55,18 @@ class MessageService:
         if not room.is_active:
             raise ValueError("Chat is inactive")
 
-        message = Message.objects.create(
-            room=room, sender=user, content=content.strip()
-        )
+        # CRITICAL: Double-check permissions AT MESSAGE TIME
+        # Prevents race condition between can_access_chat() check (in view)
+        # and Message.save() (here). This is essential for security.
+        from chat.services.chat_service import ChatService
+
+        if not ChatService.can_access_chat(user, room):
+            logger.warning(
+                f"User {user.id} tried to send message to {room.id} but access was revoked"
+            )
+            raise PermissionDenied("Access to chat has been revoked")
+
+        message = Message.objects.create(room=room, sender=user, content=content.strip())
 
         room.updated_at = timezone.now()
         room.save(update_fields=["updated_at"])

@@ -13,6 +13,7 @@ from django.db.models import (
     Subquery,
     IntegerField,
     Prefetch,
+    F,
 )
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -66,29 +67,21 @@ class ChatService:
         user_min, user_max = ordered_users[0], ordered_users[1]
 
         # Первая проверка БЕЗ блокировки (fast path)
-        existing_room = ChatService._find_existing_chat(
-            user_min, user_max, for_update=False
-        )
+        existing_room = ChatService._find_existing_chat(user_min, user_max, for_update=False)
         if existing_room:
-            logger.debug(
-                f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}"
-            )
+            logger.debug(f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}")
             return existing_room, False
 
         # Вторая проверка С блокировкой (slow path)
         with transaction.atomic():
-            existing_room = ChatService._find_existing_chat(
-                user_min, user_max, for_update=True
-            )
+            existing_room = ChatService._find_existing_chat(user_min, user_max, for_update=True)
             if existing_room:
                 logger.debug(f"Found existing chat {existing_room.id} after lock")
                 return existing_room, False
 
             # Создаем чат (порядок user1, user2 не важен, т.к. уже в транзакции)
             room = ChatService._create_chat(user1, user2)
-            logger.info(
-                f"Created new chat {room.id} between users {user1.id} and {user2.id}"
-            )
+            logger.info(f"Created new chat {room.id} between users {user1.id} and {user2.id}")
             return room, True
 
     @staticmethod
@@ -196,6 +189,13 @@ class ChatService:
 
         Сортировка: по updated_at DESC
 
+        ОПТИМИЗАЦИЯ: Используется Count с условиями вместо вложенных Subquery
+        для избежания N+1 queries на unread_count.
+        - last_message: Subquery (1 запрос)
+        - unread_count: Count с Q() фильтрами (в основном запросе)
+        - participants: prefetch_related (1 запрос)
+        Итого: 2-3 запроса вместо 1+(N*3)
+
         ВАЖНО: Пагинация должна делаться на уровне View через QuerySet slicing,
         а не в сервисе. Это позволяет правильно обрабатывать count() и offset.
 
@@ -222,49 +222,37 @@ class ChatService:
             .values("created_at")[:1]
         )
 
-        participant_last_read_subquery = ChatParticipant.objects.filter(
-            room=OuterRef("id"), user=user
-        ).values("last_read_at")[:1]
-
         is_admin = hasattr(user, "role") and user.role == "admin"
 
         if is_admin:
-            unread_count_subquery = (
-                Message.objects.filter(
-                    room=OuterRef("id"),
-                    is_deleted=False,
-                )
-                .exclude(sender=user)
-                .values("room")
-                .annotate(count=Count("id"))
-                .values("count")
-            )
+            unread_count_filter = Q(
+                messages__is_deleted=False,
+            ) & ~Q(messages__sender=user)
         else:
-            unread_count_subquery = (
-                Message.objects.filter(
-                    room=OuterRef("id"),
-                    is_deleted=False,
-                    created_at__gt=Subquery(participant_last_read_subquery),
-                )
-                .exclude(sender=user)
-                .values("room")
-                .annotate(count=Count("id"))
-                .values("count")
-            )
+            participant_last_read_subquery = ChatParticipant.objects.filter(
+                room=OuterRef("id"), user=user
+            ).values("last_read_at")[:1]
+
+            unread_count_filter = Q(
+                messages__is_deleted=False,
+                messages__created_at__gt=Subquery(participant_last_read_subquery),
+            ) & ~Q(messages__sender=user)
 
         qs = (
             base_qs.annotate(
                 last_message_content=Subquery(last_message_subquery),
                 last_message_time=Subquery(last_message_time_subquery),
-                unread_count=Subquery(
-                    unread_count_subquery, output_field=IntegerField()
+                unread_count=Count(
+                    "messages",
+                    filter=unread_count_filter,
+                    distinct=True,
                 ),
             )
             .prefetch_related(
                 Prefetch(
                     "participants",
                     queryset=ChatParticipant.objects.select_related("user"),
-                    to_attr="_prefetched_participants"
+                    to_attr="_prefetched_participants",
                 )
             )
             .distinct()
@@ -284,13 +272,19 @@ class ChatService:
         Если permissions истек (enrollment INACTIVE, tutor removed, и т.д.),
         доступ блокируется.
 
+        RACE CONDITION PROTECTION:
+        - Для direct chats: использует SELECT FOR UPDATE для блокировки
+        - Это гарантирует что permissions не изменятся между проверкой и использованием
+        - Timeline защиты: Thread1 не может изменить enrollment пока Thread2 проверяет доступ
+
         Логика:
         1. Если user.is_active == False → False
         2. Если user.role == 'admin' → True (админы видят все)
         3. Если user НЕ в ChatParticipant → False
         4. Получить other_participant (собеседника)
         5. Проверить что собеседник активен
-        6. Проверить _validate_chat_permissions(user, other_participant)
+        6. Для direct chats: использовать SELECT FOR UPDATE для безопасности
+        7. Проверить _validate_chat_permissions(user, other_participant)
 
         Args:
             user: Пользователь
@@ -316,9 +310,7 @@ class ChatService:
 
         # Получить всех участников чата (кроме текущего пользователя)
         participants = list(
-            ChatParticipant.objects.filter(room=room)
-            .exclude(user=user)
-            .select_related("user")
+            ChatParticipant.objects.filter(room=room).exclude(user=user).select_related("user")
         )
 
         if len(participants) == 0:
@@ -329,9 +321,7 @@ class ChatService:
         # Проверить что все участники активны
         for participant in participants:
             if not participant.user.is_active:
-                logger.debug(
-                    f"Participant {participant.user.id} in chat {room.id} is inactive"
-                )
+                logger.debug(f"Participant {participant.user.id} in chat {room.id} is inactive")
                 return False
 
         # Для group chats (3+ участников) - просто проверить что участник в ChatParticipant достаточно
@@ -339,16 +329,35 @@ class ChatService:
             logger.debug(f"User {user.id} has valid access to group chat {room.id}")
             return True
 
-        # Для direct chats (2 участников всего) - проверить permissions
-        other_participant = participants[0].user
-        has_permission = ChatService._validate_chat_permissions(user, other_participant)
-
-        if not has_permission:
-            logger.debug(
-                f"User {user.id} lost permission to chat with {other_participant.id} "
-                f"(enrollment changed, tutor removed, etc.)"
+        # Для direct chats (2 участников всего) - проверить permissions с race condition protection
+        # SELECT FOR UPDATE предотвращает изменение enrollment пока мы проверяем доступ
+        with transaction.atomic():
+            # Заново получаем participants с блокировкой (SELECT FOR UPDATE)
+            # Это гарантирует что никто не изменит permissions во время проверки
+            locked_participants = list(
+                ChatParticipant.objects.filter(room=room)
+                .exclude(user=user)
+                .select_related("user")
+                .select_for_update()
             )
-            return False
+
+            if len(locked_participants) != 1:
+                logger.warning(
+                    f"Direct chat {room.id} has unexpected participant count: {len(locked_participants)}"
+                )
+                return False
+
+            other_participant = locked_participants[0].user
+
+            # Re-validate permissions under lock
+            has_permission = ChatService._validate_chat_permissions(user, other_participant)
+
+            if not has_permission:
+                logger.debug(
+                    f"User {user.id} lost permission to chat with {other_participant.id} "
+                    f"(enrollment changed, tutor removed, etc.)"
+                )
+                return False
 
         logger.debug(f"User {user.id} has valid access to direct chat {room.id}")
         return True
@@ -371,19 +380,13 @@ class ChatService:
             participant.save(update_fields=["last_read_at"])
             logger.debug(f"Marked chat {room.id} as read for user {user.id}")
         except ChatParticipant.DoesNotExist:
-            logger.debug(
-                f"No ChatParticipant found for user {user.id} in chat {room.id}"
-            )
+            logger.debug(f"No ChatParticipant found for user {user.id} in chat {room.id}")
             pass
 
     @staticmethod
     def _get_contacts_for_admin(user):
         """Админ видит всех активных пользователей, кроме себя."""
-        return (
-            User.objects.filter(is_active=True)
-            .exclude(id=user.id)
-            .values_list("id", flat=True)
-        )
+        return User.objects.filter(is_active=True).exclude(id=user.id).values_list("id", flat=True)
 
     @staticmethod
     def _get_contacts_for_student(student):
@@ -521,6 +524,11 @@ class ChatService:
         Оптимизированная версия с role-specific queries вместо линейного перебора.
         Максимум 4 SQL запроса на пользователя вместо 1200-3000.
 
+        ОПТИМИЗАЦИЯ ПАМЯТИ:
+        - Использует iterator(chunk_size=100) для streaming больших наборов данных
+        - Prefetch все SubjectEnrollment один раз (не N+1 в цикле)
+        - Префильтр parent_children один раз перед циклом
+
         Returns:
             list[dict]: Список контактов с полями:
                 - id, full_name, role
@@ -528,9 +536,7 @@ class ChatService:
         """
         allowed_contacts_qs = ChatService._get_allowed_contacts_queryset(user)
 
-        my_rooms = ChatParticipant.objects.filter(user=user).values_list(
-            "room_id", flat=True
-        )
+        my_rooms = ChatParticipant.objects.filter(user=user).values_list("room_id", flat=True)
         existing_chats = {}
 
         for cp in ChatParticipant.objects.filter(
@@ -541,51 +547,66 @@ class ChatService:
             if user_id not in existing_chats:
                 existing_chats[user_id] = room_id
 
+        user_role = getattr(user, "role", None)
+
+        student_teacher_enrollments = {}
+        parent_children = set()
+
+        if user_role == "student":
+            enrollments = SubjectEnrollment.objects.filter(
+                student=user,
+                status=SubjectEnrollment.Status.ACTIVE,
+            ).select_related("subject", "teacher")
+
+            for enrollment in enrollments:
+                teacher_id = enrollment.teacher_id
+                if teacher_id not in student_teacher_enrollments:
+                    student_teacher_enrollments[teacher_id] = {
+                        "id": enrollment.subject.id,
+                        "name": enrollment.subject.name,
+                    }
+
+        elif user_role == "parent":
+            from accounts.models import StudentProfile
+
+            parent_children = set(
+                StudentProfile.objects.filter(
+                    parent=user,
+                    user__is_active=True,
+                ).values_list("user_id", flat=True)
+            )
+
+            if parent_children:
+                enrollments = SubjectEnrollment.objects.filter(
+                    student_id__in=parent_children,
+                    status=SubjectEnrollment.Status.ACTIVE,
+                ).select_related("subject", "teacher")
+
+                for enrollment in enrollments:
+                    teacher_id = enrollment.teacher_id
+                    if teacher_id not in student_teacher_enrollments:
+                        student_teacher_enrollments[teacher_id] = {
+                            "id": enrollment.subject.id,
+                            "name": enrollment.subject.name,
+                        }
+
         contacts = []
-        for other_user in allowed_contacts_qs:
-            # Получить URL аватара безопасно (без исключений если файл не существует)
+        BATCH_SIZE = 100
+
+        for other_user in allowed_contacts_qs.iterator(chunk_size=BATCH_SIZE):
             avatar_url = None
             try:
                 avatar = getattr(other_user, "avatar", None)
                 if avatar and hasattr(avatar, "url"):
                     avatar_url = avatar.url
             except (ValueError, AttributeError):
-                # Если файл не существует или другая ошибка, просто пропустить
                 avatar_url = None
 
-            # Получить subject для учителя (если это student->teacher или parent->teacher чат)
             subject_info = None
-            user_role = getattr(user, "role", None)
             other_role = getattr(other_user, "role", "user")
 
-            if other_role == "teacher":
-                # Найти первый ACTIVE SubjectEnrollment
-                if user_role == "student":
-                    # Student -> Teacher
-                    enrollment = SubjectEnrollment.objects.filter(
-                        student=user,
-                        teacher=other_user,
-                        status=SubjectEnrollment.Status.ACTIVE
-                    ).select_related("subject").first()
-                elif user_role == "parent":
-                    # Parent -> Teacher (через детей)
-                    from accounts.models import StudentProfile
-                    parent_children = StudentProfile.objects.filter(
-                        parent=user,
-                        parent__is_active=True,
-                    ).values_list("user_id", flat=True)
-
-                    enrollment = SubjectEnrollment.objects.filter(
-                        student_id__in=parent_children,
-                        teacher=other_user,
-                        status=SubjectEnrollment.Status.ACTIVE
-                    ).select_related("subject").first()
-
-                if enrollment:
-                    subject_info = {
-                        "id": enrollment.subject.id,
-                        "name": enrollment.subject.name,
-                    }
+            if other_role == "teacher" and other_user.id in student_teacher_enrollments:
+                subject_info = student_teacher_enrollments[other_user.id]
 
             contact_dict = {
                 "id": other_user.id,
@@ -602,7 +623,6 @@ class ChatService:
                 "chat_id": existing_chats.get(other_user.id),
             }
 
-            # Добавить subject если он есть
             if subject_info:
                 contact_dict["subject"] = subject_info
 

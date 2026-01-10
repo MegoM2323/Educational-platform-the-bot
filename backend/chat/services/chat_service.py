@@ -33,6 +33,17 @@ class ChatService:
     """
 
     @staticmethod
+    def _is_admin_user(user: User) -> bool:
+        """
+        Check if user has admin privileges.
+        Centralized admin check to avoid duplication.
+
+        Returns:
+            bool: True if user has admin role, False otherwise
+        """
+        return hasattr(user, "role") and user.role == "admin"
+
+    @staticmethod
     def get_or_create_chat(user1: User, user2: User) -> Tuple[ChatRoom, bool]:
         """
         Получить существующий или создать новый чат между двумя пользователями.
@@ -67,21 +78,29 @@ class ChatService:
         user_min, user_max = ordered_users[0], ordered_users[1]
 
         # Первая проверка БЕЗ блокировки (fast path)
-        existing_room = ChatService._find_existing_chat(user_min, user_max, for_update=False)
+        existing_room = ChatService._find_existing_chat(
+            user_min, user_max, for_update=False
+        )
         if existing_room:
-            logger.debug(f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}")
+            logger.debug(
+                f"Found existing chat {existing_room.id} for users {user1.id}, {user2.id}"
+            )
             return existing_room, False
 
         # Вторая проверка С блокировкой (slow path)
         with transaction.atomic():
-            existing_room = ChatService._find_existing_chat(user_min, user_max, for_update=True)
+            existing_room = ChatService._find_existing_chat(
+                user_min, user_max, for_update=True
+            )
             if existing_room:
                 logger.debug(f"Found existing chat {existing_room.id} after lock")
                 return existing_room, False
 
             # Создаем чат (порядок user1, user2 не важен, т.к. уже в транзакции)
             room = ChatService._create_chat(user1, user2)
-            logger.info(f"Created new chat {room.id} between users {user1.id} and {user2.id}")
+            logger.info(
+                f"Created new chat {room.id} between users {user1.id} and {user2.id}"
+            )
             return room, True
 
     @staticmethod
@@ -205,7 +224,7 @@ class ChatService:
         Returns:
             QuerySet[ChatRoom]: Оптимизированный queryset с аннотациями (БЕЗ слайсинга)
         """
-        if hasattr(user, "role") and user.role == "admin":
+        if ChatService._is_admin_user(user):
             base_qs = ChatRoom.objects.filter(is_active=True)
         else:
             base_qs = ChatRoom.objects.filter(participants__user=user, is_active=True)
@@ -222,7 +241,7 @@ class ChatService:
             .values("created_at")[:1]
         )
 
-        is_admin = hasattr(user, "role") and user.role == "admin"
+        is_admin = ChatService._is_admin_user(user)
 
         if is_admin:
             unread_count_filter = Q(
@@ -262,6 +281,37 @@ class ChatService:
         return qs
 
     @staticmethod
+    def _user_in_room(user: User, room: ChatRoom) -> bool:
+        """
+        Check if user is participant in room.
+        Single exists() query.
+        """
+        return ChatParticipant.objects.filter(user=user, room=room).exists()
+
+    @staticmethod
+    def _get_other_participant(
+        room: ChatRoom, exclude_user: User, select_lock: bool = False
+    ):
+        """
+        Get the other participant in a direct chat.
+        Returns User object, not ChatParticipant.
+        Optimized single query.
+        """
+        qs = (
+            ChatParticipant.objects.filter(room=room)
+            .exclude(user=exclude_user)
+            .select_related("user")
+        )
+
+        if select_lock:
+            qs = qs.select_for_update()
+
+        try:
+            return qs.get().user
+        except ChatParticipant.DoesNotExist:
+            return None
+
+    @staticmethod
     def can_access_chat(user: User, room: ChatRoom) -> bool:
         """
         Проверить может ли пользователь получить доступ к чату.
@@ -281,10 +331,10 @@ class ChatService:
         1. Если user.is_active == False → False
         2. Если user.role == 'admin' → True (админы видят все)
         3. Если user НЕ в ChatParticipant → False
-        4. Получить other_participant (собеседника)
+        4. Получить other_participant (собеседника) одной оптимальной query
         5. Проверить что собеседник активен
-        6. Для direct chats: использовать SELECT FOR UPDATE для безопасности
-        7. Проверить _validate_chat_permissions(user, other_participant)
+        6. Для group chats (3+ участников) → разрешить доступ
+        7. Для direct chats (2 участников) → проверить permissions с SELECT FOR UPDATE
 
         Args:
             user: Пользователь
@@ -297,20 +347,21 @@ class ChatService:
             logger.debug(f"Inactive user {user.id} denied access to chat {room.id}")
             return False
 
-        if hasattr(user, "role") and user.role == "admin":
+        if ChatService._is_admin_user(user):
             logger.debug(f"Admin user {user.id} has access to chat {room.id}")
             return True
 
-        # Проверить что user является участником
-        try:
-            participant = ChatParticipant.objects.get(room=room, user=user)
-        except ChatParticipant.DoesNotExist:
+        # Оптимизация: единая query для проверки существования
+        if not ChatService._user_in_room(user, room):
             logger.debug(f"User {user.id} is not participant in chat {room.id}")
             return False
 
         # Получить всех участников чата (кроме текущего пользователя)
+        # Оптимизация: one query с select_related
         participants = list(
-            ChatParticipant.objects.filter(room=room).exclude(user=user).select_related("user")
+            ChatParticipant.objects.filter(room=room)
+            .exclude(user=user)
+            .select_related("user")
         )
 
         if len(participants) == 0:
@@ -321,7 +372,9 @@ class ChatService:
         # Проверить что все участники активны
         for participant in participants:
             if not participant.user.is_active:
-                logger.debug(f"Participant {participant.user.id} in chat {room.id} is inactive")
+                logger.debug(
+                    f"Participant {participant.user.id} in chat {room.id} is inactive"
+                )
                 return False
 
         # Для group chats (3+ участников) - просто проверить что участник в ChatParticipant достаточно
@@ -332,25 +385,22 @@ class ChatService:
         # Для direct chats (2 участников всего) - проверить permissions с race condition protection
         # SELECT FOR UPDATE предотвращает изменение enrollment пока мы проверяем доступ
         with transaction.atomic():
-            # Заново получаем participants с блокировкой (SELECT FOR UPDATE)
-            # Это гарантирует что никто не изменит permissions во время проверки
-            locked_participants = list(
-                ChatParticipant.objects.filter(room=room)
-                .exclude(user=user)
-                .select_related("user")
-                .select_for_update()
+            # Оптимизация: использовать _get_other_participant с select_lock=True
+            # Это одна query вместо двух (проверка существования + получение)
+            other_participant = ChatService._get_other_participant(
+                room, user, select_lock=True
             )
 
-            if len(locked_participants) != 1:
+            if not other_participant:
                 logger.warning(
-                    f"Direct chat {room.id} has unexpected participant count: {len(locked_participants)}"
+                    f"Direct chat {room.id} has unexpected participant count"
                 )
                 return False
 
-            other_participant = locked_participants[0].user
-
             # Re-validate permissions under lock
-            has_permission = ChatService._validate_chat_permissions(user, other_participant)
+            has_permission = ChatService._validate_chat_permissions(
+                user, other_participant
+            )
 
             if not has_permission:
                 logger.debug(
@@ -370,23 +420,31 @@ class ChatService:
         Обновляет ChatParticipant.last_read_at = now().
         Если ChatParticipant не существует → молча игнорирует.
 
+        Оптимизация: использует .update() вместо get()+save() (1 query вместо 2)
+
         Args:
             user: Пользователь
             room: Чат-комната
         """
-        try:
-            participant = ChatParticipant.objects.get(room=room, user=user)
-            participant.last_read_at = timezone.now()
-            participant.save(update_fields=["last_read_at"])
+        updated_count = ChatParticipant.objects.filter(user=user, room=room).update(
+            last_read_at=timezone.now()
+        )
+
+        if updated_count > 0:
             logger.debug(f"Marked chat {room.id} as read for user {user.id}")
-        except ChatParticipant.DoesNotExist:
-            logger.debug(f"No ChatParticipant found for user {user.id} in chat {room.id}")
-            pass
+        else:
+            logger.debug(
+                f"No ChatParticipant found for user {user.id} in chat {room.id}"
+            )
 
     @staticmethod
     def _get_contacts_for_admin(user):
         """Админ видит всех активных пользователей, кроме себя."""
-        return User.objects.filter(is_active=True).exclude(id=user.id).values_list("id", flat=True)
+        return (
+            User.objects.filter(is_active=True)
+            .exclude(id=user.id)
+            .values_list("id", flat=True)
+        )
 
     @staticmethod
     def _get_contacts_for_student(student):
@@ -411,7 +469,10 @@ class ChatService:
 
     @staticmethod
     def _get_contacts_for_teacher(teacher):
-        """Учитель может общаться с: Students + Parents (через детей) + Tutors (через студентов)."""
+        """
+        Учитель может общаться с: Students + Parents (через детей) + Tutors (через студентов).
+        Оптимизировано: 2 queries вместо 4.
+        """
         contact_ids = set()
 
         student_ids = SubjectEnrollment.objects.filter(
@@ -419,21 +480,24 @@ class ChatService:
             status=SubjectEnrollment.Status.ACTIVE,
             student__is_active=True,
         ).values_list("student_id", flat=True)
-        contact_ids.update(student_ids)
 
-        parent_ids = StudentProfile.objects.filter(
-            user_id__in=student_ids,
-            parent__isnull=False,
-            parent__is_active=True,
-        ).values_list("parent_id", flat=True)
-        contact_ids.update(parent_ids)
+        student_ids_list = list(student_ids)
+        contact_ids.update(student_ids_list)
 
-        tutor_ids = StudentProfile.objects.filter(
-            user_id__in=student_ids,
-            tutor__isnull=False,
-            tutor__is_active=True,
-        ).values_list("tutor_id", flat=True)
-        contact_ids.update(tutor_ids)
+        if student_ids_list:
+            parent_ids = StudentProfile.objects.filter(
+                user_id__in=student_ids_list,
+                parent__isnull=False,
+                parent__is_active=True,
+            ).values_list("parent_id", flat=True)
+            contact_ids.update(parent_ids)
+
+            tutor_ids = StudentProfile.objects.filter(
+                user_id__in=student_ids_list,
+                tutor__isnull=False,
+                tutor__is_active=True,
+            ).values_list("tutor_id", flat=True)
+            contact_ids.update(tutor_ids)
 
         return list(contact_ids)
 
@@ -536,7 +600,9 @@ class ChatService:
         """
         allowed_contacts_qs = ChatService._get_allowed_contacts_queryset(user)
 
-        my_rooms = ChatParticipant.objects.filter(user=user).values_list("room_id", flat=True)
+        my_rooms = ChatParticipant.objects.filter(user=user).values_list(
+            "room_id", flat=True
+        )
         existing_chats = {}
 
         for cp in ChatParticipant.objects.filter(

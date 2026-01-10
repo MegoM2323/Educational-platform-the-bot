@@ -68,7 +68,7 @@ export const ContactsList = ({ isOpen, onClose, onSelectContact }: ContactsListP
         title: data.created ? 'Чат создан' : 'Чат найден',
         description: data.created ? 'Новый чат успешно создан' : 'Вы перешли к существующему чату',
       });
-      onSelectContact(data.chat.id);
+      onSelectContact(data.id);
       onClose();
     },
     onError: (error: Error) => {

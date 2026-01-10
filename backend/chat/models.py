@@ -27,6 +27,7 @@ class ChatParticipant(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     joined_at = models.DateTimeField(auto_now_add=True)
     last_read_at = models.DateTimeField(null=True, blank=True)
+    is_muted = models.BooleanField(default=False, verbose_name="Заглушен")
 
     class Meta:
         verbose_name = "Участник чата"
@@ -56,11 +57,9 @@ class Message(models.Model):
     )
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
     )
-    content = models.TextField()
+    content = models.TextField(db_index=True)
     message_type = models.CharField(
         max_length=20,
         choices=MESSAGE_TYPE_CHOICES,

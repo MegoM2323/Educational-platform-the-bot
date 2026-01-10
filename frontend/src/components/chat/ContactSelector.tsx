@@ -197,7 +197,7 @@ export const ContactSelector = ({
       });
 
       if (onChatInitiated) {
-        onChatInitiated(data.chat.id);
+        onChatInitiated(data.id);
       }
 
       onClose();

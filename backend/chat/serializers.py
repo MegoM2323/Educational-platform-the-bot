@@ -23,32 +23,14 @@ class UserSimpleSerializer(serializers.ModelSerializer):
 
 
 class MessageSerializer(serializers.ModelSerializer):
-    """Сериализатор для сообщений"""
+    """Сериализатор для сообщений.
+
+    Поддерживает операции чтения, создания и обновления.
+    Для создания требует request в context.
+    """
 
     sender = UserSimpleSerializer(read_only=True)
     message_type = serializers.CharField(read_only=True)
-
-    class Meta:
-        model = Message
-        fields = (
-            "id",
-            "sender",
-            "message_type",
-            "content",
-            "created_at",
-            "updated_at",
-            "is_edited",
-        )
-        read_only_fields = ("id", "sender", "created_at", "updated_at", "is_edited")
-
-
-class MessageCreateSerializer(serializers.Serializer):
-    """Сериализатор для создания сообщения через WebSocket.
-
-    Примечание: message_type не поддерживается в текущей версии.
-    Все сообщения обрабатываются как текст.
-    """
-
     content = serializers.CharField(
         max_length=10000,
         min_length=1,
@@ -61,21 +43,42 @@ class MessageCreateSerializer(serializers.Serializer):
         },
     )
 
+    class Meta:
+        model = Message
+        fields = (
+            "id",
+            "sender",
+            "message_type",
+            "content",
+            "created_at",
+            "updated_at",
+            "is_edited",
+        )
+        read_only_fields = (
+            "id",
+            "sender",
+            "created_at",
+            "updated_at",
+            "is_edited",
+            "message_type",
+        )
+
     def validate_content(self, value):
+        """Валидировать содержимое сообщения"""
         if not value or not value.strip():
             raise serializers.ValidationError("Message content cannot be empty.")
-        return value
-
-
-class MessageUpdateSerializer(serializers.Serializer):
-    """Сериализатор для обновления сообщения"""
-
-    content = serializers.CharField(max_length=10000, min_length=1)
-
-    def validate_content(self, value):
-        if not value.strip():
-            raise serializers.ValidationError("Message content cannot be empty")
         return value.strip()
+
+    def create(self, validated_data):
+        """Создать сообщение с автоматическим заполнением sender"""
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            validated_data["sender"] = request.user
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """Обновить сообщение"""
+        return super().update(instance, validated_data)
 
 
 class ChatParticipantSerializer(serializers.ModelSerializer):

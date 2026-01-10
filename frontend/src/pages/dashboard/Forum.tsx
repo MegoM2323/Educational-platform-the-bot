@@ -17,9 +17,8 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useForumChats } from '@/hooks/useForumChats';
 import { useForumMessages, useSendForumMessage } from '@/hooks/useForumMessages';
-import { ForumChat, ForumMessage, forumAPI } from '@/integrations/api/forumAPICompat';
-import { Chat, ChatMessage as ChatAPIMessage } from '@/integrations/api/chatAPI';
-import { chatWebSocketService, ChatMessage, TypingUser } from '@/services/chatWebSocketService';
+import { Chat, ChatMessage, chatAPI } from '@/integrations/api/chatAPI';
+import { chatWebSocketService, ChatMessage as WSChatMessage, TypingUser } from '@/services/chatWebSocketService';
 import { useAuth } from '@/contexts/AuthContext';
 import { StudentSidebar } from '@/components/layout/StudentSidebar';
 import { TeacherSidebar } from '@/components/layout/TeacherSidebar';
@@ -59,7 +58,7 @@ function Forum() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [selectedChat, setSelectedChat] = useState<ForumChat | null>(null);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
@@ -129,7 +128,7 @@ function Forum() {
   });
 
   const handleWebSocketMessage = useCallback(
-    (wsMessage: ChatMessage) => {
+    (wsMessage: WSChatMessage) => {
       try {
         logger.debug('[Forum] WebSocket message received in component handler:', {
           messageId: wsMessage.id,
@@ -143,7 +142,7 @@ function Forum() {
           return;
         }
 
-        const forumMessage: ForumMessage = {
+        const chatMessage: ChatMessage = {
           id: wsMessage.id,
           content: wsMessage.content,
           sender: {
@@ -161,19 +160,19 @@ function Forum() {
         };
 
         logger.debug('[Forum] Updating TanStack Query cache for chat:', selectedChat.id);
-        queryClient.setQueriesData<InfiniteData<ForumMessage[]>>(
+        queryClient.setQueriesData<InfiniteData<ChatMessage[]>>(
           { queryKey: ['forum-messages', selectedChat.id], exact: false },
           (oldData) => {
             if (!oldData || !oldData.pages) {
               logger.debug('[Forum] No existing data, creating new InfiniteData with message');
               return {
-                pages: [[forumMessage]],
+                pages: [[chatMessage]],
                 pageParams: [0],
               };
             }
 
             const exists = oldData.pages.some((page) =>
-              page.some((msg) => msg.id === forumMessage.id)
+              page.some((msg) => msg.id === chatMessage.id)
             );
 
             if (exists) {
@@ -184,7 +183,7 @@ function Forum() {
             logger.debug('[Forum] Adding new message to last page of InfiniteData');
             const newPages = [...oldData.pages];
             const lastPageIndex = newPages.length - 1;
-            newPages[lastPageIndex] = [...newPages[lastPageIndex], forumMessage];
+            newPages[lastPageIndex] = [...newPages[lastPageIndex], chatMessage];
 
             return {
               ...oldData,
@@ -325,7 +324,7 @@ function Forum() {
     };
   }, [selectedChat, user, handleWebSocketMessage, handleTyping, handleTypingStop, handleError]);
 
-  const handleSelectChat = async (chat: ForumChat) => {
+  const handleSelectChat = async (chat: Chat) => {
     if (switchTimeoutRef.current) {
       clearTimeout(switchTimeoutRef.current);
     }
@@ -350,8 +349,8 @@ function Forum() {
 
       if (chat.unread_count > 0) {
         try {
-          await forumAPI.markChatAsRead(chat.id);
-          queryClient.setQueryData<ForumChat[]>(['forum', 'chats'], (oldChats) => {
+          await chatAPI.markAsRead(chat.id);
+          queryClient.setQueryData<Chat[]>(['forum', 'chats'], (oldChats) => {
             if (!oldChats) return oldChats;
             return oldChats.map((c) => (c.id === chat.id ? { ...c, unread_count: 0 } : c));
           });
@@ -408,7 +407,7 @@ function Forum() {
           return;
         }
 
-        const updatedChats = queryClient.getQueryData<ForumChat[]>(['forum', 'chats']);
+        const updatedChats = queryClient.getQueryData<Chat[]>(['forum', 'chats']);
         const newChat = updatedChats?.find((chat) => chat.id === chatId);
 
         if (newChat) {

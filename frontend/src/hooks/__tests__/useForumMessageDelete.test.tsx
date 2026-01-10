@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useForumMessageDelete } from '../useForumMessageDelete';
-import { forumAPI, ForumMessage } from '@/integrations/api/forumAPI';
+import { chatAPI, ChatMessage } from '@/integrations/api/chatAPI';
 
-// Mock forumAPI
-vi.mock('@/integrations/api/forumAPI', () => ({
-  forumAPI: {
-    deleteForumMessage: vi.fn(),
+// Mock chatAPI
+vi.mock('@/integrations/api/chatAPI', () => ({
+  chatAPI: {
+    deleteMessage: vi.fn(),
   },
 }));
 
@@ -32,7 +32,7 @@ describe('useForumMessageDelete', () => {
   );
 
   it('should delete message successfully', async () => {
-    vi.mocked(forumAPI.deleteForumMessage).mockResolvedValue(undefined);
+    vi.mocked(chatAPI.deleteMessage).mockResolvedValue(undefined);
 
     const { result } = renderHook(
       () => useForumMessageDelete({ chatId: 1 }),
@@ -47,13 +47,13 @@ describe('useForumMessageDelete', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(forumAPI.deleteForumMessage).toHaveBeenCalledWith(1);
+    expect(chatAPI.deleteMessage).toHaveBeenCalledWith(1);
   });
 
   it('should call onSuccess callback', async () => {
     const onSuccess = vi.fn();
 
-    vi.mocked(forumAPI.deleteForumMessage).mockResolvedValue(undefined);
+    vi.mocked(chatAPI.deleteMessage).mockResolvedValue(undefined);
 
     const { result } = renderHook(
       () => useForumMessageDelete({ chatId: 1, onSuccess }),
@@ -73,7 +73,7 @@ describe('useForumMessageDelete', () => {
     const onError = vi.fn();
     const error = new Error('Delete failed');
 
-    vi.mocked(forumAPI.deleteForumMessage).mockRejectedValue(error);
+    vi.mocked(chatAPI.deleteMessage).mockRejectedValue(error);
 
     const { result } = renderHook(
       () => useForumMessageDelete({ chatId: 1, onError }),
@@ -90,7 +90,7 @@ describe('useForumMessageDelete', () => {
   });
 
   it('should perform optimistic removal', async () => {
-    const mockMessages: ForumMessage[] = [
+    const mockMessages: ChatMessage[] = [
       {
         id: 1,
         content: 'Message to delete',
@@ -112,7 +112,7 @@ describe('useForumMessageDelete', () => {
     // Set initial cache
     queryClient.setQueryData(['forum-messages', 1, 50, 0], mockMessages);
 
-    vi.mocked(forumAPI.deleteForumMessage).mockResolvedValue(undefined);
+    vi.mocked(chatAPI.deleteMessage).mockResolvedValue(undefined);
 
     const { result } = renderHook(
       () => useForumMessageDelete({ chatId: 1 }),
@@ -128,7 +128,7 @@ describe('useForumMessageDelete', () => {
     });
 
     // Verify cache was updated - message should be removed
-    const cachedMessages = queryClient.getQueryData<ForumMessage[]>([
+    const cachedMessages = queryClient.getQueryData<ChatMessage[]>([
       'forum-messages',
       1,
       50,
@@ -140,7 +140,7 @@ describe('useForumMessageDelete', () => {
   });
 
   it('should rollback on error', async () => {
-    const mockMessages: ForumMessage[] = [
+    const mockMessages: ChatMessage[] = [
       {
         id: 1,
         content: 'Message',
@@ -154,7 +154,7 @@ describe('useForumMessageDelete', () => {
     queryClient.setQueryData(['forum-messages', 1, 50, 0], mockMessages);
 
     const error = new Error('Delete failed');
-    vi.mocked(forumAPI.deleteForumMessage).mockRejectedValue(error);
+    vi.mocked(chatAPI.deleteMessage).mockRejectedValue(error);
 
     const { result } = renderHook(
       () => useForumMessageDelete({ chatId: 1 }),
@@ -170,7 +170,7 @@ describe('useForumMessageDelete', () => {
     });
 
     // Cache should still have the message after rollback
-    const cachedMessages = queryClient.getQueryData<ForumMessage[]>([
+    const cachedMessages = queryClient.getQueryData<ChatMessage[]>([
       'forum-messages',
       1,
       50,

@@ -659,7 +659,7 @@ const StudentDashboard = () => {
                           className="h-auto flex-col gap-2 py-6"
                           onClick={() =>
                             networkStatus.isOnline &&
-                            navigate("/dashboard/student/chat")
+                            navigate("/dashboard/student/forum")
                           }
                           disabled={!networkStatus.isOnline}
                           title={

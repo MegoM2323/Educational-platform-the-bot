@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useForumChats, useForumChatsWithRefresh } from '../useForumChats';
-import { forumAPI } from '@/integrations/api/forumAPI';
+import { chatAPI } from '@/integrations/api/chatAPI';
 import React from 'react';
 
-// Mock forumAPI
-vi.mock('@/integrations/api/forumAPI', () => ({
-  forumAPI: {
-    getForumChats: vi.fn(),
-    getAvailableContacts: vi.fn(),
-    initiateChat: vi.fn(),
+// Mock chatAPI
+vi.mock('@/integrations/api/chatAPI', () => ({
+  chatAPI: {
+    getChatList: vi.fn(),
+    getContacts: vi.fn(),
+    createOrGetChat: vi.fn(),
   },
 }));
 
@@ -74,8 +74,8 @@ describe('useForumChats', () => {
   });
 
   it('должен успешно загружать список форум-чатов', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue([]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue([]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -84,11 +84,11 @@ describe('useForumChats', () => {
     await waitFor(() => expect(result.current.isLoadingChats).toBe(false));
 
     expect(result.current.chats).toEqual(mockForumChats);
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(1);
   });
 
   it('должен возвращать корректную структуру данных чата', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([mockForumChats[0]]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([mockForumChats[0]]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -107,10 +107,10 @@ describe('useForumChats', () => {
   });
 
   it('должен показывать состояние загрузки', () => {
-    vi.mocked(forumAPI.getForumChats).mockImplementation(
+    vi.mocked(chatAPI.getChatList).mockImplementation(
       () => new Promise(() => {}) // Never resolves
     );
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue([]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -122,7 +122,7 @@ describe('useForumChats', () => {
 
 
   it('должен правильно устанавливать staleTime в 5 минут', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
 
     const { result, rerender } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -130,18 +130,18 @@ describe('useForumChats', () => {
 
     await waitFor(() => expect(result.current.isLoadingChats).toBe(false));
 
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(1);
 
     // Re-render immediately - should use cache (staleTime 300s = 5 minutes)
     rerender();
 
     // API should not be called again
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(1);
   });
 
   it('должен поддерживать retry с 2 попытками', async () => {
     // First call fails, second succeeds
-    vi.mocked(forumAPI.getForumChats)
+    vi.mocked(chatAPI.getChatList)
       .mockRejectedValueOnce(new Error('First fail'))
       .mockResolvedValueOnce(mockForumChats);
 
@@ -160,7 +160,7 @@ describe('useForumChats', () => {
   });
 
   it('должен отличать чаты по типам (forum_subject, forum_tutor)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -177,7 +177,7 @@ describe('useForumChats', () => {
   });
 
   it('должен включать информацию об непрочитанных сообщениях', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -191,7 +191,7 @@ describe('useForumChats', () => {
   });
 
   it('должен включать последнее сообщение в чате', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([mockForumChats[0]]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([mockForumChats[0]]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -206,8 +206,8 @@ describe('useForumChats', () => {
   });
 
   it('должен обновлять данные при refetch (через useForumChatsWithRefresh)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue([]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue([]);
 
     const { result } = renderHook(() => useForumChatsWithRefresh(), {
       wrapper: createWrapper(),
@@ -215,19 +215,19 @@ describe('useForumChats', () => {
 
     await waitFor(() => expect(result.current.isLoadingChats).toBe(false));
 
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(1);
 
     // Trigger refetch via refreshChats
     result.current.refreshChats();
 
     await waitFor(() => {
-      expect(forumAPI.getForumChats).toHaveBeenCalledTimes(2);
+      expect(chatAPI.getChatList).toHaveBeenCalledTimes(2);
     });
   });
 
   it('должен кешировать результаты между вызовами', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue([]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue([]);
 
     // Use same wrapper for cache sharing
     const wrapper = createWrapper();
@@ -236,14 +236,14 @@ describe('useForumChats', () => {
 
     await waitFor(() => expect(result1.current.isLoadingChats).toBe(false));
 
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(1);
 
     const { result: result2 } = renderHook(() => useForumChats(), { wrapper });
 
     await waitFor(() => expect(result2.current.isLoadingChats).toBe(false));
 
     // Should still be 1 call because of caching with same QueryClient
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -253,7 +253,7 @@ describe('useForumChatsWithRefresh', () => {
   });
 
   it('должен предоставлять функцию refreshChats для инвалидации кеша', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
 
     const { result } = renderHook(() => useForumChatsWithRefresh(), {
       wrapper: createWrapper(),
@@ -261,19 +261,19 @@ describe('useForumChatsWithRefresh', () => {
 
     await waitFor(() => expect(result.current.isLoadingChats).toBe(false));
 
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(1);
 
     // Call refreshChats
     result.current.refreshChats();
 
     // After refresh, should trigger a new API call
     await waitFor(() => {
-      expect(forumAPI.getForumChats).toHaveBeenCalledTimes(2);
+      expect(chatAPI.getChatList).toHaveBeenCalledTimes(2);
     });
   });
 
   it('должен включать все свойства базового хука useForumChats', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
 
     const { result } = renderHook(() => useForumChatsWithRefresh(), {
       wrapper: createWrapper(),
@@ -295,7 +295,7 @@ describe('useForumChatsWithRefresh', () => {
     const initialChats = [mockForumChats[0]];
     const updatedChats = mockForumChats;
 
-    vi.mocked(forumAPI.getForumChats)
+    vi.mocked(chatAPI.getChatList)
       .mockResolvedValueOnce(initialChats)
       .mockResolvedValueOnce(updatedChats);
 
@@ -324,7 +324,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
   // REGRESSION TEST: Bug fix from commit 0309b83
   // Issue: refetchOnMount was missing, causing chats not to load on component mount
   it('должен загружать данные при монтировании компонента (refetchOnMount: true)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -338,13 +338,13 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
 
     // Data should be available
     expect(result.current.chats).toEqual(mockForumChats);
-    expect(forumAPI.getForumChats).toHaveBeenCalled();
+    expect(chatAPI.getChatList).toHaveBeenCalled();
   });
 
   // REGRESSION TEST: Ensure refetchOnMount triggers on every component mount
   it('должен повторно загружать данные при повторном монтировании (refetchOnMount: true)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue([]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue([]);
 
     // First mount - create fresh wrapper
     const wrapper1 = createWrapper();
@@ -353,7 +353,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
     });
 
     await waitFor(() => expect(result1.current.isLoadingChats).toBe(false));
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(1);
 
     // Unmount
     unmount1();
@@ -367,12 +367,12 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
     await waitFor(() => expect(result2.current.isLoadingChats).toBe(false));
 
     // API should be called again due to refetchOnMount
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(2);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(2);
   });
 
   // Test scenario: User with no chats
   it('должен возвращать пустой список для пользователя без чатов', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -387,8 +387,8 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
   // Test scenario: Network error
   it('должен обрабатывать ошибку сети', async () => {
     const networkError = new Error('Network error: Failed to fetch');
-    vi.mocked(forumAPI.getForumChats).mockRejectedValue(networkError);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue([]);
+    vi.mocked(chatAPI.getChatList).mockRejectedValue(networkError);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue([]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -408,7 +408,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
   // Test scenario: Server error (500)
   it('должен обрабатывать ошибку сервера (500)', async () => {
     const serverError = new Error('Internal Server Error');
-    vi.mocked(forumAPI.getForumChats).mockRejectedValue(serverError);
+    vi.mocked(chatAPI.getChatList).mockRejectedValue(serverError);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -425,7 +425,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
   // Test scenario: Authentication error
   it('должен обрабатывать ошибку аутентификации (401)', async () => {
     const authError = new Error('Unauthorized: Token expired');
-    vi.mocked(forumAPI.getForumChats).mockRejectedValue(authError);
+    vi.mocked(chatAPI.getChatList).mockRejectedValue(authError);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -442,7 +442,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
   // Test scenario: Timeout
   it('должен обрабатывать timeout при запросе', async () => {
     const timeoutError = new Error('Request timeout');
-    vi.mocked(forumAPI.getForumChats).mockRejectedValue(timeoutError);
+    vi.mocked(chatAPI.getChatList).mockRejectedValue(timeoutError);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -458,7 +458,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
 
   // Test scenario: Active chats with proper attributes
   it('должен возвращать список активных чатов с правильными атрибутами', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -487,7 +487,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
   // Test scenario: Inactive chats
   it('должен включать неактивные чаты в список', async () => {
     const inactiveChat = { ...mockForumChats[0], is_active: false };
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([inactiveChat]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([inactiveChat]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -501,7 +501,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
 
   // Test scenario: Multiple retries on failure
   it('должен повторять запрос дважды при сбое (retry: 2)', async () => {
-    vi.mocked(forumAPI.getForumChats)
+    vi.mocked(chatAPI.getChatList)
       .mockRejectedValueOnce(new Error('Fail 1'))
       .mockRejectedValueOnce(new Error('Fail 2'))
       .mockResolvedValueOnce(mockForumChats);
@@ -521,12 +521,12 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
     expect(result.current.isLoadingChats).toBe(false);
     expect(result.current.chats).toEqual(mockForumChats);
     // API should be called 3 times (2 retries + 1 success)
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(3);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(3);
   });
 
   // Test scenario: Window focus behavior
   it('должен не загружать при получении фокуса окна (refetchOnWindowFocus: false)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockForumChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockForumChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -534,7 +534,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
 
     await waitFor(() => expect(result.current.isLoadingChats).toBe(false));
 
-    const initialCallCount = vi.mocked(forumAPI.getForumChats).mock.calls.length;
+    const initialCallCount = vi.mocked(chatAPI.getChatList).mock.calls.length;
 
     // Simulate window focus event
     const focusEvent = new Event('focus');
@@ -544,7 +544,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // API should not be called again (refetchOnWindowFocus: false)
-    const finalCallCount = vi.mocked(forumAPI.getForumChats).mock.calls.length;
+    const finalCallCount = vi.mocked(chatAPI.getChatList).mock.calls.length;
     expect(finalCallCount).toBe(initialCallCount);
   });
 
@@ -556,7 +556,7 @@ describe('useForumChats - Edge Cases and Error Handling', () => {
         last_message: undefined, // Missing last_message
       },
     ];
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(partialChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(partialChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -620,8 +620,8 @@ describe('useForumChats - Available Contacts', () => {
   });
 
   it('должен успешно загружать список доступных контактов', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -630,30 +630,30 @@ describe('useForumChats - Available Contacts', () => {
     await waitFor(() => expect(result.current.isLoadingContacts).toBe(false));
 
     expect(result.current.availableContacts).toEqual(mockAvailableContacts);
-    expect(forumAPI.getAvailableContacts).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getContacts).toHaveBeenCalledTimes(1);
   });
 
   it('должен кешировать контакты на 5 минут (staleTime)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
 
     const wrapper = createWrapper();
     const { result, rerender } = renderHook(() => useForumChats(), { wrapper });
 
     await waitFor(() => expect(result.current.isLoadingContacts).toBe(false));
 
-    expect(forumAPI.getAvailableContacts).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getContacts).toHaveBeenCalledTimes(1);
 
     // Re-render immediately - should use cache (staleTime 5 minutes)
     rerender();
 
     // API should not be called again
-    expect(forumAPI.getAvailableContacts).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getContacts).toHaveBeenCalledTimes(1);
   });
 
   it('должен показывать состояние загрузки для контактов', () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockImplementation(
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockImplementation(
       () => new Promise(() => {}) // Never resolves
     );
 
@@ -667,8 +667,8 @@ describe('useForumChats - Available Contacts', () => {
 
   it('должен обрабатывать ошибку при загрузке контактов', async () => {
     const error = new Error('Failed to fetch contacts');
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockRejectedValue(error);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockRejectedValue(error);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -681,8 +681,8 @@ describe('useForumChats - Available Contacts', () => {
   });
 
   it('должен отличать контакты с активными чатами от контактов без чатов', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -701,8 +701,8 @@ describe('useForumChats - Available Contacts', () => {
   });
 
   it('должен возвращать пустой список для пользователя без доступных контактов', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue([]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue([]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -721,9 +721,9 @@ describe('useForumChats - Initiate Chat', () => {
   });
 
   it('должен успешно инициировать новый чат', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
-    vi.mocked(forumAPI.initiateChat).mockResolvedValue({
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.createOrGetChat).mockResolvedValue({
       success: true,
       chat: mockChatDetail,
       created: true,
@@ -741,13 +741,13 @@ describe('useForumChats - Initiate Chat', () => {
     expect(chatResponse.success).toBe(true);
     expect(chatResponse.chat.id).toBe(99);
     expect(chatResponse.created).toBe(true);
-    expect(forumAPI.initiateChat).toHaveBeenCalledWith(10, 1);
+    expect(chatAPI.createOrGetChat).toHaveBeenCalledWith(10, 1);
   });
 
   it('должен инициировать чат без subject_id (для FORUM_TUTOR)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
-    vi.mocked(forumAPI.initiateChat).mockResolvedValue({
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.createOrGetChat).mockResolvedValue({
       success: true,
       chat: { ...mockChatDetail, type: 'FORUM_TUTOR' },
       created: true,
@@ -763,13 +763,13 @@ describe('useForumChats - Initiate Chat', () => {
     const chatResponse = await result.current.initiateChat(20);
 
     expect(chatResponse.success).toBe(true);
-    expect(forumAPI.initiateChat).toHaveBeenCalledWith(20, undefined);
+    expect(chatAPI.createOrGetChat).toHaveBeenCalledWith(20, undefined);
   });
 
   it('должен показывать состояние загрузки при инициации чата', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
-    vi.mocked(forumAPI.initiateChat).mockImplementation(
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.createOrGetChat).mockImplementation(
       () => new Promise(() => {}) // Never resolves
     );
 
@@ -787,9 +787,9 @@ describe('useForumChats - Initiate Chat', () => {
 
   it('должен обрабатывать ошибку при инициации чата', async () => {
     const error = new Error('Unauthorized to chat with this user');
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
-    vi.mocked(forumAPI.initiateChat).mockRejectedValue(error);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.createOrGetChat).mockRejectedValue(error);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -806,11 +806,11 @@ describe('useForumChats - Initiate Chat', () => {
   });
 
   it('должен инвалидировать список чатов после успешной инициации', async () => {
-    vi.mocked(forumAPI.getForumChats)
+    vi.mocked(chatAPI.getChatList)
       .mockResolvedValueOnce([]) // Initial load
       .mockResolvedValueOnce([...mockForumChats]); // After initiate
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
-    vi.mocked(forumAPI.initiateChat).mockResolvedValue({
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.createOrGetChat).mockResolvedValue({
       success: true,
       chat: mockChatDetail,
       created: true,
@@ -832,7 +832,7 @@ describe('useForumChats - Initiate Chat', () => {
       expect(result.current.chats.length).toBeGreaterThan(0);
     });
 
-    expect(forumAPI.getForumChats).toHaveBeenCalledTimes(2);
+    expect(chatAPI.getChatList).toHaveBeenCalledTimes(2);
   });
 
   it('должен инвалидировать список доступных контактов после успешной инициации', async () => {
@@ -841,11 +841,11 @@ describe('useForumChats - Initiate Chat', () => {
       mockAvailableContacts[1],
     ];
 
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts)
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts)
       .mockResolvedValueOnce(mockAvailableContacts) // Initial load
       .mockResolvedValueOnce(updatedContacts); // After initiate
-    vi.mocked(forumAPI.initiateChat).mockResolvedValue({
+    vi.mocked(chatAPI.createOrGetChat).mockResolvedValue({
       success: true,
       chat: mockChatDetail,
       created: true,
@@ -865,14 +865,14 @@ describe('useForumChats - Initiate Chat', () => {
 
     // Wait for contacts to refetch
     await waitFor(() => {
-      expect(forumAPI.getAvailableContacts).toHaveBeenCalledTimes(2);
+      expect(chatAPI.getContacts).toHaveBeenCalledTimes(2);
     });
   });
 
   it('должен возвращать существующий чат если он уже создан (idempotent)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
-    vi.mocked(forumAPI.initiateChat).mockResolvedValue({
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.createOrGetChat).mockResolvedValue({
       success: true,
       chat: mockChatDetail,
       created: false, // Chat already exists
@@ -894,9 +894,9 @@ describe('useForumChats - Initiate Chat', () => {
 
   it('должен очищать ошибку инициации чата через clearInitiateError', async () => {
     const error = new Error('Network error');
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
-    vi.mocked(forumAPI.initiateChat).mockRejectedValue(error);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.createOrGetChat).mockRejectedValue(error);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -916,9 +916,9 @@ describe('useForumChats - Initiate Chat', () => {
   });
 
   it('должен возвращать room_id для WebSocket подключения', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
-    vi.mocked(forumAPI.getAvailableContacts).mockResolvedValue(mockAvailableContacts);
-    vi.mocked(forumAPI.initiateChat).mockResolvedValue({
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
+    vi.mocked(chatAPI.getContacts).mockResolvedValue(mockAvailableContacts);
+    vi.mocked(chatAPI.createOrGetChat).mockResolvedValue({
       success: true,
       chat: mockChatDetail,
       created: true,

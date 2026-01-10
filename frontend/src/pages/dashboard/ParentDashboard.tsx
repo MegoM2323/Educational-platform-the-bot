@@ -655,7 +655,7 @@ const ParentDashboard = () => {
                         type="button"
                         variant="outline"
                         className="h-auto flex-col gap-2 py-6"
-                        onClick={() => navigate('/dashboard/parent/chat')}
+                        onClick={() => navigate('/dashboard/parent/forum')}
                       >
                         <MessageCircle className="w-6 h-6" />
                         <span>Сообщения</span>

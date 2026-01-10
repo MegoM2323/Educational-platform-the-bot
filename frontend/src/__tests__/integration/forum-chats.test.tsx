@@ -10,16 +10,16 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useForumChats, useForumChatsWithRefresh } from '@/hooks/useForumChats';
-import { forumAPI, ForumChat } from '@/integrations/api/forumAPI';
+import { chatAPI, Chat } from '@/integrations/api/chatAPI';
 
-// Mock the forumAPI
-vi.mock('@/integrations/api/forumAPI', () => ({
-  forumAPI: {
-    getForumChats: vi.fn(),
+// Mock the chatAPI
+vi.mock('@/integrations/api/chatAPI', () => ({
+  chatAPI: {
+    getChatList: vi.fn(),
   },
 }));
 
-const mockChats: ForumChat[] = [
+const mockChats: Chat[] = [
   {
     id: 1,
     name: 'Mathematics - Student ↔ Teacher',
@@ -81,7 +81,7 @@ describe('Forum Chats Integration Tests', () => {
 
   // Test 1: Hook loads chats successfully
   it('должен загружать чаты и предоставлять их через хук', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -95,7 +95,7 @@ describe('Forum Chats Integration Tests', () => {
 
   // Test 2: Empty chats scenario
   it('должен обрабатывать пустой список чатов', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue([]);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue([]);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -110,7 +110,7 @@ describe('Forum Chats Integration Tests', () => {
   // Test 3: Error handling (after retries exhaust)
   it('должен обрабатывать ошибку при загрузке чатов после всех попыток', async () => {
     const errorMessage = 'Failed to fetch chats';
-    vi.mocked(forumAPI.getForumChats).mockRejectedValue(new Error(errorMessage));
+    vi.mocked(chatAPI.getChatList).mockRejectedValue(new Error(errorMessage));
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -127,7 +127,7 @@ describe('Forum Chats Integration Tests', () => {
 
   // Test 4: Loading state
   it('должен показывать состояние загрузки', () => {
-    vi.mocked(forumAPI.getForumChats).mockImplementation(() => new Promise(() => {}));
+    vi.mocked(chatAPI.getChatList).mockImplementation(() => new Promise(() => {}));
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -137,15 +137,15 @@ describe('Forum Chats Integration Tests', () => {
   });
 
   // Test 5: Verify API call is made
-  it('должен вызывать forumAPI.getForumChats при монтировании', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockChats);
+  it('должен вызывать chatAPI.getChatList при монтировании', async () => {
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockChats);
 
     renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => {
-      expect(vi.mocked(forumAPI.getForumChats)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(chatAPI.getChatList)).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -154,7 +154,7 @@ describe('Forum Chats Integration Tests', () => {
     const initialChats = [mockChats[0]];
     const updatedChats = mockChats;
 
-    vi.mocked(forumAPI.getForumChats)
+    vi.mocked(chatAPI.getChatList)
       .mockResolvedValueOnce(initialChats)
       .mockResolvedValueOnce(updatedChats);
 
@@ -173,12 +173,12 @@ describe('Forum Chats Integration Tests', () => {
       expect(result.current.data).toHaveLength(2);
     });
 
-    expect(vi.mocked(forumAPI.getForumChats)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(chatAPI.getChatList)).toHaveBeenCalledTimes(2);
   });
 
   // Test 7: Verify chat structure
   it('должен предоставлять чаты с правильной структурой', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -199,7 +199,7 @@ describe('Forum Chats Integration Tests', () => {
 
   // Test 8: Different chat types (forum_subject vs forum_tutor)
   it('должен различать типы чатов (forum_subject и forum_tutor)', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -217,7 +217,7 @@ describe('Forum Chats Integration Tests', () => {
 
   // Test 9: Unread count handling
   it('должен правильно отображать количество непрочитанных сообщений', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -232,7 +232,7 @@ describe('Forum Chats Integration Tests', () => {
 
   // Test 10: Last message information
   it('должен включать информацию о последнем сообщении в чате', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -264,7 +264,7 @@ describe('Forum Chats Integration Tests', () => {
       },
     ];
 
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mixedChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mixedChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -280,7 +280,7 @@ describe('Forum Chats Integration Tests', () => {
 
   // Test 12: Regression test - refetchOnMount behavior
   it('должен загружать чаты при монтировании компонента', async () => {
-    vi.mocked(forumAPI.getForumChats).mockResolvedValue(mockChats);
+    vi.mocked(chatAPI.getChatList).mockResolvedValue(mockChats);
 
     const { result } = renderHook(() => useForumChats(), {
       wrapper: createWrapper(),
@@ -293,7 +293,7 @@ describe('Forum Chats Integration Tests', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     // API should have been called
-    expect(vi.mocked(forumAPI.getForumChats)).toHaveBeenCalled();
+    expect(vi.mocked(chatAPI.getChatList)).toHaveBeenCalled();
     expect(result.current.data).toBeDefined();
   });
 });

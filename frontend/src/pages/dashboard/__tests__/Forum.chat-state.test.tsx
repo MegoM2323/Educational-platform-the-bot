@@ -6,14 +6,14 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
 
 // Mock dependencies first
-vi.mock('@/integrations/api/forumAPI', () => ({
-  forumAPI: {
-    markChatAsRead: vi.fn(),
-    getAvailableContacts: vi.fn(),
-    initiateChat: vi.fn(),
-    getForumMessages: vi.fn(),
-    sendForumMessage: vi.fn(),
-    deleteForumMessage: vi.fn(),
+vi.mock('@/integrations/api/chatAPI', () => ({
+  chatAPI: {
+    markAsRead: vi.fn(),
+    getContacts: vi.fn(),
+    createOrGetChat: vi.fn(),
+    getMessages: vi.fn(),
+    sendMessage: vi.fn(),
+    deleteMessage: vi.fn(),
   },
 }));
 
@@ -97,7 +97,7 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 import Forum from '../Forum';
-import { forumAPI } from '@/integrations/api/forumAPI';
+import { chatAPI } from '@/integrations/api/chatAPI';
 import { chatWebSocketService } from '@/services/chatWebSocketService';
 
 const mockUser = {
@@ -170,7 +170,7 @@ describe('Forum - Chat Selection State Reset', () => {
     });
 
     // Setup mocks
-    vi.mocked(forumAPI.markChatAsRead).mockResolvedValue(undefined);
+    vi.mocked(chatAPI.markAsRead).mockResolvedValue(undefined);
     vi.mocked(chatWebSocketService.connectToRoom).mockResolvedValue(true);
     vi.mocked(chatWebSocketService.isConnected).mockReturnValue(true);
     vi.mocked(chatWebSocketService.disconnectFromRoom).mockResolvedValue(undefined);
@@ -359,9 +359,9 @@ describe('Forum - Chat Selection State Reset', () => {
     queryClient.setQueryData(['forum', 'chats'], [mockChat1, chatWithUnread]);
 
     // Mark chat as read
-    await forumAPI.markChatAsRead(chatWithUnread.id);
+    await chatAPI.markAsRead(chatWithUnread.id);
 
-    expect(forumAPI.markChatAsRead).toHaveBeenCalledWith(chatWithUnread.id);
+    expect(chatAPI.markAsRead).toHaveBeenCalledWith(chatWithUnread.id);
 
     // Update local state
     queryClient.setQueryData(['forum', 'chats'], (oldChats: any) => {

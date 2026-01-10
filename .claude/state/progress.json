@@ -554,6 +554,332 @@
         "Повторить e2e тестирование после исправления аутентификации"
       ],
       "duration_sec": 45
+    },
+    {
+      "id": "T013",
+      "task_name": "Добавить вычисляемые поля name, type, subject в ChatRoomListSerializer",
+      "agent": "coder",
+      "status": "done",
+      "description": "Добавлены три вычисляемых поля в ChatRoomListSerializer: name (имя чата), type (тип чата: direct/group), subject (заглушка). Реализованы методы get_name(), get_type(), get_subject() для возврата соответствующих значений.",
+      "changes": {
+        "chat/serializers.py": [
+          "Добавлены поля name, type, subject как SerializerMethodField в ChatRoomListSerializer",
+          "Обновлен Meta.fields для включения name, type, subject (строки 102-104)",
+          "Реализован get_name() - возвращает имя другого участника для direct чата или 'Групповой чат {id}' (строки 188-208)",
+          "Реализован get_type() - возвращает 'direct' для 2 участников, 'group' для остальных (строки 210-213)",
+          "Реализован get_subject() - возвращает None как заглушка (строки 215-217)"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/backend/chat/serializers.py"
+      ],
+      "verification": {
+        "black_formatting": "passed (file reformatted)",
+        "mypy_check": "passed (no type errors)",
+        "methods_added": "get_name, get_type, get_subject",
+        "fields_in_meta": "name, type, subject added to Meta.fields"
+      },
+      "duration_sec": 3
+    },
+    {
+      "id": "T014",
+      "task_name": "Обновить frontend Chat компоненты: ForumChat→Chat, ForumMessage→ChatMessage, forumAPI→chatAPI",
+      "agent": "coder",
+      "status": "done",
+      "description": "Обновлены 10 файлов компонентов для унификации типов и API. Заменены ForumChat→Chat, ForumMessage→ChatMessage, Contact→ChatContact, forumAPI.getAvailableContacts→chatAPI.getContacts, forumAPI.initiateChat→chatAPI.createOrGetChat.",
+      "changes": {
+        "ChatList/index.tsx": [
+          "Импорт ForumChat → Chat из chatAPI",
+          "Типы ForumChat[] → Chat[]"
+        ],
+        "ChatList/ChatListItem.tsx": [
+          "Импорт ForumChat → Chat из chatAPI",
+          "Тип chat: ForumChat → Chat"
+        ],
+        "ChatRoom/index.tsx": [
+          "Импорт ForumChat, ForumMessage → Chat, ChatMessage из chatAPI",
+          "Типы ForumChat → Chat, ForumMessage[] → ChatMessage[]"
+        ],
+        "ChatRoom/ChatHeader.tsx": [
+          "Импорт ForumChat → Chat из chatAPI",
+          "Тип chat: ForumChat → Chat"
+        ],
+        "ChatRoom/MessageList.tsx": [
+          "Импорт ForumMessage → ChatMessage из chatAPI",
+          "Тип messages: ForumMessage[] → ChatMessage[]"
+        ],
+        "ChatRoom/MessageItem.tsx": [
+          "Импорт ForumMessage → ChatMessage из chatAPI",
+          "Тип message: ForumMessage → ChatMessage"
+        ],
+        "ChatRoom/MessageInput.tsx": [
+          "Без изменений (не использовала ForumChat/ForumMessage типы)"
+        ],
+        "ContactsList/index.tsx": [
+          "Импорт Contact, forumAPI → ChatContact, chatAPI из chatAPI",
+          "API: forumAPI.getAvailableContacts → chatAPI.getContacts",
+          "API: forumAPI.initiateChat → chatAPI.createOrGetChat",
+          "Тип contact: Contact → ChatContact"
+        ],
+        "ChatList.tsx": [
+          "Импорт ForumChat → Chat из chatAPI",
+          "Типы ForumChat[] → Chat[], ForumChat → Chat"
+        ],
+        "ContactSelector.tsx": [
+          "Импорт Contact, forumAPI, ForumChat → ChatContact, chatAPI, Chat из chatAPI",
+          "API: forumAPI.getAvailableContacts → chatAPI.getContacts",
+          "API: forumAPI.initiateChat → chatAPI.createOrGetChat",
+          "Типы contact: Contact → ChatContact"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ChatList/index.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ChatList/ChatListItem.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ChatRoom/index.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ChatRoom/ChatHeader.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ChatRoom/MessageList.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ChatRoom/MessageItem.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ContactsList/index.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ChatList.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/chat/ContactSelector.tsx"
+      ],
+      "replacements": {
+        "types": {
+          "ForumChat": "Chat",
+          "ForumMessage": "ChatMessage",
+          "Contact": "ChatContact"
+        },
+        "api_calls": {
+          "forumAPI.getAvailableContacts": "chatAPI.getContacts",
+          "forumAPI.initiateChat": "chatAPI.createOrGetChat"
+        },
+        "imports": {
+          "from": "@/integrations/api/forumAPICompat",
+          "to": "@/integrations/api/chatAPI"
+        }
+      },
+      "verification": {
+        "typescript_check": "passed (npx tsc --noEmit)",
+        "files_updated": 9,
+        "no_logic_changes": true,
+        "only_type_and_import_changes": true
+      },
+      "duration_sec": 8
+    },
+    {
+      "id": "T015",
+      "task_name": "Обновить Forum.tsx: ForumChat→Chat, forumAPI→chatAPI",
+      "agent": "coder",
+      "status": "done",
+      "description": "Обновлен главный компонент Forum.tsx для использования новых типов Chat и ChatMessage вместо ForumChat и ForumMessage. Заменены все вызовы forumAPI на chatAPI. Обновлены типы в состоянии, обработчиках и TanStack Query.",
+      "changes": {
+        "Forum.tsx": [
+          "Заменены импорты: ForumChat, ForumMessage, forumAPI → Chat, ChatMessage, chatAPI из chatAPI",
+          "Добавлен alias ChatMessage as WSChatMessage для chatWebSocketService типа",
+          "Обновлена типизация state: selectedChat: Chat | null",
+          "Обновлена handleWebSocketMessage: wsMessage: WSChatMessage, chatMessage: ChatMessage",
+          "Обновлена InfiniteData типизация: InfiniteData<ChatMessage[]>",
+          "Заменен API call: forumAPI.markChatAsRead → chatAPI.markAsRead",
+          "Обновлена типизация queryClient.setQueryData: Chat[]",
+          "Обновлена handleSelectChat parameter: chat: Chat",
+          "Обновлена handleChatInitiated queryData: Chat[]"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/Forum.tsx"
+      ],
+      "replacements": {
+        "imports": {
+          "from": "ForumChat, ForumMessage, forumAPI из forumAPICompat",
+          "to": "Chat, ChatMessage, chatAPI из chatAPI"
+        },
+        "types": {
+          "ForumChat": "Chat (все occurrences)",
+          "ForumMessage": "ChatMessage (все occurrences в InfiniteData и переменных)"
+        },
+        "api_calls": {
+          "forumAPI.markChatAsRead": "chatAPI.markAsRead"
+        }
+      },
+      "verification": {
+        "typescript_check": "passed (npx tsc --noEmit)",
+        "no_logic_changes": true,
+        "only_type_and_api_changes": true
+      },
+      "duration_sec": 5
+    },
+    {
+      "id": "T016",
+      "task_name": "Удаление старых неиспользуемых файлов frontend API слоя и chat страниц",
+      "agent": "coder",
+      "status": "done",
+      "description": "Удалены устаревшие файлы frontend которые больше не используются после миграции на chatAPI: forumAPI.ts, forumAPICompat.ts, тесты для forumAPI, дублирующие ChatPage для всех ролей, useGeneralChatHooks и его тесты.",
+      "changes": {
+        "deleted_files": [
+          "frontend/src/integrations/api/forumAPI.ts",
+          "frontend/src/integrations/api/forumAPICompat.ts",
+          "frontend/src/integrations/api/__tests__/forumAPI.test.ts",
+          "frontend/src/pages/dashboard/student/ChatPage.tsx",
+          "frontend/src/pages/dashboard/teacher/ChatPage.tsx",
+          "frontend/src/pages/dashboard/tutor/ChatPage.tsx",
+          "frontend/src/pages/dashboard/parent/ChatPage.tsx",
+          "frontend/src/pages/dashboard/parent/__tests__/ChatPage.test.tsx",
+          "frontend/src/hooks/useGeneralChatHooks.ts",
+          "frontend/src/hooks/__tests__/useGeneralChatHooks.test.ts"
+        ]
+      },
+      "files_deleted": [
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/integrations/api/forumAPI.ts",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/integrations/api/forumAPICompat.ts",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/integrations/api/__tests__/forumAPI.test.ts",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/student/ChatPage.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/teacher/ChatPage.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/tutor/ChatPage.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/parent/ChatPage.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/parent/__tests__/ChatPage.test.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/hooks/useGeneralChatHooks.ts",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/hooks/__tests__/useGeneralChatHooks.test.ts"
+      ],
+      "rationale": {
+        "forumAPI_files": "Заменены на chatAPI.ts в T014 и T015, больше не импортируются",
+        "ChatPage_files": "Дублировали функционал Forum.tsx, не используются в App.tsx роутинге",
+        "useGeneralChatHooks": "Использовались только удаленными ChatPage компонентами"
+      },
+      "verification": {
+        "files_deleted_count": 10,
+        "no_remaining_imports": "Все импорты forumAPI/forumAPICompat заменены на chatAPI",
+        "no_broken_references": "ChatPage не использовались в routing"
+      },
+      "duration_sec": 2
+    },
+    {
+      "id": "T017",
+      "task_name": "Удаление маршрутов /chat и обновление ссылок на /forum",
+      "agent": "coder",
+      "status": "done",
+      "description": "Удалены неиспользуемые маршруты ChatPage для всех ролей из App.tsx. Обновлены все ссылки с /chat на /forum в sidebars и dashboard компонентах.",
+      "changes": {
+        "App.tsx": [
+          "Удалены импорты ChatPage для student, teacher, tutor, parent (строки 72-75)",
+          "Удален маршрут /dashboard/student/chat (строки 357-365)",
+          "Удален маршрут /dashboard/teacher/chat (строки 516-524)",
+          "Удален маршрут /dashboard/tutor/chat (строки 638-646)",
+          "Удален маршрут /dashboard/parent/chat (строки 760-768)"
+        ],
+        "StudentSidebar.tsx": [
+          "Удалена ссылка Сообщения с url /dashboard/student/chat из items массива"
+        ],
+        "StudentDashboard.tsx": [
+          "Обновлена ссылка navigate('/dashboard/student/chat') → navigate('/dashboard/student/forum')"
+        ],
+        "TeacherDashboard.tsx": [
+          "Обновлена ссылка navigate('/dashboard/teacher/chat') → navigate('/dashboard/teacher/forum')"
+        ],
+        "TutorDashboard.tsx": [
+          "Обновлена ссылка navigate('/dashboard/tutor/chat') → navigate('/dashboard/tutor/forum')"
+        ],
+        "ParentDashboard.tsx": [
+          "Обновлена ссылка navigate('/dashboard/parent/chat') → navigate('/dashboard/parent/forum')"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/App.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/components/layout/StudentSidebar.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/StudentDashboard.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/TeacherDashboard.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/TutorDashboard.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/ParentDashboard.tsx"
+      ],
+      "verification": {
+        "typescript_check": "passed (npx tsc --noEmit)",
+        "routes_removed": "4 маршрута /chat удалены из App.tsx",
+        "imports_removed": "4 импорта ChatPage удалены из App.tsx",
+        "sidebars_updated": "StudentSidebar обновлен, остальные уже были закомментированы",
+        "dashboard_links_updated": "4 dashboard компонента обновлены",
+        "no_remaining_chat_refs": "Все ссылки /dashboard/*/chat заменены на /forum"
+      },
+      "duration_sec": 5
+    },
+    {
+      "id": "T018",
+      "task_name": "Обновление 6 тестовых файлов: замена forumAPI на chatAPI",
+      "agent": "coder",
+      "status": "done",
+      "description": "Обновлены все импорты и моки с forumAPI на chatAPI в 6 тестовых файлах. Заменены типы ForumMessage на ChatMessage, ForumChat на Chat. Обновлены вызовы API методов на новые имена из chatAPI.",
+      "changes": {
+        "useForumMessageDelete.test.tsx": [
+          "Импорт: forumAPI, ForumMessage → chatAPI, ChatMessage",
+          "Mock: vi.mock('@/integrations/api/chatAPI') с chatAPI.deleteMessage",
+          "Все вызовы forumAPI.deleteForumMessage → chatAPI.deleteMessage",
+          "Типы ForumMessage[] → ChatMessage[]"
+        ],
+        "useForumMessageUpdate.test.tsx": [
+          "Импорт: forumAPI, ForumMessage → chatAPI, ChatMessage",
+          "Mock: vi.mock('@/integrations/api/chatAPI') с chatAPI.editMessage",
+          "Все вызовы forumAPI.editForumMessage → chatAPI.editMessage",
+          "Типы ForumMessage → ChatMessage"
+        ],
+        "useForumMessages.test.ts": [
+          "Импорт: forumAPI → chatAPI",
+          "Mock: chatAPI.getMessages, chatAPI.sendMessage",
+          "Все вызовы forumAPI.getForumMessages → chatAPI.getMessages",
+          "Все вызовы forumAPI.sendForumMessage → chatAPI.sendMessage"
+        ],
+        "useForumChats.test.ts": [
+          "Импорт: forumAPI → chatAPI",
+          "Mock: chatAPI.getChatList, chatAPI.getContacts, chatAPI.createOrGetChat",
+          "Все вызовы forumAPI.getForumChats → chatAPI.getChatList (replace_all)",
+          "Все вызовы forumAPI.getAvailableContacts → chatAPI.getContacts (replace_all)",
+          "Все вызовы forumAPI.initiateChat → chatAPI.createOrGetChat (replace_all)"
+        ],
+        "Forum.chat-state.test.tsx": [
+          "Mock: vi.mock('@/integrations/api/chatAPI') с chatAPI методами",
+          "Импорт: forumAPI → chatAPI",
+          "Все вызовы forumAPI.markChatAsRead → chatAPI.markAsRead (replace_all)"
+        ],
+        "forum-chats.test.tsx": [
+          "Импорт: forumAPI, ForumChat → chatAPI, Chat",
+          "Mock: vi.mock('@/integrations/api/chatAPI') с chatAPI.getChatList",
+          "Типы ForumChat[] → Chat[]",
+          "Все вызовы forumAPI.getForumChats → chatAPI.getChatList (replace_all)"
+        ]
+      },
+      "files_modified": [
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/hooks/__tests__/useForumMessageDelete.test.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/hooks/__tests__/useForumMessageUpdate.test.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/hooks/__tests__/useForumMessages.test.ts",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/hooks/__tests__/useForumChats.test.ts",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/pages/dashboard/__tests__/Forum.chat-state.test.tsx",
+        "/home/mego/Python Projects/THE_BOT_platform/frontend/src/__tests__/integration/forum-chats.test.tsx"
+      ],
+      "replacements": {
+        "imports": {
+          "from": "forumAPI, ForumMessage, ForumChat, Contact",
+          "to": "chatAPI, ChatMessage, Chat, ChatContact"
+        },
+        "api_methods": {
+          "deleteForumMessage": "deleteMessage",
+          "editForumMessage": "editMessage",
+          "getForumMessages": "getMessages",
+          "sendForumMessage": "sendMessage",
+          "getForumChats": "getChatList",
+          "getAvailableContacts": "getContacts",
+          "initiateChat": "createOrGetChat",
+          "markChatAsRead": "markAsRead"
+        },
+        "types": {
+          "ForumMessage": "ChatMessage",
+          "ForumChat": "Chat",
+          "Contact": "ChatContact"
+        }
+      },
+      "verification": {
+        "files_updated": 6,
+        "no_logic_changes": true,
+        "only_api_and_type_updates": true,
+        "mock_consistency": "Все моки используют chatAPI вместо forumAPI"
+      },
+      "duration_sec": 8
     }
   ]
 }

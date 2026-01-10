@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useForumMessages, useSendForumMessage } from '../useForumMessages';
-import { forumAPI } from '@/integrations/api/forumAPI';
+import { chatAPI } from '@/integrations/api/chatAPI';
 import { toast } from 'sonner';
 import * as React from 'react';
 
-// Mock forumAPI
-vi.mock('@/integrations/api/forumAPI', () => ({
-  forumAPI: {
-    getForumMessages: vi.fn(),
-    sendForumMessage: vi.fn(),
+// Mock chatAPI
+vi.mock('@/integrations/api/chatAPI', () => ({
+  chatAPI: {
+    getMessages: vi.fn(),
+    sendMessage: vi.fn(),
   },
 }));
 
@@ -108,7 +108,7 @@ describe('useForumMessages', () => {
   });
 
   it('должен успешно загружать сообщения для чата', async () => {
-    vi.mocked(forumAPI.getForumMessages).mockResolvedValue(mockMessagesResponse);
+    vi.mocked(chatAPI.getMessages).mockResolvedValue(mockMessagesResponse);
 
     const { result } = renderHook(() => useForumMessages(1), {
       wrapper: createWrapper(),
@@ -117,11 +117,11 @@ describe('useForumMessages', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(result.current.data).toEqual(mockMessagesResponse);
-    expect(forumAPI.getForumMessages).toHaveBeenCalledWith(1, 50, 0);
+    expect(chatAPI.getMessages).toHaveBeenCalledWith(1, 50, 0);
   });
 
   it('должен не вызывать API если chatId не передан (null)', () => {
-    vi.mocked(forumAPI.getForumMessages).mockResolvedValue(mockMessagesResponse);
+    vi.mocked(chatAPI.getMessages).mockResolvedValue(mockMessagesResponse);
 
     const { result } = renderHook(() => useForumMessages(null), {
       wrapper: createWrapper(),
@@ -130,23 +130,23 @@ describe('useForumMessages', () => {
     // Query should be disabled (enabled: !!chatId)
     expect(result.current.isLoading).toBe(false);
     expect(result.current.data).toBeUndefined();
-    expect(forumAPI.getForumMessages).not.toHaveBeenCalled();
+    expect(chatAPI.getMessages).not.toHaveBeenCalled();
   });
 
   it('должен вызывать API с правильными параметрами pagination', async () => {
-    vi.mocked(forumAPI.getForumMessages).mockResolvedValue(mockMessagesResponse);
+    vi.mocked(chatAPI.getMessages).mockResolvedValue(mockMessagesResponse);
 
     renderHook(() => useForumMessages(1, 25, 50), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => {
-      expect(forumAPI.getForumMessages).toHaveBeenCalledWith(1, 25, 50);
+      expect(chatAPI.getMessages).toHaveBeenCalledWith(1, 25, 50);
     });
   });
 
   it('должен показывать состояние загрузки', () => {
-    vi.mocked(forumAPI.getForumMessages).mockImplementation(
+    vi.mocked(chatAPI.getMessages).mockImplementation(
       () => new Promise(() => {}) // Never resolves
     );
 
@@ -159,7 +159,7 @@ describe('useForumMessages', () => {
 
 
   it('должен включать информацию о прочитанности сообщения', async () => {
-    vi.mocked(forumAPI.getForumMessages).mockResolvedValue(mockMessagesResponse);
+    vi.mocked(chatAPI.getMessages).mockResolvedValue(mockMessagesResponse);
 
     const { result } = renderHook(() => useForumMessages(1), {
       wrapper: createWrapper(),
@@ -173,7 +173,7 @@ describe('useForumMessages', () => {
   });
 
   it('должен правильно устанавливать staleTime в 30 секунд', async () => {
-    vi.mocked(forumAPI.getForumMessages).mockResolvedValue(mockMessagesResponse);
+    vi.mocked(chatAPI.getMessages).mockResolvedValue(mockMessagesResponse);
 
     const { result, rerender } = renderHook(() => useForumMessages(1), {
       wrapper: createWrapper(),
@@ -181,16 +181,16 @@ describe('useForumMessages', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(forumAPI.getForumMessages).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getMessages).toHaveBeenCalledTimes(1);
 
     // Re-render immediately - should use cache
     rerender();
 
-    expect(forumAPI.getForumMessages).toHaveBeenCalledTimes(1);
+    expect(chatAPI.getMessages).toHaveBeenCalledTimes(1);
   });
 
   it('должен поддерживать retry с 2 попытками', async () => {
-    vi.mocked(forumAPI.getForumMessages)
+    vi.mocked(chatAPI.getMessages)
       .mockRejectedValueOnce(new Error('First fail'))
       .mockResolvedValueOnce(mockMessagesResponse);
 
@@ -212,7 +212,7 @@ describe('useForumMessages', () => {
     const mockResponse1 = [mockForumMessages[0]];
     const mockResponse2 = [mockForumMessages[1]];
 
-    vi.mocked(forumAPI.getForumMessages)
+    vi.mocked(chatAPI.getMessages)
       .mockResolvedValueOnce(mockResponse1)
       .mockResolvedValueOnce(mockResponse2);
 
@@ -227,7 +227,7 @@ describe('useForumMessages', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(result.current.data).toEqual(mockResponse1);
-    expect(forumAPI.getForumMessages).toHaveBeenCalledWith(1, 50, 0);
+    expect(chatAPI.getMessages).toHaveBeenCalledWith(1, 50, 0);
 
     // Change chatId
     rerender({ chatId: 2 });
@@ -238,14 +238,14 @@ describe('useForumMessages', () => {
 
     // After rerender, API should be called again with new chatId
     await waitFor(() => {
-      expect(forumAPI.getForumMessages).toHaveBeenCalledWith(2, 50, 0);
+      expect(chatAPI.getMessages).toHaveBeenCalledWith(2, 50, 0);
     });
   });
 
   it('должен вернуть пустой ответ если нет сообщений', async () => {
     const emptyResponse: typeof mockMessagesResponse = [];
 
-    vi.mocked(forumAPI.getForumMessages).mockResolvedValue(emptyResponse);
+    vi.mocked(chatAPI.getMessages).mockResolvedValue(emptyResponse);
 
     const { result } = renderHook(() => useForumMessages(1), {
       wrapper: createWrapper(),
@@ -277,8 +277,8 @@ describe('useSendForumMessage', () => {
       message_type: 'text',
     };
 
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
-    vi.mocked(forumAPI.getForumMessages).mockResolvedValue(mockMessagesResponse);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.getMessages).mockResolvedValue(mockMessagesResponse);
 
     const { result } = renderHook(() => useSendForumMessage(), {
       wrapper: createWrapper(),
@@ -291,14 +291,14 @@ describe('useSendForumMessage', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(forumAPI.sendForumMessage).toHaveBeenCalledWith(1, { content: 'New message' });
+    expect(chatAPI.sendMessage).toHaveBeenCalledWith(1, { content: 'New message' });
     expect(result.current.data).toEqual(newMessage);
   });
 
   it('должен показать уведомление об успешной отправке', async () => {
     const newMessage = mockForumMessages[0];
 
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
 
     const { result } = renderHook(() => useSendForumMessage(), {
       wrapper: createWrapper(),
@@ -316,7 +316,7 @@ describe('useSendForumMessage', () => {
 
   it('должен обработать ошибку при отправке сообщения', async () => {
     const error = new Error('Server error');
-    vi.mocked(forumAPI.sendForumMessage).mockRejectedValue(error);
+    vi.mocked(chatAPI.sendMessage).mockRejectedValue(error);
 
     const { result } = renderHook(() => useSendForumMessage(), {
       wrapper: createWrapper(),
@@ -336,7 +336,7 @@ describe('useSendForumMessage', () => {
 
   it('должен инвалидировать кеш сообщений после отправки', async () => {
     const newMessage = mockForumMessages[0];
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
 
     const { result } = renderHook(() => useSendForumMessage(), {
       wrapper: createWrapper(),
@@ -354,7 +354,7 @@ describe('useSendForumMessage', () => {
   });
 
   it('должен показывать состояние pending при отправке', async () => {
-    vi.mocked(forumAPI.sendForumMessage).mockImplementation(
+    vi.mocked(chatAPI.sendMessage).mockImplementation(
       () => new Promise(() => {}) // Never resolves - stays pending
     );
 
@@ -375,7 +375,7 @@ describe('useSendForumMessage', () => {
 
   it('должен поддерживать отправку сообщения с дополнительными параметрами', async () => {
     const newMessage = mockForumMessages[0];
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
 
     const { result } = renderHook(() => useSendForumMessage(), {
       wrapper: createWrapper(),
@@ -392,7 +392,7 @@ describe('useSendForumMessage', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(forumAPI.sendForumMessage).toHaveBeenCalledWith(1, {
+    expect(chatAPI.sendMessage).toHaveBeenCalledWith(1, {
       content: 'Reply to message',
       message_type: 'reply',
       reply_to: 3,
@@ -401,7 +401,7 @@ describe('useSendForumMessage', () => {
 
   it('должен правильно передать chatId в переменных мутации', async () => {
     const newMessage = mockForumMessages[0];
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
 
     const { result } = renderHook(() => useSendForumMessage(), {
       wrapper: createWrapper(),
@@ -414,12 +414,12 @@ describe('useSendForumMessage', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(forumAPI.sendForumMessage).toHaveBeenCalledWith(5, expect.any(Object));
+    expect(chatAPI.sendMessage).toHaveBeenCalledWith(5, expect.any(Object));
   });
 
   it('должен сбрасывать состояние при новой мутации', async () => {
     const newMessage = mockForumMessages[0];
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
 
     const { result } = renderHook(() => useSendForumMessage(), {
       wrapper: createWrapper(),
@@ -440,7 +440,7 @@ describe('useSendForumMessage', () => {
 
   it('должен обновлять список чатов после отправки сообщения', async () => {
     const newMessage = mockForumMessages[0];
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
 
     const { result } = renderHook(() => useSendForumMessage(), {
       wrapper: createWrapper(),
@@ -488,7 +488,7 @@ describe('useSendForumMessage', () => {
       }
     );
 
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
 
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       React.createElement(QueryClientProvider, { client: queryClient }, children);
@@ -530,7 +530,7 @@ describe('useSendForumMessage', () => {
       }
     );
 
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(newMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(newMessage);
 
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       React.createElement(QueryClientProvider, { client: queryClient }, children);
@@ -585,7 +585,7 @@ describe('useSendForumMessage', () => {
       }
     );
 
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(realMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(realMessage);
 
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       React.createElement(QueryClientProvider, { client: queryClient }, children);
@@ -666,7 +666,7 @@ describe('useSendForumMessage', () => {
       }
     );
 
-    vi.mocked(forumAPI.sendForumMessage).mockResolvedValue(realMessage);
+    vi.mocked(chatAPI.sendMessage).mockResolvedValue(realMessage);
 
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       React.createElement(QueryClientProvider, { client: queryClient }, children);

@@ -128,8 +128,8 @@ const TeacherDashboard = () => {
   };
 
   const handleChatClick = () => {
-    // Для преподавателя используем маршрут чата
-    navigate('/dashboard/teacher/chat');
+    // Для преподавателя используем маршрут форума
+    navigate('/dashboard/teacher/forum');
   };
 
   const handleEditProfile = () => {

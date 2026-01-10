@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useForumMessageUpdate } from '../useForumMessageUpdate';
-import { forumAPI, ForumMessage } from '@/integrations/api/forumAPI';
+import { chatAPI, ChatMessage } from '@/integrations/api/chatAPI';
 
-// Mock forumAPI
-vi.mock('@/integrations/api/forumAPI', () => ({
-  forumAPI: {
-    editForumMessage: vi.fn(),
+// Mock chatAPI
+vi.mock('@/integrations/api/chatAPI', () => ({
+  chatAPI: {
+    editMessage: vi.fn(),
   },
 }));
 
@@ -32,7 +32,7 @@ describe('useForumMessageUpdate', () => {
   );
 
   it('should update message successfully', async () => {
-    const mockMessage: ForumMessage = {
+    const mockMessage: ChatMessage = {
       id: 1,
       content: 'Updated content',
       sender: { id: 1, full_name: 'John Doe', role: 'student' },
@@ -42,7 +42,7 @@ describe('useForumMessageUpdate', () => {
       is_edited: true,
     };
 
-    vi.mocked(forumAPI.editForumMessage).mockResolvedValue(mockMessage);
+    vi.mocked(chatAPI.editMessage).mockResolvedValue(mockMessage);
 
     const { result } = renderHook(
       () => useForumMessageUpdate({ chatId: 1 }),
@@ -65,7 +65,7 @@ describe('useForumMessageUpdate', () => {
 
   it('should call onSuccess callback', async () => {
     const onSuccess = vi.fn();
-    const mockMessage: ForumMessage = {
+    const mockMessage: ChatMessage = {
       id: 1,
       content: 'Updated content',
       sender: { id: 1, full_name: 'John Doe', role: 'student' },
@@ -75,7 +75,7 @@ describe('useForumMessageUpdate', () => {
       is_edited: true,
     };
 
-    vi.mocked(forumAPI.editForumMessage).mockResolvedValue(mockMessage);
+    vi.mocked(chatAPI.editMessage).mockResolvedValue(mockMessage);
 
     const { result } = renderHook(
       () => useForumMessageUpdate({ chatId: 1, onSuccess }),
@@ -98,7 +98,7 @@ describe('useForumMessageUpdate', () => {
     const onError = vi.fn();
     const error = new Error('Update failed');
 
-    vi.mocked(forumAPI.editForumMessage).mockRejectedValue(error);
+    vi.mocked(chatAPI.editMessage).mockRejectedValue(error);
 
     const { result } = renderHook(
       () => useForumMessageUpdate({ chatId: 1, onError }),
@@ -118,7 +118,7 @@ describe('useForumMessageUpdate', () => {
   });
 
   it('should perform optimistic update', async () => {
-    const mockMessage: ForumMessage = {
+    const mockMessage: ChatMessage = {
       id: 1,
       content: 'Updated content',
       sender: { id: 1, full_name: 'John Doe', role: 'student' },
@@ -129,7 +129,7 @@ describe('useForumMessageUpdate', () => {
     };
 
     // Set initial cache
-    const initialMessages: ForumMessage[] = [
+    const initialMessages: ChatMessage[] = [
       {
         id: 1,
         content: 'Original content',
@@ -142,7 +142,7 @@ describe('useForumMessageUpdate', () => {
 
     queryClient.setQueryData(['forum-messages', 1, 50, 0], initialMessages);
 
-    vi.mocked(forumAPI.editForumMessage).mockResolvedValue(mockMessage);
+    vi.mocked(chatAPI.editMessage).mockResolvedValue(mockMessage);
 
     const { result } = renderHook(
       () => useForumMessageUpdate({ chatId: 1 }),
@@ -161,7 +161,7 @@ describe('useForumMessageUpdate', () => {
     });
 
     // Verify cache was updated
-    const cachedMessages = queryClient.getQueryData<ForumMessage[]>([
+    const cachedMessages = queryClient.getQueryData<ChatMessage[]>([
       'forum-messages',
       1,
       50,

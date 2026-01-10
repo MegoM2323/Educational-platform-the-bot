@@ -1,14 +1,14 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Users } from 'lucide-react';
-import { ForumChat, ForumMessage } from '@/integrations/api/forumAPICompat';
+import { Chat, ChatMessage } from '@/integrations/api/chatAPI';
 import { ChatHeader } from './ChatHeader';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 
 interface ChatRoomProps {
-  chat: ForumChat | null;
-  messages: ForumMessage[];
+  chat: Chat | null;
+  messages: ChatMessage[];
   isLoadingMessages: boolean;
   isSending: boolean;
   onSendMessage: (content: string, file?: File) => void;

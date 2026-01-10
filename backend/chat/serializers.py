@@ -30,7 +30,15 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ("id", "sender", "message_type", "content", "created_at", "updated_at", "is_edited")
+        fields = (
+            "id",
+            "sender",
+            "message_type",
+            "content",
+            "created_at",
+            "updated_at",
+            "is_edited",
+        )
         read_only_fields = ("id", "sender", "created_at", "updated_at", "is_edited")
 
 
@@ -91,11 +99,17 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
     is_group = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    type = serializers.SerializerMethodField()
+    subject = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatRoom
         fields = (
             "id",
+            "name",
+            "type",
+            "subject",
             "other_participant",
             "last_message",
             "unread_count",
@@ -178,6 +192,37 @@ class ChatRoomListSerializer(serializers.ModelSerializer):
         но может вызвать дополнительный запрос. Это нормально для edge cases.
         """
         return len(obj.participants.all()) > 2
+
+    def get_name(self, obj):
+        """Получить имя чата. Для direct чата - имя другого участника, для группового - 'Групповой чат {id}'"""
+        participants = obj.participants.all()
+        if len(participants) == 2:
+            request = self.context.get("request")
+            if not request:
+                return None
+
+            other_user = None
+            for p in participants:
+                if p.user_id != request.user.id:
+                    other_user = p.user
+                    break
+
+            if other_user:
+                return (
+                    f"{other_user.first_name} {other_user.last_name}".strip()
+                    or other_user.username
+                )
+
+        return f"Групповой чат {obj.id}"
+
+    def get_type(self, obj):
+        """Получить тип чата: 'direct' для 2 участников, 'group' для остальных"""
+        participants_count = len(obj.participants.all())
+        return "direct" if participants_count == 2 else "group"
+
+    def get_subject(self, obj):
+        """Получить тему чата (заглушка)"""
+        return None
 
 
 class ChatRoomDetailSerializer(serializers.ModelSerializer):

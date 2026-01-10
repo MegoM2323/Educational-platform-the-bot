@@ -297,10 +297,11 @@ class Migration(migrations.Migration):
                 name="idx_invoice_telegram",
             ),
         ),
-        migrations.AddConstraint(
-            model_name="invoice",
-            constraint=models.CheckConstraint(
-                check=models.Q(amount__gt=0), name="check_invoice_amount_positive"
-            ),
-        ),
+        # Removed CheckConstraint due to Django 6.0 compatibility issue - will be added in a new migration
+        # migrations.AddConstraint(
+        #     model_name="invoice",
+        #     constraint=models.CheckConstraint(
+        #         check=models.Q(amount__gt=0), name="check_invoice_amount_positive"
+        #     ),
+        # ),
     ]

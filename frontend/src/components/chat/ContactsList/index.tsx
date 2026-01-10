@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { Contact, forumAPI } from '@/integrations/api/forumAPICompat';
+import { ChatContact, chatAPI } from '@/integrations/api/chatAPI';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/utils/logger';
 
@@ -53,14 +53,14 @@ export const ContactsList = ({ isOpen, onClose, onSelectContact }: ContactsListP
     refetch: refetchContacts,
   } = useQuery({
     queryKey: ['available-contacts'],
-    queryFn: forumAPI.getAvailableContacts,
+    queryFn: chatAPI.getContacts,
     enabled: isOpen,
     retry: 2,
   });
 
   const initiateChatMutation = useMutation({
     mutationFn: ({ contactUserId, subjectId }: { contactUserId: number; subjectId?: number }) =>
-      forumAPI.initiateChat(contactUserId, subjectId),
+      chatAPI.createOrGetChat(contactUserId, subjectId),
     onSuccess: (data) => {
       logger.debug('[ContactsList] Chat initiated successfully:', data);
       queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
@@ -101,7 +101,7 @@ export const ContactsList = ({ isOpen, onClose, onSelectContact }: ContactsListP
     return filtered;
   }, [contacts, searchQuery, roleFilter]);
 
-  const handleInitiateChat = (contact: Contact) => {
+  const handleInitiateChat = (contact: ChatContact) => {
     if (contact.has_active_chat && contact.chat_id) {
       onSelectContact(contact.chat_id);
       onClose();

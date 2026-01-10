@@ -3,14 +3,14 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, MessageSquare } from 'lucide-react';
-import { ForumChat } from '@/integrations/api/forumAPICompat';
+import { Chat } from '@/integrations/api/chatAPI';
 import { ChatListItem } from './ChatListItem';
 import { ChatListSkeleton } from './ChatListSkeleton';
 
 interface ChatListProps {
-  chats: ForumChat[];
-  selectedChat: ForumChat | null;
-  onSelectChat: (chat: ForumChat) => void;
+  chats: Chat[];
+  selectedChat: Chat | null;
+  onSelectChat: (chat: Chat) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   isLoading: boolean;

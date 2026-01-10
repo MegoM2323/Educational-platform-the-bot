@@ -1,9 +1,9 @@
 import { Pin, FileText, Download } from 'lucide-react';
-import { ForumMessage } from '@/integrations/api/forumAPICompat';
+import { ChatMessage } from '@/integrations/api/chatAPI';
 import { MessageActions } from '@/components/forum/MessageActions';
 
 interface MessageItemProps {
-  message: ForumMessage;
+  message: ChatMessage;
   isOwn: boolean;
   canModerate: boolean;
   onEdit: (content: string) => void;

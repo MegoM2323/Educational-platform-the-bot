@@ -2,10 +2,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Wifi, WifiOff, Lock, Unlock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ForumChat } from '@/integrations/api/forumAPICompat';
+import { Chat } from '@/integrations/api/chatAPI';
 
 interface ChatHeaderProps {
-  chat: ForumChat;
+  chat: Chat;
   currentUserId: number;
   isConnected: boolean;
   currentUserRole: string;

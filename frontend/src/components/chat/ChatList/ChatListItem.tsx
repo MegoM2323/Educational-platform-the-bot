@@ -1,9 +1,9 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ForumChat } from '@/integrations/api/forumAPICompat';
+import { Chat } from '@/integrations/api/chatAPI';
 
 interface ChatListItemProps {
-  chat: ForumChat;
+  chat: Chat;
   selected: boolean;
   onClick: () => void;
   currentUserId: number;

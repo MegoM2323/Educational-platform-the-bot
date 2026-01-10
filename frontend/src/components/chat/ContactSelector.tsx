@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { Contact, forumAPI, ForumChat } from '@/integrations/api/forumAPICompat';
+import { ChatContact, chatAPI, Chat } from '@/integrations/api/chatAPI';
 import { logger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
 
@@ -76,9 +76,9 @@ const ContactItem = ({
   isLoading,
   onSelect,
 }: {
-  contact: Contact;
+  contact: ChatContact;
   isLoading: boolean;
-  onSelect: (contact: Contact) => void;
+  onSelect: (contact: ChatContact) => void;
 }) => {
   const initials = `${contact.first_name.charAt(0)}${contact.last_name.charAt(0)}`.toUpperCase();
   const fullName = `${contact.first_name} ${contact.last_name}`.trim();
@@ -176,14 +176,14 @@ export const ContactSelector = ({
     refetch: refetchContacts,
   } = useQuery({
     queryKey: ['available-contacts'],
-    queryFn: forumAPI.getAvailableContacts,
+    queryFn: chatAPI.getContacts,
     enabled: isOpen,
     retry: 2,
   });
 
   const initiateChatMutation = useMutation({
     mutationFn: ({ contactUserId, subjectId }: { contactUserId: number; subjectId?: number }) =>
-      forumAPI.initiateChat(contactUserId, subjectId),
+      chatAPI.createOrGetChat(contactUserId, subjectId),
     onSuccess: (data) => {
       logger.debug('[ContactSelector] Chat initiated successfully:', data);
 
@@ -235,7 +235,7 @@ export const ContactSelector = ({
   }, [contacts, searchQuery, roleFilter]);
 
   const handleInitiateChat = useCallback(
-    (contact: Contact) => {
+    (contact: ChatContact) => {
       if (contact.has_active_chat && contact.chat_id) {
         if (onChatInitiated) {
           onChatInitiated(contact.chat_id);

@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
 import { Loader2, MessageCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ForumMessage } from '@/integrations/api/forumAPICompat';
+import { ChatMessage } from '@/integrations/api/chatAPI';
 import { MessageItem } from './MessageItem';
 
 interface MessageListProps {
-  messages: ForumMessage[];
+  messages: ChatMessage[];
   isLoading: boolean;
   hasMore: boolean;
   isFetchingMore: boolean;

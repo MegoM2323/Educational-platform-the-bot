@@ -23,7 +23,7 @@ set -euo pipefail
 PROD_USER="${PROD_USER:-mg}"
 PROD_SERVER="${PROD_SERVER:-5.129.249.206}"
 PROD_HOME="${PROD_HOME:-/home/mg/THE_BOT_platform}"
-VENV_PATH="${VENV_PATH:-/home/mg/venv}"
+VENV_PATH="${VENV_PATH:-/home/mg/THE_BOT_platform/.venv}"
 BACKUP_DIR="${BACKUP_DIR:-/home/mg/backups}"
 LOCAL_PATH="$(cd "$(dirname "$0")/../.." && pwd)"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -352,7 +352,7 @@ set -e
 BACKUP_DIR="/home/mg/backups"
 BACKUP_FILE="thebot_db_${TIMESTAMP}.sql"
 PROD_HOME="/home/mg/THE_BOT_platform"
-VENV_PATH="/home/mg/venv"
+VENV_PATH="/home/mg/THE_BOT_platform/.venv"
 
 mkdir -p "\${BACKUP_DIR}"
 cd "\${PROD_HOME}" && source "\${VENV_PATH}/bin/activate"
@@ -532,7 +532,7 @@ if [ "$DRY_RUN" = false ]; then
     ssh "${PROD_USER}@${PROD_SERVER}" bash -s << EOFREMOTE
 set -euo pipefail
 
-VENV_PATH="/home/mg/venv"
+VENV_PATH="/home/mg/THE_BOT_platform/.venv"
 PROD_HOME="/home/mg/THE_BOT_platform"
 SERVICES=("thebot-celery-worker.service" "thebot-celery-beat.service" "thebot-daphne.service")
 SKIP_MIGRATIONS="${SKIP_MIGRATIONS}"
@@ -631,7 +631,7 @@ set -e
 log() { echo "[remote] \$1"; }
 
 PROD_HOME="/home/mg/THE_BOT_platform"
-VENV_PATH="/home/mg/venv"
+VENV_PATH="/home/mg/THE_BOT_platform/.venv"
 
 cd "\${PROD_HOME}"
 source "\${VENV_PATH}/bin/activate"

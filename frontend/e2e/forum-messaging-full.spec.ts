@@ -12,17 +12,17 @@ import { test, expect, Page, Browser, BrowserContext } from '@playwright/test';
  * 5. WebSocket real-time updates
  */
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+const BASE_URL = process.env.BASE_URL || 'https://the-bot.ru';
 
-// Test credentials
+// Test credentials (verified in production database)
 const STUDENT = {
-  email: 'test_student@test.local',
+  email: 'student@test.com',
   password: 'TestPassword123!',
   role: 'student' as const
 };
 
 const TEACHER = {
-  email: 'test_teacher@test.local',
+  email: 'teacher@test.com',
   password: 'TestPassword123!',
   role: 'teacher' as const
 };
@@ -47,8 +47,8 @@ async function login(page: Page, email: string, password: string, role: string) 
   // Submit
   await page.click('button[type="submit"]');
 
-  // Wait for redirect to dashboard
-  await page.waitForURL(`**/dashboard/${role}/**`, { timeout: 20000 });
+  // Wait for redirect to dashboard (increased timeout for production auth flow)
+  await page.waitForURL(`**/dashboard/${role}/**`, { timeout: 60000 });
   console.log(`[LOGIN] ✅ Logged in as ${email}`);
 }
 

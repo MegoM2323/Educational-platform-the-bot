@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 12
+      "actualWorkers": 7
     },
     "preserveOutput": "always",
     "reporter": [
@@ -43,7 +43,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 12
+          "actualWorkers": 7
         },
         "id": "chromium",
         "name": "chromium",
@@ -59,7 +59,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 12
+          "actualWorkers": 7
         },
         "id": "firefox",
         "name": "firefox",
@@ -75,7 +75,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 12
+          "actualWorkers": 7
         },
         "id": "webkit",
         "name": "webkit",
@@ -91,7 +91,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 12
+          "actualWorkers": 7
         },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
@@ -107,7 +107,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 12
+          "actualWorkers": 7
         },
         "id": "Mobile Safari",
         "name": "Mobile Safari",
@@ -129,25 +129,25 @@
   },
   "suites": [
     {
-      "title": "student-dashboard.spec.ts",
-      "file": "student-dashboard.spec.ts",
+      "title": "forum-messaging-full.spec.ts",
+      "file": "forum-messaging-full.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Student Dashboard E2E Tests",
-          "file": "student-dashboard.spec.ts",
-          "line": 56,
+          "title": "FORUM MESSAGING: Full E2E Flow",
+          "file": "forum-messaging-full.spec.ts",
+          "line": 120,
           "column": 6,
           "specs": [
             {
-              "title": "Student can login and access dashboard",
+              "title": "Step 1: Student creates new chat with teacher",
               "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -156,72 +156,77 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 18315,
+                      "status": "timedOut",
+                      "duration": 63009,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:64:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts",
                             "column": 14,
-                            "line": 53
+                            "line": 72
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:64:5"
+                          "message": "Error: page.screenshot: Target page, context or browser has been closed\n\n  70 |   const timestamp = Date.now();\n  71 |   const filename = `/tmp/playwright-${name}-${timestamp}.png`;\n> 72 |   await page.screenshot({ path: filename, fullPage: true });\n     |              ^\n  73 |   console.log(`[SCREENSHOT] Saved: ${filename}`);\n  74 |   return filename;\n  75 | }\n    at takeScreenshot (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:72:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:180:13"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "\n================================================================================\n"
+                        },
+                        {
+                          "text": "TEST 1: Student creates chat with teacher\n"
+                        },
+                        {
+                          "text": "================================================================================\n"
+                        },
+                        {
+                          "text": "\n[LOGIN] Logging in as student@test.com...\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.695Z",
+                      "startTime": "2026-01-10T16:04:20.523Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/error-context.md"
                         }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
+                      ]
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "88c5f09f1d8e373d8eca-fdc2bbc5c08af38794b5",
-              "file": "student-dashboard.spec.ts",
-              "line": 63,
+              "id": "17852a00c53140648502-6496973545af3b8d0ca5",
+              "file": "forum-messaging-full.spec.ts",
+              "line": 127,
               "column": 3
             },
             {
-              "title": "Student can view materials list",
+              "title": "Step 2: Student sends message \"Привет учитель!\"",
               "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -230,72 +235,77 @@
                     {
                       "workerIndex": 1,
                       "parallelIndex": 1,
-                      "status": "failed",
-                      "duration": 19141,
+                      "status": "timedOut",
+                      "duration": 63050,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:79:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts",
                             "column": 14,
-                            "line": 53
+                            "line": 72
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:79:5"
+                          "message": "Error: page.screenshot: Target page, context or browser has been closed\n\n  70 |   const timestamp = Date.now();\n  71 |   const filename = `/tmp/playwright-${name}-${timestamp}.png`;\n> 72 |   await page.screenshot({ path: filename, fullPage: true });\n     |              ^\n  73 |   console.log(`[SCREENSHOT] Saved: ${filename}`);\n  74 |   return filename;\n  75 | }\n    at takeScreenshot (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:72:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:238:13"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "\n================================================================================\n"
+                        },
+                        {
+                          "text": "TEST 2: Student sends message\n"
+                        },
+                        {
+                          "text": "================================================================================\n"
+                        },
+                        {
+                          "text": "\n[LOGIN] Logging in as student@test.com...\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.734Z",
+                      "startTime": "2026-01-10T16:04:20.533Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/error-context.md"
                         }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
+                      ]
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "88c5f09f1d8e373d8eca-ebfb9de677811fa3eb26",
-              "file": "student-dashboard.spec.ts",
-              "line": 78,
+              "id": "17852a00c53140648502-db4e050932d2f6887074",
+              "file": "forum-messaging-full.spec.ts",
+              "line": 189,
               "column": 3
             },
             {
-              "title": "Student can view progress",
+              "title": "Step 3: Student edits message",
               "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -304,72 +314,77 @@
                     {
                       "workerIndex": 2,
                       "parallelIndex": 2,
-                      "status": "failed",
-                      "duration": 18197,
+                      "status": "timedOut",
+                      "duration": 62982,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:102:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts",
                             "column": 14,
-                            "line": 53
+                            "line": 72
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:102:5"
+                          "message": "Error: page.screenshot: Target page, context or browser has been closed\n\n  70 |   const timestamp = Date.now();\n  71 |   const filename = `/tmp/playwright-${name}-${timestamp}.png`;\n> 72 |   await page.screenshot({ path: filename, fullPage: true });\n     |              ^\n  73 |   console.log(`[SCREENSHOT] Saved: ${filename}`);\n  74 |   return filename;\n  75 | }\n    at takeScreenshot (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:72:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:334:13"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "\n================================================================================\n"
+                        },
+                        {
+                          "text": "TEST 3: Student edits message\n"
+                        },
+                        {
+                          "text": "================================================================================\n"
+                        },
+                        {
+                          "text": "\n[LOGIN] Logging in as student@test.com...\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.729Z",
+                      "startTime": "2026-01-10T16:04:20.531Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/error-context.md"
                         }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
+                      ]
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "88c5f09f1d8e373d8eca-541b22ffe27f8d20cd2b",
-              "file": "student-dashboard.spec.ts",
-              "line": 101,
+              "id": "17852a00c53140648502-c52fb85d8df9309503a5",
+              "file": "forum-messaging-full.spec.ts",
+              "line": 247,
               "column": 3
             },
             {
-              "title": "Student dashboard displays user info",
+              "title": "Step 4: Student deletes message",
               "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -378,72 +393,77 @@
                     {
                       "workerIndex": 3,
                       "parallelIndex": 3,
-                      "status": "failed",
-                      "duration": 19504,
+                      "status": "timedOut",
+                      "duration": 62927,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:118:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts",
                             "column": 14,
-                            "line": 53
+                            "line": 72
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:118:5"
+                          "message": "Error: page.screenshot: Target page, context or browser has been closed\n\n  70 |   const timestamp = Date.now();\n  71 |   const filename = `/tmp/playwright-${name}-${timestamp}.png`;\n> 72 |   await page.screenshot({ path: filename, fullPage: true });\n     |              ^\n  73 |   console.log(`[SCREENSHOT] Saved: ${filename}`);\n  74 |   return filename;\n  75 | }\n    at takeScreenshot (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:72:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:419:13"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "\n================================================================================\n"
+                        },
+                        {
+                          "text": "TEST 4: Student deletes message\n"
+                        },
+                        {
+                          "text": "================================================================================\n"
+                        },
+                        {
+                          "text": "\n[LOGIN] Logging in as student@test.com...\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.744Z",
+                      "startTime": "2026-01-10T16:04:20.551Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/error-context.md"
                         }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
+                      ]
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "88c5f09f1d8e373d8eca-05278c3a01ad998d38ba",
-              "file": "student-dashboard.spec.ts",
-              "line": 117,
+              "id": "17852a00c53140648502-b8424993422f57c219b3",
+              "file": "forum-messaging-full.spec.ts",
+              "line": 343,
               "column": 3
             },
             {
-              "title": "Student can navigate back to home from dashboard",
+              "title": "Step 5: WebSocket real-time: Student sends → Teacher receives",
               "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -452,72 +472,80 @@
                     {
                       "workerIndex": 4,
                       "parallelIndex": 4,
-                      "status": "failed",
-                      "duration": 19523,
+                      "status": "timedOut",
+                      "duration": 60109,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:138:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts",
+                            "column": 27,
+                            "line": 534
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:138:5"
+                          "message": "Error: browserContext.close: Target page, context or browser has been closed\n\n  532 |       throw error;\n  533 |     } finally {\n> 534 |       if (contextStudent) await contextStudent.close();\n      |                           ^\n  535 |       if (contextTeacher) await contextTeacher.close();\n  536 |     }\n  537 |   });\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:534:27"
                         }
                       ],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "\n================================================================================\n"
+                        },
+                        {
+                          "text": "TEST 5: WebSocket real-time updates\n"
+                        },
+                        {
+                          "text": "================================================================================\n"
+                        },
+                        {
+                          "text": "[STEP 5] Logging in both users...\n"
+                        },
+                        {
+                          "text": "\n[LOGIN] Logging in as student@test.com...\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.672Z",
+                      "startTime": "2026-01-10T16:04:20.559Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/test-failed-1.png"
                         },
                         {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/video.webm"
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/test-failed-2.png"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/error-context.md"
                         }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
+                      ]
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "88c5f09f1d8e373d8eca-a67dea54fea77345a4a3",
-              "file": "student-dashboard.spec.ts",
-              "line": 137,
+              "id": "17852a00c53140648502-6ebebccda7c31df43e9c",
+              "file": "forum-messaging-full.spec.ts",
+              "line": 428,
               "column": 3
             },
             {
-              "title": "Student dashboard layout is responsive",
+              "title": "Step 6: Teacher replies to student",
               "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -526,72 +554,89 @@
                     {
                       "workerIndex": 5,
                       "parallelIndex": 5,
-                      "status": "failed",
-                      "duration": 19170,
+                      "status": "timedOut",
+                      "duration": 60099,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:154:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts",
+                            "column": 27,
+                            "line": 618
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:154:5"
+                          "message": "Error: browserContext.close: Target page, context or browser has been closed\n\n  616 |       throw error;\n  617 |     } finally {\n> 618 |       if (contextStudent) await contextStudent.close();\n      |                           ^\n  619 |       if (contextTeacher) await contextTeacher.close();\n  620 |     }\n  621 |   });\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:618:27"
                         }
                       ],
-                      "stdout": [],
-                      "stderr": [],
+                      "stdout": [
+                        {
+                          "text": "\n================================================================================\n"
+                        },
+                        {
+                          "text": "TEST 6: Teacher replies to student\n"
+                        },
+                        {
+                          "text": "================================================================================\n"
+                        },
+                        {
+                          "text": "\n[LOGIN] Logging in as student@test.com...\n"
+                        }
+                      ],
+                      "stderr": [
+                        {
+                          "text": "[TEST 6] ❌ FAILED: page.waitForURL: Test ended.\n=========================== logs ===========================\nwaiting for navigation to \"**/dashboard/student/**\" until \"load\"\n============================================================\n    at login \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:51:14\u001b[90m)\u001b[39m\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:559:7\n"
+                        }
+                      ],
                       "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.683Z",
+                      "startTime": "2026-01-10T16:04:20.540Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/test-failed-1.png"
                         },
                         {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/video.webm"
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/test-failed-2.png"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/error-context.md"
                         }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
+                      ]
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "88c5f09f1d8e373d8eca-f44a46d9bd0c4af80921",
-              "file": "student-dashboard.spec.ts",
-              "line": 153,
+              "id": "17852a00c53140648502-44e98b12c573737211b1",
+              "file": "forum-messaging-full.spec.ts",
+              "line": 542,
               "column": 3
-            },
+            }
+          ]
+        },
+        {
+          "title": "COMPLETE WORKFLOW: All Steps Combined",
+          "file": "forum-messaging-full.spec.ts",
+          "line": 627,
+          "column": 6,
+          "specs": [
             {
-              "title": "Student can logout",
+              "title": "Complete workflow: Create → Send → Edit → Delete → Real-time",
               "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 90000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -600,663 +645,87 @@
                     {
                       "workerIndex": 6,
                       "parallelIndex": 6,
-                      "status": "failed",
-                      "duration": 19509,
+                      "status": "timedOut",
+                      "duration": 90115,
                       "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:172:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
+                        "message": "\u001b[31mTest timeout of 90000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 90000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
+                          "message": "\u001b[31mTest timeout of 90000ms exceeded.\u001b[39m"
+                        },
+                        {
                           "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
+                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts",
+                            "column": 27,
+                            "line": 789
                           },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:172:5"
+                          "message": "Error: browserContext.close: Target page, context or browser has been closed\n\n  787 |\n  788 |     } finally {\n> 789 |       if (contextStudent) await contextStudent.close();\n      |                           ^\n  790 |       if (contextTeacher) await contextTeacher.close();\n  791 |     }\n  792 |\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:789:27"
                         }
                       ],
-                      "stdout": [],
-                      "stderr": [],
+                      "stdout": [
+                        {
+                          "text": "\n================================================================================\n"
+                        },
+                        {
+                          "text": "COMPLETE WORKFLOW TEST: All steps in one\n"
+                        },
+                        {
+                          "text": "================================================================================\n"
+                        },
+                        {
+                          "text": "\n[LOGIN] Logging in as student@test.com...\n"
+                        },
+                        {
+                          "text": "\n[LOGIN] Logging in as teacher@test.com...\n"
+                        }
+                      ],
+                      "stderr": [
+                        {
+                          "text": "[WORKFLOW] ❌ Step 1 failed: page.waitForURL: Timeout 60000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation to \"**/dashboard/student/**\" until \"load\"\n============================================================\n    at login \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:51:14\u001b[90m)\u001b[39m\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:653:9 {\n  name: \u001b[32m'TimeoutError'\u001b[39m,\n  [\u001b[32mSymbol(step)\u001b[39m]: {\n    location: {\n      file: \u001b[32m'/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts'\u001b[39m,\n      line: \u001b[33m51\u001b[39m,\n      column: \u001b[33m14\u001b[39m,\n      function: \u001b[32m'login'\u001b[39m\n    },\n    category: \u001b[32m'pw:api'\u001b[39m,\n    title: \u001b[32m'Wait for navigation'\u001b[39m,\n    apiName: \u001b[32m'page.waitForURL'\u001b[39m,\n    params: { info: \u001b[36m[Object]\u001b[39m },\n    group: \u001b[90mundefined\u001b[39m,\n    stepId: \u001b[32m'pw:api@37'\u001b[39m,\n    boxedStack: \u001b[90mundefined\u001b[39m,\n    steps: [],\n    attachmentIndices: [],\n    info: TestStepInfoImpl {\n      annotations: [],\n      _testInfo: \u001b[36m[TestInfoImpl]\u001b[39m,\n      _stepId: \u001b[32m'pw:api@37'\u001b[39m,\n      _title: \u001b[32m'Wait for navigation'\u001b[39m,\n      _parentStep: \u001b[90mundefined\u001b[39m,\n      skip: \u001b[36m[Function (anonymous)]\u001b[39m\n    },\n    complete: \u001b[36m[Function: complete]\u001b[39m,\n    endWallTime: \u001b[33m1768061122212\u001b[39m,\n    error: {\n      message: \u001b[32m'TimeoutError: page.waitForURL: Timeout 60000ms exceeded.\\n'\u001b[39m +\n        \u001b[32m'=========================== logs ===========================\\n'\u001b[39m +\n        \u001b[32m'waiting for navigation to \"**/dashboard/student/**\" until \"load\"\\n'\u001b[39m +\n        \u001b[32m'============================================================'\u001b[39m,\n      stack: \u001b[32m'TimeoutError: page.waitForURL: Timeout 60000ms exceeded.\\n'\u001b[39m +\n        \u001b[32m'=========================== logs ===========================\\n'\u001b[39m +\n        \u001b[32m'waiting for navigation to \"**/dashboard/student/**\" until \"load\"\\n'\u001b[39m +\n        \u001b[32m'============================================================\\n'\u001b[39m +\n        \u001b[32m'    at login (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:51:14)\\n'\u001b[39m +\n        \u001b[32m'    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:653:9'\u001b[39m,\n      cause: \u001b[90mundefined\u001b[39m\n    }\n  }\n}\n"
+                        },
+                        {
+                          "text": "[WORKFLOW] ❌ Step 2 failed: Error: Message input not found with any selector\n    at findMessageInput \u001b[90m(file:///home/mego/Python%20Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:96:9\u001b[90m)\u001b[39m\n    at \u001b[90mfile:///home/mego/Python%20Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:668:23\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:322:9\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/testInfo.js:311:11\n    at TimeoutManager.withRunnable \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/timeoutManager.js:67:14\u001b[90m)\u001b[39m\n    at TestInfoImpl._runWithTimeout \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/testInfo.js:309:7\u001b[90m)\u001b[39m\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:320:7\n    at WorkerMain._runTest \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:295:5\u001b[90m)\u001b[39m\n    at WorkerMain.runTestGroup \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:199:11\u001b[90m)\u001b[39m\n    at process.<anonymous> \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/common/process.js:65:22\u001b[90m)\u001b[39m\n"
+                        },
+                        {
+                          "text": "[WORKFLOW] ❌ Step 3 failed: Error: Message input not found with any selector\n    at findMessageInput \u001b[90m(file:///home/mego/Python%20Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:96:9\u001b[90m)\u001b[39m\n    at \u001b[90mfile:///home/mego/Python%20Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:688:27\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:322:9\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/testInfo.js:311:11\n    at TimeoutManager.withRunnable \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/timeoutManager.js:67:14\u001b[90m)\u001b[39m\n    at TestInfoImpl._runWithTimeout \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/testInfo.js:309:7\u001b[90m)\u001b[39m\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:320:7\n    at WorkerMain._runTest \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:295:5\u001b[90m)\u001b[39m\n    at WorkerMain.runTestGroup \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:199:11\u001b[90m)\u001b[39m\n    at process.<anonymous> \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/common/process.js:65:22\u001b[90m)\u001b[39m\n"
+                        },
+                        {
+                          "text": "[WORKFLOW] ❌ Step 4 failed: Error: Message input not found with any selector\n    at findMessageInput \u001b[90m(file:///home/mego/Python%20Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:96:9\u001b[90m)\u001b[39m\n    at \u001b[90mfile:///home/mego/Python%20Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:724:26\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:322:9\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/testInfo.js:311:11\n    at TimeoutManager.withRunnable \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/timeoutManager.js:67:14\u001b[90m)\u001b[39m\n    at TestInfoImpl._runWithTimeout \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/testInfo.js:309:7\u001b[90m)\u001b[39m\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:320:7\n    at WorkerMain._runTest \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:295:5\u001b[90m)\u001b[39m\n    at WorkerMain.runTestGroup \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:199:11\u001b[90m)\u001b[39m\n    at process.<anonymous> \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/common/process.js:65:22\u001b[90m)\u001b[39m\n"
+                        },
+                        {
+                          "text": "[WORKFLOW] ❌ Step 5 failed: page.waitForURL: Test ended.\n=========================== logs ===========================\nwaiting for navigation to \"**/dashboard/teacher/**\" until \"load\"\n============================================================\n    at login \u001b[90m(/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:51:14\u001b[90m)\u001b[39m\n    at \u001b[90m/home/mego/Python Projects/THE_BOT_platform/frontend/\u001b[39me2e/forum-messaging-full.spec.ts:759:9\n"
+                        }
+                      ],
                       "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.716Z",
+                      "startTime": "2026-01-10T16:04:20.549Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/test-failed-1.png"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/test-failed-1.png"
                         },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "88c5f09f1d8e373d8eca-2caf2a3a073db4d5679e",
-              "file": "student-dashboard.spec.ts",
-              "line": 171,
-              "column": 3
-            },
-            {
-              "title": "Student dashboard performs well (no console errors)",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 7,
-                      "parallelIndex": 7,
-                      "status": "failed",
-                      "duration": 19458,
-                      "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:199:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
-                          },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:199:5"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.788Z",
-                      "annotations": [],
-                      "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/video.webm"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/test-failed-2.png"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/error-context.md"
+                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/error-context.md"
                         }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
+                      ]
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "88c5f09f1d8e373d8eca-153ed7927f2471937d43",
-              "file": "student-dashboard.spec.ts",
-              "line": 187,
-              "column": 3
-            },
-            {
-              "title": "Student can access assignment section",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 8,
-                      "parallelIndex": 8,
-                      "status": "failed",
-                      "duration": 17689,
-                      "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:221:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
-                          },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:221:5"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.703Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "88c5f09f1d8e373d8eca-2d1b6657ee7fae44e79d",
-              "file": "student-dashboard.spec.ts",
-              "line": 220,
-              "column": 3
-            },
-            {
-              "title": "Student dashboard has working navigation menu",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 9,
-                      "parallelIndex": 9,
-                      "status": "failed",
-                      "duration": 19423,
-                      "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:240:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
-                          },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:240:5"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.791Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "88c5f09f1d8e373d8eca-59996e5157a0ae722c64",
-              "file": "student-dashboard.spec.ts",
-              "line": 239,
-              "column": 3
-            },
-            {
-              "title": "Student page loads within acceptable time",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 10,
-                      "status": "failed",
-                      "duration": 18615,
-                      "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:254:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
-                          },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:254:5"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.690Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "88c5f09f1d8e373d8eca-25fe3fd5c8c1855fe0d5",
-              "file": "student-dashboard.spec.ts",
-              "line": 251,
-              "column": 3
-            },
-            {
-              "title": "Student dashboard displays without layout breaks",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 11,
-                      "status": "failed",
-                      "duration": 19084,
-                      "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:265:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
-                          },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:265:5"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-06T22:36:32.717Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "88c5f09f1d8e373d8eca-28a5ef48d177c829e984",
-              "file": "student-dashboard.spec.ts",
-              "line": 264,
-              "column": 3
-            }
-          ]
-        },
-        {
-          "title": "Student Dashboard Accessibility Tests",
-          "file": "student-dashboard.spec.ts",
-          "line": 294,
-          "column": 6,
-          "specs": [
-            {
-              "title": "Student dashboard has proper heading hierarchy",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 12,
-                      "parallelIndex": 8,
-                      "status": "failed",
-                      "duration": 17390,
-                      "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:297:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
-                          },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:297:5"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-06T22:36:51.468Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "88c5f09f1d8e373d8eca-825e862e9dc4ccff7b1c",
-              "file": "student-dashboard.spec.ts",
-              "line": 296,
-              "column": 3
-            },
-            {
-              "title": "Student dashboard buttons are keyboard accessible",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 13,
-                      "parallelIndex": 2,
-                      "status": "failed",
-                      "duration": 16897,
-                      "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:310:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
-                          },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:310:5"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-06T22:36:52.401Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "88c5f09f1d8e373d8eca-9e15d9ca5e90e36c019b",
-              "file": "student-dashboard.spec.ts",
-              "line": 309,
-              "column": 3
-            },
-            {
-              "title": "Student dashboard has alt text for images",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 14,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 16927,
-                      "error": {
-                        "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
-                        "stack": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:325:5",
-                        "location": {
-                          "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                          "column": 14,
-                          "line": 53
-                        },
-                        "snippet": "  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                            "column": 14,
-                            "line": 53
-                          },
-                          "message": "TimeoutError: page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n  51 |\n  52 |   // Wait for navigation to student dashboard\n> 53 |   await page.waitForURL(/\\/student/, { timeout: 15000 });\n     |              ^\n  54 | }\n  55 |\n  56 | test.describe('Student Dashboard E2E Tests', () => {\n    at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)\n    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:325:5"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-06T22:36:52.595Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/mego/Python Projects/THE_BOT_platform/frontend/test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts",
-                        "column": 14,
-                        "line": 53
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "88c5f09f1d8e373d8eca-c9b198b2f4ede7eb9110",
-              "file": "student-dashboard.spec.ts",
-              "line": 324,
+              "id": "17852a00c53140648502-8ffd0a3cff0cce5bee94",
+              "file": "forum-messaging-full.spec.ts",
+              "line": 631,
               "column": 3
             }
           ]
@@ -1266,11 +735,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-01-06T22:36:31.320Z",
-    "duration": 38369.631,
+    "startTime": "2026-01-10T16:04:19.368Z",
+    "duration": 91449.798,
     "expected": 0,
     "skipped": 0,
-    "unexpected": 15,
+    "unexpected": 7,
     "flaky": 0
   }
 }

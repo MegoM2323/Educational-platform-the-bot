@@ -99,32 +99,6 @@ const Auth = memo(() => {
 
       toast.success("Вход выполнен успешно!");
 
-      // CRITICAL FIX: Убедиться что токен сохранен перед редиректом
-      // Ждем 500ms чтобы гарантировать что localStorage синхронизирован
-      await new Promise((r) => setTimeout(r, 500));
-
-      // Проверить что токен действительно в localStorage
-      const verifyToken = localStorage.getItem("auth_token");
-      if (!verifyToken) {
-        logger.error(
-          "[Auth.handleLogin] Token not saved before redirect! Retrying...",
-        );
-        // Попробовать еще раз
-        await new Promise((r) => setTimeout(r, 500));
-        const retryToken = localStorage.getItem("auth_token");
-        if (!retryToken) {
-          logger.error(
-            "[Auth.handleLogin] CRITICAL: Token still not in localStorage after retry!",
-          );
-          toast.error("Ошибка сохранения токена. Попробуйте войти еще раз");
-          return;
-        }
-      }
-
-      logger.debug(
-        "[Auth.handleLogin] Token verified in localStorage, proceeding with redirect",
-      );
-
       // Если админ — отправляем в панель управления персоналом
       if ((result.user as any).is_staff) {
         navigate("/admin/staff");

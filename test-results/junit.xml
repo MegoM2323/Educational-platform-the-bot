@@ -1,604 +1,418 @@
-<testsuites id="" name="" tests="15" failures="15" skipped="0" errors="0" time="38.369631">
-<testsuite name="student-dashboard.spec.ts" timestamp="2026-01-06T22:36:31.609Z" hostname="chromium" tests="15" failures="15" skipped="0" time="278.842" errors="0">
-<testcase name="Student Dashboard E2E Tests › Student can login and access dashboard" classname="student-dashboard.spec.ts" time="18.315">
-<failure message="student-dashboard.spec.ts:63:3 Student can login and access dashboard" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:63:3 › Student Dashboard E2E Tests › Student can login and access dashboard 
+<testsuites id="" name="" tests="7" failures="7" skipped="0" errors="0" time="91.449798">
+<testsuite name="forum-messaging-full.spec.ts" timestamp="2026-01-10T16:04:19.705Z" hostname="chromium" tests="7" failures="7" skipped="0" time="462.291" errors="0">
+<testcase name="FORUM MESSAGING: Full E2E Flow › Step 1: Student creates new chat with teacher" classname="forum-messaging-full.spec.ts" time="63.009">
+<failure message="forum-messaging-full.spec.ts:127:3 Step 1: Student creates new chat with teacher" type="FAILURE">
+<![CDATA[  [chromium] › forum-messaging-full.spec.ts:127:3 › FORUM MESSAGING: Full E2E Flow › Step 1: Student creates new chat with teacher 
 
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
+    Test timeout of 60000ms exceeded.
 
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
+    Error: page.screenshot: Target page, context or browser has been closed
+
+      70 |   const timestamp = Date.now();
+      71 |   const filename = `/tmp/playwright-${name}-${timestamp}.png`;
+    > 72 |   await page.screenshot({ path: filename, fullPage: true });
          |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:64:5
+      73 |   console.log(`[SCREENSHOT] Saved: ${filename}`);
+      74 |   return filename;
+      75 | }
+        at takeScreenshot (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:72:14)
+        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:180:13
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/test-failed-1.png
+    ../test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/video.webm
+    ../test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: ../test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/error-context.md
+    Error Context: ../test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/error-context.md
 ]]>
 </failure>
 <system-out>
 <![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/test-failed-1.png]]
+================================================================================
+TEST 1: Student creates chat with teacher
+================================================================================
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/video.webm]]
+[LOGIN] Logging in as student@test.com...
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--76e36--login-and-access-dashboard-chromium/error-context.md]]
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/video.webm]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-9e447-eates-new-chat-with-teacher-chromium/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Student Dashboard E2E Tests › Student can view materials list" classname="student-dashboard.spec.ts" time="19.141">
-<failure message="student-dashboard.spec.ts:78:3 Student can view materials list" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:78:3 › Student Dashboard E2E Tests › Student can view materials list 
+<testcase name="FORUM MESSAGING: Full E2E Flow › Step 2: Student sends message &quot;Привет учитель!&quot;" classname="forum-messaging-full.spec.ts" time="63.05">
+<failure message="forum-messaging-full.spec.ts:189:3 Step 2: Student sends message &quot;Привет учитель!&quot;" type="FAILURE">
+<![CDATA[  [chromium] › forum-messaging-full.spec.ts:189:3 › FORUM MESSAGING: Full E2E Flow › Step 2: Student sends message "Привет учитель!" 
 
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
+    Test timeout of 60000ms exceeded.
 
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
+    Error: page.screenshot: Target page, context or browser has been closed
+
+      70 |   const timestamp = Date.now();
+      71 |   const filename = `/tmp/playwright-${name}-${timestamp}.png`;
+    > 72 |   await page.screenshot({ path: filename, fullPage: true });
          |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:79:5
+      73 |   console.log(`[SCREENSHOT] Saved: ${filename}`);
+      74 |   return filename;
+      75 | }
+        at takeScreenshot (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:72:14)
+        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:238:13
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/test-failed-1.png
+    ../test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/video.webm
+    ../test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: ../test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/error-context.md
+    Error Context: ../test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/error-context.md
 ]]>
 </failure>
 <system-out>
 <![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/test-failed-1.png]]
+================================================================================
+TEST 2: Student sends message
+================================================================================
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/video.webm]]
+[LOGIN] Logging in as student@test.com...
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--ecaad-ent-can-view-materials-list-chromium/error-context.md]]
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/test-failed-1.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/video.webm]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-5e289-nds-message-Привет-учитель--chromium/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Student Dashboard E2E Tests › Student can view progress" classname="student-dashboard.spec.ts" time="18.197">
-<failure message="student-dashboard.spec.ts:101:3 Student can view progress" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:101:3 › Student Dashboard E2E Tests › Student can view progress 
+<testcase name="FORUM MESSAGING: Full E2E Flow › Step 3: Student edits message" classname="forum-messaging-full.spec.ts" time="62.982">
+<failure message="forum-messaging-full.spec.ts:247:3 Step 3: Student edits message" type="FAILURE">
+<![CDATA[  [chromium] › forum-messaging-full.spec.ts:247:3 › FORUM MESSAGING: Full E2E Flow › Step 3: Student edits message 
 
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
+    Test timeout of 60000ms exceeded.
 
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
+    Error: page.screenshot: Target page, context or browser has been closed
+
+      70 |   const timestamp = Date.now();
+      71 |   const filename = `/tmp/playwright-${name}-${timestamp}.png`;
+    > 72 |   await page.screenshot({ path: filename, fullPage: true });
          |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:102:5
+      73 |   console.log(`[SCREENSHOT] Saved: ${filename}`);
+      74 |   return filename;
+      75 | }
+        at takeScreenshot (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:72:14)
+        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:334:13
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/test-failed-1.png
+    ../test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/video.webm
+    ../test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: ../test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/error-context.md
+    Error Context: ../test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/error-context.md
 ]]>
 </failure>
 <system-out>
 <![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/test-failed-1.png]]
+================================================================================
+TEST 3: Student edits message
+================================================================================
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/video.webm]]
+[LOGIN] Logging in as student@test.com...
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--b9a71-s-Student-can-view-progress-chromium/error-context.md]]
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/video.webm]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-c34dc-tep-3-Student-edits-message-chromium/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Student Dashboard E2E Tests › Student dashboard displays user info" classname="student-dashboard.spec.ts" time="19.504">
-<failure message="student-dashboard.spec.ts:117:3 Student dashboard displays user info" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:117:3 › Student Dashboard E2E Tests › Student dashboard displays user info 
+<testcase name="FORUM MESSAGING: Full E2E Flow › Step 4: Student deletes message" classname="forum-messaging-full.spec.ts" time="62.927">
+<failure message="forum-messaging-full.spec.ts:343:3 Step 4: Student deletes message" type="FAILURE">
+<![CDATA[  [chromium] › forum-messaging-full.spec.ts:343:3 › FORUM MESSAGING: Full E2E Flow › Step 4: Student deletes message 
 
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
+    Test timeout of 60000ms exceeded.
 
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
+    Error: page.screenshot: Target page, context or browser has been closed
+
+      70 |   const timestamp = Date.now();
+      71 |   const filename = `/tmp/playwright-${name}-${timestamp}.png`;
+    > 72 |   await page.screenshot({ path: filename, fullPage: true });
          |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:118:5
+      73 |   console.log(`[SCREENSHOT] Saved: ${filename}`);
+      74 |   return filename;
+      75 | }
+        at takeScreenshot (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:72:14)
+        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:419:13
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/test-failed-1.png
+    ../test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/video.webm
+    ../test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: ../test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/error-context.md
+    Error Context: ../test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/error-context.md
 ]]>
 </failure>
 <system-out>
 <![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/test-failed-1.png]]
+================================================================================
+TEST 4: Student deletes message
+================================================================================
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/video.webm]]
+[LOGIN] Logging in as student@test.com...
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--c9023-ashboard-displays-user-info-chromium/error-context.md]]
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/video.webm]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-d1954-p-4-Student-deletes-message-chromium/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Student Dashboard E2E Tests › Student can navigate back to home from dashboard" classname="student-dashboard.spec.ts" time="19.523">
-<failure message="student-dashboard.spec.ts:137:3 Student can navigate back to home from dashboard" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:137:3 › Student Dashboard E2E Tests › Student can navigate back to home from dashboard 
+<testcase name="FORUM MESSAGING: Full E2E Flow › Step 5: WebSocket real-time: Student sends → Teacher receives" classname="forum-messaging-full.spec.ts" time="60.109">
+<failure message="forum-messaging-full.spec.ts:428:3 Step 5: WebSocket real-time: Student sends → Teacher receives" type="FAILURE">
+<![CDATA[  [chromium] › forum-messaging-full.spec.ts:428:3 › FORUM MESSAGING: Full E2E Flow › Step 5: WebSocket real-time: Student sends → Teacher receives 
 
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
+    Test timeout of 60000ms exceeded.
 
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:138:5
+    Error: browserContext.close: Target page, context or browser has been closed
+
+      532 |       throw error;
+      533 |     } finally {
+    > 534 |       if (contextStudent) await contextStudent.close();
+          |                           ^
+      535 |       if (contextTeacher) await contextTeacher.close();
+      536 |     }
+      537 |   });
+        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:534:27
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/test-failed-1.png
+    ../test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/video.webm
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/test-failed-2.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: ../test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/error-context.md
+    Error Context: ../test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/error-context.md
 ]]>
 </failure>
 <system-out>
 <![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/test-failed-1.png]]
+================================================================================
+TEST 5: WebSocket real-time updates
+================================================================================
+[STEP 5] Logging in both users...
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/video.webm]]
+[LOGIN] Logging in as student@test.com...
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--8b24e-back-to-home-from-dashboard-chromium/error-context.md]]
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/test-failed-2.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-18f07-nt-sends-→-Teacher-receives-chromium/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Student Dashboard E2E Tests › Student dashboard layout is responsive" classname="student-dashboard.spec.ts" time="19.17">
-<failure message="student-dashboard.spec.ts:153:3 Student dashboard layout is responsive" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:153:3 › Student Dashboard E2E Tests › Student dashboard layout is responsive 
+<testcase name="FORUM MESSAGING: Full E2E Flow › Step 6: Teacher replies to student" classname="forum-messaging-full.spec.ts" time="60.099">
+<failure message="forum-messaging-full.spec.ts:542:3 Step 6: Teacher replies to student" type="FAILURE">
+<![CDATA[  [chromium] › forum-messaging-full.spec.ts:542:3 › FORUM MESSAGING: Full E2E Flow › Step 6: Teacher replies to student 
 
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
+    Test timeout of 60000ms exceeded.
 
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:154:5
+    Error: browserContext.close: Target page, context or browser has been closed
+
+      616 |       throw error;
+      617 |     } finally {
+    > 618 |       if (contextStudent) await contextStudent.close();
+          |                           ^
+      619 |       if (contextTeacher) await contextTeacher.close();
+      620 |     }
+      621 |   });
+        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:618:27
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/test-failed-1.png
+    ../test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/video.webm
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/test-failed-2.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: ../test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/error-context.md
+    Error Context: ../test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/error-context.md
 ]]>
 </failure>
 <system-out>
 <![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/test-failed-1.png]]
+================================================================================
+TEST 6: Teacher replies to student
+================================================================================
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/video.webm]]
+[LOGIN] Logging in as student@test.com...
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--79ac1-hboard-layout-is-responsive-chromium/error-context.md]]
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/test-failed-2.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-FORUM-46704--Teacher-replies-to-student-chromium/error-context.md]]
 ]]>
 </system-out>
+<system-err>
+<![CDATA[[TEST 6] ❌ FAILED: page.waitForURL: Test ended.
+=========================== logs ===========================
+waiting for navigation to "**/dashboard/student/**" until "load"
+============================================================
+    at login [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:51:14[90m)[39m
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:559:7
+]]>
+</system-err>
 </testcase>
-<testcase name="Student Dashboard E2E Tests › Student can logout" classname="student-dashboard.spec.ts" time="19.509">
-<failure message="student-dashboard.spec.ts:171:3 Student can logout" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:171:3 › Student Dashboard E2E Tests › Student can logout ──
+<testcase name="COMPLETE WORKFLOW: All Steps Combined › Complete workflow: Create → Send → Edit → Delete → Real-time" classname="forum-messaging-full.spec.ts" time="90.115">
+<failure message="forum-messaging-full.spec.ts:631:3 Complete workflow: Create → Send → Edit → Delete → Real-time" type="FAILURE">
+<![CDATA[  [chromium] › forum-messaging-full.spec.ts:631:3 › COMPLETE WORKFLOW: All Steps Combined › Complete workflow: Create → Send → Edit → Delete → Real-time 
 
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
+    Test timeout of 90000ms exceeded.
 
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:172:5
+    Error: browserContext.close: Target page, context or browser has been closed
+
+      787 |
+      788 |     } finally {
+    > 789 |       if (contextStudent) await contextStudent.close();
+          |                           ^
+      790 |       if (contextTeacher) await contextTeacher.close();
+      791 |     }
+      792 |
+        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:789:27
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/test-failed-1.png
+    ../test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/video.webm
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/test-failed-2.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: ../test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/error-context.md
+    Error Context: ../test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/error-context.md
 ]]>
 </failure>
 <system-out>
 <![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/test-failed-1.png]]
+================================================================================
+COMPLETE WORKFLOW TEST: All steps in one
+================================================================================
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/video.webm]]
+[LOGIN] Logging in as student@test.com...
 
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--5610b-2E-Tests-Student-can-logout-chromium/error-context.md]]
+[LOGIN] Logging in as teacher@test.com...
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/test-failed-2.png]]
+
+[[ATTACHMENT|../frontend/test-results/forum-messaging-full-COMPL-22c6a-→-Edit-→-Delete-→-Real-time-chromium/error-context.md]]
 ]]>
 </system-out>
-</testcase>
-<testcase name="Student Dashboard E2E Tests › Student dashboard performs well (no console errors)" classname="student-dashboard.spec.ts" time="19.458">
-<failure message="student-dashboard.spec.ts:187:3 Student dashboard performs well (no console errors)" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:187:3 › Student Dashboard E2E Tests › Student dashboard performs well (no console errors) 
-
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
-
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:199:5
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/error-context.md
+<system-err>
+<![CDATA[[WORKFLOW] ❌ Step 1 failed: page.waitForURL: Timeout 60000ms exceeded.
+=========================== logs ===========================
+waiting for navigation to "**/dashboard/student/**" until "load"
+============================================================
+    at login [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:51:14[90m)[39m
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:653:9 {
+  name: [32m'TimeoutError'[39m,
+  [[32mSymbol(step)[39m]: {
+    location: {
+      file: [32m'/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts'[39m,
+      line: [33m51[39m,
+      column: [33m14[39m,
+      function: [32m'login'[39m
+    },
+    category: [32m'pw:api'[39m,
+    title: [32m'Wait for navigation'[39m,
+    apiName: [32m'page.waitForURL'[39m,
+    params: { info: [36m[Object][39m },
+    group: [90mundefined[39m,
+    stepId: [32m'pw:api@37'[39m,
+    boxedStack: [90mundefined[39m,
+    steps: [],
+    attachmentIndices: [],
+    info: TestStepInfoImpl {
+      annotations: [],
+      _testInfo: [36m[TestInfoImpl][39m,
+      _stepId: [32m'pw:api@37'[39m,
+      _title: [32m'Wait for navigation'[39m,
+      _parentStep: [90mundefined[39m,
+      skip: [36m[Function (anonymous)][39m
+    },
+    complete: [36m[Function: complete][39m,
+    endWallTime: [33m1768061122212[39m,
+    error: {
+      message: [32m'TimeoutError: page.waitForURL: Timeout 60000ms exceeded.\n'[39m +
+        [32m'=========================== logs ===========================\n'[39m +
+        [32m'waiting for navigation to "**/dashboard/student/**" until "load"\n'[39m +
+        [32m'============================================================'[39m,
+      stack: [32m'TimeoutError: page.waitForURL: Timeout 60000ms exceeded.\n'[39m +
+        [32m'=========================== logs ===========================\n'[39m +
+        [32m'waiting for navigation to "**/dashboard/student/**" until "load"\n'[39m +
+        [32m'============================================================\n'[39m +
+        [32m'    at login (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:51:14)\n'[39m +
+        [32m'    at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/forum-messaging-full.spec.ts:653:9'[39m,
+      cause: [90mundefined[39m
+    }
+  }
+}
+[WORKFLOW] ❌ Step 2 failed: Error: Message input not found with any selector
+    at findMessageInput [90m(file:///home/mego/Python%20Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:96:9[90m)[39m
+    at [90mfile:///home/mego/Python%20Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:668:23
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:322:9
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/testInfo.js:311:11
+    at TimeoutManager.withRunnable [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/timeoutManager.js:67:14[90m)[39m
+    at TestInfoImpl._runWithTimeout [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/testInfo.js:309:7[90m)[39m
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:320:7
+    at WorkerMain._runTest [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:295:5[90m)[39m
+    at WorkerMain.runTestGroup [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:199:11[90m)[39m
+    at process.<anonymous> [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/common/process.js:65:22[90m)[39m
+[WORKFLOW] ❌ Step 3 failed: Error: Message input not found with any selector
+    at findMessageInput [90m(file:///home/mego/Python%20Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:96:9[90m)[39m
+    at [90mfile:///home/mego/Python%20Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:688:27
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:322:9
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/testInfo.js:311:11
+    at TimeoutManager.withRunnable [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/timeoutManager.js:67:14[90m)[39m
+    at TestInfoImpl._runWithTimeout [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/testInfo.js:309:7[90m)[39m
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:320:7
+    at WorkerMain._runTest [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:295:5[90m)[39m
+    at WorkerMain.runTestGroup [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:199:11[90m)[39m
+    at process.<anonymous> [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/common/process.js:65:22[90m)[39m
+[WORKFLOW] ❌ Step 4 failed: Error: Message input not found with any selector
+    at findMessageInput [90m(file:///home/mego/Python%20Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:96:9[90m)[39m
+    at [90mfile:///home/mego/Python%20Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:724:26
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:322:9
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/testInfo.js:311:11
+    at TimeoutManager.withRunnable [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/timeoutManager.js:67:14[90m)[39m
+    at TestInfoImpl._runWithTimeout [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/testInfo.js:309:7[90m)[39m
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:320:7
+    at WorkerMain._runTest [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:295:5[90m)[39m
+    at WorkerMain.runTestGroup [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/worker/workerMain.js:199:11[90m)[39m
+    at process.<anonymous> [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39mnode_modules/[4mplaywright[24m/lib/common/process.js:65:22[90m)[39m
+[WORKFLOW] ❌ Step 5 failed: page.waitForURL: Test ended.
+=========================== logs ===========================
+waiting for navigation to "**/dashboard/teacher/**" until "load"
+============================================================
+    at login [90m(/home/mego/Python Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:51:14[90m)[39m
+    at [90m/home/mego/Python Projects/THE_BOT_platform/frontend/[39me2e/forum-messaging-full.spec.ts:759:9
 ]]>
-</failure>
-<system-out>
-<![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/test-failed-1.png]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/video.webm]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--fb1c0-rms-well-no-console-errors--chromium/error-context.md]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Student Dashboard E2E Tests › Student can access assignment section" classname="student-dashboard.spec.ts" time="17.689">
-<failure message="student-dashboard.spec.ts:220:3 Student can access assignment section" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:220:3 › Student Dashboard E2E Tests › Student can access assignment section 
-
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
-
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:221:5
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/error-context.md
-]]>
-</failure>
-<system-out>
-<![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/test-failed-1.png]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/video.webm]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--a3f5d-n-access-assignment-section-chromium/error-context.md]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Student Dashboard E2E Tests › Student dashboard has working navigation menu" classname="student-dashboard.spec.ts" time="19.423">
-<failure message="student-dashboard.spec.ts:239:3 Student dashboard has working navigation menu" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:239:3 › Student Dashboard E2E Tests › Student dashboard has working navigation menu 
-
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
-
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:240:5
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/error-context.md
-]]>
-</failure>
-<system-out>
-<![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/test-failed-1.png]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/video.webm]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--ecfe8-has-working-navigation-menu-chromium/error-context.md]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Student Dashboard E2E Tests › Student page loads within acceptable time" classname="student-dashboard.spec.ts" time="18.615">
-<failure message="student-dashboard.spec.ts:251:3 Student page loads within acceptable time" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:251:3 › Student Dashboard E2E Tests › Student page loads within acceptable time 
-
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
-
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:254:5
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/error-context.md
-]]>
-</failure>
-<system-out>
-<![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/test-failed-1.png]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/video.webm]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--03584-oads-within-acceptable-time-chromium/error-context.md]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Student Dashboard E2E Tests › Student dashboard displays without layout breaks" classname="student-dashboard.spec.ts" time="19.084">
-<failure message="student-dashboard.spec.ts:264:3 Student dashboard displays without layout breaks" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:264:3 › Student Dashboard E2E Tests › Student dashboard displays without layout breaks 
-
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
-
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:265:5
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/error-context.md
-]]>
-</failure>
-<system-out>
-<![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/test-failed-1.png]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/video.webm]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--4fa51-plays-without-layout-breaks-chromium/error-context.md]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Student Dashboard Accessibility Tests › Student dashboard has proper heading hierarchy" classname="student-dashboard.spec.ts" time="17.39">
-<failure message="student-dashboard.spec.ts:296:3 Student dashboard has proper heading hierarchy" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:296:3 › Student Dashboard Accessibility Tests › Student dashboard has proper heading hierarchy 
-
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
-
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:297:5
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/error-context.md
-]]>
-</failure>
-<system-out>
-<![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/test-failed-1.png]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/video.webm]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--5fb91-as-proper-heading-hierarchy-chromium/error-context.md]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Student Dashboard Accessibility Tests › Student dashboard buttons are keyboard accessible" classname="student-dashboard.spec.ts" time="16.897">
-<failure message="student-dashboard.spec.ts:309:3 Student dashboard buttons are keyboard accessible" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:309:3 › Student Dashboard Accessibility Tests › Student dashboard buttons are keyboard accessible 
-
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
-
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:310:5
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/error-context.md
-]]>
-</failure>
-<system-out>
-<![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/test-failed-1.png]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/video.webm]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--fb08c-ons-are-keyboard-accessible-chromium/error-context.md]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Student Dashboard Accessibility Tests › Student dashboard has alt text for images" classname="student-dashboard.spec.ts" time="16.927">
-<failure message="student-dashboard.spec.ts:324:3 Student dashboard has alt text for images" type="FAILURE">
-<![CDATA[  [chromium] › student-dashboard.spec.ts:324:3 › Student Dashboard Accessibility Tests › Student dashboard has alt text for images 
-
-    TimeoutError: page.waitForURL: Timeout 15000ms exceeded.
-    =========================== logs ===========================
-    waiting for navigation until "load"
-    ============================================================
-
-      51 |
-      52 |   // Wait for navigation to student dashboard
-    > 53 |   await page.waitForURL(/\/student/, { timeout: 15000 });
-         |              ^
-      54 | }
-      55 |
-      56 | test.describe('Student Dashboard E2E Tests', () => {
-        at loginStudent (/home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:53:14)
-        at /home/mego/Python Projects/THE_BOT_platform/frontend/e2e/student-dashboard.spec.ts:325:5
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/error-context.md
-]]>
-</failure>
-<system-out>
-<![CDATA[
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/test-failed-1.png]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/video.webm]]
-
-[[ATTACHMENT|../frontend/test-results/student-dashboard-Student--c13f0-ard-has-alt-text-for-images-chromium/error-context.md]]
-]]>
-</system-out>
+</system-err>
 </testcase>
 </testsuite>
 </testsuites>

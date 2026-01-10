@@ -21,6 +21,7 @@ from .models import User, StudentProfile, TeacherProfile, TutorProfile, ParentPr
 from .serializers import (
     UserLoginSerializer,
     UserSerializer,
+    UserMinimalSerializer,
     StudentProfileSerializer,
     TeacherProfileSerializer,
     TutorProfileSerializer,
@@ -192,8 +193,10 @@ def login_view(request):
                         f"[login] Session error (non-critical): {str(session_error)}"
                     )
 
-            # Сериализуем пользователя
-            user_data = UserSerializer(user).data
+            # Сериализуем пользователя (минимальный набор для performance)
+            user_data = UserMinimalSerializer(user).data
+            # Добавляем роль (используется фронтендом для редиректа)
+            user_data['role'] = user.role
 
             return Response(
                 {

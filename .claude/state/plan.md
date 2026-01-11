@@ -1,103 +1,118 @@
-# Refactoring: Rename "forum" → "chat" across codebase
+# Task Plan: Create Comprehensive STUDENT Creation Tests
 
-## Overview
-Standardize terminology in entire codebase - replace "forum" with "chat" or "чат" (Russian).
-- Backend: 175 references
-- Frontend: 460 references
-- Test files: 200+ references (but will NOT modify as per requirements)
+## Task Group 1 (Single Independent Task)
 
-## Frontend Tasks (Priority 1 - MAIN)
+### Task t_student_creation_tests: Create comprehensive test suite for STUDENT creation
+**Objective**: Create comprehensive pytest tests for STUDENT user creation through API endpoints with full validation coverage
 
-### Task 1: Rename directories and files
-- [ ] `/frontend/src/components/forum/` → `/frontend/src/components/chat/`
-- [ ] `/frontend/src/pages/dashboard/Forum.tsx` → `/frontend/src/pages/dashboard/Chat.tsx`
-- [ ] `/frontend/src/hooks/useForumChats.ts` → `/frontend/src/hooks/useChatRooms.ts`
-- [ ] `/frontend/src/hooks/useForumMessages.ts` → `/frontend/src/hooks/useChatMessages.ts`
-- [ ] `/frontend/src/hooks/useForumMessageUpdate.ts` → `/frontend/src/hooks/useChatMessageUpdate.ts`
-- [ ] `/frontend/src/hooks/useForumMessageDelete.ts` → `/frontend/src/hooks/useChatMessageDelete.ts`
+**File**: `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/tests/test_roles_create_students.py` (NEW)
 
-**Files to rename (6 directories/17 files):**
-```
-frontend/src/components/forum/                       → frontend/src/components/chat/
-frontend/src/components/forum/__tests__/             → frontend/src/components/chat/__tests__/
-frontend/src/components/forum/EditMessageDialog.tsx  → frontend/src/components/chat/EditMessageDialog.tsx
-frontend/src/components/forum/MessageActions.tsx     → frontend/src/components/chat/MessageActions.tsx
-frontend/src/pages/dashboard/Forum.tsx               → frontend/src/pages/dashboard/Chat.tsx
-frontend/src/hooks/useForumChats.ts                  → frontend/src/hooks/useChatRooms.ts
-frontend/src/hooks/useForumMessages.ts               → frontend/src/hooks/useChatMessages.ts
-frontend/src/hooks/useForumMessageUpdate.ts          → frontend/src/hooks/useChatMessageUpdate.ts
-frontend/src/hooks/useForumMessageDelete.ts          → frontend/src/hooks/useChatMessageDelete.ts
-```
+**Test Classes & Methods Required**:
 
-### Task 2: Update imports and export paths
-Update all files that import from renamed files:
-- Update route imports in `App.tsx` and dashboard files
-- Update hook imports across component files (40+ files)
-- Update component imports
+#### 1. TestStudentCreationBasic (Basic creation scenarios)
+- `test_create_student_via_general_endpoint` - POST /api/accounts/users/ with role=student
+- `test_create_student_minimal_fields` - Only required fields (email, password, username)
+- `test_student_profile_auto_created` - StudentProfile OneToOne auto-created
+- `test_student_user_properties` - Verify role=student, is_active=True
 
-### Task 3: Rename exported hook functions
-- `useForumChats()` → `useChatRooms()`
-- `useForumMessages()` → `useChatMessages()`
-- `useForumMessageUpdate()` → `useChatMessageUpdate()`
-- `useForumMessageDelete()` → `useChatMessageDelete()`
-- Internal variable renames: `forums` → `chatRooms`, `forum` → `chatRoom`
+#### 2. TestStudentCreationValidation (Field validation)
+- `test_email_validation_valid` - Valid email accepted
+- `test_email_validation_invalid_format` - Invalid email rejected with 400
+- `test_email_unique_constraint` - Duplicate email rejected (409 or 400)
+- `test_phone_validation_valid_formats` - Valid phone patterns (+79991234567, 79991234567, 9991234567)
+- `test_phone_validation_invalid_formats` - Invalid phone rejected
+- `test_phone_optional` - Empty phone accepted
+- `test_username_unique_constraint` - Duplicate username rejected
+- `test_first_name_optional` - First name can be empty
+- `test_last_name_optional` - Last name can be empty
+- `test_password_strong_requirement` - Weak passwords rejected
+- `test_password_strong_accepted` - Strong passwords accepted (min 8 chars, mixed case, numbers)
 
-### Task 4: Update variable names in components
-- Rename: `forumRoomId` → `chatRoomId`
-- Rename: `forumInput` → `chatInput`
-- Rename: `forumMessages` → `chatMessages`
-- Rename: `isForumPage` → `isChatPage`
-- Replace strings: `/forum` → `/chat`, `/dashboard/*/forum` → `/dashboard/*/chat`
+#### 3. TestStudentCreationProfile (StudentProfile initialization)
+- `test_profile_grade_initialized_null` - grade field is null initially
+- `test_profile_goal_initialized_null` - goal field is null initially
+- `test_profile_tutor_initialized_null` - tutor relationship is null
+- `test_profile_parent_initialized_null` - parent relationship is null
+- `test_profile_progress_percentage_initialized_zero` - progress_percentage=0
+- `test_profile_streak_days_initialized_zero` - streak_days=0
+- `test_profile_total_points_initialized_zero` - total_points=0
+- `test_profile_accuracy_percentage_initialized_zero` - accuracy_percentage=0
 
-### Task 5: Update constants and config
-- Check `frontend/src/config/` for `FORUM_*` constants → `CHAT_*`
-- Update API endpoint paths if any reference forum
+#### 4. TestStudentCreationNotifications (NotificationSettings auto-creation)
+- `test_notification_settings_auto_created` - NotificationSettings auto-created for new student
+- `test_notification_settings_defaults` - All notification defaults are correct
+- `test_notification_settings_linked_to_user` - Correctly linked to User via OneToOne
 
-### Task 6: Update route navigation
-- Sidebar links: "Forum" → "Чат" (in StudentSidebar, TeacherSidebar, etc.)
-- Route params: `/forum` → `/chat` in App.tsx router config
-- Navigation state variables
+#### 5. TestStudentCreationTelegram (Telegram integration)
+- `test_telegram_id_saved` - telegram_id saved if provided
+- `test_telegram_id_unique` - Duplicate telegram_id rejected
+- `test_telegram_id_optional` - telegram_id can be null
+- `test_telegram_id_numeric_validation` - Non-numeric telegram_id rejected
 
-## Backend Tasks (Priority 2)
+#### 6. TestStudentCreationErrors (Error cases & edge cases)
+- `test_create_student_missing_email` - Missing email returns 400
+- `test_create_student_missing_password` - Missing password returns 400
+- `test_create_student_missing_username` - Missing username returns 400
+- `test_create_student_duplicate_email` - Duplicate email returns 400/409
+- `test_create_student_duplicate_username` - Duplicate username returns 400/409
+- `test_create_student_duplicate_telegram_id` - Duplicate telegram_id returns 400/409
+- `test_create_student_invalid_phone` - Invalid phone returns 400
+- `test_create_student_weak_password` - Weak password returns 400
+- `test_create_student_inactive_tutor_creator` - Creating by inactive tutor fails
+- `test_create_student_invalid_created_by_tutor` - Non-tutor as created_by_tutor fails
 
-### Task 7: Update Python variable names
-- Replace in `models.py`: Field choices, verbose_name, help_text
-- Replace in `apps.py`: verbose_name, comments
-- Replace in `signals.py`: comments, variable names
-- Replace in `permissions.py`: docstrings, variable names
-- Replace in `views.py`: comments, parameter names, docstrings
-- Replace in `services/chat_service.py`: method docstrings, comments
+#### 7. TestStudentCreationTutorEndpoint (POST /api/accounts/students/create/)
+- `test_create_student_via_tutor_endpoint` - POST /api/accounts/students/create/
+- `test_tutor_endpoint_creates_with_role_student` - Ensures role=student
+- `test_tutor_endpoint_requires_auth` - Anonymous request rejected
+- `test_tutor_endpoint_requires_tutor_role` - Non-tutor rejected (only TUTOR role allowed)
+- `test_tutor_endpoint_sets_created_by_tutor` - Automatically sets created_by_tutor=current_user
+- `test_tutor_endpoint_student_linked_to_tutor` - Student created_by_tutor relationship correct
 
-### Task 8: Update test files (Python)
-**SKIP - per requirements, but list for reference:**
-- backend/tests/test_chat_types.py: TestForumSubjectChat → TestChatSubject
-- backend/tests/test_e2e_chat_flow.py: comments only
-- backend/tests/test_chat_integration.py: comments only
-- backend/tests/test_chat_moderation.py: forum_room fixture → chat_room
+#### 8. TestStudentCreationDatabasePersistence (DB verification)
+- `test_data_persisted_in_db` - Verify all fields saved correctly (.refresh_from_db())
+- `test_multiple_students_creation` - Create multiple students, all unique
+- `test_queryset_filtering` - assertQuerySetEqual for created students
+- `test_transaction_rollback_on_error` - Transaction rolls back on validation error
 
-## Documentation Tasks (NOT doing - per requirements)
-- [ ] Skip: README.md, MANUAL_TESTING_CHECKLIST.md
-- [ ] Skip: E2E test files and test reports
-- [ ] Skip: Git commit history
+**Testing Patterns**:
+- Use `pytest-django` with `db` fixture for database isolation
+- Use `APIClient` from `rest_framework.test` for endpoint testing
+- Use `StudentFactory`, `UserFactory`, `TutorFactory` from conftest.py
+- Use `assertQuerySetEqual` for database assertion
+- Use `.refresh_from_db()` to verify persistence
+- Mock/patch where needed (e.g., file upload for avatar)
+- Include parametrized tests for multiple phone format validations
 
-## Notes
-- **DO NOT** rename Django migrations
-- **DO NOT** modify test expectations
-- **DO NOT** change API endpoint names that are already stable
-- **DO NOT** touch git history
-- Ensure imports are consistent after refactoring
-- Frontend must compile without errors (npm run build)
+**Dependencies**:
+- `pytest-django`
+- `django-rest-framework`
+- `factory-boy`
+- Fixtures from `/home/mego/Python Projects/THE_BOT_platform/backend/tests/conftest.py`
+- Models: User, StudentProfile, NotificationSettings (if exists)
+- Views: UserCreateViewSet or similar (POST /api/accounts/users/)
+- Serializers: UserSerializer, StudentProfileSerializer
 
-## Execution Order
-1. Rename directories (Task 1)
-2. Rename files (Task 1)
-3. Update imports (Task 2, 3, 4, 5, 6)
-4. Update backend files (Task 7)
-5. Run formatter: black
-6. Run type checker: mypy
-7. Verify frontend build: npm run build --dry-run (if available)
+**Success Criteria**:
+- All 50+ test methods written and passing
+- Full coverage of validation logic
+- Database persistence verified
+- Error cases comprehensive
+- Both endpoints tested (general + tutor-specific)
+- Profile auto-creation verified
+- Notification settings auto-creation verified
+- File: created at `/home/mego/Python Projects/THE_BOT_platform/backend/accounts/tests/test_roles_create_students.py`
+- Syntax valid (black formatted)
+- No import errors
+- All pytest fixtures properly used
 
-## Status
-- [ ] Pending: coder implementation
-- [ ] Pending: reviewer check
-- [ ] Pending: frontend build test
+**Estimated Duration**: 40-50 minutes
+
+---
+
+## Notes:
+- Tests should be independent and not rely on execution order
+- Each test should use fresh factory instances
+- Use parametrize for testing multiple similar cases
+- Document complex test logic with brief comments
+- Follow existing test patterns from codebase

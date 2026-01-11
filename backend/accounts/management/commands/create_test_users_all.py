@@ -68,7 +68,7 @@ class Command(BaseCommand):
                 "email": "admin@test.com",
                 "first_name": "Админ",
                 "last_name": "Администратор",
-                "role": User.Role.PARENT,  # Обычная роль для админа
+                "role": User.Role.ADMIN,
                 "password": TEST_PASSWORD,
                 "is_staff": True,
                 "is_superuser": True,
@@ -159,6 +159,8 @@ class Command(BaseCommand):
                 )
             elif user.role == User.Role.PARENT:
                 ParentProfile.objects.get_or_create(user=user)
+            elif user.role == User.Role.ADMIN:
+                pass
 
         # ПРОВЕРКА: Убедимся что все профили созданы
         self.stdout.write("\n" + "="*80)
@@ -178,6 +180,8 @@ class Command(BaseCommand):
                 profile_exists = hasattr(user, 'tutor_profile') and user.tutor_profile is not None
             elif user.role == User.Role.PARENT:
                 profile_exists = hasattr(user, 'parent_profile') and user.parent_profile is not None
+            elif user.role == User.Role.ADMIN:
+                profile_exists = True
 
             status = "✅" if profile_exists else "❌"
             self.stdout.write(f"{status} {user.email:30} ({user.get_role_display():15}) - профиль {'создан' if profile_exists else 'ОТСУТСТВУЕТ'}")

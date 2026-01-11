@@ -366,22 +366,42 @@ class IsStaffOrAdmin(BasePermission):
     Разрешение ТОЛЬКО для пользователей с правами администратора или staff.
     НЕ включает тьюторов - они используют IsTutorOrAdmin для управления студентами.
 
+    Логика:
+    Проверяет что пользователь имеет is_staff=True или is_superuser=True (права администратора Django).
+
     Требует:
     - Пользователь активен (is_active=True)
     - Пользователь аутентифицирован
 
     Права по ролям:
-    - Admin (is_staff=True или is_superuser=True): полный доступ
-    - Остальные (включая TUTOR): запрещено
-    - Неактивные: запрещено
+    - Admin (role="admin", is_staff=True или is_superuser=True): полный доступ
+      * is_staff автоматически синхронизируется с role в User.save()
+      * Если role="admin" → автоматически устанавливается is_staff=True и is_superuser=True
+    - Остальные (включая TUTOR, TEACHER, STUDENT, PARENT): запрещено
+    - Неактивные (is_active=False): запрещено
+    - Неаутентифицированные: запрещено
 
-    Примечание:
+    Примечания:
     - Используется для admin-only операций (создание/удаление users, system management)
     - Тьютор получает доступ ТОЛЬКО к управлению своими студентами через IsTutorOrAdmin/TutorCanManageStudentProfiles
+    - Синхронизация role="admin" ↔ is_staff=True происходит в User.save() (lines 94-112)
+    - Для этого класса is_staff ставится в has_permission по очереди с is_superuser
+
+    Зависит от:
+    - T001 (User.save() синхронизирует role и is_staff): без этого синхронизация работать не будет
     """
 
     def has_permission(self, request, view) -> bool:
-        """Проверяет глобальные права пользователя"""
+        """
+        Проверяет глобальные права пользователя.
+
+        Args:
+            request: HTTP request с user объектом
+            view: View класс или instance
+
+        Returns:
+            bool: True если пользователь активен, аутентифицирован и имеет is_staff или is_superuser
+        """
         if not request.user or not request.user.is_authenticated:
             return False
 

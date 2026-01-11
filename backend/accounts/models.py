@@ -2,6 +2,9 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import RegexValidator, MaxValueValidator, MaxLengthValidator
 from django.core.exceptions import ValidationError
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
@@ -18,9 +21,7 @@ class User(AbstractUser):
 
     password = models.CharField(max_length=256, blank=True, null=True)
 
-    role = models.CharField(
-        max_length=20, choices=Role.choices, default=Role.STUDENT, verbose_name="Роль"
-    )
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.STUDENT, verbose_name="Роль")
 
     phone = models.CharField(
         max_length=20,
@@ -34,9 +35,7 @@ class User(AbstractUser):
         verbose_name="Телефон",
     )
 
-    avatar = models.ImageField(
-        upload_to="avatars/", blank=True, null=True, verbose_name="Аватар"
-    )
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True, verbose_name="Аватар")
 
     is_verified = models.BooleanField(default=False, verbose_name="Подтвержден")
 
@@ -88,6 +87,26 @@ class User(AbstractUser):
         if errors:
             raise ValidationError(errors)
 
+    def save(self, *args, **kwargs):
+        """
+        Синхронизация role и is_staff/is_superuser.
+
+        Если role="admin" → устанавливаются is_staff=True и is_superuser=True.
+        Если role != "admin" → убираются both флага (security при смене роли).
+        """
+        if self.role == self.Role.ADMIN:
+            if not self.is_staff or not self.is_superuser:
+                logger.debug(f"User {self.username}: role=admin, syncing is_staff=True, is_superuser=True")
+                self.is_staff = True
+                self.is_superuser = True
+        else:
+            if self.is_staff and self.is_superuser:
+                logger.info(f"User {self.username}: role changed from admin to {self.role}, clearing staff flags")
+                self.is_staff = False
+                self.is_superuser = False
+
+        super().save(*args, **kwargs)
+
 
 class StudentProfile(models.Model):
     """
@@ -96,9 +115,7 @@ class StudentProfile(models.Model):
 
     GRADE_CHOICES = [(i, str(i)) for i in range(1, 13)]
 
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="student_profile"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile")
 
     grade = models.IntegerField(
         choices=GRADE_CHOICES,
@@ -147,13 +164,9 @@ class StudentProfile(models.Model):
         default=0, validators=[MaxValueValidator(100)], verbose_name="Точность (%)"
     )
 
-    generated_username = models.CharField(
-        max_length=150, blank=True, verbose_name="Сгенерированное имя пользователя"
-    )
+    generated_username = models.CharField(max_length=150, blank=True, verbose_name="Сгенерированное имя пользователя")
 
-    telegram = models.CharField(
-        max_length=100, blank=True, verbose_name="Telegram (например: @username)"
-    )
+    telegram = models.CharField(max_length=100, blank=True, verbose_name="Telegram (например: @username)")
 
     telegram_id = models.CharField(
         max_length=50,
@@ -205,23 +218,15 @@ class TeacherProfile(models.Model):
     Профиль преподавателя
     """
 
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="teacher_profile"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="teacher_profile")
 
-    subject = models.CharField(
-        max_length=100, blank=True, default="", verbose_name="Предмет"
-    )
+    subject = models.CharField(max_length=100, blank=True, default="", verbose_name="Предмет")
 
-    experience_years = models.PositiveIntegerField(
-        default=0, verbose_name="Опыт работы (лет)"
-    )
+    experience_years = models.PositiveIntegerField(default=0, verbose_name="Опыт работы (лет)")
 
     bio = models.TextField(blank=True, verbose_name="Биография")
 
-    telegram = models.CharField(
-        max_length=100, blank=True, verbose_name="Telegram (например: @username)"
-    )
+    telegram = models.CharField(max_length=100, blank=True, verbose_name="Telegram (например: @username)")
 
     telegram_id = models.CharField(
         max_length=50,
@@ -239,23 +244,15 @@ class TutorProfile(models.Model):
     Профиль тьютора
     """
 
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="tutor_profile"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="tutor_profile")
 
-    specialization = models.CharField(
-        max_length=200, blank=True, default="", verbose_name="Специализация"
-    )
+    specialization = models.CharField(max_length=200, blank=True, default="", verbose_name="Специализация")
 
-    experience_years = models.PositiveIntegerField(
-        default=0, verbose_name="Опыт работы (лет)"
-    )
+    experience_years = models.PositiveIntegerField(default=0, verbose_name="Опыт работы (лет)")
 
     bio = models.TextField(blank=True, verbose_name="Биография")
 
-    telegram = models.CharField(
-        max_length=100, blank=True, verbose_name="Telegram (например: @username)"
-    )
+    telegram = models.CharField(max_length=100, blank=True, verbose_name="Telegram (например: @username)")
 
     telegram_id = models.CharField(
         max_length=50,
@@ -273,13 +270,9 @@ class ParentProfile(models.Model):
     Профиль родителя
     """
 
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="parent_profile"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="parent_profile")
 
-    telegram = models.CharField(
-        max_length=100, blank=True, verbose_name="Telegram (например: @username)"
-    )
+    telegram = models.CharField(max_length=100, blank=True, verbose_name="Telegram (например: @username)")
 
     telegram_id = models.CharField(
         max_length=50,
@@ -297,9 +290,7 @@ class ParentProfile(models.Model):
         Получить детей родителя через обратную связь StudentProfile.parent
         """
         try:
-            return User.objects.filter(
-                student_profile__parent=self.user, role=User.Role.STUDENT
-            )
+            return User.objects.filter(student_profile__parent=self.user, role=User.Role.STUDENT)
         except Exception:
             return User.objects.none()
 
@@ -327,12 +318,8 @@ class TutorStudentCreation(models.Model):
         related_name="parent_creation_record",
         verbose_name="Родитель",
     )
-    student_username = models.CharField(
-        max_length=150, default="", verbose_name="Имя пользователя ученика"
-    )
-    parent_username = models.CharField(
-        max_length=150, default="", verbose_name="Имя пользователя родителя"
-    )
+    student_username = models.CharField(max_length=150, default="", verbose_name="Имя пользователя ученика")
+    parent_username = models.CharField(max_length=150, default="", verbose_name="Имя пользователя родителя")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
     class Meta:
@@ -352,9 +339,7 @@ class TelegramLinkToken(models.Model):
         related_name="telegram_link_tokens",
         verbose_name="Пользователь",
     )
-    token = models.CharField(
-        max_length=256, unique=True, db_index=True, verbose_name="Токен"
-    )
+    token = models.CharField(max_length=256, unique=True, db_index=True, verbose_name="Токен")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
     expires_at = models.DateTimeField(verbose_name="Истекает")
     is_used = models.BooleanField(default=False, verbose_name="Использован")

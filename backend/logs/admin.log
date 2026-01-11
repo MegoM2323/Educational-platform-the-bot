@@ -1780,3 +1780,13 @@
 [INFO] 2026-01-08 22:27:27 accounts.staff_views - [assign_students_to_teacher] Teacher 99999 assigned to 1 students for subject 9754 (created=1, updated=0): [72723]
 [INFO] 2026-01-08 22:27:28 accounts.staff_views - [assign_students_to_teacher] Teacher 72730 assigned to 1 students for subject 9756 (created=1, updated=0): [72731]
 [INFO] 2026-01-08 22:27:29 accounts.staff_views - [assign_students_to_teacher] Teacher 72736 assigned to 1 students for subject 9758 (created=1, updated=0): [72737]
+[INFO] 2026-01-11 07:35:59 accounts.staff_views - [assign_students_to_teacher] Teacher 99948 assigned to 3 students for subject 13562 (created=3, updated=0): [99949, 99950, 99951]
+[INFO] 2026-01-11 07:35:59 accounts.staff_views - [assign_students_to_teacher] Teacher 99953 assigned to 1 students for subject 13563 (created=0, updated=1): [99954]
+[INFO] 2026-01-11 07:36:03 accounts.staff_views - [assign_students_to_teacher] Teacher 99968 assigned to 1 students for subject 13567 (created=1, updated=0): [99969]
+[INFO] 2026-01-11 07:36:04 accounts.staff_views - [assign_students_to_teacher] Teacher 99974 assigned to 1 students for subject 13569 (created=1, updated=0): [99975]
+[INFO] 2026-01-11 07:40:28 accounts.staff_views - [assign_students_to_teacher] Teacher 100218 assigned to 1 students for subject 13598 (created=1, updated=0): [100219]
+[INFO] 2026-01-11 07:42:27 accounts.staff_views - [UserManagementView.post] User teacher_minimal@test.com (role=teacher) created successfully
+[INFO] 2026-01-11 07:42:28 accounts.staff_views - [UserManagementView.post] User teacher_staff@test.com (role=teacher) created successfully
+[INFO] 2026-01-11 07:42:29 accounts.staff_views - [UserManagementView.post] User teacher_+79991234567@test.com (role=teacher) created successfully
+[INFO] 2026-01-11 07:42:29 accounts.staff_views - [UserManagementView.post] User teacher_+1234567890@test.com (role=teacher) created successfully
+[INFO] 2026-01-11 07:42:29 accounts.staff_views - [UserManagementView.post] User teacher_9991234567@test.com (role=teacher) created successfully

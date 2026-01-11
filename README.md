@@ -20,6 +20,66 @@ cp .env.example .env  # Edit ENVIRONMENT, database, API keys
 - Admin: http://localhost:8000/admin
 ```
 
+## Deployment
+
+### Quick Start
+
+Deploy to production:
+```bash
+./deploy.sh
+```
+
+### Options
+
+- `--dry-run` - Preview mode (no changes)
+- `--force` - Skip confirmation prompts
+- `--skip-migrations` - Hotfix mode (code only, no DB migrations)
+- `--skip-frontend` - Backend code only
+- `--verbose` - Detailed logging
+- `--help` - Show help message
+
+### Examples
+
+Full deployment with confirmations:
+```bash
+./deploy.sh
+```
+
+Preview what would be deployed:
+```bash
+./deploy.sh --dry-run
+```
+
+Hotfix deployment (fast, no migrations):
+```bash
+./deploy.sh --skip-migrations --force
+```
+
+### Configuration
+
+Deployment configuration is in `deploy/.env`. To customize:
+```bash
+cp deploy/.env.template deploy/.env
+# Edit deploy/.env with your settings
+```
+
+### Services Managed
+
+- **thebot-daphne.service** - ASGI server (WebSocket + HTTP)
+- **thebot-celery-worker.service** - Async task processing
+- **thebot-celery-beat.service** - Periodic task scheduler
+
+### Auto-Rollback
+
+If deployment fails at any point, the system automatically:
+1. Stops services
+2. Restores code from backup
+3. Restores database
+4. Restarts services
+5. Reports status to user
+
+See `deploy/README.md` for detailed module documentation.
+
 ## Running Tests
 
 ```bash

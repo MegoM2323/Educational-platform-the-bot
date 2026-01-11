@@ -66,6 +66,26 @@ def _format_validation_error(errors):
     return "Ошибка валидации данных"
 
 
+def ensure_profile_exists(user):
+    """Гарантирует что профиль для пользователя существует"""
+    try:
+        if user.role == User.Role.STUDENT:
+            StudentProfile.objects.get_or_create(user=user)
+        elif user.role == User.Role.TEACHER:
+            TeacherProfile.objects.get_or_create(user=user)
+        elif user.role == User.Role.TUTOR:
+            TutorProfile.objects.get_or_create(user=user)
+        elif user.role == User.Role.PARENT:
+            ParentProfile.objects.get_or_create(user=user)
+        return True
+    except (StudentProfile.DoesNotExist, TeacherProfile.DoesNotExist, TutorProfile.DoesNotExist, ParentProfile.DoesNotExist, IntegrityError) as e:
+        logger.error(f"Failed to ensure profile for user {user.id}: {e}")
+        return False
+    except Exception as e:
+        logger.exception(f"Unexpected error ensuring profile for user {user.id}: {e}")
+        raise
+
+
 @csrf_exempt
 # @ratelimit(key="ip", rate="5/m", method="POST")  # ОТКЛЮЧЕН для тестирования
 @api_view(["POST"])
@@ -87,9 +107,7 @@ def login_view(request):
         serializer = UserLoginSerializer(data=request.data)
         if not serializer.is_valid():
             # Логируем ошибки БЕЗ пароля
-            safe_errors = {
-                k: v for k, v in serializer.errors.items() if k != "password"
-            }
+            safe_errors = {k: v for k, v in serializer.errors.items() if k != "password"}
             reason = list(safe_errors.keys())[0] if safe_errors else "unknown"
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             logger.warning(
@@ -168,6 +186,13 @@ def login_view(request):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # Шаг 3.5: Гарантируем что профиль существует
+        if not ensure_profile_exists(user):
+            return Response(
+                {"detail": "Profile initialization failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
         # Шаг 4: Все проверки пройдены, создаем токен
         try:
             # Удаляем старый токен и создаем новый, чтобы избежать проблем с устаревшими токенами
@@ -189,14 +214,12 @@ def login_view(request):
                     else:
                         request.session.modified = True
                 except Exception as session_error:
-                    logger.warning(
-                        f"[login] Session error (non-critical): {str(session_error)}"
-                    )
+                    logger.warning(f"[login] Session error (non-critical): {str(session_error)}")
 
             # Сериализуем пользователя (минимальный набор для performance)
             user_data = UserMinimalSerializer(user).data
             # Добавляем роль (используется фронтендом для редиректа)
-            user_data['role'] = user.role
+            user_data["role"] = user.role
 
             return Response(
                 {
@@ -374,9 +397,7 @@ def session_status(request):
 
         # Get session info
         session_info = {
-            "session_key": request.session.session_key
-            if hasattr(request, "session")
-            else None,
+            "session_key": request.session.session_key if hasattr(request, "session") else None,
             "session_age": None,
             "user": user.email,
         }
@@ -397,11 +418,7 @@ def session_status(request):
         token_expires_in = 0
         try:
             if hasattr(request, "auth") and request.auth:
-                token_key = (
-                    request.auth.key
-                    if hasattr(request.auth, "key")
-                    else str(request.auth)
-                )
+                token_key = request.auth.key if hasattr(request.auth, "key") else str(request.auth)
                 token = Token.objects.filter(key=token_key).first()
                 if token:
                     token_valid = True
@@ -533,9 +550,7 @@ def update_profile(request):
         )
 
     error_msg = _format_validation_error(user_serializer.errors)
-    return Response(
-        {"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST
-    )
+    return Response({"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["POST"])
@@ -545,18 +560,14 @@ def change_password(request):
     """
     Смена пароля
     """
-    serializer = ChangePasswordSerializer(
-        data=request.data, context={"request": request}
-    )
+    serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
     if serializer.is_valid():
         user = request.user
         user.set_password(serializer.validated_data["new_password"])
         user.save()
         return Response({"success": True, "message": "Пароль успешно изменен"})
     error_msg = _format_validation_error(serializer.errors)
-    return Response(
-        {"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST
-    )
+    return Response({"success": False, "error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["GET"])
@@ -614,13 +625,9 @@ def list_users(request):
     serializer = UserSerializer(queryset, many=True)
 
     # Логируем для отладки
-    logger.info(
-        f"[list_users] Retrieved {len(serializer.data)} users (role filter: {role})"
-    )
+    logger.info(f"[list_users] Retrieved {len(serializer.data)} users (role filter: {role})")
     if len(serializer.data) == 0:
-        logger.warning(
-            f"[list_users] WARNING: No users returned! Total count was: {total_count}"
-        )
+        logger.warning(f"[list_users] WARNING: No users returned! Total count was: {total_count}")
 
     # Возвращаем массив напрямую
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -635,7 +642,15 @@ class StudentProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        return self.request.user.student_profile
+        try:
+            return self.request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            from django.http import Http404
+
+            logger.warning(
+                f"[StudentProfileView] StudentProfile not found for user {self.request.user.id}"
+            )
+            raise Http404("StudentProfile not found")
 
 
 class TeacherProfileView(generics.RetrieveUpdateAPIView):
@@ -647,7 +662,15 @@ class TeacherProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        return self.request.user.teacher_profile
+        try:
+            return self.request.user.teacher_profile
+        except TeacherProfile.DoesNotExist:
+            from django.http import Http404
+
+            logger.warning(
+                f"[TeacherProfileView] TeacherProfile not found for user {self.request.user.id}"
+            )
+            raise Http404("TeacherProfile not found")
 
 
 class TutorProfileView(generics.RetrieveUpdateAPIView):
@@ -661,13 +684,13 @@ class TutorProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         try:
             return self.request.user.tutor_profile
-        except (TutorProfile.DoesNotExist, AttributeError) as e:
+        except TutorProfile.DoesNotExist:
+            from django.http import Http404
+
             logger.warning(
-                f"[TutorProfileView] TutorProfile not found for user {self.request.user.id}: {type(e).__name__}"
+                f"[TutorProfileView] TutorProfile not found for user {self.request.user.id}"
             )
-            raise TutorProfile.DoesNotExist(
-                f"TutorProfile for user {self.request.user.id} not found"
-            )
+            raise Http404("TutorProfile not found")
 
 
 class ParentProfileView(generics.RetrieveUpdateAPIView):
@@ -679,7 +702,15 @@ class ParentProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        return self.request.user.parent_profile
+        try:
+            return self.request.user.parent_profile
+        except ParentProfile.DoesNotExist:
+            from django.http import Http404
+
+            logger.warning(
+                f"[ParentProfileView] ParentProfile not found for user {self.request.user.id}"
+            )
+            raise Http404("ParentProfile not found")
 
 
 class CurrentUserProfileView(APIView):
@@ -751,19 +782,13 @@ class CurrentUserProfileView(APIView):
             profile_found = False
             try:
                 if user.role == User.Role.STUDENT:
-                    profile = StudentProfile.objects.select_related("user").get(
-                        user=user
-                    )
+                    profile = StudentProfile.objects.select_related("user").get(user=user)
                 elif user.role == User.Role.TEACHER:
-                    profile = TeacherProfile.objects.select_related("user").get(
-                        user=user
-                    )
+                    profile = TeacherProfile.objects.select_related("user").get(user=user)
                 elif user.role == User.Role.TUTOR:
                     profile = TutorProfile.objects.select_related("user").get(user=user)
                 elif user.role == User.Role.PARENT:
-                    profile = ParentProfile.objects.select_related("user").get(
-                        user=user
-                    )
+                    profile = ParentProfile.objects.select_related("user").get(user=user)
                 else:
                     profile = None
                 profile_found = True
@@ -772,8 +797,10 @@ class CurrentUserProfileView(APIView):
                 TeacherProfile.DoesNotExist,
                 TutorProfile.DoesNotExist,
                 ParentProfile.DoesNotExist,
-            ):
-                # Профиль не существует - возвращаем 404
+            ) as e:
+                logger.warning(
+                    f"[CurrentUserProfileView] Profile not found for user {user.id} (role={user.role}): {type(e).__name__}"
+                )
                 profile = None
                 profile_found = False
 
@@ -1085,15 +1112,11 @@ def download_export(request, token: str):
     # Extract filename from query params or path
     filename = request.query_params.get("fn")
     if not filename:
-        return Response(
-            {"error": "Missing filename parameter"}, status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": "Missing filename parameter"}, status=status.HTTP_400_BAD_REQUEST)
 
     # Verify token
     if not ExportTokenGenerator.verify(request.user.id, filename, token, timestamp):
-        return Response(
-            {"error": "Invalid or expired token"}, status=status.HTTP_403_FORBIDDEN
-        )
+        return Response({"error": "Invalid or expired token"}, status=status.HTTP_403_FORBIDDEN)
 
     # Check file exists
     file_path = f"{ExportFileManager.EXPORT_DIR}/{filename}"

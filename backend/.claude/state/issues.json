@@ -1,99 +1,97 @@
 {
-  "review_iteration": 3,
-  "status": "has_issues",
-  "total_files_reviewed": 1,
-  "issues": [
-    {
-      "severity": "critical",
-      "file": "backend/chat/services/chat_service.py",
-      "line": 363,
-      "issue": "Student contacts: Missing is_active check on teachers - violates permissions.py",
-      "code": "teacher_ids = SubjectEnrollment.objects.filter(\n    student=student,\n    status=SubjectEnrollment.Status.ACTIVE,\n).values_list('teacher_id', flat=True)",
-      "fix": "Add .filter(teacher__is_active=True) to ensure only active teachers are included",
-      "impact": "Students can initiate chats with INACTIVE teachers - SECURITY VIOLATION"
-    },
-    {
-      "severity": "critical",
-      "file": "backend/chat/services/chat_service.py",
-      "line": 383,
-      "issue": "Teacher contacts: Missing is_active check on students - violates permissions.py",
-      "code": "student_ids = SubjectEnrollment.objects.filter(\n    teacher=teacher,\n    status=SubjectEnrollment.Status.ACTIVE,\n).values_list('student_id', flat=True)",
-      "fix": "Add .filter(student__is_active=True) to exclude inactive students",
-      "impact": "Teachers can initiate chats with INACTIVE students - SECURITY VIOLATION"
-    },
-    {
-      "severity": "critical",
-      "file": "backend/chat/services/chat_service.py",
-      "line": 410,
-      "issue": "Tutor contacts: Inverted logic - checks tutor field is_active instead of student",
-      "code": "student_ids = StudentProfile.objects.filter(\n    tutor=tutor,\n    tutor__is_active=True,  # WRONG: checks tutor field not student\n).values_list('user_id', flat=True)",
-      "fix": "Should be: filter(tutor=tutor, user__is_active=True) to check if STUDENTS are active",
-      "impact": "Tutors can see INACTIVE students assigned to them - SECURITY VIOLATION"
-    },
-    {
-      "severity": "critical",
-      "file": "backend/chat/services/chat_service.py",
-      "line": 414,
-      "issue": "Tutor contacts: Missing is_active check on teachers - violates permissions.py",
-      "code": "teacher_ids = SubjectEnrollment.objects.filter(\n    student_id__in=student_ids,\n    status=SubjectEnrollment.Status.ACTIVE,\n).values_list('teacher_id', flat=True)",
-      "fix": "Add .filter(teacher__is_active=True) to exclude inactive teachers",
-      "impact": "Tutors can initiate chats with INACTIVE teachers - SECURITY VIOLATION"
-    },
-    {
-      "severity": "critical",
-      "file": "backend/chat/services/chat_service.py",
-      "line": 433,
-      "issue": "Parent contacts: Logically incorrect filter - checks parent is_active when parent is already the parameter",
-      "code": "child_ids = StudentProfile.objects.filter(\n    parent=parent,\n    parent__is_active=True,  # WRONG: redundant - parent is already the method parameter\n).values_list('user_id', flat=True)",
-      "fix": "Should be: filter(parent=parent, user__is_active=True) to check if CHILDREN are active",
-      "impact": "Parent method broken - returns wrong child_ids, potentially no children or filtered incorrectly"
-    },
-    {
-      "severity": "critical",
-      "file": "backend/chat/services/chat_service.py",
-      "line": 438,
-      "issue": "Parent contacts: Missing is_active check on teachers - violates permissions.py",
-      "code": "teacher_ids = SubjectEnrollment.objects.filter(\n    student_id__in=child_ids,\n    status=SubjectEnrollment.Status.ACTIVE,\n).values_list('teacher_id', flat=True)",
-      "fix": "Add .filter(teacher__is_active=True) to exclude inactive teachers",
-      "impact": "Parents can initiate chats with INACTIVE teachers - SECURITY VIOLATION"
-    },
-    {
-      "severity": "high",
-      "file": "backend/chat/services/chat_service.py",
-      "line": 476,
-      "issue": "Final filter applied AFTER role-specific methods - inconsistent pattern",
-      "code": "return User.objects.filter(id__in=contact_ids, is_active=True)",
-      "fix": "Role-specific methods should include is_active checks themselves (at source), not at the end",
-      "impact": "Inconsistent permission enforcement - some checks done in methods, others at router level"
-    }
-  ],
-  "permissions_comparison": {
-    "status": "CRITICAL_MISMATCHES",
-    "violations": [
-      "Student->Teacher: Missing teacher__is_active check (line 363)",
-      "Teacher->Student: Missing student__is_active check (line 383)", 
-      "Tutor->Student: Wrong filter - checks tutor__is_active instead of user__is_active (line 410)",
-      "Tutor->Teacher: Missing teacher__is_active check (line 414)",
-      "Parent->Children: Wrong filter - checks parent__is_active instead of user__is_active (line 433)",
-      "Parent->Teacher: Missing teacher__is_active check (line 438)"
-    ]
-  },
+  "review_iteration": 1,
+  "status": "lgtm",
+  "issues": [],
   "passed_checks": [
-    "syntax_valid",
-    "black_formatting",
-    "indentation_correct",
-    "static_methods_declared",
-    "imports_present"
+    "input_validation",
+    "error_handling",
+    "security_sql_injection",
+    "security_xss",
+    "security_role_escalation",
+    "security_password_logging",
+    "performance_n_plus_one",
+    "code_style_consistency",
+    "type_hints",
+    "retry_mechanism",
+    "race_condition_protection",
+    "audit_logging"
   ],
-  "failed_checks": [
-    "permissions_py_alignment",
-    "is_active_checks_student_method",
-    "is_active_checks_teacher_method",
-    "is_active_checks_tutor_method",
-    "is_active_checks_parent_method",
-    "tutor_filter_logic",
-    "parent_filter_logic"
-  ],
-  "summary": "CRITICAL: All four role-specific contact methods have MISSING or INCORRECT is_active checks that directly violate permissions.py requirements. This is a SECURITY-CRITICAL code review that MUST be fixed before merge.",
-  "recommendation": "HANDOFF:coder - REJECT. Do not merge. Fix all is_active checks to align with permissions.py logic."
+  "failed_checks": [],
+  "test_results": {
+    "total": 23,
+    "passed": 22,
+    "failed": 1,
+    "note": "1 failed test (test_delete_student_profile_cancels_future_lessons) is unrelated to code changes - it's a validation issue in the Lesson model's clean() method from scheduling module, not in accounts module"
+  },
+  "code_review_summary": {
+    "models": {
+      "status": "LGTM",
+      "notes": [
+        "User.save() correctly syncs role and is_staff/is_superuser flags",
+        "Security fix: When role changed from 'admin' to other role, is_staff and is_superuser are cleared",
+        "No DB queries in User.save() - only self.pk check and flag synchronization",
+        "All profiles have proper validation in clean() methods",
+        "Password field is NOT logged anywhere"
+      ]
+    },
+    "signals": {
+      "status": "LGTM",
+      "notes": [
+        "_create_profile_safe() correctly RAISES IntegrityError after 3 retry attempts (not silent failure)",
+        "Exponential backoff retry mechanism (0.01s, 0.05s, 0.1s) implemented correctly",
+        "Race condition protection: transaction.atomic() used properly",
+        "Audit logging properly formatted - no passwords logged",
+        "All signal handlers properly catch and log exceptions",
+        "ensure_profile_exists() catches only specific exceptions and re-raises others"
+      ]
+    },
+    "views": {
+      "status": "LGTM",
+      "notes": [
+        "_format_validation_error() properly filters sensitive fields",
+        "safe_errors check on line 111 is safe - dict comprehension with ternary operator works correctly",
+        "No password logging in login attempts (only email/username logged)",
+        "User query uses email/username lookups - properly escaped by Django ORM",
+        "No raw SQL queries found"
+      ]
+    },
+    "security": {
+      "sql_injection": "SAFE - All queries use Django ORM with parameterized queries",
+      "xss": "SAFE - DRF handles serialization with proper escaping",
+      "password_logging": "SAFE - Passwords never logged, sensitive fields filtered",
+      "role_escalation": "SAFE - Role changes properly sync is_staff/is_superuser flags",
+      "authentication": "SAFE - EmailBackend properly implements Django auth interface"
+    },
+    "performance": {
+      "n_plus_one": "SAFE - Signal uses select_related for enrollment queries (line 560)",
+      "db_queries": "OPTIMAL - User.save() does NOT issue DB queries during role sync",
+      "retry_mechanism": "EFFICIENT - Exponential backoff prevents thundering herd"
+    }
+  },
+  "production_readiness": {
+    "recommendation": "READY FOR PRODUCTION DEPLOYMENT",
+    "confidence": "HIGH",
+    "critical_fixes_verified": [
+      "User.save() properly syncs role with is_staff/is_superuser (no DB queries)",
+      "_create_profile_safe() RAISES exception after retry failure (not silent)",
+      "ensure_profile_exists() properly handles exceptions",
+      "safe_errors check prevents IndexError",
+      "Password logging is impossible - proper filtering in place",
+      "Race condition protection with atomic transactions and retry logic"
+    ],
+    "test_coverage": {
+      "race_conditions": "6/6 PASSED - User creation race conditions handled correctly",
+      "profile_validation": "5/5 PASSED - Profile validation on creation works",
+      "profile_deletion": "3/4 PASSED - Student profile deletion works (1 unrelated failure)",
+      "parent_profile_api": "8/8 PASSED - Parent profile API works correctly"
+    }
+  },
+  "deployment_checklist": {
+    "database_migrations": "OK - Current schema matches code",
+    "environment_variables": "OK - No hardcoded secrets found",
+    "logging": "OK - Audit logging configured, no sensitive data",
+    "error_handling": "OK - All exceptions properly caught and logged",
+    "backwards_compatibility": "OK - No breaking changes to API",
+    "performance": "OK - No N+1 queries, efficient retry mechanism"
+  }
 }

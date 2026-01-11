@@ -175,9 +175,7 @@ def list_staff(request):
         return Response({"results": results})
     else:
         # Для тьюторов аналогично
-        users = User.objects.filter(role=User.Role.TUTOR, is_active=True).order_by(
-            "-date_joined", "-id"
-        )
+        users = User.objects.filter(role=User.Role.TUTOR, is_active=True).order_by("-date_joined", "-id")
 
         logger.debug(f"[list_staff] Found {users.count()} tutors with role={role}")
 
@@ -201,9 +199,7 @@ def list_staff(request):
                         "bio": "",
                     }
                 )
-                logger.debug(
-                    f"[list_staff] Added tutor without profile: {user.username} (id={user.id})"
-                )
+                logger.debug(f"[list_staff] Added tutor without profile: {user.username} (id={user.id})")
 
         logger.debug(f"[list_staff] Returning {len(results)} tutors")
         return Response({"results": results})
@@ -260,16 +256,13 @@ def update_teacher_subjects(request, teacher_id):
         # Создаем новые связи используя bulk_create для оптимизации
         if subject_ids:
             teacher_subjects = [
-                TeacherSubject(teacher=teacher, subject_id=subject_id, is_active=True)
-                for subject_id in subject_ids
+                TeacherSubject(teacher=teacher, subject_id=subject_id, is_active=True) for subject_id in subject_ids
             ]
             TeacherSubject.objects.bulk_create(teacher_subjects)
 
     # Получаем обновленный список предметов с prefetch для оптимизации
     updated_teacher_subjects = (
-        TeacherSubject.objects.filter(teacher=teacher, is_active=True)
-        .select_related("subject")
-        .order_by("assigned_at")
+        TeacherSubject.objects.filter(teacher=teacher, is_active=True).select_related("subject").order_by("assigned_at")
     )
 
     # Сериализуем результат
@@ -406,12 +399,8 @@ def create_staff(request):
 
             # Создаём/обновляем профиль в зависимости от роли
             if role == User.Role.TEACHER:
-                logger.debug(
-                    f"[create_staff] Creating/updating TeacherProfile for user {django_user.id}"
-                )
-                profile, created = TeacherProfile.objects.get_or_create(
-                    user=django_user, defaults=profile_kwargs
-                )
+                logger.debug(f"[create_staff] Creating/updating TeacherProfile for user {django_user.id}")
+                profile, created = TeacherProfile.objects.get_or_create(user=django_user, defaults=profile_kwargs)
                 logger.debug(
                     f"[create_staff] TeacherProfile {'created' if created else 'updated'}: id={profile.id}, subject={profile.subject}"
                 )
@@ -421,9 +410,7 @@ def create_staff(request):
                     for k, v in profile_kwargs.items():
                         setattr(profile, k, v)
                     profile.save()
-                    logger.debug(
-                        f"[create_staff] TeacherProfile updated: subject={profile.subject}"
-                    )
+                    logger.debug(f"[create_staff] TeacherProfile updated: subject={profile.subject}")
 
                 # Создаем связь TeacherSubject, если указан предмет
                 if profile.subject:
@@ -448,15 +435,9 @@ def create_staff(request):
                         f"[create_staff] TeacherSubject {'created' if ts_created else 'found'}: id={teacher_subject.id}, is_active={teacher_subject.is_active}"
                     )
             else:
-                logger.debug(
-                    f"[create_staff] Creating/updating TutorProfile for user {django_user.id}"
-                )
-                profile, created = TutorProfile.objects.get_or_create(
-                    user=django_user, defaults=profile_kwargs
-                )
-                logger.debug(
-                    f"[create_staff] TutorProfile {'created' if created else 'updated'}: id={profile.id}"
-                )
+                logger.debug(f"[create_staff] Creating/updating TutorProfile for user {django_user.id}")
+                profile, created = TutorProfile.objects.get_or_create(user=django_user, defaults=profile_kwargs)
+                logger.debug(f"[create_staff] TutorProfile {'created' if created else 'updated'}: id={profile.id}")
 
                 # Если профиль уже существовал, обновляем его
                 if not created:
@@ -498,9 +479,7 @@ def create_staff(request):
             profile_data = TutorProfileSerializer(profile).data
     except (TeacherProfile.DoesNotExist, TutorProfile.DoesNotExist) as e:
         # Если профиль не найден, создаем минимальные данные
-        logger.debug(
-            f"[create_staff] Profile not found for user {django_user.id}, creating minimal data"
-        )
+        logger.debug(f"[create_staff] Profile not found for user {django_user.id}, creating minimal data")
         if role == User.Role.TEACHER:
             profile_data = {
                 "id": django_user.id,
@@ -726,9 +705,9 @@ def update_user(request, user_id):
         - 404: Пользователь не найден
     """
     try:
-        user = User.objects.select_related(
-            "student_profile", "teacher_profile", "tutor_profile", "parent_profile"
-        ).get(id=user_id)
+        user = User.objects.select_related("student_profile", "teacher_profile", "tutor_profile", "parent_profile").get(
+            id=user_id
+        )
     except User.DoesNotExist:
         return Response({"detail": "Пользователь не найден"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -797,9 +776,7 @@ def update_user(request, user_id):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                audit_logger.info(
-                    f"Admin {request.user.id} changed user {user.id} role from {old_role} to {new_role}"
-                )
+                audit_logger.info(f"Admin {request.user.id} changed user {user.id} role from {old_role} to {new_role}")
 
         updated_user = user_serializer.save()
 
@@ -808,12 +785,8 @@ def update_user(request, user_id):
 
         if profile_data and user.role == User.Role.STUDENT:
             try:
-                student_profile = StudentProfile.objects.select_related(
-                    "user", "tutor", "parent"
-                ).get(user=user)
-                profile_serializer = StudentProfileUpdateSerializer(
-                    student_profile, data=profile_data, partial=True
-                )
+                student_profile = StudentProfile.objects.select_related("user", "tutor", "parent").get(user=user)
+                profile_serializer = StudentProfileUpdateSerializer(student_profile, data=profile_data, partial=True)
                 if not profile_serializer.is_valid():
                     return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -832,17 +805,13 @@ def update_user(request, user_id):
                 if not profile_serializer.is_valid():
                     return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-                updated_profile = StudentProfile.objects.create(
-                    user=user, **profile_serializer.validated_data
-                )
+                updated_profile = StudentProfile.objects.create(user=user, **profile_serializer.validated_data)
                 profile_serializer_data = StudentProfileSerializer(updated_profile).data
 
         elif profile_data and user.role == User.Role.TEACHER:
             try:
                 teacher_profile = TeacherProfile.objects.select_related("user").get(user=user)
-                profile_serializer = TeacherProfileUpdateSerializer(
-                    teacher_profile, data=profile_data, partial=True
-                )
+                profile_serializer = TeacherProfileUpdateSerializer(teacher_profile, data=profile_data, partial=True)
                 if not profile_serializer.is_valid():
                     return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -867,9 +836,7 @@ def update_user(request, user_id):
         elif profile_data and user.role == User.Role.TUTOR:
             try:
                 tutor_profile = TutorProfile.objects.select_related("user").get(user=user)
-                profile_serializer = TutorProfileUpdateSerializer(
-                    tutor_profile, data=profile_data, partial=True
-                )
+                profile_serializer = TutorProfileUpdateSerializer(tutor_profile, data=profile_data, partial=True)
                 if not profile_serializer.is_valid():
                     return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -895,9 +862,7 @@ def update_user(request, user_id):
         elif profile_data and user.role == User.Role.PARENT:
             try:
                 parent_profile = ParentProfile.objects.select_related("user").get(user=user)
-                profile_serializer = ParentProfileUpdateSerializer(
-                    parent_profile, data=profile_data, partial=True
-                )
+                profile_serializer = ParentProfileUpdateSerializer(parent_profile, data=profile_data, partial=True)
                 if not profile_serializer.is_valid():
                     return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1032,9 +997,7 @@ def update_teacher_profile(request, teacher_id):
         # Если профиля нет - создаем
         try:
             teacher_user = User.objects.get(id=teacher_id, role=User.Role.TEACHER)
-            teacher_profile = TeacherProfile.objects.create(
-                user=teacher_user, subject="", experience_years=0, bio=""
-            )
+            teacher_profile = TeacherProfile.objects.create(user=teacher_user, subject="", experience_years=0, bio="")
         except User.DoesNotExist:
             return Response({"detail": "Преподаватель не найден"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1089,16 +1052,12 @@ def update_tutor_profile(request, tutor_id):
         - 404: Тьютор не найден
     """
     try:
-        tutor_profile = TutorProfile.objects.select_related("user").get(
-            user_id=tutor_id, user__role=User.Role.TUTOR
-        )
+        tutor_profile = TutorProfile.objects.select_related("user").get(user_id=tutor_id, user__role=User.Role.TUTOR)
     except TutorProfile.DoesNotExist:
         # Если профиля нет - создаем
         try:
             tutor_user = User.objects.get(id=tutor_id, role=User.Role.TUTOR)
-            tutor_profile = TutorProfile.objects.create(
-                user=tutor_user, specialization="", experience_years=0, bio=""
-            )
+            tutor_profile = TutorProfile.objects.create(user=tutor_user, specialization="", experience_years=0, bio="")
         except User.DoesNotExist:
             return Response({"detail": "Тьютор не найден"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1302,9 +1261,7 @@ def delete_user(request, user_id):
     if user.is_superuser:
         superuser_count = User.objects.filter(is_superuser=True, is_active=True).count()
         if superuser_count <= 1:
-            audit_logger.warning(
-                f"Admin {request.user.id} attempted to delete last superuser {user_id}"
-            )
+            audit_logger.warning(f"Admin {request.user.id} attempted to delete last superuser {user_id}")
             return Response(
                 {"error": "Cannot delete last superuser"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1323,9 +1280,7 @@ def delete_user(request, user_id):
             user_email = user.email
             user.delete()
 
-            logger.info(
-                f"[delete_user] Hard deleted user {user_id_deleted} ({user_email}) from database"
-            )
+            logger.info(f"[delete_user] Hard deleted user {user_id_deleted} ({user_email}) from database")
             message = "Пользователь полностью удален из системы"
 
     audit_logger.info(f"Admin {request.user.id} deleted user {user_id}")
@@ -1521,9 +1476,7 @@ def create_user_with_profile(request):
                 profile_data = ParentProfileSerializer(profile).data
 
     except IntegrityError as exc:
-        logger.warning(
-            f"[create_user_with_profile] IntegrityError (race condition?) for email {email}: {exc}"
-        )
+        logger.warning(f"[create_user_with_profile] IntegrityError (race condition?) for email {email}: {exc}")
         if "email" in str(exc).lower() or "unique" in str(exc).lower():
             return Response(
                 {"detail": "Email уже зарегистрирован"},
@@ -1746,9 +1699,7 @@ def create_student(request):
                 student_profile.save(update_fields=["grade", "goal", "tutor", "parent"])
 
             # Логируем успешное создание
-            logger.info(
-                f"[create_student] Created student: {django_user.email} (id={django_user.id})"
-            )
+            logger.info(f"[create_student] Created student: {django_user.email} (id={django_user.id})")
             audit_logger.info(
                 f"action=student_created user_id={django_user.id} email={django_user.email} "
                 f"grade={grade} tutor_id={tutor_id} parent_id={parent_id} created_by={request.user.id}"
@@ -1756,9 +1707,7 @@ def create_student(request):
 
     except IntegrityError as exc:
         # Ловим race condition: два параллельных запроса создали пользователя с одним email
-        logger.warning(
-            f"[create_student] IntegrityError (race condition?) for email {email}: {exc}"
-        )
+        logger.warning(f"[create_student] IntegrityError (race condition?) for email {email}: {exc}")
         if "email" in str(exc).lower() or "unique" in str(exc).lower():
             return Response(
                 {"detail": "Пользователь с таким email уже существует"},
@@ -1908,9 +1857,7 @@ def create_parent(request):
             parent_profile, profile_created = ParentProfile.objects.get_or_create(user=django_user)
 
             # Логируем успешное создание
-            logger.info(
-                f"[create_parent] Created parent: {django_user.email} (id={django_user.id})"
-            )
+            logger.info(f"[create_parent] Created parent: {django_user.email} (id={django_user.id})")
             audit_logger.info(
                 f"action=parent_created user_id={django_user.id} email={django_user.email} "
                 f"created_by={request.user.id}"
@@ -2014,8 +1961,7 @@ def assign_parent_to_students(request):
         f"[assign_parent_to_students] Assigned parent {parent_id} to {len(assigned_ids)} students: {assigned_ids}"
     )
     audit_logger.info(
-        f"action=parent_assigned parent_id={parent_id} student_ids={assigned_ids} "
-        f"assigned_by={request.user.id}"
+        f"action=parent_assigned parent_id={parent_id} student_ids={assigned_ids} " f"assigned_by={request.user.id}"
     )
 
     return Response(
@@ -2062,9 +2008,7 @@ def list_parents(request):
     if is_active_bool is not None:
         queryset = queryset.filter(is_active=is_active_bool)
 
-    queryset = queryset.annotate(children_count=Count("children_students")).order_by(
-        "-date_joined", "-id"
-    )
+    queryset = queryset.annotate(children_count=Count("children_students")).order_by("-date_joined", "-id")
 
     paginator = StudentPagination()
     page = paginator.paginate_queryset(queryset, request)
@@ -2135,9 +2079,7 @@ def reactivate_user(request, user_id):
         f"action=reactivate_user user_id={user.id} email={user.email} role={user.role} "
         f"reactivated_by={request.user.id} reactivated_by_email={request.user.email}"
     )
-    logger.info(
-        f"[reactivate_user] User {user.email} (id={user.id}) reactivated by {request.user.email}"
-    )
+    logger.info(f"[reactivate_user] User {user.email} (id={user.id}) reactivated by {request.user.email}")
 
     return Response(
         {
@@ -2177,7 +2119,7 @@ def assign_students_to_teacher(request, teacher_id):
     Примечание:
         Создает SubjectEnrollment для каждого студента.
         При создании SubjectEnrollment автоматически триггерятся сигналы
-        для создания FORUM_SUBJECT и FORUM_TUTOR чатов.
+        для создания Subject и Tutor chat rooms.
     """
     from materials.models import Subject, SubjectEnrollment
     from rest_framework import serializers
@@ -2312,13 +2254,9 @@ class UserManagementView(APIView):
 
         serializer = UserSerializer(queryset, many=True)
 
-        logger.info(
-            f"[UserManagementView.get] Retrieved {len(serializer.data)} users (role filter: {role})"
-        )
+        logger.info(f"[UserManagementView.get] Retrieved {len(serializer.data)} users (role filter: {role})")
         if len(serializer.data) == 0:
-            logger.warning(
-                f"[UserManagementView.get] WARNING: No users returned! Total count was: {total_count}"
-            )
+            logger.warning(f"[UserManagementView.get] WARNING: No users returned! Total count was: {total_count}")
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -2431,9 +2369,7 @@ class UserManagementView(APIView):
                 django_user.role = role
                 django_user.email = email
                 django_user.phone = phone
-                django_user.save(
-                    update_fields=["first_name", "last_name", "role", "email", "phone"]
-                )
+                django_user.save(update_fields=["first_name", "last_name", "role", "email", "phone"])
 
                 profile_data = {}
 
@@ -2540,9 +2476,7 @@ class UserManagementView(APIView):
                     profile_data = ParentProfileSerializer(profile).data
 
         except IntegrityError as exc:
-            logger.warning(
-                f"[UserManagementView.post] IntegrityError (race condition?) for email {email}: {exc}"
-            )
+            logger.warning(f"[UserManagementView.post] IntegrityError (race condition?) for email {email}: {exc}")
             if "email" in str(exc).lower() or "unique" in str(exc).lower():
                 return Response(
                     {"detail": "Email уже зарегистрирован"},
@@ -2567,9 +2501,7 @@ class UserManagementView(APIView):
                                 django_user.save()
                                 break
                 except Exception as inner_exc:
-                    logger.error(
-                        f"[UserManagementView.post] Failed to retry with new username: {inner_exc}"
-                    )
+                    logger.error(f"[UserManagementView.post] Failed to retry with new username: {inner_exc}")
                     return Response(
                         {"detail": "Не удалось создать пользователя (ошибка базы данных)"},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2590,9 +2522,7 @@ class UserManagementView(APIView):
         user_response = UserSerializer(django_user).data
 
         logger.info(f"[UserManagementView.post] User {email} (role={role}) created successfully")
-        audit_logger.info(
-            f"action=user_created email={email} role={role} created_by={request.user.id}"
-        )
+        audit_logger.info(f"action=user_created email={email} role={role} created_by={request.user.id}")
 
         return Response(
             {
@@ -2674,9 +2604,7 @@ class UserDetailView(APIView):
         if user.is_superuser:
             superuser_count = User.objects.filter(is_superuser=True, is_active=True).count()
             if superuser_count <= 1:
-                audit_logger.warning(
-                    f"Admin {request.user.id} attempted to delete last superuser {user_id}"
-                )
+                audit_logger.warning(f"Admin {request.user.id} attempted to delete last superuser {user_id}")
                 return Response(
                     {"error": "Cannot delete last superuser"},
                     status=status.HTTP_400_BAD_REQUEST,

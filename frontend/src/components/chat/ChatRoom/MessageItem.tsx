@@ -1,6 +1,6 @@
 import { Pin, FileText, Download } from 'lucide-react';
 import { ChatMessage } from '@/integrations/api/chatAPI';
-import { MessageActions } from '@/components/forum/MessageActions';
+import { MessageActions } from '@/components/chat/MessageActions';
 
 interface MessageItemProps {
   message: ChatMessage;

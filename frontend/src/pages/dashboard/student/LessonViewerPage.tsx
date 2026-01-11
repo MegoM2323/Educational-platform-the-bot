@@ -130,7 +130,7 @@ const LessonViewerPage: React.FC = () => {
       // Обновить граф и урок
       queryClient.invalidateQueries({ queryKey: ['student-lesson', lessonId] });
       queryClient.invalidateQueries({ queryKey: ['student-graph'] });
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'chats'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Ошибка завершения урока');

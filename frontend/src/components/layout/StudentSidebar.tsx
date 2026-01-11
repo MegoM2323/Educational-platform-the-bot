@@ -22,7 +22,7 @@ const items = [
   { title: "Предметы", url: "/dashboard/student/subjects", icon: BookOpen },
   { title: "Материалы", url: "/dashboard/student/materials", icon: BookOpen },
   { title: "Расписание", url: "/dashboard/student/schedule", icon: Calendar },
-  { title: "Форум", url: "/dashboard/student/forum", icon: MessageSquare },
+  { title: "Чат", url: "/dashboard/student/chat", icon: MessageSquare },
   { title: "Граф знаний", url: "/dashboard/student/knowledge-graph", icon: Network },
 ];
 

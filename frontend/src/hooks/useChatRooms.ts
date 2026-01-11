@@ -1,14 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatAPI, Chat, ChatContact } from '../integrations/api/chatAPI';
 
-export const useForumChats = () => {
-  console.log('[useForumChats] Hook called');
+export const useChatRooms = () => {
+  console.log('[useChatRooms] Hook called');
   const queryClient = useQueryClient();
 
   const chatsQuery = useQuery({
-    queryKey: ['forum', 'chats'],
+    queryKey: ['chat', 'chats'],
     queryFn: async () => {
-      console.log('[useForumChats] queryFn executing for chats');
+      console.log('[useChatRooms] queryFn executing for chats');
       try {
         const response = await chatAPI.getChatList();
         return response.results;
@@ -32,9 +32,9 @@ export const useForumChats = () => {
   });
 
   const contactsQuery = useQuery({
-    queryKey: ['forum', 'available-contacts'],
+    queryKey: ['chat', 'available-contacts'],
     queryFn: async () => {
-      console.log('[useForumChats] queryFn executing for contacts');
+      console.log('[useChatRooms] queryFn executing for contacts');
       try {
         return await chatAPI.getContacts();
       } catch (error: any) {
@@ -59,12 +59,12 @@ export const useForumChats = () => {
     mutationFn: ({ contactUserId, subjectId }: { contactUserId: number; subjectId?: number }) =>
       chatAPI.createOrGetChat(contactUserId, subjectId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
-      queryClient.invalidateQueries({ queryKey: ['forum', 'available-contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'chats'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'available-contacts'] });
     },
   });
 
-  console.log('[useForumChats] Query states:', {
+  console.log('[useChatRooms] Query states:', {
     chats: {
       isLoading: chatsQuery.isLoading,
       isFetching: chatsQuery.isFetching,
@@ -102,13 +102,13 @@ export const useForumChats = () => {
   };
 };
 
-export const useForumChatsWithRefresh = () => {
+export const useChatRoomsWithRefresh = () => {
   const queryClient = useQueryClient();
 
-  const hook = useForumChats();
+  const hook = useChatRooms();
 
   const refreshChats = () => {
-    queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+    queryClient.invalidateQueries({ queryKey: ['chat', 'chats'] });
   };
 
   return { ...hook, refreshChats };

@@ -201,9 +201,7 @@ def _validate_installed_apps_order():
         app_pos = positions[app]
         for dep in dependencies:
             if dep not in positions:
-                raise ImproperlyConfigured(
-                    f"App '{app}' depends on '{dep}', but '{dep}' not in INSTALLED_APPS"
-                )
+                raise ImproperlyConfigured(f"App '{app}' depends on '{dep}', but '{dep}' not in INSTALLED_APPS")
             dep_pos = positions[dep]
             if dep_pos > app_pos:
                 raise ImproperlyConfigured(
@@ -384,9 +382,7 @@ def _get_database_config() -> dict:
     if database_url:
         parsed = urlparse(database_url)
         if parsed.scheme not in ("postgres", "postgresql"):
-            raise ImproperlyConfigured(
-                "DATABASE_URL должен быть Postgres URI (postgres:// или postgresql://)"
-            )
+            raise ImproperlyConfigured("DATABASE_URL должен быть Postgres URI (postgres:// или postgresql://)")
 
         # Парсим URL и создаем конфигурацию
         db_config = {
@@ -463,9 +459,7 @@ import sys
 
 # Получаем текущее окружение и конфигурацию БД
 # Auto-detect test mode to allow pytest conftest.py to run first
-is_testing = (
-    "pytest" in sys.modules or "test" in sys.argv or any("pytest" in arg for arg in sys.argv)
-)
+is_testing = "pytest" in sys.modules or "test" in sys.argv or any("pytest" in arg for arg in sys.argv)
 if is_testing and "ENVIRONMENT" not in os.environ:
     os.environ["ENVIRONMENT"] = "test"
 
@@ -742,9 +736,7 @@ REST_FRAMEWORK = {
 # Можно переопределить в .env: USE_REDIS_CACHE=True/False
 # КРИТИЧНО: Отключаем Redis для тестов чтобы избежать ConnectionError
 USE_REDIS_CACHE = (
-    False
-    if current_environment == "test"
-    else os.getenv("USE_REDIS_CACHE", str(not DEBUG)).lower() == "true"
+    False if current_environment == "test" else os.getenv("USE_REDIS_CACHE", str(not DEBUG)).lower() == "true"
 )
 
 if USE_REDIS_CACHE:
@@ -918,9 +910,7 @@ SYSTEM_MONITORING = {
 # ВАЖНО: В production Redis КРИТИЧНО необходим для WebSocket на нескольких процессах
 # КРИТИЧНО: Отключаем Redis для тестов чтобы избежать ConnectionError
 USE_REDIS_CHANNELS = (
-    False
-    if current_environment == "test"
-    else os.getenv("USE_REDIS_CHANNELS", str(not DEBUG)).lower() == "true"
+    False if current_environment == "test" else os.getenv("USE_REDIS_CHANNELS", str(not DEBUG)).lower() == "true"
 )
 
 if USE_REDIS_CHANNELS:
@@ -963,25 +953,15 @@ def _parse_int_env(key, default, min_val=None, max_val=None):
 
 
 WEBSOCKET_CONFIG = {
-    "HEARTBEAT_INTERVAL": _parse_int_env(
-        "WEBSOCKET_HEARTBEAT_INTERVAL", 30, min_val=5, max_val=300
-    ),
+    "HEARTBEAT_INTERVAL": _parse_int_env("WEBSOCKET_HEARTBEAT_INTERVAL", 30, min_val=5, max_val=300),
     "HEARTBEAT_TIMEOUT": _parse_int_env("WEBSOCKET_HEARTBEAT_TIMEOUT", 15, min_val=3, max_val=120),
     "AUTH_TIMEOUT": _parse_int_env("WEBSOCKET_AUTH_TIMEOUT", 15, min_val=5, max_val=120),
     # DoS protection: limit per-message size to prevent memory exhaustion
     # Checked BEFORE json.loads() to avoid CPU-intensive parsing of oversized payloads
-    "MESSAGE_SIZE_LIMIT": _parse_int_env(
-        "WEBSOCKET_MESSAGE_SIZE_LIMIT", 65536, min_val=100, max_val=1000000
-    ),
-    "MAX_CONNECTIONS_PER_USER": _parse_int_env(
-        "WEBSOCKET_MAX_CONNECTIONS_PER_USER", 5, min_val=1, max_val=100
-    ),
-    "RECONNECT_BACKOFF_MULTIPLIER": float(
-        os.getenv("WEBSOCKET_RECONNECT_BACKOFF_MULTIPLIER", "2.0")
-    ),
-    "RECONNECT_MAX_DELAY": _parse_int_env(
-        "WEBSOCKET_RECONNECT_MAX_DELAY", 32000, min_val=1000, max_val=300000
-    ),
+    "MESSAGE_SIZE_LIMIT": _parse_int_env("WEBSOCKET_MESSAGE_SIZE_LIMIT", 65536, min_val=100, max_val=1000000),
+    "MAX_CONNECTIONS_PER_USER": _parse_int_env("WEBSOCKET_MAX_CONNECTIONS_PER_USER", 5, min_val=1, max_val=100),
+    "RECONNECT_BACKOFF_MULTIPLIER": float(os.getenv("WEBSOCKET_RECONNECT_BACKOFF_MULTIPLIER", "2.0")),
+    "RECONNECT_MAX_DELAY": _parse_int_env("WEBSOCKET_RECONNECT_MAX_DELAY", 32000, min_val=1000, max_val=300000),
 }
 
 # WebSocket settings - environment-aware
@@ -994,12 +974,8 @@ WEBSOCKET_MESSAGE_MAX_LENGTH = 1024 * 1024  # 1MB
 # По умолчанию берется из DEBUG, но можно переопределить в .env
 # Это позволяет тестировать реальные суммы даже в development, если нужно
 PAYMENT_DEVELOPMENT_MODE = os.getenv("PAYMENT_DEVELOPMENT_MODE", str(DEBUG)).lower() == "true"
-DEVELOPMENT_PAYMENT_AMOUNT = Decimal(
-    os.getenv("DEVELOPMENT_PAYMENT_AMOUNT", "1.00")
-)  # 1 рубль в режиме разработки
-PRODUCTION_PAYMENT_AMOUNT = Decimal(
-    os.getenv("PRODUCTION_PAYMENT_AMOUNT", "5000.00")
-)  # 5000 рублей в обычном режиме
+DEVELOPMENT_PAYMENT_AMOUNT = Decimal(os.getenv("DEVELOPMENT_PAYMENT_AMOUNT", "1.00"))  # 1 рубль в режиме разработки
+PRODUCTION_PAYMENT_AMOUNT = Decimal(os.getenv("PRODUCTION_PAYMENT_AMOUNT", "5000.00"))  # 5000 рублей в обычном режиме
 DEVELOPMENT_RECURRING_INTERVAL_MINUTES = int(
     os.getenv("DEVELOPMENT_RECURRING_INTERVAL_MINUTES", "10")
 )  # 10 минут в режиме разработки
@@ -1008,12 +984,8 @@ PRODUCTION_RECURRING_INTERVAL_WEEKS = int(
 )  # 1 неделя в обычном режиме
 
 # Celery settings
-CELERY_BROKER_URL = os.getenv(
-    "CELERY_BROKER_URL", os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
-)
-CELERY_RESULT_BACKEND = os.getenv(
-    "CELERY_RESULT_BACKEND", os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
-)
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"))
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"))
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
@@ -1153,9 +1125,7 @@ if not DEBUG:
     else:
         print(f"✅ Production mode active (DEBUG=False)")
         print(f"   - Environment: {current_env}")
-        print(
-            f"   - Database: {'PostgreSQL' if database_url and 'postgres' in database_url else 'Unknown'}"
-        )
+        print(f"   - Database: {'PostgreSQL' if database_url and 'postgres' in database_url else 'Unknown'}")
         print(f"   - Redis Cache: {'✅ Enabled' if USE_REDIS_CACHE else '❌ Disabled'}")
         print(f"   - Redis Channels: {'✅ Enabled' if USE_REDIS_CHANNELS else '❌ Disabled'}")
         print(
@@ -1322,9 +1292,7 @@ def validate_websocket_config():
         assert config["AUTH_TIMEOUT"] > 0, "AUTH_TIMEOUT must be > 0"
         assert config["MESSAGE_SIZE_LIMIT"] > 0, "MESSAGE_SIZE_LIMIT must be > 0"
         assert config["MAX_CONNECTIONS_PER_USER"] > 0, "MAX_CONNECTIONS_PER_USER must be > 0"
-        assert (
-            config["RECONNECT_BACKOFF_MULTIPLIER"] > 0
-        ), "RECONNECT_BACKOFF_MULTIPLIER must be > 0"
+        assert config["RECONNECT_BACKOFF_MULTIPLIER"] > 0, "RECONNECT_BACKOFF_MULTIPLIER must be > 0"
         assert config["RECONNECT_MAX_DELAY"] > 0, "RECONNECT_MAX_DELAY must be > 0"
 
         if DEBUG:
@@ -1354,8 +1322,8 @@ except ImproperlyConfigured:
 
 
 # =============================================================================
-# Pachca Forum Integration
+# Pachca Chat Integration
 # =============================================================================
-PACHCA_FORUM_API_TOKEN = os.getenv("PACHCA_FORUM_API_TOKEN", "")
-PACHCA_FORUM_CHANNEL_ID = os.getenv("PACHCA_FORUM_CHANNEL_ID", "")
-PACHCA_FORUM_BASE_URL = os.getenv("PACHCA_FORUM_BASE_URL", "https://api.pachca.com/api/shared/v1")
+PACHCA_CHAT_API_TOKEN = os.getenv("PACHCA_CHAT_API_TOKEN", "")
+PACHCA_CHAT_CHANNEL_ID = os.getenv("PACHCA_CHAT_CHANNEL_ID", "")
+PACHCA_CHAT_BASE_URL = os.getenv("PACHCA_CHAT_BASE_URL", "https://api.pachca.com/api/shared/v1")

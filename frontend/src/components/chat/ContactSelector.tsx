@@ -187,7 +187,7 @@ export const ContactSelector = ({
     onSuccess: (data) => {
       logger.debug('[ContactSelector] Chat initiated successfully:', data);
 
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'chats'] });
 
       toast({
         title: data.created ? 'Чат создан' : 'Чат найден',

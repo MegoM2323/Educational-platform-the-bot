@@ -85,21 +85,13 @@ class AuditLogMessage:
         Returns:
             Отформатированное сообщение для логирования
         """
-        changes = " ".join(
-            [
-                f"{field}='{old}'->>'{new}'"
-                for field, (old, new) in changed_fields.items()
-            ]
-        )
+        changes = " ".join([f"{field}='{old}'->>'{new}'" for field, (old, new) in changed_fields.items()])
 
         admin_info = ""
         if admin_id or admin_email:
             admin_info = f" by admin_id={admin_id} admin_email={admin_email}"
 
-        return (
-            f"action=update_user user_id={user_id} email={email} role={role} "
-            f"changes=[{changes}]{admin_info}"
-        )
+        return f"action=update_user user_id={user_id} email={email} role={role} " f"changes=[{changes}]{admin_info}"
 
     @staticmethod
     def reset_password(
@@ -154,10 +146,7 @@ class AuditLogMessage:
         if admin_id or admin_email:
             admin_info = f" by admin_id={admin_id} admin_email={admin_email}"
 
-        return (
-            f"action=delete_user type={delete_type} user_id={user_id} "
-            f"email={email} role={role}{admin_info}"
-        )
+        return f"action=delete_user type={delete_type} user_id={user_id} " f"email={email} role={role}{admin_info}"
 
     @staticmethod
     def create_profile(
@@ -226,8 +215,7 @@ def auto_create_user_profile(sender, instance: User, created: bool, **kwargs) ->
                 _create_profile_safe(ParentProfile, instance, "ParentProfile")
     except Exception as exc:
         logger.error(
-            f"[Signal] Error auto-creating profile for user_id={instance.id} "
-            f"email={instance.email}: {exc}",
+            f"[Signal] Error auto-creating profile for user_id={instance.id} " f"email={instance.email}: {exc}",
             exc_info=True,
         )
 
@@ -245,27 +233,20 @@ def _create_profile_safe(profile_model, user_instance: User, profile_type: str) 
         profile_type: String name of profile type for logging
     """
     try:
-        profile, profile_created = profile_model.objects.get_or_create(
-            user=user_instance
-        )
+        profile, profile_created = profile_model.objects.get_or_create(user=user_instance)
         if profile_created:
             try:
                 profile.full_clean()
             except ValidationError as ve:
                 profile.delete()
-                logger.error(
-                    f"[Signal] {profile_type} validation failed for user_id={user_instance.id}: {ve}"
-                )
+                logger.error(f"[Signal] {profile_type} validation failed for user_id={user_instance.id}: {ve}")
                 raise
 
             logger.info(
-                f"[Signal] {profile_type} auto-created for user_id={user_instance.id} "
-                f"email={user_instance.email}"
+                f"[Signal] {profile_type} auto-created for user_id={user_instance.id} " f"email={user_instance.email}"
             )
         else:
-            logger.debug(
-                f"[Signal] {profile_type} already exists for user_id={user_instance.id}"
-            )
+            logger.debug(f"[Signal] {profile_type} already exists for user_id={user_instance.id}")
     except IntegrityError:
         logger.debug(
             f"[Signal] Race condition detected: {profile_type} was created by concurrent "
@@ -274,8 +255,7 @@ def _create_profile_safe(profile_model, user_instance: User, profile_type: str) 
         try:
             profile = profile_model.objects.get(user=user_instance)
             logger.debug(
-                f"[Signal] {profile_type} retrieved after concurrent creation "
-                f"for user_id={user_instance.id}"
+                f"[Signal] {profile_type} retrieved after concurrent creation " f"for user_id={user_instance.id}"
             )
         except profile_model.DoesNotExist:
             logger.error(
@@ -285,9 +265,7 @@ def _create_profile_safe(profile_model, user_instance: User, profile_type: str) 
 
 
 @receiver(post_save, sender=User)
-def auto_create_notification_settings(
-    sender, instance: User, created: bool, **kwargs
-) -> None:
+def auto_create_notification_settings(sender, instance: User, created: bool, **kwargs) -> None:
     """
     Signal обработчик для автоматического создания настроек уведомлений при создании пользователя.
 
@@ -318,18 +296,13 @@ def auto_create_notification_settings(
         from notifications.models import NotificationSettings
 
         try:
-            notification_settings, created = NotificationSettings.objects.get_or_create(
-                user=instance
-            )
+            notification_settings, created = NotificationSettings.objects.get_or_create(user=instance)
             if created:
                 logger.info(
-                    f"[Signal] NotificationSettings auto-created for user_id={instance.id} "
-                    f"email={instance.email}"
+                    f"[Signal] NotificationSettings auto-created for user_id={instance.id} " f"email={instance.email}"
                 )
             else:
-                logger.debug(
-                    f"[Signal] NotificationSettings already exists for user_id={instance.id}"
-                )
+                logger.debug(f"[Signal] NotificationSettings already exists for user_id={instance.id}")
         except IntegrityError:
             logger.debug(
                 f"[Signal] Race condition detected: NotificationSettings was created by "
@@ -338,8 +311,7 @@ def auto_create_notification_settings(
             try:
                 notification_settings = NotificationSettings.objects.get(user=instance)
                 logger.debug(
-                    f"[Signal] NotificationSettings retrieved after concurrent creation "
-                    f"for user_id={instance.id}"
+                    f"[Signal] NotificationSettings retrieved after concurrent creation " f"for user_id={instance.id}"
                 )
             except NotificationSettings.DoesNotExist:
                 logger.error(
@@ -354,9 +326,7 @@ def auto_create_notification_settings(
 
 
 @receiver(post_save, sender=User)
-def log_user_creation_or_update(
-    sender, instance: User, created: bool, **kwargs
-) -> None:
+def log_user_creation_or_update(sender, instance: User, created: bool, **kwargs) -> None:
     """
     Signal обработчик для логирования создания и обновления пользователей.
 
@@ -421,18 +391,14 @@ def log_user_creation_or_update(
 
             except User.DoesNotExist:
                 # Если не найдена "до" версия, просто логируем что было обновление
-                logger.warning(
-                    f"[Signal] Could not find old instance for user {instance.id}"
-                )
+                logger.warning(f"[Signal] Could not find old instance for user {instance.id}")
 
     except Exception as exc:
         logger.error(f"[Signal] Error logging user change for {instance.email}: {exc}")
 
 
 @receiver(post_save, sender=StudentProfile)
-def log_student_profile_creation(
-    sender, instance: StudentProfile, created: bool, **kwargs
-) -> None:
+def log_student_profile_creation(sender, instance: StudentProfile, created: bool, **kwargs) -> None:
     """
     Signal обработчик для логирования создания и обновления профилей студентов.
 
@@ -495,14 +461,14 @@ def create_tutor_chats_on_tutor_assignment(
     sender, instance: StudentProfile, created: bool, update_fields, **kwargs
 ) -> None:
     """
-    Create FORUM_TUTOR chats for all existing enrollments when tutor is assigned to student.
+    Create chat rooms for all existing enrollments when tutor is assigned to student.
 
     This signal handles the case when a tutor is assigned AFTER enrollments already exist.
-    It creates FORUM_TUTOR chats for each active enrollment of the student.
+    It creates chat rooms for each active enrollment of the student.
 
     When tutor is changed:
-    - Removes old tutor from existing FORUM_TUTOR chats
-    - Adds new tutor to existing FORUM_TUTOR chats
+    - Removes old tutor from existing chat rooms
+    - Adds new tutor to existing chat rooms
     - Creates new chats if needed
 
     The signal is idempotent - it checks for existing chats before creating new ones.
@@ -532,9 +498,7 @@ def create_tutor_chats_on_tutor_assignment(
         from chat.models import ChatRoom, ChatParticipant
     except ModuleNotFoundError:
         # Materials or chat modules not available (e.g., in tests)
-        logger.debug(
-            f"[Signal] Materials or chat modules not available for student {instance.user.id}"
-        )
+        logger.debug(f"[Signal] Materials or chat modules not available for student {instance.user.id}")
         return
 
     try:
@@ -548,9 +512,9 @@ def create_tutor_chats_on_tutor_assignment(
                 pass
 
         # Get all active enrollments for this student
-        enrollments = SubjectEnrollment.objects.filter(
-            student=instance.user, is_active=True
-        ).select_related("subject", "teacher")
+        enrollments = SubjectEnrollment.objects.filter(student=instance.user, is_active=True).select_related(
+            "subject", "teacher"
+        )
 
         if not enrollments.exists():
             logger.info(
@@ -574,9 +538,7 @@ def create_tutor_chats_on_tutor_assignment(
                         # Remove old tutor from participants
                         if existing_chat.participants.filter(id=old_tutor.id).exists():
                             existing_chat.participants.remove(old_tutor)
-                            ChatParticipant.objects.filter(
-                                room=existing_chat, user=old_tutor
-                            ).delete()
+                            ChatParticipant.objects.filter(room=existing_chat, user=old_tutor).delete()
                             removed_from_chat_count += 1
                             logger.info(
                                 f"[Signal] Removed old_tutor_id={old_tutor.id} from chat_id={existing_chat.id} "
@@ -592,30 +554,22 @@ def create_tutor_chats_on_tutor_assignment(
         for enrollment in enrollments:
             try:
                 # Check if FORUM_TUTOR chat already exists for this enrollment
-                existing_chat = ChatRoom.objects.filter(
-                    type=ChatRoom.Type.FORUM_TUTOR, enrollment=enrollment
-                ).first()
+                existing_chat = ChatRoom.objects.filter(type=ChatRoom.Type.FORUM_TUTOR, enrollment=enrollment).first()
 
                 if existing_chat:
                     # When tutor is changed, add new tutor to existing chat
                     # Check if new tutor is already a participant
-                    if not existing_chat.participants.filter(
-                        id=instance.tutor.id
-                    ).exists():
+                    if not existing_chat.participants.filter(id=instance.tutor.id).exists():
                         # Add new tutor as participant (M2M)
                         existing_chat.participants.add(instance.tutor)
 
-                        ChatParticipant.objects.get_or_create(
-                            room=existing_chat, user=instance.tutor
-                        )
+                        ChatParticipant.objects.get_or_create(room=existing_chat, user=instance.tutor)
 
                         # Update chat name to reflect new tutor
                         subject_name = enrollment.get_subject_name()
                         student_name = instance.user.get_full_name()
                         tutor_name = instance.tutor.get_full_name()
-                        existing_chat.name = (
-                            f"{subject_name} - {student_name} <-> {tutor_name}"
-                        )
+                        existing_chat.name = f"{subject_name} - {student_name} <-> {tutor_name}"
                         existing_chat.save(update_fields=["name"])
 
                         logger.info(
@@ -641,16 +595,14 @@ def create_tutor_chats_on_tutor_assignment(
                     type=ChatRoom.Type.FORUM_TUTOR,
                     enrollment=enrollment,
                     created_by=instance.user,
-                    description=f"Forum for {subject_name} between {student_name} and {tutor_name}",
+                    description=f"Chat for {subject_name} between {student_name} and {tutor_name}",
                 )
 
                 # Add student and tutor as participants
                 tutor_chat.participants.add(instance.user, instance.tutor)
 
                 created_count += 1
-                logger.info(
-                    f"[Signal] Created FORUM_TUTOR chat '{tutor_chat.name}' for enrollment {enrollment.id}"
-                )
+                logger.info(f"[Signal] Created FORUM_TUTOR chat '{tutor_chat.name}' for enrollment {enrollment.id}")
 
             except Exception as chat_error:
                 logger.error(
@@ -677,9 +629,7 @@ def create_tutor_chats_on_tutor_assignment(
 
 
 @receiver(post_save, sender=StudentProfile)
-def sync_invoices_on_parent_change(
-    sender, instance: StudentProfile, created: bool, **kwargs
-) -> None:
+def sync_invoices_on_parent_change(sender, instance: StudentProfile, created: bool, **kwargs) -> None:
     """
     Signal handler to sync Invoice.parent when StudentProfile.parent changes.
 
@@ -701,14 +651,10 @@ def sync_invoices_on_parent_change(
     try:
         from invoices.models import Invoice
 
-        invoices = Invoice.objects.filter(
-            student=instance.user, parent__isnull=False
-        ).exclude(parent=instance.parent)
+        invoices = Invoice.objects.filter(student=instance.user, parent__isnull=False).exclude(parent=instance.parent)
 
         if invoices.exists():
-            old_parent_ids = list(
-                invoices.values_list("parent_id", flat=True).distinct()
-            )
+            old_parent_ids = list(invoices.values_list("parent_id", flat=True).distinct())
 
             updated_count = invoices.update(parent=instance.parent)
 
@@ -724,9 +670,7 @@ def sync_invoices_on_parent_change(
 
 
 @receiver(post_save, sender=TeacherProfile)
-def log_teacher_profile_creation(
-    sender, instance: TeacherProfile, created: bool, **kwargs
-) -> None:
+def log_teacher_profile_creation(sender, instance: TeacherProfile, created: bool, **kwargs) -> None:
     """
     Signal обработчик для логирования создания и обновления профилей преподавателей.
 
@@ -783,9 +727,7 @@ def log_teacher_profile_creation(
 
 
 @receiver(post_save, sender=TutorProfile)
-def log_tutor_profile_creation(
-    sender, instance: TutorProfile, created: bool, **kwargs
-) -> None:
+def log_tutor_profile_creation(sender, instance: TutorProfile, created: bool, **kwargs) -> None:
     """
     Signal обработчик для логирования создания и обновления профилей тьюторов.
 
@@ -842,9 +784,7 @@ def log_tutor_profile_creation(
 
 
 @receiver(post_save, sender=ParentProfile)
-def log_parent_profile_creation(
-    sender, instance: ParentProfile, created: bool, **kwargs
-) -> None:
+def log_parent_profile_creation(sender, instance: ParentProfile, created: bool, **kwargs) -> None:
     """
     Signal обработчик для логирования создания и обновления профилей родителей.
 
@@ -890,9 +830,7 @@ def log_student_profile_deletion(sender, instance: StudentProfile, **kwargs) -> 
                 "email": instance.user.email,
             },
         )
-        logger.info(
-            f"[Signal] StudentProfile {instance.id} deleted for user {instance.user.id}"
-        )
+        logger.info(f"[Signal] StudentProfile {instance.id} deleted for user {instance.user.id}")
     except Exception as exc:
         logger.error(f"[Signal] Error logging StudentProfile deletion: {exc}")
 
@@ -952,9 +890,7 @@ def log_teacher_profile_deletion(sender, instance: TeacherProfile, **kwargs) -> 
                 "email": instance.user.email,
             },
         )
-        logger.info(
-            f"[Signal] TeacherProfile {instance.id} deleted for user {instance.user.id}"
-        )
+        logger.info(f"[Signal] TeacherProfile {instance.id} deleted for user {instance.user.id}")
     except Exception as exc:
         logger.error(f"[Signal] Error logging TeacherProfile deletion: {exc}")
 
@@ -979,9 +915,7 @@ def log_tutor_profile_deletion(sender, instance: TutorProfile, **kwargs) -> None
                 "email": instance.user.email,
             },
         )
-        logger.info(
-            f"[Signal] TutorProfile {instance.id} deleted for user {instance.user.id}"
-        )
+        logger.info(f"[Signal] TutorProfile {instance.id} deleted for user {instance.user.id}")
     except Exception as exc:
         logger.error(f"[Signal] Error logging TutorProfile deletion: {exc}")
 
@@ -1006,9 +940,7 @@ def log_parent_profile_deletion(sender, instance: ParentProfile, **kwargs) -> No
                 "email": instance.user.email,
             },
         )
-        logger.info(
-            f"[Signal] ParentProfile {instance.id} deleted for user {instance.user.id}"
-        )
+        logger.info(f"[Signal] ParentProfile {instance.id} deleted for user {instance.user.id}")
     except Exception as exc:
         logger.error(f"[Signal] Error logging ParentProfile deletion: {exc}")
 

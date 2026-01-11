@@ -637,7 +637,7 @@ const StudentDashboard = () => {
                           className="h-auto flex-col gap-2 py-6"
                           onClick={() =>
                             networkStatus.isOnline &&
-                            navigate("/dashboard/student/forum")
+                            navigate("/dashboard/student/chat")
                           }
                           disabled={!networkStatus.isOnline}
                           title={
@@ -645,13 +645,13 @@ const StudentDashboard = () => {
                               ? "Недоступно в режиме офлайн"
                               : ""
                           }
-                          aria-label="Перейти к форуму обсуждения"
+                          aria-label="Перейти к чату"
                         >
                           <MessageCircle
                             className="w-6 h-6"
                             aria-hidden="true"
                           />
-                          <span>Форум</span>
+                          <span>Чат</span>
                         </Button>
                         <Button
                           type="button"
@@ -659,7 +659,7 @@ const StudentDashboard = () => {
                           className="h-auto flex-col gap-2 py-6"
                           onClick={() =>
                             networkStatus.isOnline &&
-                            navigate("/dashboard/student/forum")
+                            navigate("/dashboard/student/chat")
                           }
                           disabled={!networkStatus.isOnline}
                           title={

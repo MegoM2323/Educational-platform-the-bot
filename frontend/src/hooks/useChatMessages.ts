@@ -3,11 +3,11 @@ import { chatAPI, ChatMessage } from '../integrations/api/chatAPI';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
-export const useForumMessages = (chatId: number | null) => {
+export const useChatMessages = (chatId: number | null) => {
   const MESSAGES_PER_PAGE = 50;
 
   return useInfiniteQuery<ChatMessage[], Error>({
-    queryKey: ['forum-messages', chatId],
+    queryKey: ['chat-messages', chatId],
     queryFn: async ({ pageParam = 1, signal }) => {
       if (!chatId) {
         throw new Error('Chat ID is required');
@@ -53,9 +53,9 @@ export const useForumMessages = (chatId: number | null) => {
   });
 };
 
-export const useForumMessagesLegacy = (chatId: number | null, limit: number = 50, offset: number = 0) => {
+export const useChatMessagesLegacy = (chatId: number | null, limit: number = 50, offset: number = 0) => {
   const query = useQuery<ChatMessage[]>({
-    queryKey: ['forum-messages-legacy', chatId, limit, offset],
+    queryKey: ['chat-messages-legacy', chatId, limit, offset],
     queryFn: async ({ signal }) => {
       if (!chatId) {
         throw new Error('Chat ID is required');
@@ -75,7 +75,7 @@ export const useForumMessagesLegacy = (chatId: number | null, limit: number = 50
   return query;
 };
 
-export const useSendForumMessage = () => {
+export const useSendChatMessage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast: toastHook } = useAuth();
@@ -92,9 +92,9 @@ export const useSendForumMessage = () => {
       }
     },
     onMutate: async ({ chatId, data, file }) => {
-      await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
+      await queryClient.cancelQueries({ queryKey: ['chat-messages', chatId] });
 
-      const previousMessages = queryClient.getQueryData<InfiniteData<ChatMessage[]>>(['forum-messages', chatId]);
+      const previousMessages = queryClient.getQueryData<InfiniteData<ChatMessage[]>>(['chat-messages', chatId]);
 
       const tempId = -Date.now();
 
@@ -117,7 +117,7 @@ export const useSendForumMessage = () => {
       };
 
       queryClient.setQueryData<InfiniteData<ChatMessage[]>>(
-        ['forum-messages', chatId],
+        ['chat-messages', chatId],
         (oldData) => {
           if (!oldData || !oldData.pages || !Array.isArray(oldData.pages)) {
             return { pages: [[optimisticMessage]], pageParams: [1] };
@@ -138,7 +138,7 @@ export const useSendForumMessage = () => {
     },
     onSuccess: (message, variables, context) => {
       queryClient.setQueryData<InfiniteData<ChatMessage[]>>(
-        ['forum-messages', variables.chatId],
+        ['chat-messages', variables.chatId],
         (oldData) => {
           if (!oldData || !oldData.pages || !Array.isArray(oldData.pages)) {
             return {
@@ -165,7 +165,7 @@ export const useSendForumMessage = () => {
       );
 
       queryClient.setQueriesData(
-        { queryKey: ['forum', 'chats'] },
+        { queryKey: ['chat', 'chats'] },
         (oldChats: any) => {
           if (!oldChats) return oldChats;
 
@@ -184,7 +184,7 @@ export const useSendForumMessage = () => {
     },
     onError: (error: Error, variables, context) => {
       if (context?.previousMessages) {
-        queryClient.setQueryData(['forum-messages', variables.chatId], context.previousMessages);
+        queryClient.setQueryData(['chat-messages', variables.chatId], context.previousMessages);
       }
       toast.error(`Ошибка отправки сообщения: ${error.message}`);
     },
@@ -192,7 +192,7 @@ export const useSendForumMessage = () => {
 };
 
 
-export const useDeleteForumMessage = () => {
+export const useDeleteChatMessage = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -200,7 +200,7 @@ export const useDeleteForumMessage = () => {
       chatAPI.deleteMessage(chatId, messageId),
     onSuccess: (_, variables) => {
       queryClient.setQueriesData<InfiniteData<ChatMessage[]>>(
-        { queryKey: ['forum-messages'] },
+        { queryKey: ['chat-messages'] },
         (oldData) => {
           if (!oldData || !oldData.pages || !Array.isArray(oldData.pages)) {
             return oldData;
@@ -217,9 +217,9 @@ export const useDeleteForumMessage = () => {
         }
       );
 
-      queryClient.invalidateQueries({ queryKey: ['forum-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
 
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'chats'] });
 
       toast.success('Сообщение удалено');
     },

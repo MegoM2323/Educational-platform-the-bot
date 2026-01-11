@@ -63,7 +63,7 @@ export const ContactsList = ({ isOpen, onClose, onSelectContact }: ContactsListP
       chatAPI.createOrGetChat(contactUserId, subjectId),
     onSuccess: (data) => {
       logger.debug('[ContactsList] Chat initiated successfully:', data);
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'chats'] });
       toast({
         title: data.created ? 'Чат создан' : 'Чат найден',
         description: data.created ? 'Новый чат успешно создан' : 'Вы перешли к существующему чату',

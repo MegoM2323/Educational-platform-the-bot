@@ -65,8 +65,8 @@ const TeacherSchedulePage = lazy(() => import('./pages/dashboard/TeacherSchedule
 const TutorSchedulePage = lazy(() => import('./pages/dashboard/TutorSchedulePage'));
 const ParentSchedulePage = lazy(() => import('./pages/dashboard/ParentSchedulePage'));
 
-// Forum page
-const Forum = lazy(() => import('./pages/dashboard/Forum'));
+// Chat page
+const Chat = lazy(() => import('./pages/dashboard/Chat'));
 
 // Lesson Viewer
 const LessonViewer = lazy(() => import('./pages/lessons/LessonViewer'));
@@ -338,11 +338,11 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/dashboard/student/forum"
+                  path="/dashboard/student/chat"
                   element={
                     <ProtectedRoute requiredRole="student">
                       <Suspense fallback={<LoadingSpinner size="lg" />}>
-                        <Forum />
+                        <Chat />
                       </Suspense>
                     </ProtectedRoute>
                   }
@@ -487,11 +487,11 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/dashboard/teacher/forum"
+                  path="/dashboard/teacher/chat"
                   element={
                     <ProtectedRoute requiredRole="teacher">
                       <Suspense fallback={<LoadingSpinner size="lg" />}>
-                        <Forum />
+                        <Chat />
                       </Suspense>
                     </ProtectedRoute>
                   }
@@ -599,11 +599,11 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/dashboard/tutor/forum"
+                  path="/dashboard/tutor/chat"
                   element={
                     <ProtectedRoute requiredRole="tutor">
                       <Suspense fallback={<LoadingSpinner size="lg" />}>
-                        <Forum />
+                        <Chat />
                       </Suspense>
                     </ProtectedRoute>
                   }
@@ -711,11 +711,11 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="/dashboard/parent/forum"
+                  path="/dashboard/parent/chat"
                   element={
                     <ProtectedRoute requiredRole="parent">
                       <Suspense fallback={<LoadingSpinner size="lg" />}>
-                        <Forum />
+                        <Chat />
                       </Suspense>
                     </ProtectedRoute>
                   }

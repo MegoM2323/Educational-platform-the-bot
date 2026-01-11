@@ -21,7 +21,7 @@ const items = [
   { title: "Мои ученики", url: "/dashboard/tutor/students", icon: Users },
   { title: "Отчёты", url: "/dashboard/tutor/reports", icon: FileText },
   { title: "Счета", url: "/dashboard/tutor/invoices", icon: ReceiptText },
-  { title: "Форум", url: "/dashboard/tutor/forum", icon: MessageSquare },
+  { title: "Чат", url: "/dashboard/tutor/chat", icon: MessageSquare },
   // { title: "Сообщения", url: "/dashboard/*/chat", icon: MessageSquare },
 ];
 

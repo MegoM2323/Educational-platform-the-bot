@@ -2,13 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatAPI, ChatMessage } from '../integrations/api/chatAPI';
 import { toast } from 'sonner';
 
-interface UseForumMessageUpdateOptions {
+interface UseChatMessageUpdateOptions {
   chatId: number;
   onSuccess?: (message: ChatMessage) => void;
   onError?: (error: Error) => void;
 }
 
-export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMessageUpdateOptions) => {
+export const useChatMessageUpdate = ({ chatId, onSuccess, onError }: UseChatMessageUpdateOptions) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -16,14 +16,14 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
       chatAPI.editMessage(chatId, messageId, data.content),
 
     onMutate: async ({ messageId, data }) => {
-      await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
+      await queryClient.cancelQueries({ queryKey: ['chat-messages', chatId] });
 
       const previousQueries = queryClient.getQueriesData<ChatMessage[]>({
-        queryKey: ['forum-messages', chatId],
+        queryKey: ['chat-messages', chatId],
       });
 
       queryClient.setQueriesData<ChatMessage[]>(
-        { queryKey: ['forum-messages', chatId], exact: false },
+        { queryKey: ['chat-messages', chatId], exact: false },
         (old) =>
           old?.map((msg) =>
             msg.id === messageId
@@ -51,9 +51,9 @@ export const useForumMessageUpdate = ({ chatId, onSuccess, onError }: UseForumMe
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', chatId] });
 
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'chats'] });
     },
   });
 };

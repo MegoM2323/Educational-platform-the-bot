@@ -2,27 +2,27 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatAPI, ChatMessage } from '../integrations/api/chatAPI';
 import { toast } from 'sonner';
 
-interface UseForumMessageDeleteOptions {
+interface UseChatMessageDeleteOptions {
   chatId: number;
   onSuccess?: () => void;
   onError?: (error: Error) => void;
 }
 
-export const useForumMessageDelete = ({ chatId, onSuccess, onError }: UseForumMessageDeleteOptions) => {
+export const useChatMessageDelete = ({ chatId, onSuccess, onError }: UseChatMessageDeleteOptions) => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (messageId: number) => chatAPI.deleteMessage(chatId, messageId),
 
     onMutate: async (messageId) => {
-      await queryClient.cancelQueries({ queryKey: ['forum-messages', chatId] });
+      await queryClient.cancelQueries({ queryKey: ['chat-messages', chatId] });
 
       const previousQueries = queryClient.getQueriesData<ChatMessage[]>({
-        queryKey: ['forum-messages', chatId],
+        queryKey: ['chat-messages', chatId],
       });
 
       queryClient.setQueriesData<ChatMessage[]>(
-        { queryKey: ['forum-messages', chatId], exact: false },
+        { queryKey: ['chat-messages', chatId], exact: false },
         (old) => old?.filter((msg) => msg.id !== messageId)
       );
 
@@ -45,9 +45,9 @@ export const useForumMessageDelete = ({ chatId, onSuccess, onError }: UseForumMe
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['forum-messages', chatId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', chatId] });
 
-      queryClient.invalidateQueries({ queryKey: ['forum', 'chats'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'chats'] });
     },
   });
 };

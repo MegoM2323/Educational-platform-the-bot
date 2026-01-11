@@ -19,11 +19,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useForumChats } from "@/hooks/useForumChats";
+import { useChatRooms } from "@/hooks/useChatRooms";
 import {
-  useForumMessages,
-  useSendForumMessage,
-} from "@/hooks/useForumMessages";
+  useChatMessages,
+  useSendChatMessage,
+} from "@/hooks/useChatMessages";
 import { Chat, ChatMessage, chatAPI } from "@/integrations/api/chatAPI";
 import {
   chatWebSocketService,
@@ -36,9 +36,9 @@ import { TeacherSidebar } from "@/components/layout/TeacherSidebar";
 import { TutorSidebar } from "@/components/layout/TutorSidebar";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
 import { useToast } from "@/hooks/use-toast";
-import { EditMessageDialog } from "@/components/forum/EditMessageDialog";
-import { useForumMessageUpdate } from "@/hooks/useForumMessageUpdate";
-import { useForumMessageDelete } from "@/hooks/useForumMessageDelete";
+import { EditMessageDialog } from "@/components/chat/EditMessageDialog";
+import { useChatMessageUpdate } from "@/hooks/useChatMessageUpdate";
+import { useChatMessageDelete } from "@/hooks/useChatMessageDelete";
 import { ChatList, ChatRoom, ContactsList } from "@/components/chat";
 
 const getSidebarComponent = (role: string) => {
@@ -65,7 +65,7 @@ const getErrorMessage = (error: unknown): string => {
   return "Произошла ошибка";
 };
 
-function Forum() {
+function Chat() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -98,9 +98,9 @@ function Forum() {
     };
   }, []);
 
-  const { chats = [], isLoadingChats, chatsError } = useForumChats();
+  const { chats = [], isLoadingChats, chatsError } = useChatRooms();
 
-  const messagesQuery = useForumMessages(selectedChat?.id || null);
+  const messagesQuery = useChatMessages(selectedChat?.id || null);
   const messages = useMemo(() => {
     if (!messagesQuery.data?.pages) return [];
     return messagesQuery.data.pages.flat();
@@ -108,9 +108,9 @@ function Forum() {
   const isLoadingMessages = messagesQuery.isLoading;
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = messagesQuery;
 
-  const sendMessageMutation = useSendForumMessage();
+  const sendMessageMutation = useSendChatMessage();
 
-  const editMessageMutation = useForumMessageUpdate({
+  const editMessageMutation = useChatMessageUpdate({
     chatId: selectedChat?.id || 0,
     onSuccess: () => {
       setError(null);
@@ -127,7 +127,7 @@ function Forum() {
     },
   });
 
-  const deleteMessageMutation = useForumMessageDelete({
+  const deleteMessageMutation = useChatMessageDelete({
     chatId: selectedChat?.id || 0,
     onSuccess: () => {
       setError(null);
@@ -149,7 +149,7 @@ function Forum() {
     (wsMessage: WSChatMessage) => {
       try {
         logger.debug(
-          "[Forum] WebSocket message received in component handler:",
+          "[Chat] WebSocket message received in component handler:",
           {
             messageId: wsMessage.id,
             content: wsMessage.content.substring(0, 50),
@@ -159,7 +159,7 @@ function Forum() {
         );
 
         if (!selectedChat) {
-          logger.warn("[Forum] Received message but no chat selected");
+          logger.warn("[Chat] Received message but no chat selected");
           return;
         }
 
@@ -181,15 +181,15 @@ function Forum() {
         };
 
         logger.debug(
-          "[Forum] Updating TanStack Query cache for chat:",
+          "[Chat] Updating TanStack Query cache for chat:",
           selectedChat.id,
         );
         queryClient.setQueriesData<InfiniteData<ChatMessage[]>>(
-          { queryKey: ["forum-messages", selectedChat.id], exact: false },
+          { queryKey: ["chat-messages", selectedChat.id], exact: false },
           (oldData) => {
             if (!oldData || !oldData.pages) {
               logger.debug(
-                "[Forum] No existing data, creating new InfiniteData with message",
+                "[Chat] No existing data, creating new InfiniteData with message",
               );
               return {
                 pages: [[chatMessage]],
@@ -202,12 +202,12 @@ function Forum() {
             );
 
             if (exists) {
-              logger.debug("[Forum] Message already exists in cache, skipping");
+              logger.debug("[Chat] Message already exists in cache, skipping");
               return oldData;
             }
 
             logger.debug(
-              "[Forum] Adding new message to last page of InfiniteData",
+              "[Chat] Adding new message to last page of InfiniteData",
             );
             const newPages = [...oldData.pages];
             const lastPageIndex = newPages.length - 1;
@@ -220,10 +220,10 @@ function Forum() {
           },
         );
 
-        queryClient.invalidateQueries({ queryKey: ["forum", "chats"] });
+        queryClient.invalidateQueries({ queryKey: ["chat", "chats"] });
         setError(null);
       } catch (err) {
-        logger.error("[Forum] WebSocket handler error:", err);
+        logger.error("[Chat] WebSocket handler error:", err);
         toast({
           variant: "destructive",
           title: "Ошибка обработки сообщения",
@@ -278,7 +278,7 @@ function Forum() {
     let isEffectActive = true;
 
     logger.debug(
-      "[Forum] Chat selected, setting up WebSocket for chat:",
+      "[Chat] Chat selected, setting up WebSocket for chat:",
       chatId,
     );
 
@@ -292,7 +292,7 @@ function Forum() {
     // Disconnect from previous chat if it exists
     if (previousChatIdRef.current && previousChatIdRef.current !== chatId) {
       logger.debug(
-        "[Forum] Disconnecting from previous chat:",
+        "[Chat] Disconnecting from previous chat:",
         previousChatIdRef.current,
       );
       chatWebSocketService.disconnectFromRoom(previousChatIdRef.current);
@@ -302,31 +302,31 @@ function Forum() {
       try {
         if (!isEffectActive) {
           logger.debug(
-            "[Forum] Effect unmounted, skipping WebSocket connection",
+            "[Chat] Effect unmounted, skipping WebSocket connection",
           );
           return;
         }
 
-        logger.debug("[Forum] Connecting to chat room:", chatId);
+        logger.debug("[Chat] Connecting to chat room:", chatId);
         const connectionSuccess = await chatWebSocketService.connectToRoom(
           chatId,
           handlers,
         );
 
         if (!connectionSuccess) {
-          logger.error("[Forum] Failed to connect to chat room:", chatId);
+          logger.error("[Chat] Failed to connect to chat room:", chatId);
           if (isEffectActive) {
             setError("Не удалось подключиться к чату. Проверьте авторизацию.");
             setIsSwitchingChat(false);
           }
         } else {
-          logger.debug("[Forum] Successfully connected to chat room:", chatId);
+          logger.debug("[Chat] Successfully connected to chat room:", chatId);
           if (isEffectActive) {
             setIsSwitchingChat(false);
           }
         }
       } catch (error) {
-        logger.error("[Forum] WebSocket connection failed:", error);
+        logger.error("[Chat] WebSocket connection failed:", error);
         if (isEffectActive) {
           setIsSwitchingChat(false);
           setError("Не удалось подключиться к чату");
@@ -338,7 +338,7 @@ function Forum() {
     previousChatIdRef.current = chatId;
 
     const initiallyConnected = chatWebSocketService.isConnected();
-    logger.debug("[Forum] Initial connection state:", initiallyConnected);
+    logger.debug("[Chat] Initial connection state:", initiallyConnected);
     if (isEffectActive) {
       setIsConnected(initiallyConnected);
       if (initiallyConnected) {
@@ -347,7 +347,7 @@ function Forum() {
     }
 
     const connectionCallback = (connected: boolean) => {
-      logger.debug("[Forum] Connection state changed to:", connected);
+      logger.debug("[Chat] Connection state changed to:", connected);
       if (isEffectActive) {
         setIsConnected(connected);
         if (!connected) {
@@ -363,7 +363,7 @@ function Forum() {
     return () => {
       isEffectActive = false;
 
-      logger.debug("[Forum] Cleaning up WebSocket for chat:", chatId);
+      logger.debug("[Chat] Cleaning up WebSocket for chat:", chatId);
       if (previousChatIdRef.current) {
         chatWebSocketService.disconnectFromRoom(previousChatIdRef.current);
       }
@@ -394,11 +394,11 @@ function Forum() {
       const previousChatId = selectedChat?.id;
       if (previousChatId && previousChatId !== chat.id) {
         logger.debug(
-          "[Forum] Clearing message cache for previous chat:",
+          "[Chat] Clearing message cache for previous chat:",
           previousChatId,
         );
         queryClient.removeQueries({
-          queryKey: ["forum-messages", previousChatId],
+          queryKey: ["chat-messages", previousChatId],
         });
       }
 
@@ -407,14 +407,14 @@ function Forum() {
 
       if (previousChatId && previousChatId !== chat.id) {
         await queryClient.cancelQueries({
-          queryKey: ["forum-messages", previousChatId],
+          queryKey: ["chat-messages", previousChatId],
         });
       }
 
       if (chat.unread_count > 0) {
         try {
           await chatAPI.markAsRead(chat.id);
-          queryClient.setQueryData<Chat[]>(["forum", "chats"], (oldChats) => {
+          queryClient.setQueryData<Chat[]>(["chat", "chats"], (oldChats) => {
             if (!oldChats) return oldChats;
             return oldChats.map((c) =>
               c.id === chat.id ? { ...c, unread_count: 0 } : c,
@@ -465,20 +465,20 @@ function Forum() {
 
   const handleChatInitiated = useCallback(
     (chatId: number) => {
-      logger.debug("[Forum] Chat initiated, selecting chat:", chatId);
+      logger.debug("[Chat] Chat initiated, selecting chat:", chatId);
 
       queryClient
-        .invalidateQueries({ queryKey: ["forum", "chats"] })
+        .invalidateQueries({ queryKey: ["chat", "chats"] })
         .then(() => {
           if (!isMountedRef.current) {
             logger.debug(
-              "[Forum] Component unmounted, skipping chat selection",
+              "[Chat] Component unmounted, skipping chat selection",
             );
             return;
           }
 
           const updatedChats = queryClient.getQueryData<Chat[]>([
-            "forum",
+            "chat",
             "chats",
           ]);
           const newChat = updatedChats?.find((chat) => chat.id === chatId);
@@ -652,4 +652,4 @@ function Forum() {
   );
 }
 
-export default Forum;
+export default Chat;

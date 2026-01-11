@@ -24,7 +24,7 @@ const items = [
   { title: "Управление расписанием", url: "/dashboard/teacher/schedule", icon: CalendarDays },
   { title: "Проверка заданий", url: "/dashboard/teacher/submissions/pending", icon: CheckSquare },
   { title: "Отчёты", url: "/dashboard/teacher/reports", icon: FileText },
-  { title: "Форум", url: "/dashboard/teacher/forum", icon: MessageSquare },
+  { title: "Чат", url: "/dashboard/teacher/chat", icon: MessageSquare },
   // { title: "Сообщения", url: "/dashboard/*/chat", icon: MessageSquare },
   { title: "Создание контента", url: "/dashboard/teacher/content-creator", icon: PenTool },
   { title: "Редактор графа", url: "/dashboard/teacher/graph-editor", icon: Network },

@@ -27,7 +27,7 @@ const items = [
   { title: "Счета", url: "/dashboard/parent/invoices", icon: ReceiptText, hasBadge: true },
   { title: "Статистика", url: "/dashboard/parent/statistics", icon: BarChart3 },
   { title: "Отчёты", url: "/dashboard/parent/reports", icon: FileText },
-  { title: "Форум", url: "/dashboard/parent/forum", icon: MessageSquare },
+  { title: "Чат", url: "/dashboard/parent/chat", icon: MessageSquare },
   // { title: "Сообщения", url: "/dashboard/*/chat", icon: MessageSquare },
 ];
 

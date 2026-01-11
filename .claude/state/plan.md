@@ -1,66 +1,144 @@
-# План: Исправление rsync-deploy-native.sh
+# T015: Improve exception handling в consumers.py
 
-## Обзор
-Исправление 12 критических и высоких проблем в deployment скрипте, найденных reviewer.
+## Проблема
 
-## Файл
-`/home/mego/Python Projects/THE_BOT_platform/scripts/deployment/rsync-deploy-native.sh`
+Broad exception handlers маскируют реальные ошибки, затрудняют debugging и скрывают security issues.
 
-## Задачи
+**Найдено 11 мест с `except Exception`:**
+1. Line 155: graceful_shutdown() - Exception catch-all
+2. Line 180: receive() при отправке ошибки размера
+3. Line 248: disconnect() cleanup
+4. Line 404: _handle_message() при сохранении
+5. Line 449: _handle_read()
+6. Line 459: chat_message() broadcast
+7. Line 473: chat_typing() broadcast
+8. Line 481: chat_message_edited() broadcast
+9. Line 492: chat_message_deleted() broadcast
+10. Line 510: chat_message_deleted() broadcast
+11. Line 572: _heartbeat_loop()
+12. Line 607: _check_current_permissions()
+13. Line 638: _send_error()
+14. Line 664: _get_client_ip() IP parsing (хорошо, но можно точнее)
+15. Line 749: _validate_token()
+16. Line 766: _check_access()
+17. Line 797: _save_message()
+18. Line 812: _mark_as_read()
+19. Line 828: _get_user_data()
 
-### PHASE 1: Критические проблемы (исправляются в одной итерации)
+## Решение
 
-1. **exit 0 перед PHASE 6-8 (линия ~590)**
-   - Переместить `exit 0` в конец скрипта (после Phase 8)
-   - Удалить преждевременный exit
+Catch specific exception types:
+- `json.JSONDecodeError` для JSON parsing
+- `ValidationError` для user input errors (INFO level)
+- `ObjectDoesNotExist` для missing objects (INFO level)
+- `DatabaseError` для DB problems (ERROR level)
+- `PermissionError` для access denied (INFO level)
+- `ValueError` для invalid values (WARNING level)
+- `asyncio.TimeoutError` для timeouts (WARNING level)
+- `asyncio.CancelledError` для task cancellation (DEBUG level)
+- `Exception` как catch-all (ERROR level с exc_info=True)
 
-2. **migrate --check перед migrate (линия ~473)**
-   - Добавить `python manage.py migrate --check` ДО `python manage.py migrate`
-   - В PHASE 5 Database Migrations
+## Файлы для изменения
+1. `backend/chat/consumers.py` - добавить импорты и обновить 19 exception handlers
 
-3. **Двойной exit в trap (линия ~259)**
-   - Оставить только один `exit 1` в trap handler
-   - Удалить exit из cleanup функции
+## Импорты для добавления
+```python
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.db import DatabaseError
+```
 
-4. **Hardcoded пути в heredoc (линии ~482, ~520)**
-   - Экспортировать PROD_HOME, PROD_USER, BACKUP_DIR в SSH heredoc
-   - Заменить hardcoded `/home/mg/backups` на `${BACKUP_DIR}`
+## Реализация по методам
 
-5. **Database backup без chmod 600 (линия ~300+)**
-   - Добавить `chmod 600 *.sql` после pg_dump, перед gzip
-   - Защитить файлы с паролями
+### Async methods (с logger.error/warning)
+1. **graceful_shutdown()** line 155
+   - `asyncio.CancelledError` → DEBUG: skip (it's expected)
+   - `Exception` → ERROR with exc_info
 
-6. **Отсутствует проверка cd перед npm install (линия ~250+)**
-   - Добавить `cd frontend || exit 1` с проверкой успеха
-   - Логировать ошибку если cd упал
+2. **receive()** line 180
+   - `asyncio.CancelledError` → skip
+   - `Exception` → ERROR with exc_info
 
-7. **LOCAL_PATH использует ${BASH_SOURCE[0]} неправильно (линия ~190+)**
-   - Использовать: `LOCAL_PATH="$(cd "$(dirname "$0")" && pwd)"`
-   - Или передать как параметр функции
+3. **disconnect()** line 248
+   - `RuntimeError` (group_discard) → WARNING
+   - `Exception` → ERROR with exc_info
 
-8. **Health check маскирует ошибки через || true (линия ~673)**
-   - Удалить `|| true` из curl
-   - Логировать warning если health check упал
-   - Не считать это ошибкой, но информировать
+4. **_handle_message()** line 404
+   - `ValidationError` → INFO
+   - `ObjectDoesNotExist` → INFO
+   - `DatabaseError` → ERROR
+   - `PermissionError` → INFO
+   - `asyncio.TimeoutError` → WARNING
+   - `Exception` → ERROR
 
-9. **Отсутствуют кавычки вокруг $PROD_HOME в SSH (линия ~283+)**
-   - Заменить `${PROD_HOME}` на `"${PROD_HOME}"` везде в SSH блоках
-   - Защитить от пробелов в пути
+5. **_handle_read()** line 449
+   - `ObjectDoesNotExist` → INFO
+   - `DatabaseError` → ERROR
+   - `Exception` → ERROR
 
-10. **Дублирование кода в PHASE 5 (линия ~320+)**
-    - Объединить два блока (с условием SKIP_MIGRATIONS и без) в один
-    - Использовать if/else для SKIP_MIGRATIONS
+6. **chat_message()** line 459
+   - `json.JSONDecodeError` → WARNING
+   - `asyncio.CancelledError` → DEBUG (skip)
+   - `Exception` → ERROR
 
-11. **Database backup failure логируется как warning (линия ~340+)**
-    - Изменить на log_error
-    - Добавить `exit 1` если pg_dump упал
+7. **chat_typing()** line 473 - same as chat_message
 
-12. **DEPLOY_LOG в /tmp может быть удален (линия ~175+)**
-    - Перенести логирование в `$PROD_HOME/logs/` или в journalctl
-    - Убедиться что директория существует и имеет права
+8. **chat_message_edited()** line 481 - same as chat_message
 
-## Verification
-- `bash -n scripts/deployment/rsync-deploy-native.sh` - синтаксис проходит
-- Все 12 проблем исправлены
-- Логирование детальное
-- Error handling на месте
+9. **chat_message_deleted()** line 492, 510 - same as chat_message
+
+10. **_heartbeat_loop()** line 572
+    - `asyncio.CancelledError` → DEBUG (skip)
+    - `asyncio.TimeoutError` → WARNING
+    - `DatabaseError` → ERROR
+    - `Exception` → ERROR
+
+### Sync DB methods (with @database_sync_to_async)
+11. **_check_current_permissions()** line 607
+    - `ObjectDoesNotExist` → INFO
+    - `DatabaseError` → ERROR
+    - `PermissionError` → WARNING
+    - `Exception` → ERROR
+
+12. **_send_error()** line 638
+    - `json.JSONDecodeError` → ERROR (shouldn't happen in send())
+    - `Exception` → ERROR (important: not exc_info to avoid recursion)
+
+13. **_get_client_ip()** line 664
+    - `UnicodeDecodeError` → DEBUG
+    - `Exception` → DEBUG (not critical)
+
+14. **_validate_token()** line 749
+    - `TokenError` (jwt related) → INFO
+    - `ObjectDoesNotExist` → INFO
+    - `Exception` → DEBUG
+
+15. **_check_access()** line 766
+    - `ObjectDoesNotExist` → INFO
+    - `DatabaseError` → ERROR
+    - `PermissionError` → WARNING
+    - `Exception` → ERROR
+
+16. **_save_message()** line 797
+    - `ValidationError` → WARNING
+    - `ObjectDoesNotExist` → WARNING
+    - `DatabaseError` → ERROR
+    - `PermissionError` → WARNING
+    - `Exception` → ERROR
+
+17. **_mark_as_read()** line 812
+    - `ObjectDoesNotExist` → INFO
+    - `DatabaseError` → ERROR
+    - `Exception` → ERROR
+
+18. **_get_user_data()** line 828
+    - `ObjectDoesNotExist` → WARNING
+    - `Exception` → ERROR
+
+## Статус
+- [ ] Task 1: Обновить consumers.py с specific exception handlers
+- [ ] Task 2: Запустить black formatter
+- [ ] Task 3: Запустить mypy type checker
+- [ ] Task 4: Обновить progress.json
+
+## Прогресс
+Ожидание: coder → reviewer → tester

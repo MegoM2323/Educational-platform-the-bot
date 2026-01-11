@@ -8,6 +8,25 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+PERMISSION_CACHE_TTL = 60
+
+
+def _get_permission_cache_key(user1_id: int, user2_id: int) -> str:
+    """Build cache key for user pair (symmetric, order-independent)."""
+    sorted_ids = tuple(sorted([user1_id, user2_id]))
+    return f"chat_permission:{sorted_ids[0]}:{sorted_ids[1]}"
+
+
+def invalidate_permission_cache(user1_id: int, user2_id: int) -> None:
+    """
+    Invalidate cached permissions for a user pair.
+    Called when enrollment or tutor assignment changes.
+    TTL: 60 seconds (vs old 300 seconds) = faster permission updates.
+    """
+    cache_key = _get_permission_cache_key(user1_id, user2_id)
+    cache.delete(cache_key)
+    logger.debug(f"[cache_invalidation] Deleted permission cache: {cache_key}")
+
 
 def can_initiate_chat(user1: "User", user2: "User") -> bool:
     """
@@ -42,7 +61,7 @@ def can_initiate_chat(user1: "User", user2: "User") -> bool:
     Returns:
         bool: True if chat can be initiated, False otherwise
     """
-    cache_key = f"chat_permission:{min(user1.id, user2.id)}:{max(user1.id, user2.id)}"
+    cache_key = _get_permission_cache_key(user1.id, user2.id)
 
     result = cache.get(cache_key)
     if result is not None:
@@ -70,7 +89,7 @@ def can_initiate_chat(user1: "User", user2: "User") -> bool:
         logger.debug(f"[can_initiate_chat] Error checking chat initiation: {e}")
         result = False
 
-    cache.set(cache_key, result, timeout=300)
+    cache.set(cache_key, result, timeout=PERMISSION_CACHE_TTL)
     return result
 
 

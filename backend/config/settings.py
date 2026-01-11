@@ -102,18 +102,14 @@ ALLOWED_HOSTS = env_config.get_allowed_hosts()
 
 # Telegram Bot settings
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv(
-    "TELEGRAM_CHAT_ID"
-)  # Backward compatibility / default chat
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")  # Backward compatibility / default chat
 TELEGRAM_PUBLIC_CHAT_ID = os.getenv("TELEGRAM_PUBLIC_CHAT_ID", TELEGRAM_CHAT_ID)
 TELEGRAM_LOG_CHAT_ID = os.getenv("TELEGRAM_LOG_CHAT_ID", TELEGRAM_CHAT_ID)
 TELEGRAM_DISABLED = os.getenv("ENVIRONMENT", "production").lower() == "test"
 
 # Telegram Link settings (for account linking security)
 TELEGRAM_BOT_SECRET = os.getenv("TELEGRAM_BOT_SECRET", "")
-TELEGRAM_LINK_TOKEN_TTL_MINUTES = int(
-    os.getenv("TELEGRAM_LINK_TOKEN_TTL_MINUTES", "10")
-)
+TELEGRAM_LINK_TOKEN_TTL_MINUTES = int(os.getenv("TELEGRAM_LINK_TOKEN_TTL_MINUTES", "10"))
 
 # OpenRouter API settings (for study plan generation)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
@@ -122,9 +118,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv(
-    "SECRET_KEY", "django-insecure-development-key-change-in-production"
-)
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-development-key-change-in-production")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Force DEBUG=True in test mode for proper error display
@@ -144,9 +138,7 @@ if not DEBUG:
     if not ALLOWED_HOSTS:
         raise ImproperlyConfigured("ALLOWED_HOSTS must be set in production")
     if SECRET_KEY.startswith("django-insecure-"):
-        raise ImproperlyConfigured(
-            "SECRET_KEY must not use the default insecure key in production"
-        )
+        raise ImproperlyConfigured("SECRET_KEY must not use the default insecure key in production")
 
 # Development warning for missing OpenRouter API key
 if DEBUG and not OPENROUTER_API_KEY and environment != "test":
@@ -472,9 +464,7 @@ import sys
 # Получаем текущее окружение и конфигурацию БД
 # Auto-detect test mode to allow pytest conftest.py to run first
 is_testing = (
-    "pytest" in sys.modules
-    or "test" in sys.argv
-    or any("pytest" in arg for arg in sys.argv)
+    "pytest" in sys.modules or "test" in sys.argv or any("pytest" in arg for arg in sys.argv)
 )
 if is_testing and "ENVIRONMENT" not in os.environ:
     os.environ["ENVIRONMENT"] = "test"
@@ -560,19 +550,13 @@ SESSION_ENGINE = "django.contrib.sessions.backends.db"
 # For testing: 2 hours (7200 seconds)
 # For production: 24 hours (86400 seconds)
 # Can be overridden via SESSION_TIMEOUT env variable
-TESTING_SESSION_TIMEOUT = int(
-    os.getenv("TESTING_SESSION_TIMEOUT", "7200")
-)  # 2 hours for testing
-PRODUCTION_SESSION_TIMEOUT = int(
-    os.getenv("PRODUCTION_SESSION_TIMEOUT", "86400")
-)  # 24 hours
+TESTING_SESSION_TIMEOUT = int(os.getenv("TESTING_SESSION_TIMEOUT", "7200"))  # 2 hours for testing
+PRODUCTION_SESSION_TIMEOUT = int(os.getenv("PRODUCTION_SESSION_TIMEOUT", "86400"))  # 24 hours
 SESSION_COOKIE_AGE = TESTING_SESSION_TIMEOUT if DEBUG else PRODUCTION_SESSION_TIMEOUT
 
 # SESSION_COOKIE_SECURE управляется через условие DEBUG выше
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = (
-    "Lax"  # Allow cookies on redirect from YooKassa (not 'Strict')
-)
+SESSION_COOKIE_SAMESITE = "Lax"  # Allow cookies on redirect from YooKassa (not 'Strict')
 SESSION_COOKIE_DOMAIN = env_config.get_session_cookie_domain()
 
 # CRITICAL: Save session on every request to refresh timeout
@@ -620,9 +604,7 @@ else:
     MEDIA_ROOT = BASE_DIR / "media"
 
 # File Upload Configuration
-MAX_FILE_SIZE = (
-    104857600  # 100 MB (100 * 1024 * 1024) - unified across nginx and Django
-)
+MAX_FILE_SIZE = 104857600  # 100 MB (100 * 1024 * 1024) - unified across nginx and Django
 FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_FILE_SIZE
 DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_FILE_SIZE
 
@@ -984,14 +966,12 @@ WEBSOCKET_CONFIG = {
     "HEARTBEAT_INTERVAL": _parse_int_env(
         "WEBSOCKET_HEARTBEAT_INTERVAL", 30, min_val=5, max_val=300
     ),
-    "HEARTBEAT_TIMEOUT": _parse_int_env(
-        "WEBSOCKET_HEARTBEAT_TIMEOUT", 15, min_val=3, max_val=120
-    ),
-    "AUTH_TIMEOUT": _parse_int_env(
-        "WEBSOCKET_AUTH_TIMEOUT", 15, min_val=5, max_val=120
-    ),
+    "HEARTBEAT_TIMEOUT": _parse_int_env("WEBSOCKET_HEARTBEAT_TIMEOUT", 15, min_val=3, max_val=120),
+    "AUTH_TIMEOUT": _parse_int_env("WEBSOCKET_AUTH_TIMEOUT", 15, min_val=5, max_val=120),
+    # DoS protection: limit per-message size to prevent memory exhaustion
+    # Checked BEFORE json.loads() to avoid CPU-intensive parsing of oversized payloads
     "MESSAGE_SIZE_LIMIT": _parse_int_env(
-        "WEBSOCKET_MESSAGE_SIZE_LIMIT", 10000, min_val=100, max_val=1000000
+        "WEBSOCKET_MESSAGE_SIZE_LIMIT", 65536, min_val=100, max_val=1000000
     ),
     "MAX_CONNECTIONS_PER_USER": _parse_int_env(
         "WEBSOCKET_MAX_CONNECTIONS_PER_USER", 5, min_val=1, max_val=100
@@ -1006,18 +986,14 @@ WEBSOCKET_CONFIG = {
 
 # WebSocket settings - environment-aware
 WEBSOCKET_URL = env_config.get_websocket_url()
-WEBSOCKET_AUTHENTICATION_TIMEOUT = WEBSOCKET_CONFIG[
-    "AUTH_TIMEOUT"
-]  # Derived from config
+WEBSOCKET_AUTHENTICATION_TIMEOUT = WEBSOCKET_CONFIG["AUTH_TIMEOUT"]  # Derived from config
 WEBSOCKET_MESSAGE_MAX_LENGTH = 1024 * 1024  # 1MB
 
 # Payment settings
 # PAYMENT_DEVELOPMENT_MODE: режим разработки с минимальными суммами (1 руб) и частыми платежами (10 мин)
 # По умолчанию берется из DEBUG, но можно переопределить в .env
 # Это позволяет тестировать реальные суммы даже в development, если нужно
-PAYMENT_DEVELOPMENT_MODE = (
-    os.getenv("PAYMENT_DEVELOPMENT_MODE", str(DEBUG)).lower() == "true"
-)
+PAYMENT_DEVELOPMENT_MODE = os.getenv("PAYMENT_DEVELOPMENT_MODE", str(DEBUG)).lower() == "true"
 DEVELOPMENT_PAYMENT_AMOUNT = Decimal(
     os.getenv("DEVELOPMENT_PAYMENT_AMOUNT", "1.00")
 )  # 1 рубль в режиме разработки
@@ -1126,9 +1102,7 @@ if not DEBUG:
         )
 
     # 4. Проверка FRONTEND_URL - не должен быть localhost
-    if FRONTEND_URL and (
-        "localhost" in FRONTEND_URL.lower() or "127.0.0.1" in FRONTEND_URL
-    ):
+    if FRONTEND_URL and ("localhost" in FRONTEND_URL.lower() or "127.0.0.1" in FRONTEND_URL):
         raise ImproperlyConfigured(
             f"Production mode with localhost FRONTEND_URL is not allowed.\n"
             f"Current value: {FRONTEND_URL}\n"
@@ -1183,17 +1157,13 @@ if not DEBUG:
             f"   - Database: {'PostgreSQL' if database_url and 'postgres' in database_url else 'Unknown'}"
         )
         print(f"   - Redis Cache: {'✅ Enabled' if USE_REDIS_CACHE else '❌ Disabled'}")
-        print(
-            f"   - Redis Channels: {'✅ Enabled' if USE_REDIS_CHANNELS else '❌ Disabled'}"
-        )
+        print(f"   - Redis Channels: {'✅ Enabled' if USE_REDIS_CHANNELS else '❌ Disabled'}")
         print(
             f"   - Payment Mode: {'💰 Production (5000₽/week)' if not PAYMENT_DEVELOPMENT_MODE else '🧪 Development (1₽/10min)'}"
         )
         print(f"   - Frontend URL: {FRONTEND_URL}")
         print(f"   - CORS Origins: {len(CORS_ALLOWED_ORIGINS)} configured")
-        print(
-            f"   - OpenRouter API: {'✅ Configured' if OPENROUTER_API_KEY else '❌ Missing'}"
-        )
+        print(f"   - OpenRouter API: {'✅ Configured' if OPENROUTER_API_KEY else '❌ Missing'}")
 
 
 # ==================== LOGGING CONFIGURATION ====================
@@ -1351,9 +1321,7 @@ def validate_websocket_config():
         ), f"HEARTBEAT_TIMEOUT ({config['HEARTBEAT_TIMEOUT']}s) must be < HEARTBEAT_INTERVAL ({config['HEARTBEAT_INTERVAL']}s)"
         assert config["AUTH_TIMEOUT"] > 0, "AUTH_TIMEOUT must be > 0"
         assert config["MESSAGE_SIZE_LIMIT"] > 0, "MESSAGE_SIZE_LIMIT must be > 0"
-        assert (
-            config["MAX_CONNECTIONS_PER_USER"] > 0
-        ), "MAX_CONNECTIONS_PER_USER must be > 0"
+        assert config["MAX_CONNECTIONS_PER_USER"] > 0, "MAX_CONNECTIONS_PER_USER must be > 0"
         assert (
             config["RECONNECT_BACKOFF_MULTIPLIER"] > 0
         ), "RECONNECT_BACKOFF_MULTIPLIER must be > 0"
@@ -1390,6 +1358,4 @@ except ImproperlyConfigured:
 # =============================================================================
 PACHCA_FORUM_API_TOKEN = os.getenv("PACHCA_FORUM_API_TOKEN", "")
 PACHCA_FORUM_CHANNEL_ID = os.getenv("PACHCA_FORUM_CHANNEL_ID", "")
-PACHCA_FORUM_BASE_URL = os.getenv(
-    "PACHCA_FORUM_BASE_URL", "https://api.pachca.com/api/shared/v1"
-)
+PACHCA_FORUM_BASE_URL = os.getenv("PACHCA_FORUM_BASE_URL", "https://api.pachca.com/api/shared/v1")

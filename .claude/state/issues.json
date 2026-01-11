@@ -1,16 +1,229 @@
 {
   "review_iteration": 1,
-  "status": "lgtm",
-  "issues": [],
-  "passed_checks": [
-    "input_validation",
-    "error_handling",
-    "security",
-    "performance",
-    "code_style",
-    "type_hints",
-    "syntax_validation"
+  "status": "has_issues",
+  "analysis_date": "2026-01-10",
+  "files_reviewed": [
+    "backend/chat/models.py",
+    "backend/chat/services/chat_service.py",
+    "backend/chat/services/message_service.py",
+    "backend/chat/views.py",
+    "backend/chat/consumers.py",
+    "backend/chat/serializers.py",
+    "backend/chat/permissions.py",
+    "backend/chat/middleware.py",
+    "backend/config/throttling.py",
+    "backend/config/settings.py"
   ],
-  "failed_checks": [],
-  "summary": "All 7 files passed comprehensive code review"
+  "issues": [
+    {
+      "severity": "high",
+      "category": "performance",
+      "file": "backend/chat/services/chat_service.py",
+      "lines": "213-272",
+      "issue": "N+1 queries in get_user_chats() - Subquery for unread_count executes separate query per room",
+      "description": "The unread_count_subquery at lines 232-253 is executed SEPARATELY for each ChatRoom in the QuerySet. With 20 chats on a page, this results in 20+ additional DB queries. The Subquery should use OuterRef('id') but currently it's evaluated per-room causing exponential query count.",
+      "impact": "With 50+ chats, unread_count annotation alone can cause 50+ extra queries. Observable with django-debug-toolbar.",
+      "fix": "Refactor unread_count_subquery to use database-level aggregation without nested filtering. Consider moving unread logic to ChatParticipant.last_read_at comparison in raw SQL or using Exists() instead of Count(Subquery())."
+    },
+    {
+      "severity": "high",
+      "category": "performance",
+      "file": "backend/chat/services/chat_service.py",
+      "lines": "531-542",
+      "issue": "O(n) memory allocation in get_contacts() - Converting QuerySet to dict for lookup",
+      "description": "At line 536-542, iterating through ChatParticipant objects and building existing_chats dict creates O(n) memory usage where n = total participants across all chats. With 10k users and deep chat history, this can allocate megabytes of memory.",
+      "impact": "High memory usage for users with many existing chats. Memory is not freed until function returns.",
+      "fix": "Use database query to find existing chats directly: QuerySet.filter(user_id__in=allowed_contact_ids, room_id__in=my_rooms).values_list('user_id', 'room_id') instead of loop-based building."
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "file": "backend/chat/services/chat_service.py",
+      "lines": "277-354",
+      "issue": "Race condition in can_access_chat() - Permission check uses stale enrollment data",
+      "description": "The function calls _validate_chat_permissions() which reads SubjectEnrollment from DB, but there's a race condition: enrollment could change between this check and actual message sending. Another thread could change enrollment status between the permission check (line 277) and message save (in consumer line 402).",
+      "impact": "User could lose permission mid-conversation but continue sending messages that get saved to DB. Violates business logic that inactive users/students shouldn't chat.",
+      "fix": "Add transaction.atomic() wrapper in message sending. Or implement pessimistic locking with select_for_update() on ChatRoom during permission checks."
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "file": "backend/chat/views.py",
+      "lines": "214-227",
+      "issue": "Permission check insufficient for group chats - Only checks first initiator, not all participants",
+      "description": "The can_initiate_chat() check at line 214 only validates 2-person permission logic. For group chats (3+ participants), the function should verify that all participants can communicate with each other, but it doesn't. A student could be added to a group with admins and other teachers without individual permission verification.",
+      "impact": "Group chat permissions are not properly enforced. Students could be forced into chats they shouldn't access.",
+      "fix": "Implement proper group chat permission model: either whitelist-based (only specific groups allowed) or multi-role verification for all participants."
+    },
+    {
+      "severity": "high",
+      "category": "data_consistency",
+      "file": "backend/chat/consumers.py",
+      "lines": "574-594",
+      "issue": "Permission check race condition in _check_current_permissions() - Called without transaction",
+      "description": "At line 539, _check_current_permissions() is called in heartbeat loop every 5 minutes, but it reads ChatRoom and checks permissions without transaction isolation. If enrollment is updated during this check, the check result could be stale by the time next message is sent (line 359).",
+      "impact": "User could lose enrollment, fail heartbeat permission check, close connection, but reconnect and send messages before enrollments are re-synced.",
+      "fix": "Use transaction.atomic() with appropriate isolation level in _check_current_permissions(). Consider using database triggers or materialized views for permission caching."
+    },
+    {
+      "severity": "high",
+      "category": "performance",
+      "file": "backend/chat/services/chat_service.py",
+      "lines": "517-611",
+      "issue": "N+1 queries in get_contacts() - SubjectEnrollment query per user role",
+      "description": "The get_contacts() function calls _get_contacts_for_*() methods which each execute separate queries. For a teacher, this executes:\n- Line 414-418: SubjectEnrollment.filter(teacher=teacher) - 1 query\n- Line 421-425: StudentProfile.filter(user_id__in=student_ids) - 2nd query\n- Line 428-432: Another StudentProfile.filter() - 3rd query\nWith prefetch_related not used on StudentProfile queries, each role method executes 2-4 queries. Total: 4-8 queries for one get_contacts() call.",
+      "impact": "Contact list takes 4-8 database roundtrips. On slow networks or high-load database, noticeable latency.",
+      "fix": "Refactor to use single query with LEFT JOIN and UNION, or use prefetch_related() for StudentProfile. Cache the entire contacts list for 5-10 minutes."
+    },
+    {
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "backend/chat/views.py",
+      "lines": "666-673",
+      "issue": "Overly broad exception handler in ChatContactsView - Swallows all exceptions",
+      "description": "At lines 668-673, all exceptions are caught and logged, but a 500 error is always returned. This masks bugs: if SubjectEnrollment query fails due to missing import or other error, user gets 500 instead of proper error diagnosis.",
+      "impact": "Hard to debug production issues. Real errors (DB connection failures, missing fields) are treated same as validation errors.",
+      "fix": "Catch specific exceptions: ChatService exceptions for business logic, query exceptions separately. Return different HTTP status codes: 400 for validation, 500 only for unexpected errors."
+    },
+    {
+      "severity": "medium",
+      "category": "performance",
+      "file": "backend/chat/serializers.py",
+      "lines": "147-154",
+      "issue": "Inefficient last_message serialization - Subquery not pre-fetched",
+      "description": "In ChatRoomListSerializer.get_last_message(), the obj.last_message_content is from Subquery annotation (set by ChatService.get_user_chats). However, the Subquery only returns content[:100] truncation on database side. If actual message is 5000 chars, full message is loaded into memory then sliced in Python.",
+      "impact": "Memory waste for chats with very long messages. With 50 chats each having 5000-char messages, ~250KB wasted per page load.",
+      "fix": "The [:100] slicing is already done in Subquery (good), but ensure it's using database-side slicing: Message.objects.filter(...).values('content')[:1] should slice AFTER selecting content."
+    },
+    {
+      "severity": "medium",
+      "category": "security",
+      "file": "backend/chat/permissions.py",
+      "lines": "45-74",
+      "issue": "Cache poisoning vulnerability in can_initiate_chat() - No TTL validation on cache",
+      "description": "The cache.get() at line 47 returns cached result with 300s timeout. However, if enrollment changes at second 299 of the window, the stale cached result (True) will be used until cache expires. User will see outdated permission state.",
+      "impact": "User can initiate chat immediately after losing enrollment if within 300s cache window. Violates business rule: inactive students shouldn't chat with teachers.",
+      "fix": "Reduce cache timeout to 30-60 seconds for permission checks. Or implement cache invalidation signals on enrollment update (post_save signal on SubjectEnrollment)."
+    },
+    {
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "backend/chat/consumers.py",
+      "lines": "163-172",
+      "issue": "JSON decode error not checked for message size - Could process oversized messages",
+      "description": "At line 166, json.loads() is called on text_data without checking message size first. Although MESSAGE_SIZE_LIMIT is set in settings (line 32), the actual bytes size isn't validated before JSON parsing. A 50MB JSON-formatted string could theoretically be passed.",
+      "impact": "DoS vector: attacker could send large payloads that exhaust memory during JSON parsing before validation occurs.",
+      "fix": "Add size check before json.loads(): if len(text_data) > self.message_size_limit: close connection. Or use JSONDecodeError to catch and reject oversized payloads."
+    },
+    {
+      "severity": "medium",
+      "category": "security",
+      "file": "backend/chat/consumers.py",
+      "lines": "317-327",
+      "issue": "Room limit check is bypassable - Throttle not enforced on room_id changes",
+      "description": "The _check_room_limit() at line 317 is called once during initial WebSocket connection (in _handle_auth). But if a user connects to room_id=1, then disconnects and reconnects to room_id=2, they've bypassed the 5/hour limit by switching rooms instead of creating new rooms. The throttle tracks 'chat_room' scope but doesn't track per-room connections.",
+      "impact": "User can open unlimited concurrent connections by reconnecting to different room IDs. Could exhaust server resources with WebSocket connections.",
+      "fix": "Track per-room connections in cache/redis keyed by user_id + room_id. Or track total open connections per user regardless of room_id."
+    },
+    {
+      "severity": "medium",
+      "category": "data_consistency",
+      "file": "backend/chat/models.py",
+      "lines": "46-92",
+      "issue": "Message.sender can be NULL with SET_NULL - Potential data integrity issue",
+      "description": "At line 57-62, sender ForeignKey has on_delete=SET_NULL and null=True. If a user is deleted, all their messages get sender=NULL. While queryable, this breaks message attribution and could confuse sorting/filtering logic that assumes sender is never NULL.",
+      "impact": "Messages from deleted users show as 'Anonymous' or cause errors if sender.username is accessed. Not a critical bug but indicates incomplete user deletion handling.",
+      "fix": "Either use on_delete=PROTECT to prevent user deletion if they have messages, or create a system User (like 'Deleted User') and use on_delete=SET to it instead of NULL."
+    },
+    {
+      "severity": "medium",
+      "category": "performance",
+      "file": "backend/chat/services/chat_service.py",
+      "lines": "318-322",
+      "issue": "Inefficient participant lookup in can_access_chat() - Two separate queries",
+      "description": "At line 312, ChatParticipant.objects.get() is called (1st query), then at line 318-321 ChatParticipant.objects.filter() is called again (2nd query). Both fetch from same table with only different filters. Should be combined into single query.",
+      "impact": "Two DB roundtrips instead of one per access check. With 100 concurrent users checking access, that's 100 extra queries.",
+      "fix": "Combine into single query: ChatParticipant.objects.filter(room=room).select_related('user') and then loop through results."
+    },
+    {
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "backend/chat/consumers.py",
+      "lines": "752-754",
+      "issue": "Silent failure in _save_message() - Exception is re-raised but no cleanup",
+      "description": "At line 749-754, if message save fails, exception is raised but the error_data sent to client (line 391) might not properly close the connection. Client could be left in inconsistent state thinking message was sent but it failed.",
+      "impact": "Client-server desynchronization. User sends message, gets error response, but doesn't know if message was saved or not.",
+      "fix": "Return explicit error response instead of raising. Check that await self._send_error() completes before continuing."
+    },
+    {
+      "severity": "low",
+      "category": "code_style",
+      "file": "backend/chat/services/chat_service.py",
+      "lines": "380-407",
+      "issue": "Duplicate contact retrieval logic - _get_contacts_for_admin() not using QuerySet",
+      "description": "At line 382-385, _get_contacts_for_admin() returns values_list('id', flat=True), but _get_allowed_contacts_queryset() at line 512 converts it back to User.objects.filter(id__in=...). This extra QuerySet conversion is unnecessary.",
+      "impact": "Minor: one extra QuerySet instantiation. But code clarity suffers from inconsistent return types (list vs QuerySet).",
+      "fix": "Have all _get_contacts_for_*() return User QuerySets, not ID lists. This allows method chaining and reduces conversions."
+    },
+    {
+      "severity": "low",
+      "category": "security",
+      "file": "backend/chat/middleware.py",
+      "lines": "193-282",
+      "issue": "Token preview in logs might leak sensitive data in edge cases",
+      "description": "At line 189-191, _get_token_preview() returns first 10 chars of token + '...'. While not a full token leak, in theory 10 chars could be sufficient for some token formats to identify patterns (e.g., if tokens always start with same prefix).",
+      "impact": "Low: Would require multiple log samples and specific token format knowledge. But best practice is to avoid any token characters in logs.",
+      "fix": "Change _get_token_preview() to return only token length: 'token[<length> chars]' instead of actual characters."
+    },
+    {
+      "severity": "low",
+      "category": "error_handling",
+      "file": "backend/chat/views.py",
+      "lines": "300-339",
+      "issue": "before_id validation doesn't check if message exists - Could return empty list silently",
+      "description": "At line 325-346, before_id is parsed but not validated against actual message IDs in the room. If user sends before_id=999999 (non-existent message), the query silently returns empty list instead of 404 error.",
+      "impact": "API behavior is confusing: calling with invalid before_id looks the same as reaching end of messages. Client can't tell difference between 'no older messages' and 'invalid message ID'.",
+      "fix": "Validate before_id: if before_id: verify Message.objects.filter(id=before_id, room=room, is_deleted=False).exists(), return 404 if not."
+    },
+    {
+      "severity": "low",
+      "category": "performance",
+      "file": "backend/chat/serializers.py",
+      "lines": "156-194",
+      "issue": "Redundant participant lookup in get_unread_count() - Loops twice through same data",
+      "description": "At line 166-174, code loops through prefetched participants to find current user. If prefetch wasn't done, it re-queries. This logic is repeated (also in get_other_participant at line 122-145). Should be extracted to helper method.",
+      "impact": "Code maintainability issue. If prefetch format changes, multiple places need update.",
+      "fix": "Extract common 'find current user participant' logic to helper method on serializer."
+    }
+  ],
+  "passed_checks": [
+    "auth_validation",
+    "websocket_heartbeat",
+    "throttling_basic_config"
+  ],
+  "failed_checks": [
+    "n_plus_1_queries",
+    "permission_race_conditions",
+    "cache_invalidation",
+    "error_handling_completeness",
+    "data_consistency",
+    "memory_efficiency"
+  ],
+  "summary": {
+    "total_issues": 16,
+    "critical": 0,
+    "high": 5,
+    "medium": 9,
+    "low": 2,
+    "most_critical_area": "Performance (N+1 queries and memory leaks)",
+    "second_priority": "Security (race conditions and permission bypasses)",
+    "third_priority": "Error handling and data consistency"
+  },
+  "recommendations": [
+    "Use django-debug-toolbar in local dev to visualize query counts for each endpoint",
+    "Implement cache invalidation signals for SubjectEnrollment and StudentProfile changes",
+    "Add integration tests for permission changes during active WebSocket connections",
+    "Consider using select_related/prefetch_related audit tool to find hidden N+1 queries",
+    "Implement pessimistic locking (select_for_update) for permission-critical operations"
+  ]
 }

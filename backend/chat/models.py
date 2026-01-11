@@ -19,11 +19,17 @@ class ChatRoom(models.Model):
     def __str__(self):
         return f"Chat {self.id}"
 
+    def is_direct_chat(self) -> bool:
+        """Check if chat is direct (exactly 2 participants)."""
+        return self.participants.count() == 2
+
+    def is_group_chat(self) -> bool:
+        """Check if chat is group (3 or more participants)."""
+        return self.participants.count() >= 3
+
 
 class ChatParticipant(models.Model):
-    room = models.ForeignKey(
-        ChatRoom, on_delete=models.CASCADE, related_name="participants"
-    )
+    room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name="participants")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     joined_at = models.DateTimeField(auto_now_add=True)
     last_read_at = models.DateTimeField(null=True, blank=True)
@@ -34,9 +40,7 @@ class ChatParticipant(models.Model):
         verbose_name_plural = "Участники чата"
         unique_together = [("room", "user")]
         indexes = [
-            models.Index(
-                fields=["user", "room"], name="idx_chat_participant_user_room"
-            ),
+            models.Index(fields=["user", "room"], name="idx_chat_participant_user_room"),
             models.Index(fields=["room"], name="idx_chat_participant_room"),
         ]
 
@@ -52,9 +56,7 @@ class Message(models.Model):
         ("system", "Системное"),
     ]
 
-    room = models.ForeignKey(
-        ChatRoom, on_delete=models.CASCADE, related_name="messages"
-    )
+    room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name="messages")
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -77,12 +79,8 @@ class Message(models.Model):
         verbose_name_plural = "Сообщения"
         ordering = ["created_at"]
         indexes = [
-            models.Index(
-                fields=["room", "created_at"], name="idx_message_room_created"
-            ),
-            models.Index(
-                fields=["room", "is_deleted"], name="idx_message_room_deleted"
-            ),
+            models.Index(fields=["room", "created_at"], name="idx_message_room_created"),
+            models.Index(fields=["room", "is_deleted"], name="idx_message_room_deleted"),
         ]
 
     def __str__(self):

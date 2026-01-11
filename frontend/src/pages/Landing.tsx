@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 
 const Landing = () => {
   return (
-    <div className="landing-page min-h-screen">
+    <div className="min-h-screen">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -74,18 +74,6 @@ const Landing = () => {
                 <p className="text-muted-foreground">{feature.description}</p>
               </Card>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section className="about-section py-20">
-        <div className="container mx-auto px-4">
-          <div className="demo-lesson">
-            <div className="demo-lesson-card"></div>
-            <div className="demo-lesson-card">
-              <span className="demo-lesson-teacher">Цена фиксируется на старте</span>
-            </div>
           </div>
         </div>
       </section>

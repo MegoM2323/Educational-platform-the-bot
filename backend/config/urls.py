@@ -50,6 +50,7 @@ urlpatterns = [
     path("api/reports/", include("reports.urls")),
     path("api/notifications/", include("notifications.urls")),
     path("api/payments/", include("payments.api_urls")),
+    path("api/chat/", include("chat.urls")),
     path("api/applications/", include("applications.urls")),
     path("api/dashboard/", include("materials.urls")),  # Dashboard endpoints
     path("api/parent/", include("materials.parent_urls")),  # Parent API endpoints

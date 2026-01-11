@@ -21,12 +21,14 @@ from reports.routing import websocket_urlpatterns as reports_websocket_urlpatter
 from notifications.routing import (
     websocket_urlpatterns as notifications_websocket_urlpatterns,
 )
+from chat.routing import websocket_urlpatterns as chat_websocket_urlpatterns
 
 logger = logging.getLogger(__name__)
 
 # Объединяем все WebSocket роуты
 websocket_urlpatterns = (
-    invoice_websocket_urlpatterns
+    chat_websocket_urlpatterns
+    + invoice_websocket_urlpatterns
     + reports_websocket_urlpatterns
     + notifications_websocket_urlpatterns
 )

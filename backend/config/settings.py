@@ -1249,6 +1249,21 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        "chat": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "chat.websocket": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "chat.consumers": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "django.db.backends": {
             "handlers": ["console"],
             "level": "WARNING",

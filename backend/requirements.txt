@@ -22,7 +22,7 @@ python-magic>=0.4.27
 
 # FIX: Pin versions to avoid SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER error
 Twisted==24.10.0  # Downgrade from 25.5.0
-pyOpenSSL==24.2.1  # Downgrade from 25.3.0
+pyOpenSSL==25.3.0  # Downgrade from 25.3.0
 cryptography==43.0.3  # Compatible version
 incremental>=24.7.0  # Required by Twisted
 zope.interface>=5.4.0  # Required by Twisted

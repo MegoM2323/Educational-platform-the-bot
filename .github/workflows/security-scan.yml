@@ -31,7 +31,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
@@ -173,7 +173,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
@@ -247,7 +247,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache npm modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}

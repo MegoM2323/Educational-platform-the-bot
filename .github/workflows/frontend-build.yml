@@ -260,7 +260,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
 
       - name: Cache build for future reference
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             frontend/dist/
